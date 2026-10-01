@@ -1,4 +1,4 @@
-package ashui.externs;
+package ashui.core.externs;
 
 @:hlNative("blinc_abi")
 extern class BlincNative {

@@ -1,6 +1,6 @@
-package ashui.core;
+package ashui.layout;
 
-import ashui.externs.LayoutTreeNative;
+import ashui.core.externs.LayoutTreeNative;
 
 class LayoutTree {
     public var ptr(default, null): hl.Abstract<"blinc_tree">;
@@ -10,8 +10,8 @@ class LayoutTree {
         hl.Gc.setFinalizer(this, finalize);
     }
 
-    public inline function createNode(): BlincNode {
-        return new BlincNode(LayoutTreeNative.hl_blinc_tree_create_node(this.ptr));
+    public inline function createNode(): Node {
+        return new Node(LayoutTreeNative.hl_blinc_tree_create_node(this.ptr));
     }
 
     public inline function createTextNode(

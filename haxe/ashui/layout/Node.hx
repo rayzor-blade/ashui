@@ -1,4 +1,4 @@
-package ashui.core;
+package ashui.layout;
 
 import ashui.layout.PropertyId;
 import ashui.layout.IntoReactive;
@@ -6,7 +6,7 @@ import ashui.types.Brush;
 import ashui.types.Color;
 import ashui.types.CornerRadius;
 
-class BlincNode {
+class Node {
     // 64-bit LayoutNodeId minted by Blinc
     public var id(default, null): haxe.Int64;
 

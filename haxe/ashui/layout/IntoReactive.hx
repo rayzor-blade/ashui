@@ -14,7 +14,7 @@ enum ReactiveType<T> {
 
 /**
  * Mirrors blinc_layout::binding::IntoReactive<T> 
- * Provides zero-cost conversion at compile time for Coconut attributes.
+ * Provides zero-cost conversion at compile time for UI attributes.
  */
 @:forward
 abstract IntoReactive<T>(ReactiveType<T>) from ReactiveType<T> to ReactiveType<T> {
