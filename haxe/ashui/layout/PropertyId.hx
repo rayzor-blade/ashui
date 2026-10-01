@@ -1,5 +1,13 @@
 package ashui.layout;
 
+enum abstract PropertyDataType(Int) {
+    var TypeF32;
+    var TypeI32;
+    var TypeBrush;
+    var TypeColor;
+    var TypeCornerRadius;
+}
+
 /**
  * Matches blinc_layout::property::PropertyId exactly.
  * Implicitly cast to Int for the FFI boundary.
@@ -54,4 +62,47 @@ enum abstract PropertyId(Int) from Int to Int {
     var TextContent = 41;
 
     var Compound = 42;
+
+    /**
+     * Determines what data type category this property belongs to,
+     * allowing generic routers to dispatch it correctly without guesswork.
+     */
+    public inline function getDataType(): PropertyDataType {
+        return switch (this) {
+            case Background: TypeBrush;
+            case BorderColor | Color | AccentColor: TypeColor;
+            case CornerRadius: TypeCornerRadius;
+
+            case Transform: TypeTransform;
+            case Shadow: TypeShadow;
+
+            // Strings (Typography / Paths / Content)
+            case FontFamily | TextContent: TypeString;
+            
+            // Floats (Dimensions, Spacing, Opacity, Strokes, Typography metrics)
+            case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
+                 Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
+                 Top | Right | Bottom | Left | Opacity | BorderWidth |
+                 FontSize | LetterSpacing | LineHeight:
+                TypeF32;
+                
+            // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)
+            case FlexDirection | AlignItems | JustifyContent | AlignSelf |
+                 FlexWrap | Display | Overflow | Position |
+                 FontWeight | FontStyle | TextAlign | Filter | Compound:
+                TypeI32;
+
+            default:
+                TypeI32; // Enums, FlexDirections, Alignments, etc.
+        }
+    }
+
+    /**
+     * Statically determines whether this property mutates Taffy layout 
+     * or purely visual RenderProps.
+     */
+    public inline function isLayoutAffecting(): Bool {
+        // Everything from Width (10) to Left (33) affects layout geometry
+        return this >= 10 && this <= 33;
+    }
 }

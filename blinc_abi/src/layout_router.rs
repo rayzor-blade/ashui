@@ -1,4 +1,5 @@
 use hl_abi::define_prim;
+use std::ffi::CStr;
 use std::sync::Arc;
 use taffy::prelude::*;
 
@@ -540,4 +541,43 @@ hl_export_complex_router!(
     PropertyId::Shadow,
     |p: &mut RenderProps, v, _prop| p.shadow = v
 );
+
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_apply_string(
+    node_raw: u64, prop_raw: u32, kind: u8,
+    val_ptr: *const std::ffi::c_char,
+    state_ptr: *const State<String>,
+    comp_ptr: *const Computed<String>,
+) {
+    let node_id = LayoutNodeId::from_raw(node_raw);
+    let prop_id: PropertyId = unsafe { std::mem::transmute(prop_raw as u8) };
+    
+    // Unpack constant string safely from raw bytes if kind == 0
+    let const_val = if kind == 0 && !val_ptr.is_null() {
+        let c_str = unsafe { CStr::from_ptr(val_ptr) };
+        c_str.to_string_lossy().into_owned()
+    } else if kind == 0 {
+        String::new()
+    } else {
+        String::new() // Dummy value when bound to state/computed
+    };
+
+    apply_reactive_render(
+        node_id, prop_id, kind, const_val, state_ptr, comp_ptr,
+        move |p: &mut RenderProps, v| {
+            match prop_id {
+                PropertyId::FontFamily => {
+                    // Map to your RenderProps or text style configuration fields if applicable
+                }
+                PropertyId::TextContent => {
+                    // Dynamic text content updates
+                }
+                _ => {}
+            }
+        }
+    );
+}
+// Signature: V_I64IIPPP (NodeId, PropId, Kind, ValPtr, StatePtr, CompPtr)
+define_prim!(hlp_blinc_apply_string, hl_blinc_apply_string, "V_I64IIPPP");
 

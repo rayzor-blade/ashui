@@ -88,19 +88,16 @@ extern class BlincNative {
 	// COMPLEX TYPE ALLOCATORS
 	// ============================================================================
 	// Brush
-    public static function hl_blinc_brush_solid(hex: Int, alpha: Single): hl.Abstract<"blinc_brush">;
-    public static function hl_blinc_brush_glass(blur: Single, tintHex: Int, tintAlpha: Single, simple: Bool): hl.Abstract<"blinc_brush">;
-    public static function hl_blinc_brush_blur(radius: Single): hl.Abstract<"blinc_brush">;
-    // Uses hl.Bytes for zero-copy string transfer
-    public static function hl_blinc_brush_image(src: hl.Bytes, fit: Int): hl.Abstract<"blinc_brush">;
+	public static function hl_blinc_brush_solid(hex:Int, alpha:Single):hl.Abstract<"blinc_brush">;
+	public static function hl_blinc_brush_glass(blur:Single, tintHex:Int, tintAlpha:Single, simple:Bool):hl.Abstract<"blinc_brush">;
+	public static function hl_blinc_brush_blur(radius:Single):hl.Abstract<"blinc_brush">;
+	// Uses hl.Bytes for zero-copy string transfer
+	public static function hl_blinc_brush_image(src:hl.Bytes, fit:Int):hl.Abstract<"blinc_brush">;
 
-    public static function hl_blinc_brush_linear_gradient(
-        sx: Single, sy: Single, ex: Single, ey: Single,
-        fromHex: Int, fromAlpha: Single,
-        toHex: Int, toAlpha: Single
-    ): hl.Abstract<"blinc_brush">;
-    
-    public static function hl_blinc_brush_drop(ptr: hl.Abstract<"blinc_brush">): Void;
+	public static function hl_blinc_brush_linear_gradient(sx:Single, sy:Single, ex:Single, ey:Single, fromHex:Int, fromAlpha:Single, toHex:Int,
+		toAlpha:Single):hl.Abstract<"blinc_brush">;
+
+	public static function hl_blinc_brush_drop(ptr:hl.Abstract<"blinc_brush">):Void;
 
 	// Color
 	public static function hl_blinc_color_new(r:Single, g:Single, b:Single, a:Single):hl.Abstract<"blinc_color">;
@@ -109,4 +106,10 @@ extern class BlincNative {
 	// CornerRadius
 	public static function hl_blinc_corner_radius_new(tl:Single, tr:Single, br:Single, bl:Single):hl.Abstract<"blinc_corner_radius">;
 	public static function hl_blinc_corner_radius_drop(ptr:hl.Abstract<"blinc_corner_radius">):Void;
+
+	public static function hl_blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, val_ptr:Dynamic, state_ptr:Dynamic, comp_ptr:Dynamic):Void;
+
+	public static function hl_blinc_apply_transform(node:haxe.Int64, prop:Int, kind:Int, val_ptr:Dynamic, state_ptr:Dynamic, comp_ptr:Dynamic):Void;
+
+	public static function hl_blinc_apply_shadow(node:haxe.Int64, prop:Int, kind:Int, val_ptr:Dynamic, state_ptr:Dynamic, comp_ptr:Dynamic):Void;
 }
