@@ -52,13 +52,13 @@ pub unsafe extern "C" fn hl_blinc_tree_create_text_node(
     let content = if content_ptr.is_null() {
         String::new()
     } else {
-        CStr::from_ptr(content_ptr).to_string_lossy().into_owned()
+        unsafe { CStr::from_ptr(content_ptr).to_string_lossy().into_owned() }
     };
 
     let font_name = if font_name_ptr.is_null() {
         None
     } else {
-        Some(CStr::from_ptr(font_name_ptr).to_string_lossy().into_owned())
+        Some(unsafe { CStr::from_ptr(font_name_ptr).to_string_lossy().into_owned() })
     };
 
     let context = TextMeasureContext {

@@ -4,7 +4,7 @@ import ashui.layout.LayoutTree;
 import ashui.layout.Node;
 
 class Element {
-	public var node(default, null):BlincNode;
+	public var node(default, null):Node;
 	public var tree(default, null):LayoutTree;
 
 	public function new(tree:LayoutTree) {
