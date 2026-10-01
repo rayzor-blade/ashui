@@ -1,0 +1,14 @@
+[package]
+name = "blinc_abi"
+version = "0.1.0"
+edition = "2024"
+description = "ABI for the Blinc UI"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+blinc_core = {git = "https://github.com/project-blinc/blinc", branch = "main"}
+blinc_layout = {git = "https://github.com/project-blinc/blinc", branch = "main"}
+hl_abi = {git="https://github.com/rayzor-blade/hl_abi", branch="main"}
+taffy = { version = "0.6", features = ["content_size"] }
