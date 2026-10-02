@@ -366,6 +366,45 @@ class Smoke {
 		var w = tree.getBounds(wide.node);
 		check("text is measured with real fonts", n != null && w != null && w.width > n.width * 2, '"iiiiii" $n vs "WWWWWW" $w');
 
+		// --- The laid-out tree packs into a display list ---
+		var paintTree = new LayoutTree();
+		var shadowed = new Div({
+			width: 10, height: 10, opacity: 0.5, bg: Brush.solid(0xff0000),
+			borderColor: new Color(0x00ff00), borderWidth: 2
+		}, paintTree);
+		shadowed.node.set(ashui.layout.Prop.Shadow, new ashui.types.Shadow(1, 2, 3, 0x000000));
+		var painted = new Div({width: 40, height: 30, padding: 5, overflow: ashui.types.Style.Overflow.Clip, bg: Brush.solid(0x000000)}, [shadowed], paintTree);
+		paintTree.flush();
+		paintTree.computeLayout(painted.node, 100, 100);
+		var list = new ashui.layout.DisplayList();
+		list.update(paintTree, painted.node);
+		var R = 2; // the shadowed box's record
+		check("a display list paints a box, then a child's shadow, then the child",
+			list.count == 3 && list.kind(0) == 0 && list.kind(1) == 3 && list.kind(2) == 0, [for (r in 0...list.count) list.kind(r)]);
+		check("records are at absolute positions",
+			list.get(R, 0) == 5 && list.get(R, 1) == 5 && list.get(R, 2) == 10 && list.get(R, 3) == 10,
+			[for (f in 0...4) list.get(R, f)]);
+		check("a record carries fill and border, with opacity in their alpha",
+			list.get(R, 8) == 1 && list.get(R, 9) == 0 && list.get(R, 11) == 0.5 && list.get(R, 16) == 2 && list.get(R, 19) == 2
+			&& list.get(R, 21) == 1 && list.get(R, 23) == 0.5,
+			[for (f in 8...24) list.get(R, f)]);
+		check("a shadow record carries offset, blur and colour",
+			list.get(1, 24) == 1 && list.get(1, 25) == 2 && list.get(1, 26) == 3 && list.get(1, 31) == 0.5,
+			[for (f in 24...32) list.get(1, f)]);
+		check("children of a clipping box are clipped to it, the box itself is not",
+			list.get(R, 46) == 1 && list.get(R, 32) == 0 && list.get(R, 33) == 0 && list.get(R, 34) == 40 && list.get(R, 35) == 30
+			&& list.get(0, 46) == 0,
+			[for (f in 32...36) list.get(R, f)]);
+
+		var bare = new Div({width: 8, height: 8, overflow: ashui.types.Style.Overflow.Clip}, [
+			new Div({width: 20, height: 20, bg: Brush.solid(0xff0000)}, paintTree)
+		], paintTree);
+		paintTree.flush();
+		paintTree.computeLayout(bare.node, 100, 100);
+		list.update(paintTree, bare.node);
+		check("a clipping box with nothing to draw still clips its children",
+			list.count == 1 && list.get(0, 46) == 1 && list.get(0, 34) == 8, [list.count, list.get(0, 46), list.get(0, 34)]);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

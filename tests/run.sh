@@ -4,6 +4,8 @@
 #
 #   run.sh          the smoke test, then the compile fixtures
 #   run.sh memory   resident memory per round of allocations; prints, does not assert
+#   run.sh render   draws a scene offscreen with hlwgpu and checks pixels; Ash only,
+#                   needs a built ../hlwgpu checkout beside this one
 set -e
 cd "$(dirname "$0")"
 cargo build --manifest-path ../Cargo.toml
@@ -56,6 +58,19 @@ compile_fixtures() {
 }
 
 case "${1:-}" in
+render)
+	# The newer of hlwgpu's debug and release builds.
+	xgpu=$(ls -t ../../hlwgpu/target/*/libhlwgpu.dylib ../../hlwgpu/target/*/libhlwgpu.so 2>/dev/null | head -1)
+	if [ -z "$xgpu" ]; then
+		echo "no hlwgpu build: run cargo build in ../hlwgpu" >&2
+		exit 1
+	fi
+	cp "$xgpu" bin/xgpu.hdll
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.render.UiFramework.register()' \
+		--class-path fixtures/render -main Offscreen -hl bin/offscreen.hl
+	run offscreen.hl
+	;;
 memory)
 	$haxe_ui --class-path fixtures/memory -main Memory -hl bin/memory.hl
 	for kind in tree tree-dispose color signal computed; do
@@ -73,7 +88,7 @@ memory)
 	[ $smoke -eq 0 ] && [ $compile -eq 0 ]
 	;;
 *)
-	echo "usage: run.sh [memory]" >&2
+	echo "usage: run.sh [memory|render]" >&2
 	exit 2
 	;;
 esac

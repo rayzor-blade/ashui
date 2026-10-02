@@ -17,9 +17,9 @@ use std::sync::{Mutex, Once};
 use taffy::prelude::{AvailableSpace, Size, Style};
 
 pub struct Tree {
-    layout: LayoutTree,
+    pub(crate) layout: LayoutTree,
     /// Visual properties per node; `LayoutTree` holds only styles.
-    props: HashMap<LayoutNodeId, RenderProps>,
+    pub(crate) props: HashMap<LayoutNodeId, RenderProps>,
     /// Set by removals, so the next flush drops props of nodes now gone.
     pruned: bool,
     /// Every live node, so a dropped tree can drop their bindings.
@@ -348,6 +348,41 @@ define_prim!(
     hlp_blinc_tree_compute_layout,
     hl_blinc_tree_compute_layout,
     "PXblinc_tree_lff_v"
+);
+
+/// Pack the primitives to draw under `root` into `out` (see `display_list`), at
+/// most `capacity` records. Returns how many there are, which may be more
+/// than were written: the caller grows its buffer and asks again.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_display_list(
+    h: *mut c_void,
+    root: u64,
+    out: *mut vbyte,
+    capacity: i32,
+) -> i32 {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return 0;
+    };
+    let mut records = Vec::new();
+    crate::display_list::append(
+        tree,
+        id(root),
+        (0.0, 0.0),
+        1.0,
+        &mut Vec::new(),
+        &mut records,
+    );
+    let count = records.len() / crate::display_list::RECORD_FLOATS;
+    let written = count.min(capacity.max(0) as usize) * crate::display_list::RECORD_FLOATS;
+    if !out.is_null() && written > 0 {
+        unsafe { std::ptr::copy_nonoverlapping(records.as_ptr(), out as *mut f32, written) };
+    }
+    count as i32
+}
+define_prim!(
+    hlp_blinc_tree_display_list,
+    hl_blinc_tree_display_list,
+    "PXblinc_tree_lBi_i"
 );
 
 /// Write the node's absolute `x, y, width, height` as four f32s into `out`.
