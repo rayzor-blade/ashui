@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":5,"timestamp":1790983004,"nonce":"XBKkxQBySRPbyZ7+xo4aHudT8IQ=","added":["debt","area:theme","area:render"],"removed":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1790983302,"nonce":"HYhZsbfrgFomNMKP0iYu6nRn/74=","message":"Multi-layer shadows and spread done in 0721628: Shadow.and() stacks layers, Themed.shadow binds the whole stack; the demo draws Hybrid's two-layer Lg (7 primitives).","files":null}]}
