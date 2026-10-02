@@ -318,6 +318,43 @@ class Smoke {
 		check("a template attribute reading @:state follows it", counted != null && near(counted.width, 10) && recounted != null
 			&& near(recounted.width, 30), '$counted -> $recounted');
 
+		// --- A Float signal or computed binds to a Single property ---
+		var floatWidth = Signal.make(100.0);
+		var floaty = new Div({width: floatWidth, height: floatWidth.computed(v -> v / 10), flexShrink: 0}, tree);
+		root.appendChild(floaty);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var f1 = tree.getBounds(floaty.node);
+		// Taffy rounds layout to whole pixels.
+		floatWidth.set(160.0);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var f2 = tree.getBounds(floaty.node);
+		check("a Float signal binds to a Single property", f1 != null && near(f1.width, 100) && f2 != null && near(f2.width, 160), '$f1 -> $f2');
+		check("a Float computed binds to a Single property", f1 != null && near(f1.height, 10) && f2 != null && near(f2.height, 16), '$f1 -> $f2');
+
+		// --- A null String survives a signal and a computed ---
+		var maybe = Signal.make((null : String));
+		check("a null String signal reads back null", maybe.get() == null);
+		maybe.set("x");
+		check("a String signal reads back what was set", maybe.get() == "x");
+		maybe.set(null);
+		var echoed = maybe.computed(s -> s);
+		check("a null String computed reads back null", maybe.get() == null && echoed.get() == null);
+
+		// --- dispose frees a tree now, and the tree is inert afterwards ---
+		var spare = new LayoutTree();
+		var spareLevel = Signal.make(3);
+		var spareBox = new Div({width: 10, height: spareLevel.computed(v -> (v : Single))}, spare);
+		spare.flush();
+		spare.computeLayout(spareBox.node, 100, 100);
+		check("a tree lays out before dispose", spare.getBounds(spareBox.node) != null);
+		spare.dispose();
+		spareLevel.set(4);
+		check("a disposed tree has nothing to flush", spare.flush() == false);
+		check("a disposed tree has no bounds", spare.getBounds(spareBox.node) == null);
+		check("the live tree still flushes after another is disposed", tree.flush() == false);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

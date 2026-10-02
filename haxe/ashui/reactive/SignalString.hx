@@ -3,7 +3,7 @@ package ashui.reactive;
 import ashui.core.Utf8;
 import ashui.core.externs.BlincNative;
 
-/** Held natively as UTF-8 so property bindings can read it. Null reads back as "". **/
+/** Held natively as UTF-8 so property bindings can read it. **/
 class SignalString implements ISignal<String> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;
 

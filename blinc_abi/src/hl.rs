@@ -97,6 +97,29 @@ pub unsafe fn handle_ref<'a, T>(handle: *mut c_void) -> Option<&'a T> {
     unsafe { (*(handle as *mut Block<T>)).value.as_ref() }
 }
 
+/// Take the value out of a handle made by [`into_handle::<T>`], leaving it
+/// empty: the finalizer then has nothing to drop, and later reads find
+/// nothing.
+///
+/// # Safety
+/// As [`handle_ref`], and no reference into the handle may be live.
+pub unsafe fn take_handle<T>(handle: *mut c_void) -> Option<Box<T>> {
+    if handle.is_null() {
+        return None;
+    }
+    let value = unsafe {
+        ptr::replace(
+            ptr::addr_of_mut!((*(handle as *mut Block<T>)).value),
+            ptr::null_mut(),
+        )
+    };
+    if value.is_null() {
+        None
+    } else {
+        Some(unsafe { Box::from_raw(value) })
+    }
+}
+
 /// As [`handle_ref`], mutably.
 ///
 /// # Safety

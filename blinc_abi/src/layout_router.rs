@@ -13,8 +13,8 @@
 //! record the change here and `blinc_tree_flush` applies it through
 //! `LayoutTree::update_text`.
 
-use crate::hl::{handle_ref, string_from};
-use crate::reactive::{Slot, computed_of, state_of};
+use crate::hl::{handle_ref, opt_string_from};
+use crate::reactive::{AnyComputed, AnySignal, Slot};
 use crate::types::Value;
 use blinc_layout::binding::{
     register_typed, register_typed_computed, register_typed_layout, register_typed_layout_computed,
@@ -163,7 +163,8 @@ unsafe fn bind<T: Slot>(
     match kind {
         KIND_CONST => write.queue(node, prop, constant),
         KIND_SIGNAL => {
-            let Some(state) = (unsafe { state_of::<T>(sig) }) else {
+            let Some(state) = (unsafe { handle_ref::<AnySignal>(sig) }).and_then(T::state_view)
+            else {
                 return;
             };
             match &write {
@@ -184,10 +185,11 @@ unsafe fn bind<T: Slot>(
                     });
                 }
             }
-            write.queue(node, prop, state.signal().get());
+            write.queue(node, prop, state.try_get().unwrap_or_default());
         }
         KIND_COMPUTED => {
-            let Some(c) = (unsafe { computed_of::<T>(comp) }) else {
+            let Some(c) = (unsafe { handle_ref::<AnyComputed>(comp) }).and_then(T::computed_view)
+            else {
                 return;
             };
             match &write {
@@ -539,12 +541,14 @@ define_prim!(
 
 /// `TextContent` and `FontFamily`. Both live only in a text node's measure
 /// context: Blinc's `RenderProps` has neither field.
-fn string_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<String>> {
+fn string_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<Option<String>>> {
     use PropertyId as P;
     match prop {
-        P::TextContent => render(move |_, v| record_text(node, move |c| c.content = v)),
-        P::FontFamily => render(move |_, v: String| {
-            record_text(node, move |c| c.font_name = (!v.is_empty()).then_some(v))
+        P::TextContent => render(move |_, v: Option<String>| {
+            record_text(node, move |c| c.content = v.unwrap_or_default())
+        }),
+        P::FontFamily => render(move |_, v: Option<String>| {
+            record_text(node, move |c| c.font_name = v.filter(|v| !v.is_empty()))
         }),
         _ => None,
     }
@@ -564,7 +568,7 @@ pub unsafe extern "C" fn hl_blinc_apply_string(
     let Some(write) = string_write(node, prop) else {
         return;
     };
-    let constant = unsafe { string_from(constant) };
+    let constant = unsafe { opt_string_from(constant) };
     unsafe { bind(node, prop, kind, constant, sig, comp, write) };
 }
 define_prim!(

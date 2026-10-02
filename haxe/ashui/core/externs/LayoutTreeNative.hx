@@ -8,6 +8,9 @@ package ashui.core.externs;
 extern class LayoutTreeNative {
 	static function blinc_tree_new():hl.Abstract<"blinc_tree">;
 
+	/** Frees the tree now and unbinds its nodes; later calls on it do nothing. **/
+	static function blinc_tree_dispose(tree:hl.Abstract<"blinc_tree">):Void;
+
 	static function blinc_tree_create_node(tree:hl.Abstract<"blinc_tree">):haxe.Int64;
 
 	/** `flags`: bit 0 wrap, bit 1 italic. **/

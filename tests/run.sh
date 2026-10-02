@@ -58,7 +58,7 @@ compile_fixtures() {
 case "${1:-}" in
 memory)
 	$haxe_ui --class-path fixtures/memory -main Memory -hl bin/memory.hl
-	for kind in tree color signal computed; do
+	for kind in tree tree-dispose color signal computed; do
 		run memory.hl $kind
 	done
 	run memory.hl signal noflush

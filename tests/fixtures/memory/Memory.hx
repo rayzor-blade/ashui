@@ -9,7 +9,7 @@ import ashui.types.Color;
 	Flat numbers mean the kind is reclaimed; with noflush, signals and
 	computeds are never removed from Blinc's graph, which shows the contrast.
 
-	Usage: memory.hl tree|color|signal|computed [noflush]
+	Usage: memory.hl tree|tree-dispose|color|signal|computed [noflush]
 **/
 class Memory {
 	static function rssMb():Int {
@@ -33,6 +33,10 @@ class Memory {
 			for (i in 0...50000)
 				switch kind {
 					case "tree": new LayoutTree().createNode();
+					case "tree-dispose":
+						var t = new LayoutTree();
+						t.createNode();
+						t.dispose();
 					case "color": new Color(i);
 					case "signal": Signal.make(i);
 					case "computed": Computed.make(() -> i + 1);
@@ -43,6 +47,6 @@ class Memory {
 				tree.flush();
 			line.push(rssMb());
 		}
-		Sys.println('${StringTools.rpad(kind, " ", 9)} ${flush ? "flush  " : "noflush"}  ${line.join(" ")} MB');
+		Sys.println('${StringTools.rpad(kind, " ", 12)} ${flush ? "flush  " : "noflush"}  ${line.join(" ")} MB');
 	}
 }

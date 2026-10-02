@@ -7,7 +7,7 @@
 //! result back through `blinc_return_*` rather than as a return value, so no
 //! value has to be boxed through `hl_dyn_call`.
 
-use crate::hl::{Rooted, call_void, handle_ref, into_handle, string_from, string_to_hl};
+use crate::hl::{Rooted, call_void, handle_ref, into_handle, opt_string_from, string_to_hl};
 use crate::types::Value;
 use blinc_core::reactive::{
     Computed, DerivedId, Effect, SignalId, State, computed, dispose_derived, dispose_signal,
@@ -18,15 +18,15 @@ use hl_abi::{define_prim, vbyte};
 use std::any::Any;
 use std::cell::RefCell;
 use std::ffi::c_void;
-use std::sync::Mutex;
 use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
 
 pub enum AnySignal {
     I32(State<i32>),
     F32(State<f32>),
     F64(State<f64>),
     Bool(State<bool>),
-    Str(State<String>),
+    Str(State<Option<String>>),
     Value(State<Value>),
 }
 
@@ -35,7 +35,7 @@ pub enum AnyComputed {
     F32(Computed<f32>),
     F64(Computed<f64>),
     Bool(Computed<bool>),
-    Str(Computed<String>),
+    Str(Computed<Option<String>>),
     Value(Computed<Value>),
 }
 
@@ -135,6 +135,17 @@ pub fn collect_released() {
 pub trait Slot: Clone + Default + Send + Sync + 'static {
     fn state(s: &AnySignal) -> Option<&State<Self>>;
     fn computed(c: &AnyComputed) -> Option<&Computed<Self>>;
+
+    /// What a binding of this type subscribes to: the handle's own state, or
+    /// a view of another type that reads as this one.
+    fn state_view(s: &AnySignal) -> Option<State<Self>> {
+        Self::state(s).cloned()
+    }
+
+    /// As [`Slot::state_view`], for a computed.
+    fn computed_view(c: &AnyComputed) -> Option<Computed<Self>> {
+        Self::computed(c).cloned()
+    }
 }
 
 macro_rules! slot {
@@ -156,11 +167,61 @@ macro_rules! slot {
     };
 }
 slot!(i32, I32);
-slot!(f32, F32);
 slot!(f64, F64);
 slot!(bool, Bool);
-slot!(String, Str);
+slot!(Option<String>, Str);
 slot!(Value, Value);
+
+/// `f32` properties also take `f64` signals and computeds. The view keeps the
+/// source's id, so the binding stays on that signal or computed and only the
+/// read narrows, as Blinc's own `f64` bindings do; a wrapping computed would
+/// make a signal binding a derived one.
+impl Slot for f32 {
+    fn state(s: &AnySignal) -> Option<&State<Self>> {
+        match s {
+            AnySignal::F32(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    fn computed(c: &AnyComputed) -> Option<&Computed<Self>> {
+        match c {
+            AnyComputed::F32(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    fn state_view(s: &AnySignal) -> Option<State<Self>> {
+        match s {
+            AnySignal::F32(s) => Some(s.clone()),
+            AnySignal::F64(s) => {
+                let source = s.signal();
+                Some(State::mapped(
+                    source.id(),
+                    Arc::new(move || source.try_get().map(|v| v as f32)),
+                    global_graph(),
+                    global_dirty_flag(),
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    fn computed_view(c: &AnyComputed) -> Option<Computed<Self>> {
+        match c {
+            AnyComputed::F32(c) => Some(c.clone()),
+            AnyComputed::F64(c) => {
+                let source = c.clone();
+                Some(Computed::mapped(
+                    c.derived_id(),
+                    Arc::new(move || source.try_get().map(|v| v as f32)),
+                    global_graph(),
+                ))
+            }
+            _ => None,
+        }
+    }
+}
 
 /// The state behind a signal handle, if it holds a `T`.
 ///
@@ -377,12 +438,18 @@ define_prim!(hlp_blinc_return_bool, hl_blinc_return_bool, "Pi_v");
 // ============================================================================
 // STRING SIGNALS
 // ============================================================================
-// Held in Rust as `String`, so property bindings can read them. They cross as
-// NUL-terminated UTF-8; Haxe null becomes the empty string.
+// Held in Rust as `Option<String>`, so property bindings can read them and
+// null survives. They cross as NUL-terminated UTF-8, null as a null pointer.
+
+fn opt_string_to_hl(s: Option<String>) -> *mut vbyte {
+    s.map_or(std::ptr::null_mut(), |s| string_to_hl(&s))
+}
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_signal_string(initial: *const vbyte) -> *mut c_void {
-    into_handle(AnySignal::Str(new_state(unsafe { string_from(initial) })))
+    into_handle(AnySignal::Str(new_state(unsafe {
+        opt_string_from(initial)
+    })))
 }
 define_prim!(
     hlp_blinc_signal_string,
@@ -392,11 +459,7 @@ define_prim!(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_signal_get_string(h: *mut c_void) -> *mut vbyte {
-    string_to_hl(
-        &unsafe { state_of::<String>(h) }
-            .map(read)
-            .unwrap_or_default(),
-    )
+    opt_string_to_hl(unsafe { state_of::<Option<String>>(h) }.and_then(read))
 }
 define_prim!(
     hlp_blinc_signal_get_string,
@@ -406,8 +469,8 @@ define_prim!(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_signal_set_string(h: *mut c_void, v: *const vbyte) {
-    if let Some(s) = unsafe { state_of::<String>(h) } {
-        s.set(unsafe { string_from(v) });
+    if let Some(s) = unsafe { state_of::<Option<String>>(h) } {
+        s.set(unsafe { opt_string_from(v) });
     }
 }
 define_prim!(
@@ -418,7 +481,7 @@ define_prim!(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_computed_string(closure: *mut c_void) -> *mut c_void {
-    into_handle(AnyComputed::Str(computed_from::<String>(closure)))
+    into_handle(AnyComputed::Str(computed_from::<Option<String>>(closure)))
 }
 define_prim!(
     hlp_blinc_computed_string,
@@ -428,11 +491,7 @@ define_prim!(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_computed_get_string(h: *mut c_void) -> *mut vbyte {
-    string_to_hl(
-        &unsafe { computed_of::<String>(h) }
-            .map(computed_value)
-            .unwrap_or_default(),
-    )
+    opt_string_to_hl(unsafe { computed_of::<Option<String>>(h) }.and_then(computed_value))
 }
 define_prim!(
     hlp_blinc_computed_get_string,
@@ -442,7 +501,7 @@ define_prim!(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_return_string(v: *const vbyte) {
-    give(unsafe { string_from(v) });
+    give(unsafe { opt_string_from(v) });
 }
 define_prim!(hlp_blinc_return_string, hl_blinc_return_string, "PB_v");
 

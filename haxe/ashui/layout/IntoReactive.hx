@@ -41,6 +41,20 @@ abstract IntoReactive<T>(ReactiveType<T>) from ReactiveType<T> to ReactiveType<T
         return Bound(state);
     }
     
+    /**
+        A Float signal or computed on a `Single` property. The binding stays
+        on it and narrows on read, so it follows every change.
+    **/
+    @:from
+    public static inline function fromFloatSignal(state: Signal<Float>): IntoReactive<Single> {
+        return Bound(cast state);
+    }
+
+    @:from
+    public static inline function fromFloatComputed(comp: Computed<Float>): IntoReactive<Single> {
+        return Derived(cast comp);
+    }
+
     @:from 
     public static inline function fromComputed<T>(comp: Computed<T>): IntoReactive<T> {
         return Derived(comp);

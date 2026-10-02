@@ -1,7 +1,7 @@
 //! The layout tree as a Haxe handle, and the per-frame steps that drive it:
 //! applying queued property writes, computing layout, reading bounds.
 
-use crate::hl::{handle_mut, into_handle, opt_string_from, string_from};
+use crate::hl::{handle_mut, into_handle, opt_string_from, string_from, take_handle};
 use crate::layout_router::take_pending_text;
 use crate::reactive::collect_released;
 use blinc_layout::binding::unregister_node;
@@ -10,8 +10,9 @@ use blinc_layout::element::RenderProps;
 use blinc_layout::stateful::take_pending_partial_prop_updates;
 use blinc_layout::tree::{LayoutNodeId, LayoutTree, TextMeasureContext};
 use hl_abi::{define_prim, vbyte};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
+use std::sync::Mutex;
 use taffy::prelude::{AvailableSpace, Size, Style};
 
 pub struct Tree {
@@ -20,6 +21,24 @@ pub struct Tree {
     props: HashMap<LayoutNodeId, RenderProps>,
     /// Set by removals, so the next flush drops props of nodes now gone.
     pruned: bool,
+    /// Every live node, so a dropped tree can drop their bindings.
+    nodes: HashSet<LayoutNodeId>,
+}
+
+/// Nodes of trees dropped since the last flush, whose bindings are still
+/// registered. A tree may be dropped by its finalizer, inside a collection,
+/// where taking the binding registry's lock is not safe, so the next flush
+/// unbinds them. Until then, a later tree reusing an id could receive a write
+/// meant for the dropped node; disposing a tree unbinds at once instead.
+static RELEASED_NODES: Mutex<Vec<LayoutNodeId>> = Mutex::new(Vec::new());
+
+impl Drop for Tree {
+    fn drop(&mut self) {
+        RELEASED_NODES
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .extend(self.nodes.drain());
+    }
 }
 
 /// # Safety
@@ -44,17 +63,19 @@ fn subtree(layout: &LayoutTree, node: LayoutNodeId) -> Vec<LayoutNodeId> {
 }
 
 /// Drop the property bindings of nodes about to be deleted, so a computed
-/// bound only to them can be released.
-fn unbind(nodes: &[LayoutNodeId]) {
-    for &node in nodes {
-        unregister_node(node);
+/// bound only to them can be released, and stop tracking them.
+fn forget(tree: &mut Tree, nodes: &[LayoutNodeId]) {
+    for node in nodes {
+        unregister_node(*node);
+        tree.nodes.remove(node);
     }
 }
 
 /// Delete every node below `parent`, as `LayoutTree::clear_children` does.
 fn clear_children(tree: &mut Tree, parent: LayoutNodeId) {
     for child in tree.layout.children(parent) {
-        unbind(&subtree(&tree.layout, child));
+        let nodes = subtree(&tree.layout, child);
+        forget(tree, &nodes);
     }
     tree.layout.clear_children(parent);
     tree.pruned = true;
@@ -70,6 +91,7 @@ pub extern "C" fn hl_blinc_tree_new() -> *mut c_void {
         layout: LayoutTree::new(),
         props: HashMap::new(),
         pruned: false,
+        nodes: HashSet::new(),
     })
 }
 define_prim!(hlp_blinc_tree_new, hl_blinc_tree_new, "P_Xblinc_tree_");
@@ -79,7 +101,9 @@ pub unsafe extern "C" fn hl_blinc_tree_create_node(h: *mut c_void) -> u64 {
     let Some(tree) = (unsafe { tree(h) }) else {
         return 0;
     };
-    tree.layout.create_node(Style::default()).to_raw()
+    let node = tree.layout.create_node(Style::default());
+    tree.nodes.insert(node);
+    node.to_raw()
 }
 define_prim!(
     hlp_blinc_tree_create_node,
@@ -118,9 +142,9 @@ pub unsafe extern "C" fn hl_blinc_tree_create_text_node(
         font_weight: font_weight.clamp(1, 1000) as u16,
         italic: flags & 2 != 0,
     };
-    tree.layout
-        .create_text_node(Style::default(), context)
-        .to_raw()
+    let node = tree.layout.create_text_node(Style::default(), context);
+    tree.nodes.insert(node);
+    node.to_raw()
 }
 define_prim!(
     hlp_blinc_tree_create_text_node,
@@ -143,7 +167,7 @@ define_prim!(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_remove_node(h: *mut c_void, node: u64) {
     if let Some(tree) = unsafe { tree(h) } {
-        unbind(&[id(node)]);
+        forget(tree, &[id(node)]);
         tree.layout.remove_node(id(node));
         tree.props.remove(&id(node));
     }
@@ -157,7 +181,8 @@ define_prim!(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_remove_subtree(h: *mut c_void, node: u64) {
     if let Some(tree) = unsafe { tree(h) } {
-        unbind(&subtree(&tree.layout, id(node)));
+        let nodes = subtree(&tree.layout, id(node));
+        forget(tree, &nodes);
         tree.layout.remove_subtree(id(node));
         tree.pruned = true;
     }
@@ -206,6 +231,25 @@ define_prim!(
     "PXblinc_tree_lBi_v"
 );
 
+fn drain_released_nodes() -> Vec<LayoutNodeId> {
+    std::mem::take(&mut *RELEASED_NODES.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
+/// Free the tree now rather than when its handle is collected, dropping its
+/// nodes' bindings. Calls on the handle afterwards do nothing.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_dispose(h: *mut c_void) {
+    if let Some(mut tree) = unsafe { take_handle::<Tree>(h) } {
+        let nodes: Vec<_> = tree.nodes.iter().copied().collect();
+        forget(&mut tree, &nodes);
+    }
+}
+define_prim!(
+    hlp_blinc_tree_dispose,
+    hl_blinc_tree_dispose,
+    "PXblinc_tree__v"
+);
+
 // ============================================================================
 // FRAME
 // ============================================================================
@@ -221,6 +265,10 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
     let Some(tree) = (unsafe { tree(h) }) else {
         return false;
     };
+    // Unbinding first frees the computeds bound only to those nodes.
+    for node in drain_released_nodes() {
+        unregister_node(node);
+    }
     collect_released();
     if std::mem::take(&mut tree.pruned) {
         let layout = &tree.layout;

@@ -20,6 +20,16 @@ class LayoutTree {
 		this.ptr = LayoutTreeNative.blinc_tree_new();
 	}
 
+	/**
+		Frees the tree's native memory now instead of when this object is
+		collected, which can be long after for a large tree: the collector does
+		not see that memory. Its nodes' bindings go with it. Later calls on the
+		tree do nothing.
+	**/
+	public function dispose():Void {
+		LayoutTreeNative.blinc_tree_dispose(this.ptr);
+	}
+
 	public inline function createNode():Node {
 		return new Node(LayoutTreeNative.blinc_tree_create_node(this.ptr));
 	}
