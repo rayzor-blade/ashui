@@ -253,6 +253,55 @@ class Smoke {
 		l = tree.getBounds(listed.node);
 		check("<for> builds only new items", l != null && near(l.width, 80) && built == 4, '$l built=$built');
 
+		// --- A watch reacts only to what it read ---
+		var flagA = Signal.make(true);
+		var flagB = Signal.make(true);
+		var builtA = 0, builtB = 0;
+		var pair:Div = Owner.root(tree, _ -> hxx('
+			<Div flexShrink={0}>
+				<if {flagA}>{(() -> { builtA++; new Div({width: 5, height: 5}); })()}</if>
+				<if {flagB}>{(() -> { builtB++; new Div({width: 5, height: 5}); })()}</if>
+			</Div>
+		'));
+		root.appendChild(pair);
+		tree.flush();
+		flagA.set(false);
+		tree.flush();
+		flagA.set(true);
+		tree.flush();
+		check("a watch reacts only to what it read", builtA == 2 && builtB == 1, 'A built $builtA, B built $builtB');
+		check("a flush with nothing changed reacts to nothing", tree.flush() == false);
+		var readsB = 0;
+		var watchedB = Owner.root(tree, _ -> new ashui.ui.Show(() -> {
+			readsB++;
+			flagB.get();
+		}, () -> new Div({width: 5, height: 5})));
+		root.appendChild(watchedB);
+		for (_ in 0...3) {
+			flagA.set(!flagA.get());
+			tree.flush();
+		}
+		check("a watch's read runs only when what it read changes", readsB == 1, 'read $readsB times');
+
+		// --- An <if> on a computed follows the signals under it ---
+		var size = Signal.make(5);
+		var big = size.computed(v -> v > 10);
+		var sized:Div = Owner.root(tree, _ -> hxx('
+			<Div flexShrink={0}>
+				<if {big}><Div width={40} height={4} /><else><Div width={4} height={4} /></if>
+			</Div>
+		'));
+		root.appendChild(sized);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var small = tree.getBounds(sized.node);
+		size.set(20);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var large = tree.getBounds(sized.node);
+		check("an <if> on a computed follows its signals", small != null && near(small.width, 4) && large != null && near(large.width, 40),
+			'$small -> $large');
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

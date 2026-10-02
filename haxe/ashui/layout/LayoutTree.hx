@@ -58,11 +58,12 @@ class LayoutTree {
 	}
 
 	/**
-		Lets watches react to what changed, then applies the property writes
-		queued since the last flush. True if anything needs a relayout.
+		Runs the reactions of watches whose values changed, then applies the
+		property writes queued since the last flush. True if anything needs a
+		relayout.
 	**/
 	public function flush():Bool {
-		var reacted = Watch.pollAll();
+		var reacted = Watch.runQueued();
 		var relayout = LayoutTreeNative.blinc_tree_flush(this.ptr);
 		Guard.check();
 		return reacted || relayout;

@@ -10,8 +10,8 @@
 use crate::hl::{Rooted, call_void, handle_ref, into_handle, string_from, string_to_hl};
 use crate::types::Value;
 use blinc_core::reactive::{
-    Computed, DerivedId, SignalId, State, computed, dispose_derived, dispose_signal,
-    global_dirty_flag, global_graph, signal,
+    Computed, DerivedId, Effect, SignalId, State, computed, dispose_derived, dispose_signal,
+    effect, global_dirty_flag, global_graph, signal,
 };
 use blinc_layout::binding::with_registry;
 use hl_abi::{define_prim, vbyte};
@@ -48,6 +48,7 @@ pub enum AnyComputed {
 
 static RELEASED_SIGNALS: Mutex<Vec<SignalId>> = Mutex::new(Vec::new());
 static RELEASED_DERIVEDS: Mutex<Vec<DerivedId>> = Mutex::new(Vec::new());
+static RELEASED_EFFECTS: Mutex<Vec<Effect>> = Mutex::new(Vec::new());
 
 fn drain_queue<T>(queue: &Mutex<Vec<T>>) -> Vec<T> {
     std::mem::take(&mut *queue.lock().unwrap_or_else(|e| e.into_inner()))
@@ -119,6 +120,14 @@ pub fn collect_released() {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .extend(bound);
+    let effects = drain_queue(&RELEASED_EFFECTS);
+    if !effects.is_empty() {
+        let graph = global_graph();
+        let mut g = graph.lock().unwrap_or_else(|e| e.into_inner());
+        for e in effects {
+            g.dispose_effect(e);
+        }
+    }
 }
 
 /// A type a signal or computed can hold, and how to find it in a handle.
@@ -573,6 +582,55 @@ define_prim!(
     hlp_blinc_computed_touch,
     hl_blinc_computed_touch,
     "PXblinc_computed__v"
+);
+
+// ============================================================================
+// EFFECTS
+// ============================================================================
+// What a Haxe `Watch` tracks with: an effect whose body is a Haxe closure.
+// Blinc runs it once at creation and again, inside the graph lock, whenever
+// a signal or computed it read changes. The closure only reads and records;
+// reacting waits for the next flush, outside the lock.
+
+pub struct WatchEffect(Effect);
+
+impl WatchEffect {
+    fn release(&self) {
+        RELEASED_EFFECTS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(self.0);
+    }
+}
+
+impl Drop for WatchEffect {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+/// Not to be called from inside a computation or effect: creating an effect
+/// takes the graph lock.
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_effect(closure: *mut c_void) -> *mut c_void {
+    let closure = Rooted::new(closure);
+    let e = effect(move |_graph| unsafe { call_void(closure.get()) });
+    into_handle(WatchEffect(e))
+}
+define_prim!(hlp_blinc_effect, hl_blinc_effect, "PP_v_Xblinc_effect_");
+
+/// Stop an effect before its handle is collected; it is removed at the next
+/// flush, like a released computed.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_effect_release(h: *mut c_void) {
+    if let Some(w) = unsafe { handle_ref::<WatchEffect>(h) } {
+        w.release();
+    }
+}
+define_prim!(
+    hlp_blinc_effect_release,
+    hl_blinc_effect_release,
+    "PXblinc_effect__v"
 );
 
 // ============================================================================

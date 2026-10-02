@@ -7,9 +7,7 @@ class ComputedDynamic<T> implements IComputed<T> {
 	public var ptr(default, null):hl.Abstract<"blinc_computed">;
 
 	var last:T;
-
-	/** Advances each time the closure runs, even when it returns the same value. **/
-	public var version(default, null) = 0;
+	var version = 0;
 
 	public function new(compute:Void->T) {
 		ptr = BlincNative.blinc_computed_i32(Guard.wrap(() -> {

@@ -64,6 +64,10 @@ extern class BlincNative {
 	/** Queues the computed for release at the next flush, before its handle is collected. **/
 	static function blinc_computed_release(comp:hl.Abstract<"blinc_computed">):Void;
 
+	// --- Effects: `run` re-runs inside Blinc's graph when what it read changes ---
+	static function blinc_effect(run:Void->Void):hl.Abstract<"blinc_effect">;
+	static function blinc_effect_release(effect:hl.Abstract<"blinc_effect">):Void;
+
 	// --- Property routers: kind 0 applies `constant`, 1 binds `sig`, 2 binds `comp` ---
 	static function blinc_apply_f32(node:haxe.Int64, prop:Int, kind:Int, constant:Single, sig:hl.Abstract<"blinc_signal">,
 		comp:hl.Abstract<"blinc_computed">):Void;

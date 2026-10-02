@@ -1,54 +1,74 @@
 package ashui.reactive;
 
-/**
-	Calls `react` with `read()` at creation, and again at each
-	`LayoutTree.flush` where `read()` returns something new. Reacting at a
-	flush keeps it outside Blinc's graph, so it may build and remove elements,
-	which a computed or binding may not. Stops when the owner current at its
-	creation is disposed.
+import ashui.core.externs.BlincNative;
 
-	`read` runs at every flush, so it should be cheap: a computed's `get`
-	returns its cached value unless something it read changed.
+/**
+	Reacts to a value read from signals, as a SolidJS effect does.
+
+	`read` runs inside a Blinc effect, which tracks the signals and computeds
+	it reads and runs it again only when one of them changes. A watch whose
+	value changed is queued, and the next `LayoutTree.flush` calls `react` once
+	with the latest value. Reacting at the flush, outside Blinc's graph, is
+	what lets `react` build and remove elements; `read` must only read.
+	`react` also runs once at creation. Stops when the owner current at its
+	creation is disposed.
 **/
 class Watch<T> {
-	static final active:Array<Watch<Dynamic>> = [];
+	static var queue:Array<Watch<Dynamic>> = [];
 
-	final read:Void->T;
 	final react:T->Void;
-	var last:T;
+	final same:(T, T)->Bool;
+	var effect:hl.Abstract<"blinc_effect">;
+	var latest:T;
+	var reacted:T;
+	var queued = false;
 	var stopped = false;
 
-	public function new(read:Void->T, react:T->Void) {
-		this.read = read;
+	/**
+		Not to be created inside a computation: Blinc's graph is locked there.
+		`same` decides when a new value needs no reaction; by default `==`.
+	**/
+	public function new(read:Void->T, react:T->Void, ?same:(T, T)->Bool) {
 		this.react = react;
-		last = read();
-		react(last);
-		active.push(cast this);
+		this.same = same != null ? same : (a, b) -> a == b;
+		var first = true;
+		effect = BlincNative.blinc_effect(Guard.wrap(() -> {
+			latest = read();
+			if (first)
+				first = false;
+			else if (!queued && !stopped) {
+				queued = true;
+				queue.push(cast this);
+			}
+		}));
+		Guard.check();
+		reacted = latest;
+		react(latest);
 		Owner.onCleanup(stop);
 	}
 
 	public function stop():Void {
-		stopped = true;
-		active.remove(cast this);
-	}
-
-	function poll():Bool {
 		if (stopped)
-			return false;
-		var now = read();
-		if (now == last)
-			return false;
-		last = now;
-		react(now);
-		return true;
+			return;
+		stopped = true;
+		BlincNative.blinc_effect_release(effect);
 	}
 
-	/** Polls every watch; true if any reacted. Reacting may add or stop watches. **/
-	@:noCompletion public static function pollAll():Bool {
-		var reacted = false;
-		for (watch in active.copy())
-			if (watch.poll())
-				reacted = true;
-		return reacted;
+	/** Reacts for every queued watch whose value changed; true if any did. **/
+	@:noCompletion public static function runQueued():Bool {
+		if (queue.length == 0)
+			return false;
+		var batch = queue;
+		queue = [];
+		var any = false;
+		for (watch in batch) {
+			watch.queued = false;
+			if (watch.stopped || watch.same(watch.reacted, watch.latest))
+				continue;
+			watch.reacted = watch.latest;
+			watch.react(watch.latest);
+			any = true;
+		}
+		return any;
 	}
 }
