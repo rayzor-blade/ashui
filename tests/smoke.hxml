@@ -1,0 +1,5 @@
+--class-path ../haxe
+--class-path .
+-lib hashlink
+-main Smoke
+-hl bin/smoke.hl
