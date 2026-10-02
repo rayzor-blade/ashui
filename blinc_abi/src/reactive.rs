@@ -9,11 +9,16 @@
 
 use crate::hl::{Rooted, call_void, handle_ref, into_handle, string_from, string_to_hl};
 use crate::types::Value;
-use blinc_core::reactive::{Computed, State, computed, global_dirty_flag, global_graph, signal};
+use blinc_core::reactive::{
+    Computed, DerivedId, SignalId, State, computed, dispose_derived, dispose_signal,
+    global_dirty_flag, global_graph, signal,
+};
+use blinc_layout::binding::with_registry;
 use hl_abi::{define_prim, vbyte};
 use std::any::Any;
 use std::cell::RefCell;
 use std::ffi::c_void;
+use std::sync::Mutex;
 use std::sync::atomic::Ordering;
 
 pub enum AnySignal {
@@ -32,6 +37,79 @@ pub enum AnyComputed {
     Bool(Computed<bool>),
     Str(Computed<String>),
     Value(Computed<Value>),
+}
+
+// ============================================================================
+// RELEASE
+// ============================================================================
+// A handle's finalizer only queues its id: stock HashLink runs finalizers
+// inside a collection, where a computation may already hold Blinc's graph
+// lock. `collect_released` removes them later, at a flush.
+
+static RELEASED_SIGNALS: Mutex<Vec<SignalId>> = Mutex::new(Vec::new());
+static RELEASED_DERIVEDS: Mutex<Vec<DerivedId>> = Mutex::new(Vec::new());
+
+fn drain_queue<T>(queue: &Mutex<Vec<T>>) -> Vec<T> {
+    std::mem::take(&mut *queue.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
+impl Drop for AnySignal {
+    fn drop(&mut self) {
+        let id = match self {
+            AnySignal::I32(s) => s.signal_id(),
+            AnySignal::F32(s) => s.signal_id(),
+            AnySignal::F64(s) => s.signal_id(),
+            AnySignal::Bool(s) => s.signal_id(),
+            AnySignal::Str(s) => s.signal_id(),
+            AnySignal::Value(s) => s.signal_id(),
+        };
+        RELEASED_SIGNALS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(id);
+    }
+}
+
+impl Drop for AnyComputed {
+    fn drop(&mut self) {
+        let id = match self {
+            AnyComputed::I32(c) => c.derived_id(),
+            AnyComputed::F32(c) => c.derived_id(),
+            AnyComputed::F64(c) => c.derived_id(),
+            AnyComputed::Bool(c) => c.derived_id(),
+            AnyComputed::Str(c) => c.derived_id(),
+            AnyComputed::Value(c) => c.derived_id(),
+        };
+        RELEASED_DERIVEDS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(id);
+    }
+}
+
+/// Remove released signals from Blinc's graph, and released computeds that
+/// no node is bound to. Nothing can set a released signal, so its bindings
+/// keep their last value; a released computed still follows its signals, so
+/// one that is bound waits here until its node is removed.
+///
+/// Not to be called from a property binding firing: it takes the binding
+/// registry's lock.
+pub fn collect_released() {
+    for id in drain_queue(&RELEASED_SIGNALS) {
+        dispose_signal(id);
+    }
+    let mut bound = Vec::new();
+    for id in drain_queue(&RELEASED_DERIVEDS) {
+        if with_registry(|r| r.derived_subscriber_count(id)) == 0 {
+            dispose_derived(id);
+        } else {
+            bound.push(id);
+        }
+    }
+    RELEASED_DERIVEDS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .extend(bound);
 }
 
 /// A type a signal or computed can hold, and how to find it in a handle.

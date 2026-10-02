@@ -3,6 +3,8 @@
 
 use crate::hl::{handle_mut, into_handle, opt_string_from, string_from};
 use crate::layout_router::take_pending_text;
+use crate::reactive::collect_released;
+use blinc_layout::binding::unregister_node;
 use blinc_layout::div::GenericFont;
 use blinc_layout::element::RenderProps;
 use blinc_layout::stateful::take_pending_partial_prop_updates;
@@ -28,6 +30,34 @@ unsafe fn tree<'a>(h: *mut c_void) -> Option<&'a mut Tree> {
 
 fn id(raw: u64) -> LayoutNodeId {
     LayoutNodeId::from_raw(raw)
+}
+
+/// `node` and every node below it.
+fn subtree(layout: &LayoutTree, node: LayoutNodeId) -> Vec<LayoutNodeId> {
+    let mut nodes = vec![node];
+    let mut i = 0;
+    while i < nodes.len() {
+        nodes.extend(layout.children(nodes[i]));
+        i += 1;
+    }
+    nodes
+}
+
+/// Drop the property bindings of nodes about to be deleted, so a computed
+/// bound only to them can be released.
+fn unbind(nodes: &[LayoutNodeId]) {
+    for &node in nodes {
+        unregister_node(node);
+    }
+}
+
+/// Delete every node below `parent`, as `LayoutTree::clear_children` does.
+fn clear_children(tree: &mut Tree, parent: LayoutNodeId) {
+    for child in tree.layout.children(parent) {
+        unbind(&subtree(&tree.layout, child));
+    }
+    tree.layout.clear_children(parent);
+    tree.pruned = true;
 }
 
 // ============================================================================
@@ -113,6 +143,7 @@ define_prim!(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_remove_node(h: *mut c_void, node: u64) {
     if let Some(tree) = unsafe { tree(h) } {
+        unbind(&[id(node)]);
         tree.layout.remove_node(id(node));
         tree.props.remove(&id(node));
     }
@@ -126,6 +157,7 @@ define_prim!(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_remove_subtree(h: *mut c_void, node: u64) {
     if let Some(tree) = unsafe { tree(h) } {
+        unbind(&subtree(&tree.layout, id(node)));
         tree.layout.remove_subtree(id(node));
         tree.pruned = true;
     }
@@ -139,7 +171,7 @@ define_prim!(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_clear_children(h: *mut c_void, parent: u64) {
     if let Some(tree) = unsafe { tree(h) } {
-        tree.layout.clear_children(id(parent));
+        clear_children(tree, id(parent));
     }
 }
 define_prim!(
@@ -160,7 +192,7 @@ pub unsafe extern "C" fn hl_blinc_tree_replace_children(
         return;
     };
     if children.is_null() || len <= 0 {
-        tree.layout.clear_children(id(parent));
+        clear_children(tree, id(parent));
         return;
     }
     let ids = (0..len as usize)
@@ -179,7 +211,8 @@ define_prim!(
 // ============================================================================
 
 /// Apply every property write queued since the last flush, and report whether
-/// any of them needs a relayout.
+/// any of them needs a relayout. Signals and computeds whose handles were
+/// collected since the last flush are removed from Blinc's graph first.
 ///
 /// Blinc keeps one queue for the process and node ids are only unique within
 /// a tree, so this assumes the program has a single tree.
@@ -188,6 +221,7 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
     let Some(tree) = (unsafe { tree(h) }) else {
         return false;
     };
+    collect_released();
     if std::mem::take(&mut tree.pruned) {
         let layout = &tree.layout;
         tree.props

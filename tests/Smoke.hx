@@ -119,6 +119,20 @@ class Smoke {
 		check("value signal set", bg.get() != null);
 		tree.flush();
 
+		// --- A computed held only by a binding outlives its handle ---
+		var level = Signal.make(2);
+		var bar = new Div({width: 10, height: level.computed(v -> (v * 10 : Single))}, tree);
+		root.appendChild(bar);
+		tree.flush();
+		hl.Gc.major();
+		hl.Gc.major();
+		tree.flush();
+		level.set(5);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var barBounds = tree.getBounds(bar.node);
+		check("bound computed survives collection", barBounds != null && near(barBounds.height, 50), barBounds);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);
@@ -127,7 +141,8 @@ class Smoke {
 		}
 		hl.Gc.major();
 		hl.Gc.major();
-		check("finalizers ran without crashing", true);
+		tree.flush();
+		check("released handles removed from the graph without crashing", true);
 
 		// --- An exception in a computed surfaces in Haxe ---
 		var boom = Signal.make(0);
