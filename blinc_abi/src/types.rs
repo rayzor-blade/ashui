@@ -1,77 +1,171 @@
+//! Immutable style values: brushes, colors, radii, transforms and shadows.
+//!
+//! Each crosses to Haxe as one `blinc_value` handle. A single type lets one
+//! signal kind and one property router carry all of them; the router checks
+//! that the variant suits the property.
+
+use crate::hl::{into_handle, string_from};
+use blinc_core::layer::{BlurStyle, GlassStyle, Gradient, ImageBrush, ImageFit, Point, Shadow};
+use blinc_core::{Brush, Color, CornerRadius, Transform};
 use hl_abi::{define_prim, vbyte};
-use std::ffi::CStr;
-use blinc_core::{Color, Brush};
-use blinc_core::layer::{
-    GlassStyle, BlurStyle, ImageBrush, ImageFit, Gradient, Point
-};
+use std::ffi::c_void;
 
-// --- 1. Solid Brush ---
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_brush_solid(hex: u32, alpha: f32) -> *mut Brush {
-    let color = Color::from_hex(hex).with_alpha(alpha);
-    Box::into_raw(Box::new(Brush::Solid(color)))
+#[derive(Clone, Default)]
+pub enum Value {
+    #[default]
+    None,
+    Brush(Brush),
+    Color(Color),
+    Radius(CornerRadius),
+    Transform(Transform),
+    Shadow(Vec<Shadow>),
 }
-define_prim!(hlp_blinc_brush_solid, hl_blinc_brush_solid, "P_IF");
 
-// --- 2. Glass Brush ---
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_brush_glass(blur: f32, tint_hex: u32, tint_alpha: f32, simple: bool) -> *mut Brush {
-    let tint = Color::from_hex(tint_hex).with_alpha(tint_alpha);
-    let glass = GlassStyle::new().blur(blur).tint(tint).with_simple(simple);
-    Box::into_raw(Box::new(Brush::Glass(glass)))
+/// `0xRRGGBB` plus a separate alpha, as the Haxe API spells colors.
+fn hex_color(hex: i32, alpha: f32) -> Color {
+    Color::from_hex(hex as u32).with_alpha(alpha)
 }
-define_prim!(hlp_blinc_brush_glass, hl_blinc_brush_glass, "P_FIFB"); // Takes Float, Int, Float, Bool
 
-// --- 3. Blur Brush (Pure backdrop blur) ---
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_brush_blur(radius: f32) -> *mut Brush {
-    let blur = BlurStyle::with_radius(radius);
-    Box::into_raw(Box::new(Brush::Blur(blur)))
+fn value(v: Value) -> *mut c_void {
+    into_handle(v)
 }
-define_prim!(hlp_blinc_brush_blur, hl_blinc_brush_blur, "P_F");
 
-// --- 4. Image Brush ---
+// --- Brushes ---
+
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_brush_image(src_bytes: *const vbyte, fit: u8) -> *mut Brush {
-    let c_str = unsafe { CStr::from_ptr(src_bytes as *const i8) };
-    let source = c_str.to_string_lossy().into_owned();
-    
-    let mut img = ImageBrush::new(source);
+pub extern "C" fn hl_blinc_brush_solid(hex: i32, alpha: f32) -> *mut c_void {
+    value(Value::Brush(Brush::Solid(hex_color(hex, alpha))))
+}
+define_prim!(
+    hlp_blinc_brush_solid,
+    hl_blinc_brush_solid,
+    "Pif_Xblinc_value_"
+);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_brush_glass(
+    blur: f32,
+    tint_hex: i32,
+    tint_alpha: f32,
+    simple: i32,
+) -> *mut c_void {
+    let glass = GlassStyle::new()
+        .blur(blur)
+        .tint(hex_color(tint_hex, tint_alpha))
+        .with_simple(simple != 0);
+    value(Value::Brush(Brush::Glass(glass)))
+}
+define_prim!(
+    hlp_blinc_brush_glass,
+    hl_blinc_brush_glass,
+    "Pfifi_Xblinc_value_"
+);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_brush_blur(radius: f32) -> *mut c_void {
+    value(Value::Brush(Brush::Blur(BlurStyle::with_radius(radius))))
+}
+define_prim!(
+    hlp_blinc_brush_blur,
+    hl_blinc_brush_blur,
+    "Pf_Xblinc_value_"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_brush_image(src: *const vbyte, fit: i32) -> *mut c_void {
+    let mut img = ImageBrush::new(unsafe { string_from(src) });
     img.fit = match fit {
-        0 => ImageFit::Cover,
         1 => ImageFit::Contain,
         2 => ImageFit::Fill,
         3 => ImageFit::Tile,
         _ => ImageFit::Cover,
     };
-    
-    Box::into_raw(Box::new(Brush::Image(img)))
+    value(Value::Brush(Brush::Image(img)))
 }
-define_prim!(hlp_blinc_brush_image, hl_blinc_brush_image, "P_PI"); // Takes Pointer(Bytes), Int
+define_prim!(
+    hlp_blinc_brush_image,
+    hl_blinc_brush_image,
+    "PBi_Xblinc_value_"
+);
 
-// --- 5. Gradient Brush (Simple Linear) ---
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_brush_linear_gradient(
-    sx: f32, sy: f32, ex: f32, ey: f32, 
-    from_hex: u32, from_alpha: f32, 
-    to_hex: u32, to_alpha: f32
-) -> *mut Brush {
-    let start = Point::new(sx, sy);
-    let end = Point::new(ex, ey);
-    let from = Color::from_hex(from_hex).with_alpha(from_alpha);
-    let to = Color::from_hex(to_hex).with_alpha(to_alpha);
-
-    let grad = Gradient::linear(start, end, from, to);
-    Box::into_raw(Box::new(Brush::Gradient(grad)))
+pub extern "C" fn hl_blinc_brush_linear_gradient(
+    sx: f32,
+    sy: f32,
+    ex: f32,
+    ey: f32,
+    from_hex: i32,
+    from_alpha: f32,
+    to_hex: i32,
+    to_alpha: f32,
+) -> *mut c_void {
+    let grad = Gradient::linear(
+        Point::new(sx, sy),
+        Point::new(ex, ey),
+        hex_color(from_hex, from_alpha),
+        hex_color(to_hex, to_alpha),
+    );
+    value(Value::Brush(Brush::Gradient(grad)))
 }
-// Returns Pointer, Takes 4xFloat(points) + Int/Float(from) + Int/Float(to)
-define_prim!(hlp_blinc_brush_linear_gradient, hl_blinc_brush_linear_gradient, "P_FFFFIFIF");
+define_prim!(
+    hlp_blinc_brush_linear_gradient,
+    hl_blinc_brush_linear_gradient,
+    "Pffffifif_Xblinc_value_"
+);
 
-// --- Drop Helper ---
+// --- Colors ---
+
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_brush_drop(ptr: *mut Brush) {
-    if !ptr.is_null() {
-        unsafe { let _ = Box::from_raw(ptr); }
-    }
+pub extern "C" fn hl_blinc_color_hex(hex: i32, alpha: f32) -> *mut c_void {
+    value(Value::Color(hex_color(hex, alpha)))
 }
-define_prim!(hlp_blinc_brush_drop, hl_blinc_brush_drop, "V_P");
+define_prim!(hlp_blinc_color_hex, hl_blinc_color_hex, "Pif_Xblinc_value_");
+
+// --- Corner radius ---
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_corner_radius(tl: f32, tr: f32, br: f32, bl: f32) -> *mut c_void {
+    value(Value::Radius(CornerRadius::new(tl, tr, br, bl)))
+}
+define_prim!(
+    hlp_blinc_corner_radius,
+    hl_blinc_corner_radius,
+    "Pffff_Xblinc_value_"
+);
+
+// --- Transforms ---
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_transform_identity() -> *mut c_void {
+    value(Value::Transform(Transform::identity()))
+}
+define_prim!(
+    hlp_blinc_transform_identity,
+    hl_blinc_transform_identity,
+    "P_Xblinc_value_"
+);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_transform_translate(x: f32, y: f32) -> *mut c_void {
+    value(Value::Transform(Transform::translate(x, y)))
+}
+define_prim!(
+    hlp_blinc_transform_translate,
+    hl_blinc_transform_translate,
+    "Pff_Xblinc_value_"
+);
+
+// --- Shadows ---
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_shadow(
+    offset_x: f32,
+    offset_y: f32,
+    blur: f32,
+    hex: i32,
+    alpha: f32,
+) -> *mut c_void {
+    let shadow = Shadow::new(offset_x, offset_y, blur, hex_color(hex, alpha));
+    value(Value::Shadow(vec![shadow]))
+}
+define_prim!(hlp_blinc_shadow, hl_blinc_shadow, "Pfffif_Xblinc_value_");

@@ -1,399 +1,491 @@
+//! Signals and computeds on Blinc's global reactive graph, as Haxe handles.
+//!
+//! A computed is a Haxe `Void->Void` closure. It reads signals through the
+//! getters below, which go through `Signal::get`: inside a computation that
+//! takes Blinc's in-flight path, so the read is recorded as a dependency and
+//! never re-locks the graph the computation runs under. The closure hands its
+//! result back through `blinc_return_*` rather than as a return value, so no
+//! value has to be boxed through `hl_dyn_call`.
 
-use hl_abi::{define_prim, varray, vbyte, vdynamic};
-use blinc_core::reactive::{signal, computed, global_dirty_flag, Signal, Computed};
-use std::{ptr, sync::atomic::Ordering};
+use crate::hl::{Rooted, call_void, handle_ref, into_handle, string_from, string_to_hl};
+use crate::types::Value;
+use blinc_core::reactive::{Computed, State, computed, global_dirty_flag, global_graph, signal};
+use hl_abi::{define_prim, vbyte};
+use std::any::Any;
+use std::cell::RefCell;
+use std::ffi::c_void;
+use std::sync::atomic::Ordering;
 
-macro_rules! hl_export_signal_global {
+pub enum AnySignal {
+    I32(State<i32>),
+    F32(State<f32>),
+    F64(State<f64>),
+    Bool(State<bool>),
+    Str(State<String>),
+    Value(State<Value>),
+}
+
+pub enum AnyComputed {
+    I32(Computed<i32>),
+    F32(Computed<f32>),
+    F64(Computed<f64>),
+    Bool(Computed<bool>),
+    Str(Computed<String>),
+    Value(Computed<Value>),
+}
+
+/// A type a signal or computed can hold, and how to find it in a handle.
+/// A handle of another type reads as absent rather than being reinterpreted.
+pub trait Slot: Clone + Default + Send + Sync + 'static {
+    fn state(s: &AnySignal) -> Option<&State<Self>>;
+    fn computed(c: &AnyComputed) -> Option<&Computed<Self>>;
+}
+
+macro_rules! slot {
+    ($t:ty, $variant:ident) => {
+        impl Slot for $t {
+            fn state(s: &AnySignal) -> Option<&State<Self>> {
+                match s {
+                    AnySignal::$variant(s) => Some(s),
+                    _ => None,
+                }
+            }
+            fn computed(c: &AnyComputed) -> Option<&Computed<Self>> {
+                match c {
+                    AnyComputed::$variant(c) => Some(c),
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+slot!(i32, I32);
+slot!(f32, F32);
+slot!(f64, F64);
+slot!(bool, Bool);
+slot!(String, Str);
+slot!(Value, Value);
+
+/// The state behind a signal handle, if it holds a `T`.
+///
+/// # Safety
+/// `h` must be null or a `blinc_signal` handle.
+pub unsafe fn state_of<'a, T: Slot>(h: *mut c_void) -> Option<&'a State<T>> {
+    unsafe { handle_ref::<AnySignal>(h) }.and_then(T::state)
+}
+
+/// The computed behind a computed handle, if it holds a `T`.
+///
+/// # Safety
+/// `h` must be null or a `blinc_computed` handle.
+pub unsafe fn computed_of<'a, T: Slot>(h: *mut c_void) -> Option<&'a Computed<T>> {
+    unsafe { handle_ref::<AnyComputed>(h) }.and_then(T::computed)
+}
+
+fn new_state<T: Clone + Send + 'static>(initial: T) -> State<T> {
+    State::new(signal(initial), global_graph(), global_dirty_flag())
+}
+
+/// Reads through `Signal::get`, not `State::get`; see the module comment.
+fn read<T: Slot>(state: &State<T>) -> T {
+    state.signal().get()
+}
+
+thread_local! {
+    /// What the computation in flight handed back. Nested computations finish
+    /// before the outer one returns, so one slot suffices.
+    static RETURNED: RefCell<Option<Box<dyn Any>>> = const { RefCell::new(None) };
+}
+
+fn give<T: 'static>(v: T) {
+    RETURNED.with(|r| *r.borrow_mut() = Some(Box::new(v)));
+}
+
+fn take<T: 'static>() -> Option<T> {
+    RETURNED
+        .with(|r| r.borrow_mut().take())
+        .and_then(|b| b.downcast::<T>().ok())
+        .map(|b| *b)
+}
+
+/// A computed whose value is whatever `closure` hands back. A closure that
+/// throws or returns nothing leaves the default.
+fn computed_from<T: Slot>(closure: *mut c_void) -> Computed<T> {
+    let closure = Rooted::new(closure);
+    computed(move |_graph| {
+        take::<T>();
+        unsafe { call_void(closure.get()) };
+        take::<T>().unwrap_or_default()
+    })
+}
+
+fn computed_value<T: Slot>(c: &Computed<T>) -> T {
+    c.try_get().unwrap_or_default()
+}
+
+// ============================================================================
+// NUMERIC SIGNALS
+// ============================================================================
+
+macro_rules! export_numeric {
     (
-        $type:ty, 
-        // 1. Allocation
-        $new_fn:ident, $new_prim:ident, $new_sig:expr,
-        
-        // 2. Read
-        $get_fn:ident, $get_prim:ident, $get_sig:expr,
-        
-        // 3. Write
-        $set_fn:ident, $set_prim:ident, $set_sig:expr,
-        
-        // 4. Drop Signal
-        $drop_fn:ident, $drop_prim:ident, $drop_sig:expr,
-        
-        // 5. Computed (Derived)
-        $computed_fn:ident, $computed_prim:ident, $computed_sig:expr,
-        
-        // 6. Drop Computed
-        $computed_drop_fn:ident, $computed_drop_prim:ident, $computed_drop_sig:expr
+        $t:ty, $variant:ident,
+        $new:ident / $new_prim:ident = $new_sig:literal,
+        $get:ident / $get_prim:ident = $get_sig:literal,
+        $set:ident / $set_prim:ident = $set_sig:literal,
+        $comp:ident / $comp_prim:ident,
+        $comp_get:ident / $comp_get_prim:ident = $comp_get_sig:literal,
+        $ret:ident / $ret_prim:ident = $ret_sig:literal
     ) => {
-        // 1. Allocation (implicitly uses GLOBAL_GRAPH)
         #[unsafe(no_mangle)]
-        pub extern "C" fn $new_fn(initial: $type) -> *mut Signal<$type> {
-            let sig = signal(initial);
-            Box::into_raw(Box::new(sig))
+        pub extern "C" fn $new(initial: $t) -> *mut c_void {
+            into_handle(AnySignal::$variant(new_state(initial)))
         }
-        define_prim!($new_prim, $new_fn, $new_sig);
+        define_prim!($new_prim, $new, $new_sig);
 
-        // 2. Read (implicitly uses GLOBAL_GRAPH)
         #[unsafe(no_mangle)]
-        pub extern "C" fn $get_fn(sig_ptr: *const Signal<$type>) -> $type {
-            let sig = unsafe { &*sig_ptr };
-            sig.get() 
+        pub unsafe extern "C" fn $get(h: *mut c_void) -> $t {
+            unsafe { state_of::<$t>(h) }.map(read).unwrap_or_default()
         }
-        define_prim!($get_prim, $get_fn, $get_sig);
+        define_prim!($get_prim, $get, $get_sig);
 
-        // 3. Write (implicitly updates GLOBAL_GRAPH and sets GLOBAL_DIRTY)
         #[unsafe(no_mangle)]
-        pub extern "C" fn $set_fn(sig_ptr: *mut Signal<$type>, val: $type) {
-            let sig = unsafe { &*sig_ptr };
-            sig.set(val);
-        }
-        define_prim!($set_prim, $set_fn, $set_sig);
-
-        // 4. Drop Signal
-        #[unsafe(no_mangle)]
-        pub extern "C" fn $drop_fn(sig_ptr: *mut Signal<$type>) {
-            if !sig_ptr.is_null() {
-                unsafe { let _ = Box::from_raw(sig_ptr); }
+        pub unsafe extern "C" fn $set(h: *mut c_void, v: $t) {
+            if let Some(s) = unsafe { state_of::<$t>(h) } {
+                s.set(v);
             }
         }
-        define_prim!($drop_prim, $drop_fn, $drop_sig);
-       
+        define_prim!($set_prim, $set, $set_sig);
 
-        // 5. Computed (The Blinc term for Derived)
         #[unsafe(no_mangle)]
-        pub extern "C" fn $computed_fn(
-            parent_ptr: *const Signal<$type>,
-            ctx_id: usize, // Haxe closure registry ID
-            compute_callback: extern "C" fn(usize, $type) -> $type
-        ) -> *mut Computed<$type> {
-            
-            let parent = unsafe { &*parent_ptr }.clone();
-            
-            // Blinc passes the graph context into the closure (e.g., `SharedReactiveGraph`)
-            // This prevents deadlocks when reading `parent` inside the computation cycle.
-            let comp = computed(move |graph| {
-                
-                // Read the parent value using the provided graph context.
-                // Depending on Blinc's exact API, this is either:
-                // parent.get_with(graph) OR the signal implicitly uses the passed Arc
-                let current_val = graph.get(parent); // or parent.get_with(graph)
-                
-                // Jump across the C ABI to Haxe to run the pure math/logic.
-                // Haxe is completely isolated from the Rust Mutex/Arc lifecycle.
-                compute_callback(ctx_id, current_val.unwrap_or_default()) // Handle Option<$type> if needed
-            });
-            
-            Box::into_raw(Box::new(comp))
+        pub extern "C" fn $comp(closure: *mut c_void) -> *mut c_void {
+            into_handle(AnyComputed::$variant(computed_from::<$t>(closure)))
         }
-         define_prim!($computed_prim, $computed_fn, $computed_sig);
+        define_prim!($comp_prim, $comp, "PP_v_Xblinc_computed_");
 
-        // 6. Drop Computed
         #[unsafe(no_mangle)]
-        pub extern "C" fn $computed_drop_fn(comp_ptr: *mut Computed<$type>) {
-            if !comp_ptr.is_null() {
-                unsafe { let _ = Box::from_raw(comp_ptr); }
-            }
+        pub unsafe extern "C" fn $comp_get(h: *mut c_void) -> $t {
+            unsafe { computed_of::<$t>(h) }
+                .map(computed_value)
+                .unwrap_or_default()
         }
-        define_prim!($computed_drop_prim, $computed_drop_fn, $computed_drop_sig);
+        define_prim!($comp_get_prim, $comp_get, $comp_get_sig);
+
+        #[unsafe(no_mangle)]
+        pub extern "C" fn $ret(v: $t) {
+            give(v);
+        }
+        define_prim!($ret_prim, $ret, $ret_sig);
     };
 }
 
-// Export the primitives
-hl_export_signal_global!(
+export_numeric!(
     i32,
-    
-    // new(initial: i32) -> *mut Signal<i32> 
-    // Returns Pointer, Takes Int
-    hl_blinc_signal_new_i32, hlp_blinc_signal_new_i32, "P_I",
-    
-    // get(sig: *const Signal) -> i32
-    // Returns Int, Takes Pointer
-    hl_blinc_signal_get_i32, hlp_blinc_signal_get_i32, "I_P",
-    
-    // set(sig: *mut Signal, val: i32) -> void
-    // Returns Void, Takes Pointer + Int
-    hl_blinc_signal_set_i32, hlp_blinc_signal_set_i32, "V_PI",
-    
-    // drop(sig: *mut Signal) -> void
-    // Returns Void, Takes Pointer
-    hl_blinc_signal_drop_i32, hlp_blinc_signal_drop_i32, "V_P",
-    
-    // computed(parent: *const Signal, ctx: usize, fn) -> *mut Computed<i32>
-    // Returns Pointer, Takes Pointer + Int + Pointer(Closure)
-    hl_blinc_computed_i32, hlp_blinc_computed_i32, "P_PIP",
-    
-    // drop_computed(comp: *mut Computed) -> void
-    // Returns Void, Takes Pointer
-    hl_blinc_computed_drop_i32, hlp_blinc_computed_drop_i32, "V_P"
+    I32,
+    hl_blinc_signal_i32 / hlp_blinc_signal_i32 = "Pi_Xblinc_signal_",
+    hl_blinc_signal_get_i32 / hlp_blinc_signal_get_i32 = "PXblinc_signal__i",
+    hl_blinc_signal_set_i32 / hlp_blinc_signal_set_i32 = "PXblinc_signal_i_v",
+    hl_blinc_computed_i32 / hlp_blinc_computed_i32,
+    hl_blinc_computed_get_i32 / hlp_blinc_computed_get_i32 = "PXblinc_computed__i",
+    hl_blinc_return_i32 / hlp_blinc_return_i32 = "Pi_v"
 );
 
-
-hl_export_signal_global!(
+export_numeric!(
     f32,
-    
-    // new(initial: i32) -> *mut Signal<i32> 
-    // Returns Pointer, Takes Int
-    hl_blinc_signal_new_f32, hlp_blinc_signal_new_f32, "P_F",
-    
-    // get(sig: *const Signal) -> i32
-    // Returns Int, Takes Pointer
-    hl_blinc_signal_get_f32, hlp_blinc_signal_get_f32, "F_P",
-    
-    // set(sig: *mut Signal, val: i32) -> void
-    // Returns Void, Takes Pointer + Int
-    hl_blinc_signal_set_f32, hlp_blinc_signal_set_f32, "V_PF",
-    
-    // drop(sig: *mut Signal) -> void
-    // Returns Void, Takes Pointer
-    hl_blinc_signal_drop_f32, hlp_blinc_signal_drop_f32, "V_P",
-    
-    // computed(parent: *const Signal, ctx: usize, fn) -> *mut Computed<i32>
-    // Returns Pointer, Takes Pointer + Int + Pointer(Closure)
-    hl_blinc_computed_f32, hlp_blinc_computed_f32, "P_PIP",
-    
-    // drop_computed(comp: *mut Computed) -> void
-    // Returns Void, Takes Pointer
-    hl_blinc_computed_drop_f32, hlp_blinc_computed_drop_f32, "V_P"
+    F32,
+    hl_blinc_signal_f32 / hlp_blinc_signal_f32 = "Pf_Xblinc_signal_",
+    hl_blinc_signal_get_f32 / hlp_blinc_signal_get_f32 = "PXblinc_signal__f",
+    hl_blinc_signal_set_f32 / hlp_blinc_signal_set_f32 = "PXblinc_signal_f_v",
+    hl_blinc_computed_f32 / hlp_blinc_computed_f32,
+    hl_blinc_computed_get_f32 / hlp_blinc_computed_get_f32 = "PXblinc_computed__f",
+    hl_blinc_return_f32 / hlp_blinc_return_f32 = "Pf_v"
 );
 
-hl_export_signal_global!(
+export_numeric!(
     f64,
-    hl_blinc_signal_new_f64, hlp_blinc_signal_new_f64, "P_D",
-    hl_blinc_signal_get_f64, hlp_blinc_signal_get_f64, "D_P",
-    hl_blinc_signal_set_f64, hlp_blinc_signal_set_f64, "V_PD",
-    hl_blinc_signal_drop_f64, hlp_blinc_signal_drop_f64, "V_P",
-    hl_blinc_computed_f64, hlp_blinc_computed_f64, "P_PDP",
-    hl_blinc_computed_drop_f64, hlp_blinc_computed_drop_f64, "V_P"
+    F64,
+    hl_blinc_signal_f64 / hlp_blinc_signal_f64 = "Pd_Xblinc_signal_",
+    hl_blinc_signal_get_f64 / hlp_blinc_signal_get_f64 = "PXblinc_signal__d",
+    hl_blinc_signal_set_f64 / hlp_blinc_signal_set_f64 = "PXblinc_signal_d_v",
+    hl_blinc_computed_f64 / hlp_blinc_computed_f64,
+    hl_blinc_computed_get_f64 / hlp_blinc_computed_get_f64 = "PXblinc_computed__d",
+    hl_blinc_return_f64 / hlp_blinc_return_f64 = "Pd_v"
 );
 
+// ============================================================================
+// BOOL SIGNALS
+// ============================================================================
+// Arguments cross as Int: no backend declares how a narrow bool argument is
+// extended, so its upper bits are not trusted.
 
-// --- The Global Render Loop Optimization ---
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_signal_bool(initial: i32) -> *mut c_void {
+    into_handle(AnySignal::Bool(new_state(initial != 0)))
+}
+define_prim!(
+    hlp_blinc_signal_bool,
+    hl_blinc_signal_bool,
+    "Pi_Xblinc_signal_"
+);
 
-/// Haxe can poll this every frame to know if it needs to re-render
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_get_bool(h: *mut c_void) -> bool {
+    unsafe { state_of::<bool>(h) }.map(read).unwrap_or_default()
+}
+define_prim!(
+    hlp_blinc_signal_get_bool,
+    hl_blinc_signal_get_bool,
+    "PXblinc_signal__b"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_set_bool(h: *mut c_void, v: i32) {
+    if let Some(s) = unsafe { state_of::<bool>(h) } {
+        s.set(v != 0);
+    }
+}
+define_prim!(
+    hlp_blinc_signal_set_bool,
+    hl_blinc_signal_set_bool,
+    "PXblinc_signal_i_v"
+);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_computed_bool(closure: *mut c_void) -> *mut c_void {
+    into_handle(AnyComputed::Bool(computed_from::<bool>(closure)))
+}
+define_prim!(
+    hlp_blinc_computed_bool,
+    hl_blinc_computed_bool,
+    "PP_v_Xblinc_computed_"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_computed_get_bool(h: *mut c_void) -> bool {
+    unsafe { computed_of::<bool>(h) }
+        .map(computed_value)
+        .unwrap_or_default()
+}
+define_prim!(
+    hlp_blinc_computed_get_bool,
+    hl_blinc_computed_get_bool,
+    "PXblinc_computed__b"
+);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_return_bool(v: i32) {
+    give(v != 0);
+}
+define_prim!(hlp_blinc_return_bool, hl_blinc_return_bool, "Pi_v");
+
+// ============================================================================
+// STRING SIGNALS
+// ============================================================================
+// Held in Rust as `String`, so property bindings can read them. They cross as
+// NUL-terminated UTF-8; Haxe null becomes the empty string.
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_string(initial: *const vbyte) -> *mut c_void {
+    into_handle(AnySignal::Str(new_state(unsafe { string_from(initial) })))
+}
+define_prim!(
+    hlp_blinc_signal_string,
+    hl_blinc_signal_string,
+    "PB_Xblinc_signal_"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_get_string(h: *mut c_void) -> *mut vbyte {
+    string_to_hl(
+        &unsafe { state_of::<String>(h) }
+            .map(read)
+            .unwrap_or_default(),
+    )
+}
+define_prim!(
+    hlp_blinc_signal_get_string,
+    hl_blinc_signal_get_string,
+    "PXblinc_signal__B"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_set_string(h: *mut c_void, v: *const vbyte) {
+    if let Some(s) = unsafe { state_of::<String>(h) } {
+        s.set(unsafe { string_from(v) });
+    }
+}
+define_prim!(
+    hlp_blinc_signal_set_string,
+    hl_blinc_signal_set_string,
+    "PXblinc_signal_B_v"
+);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_computed_string(closure: *mut c_void) -> *mut c_void {
+    into_handle(AnyComputed::Str(computed_from::<String>(closure)))
+}
+define_prim!(
+    hlp_blinc_computed_string,
+    hl_blinc_computed_string,
+    "PP_v_Xblinc_computed_"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_computed_get_string(h: *mut c_void) -> *mut vbyte {
+    string_to_hl(
+        &unsafe { computed_of::<String>(h) }
+            .map(computed_value)
+            .unwrap_or_default(),
+    )
+}
+define_prim!(
+    hlp_blinc_computed_get_string,
+    hl_blinc_computed_get_string,
+    "PXblinc_computed__B"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_return_string(v: *const vbyte) {
+    give(unsafe { string_from(v) });
+}
+define_prim!(hlp_blinc_return_string, hl_blinc_return_string, "PB_v");
+
+// ============================================================================
+// VALUE SIGNALS (brush, color, radius, transform, shadow)
+// ============================================================================
+// Haxe keeps the wrapper object it set and returns that from `get`, so there
+// are no value getters; `blinc_signal_touch` records the read.
+
+/// # Safety
+/// `h` must be null or a `blinc_value` handle.
+unsafe fn value_of(h: *mut c_void) -> Value {
+    unsafe { handle_ref::<Value>(h) }
+        .cloned()
+        .unwrap_or_default()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_value(initial: *mut c_void) -> *mut c_void {
+    into_handle(AnySignal::Value(new_state(unsafe { value_of(initial) })))
+}
+define_prim!(
+    hlp_blinc_signal_value,
+    hl_blinc_signal_value,
+    "PXblinc_value__Xblinc_signal_"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_set_value(h: *mut c_void, v: *mut c_void) {
+    if let Some(s) = unsafe { state_of::<Value>(h) } {
+        s.set(unsafe { value_of(v) });
+    }
+}
+define_prim!(
+    hlp_blinc_signal_set_value,
+    hl_blinc_signal_set_value,
+    "PXblinc_signal_Xblinc_value__v"
+);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_computed_value(closure: *mut c_void) -> *mut c_void {
+    into_handle(AnyComputed::Value(computed_from::<Value>(closure)))
+}
+define_prim!(
+    hlp_blinc_computed_value,
+    hl_blinc_computed_value,
+    "PP_v_Xblinc_computed_"
+);
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_return_value(v: *mut c_void) {
+    give(unsafe { value_of(v) });
+}
+define_prim!(
+    hlp_blinc_return_value,
+    hl_blinc_return_value,
+    "PXblinc_value__v"
+);
+
+// ============================================================================
+// ANY TYPE
+// ============================================================================
+
+/// Read a signal for its side effect alone: inside a computation, recording
+/// it as a dependency.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_signal_touch(h: *mut c_void) {
+    match unsafe { handle_ref::<AnySignal>(h) } {
+        Some(AnySignal::I32(s)) => {
+            read(s);
+        }
+        Some(AnySignal::F32(s)) => {
+            read(s);
+        }
+        Some(AnySignal::F64(s)) => {
+            read(s);
+        }
+        Some(AnySignal::Bool(s)) => {
+            read(s);
+        }
+        Some(AnySignal::Str(s)) => {
+            read(s);
+        }
+        Some(AnySignal::Value(s)) => {
+            read(s);
+        }
+        None => {}
+    }
+}
+define_prim!(
+    hlp_blinc_signal_touch,
+    hl_blinc_signal_touch,
+    "PXblinc_signal__v"
+);
+
+/// Bring a computed up to date, running its closure if a dependency changed.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_computed_touch(h: *mut c_void) {
+    match unsafe { handle_ref::<AnyComputed>(h) } {
+        Some(AnyComputed::I32(c)) => {
+            c.try_get();
+        }
+        Some(AnyComputed::F32(c)) => {
+            c.try_get();
+        }
+        Some(AnyComputed::F64(c)) => {
+            c.try_get();
+        }
+        Some(AnyComputed::Bool(c)) => {
+            c.try_get();
+        }
+        Some(AnyComputed::Str(c)) => {
+            c.try_get();
+        }
+        Some(AnyComputed::Value(c)) => {
+            c.try_get();
+        }
+        None => {}
+    }
+}
+define_prim!(
+    hlp_blinc_computed_touch,
+    hl_blinc_computed_touch,
+    "PXblinc_computed__v"
+);
+
+// ============================================================================
+// RENDER LOOP
+// ============================================================================
+
+/// Whether any state changed since the last `blinc_clear_dirty`.
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_is_dirty() -> bool {
-    let dirty_flag = global_dirty_flag();
-    dirty_flag.load(Ordering::Relaxed)
+    global_dirty_flag().load(Ordering::Relaxed)
 }
-define_prim!(hlp_blinc_is_dirty, hl_blinc_is_dirty, "B_V");
+define_prim!(hlp_blinc_is_dirty, hl_blinc_is_dirty, "P_b");
 
-/// Reset the dirty flag (typically called right before calculating layout)
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_clear_dirty() {
-    let dirty_flag = global_dirty_flag();
-    dirty_flag.store(false, Ordering::Relaxed);
+    global_dirty_flag().store(false, Ordering::Relaxed);
 }
-define_prim!(hlp_blinc_clear_dirty, hl_blinc_clear_dirty, "V_V");
-
-
-
-/// A thread-safe wrapper for HashLink GC pointers.
-/// We promise the Rust compiler that we won't mutate the GC memory directly 
-/// off the main thread (HashLink is single-threaded anyway).
-#[derive(Clone, Copy)]
-#[repr(transparent)]
-pub struct HlDynamic(pub *mut vdynamic);
-
-impl Default for HlDynamic {
-    fn default() -> Self {
-        HlDynamic(ptr::null_mut())
-    }
-}
-
-unsafe impl Send for HlDynamic {}
-unsafe impl Sync for HlDynamic {}
-
-// 1. Allocation
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_new_dynamic(initial: *mut vdynamic) -> *mut Signal<HlDynamic> {
-    Box::into_raw(Box::new(signal(HlDynamic(initial))))
-}
-// "P_D" -> Returns Pointer (P), Takes Dynamic (D)
-define_prim!(hlp_signal_new_dynamic, hl_blinc_signal_new_dynamic, "P_D");
-
-// 2. Read
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_get_dynamic(sig_ptr: *const Signal<HlDynamic>) -> *mut vdynamic {
-    unsafe { &*sig_ptr }.get().0
-}
-// "D_P" -> Returns Dynamic (D), Takes Pointer (P)
-define_prim!(hlp_signal_get_dynamic, hl_blinc_signal_get_dynamic, "D_P");
-
-// 3. Write
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_set_dynamic(sig_ptr: *mut Signal<HlDynamic>, val: *mut vdynamic) {
-    unsafe { &*sig_ptr }.set(HlDynamic(val));
-}
-// "V_PD" -> Returns Void (V), Takes Pointer (P) + Dynamic (D)
-define_prim!(hlp_signal_set_dynamic, hl_blinc_signal_set_dynamic, "V_PD");
-
-// 4. Drop Signal
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_drop_dynamic(sig_ptr: *mut Signal<HlDynamic>) {
-    if !sig_ptr.is_null() {
-        unsafe { let _ = Box::from_raw(sig_ptr); }
-    }
-}
-define_prim!(hlp_signal_drop_dynamic, hl_blinc_signal_drop_dynamic, "V_P");
-
-// 5. Computed (Derived Dynamic)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_computed_dynamic(
-    parent_ptr: *const Signal<HlDynamic>,
-    ctx_id: usize,
-    compute_callback: unsafe extern "C" fn(usize, *mut vdynamic) -> *mut vdynamic
-) -> *mut Computed<HlDynamic> {
-    let parent = unsafe { &*parent_ptr }.clone();
-    
-    let comp = computed(move |graph| {
-        let current_val = graph.get(parent);
-        let new_val = unsafe { compute_callback(ctx_id, current_val.unwrap_or_default().0) };
-        HlDynamic(new_val)
-    });
-    
-    Box::into_raw(Box::new(comp))
-}
-// "P_PDP" -> Returns Pointer, Takes Pointer + Dynamic(ctx/usize mapped to Int in HL) + Pointer(Callback)
-define_prim!(hlp_computed_dynamic, hl_blinc_computed_dynamic, "P_PIP"); 
-// Note: HashLink treats `usize` as Int (I) and function callbacks as opaque Pointers (P).
-
-// 6. Drop Computed
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_computed_drop_dynamic(comp_ptr: *mut Computed<HlDynamic>) {
-    if !comp_ptr.is_null() {
-        unsafe { let _ = Box::from_raw(comp_ptr); }
-    }
-}
-define_prim!(hlp_computed_drop_dynamic, hl_blinc_computed_drop_dynamic, "V_P");
-
-
-
-
-
-// ============================================================================
-// BYTES WRAPPER (For hl.Bytes / Strings)
-// ============================================================================
-
-#[derive(Clone, Copy)]
-#[repr(transparent)]
-pub struct HlBytes(pub *mut vbyte);
-
-unsafe impl Send for HlBytes {}
-unsafe impl Sync for HlBytes {}
-impl Default for HlBytes { fn default() -> Self { HlBytes(ptr::null_mut()) } }
-
-// 1. Allocation ("P_B" -> Returns Pointer, Takes Bytes)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_new_bytes(initial: *mut vbyte) -> *mut Signal<HlBytes> {
-    Box::into_raw(Box::new(signal(HlBytes(initial))))
-}
-define_prim!(hlp_blinc_signal_new_bytes, hl_blinc_signal_new_bytes, "P_B");
-
-// 2. Read ("B_P" -> Returns Bytes, Takes Pointer)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_get_bytes(sig_ptr: *const Signal<HlBytes>) -> *mut vbyte {
-    unsafe { &*sig_ptr }.get().0
-}
-define_prim!(hlp_blinc_signal_get_bytes, hl_blinc_signal_get_bytes, "B_P");
-
-// 3. Write ("V_PB" -> Returns Void, Takes Pointer + Bytes)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_set_bytes(sig_ptr: *mut Signal<HlBytes>, val: *mut vbyte) {
-    unsafe { &*sig_ptr }.set(HlBytes(val));
-}
-define_prim!(hlp_blinc_signal_set_bytes, hl_blinc_signal_set_bytes, "V_PB");
-
-// 4. Drop
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_drop_bytes(sig_ptr: *mut Signal<HlBytes>) {
-    if !sig_ptr.is_null() { unsafe { let _ = Box::from_raw(sig_ptr); } }
-}
-define_prim!(hlp_blinc_signal_drop_bytes, hl_blinc_signal_drop_bytes, "V_P");
-
-// 5. Computed Bytes ("P_PIP" -> Returns Pointer, Takes Pointer + Int(ctx) + Pointer(Callback))
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_computed_bytes(
-    parent_ptr: *const Signal<HlBytes>,
-    ctx_id: usize,
-    compute_callback: unsafe extern "C" fn(usize, *mut vbyte) -> *mut vbyte
-) -> *mut Computed<HlBytes> {
-    let parent = unsafe { &*parent_ptr }.clone();
-    let comp = computed(move |graph| {
-        let current_val = graph.get(parent);
-        let new_val = unsafe { compute_callback(ctx_id, current_val.unwrap_or_default().0) };
-        HlBytes(new_val)
-    });
-    Box::into_raw(Box::new(comp))
-}
-define_prim!(hlp_blinc_computed_bytes, hl_blinc_computed_bytes, "P_PIP"); 
-
-// 6. Drop Computed Bytes
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_computed_drop_bytes(comp_ptr: *mut Computed<HlBytes>) {
-    if !comp_ptr.is_null() { unsafe { let _ = Box::from_raw(comp_ptr); } }
-}
-define_prim!(hlp_blinc_computed_drop_bytes, hl_blinc_computed_drop_bytes, "V_P");
-
-
-// ============================================================================
-// ARRAY WRAPPER (For hl.NativeArray / varray)
-// ============================================================================
-
-#[derive(Clone, Copy)]
-#[repr(transparent)]
-pub struct HlArray(pub *mut varray);
-
-unsafe impl Send for HlArray {}
-unsafe impl Sync for HlArray {}
-impl Default for HlArray { fn default() -> Self { HlArray(ptr::null_mut()) } }
-
-// 1. Allocation ("P_A" -> Returns Pointer, Takes Array)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_new_array(initial: *mut varray) -> *mut Signal<HlArray> {
-    Box::into_raw(Box::new(signal(HlArray(initial))))
-}
-define_prim!(hlp_blinc_signal_new_array, hl_blinc_signal_new_array, "P_A");
-
-// 2. Read ("A_P" -> Returns Array, Takes Pointer)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_get_array(sig_ptr: *const Signal<HlArray>) -> *mut varray {
-    unsafe { &*sig_ptr }.get().0
-}
-define_prim!(hlp_blinc_signal_get_array, hl_blinc_signal_get_array, "A_P");
-
-// 3. Write ("V_PA" -> Returns Void, Takes Pointer + Array)
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_set_array(sig_ptr: *mut Signal<HlArray>, val: *mut varray) {
-    unsafe { &*sig_ptr }.set(HlArray(val));
-}
-define_prim!(hlp_blinc_signal_set_array, hl_blinc_signal_set_array, "V_PA");
-
-// 4. Drop
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_signal_drop_array(sig_ptr: *mut Signal<HlArray>) {
-    if !sig_ptr.is_null() { unsafe { let _ = Box::from_raw(sig_ptr); } }
-}
-define_prim!(hlp_blinc_signal_drop_array, hl_blinc_signal_drop_array, "V_P");
-
-// 5. Computed Array
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_computed_array(
-    parent_ptr: *const Signal<HlArray>,
-    ctx_id: usize,
-    compute_callback: unsafe extern "C" fn(usize, *mut varray) -> *mut varray
-) -> *mut Computed<HlArray> {
-    let parent = unsafe { &*parent_ptr }.clone();
-    let comp = computed(move |graph| {
-        let current_val = graph.get(parent);
-        let new_val = unsafe { compute_callback(ctx_id, current_val.unwrap_or_default().0) };
-        HlArray(new_val)
-    });
-    Box::into_raw(Box::new(comp))
-}
-define_prim!(hlp_blinc_computed_array, hl_blinc_computed_array, "P_PIP"); 
-
-// 6. Drop Computed Array
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_computed_drop_array(comp_ptr: *mut Computed<HlArray>) {
-    if !comp_ptr.is_null() { unsafe { let _ = Box::from_raw(comp_ptr); } }
-}
-define_prim!(hlp_blinc_computed_drop_array, hl_blinc_computed_drop_array, "V_P");
+define_prim!(hlp_blinc_clear_dirty, hl_blinc_clear_dirty, "P_v");

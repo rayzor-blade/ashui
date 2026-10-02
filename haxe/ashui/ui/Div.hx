@@ -1,12 +1,14 @@
 package ashui.ui;
 
-import ashui.core.Element;
-import ashui.core.LayoutTree;
-import ashui.core.Node;
+import ashui.layout.Element;
+import ashui.layout.LayoutTree;
+import ashui.layout.Node;
 import ashui.layout.PropertyId;
 import ashui.layout.IntoReactive;
 import ashui.types.Brush;
+import ashui.types.Color;
 import ashui.types.CornerRadius;
+import ashui.types.Style;
 
 typedef DivAttributes = {
 	// --- Tier 1: Visual Properties ---
@@ -28,17 +30,17 @@ typedef DivAttributes = {
 	?padding:IntoReactive<Single>,
 	?margin:IntoReactive<Single>,
 	?gap:IntoReactive<Single>,
-	?flexDirection:IntoReactive<Int>,
-	?alignItems:IntoReactive<Int>,
-	?justifyContent:IntoReactive<Int>,
-	?alignSelf:IntoReactive<Int>,
+	?flexDirection:IntoReactive<FlexDirection>,
+	?alignItems:IntoReactive<Align>,
+	?justifyContent:IntoReactive<Justify>,
+	?alignSelf:IntoReactive<Align>,
 	?flexGrow:IntoReactive<Single>,
 	?flexShrink:IntoReactive<Single>,
-	?flexWrap:IntoReactive<Int>,
+	?flexWrap:IntoReactive<FlexWrap>,
 	?flexBasis:IntoReactive<Single>,
-	?display:IntoReactive<Int>,
-	?overflow:IntoReactive<Int>,
-	?position:IntoReactive<Int>,
+	?display:IntoReactive<Display>,
+	?overflow:IntoReactive<Overflow>,
+	?position:IntoReactive<Position>,
 	?top:IntoReactive<Single>,
 	?right:IntoReactive<Single>,
 	?bottom:IntoReactive<Single>,
@@ -46,11 +48,11 @@ typedef DivAttributes = {
 
 	// --- Text Measurement & Typography Properties ---
 	?fontSize:IntoReactive<Single>,
-	?fontWeight:IntoReactive<Int>,
-	?fontStyle:IntoReactive<Int>,
+	?fontWeight:IntoReactive<FontWeight>,
+	?fontStyle:IntoReactive<FontStyle>,
 	?letterSpacing:IntoReactive<Single>,
 	?lineHeight:IntoReactive<Single>,
-	?textAlign:IntoReactive<Int>
+	?textAlign:IntoReactive<TextAlign>
 }
 
 class Div extends Element {
@@ -147,7 +149,7 @@ class Div extends Element {
 		// 3. Mount children structure
 		if (children != null) {
 			for (child in children) {
-				tree.addChild(node, child.node);
+				tree.addChild(node.id, child.node.id);
 			}
 		}
 	}

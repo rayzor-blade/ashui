@@ -2,4 +2,4 @@
 -L tink_hxx
 
 --class-path ../hlwgpu
---class-path haxe
+--class-path ./haxe

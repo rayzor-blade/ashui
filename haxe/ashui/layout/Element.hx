@@ -13,7 +13,7 @@ class Element {
 
 	public inline function appendChild(child:Element):Void {
 		if (this.node != null && child.node != null) {
-			tree.addChild(this.node, child.node);
+			tree.addChild(this.node.id, child.node.id);
 		}
 	}
 }

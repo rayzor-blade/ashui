@@ -1,14 +1,12 @@
 package ashui.types;
 
-class Color {
-    public var ptr(default, null): hl.Abstract<"blinc_color">;
+import ashui.core.externs.BlincNative;
 
-    public function new(hex: Int, alpha: Single) {
-        this.ptr = BlincTypesNative.hl_blinc_color_new(hex, alpha);
-        hl.Gc.setFinalizer(this, finalize);
-    }
+class Color implements IValue {
+	public var ptr(default, null):hl.Abstract<"blinc_value">;
 
-    static function finalize(obj: Color) {
-        BlincTypesNative.hl_blinc_color_drop(obj.ptr);
-    }
+	/** `hex` is `0xRRGGBB`. **/
+	public function new(hex:Int, alpha:Single = 1.0) {
+		this.ptr = BlincNative.blinc_color_hex(hex, alpha);
+	}
 }

@@ -1,21 +1,32 @@
 package ashui.core.externs;
 
-
+/**
+	The layout tree in `blinc_abi.hdll`. Node ids are Blinc's 64-bit
+	`LayoutNodeId`s and are only meaningful within their tree.
+**/
 @:hlNative("blinc_abi")
 extern class LayoutTreeNative {
-    public static function hl_blinc_tree_new(): hl.Abstract<"blinc_tree">;
-    public static function hl_blinc_tree_drop(tree: hl.Abstract<"blinc_tree">): Void;
-    
-    public static function hl_blinc_tree_create_node(tree: hl.Abstract<"blinc_tree">): haxe.Int64;
-    public static function hl_blinc_tree_create_text_node(
-        tree: hl.Abstract<"blinc_tree">, content: hl.Bytes, fontSize: Single, 
-        lineHeight: Single, wrap: Bool, fontName: hl.Bytes, genericFont: Int, 
-        fontWeight: Int, italic: Bool
-    ): haxe.Int64;
-    
-    public static function hl_blinc_tree_add_child(tree: hl.Abstract<"blinc_tree">, parent: haxe.Int64, child: haxe.Int64): Void;
-    public static function hl_blinc_tree_remove_node(tree: hl.Abstract<"blinc_tree">, node: haxe.Int64): Void;
-    public static function hl_blinc_tree_remove_subtree(tree: hl.Abstract<"blinc_tree">, node: haxe.Int64): Void;
-    public static function hl_blinc_tree_clear_children(tree: hl.Abstract<"blinc_tree">, parent: haxe.Int64): Void;
-    public static function hl_blinc_tree_replace_children(tree: hl.Abstract<"blinc_tree">, parent: haxe.Int64, children: hl.BytesAccess<haxe.Int64>, len: Int): Void;
+	static function blinc_tree_new():hl.Abstract<"blinc_tree">;
+
+	static function blinc_tree_create_node(tree:hl.Abstract<"blinc_tree">):haxe.Int64;
+
+	/** `flags`: bit 0 wrap, bit 1 italic. **/
+	static function blinc_tree_create_text_node(tree:hl.Abstract<"blinc_tree">, content:hl.Bytes, fontName:hl.Bytes, fontSize:Single,
+		lineHeight:Single, fontWeight:Int, genericFont:Int, flags:Int):haxe.Int64;
+
+	static function blinc_tree_add_child(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64, child:haxe.Int64):Void;
+	static function blinc_tree_remove_node(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Void;
+	static function blinc_tree_remove_subtree(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Void;
+	static function blinc_tree_clear_children(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64):Void;
+
+	/** `children` holds `len` consecutive 64-bit ids. **/
+	static function blinc_tree_replace_children(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64, children:hl.Bytes, len:Int):Void;
+
+	/** Applies queued property writes; true if any needs a relayout. **/
+	static function blinc_tree_flush(tree:hl.Abstract<"blinc_tree">):Bool;
+
+	static function blinc_tree_compute_layout(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, width:Single, height:Single):Void;
+
+	/** Writes absolute x, y, width, height as four F32s into `out`. **/
+	static function blinc_tree_get_bounds(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 }

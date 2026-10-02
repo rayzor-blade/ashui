@@ -1,6 +1,6 @@
 package ashui.layout;
 
-import ashui.reactive.State;
+import ashui.reactive.Signal;
 import ashui.reactive.Computed;
 
 /**
@@ -8,7 +8,7 @@ import ashui.reactive.Computed;
  */
 enum ReactiveType<T> {
     Const(value: T);
-    Bound(state: State<T>);
+    Bound(state: Signal<T>);
     Computed(computed: Computed<T>);
 }
 
@@ -24,8 +24,19 @@ abstract IntoReactive<T>(ReactiveType<T>) from ReactiveType<T> to ReactiveType<T
         return Const(val);
     }
     
-    @:from 
-    public static inline function fromState<T>(state: State<T>): IntoReactive<T> {
+    /** Number literals for `Single` properties, which would otherwise need two implicit casts. **/
+    @:from
+    public static inline function fromInt(val: Int): IntoReactive<Single> {
+        return Const((val : Single));
+    }
+
+    @:from
+    public static inline function fromFloat(val: Float): IntoReactive<Single> {
+        return Const((val : Single));
+    }
+
+    @:from
+    public static inline function fromState<T>(state: Signal<T>): IntoReactive<T> {
         return Bound(state);
     }
     

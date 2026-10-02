@@ -6,6 +6,9 @@ enum abstract PropertyDataType(Int) {
     var TypeBrush;
     var TypeColor;
     var TypeCornerRadius;
+    var TypeTransform;
+    var TypeShadow;
+    var TypeString;
 }
 
 /**
@@ -85,7 +88,7 @@ enum abstract PropertyId(Int) from Int to Int {
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
                  FontSize | LetterSpacing | LineHeight:
                 TypeF32;
-                
+
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)
             case FlexDirection | AlignItems | JustifyContent | AlignSelf |
                  FlexWrap | Display | Overflow | Position |

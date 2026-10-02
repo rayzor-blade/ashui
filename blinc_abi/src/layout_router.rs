@@ -1,583 +1,534 @@
-use hl_abi::define_prim;
-use std::ffi::CStr;
-use std::sync::Arc;
-use taffy::prelude::*;
+//! Binding node properties to constants, signals and computeds.
+//!
+//! Every router takes `kind`: 0 applies the constant argument, 1 binds the
+//! signal handle, 2 binds the computed handle. A binding also applies its
+//! current value at once, because Blinc's bindings only write on change.
+//! Writes are queued; `blinc_tree_flush` applies them.
+//!
+//! Enum-valued properties use the integer codes of the Haxe enum abstracts in
+//! `ashui.types.Style`. Codes out of range fall back to the property's default.
 
-use blinc_core::reactive::{Computed, State};
-use blinc_core::{Brush, Color, CornerRadius as BorderRadius, Transform};
+use crate::hl::handle_ref;
+use crate::reactive::{Slot, computed_of, state_of};
+use crate::types::Value;
 use blinc_layout::binding::{
     register_typed, register_typed_computed, register_typed_layout, register_typed_layout_computed,
 };
+use blinc_layout::div::{FontWeight, TextAlign};
 use blinc_layout::element::RenderProps;
-use blinc_core::layer::Shadow;
+use blinc_layout::element_style::FontStyle;
 use blinc_layout::property::PropertyId;
 use blinc_layout::stateful::{queue_layout_update_partial, queue_prop_update_partial};
 use blinc_layout::tree::LayoutNodeId;
+use hl_abi::{define_prim, vbyte};
+use std::ffi::c_void;
+use std::sync::Arc;
+use taffy::prelude::*;
+use taffy::{Overflow, Point};
+
+const KIND_CONST: i32 = 0;
+const KIND_SIGNAL: i32 = 1;
+const KIND_COMPUTED: i32 = 2;
+
+/// `PropertyId` in declaration order, which `ashui.layout.PropertyId` mirrors.
+const PROPERTIES: [PropertyId; 43] = {
+    use PropertyId::*;
+    [
+        Background,
+        BorderColor,
+        BorderWidth,
+        CornerRadius,
+        Opacity,
+        Transform,
+        Shadow,
+        Color,
+        Filter,
+        AccentColor,
+        Width,
+        Height,
+        MinWidth,
+        MaxWidth,
+        MinHeight,
+        MaxHeight,
+        Padding,
+        Margin,
+        Gap,
+        FlexDirection,
+        AlignItems,
+        JustifyContent,
+        AlignSelf,
+        FlexGrow,
+        FlexShrink,
+        FlexWrap,
+        FlexBasis,
+        Display,
+        Overflow,
+        Position,
+        Top,
+        Right,
+        Bottom,
+        Left,
+        FontSize,
+        FontFamily,
+        FontWeight,
+        FontStyle,
+        LetterSpacing,
+        LineHeight,
+        TextAlign,
+        TextContent,
+        Compound,
+    ]
+};
+
+fn property(raw: i32) -> Option<PropertyId> {
+    usize::try_from(raw)
+        .ok()
+        .and_then(|i| PROPERTIES.get(i))
+        .copied()
+}
 
 // ============================================================================
-// 1. CORE ROUTING HELPERS
+// BINDING
 // ============================================================================
 
-fn apply_reactive_layout<T: Clone + Send + Sync + 'static>(
-    node_id: LayoutNodeId,
-    prop_id: PropertyId,
-    kind: u8,
-    const_val: T,
-    state_ptr: *const State<T>,
-    comp_ptr: *const Computed<T>,
-    write: impl Fn(&mut taffy::Style, T) + Send + Sync + 'static,
+type LayoutWrite<T> = Arc<dyn Fn(&mut Style, T) + Send + Sync>;
+type RenderWrite<T> = Arc<dyn Fn(&mut RenderProps, T) + Send + Sync>;
+
+/// Where a property's value goes: into the Taffy style (relayout) or into the
+/// node's render props.
+enum Write<T> {
+    Layout(LayoutWrite<T>),
+    Render(RenderWrite<T>),
+}
+
+fn layout<T>(f: impl Fn(&mut Style, T) + Send + Sync + 'static) -> Option<Write<T>> {
+    Some(Write::Layout(Arc::new(f)))
+}
+
+fn render<T>(f: impl Fn(&mut RenderProps, T) + Send + Sync + 'static) -> Option<Write<T>> {
+    Some(Write::Render(Arc::new(f)))
+}
+
+impl<T: Slot> Write<T> {
+    fn queue(&self, node: LayoutNodeId, prop: PropertyId, v: T) {
+        match self {
+            Write::Layout(w) => {
+                let w = Arc::clone(w);
+                queue_layout_update_partial(node, prop, prop.side_effects(), move |s| w(s, v));
+            }
+            Write::Render(w) => {
+                let w = Arc::clone(w);
+                queue_prop_update_partial(node, prop, prop.side_effects(), move |p| w(p, v));
+            }
+        }
+    }
+}
+
+/// # Safety
+/// `sig` and `comp` must each be null or a handle of their kind.
+unsafe fn bind<T: Slot>(
+    node: LayoutNodeId,
+    prop: PropertyId,
+    kind: i32,
+    constant: T,
+    sig: *mut c_void,
+    comp: *mut c_void,
+    write: Write<T>,
 ) {
-    let write_arc = Arc::new(write);
-
     match kind {
-        0 => {
-            let w = Arc::clone(&write_arc);
-            queue_layout_update_partial(node_id, prop_id, prop_id.side_effects(), move |s| {
-                w(s, const_val)
-            });
+        KIND_CONST => write.queue(node, prop, constant),
+        KIND_SIGNAL => {
+            let Some(state) = (unsafe { state_of::<T>(sig) }) else {
+                return;
+            };
+            match &write {
+                Write::Layout(w) => {
+                    let w = Arc::clone(w);
+                    register_typed_layout(
+                        state.signal_id(),
+                        node,
+                        prop,
+                        state.clone(),
+                        move |s, v| w(s, v),
+                    );
+                }
+                Write::Render(w) => {
+                    let w = Arc::clone(w);
+                    register_typed(state.signal_id(), node, prop, state.clone(), move |p, v| {
+                        w(p, v)
+                    });
+                }
+            }
+            write.queue(node, prop, state.signal().get());
         }
-        1 => {
-            let state = unsafe { &*state_ptr }.clone();
-            let w = Arc::clone(&write_arc);
-            register_typed_layout(state.signal_id(), node_id, prop_id, state, move |s, v| {
-                w(s, v)
-            });
-        }
-        2 => {
-            let comp = unsafe { &*comp_ptr }.clone();
-            let w = Arc::clone(&write_arc);
-            register_typed_layout_computed(
-                comp.derived_id(),
-                node_id,
-                prop_id,
-                comp,
-                move |s, v| w(s, v),
-            );
+        KIND_COMPUTED => {
+            let Some(c) = (unsafe { computed_of::<T>(comp) }) else {
+                return;
+            };
+            match &write {
+                Write::Layout(w) => {
+                    let w = Arc::clone(w);
+                    register_typed_layout_computed(
+                        c.derived_id(),
+                        node,
+                        prop,
+                        c.clone(),
+                        move |s, v| w(s, v),
+                    );
+                }
+                Write::Render(w) => {
+                    let w = Arc::clone(w);
+                    register_typed_computed(c.derived_id(), node, prop, c.clone(), move |p, v| {
+                        w(p, v)
+                    });
+                }
+            }
+            write.queue(node, prop, c.try_get().unwrap_or_default());
         }
         _ => {}
     }
 }
 
-fn apply_reactive_render<T: Clone + Send + Sync + 'static>(
-    node_id: LayoutNodeId,
-    prop_id: PropertyId,
-    kind: u8,
-    const_val: T,
-    state_ptr: *const State<T>,
-    comp_ptr: *const Computed<T>,
-    write: impl Fn(&mut RenderProps, T) + Send + Sync + 'static,
-) {
-    let write_arc = Arc::new(write);
+// ============================================================================
+// F32: lengths, flex factors, opacity, typography metrics
+// ============================================================================
 
-    match kind {
-        0 => {
-            let w = Arc::clone(&write_arc);
-            queue_prop_update_partial(node_id, prop_id, prop_id.side_effects(), move |p| {
-                w(p, const_val)
-            });
-        }
-        1 => {
-            let state = unsafe { &*state_ptr }.clone();
-            let w = Arc::clone(&write_arc);
-            register_typed(state.signal_id(), node_id, prop_id, state, move |p, v| {
-                w(p, v)
-            });
-        }
-        2 => {
-            let comp = unsafe { &*comp_ptr }.clone();
-            let w = Arc::clone(&write_arc);
-            register_typed_computed(comp.derived_id(), node_id, prop_id, comp, move |p, v| {
-                w(p, v)
-            });
-        }
-        _ => {}
+fn f32_write(prop: PropertyId) -> Option<Write<f32>> {
+    use PropertyId as P;
+    match prop {
+        P::Width => layout(|s, v| s.size.width = Dimension::Length(v)),
+        P::Height => layout(|s, v| s.size.height = Dimension::Length(v)),
+        P::MinWidth => layout(|s, v| s.min_size.width = Dimension::Length(v)),
+        P::MaxWidth => layout(|s, v| s.max_size.width = Dimension::Length(v)),
+        P::MinHeight => layout(|s, v| s.min_size.height = Dimension::Length(v)),
+        P::MaxHeight => layout(|s, v| s.max_size.height = Dimension::Length(v)),
+        P::FlexBasis => layout(|s, v| s.flex_basis = Dimension::Length(v)),
+        P::FlexGrow => layout(|s, v| s.flex_grow = v),
+        P::FlexShrink => layout(|s, v| s.flex_shrink = v),
+        P::Padding => layout(|s, v| {
+            let l = LengthPercentage::Length(v);
+            s.padding = Rect {
+                left: l,
+                right: l,
+                top: l,
+                bottom: l,
+            };
+        }),
+        P::Margin => layout(|s, v| {
+            let l = LengthPercentageAuto::Length(v);
+            s.margin = Rect {
+                left: l,
+                right: l,
+                top: l,
+                bottom: l,
+            };
+        }),
+        P::Gap => layout(|s, v| {
+            let l = LengthPercentage::Length(v);
+            s.gap = Size {
+                width: l,
+                height: l,
+            };
+        }),
+        P::Top => layout(|s, v| s.inset.top = LengthPercentageAuto::Length(v)),
+        P::Right => layout(|s, v| s.inset.right = LengthPercentageAuto::Length(v)),
+        P::Bottom => layout(|s, v| s.inset.bottom = LengthPercentageAuto::Length(v)),
+        P::Left => layout(|s, v| s.inset.left = LengthPercentageAuto::Length(v)),
+        P::Opacity => render(|p, v| p.opacity = v),
+        P::BorderWidth => render(|p, v| p.border_width = v),
+        P::FontSize => render(|p, v| p.font_size = Some(v)),
+        P::LetterSpacing => render(|p, v| p.letter_spacing = Some(v)),
+        P::LineHeight => render(|p, v| p.line_height = Some(v)),
+        _ => None,
     }
 }
-
-// ============================================================================
-// 2. THE FLOAT (F32) ROUTER - Layout Dimensions & Visual Floats
-// ============================================================================
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_apply_f32(
-    node_raw: u64,
-    prop_raw: u32,
-    kind: u8,
-    val_const: f32,
-    state_ptr: *const State<f32>,
-    comp_ptr: *const Computed<f32>,
+    node: u64,
+    prop: i32,
+    kind: i32,
+    constant: f32,
+    sig: *mut c_void,
+    comp: *mut c_void,
 ) {
-    let node_id = LayoutNodeId::from_raw(node_raw);
-    let prop_id: PropertyId = unsafe { std::mem::transmute(prop_raw as u8) };
+    let Some(prop) = property(prop) else { return };
+    let Some(write) = f32_write(prop) else { return };
+    unsafe {
+        bind(
+            LayoutNodeId::from_raw(node),
+            prop,
+            kind,
+            constant,
+            sig,
+            comp,
+            write,
+        )
+    };
+}
+define_prim!(
+    hlp_blinc_apply_f32,
+    hl_blinc_apply_f32,
+    "PliifXblinc_signal_Xblinc_computed__v"
+);
 
-    match prop_id {
-        // --- Layout Properties (Tier 2) ---
-        PropertyId::Width => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.size.width = Dimension::Length(v),
-        ),
-        PropertyId::Height => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.size.height = Dimension::Length(v),
-        ),
-        PropertyId::MinWidth => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.min_size.width = Dimension::Length(v),
-        ),
-        PropertyId::MaxWidth => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.max_size.width = Dimension::Length(v),
-        ),
-        PropertyId::MinHeight => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.min_size.height = Dimension::Length(v),
-        ),
-        PropertyId::MaxHeight => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.max_size.height = Dimension::Length(v),
-        ),
-        PropertyId::FlexBasis => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.flex_basis = Dimension::Length(v),
-        ),
-        PropertyId::FlexGrow => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.flex_grow = v,
-        ),
-        PropertyId::FlexShrink => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.flex_shrink = v,
-        ),
+// ============================================================================
+// I32: layout and text enums
+// ============================================================================
 
-        PropertyId::Padding => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| {
-                let pad = LengthPercentage::Length(v);
-                s.padding.left = pad;
-                s.padding.right = pad;
-                s.padding.top = pad;
-                s.padding.bottom = pad;
-            },
-        ),
-        PropertyId::Margin => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| {
-                let margin = LengthPercentageAuto::Length(v);
-                s.margin.left = margin;
-                s.margin.right = margin;
-                s.margin.top = margin;
-                s.margin.bottom = margin;
-            },
-        ),
-        PropertyId::Gap => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| {
-                s.gap.width = LengthPercentage::Length(v);
-                s.gap.height = LengthPercentage::Length(v);
-            },
-        ),
-
-        PropertyId::Top => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.inset.top = LengthPercentageAuto::Length(v),
-        ),
-        PropertyId::Right => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.inset.right = LengthPercentageAuto::Length(v),
-        ),
-        PropertyId::Bottom => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.inset.bottom = LengthPercentageAuto::Length(v),
-        ),
-        PropertyId::Left => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.inset.left = LengthPercentageAuto::Length(v),
-        ),
-
-        // --- Visual Properties (Tier 1) ---
-        PropertyId::Opacity => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.opacity = v,
-        ),
-        PropertyId::BorderWidth => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.border_width = v,
-        ),
-
-        // --- Text Properties ---
-        PropertyId::FontSize => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.font_size = Some(v),
-        ),
-        PropertyId::LetterSpacing => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.letter_spacing = Some(v),
-        ),
-        PropertyId::LineHeight => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.line_height = Some(v),
-        ),
-
-        _ => {}
+fn display(v: i32) -> Display {
+    match v {
+        0 => Display::Block,
+        2 => Display::Grid,
+        3 => Display::None,
+        _ => Display::Flex,
     }
 }
-define_prim!(hlp_blinc_apply_f32, hl_blinc_apply_f32, "V_I64IIFPP");
 
-// ============================================================================
-// 3. THE INTEGER (I32) ROUTER - Solid Colors & Enums
-// ============================================================================
+fn flex_direction(v: i32) -> FlexDirection {
+    match v {
+        1 => FlexDirection::Column,
+        2 => FlexDirection::RowReverse,
+        3 => FlexDirection::ColumnReverse,
+        _ => FlexDirection::Row,
+    }
+}
+
+fn flex_wrap(v: i32) -> FlexWrap {
+    match v {
+        1 => FlexWrap::Wrap,
+        2 => FlexWrap::WrapReverse,
+        _ => FlexWrap::NoWrap,
+    }
+}
+
+/// `None` is `auto`.
+fn align_items(v: i32) -> Option<AlignItems> {
+    Some(match v {
+        0 => AlignItems::Start,
+        1 => AlignItems::End,
+        2 => AlignItems::FlexStart,
+        3 => AlignItems::FlexEnd,
+        4 => AlignItems::Center,
+        5 => AlignItems::Baseline,
+        6 => AlignItems::Stretch,
+        _ => return None,
+    })
+}
+
+/// `None` is `normal`.
+fn justify_content(v: i32) -> Option<JustifyContent> {
+    Some(match v {
+        0 => JustifyContent::Start,
+        1 => JustifyContent::End,
+        2 => JustifyContent::FlexStart,
+        3 => JustifyContent::FlexEnd,
+        4 => JustifyContent::Center,
+        5 => JustifyContent::Stretch,
+        6 => JustifyContent::SpaceBetween,
+        7 => JustifyContent::SpaceEvenly,
+        8 => JustifyContent::SpaceAround,
+        _ => return None,
+    })
+}
+
+fn position(v: i32) -> Position {
+    match v {
+        1 => Position::Absolute,
+        _ => Position::Relative,
+    }
+}
+
+fn overflow(v: i32) -> Overflow {
+    match v {
+        1 => Overflow::Clip,
+        2 => Overflow::Hidden,
+        3 => Overflow::Scroll,
+        _ => Overflow::Visible,
+    }
+}
+
+/// A CSS numeric weight, to the nearest named one.
+fn font_weight(v: i32) -> FontWeight {
+    match v {
+        ..=149 => FontWeight::Thin,
+        150..=249 => FontWeight::ExtraLight,
+        250..=349 => FontWeight::Light,
+        350..=449 => FontWeight::Normal,
+        450..=549 => FontWeight::Medium,
+        550..=649 => FontWeight::SemiBold,
+        650..=749 => FontWeight::Bold,
+        750..=849 => FontWeight::ExtraBold,
+        _ => FontWeight::Black,
+    }
+}
+
+fn font_style(v: i32) -> FontStyle {
+    match v {
+        1 => FontStyle::Italic,
+        _ => FontStyle::Normal,
+    }
+}
+
+fn text_align(v: i32) -> TextAlign {
+    match v {
+        1 => TextAlign::Center,
+        2 => TextAlign::Right,
+        _ => TextAlign::Left,
+    }
+}
+
+fn i32_write(prop: PropertyId) -> Option<Write<i32>> {
+    use PropertyId as P;
+    match prop {
+        P::Display => layout(|s, v| s.display = display(v)),
+        P::FlexDirection => layout(|s, v| s.flex_direction = flex_direction(v)),
+        P::FlexWrap => layout(|s, v| s.flex_wrap = flex_wrap(v)),
+        P::AlignItems => layout(|s, v| s.align_items = align_items(v)),
+        P::AlignSelf => layout(|s, v| s.align_self = align_items(v)),
+        P::JustifyContent => layout(|s, v| s.justify_content = justify_content(v)),
+        P::Position => layout(|s, v| s.position = position(v)),
+        P::Overflow => layout(|s, v| {
+            let o = overflow(v);
+            s.overflow = Point { x: o, y: o };
+        }),
+        P::FontWeight => render(|p, v| p.font_weight = Some(font_weight(v))),
+        P::FontStyle => render(|p, v| p.font_style = Some(font_style(v))),
+        P::TextAlign => render(|p, v| p.text_align = Some(text_align(v))),
+        _ => None,
+    }
+}
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_apply_i32(
-    node_raw: u64,
-    prop_raw: u32,
-    kind: u8,
-    val_const: i32,
-    state_ptr: *const State<i32>,
-    comp_ptr: *const Computed<i32>,
+    node: u64,
+    prop: i32,
+    kind: i32,
+    constant: i32,
+    sig: *mut c_void,
+    comp: *mut c_void,
 ) {
-    let node_id = LayoutNodeId::from_raw(node_raw);
-    let prop_id: PropertyId = unsafe { std::mem::transmute(prop_raw as u8) };
-
-    match prop_id {
-
-        // --- Layout Enums (Transmuted to Taffy types) ---
-        PropertyId::FlexDirection => apply_reactive_layout(
-            node_id,
-            prop_id,
+    let Some(prop) = property(prop) else { return };
+    let Some(write) = i32_write(prop) else { return };
+    unsafe {
+        bind(
+            LayoutNodeId::from_raw(node),
+            prop,
             kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.flex_direction = unsafe { std::mem::transmute(v as u8) },
-        ),
-        PropertyId::AlignItems => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.align_items = Some(unsafe { std::mem::transmute(v as u8) }),
-        ),
-        PropertyId::JustifyContent => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.justify_content = Some(unsafe { std::mem::transmute(v as u8) }),
-        ),
-        PropertyId::AlignSelf => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.align_self = Some(unsafe { std::mem::transmute(v as u8) }),
-        ),
-        PropertyId::FlexWrap => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.flex_wrap = unsafe { std::mem::transmute(v as u8) },
-        ),
-        PropertyId::Display => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.display = unsafe { std::mem::transmute(v as u8) },
-        ),
-        PropertyId::Position => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| s.position = unsafe { std::mem::transmute(v as u8) },
-        ),
-        PropertyId::Overflow => apply_reactive_layout(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |s, v| {
-                let overflow_val: taffy::style::Overflow = unsafe { std::mem::transmute(v as u8) };
-                s.overflow.x = overflow_val;
-                s.overflow.y = overflow_val;
-            },
-        ),
-
-        // --- Text Enums ---
-        PropertyId::FontWeight => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.font_weight = Some(unsafe { std::mem::transmute(v as u8) }),
-        ),
-        PropertyId::FontStyle => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.font_style = Some(unsafe { std::mem::transmute(v as u8) }),
-        ),
-        PropertyId::TextAlign => apply_reactive_render(
-            node_id,
-            prop_id,
-            kind,
-            val_const,
-            state_ptr,
-            comp_ptr,
-            |p, v| p.text_align = Some(unsafe { std::mem::transmute(v as u8) }),
-        ),
-
-        _ => {}
-    }
-}
-define_prim!(hlp_blinc_apply_i32, hl_blinc_apply_i32, "V_I64IIIPP");
-
-// ============================================================================
-// 4. COMPLEX METADATA ROUTERS (Pointers for Brushes, Transforms, Shadows)
-// ============================================================================
-
-macro_rules! hl_export_complex_router {
-    ($fn_name:ident, $prim_name:ident, $type:ty, $prop_id_match:pat, $render_mutation:expr) => {
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn $fn_name(
-            node_raw: u64, prop_raw: u32, kind: u8,
-            val_ptr: *mut $type,
-            state_ptr: *const State<$type>,
-            comp_ptr: *const Computed<$type>,
-        ) {
-            let node_id = LayoutNodeId::from_raw(node_raw);
-            let prop_id: PropertyId = unsafe { std::mem::transmute(prop_raw as u8) };
-            
-            if !matches!(prop_id, $prop_id_match) { return; }
-
-            let const_val = if kind == 0 && !val_ptr.is_null() {
-                unsafe { (*val_ptr).clone() }
-            } else {
-                return; // Fallback for invalid const pointer
-            };
-
-            // Pass prop_id into the apply_reactive_render closure
-            apply_reactive_render(
-                node_id, prop_id, kind, const_val, state_ptr, comp_ptr, 
-                move |props, val| $render_mutation(props, val, prop_id)
-            );
-        }
-        define_prim!($prim_name, $fn_name, "V_I64IIPPP");
+            constant,
+            sig,
+            comp,
+            write,
+        )
     };
 }
-
-// Complex Brush Router (Enables GlassStyle, Gradients, Images, etc.)
-// Mapped to Background
-hl_export_complex_router!(
-    hl_blinc_apply_brush, hlp_blinc_apply_brush, Brush,
-    PropertyId::Background,
-    |p: &mut RenderProps, v, _prop| p.background = Some(v)
+define_prim!(
+    hlp_blinc_apply_i32,
+    hl_blinc_apply_i32,
+    "PliiiXblinc_signal_Xblinc_computed__v"
 );
 
-hl_export_complex_router!(
-    hl_blinc_apply_color, hlp_blinc_apply_color, Color,
-    PropertyId::BorderColor | PropertyId::Color | PropertyId::AccentColor,
-    |p: &mut RenderProps, v: Color, prop| {
-        match prop {
-            PropertyId::BorderColor => p.border_color = Some(v),
-            PropertyId::Color => p.text_color = Some(v.to_array()),
-            PropertyId::AccentColor => p.outline_color = Some(v),
+// ============================================================================
+// VALUES: brushes, colors, radii, transforms, shadows
+// ============================================================================
+
+/// A value of the wrong variant for the property is ignored.
+fn value_write(prop: PropertyId) -> Option<Write<Value>> {
+    use PropertyId as P;
+    match prop {
+        P::Background => render(|p, v| match v {
+            Value::Brush(b) => p.background = Some(b),
+            Value::Color(c) => p.background = Some(c.into()),
             _ => {}
-        }
+        }),
+        P::BorderColor => render(|p, v| {
+            if let Value::Color(c) = v {
+                p.border_color = Some(c);
+            }
+        }),
+        P::Color => render(|p, v| {
+            if let Value::Color(c) = v {
+                p.text_color = Some(c.to_array());
+            }
+        }),
+        P::AccentColor => render(|p, v| {
+            if let Value::Color(c) = v {
+                p.outline_color = Some(c);
+            }
+        }),
+        P::CornerRadius => render(|p, v| {
+            if let Value::Radius(r) = v {
+                p.border_radius = r;
+                p.border_radius_explicit = true;
+            }
+        }),
+        P::Transform => render(|p, v| {
+            if let Value::Transform(t) = v {
+                p.transform = Some(t);
+            }
+        }),
+        P::Shadow => render(|p, v| {
+            if let Value::Shadow(s) = v {
+                p.shadow = s;
+            }
+        }),
+        _ => None,
     }
-);
-
-hl_export_complex_router!(
-    hl_blinc_apply_corner_radius, hlp_blinc_apply_corner_radius, BorderRadius,
-    PropertyId::CornerRadius,
-    |p: &mut RenderProps, v, _prop| {
-        p.border_radius = v;
-        p.border_radius_explicit = true;
-    }
-);
-
-// Complex Transform Router
-// Mapped to Transform
-hl_export_complex_router!(
-    hl_blinc_apply_transform,
-    hlp_blinc_apply_transform,
-    Transform,
-    PropertyId::Transform,
-    |p: &mut RenderProps, v, _prop| p.transform = Some(v)
-);
-
-// Complex Shadow Router
-// Mapped to Shadow (Allows Vec of layered drop shadows)
-hl_export_complex_router!(
-    hl_blinc_apply_shadow,
-    hlp_blinc_apply_shadow,
-    Vec<Shadow>,
-    PropertyId::Shadow,
-    |p: &mut RenderProps, v, _prop| p.shadow = v
-);
-
+}
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn hl_blinc_apply_string(
-    node_raw: u64, prop_raw: u32, kind: u8,
-    val_ptr: *const std::ffi::c_char,
-    state_ptr: *const State<String>,
-    comp_ptr: *const Computed<String>,
+pub unsafe extern "C" fn hl_blinc_apply_value(
+    node: u64,
+    prop: i32,
+    kind: i32,
+    constant: *mut c_void,
+    sig: *mut c_void,
+    comp: *mut c_void,
 ) {
-    let node_id = LayoutNodeId::from_raw(node_raw);
-    let prop_id: PropertyId = unsafe { std::mem::transmute(prop_raw as u8) };
-    
-    // Unpack constant string safely from raw bytes if kind == 0
-    let const_val = if kind == 0 && !val_ptr.is_null() {
-        let c_str = unsafe { CStr::from_ptr(val_ptr) };
-        c_str.to_string_lossy().into_owned()
-    } else if kind == 0 {
-        String::new()
-    } else {
-        String::new() // Dummy value when bound to state/computed
+    let Some(prop) = property(prop) else { return };
+    let Some(write) = value_write(prop) else {
+        return;
     };
-
-    apply_reactive_render(
-        node_id, prop_id, kind, const_val, state_ptr, comp_ptr,
-        move |p: &mut RenderProps, v| {
-            match prop_id {
-                PropertyId::FontFamily => {
-                    // Map to your RenderProps or text style configuration fields if applicable
-                }
-                PropertyId::TextContent => {
-                    // Dynamic text content updates
-                }
-                _ => {}
-            }
-        }
-    );
+    let constant = unsafe { handle_ref::<Value>(constant) }
+        .cloned()
+        .unwrap_or_default();
+    unsafe {
+        bind(
+            LayoutNodeId::from_raw(node),
+            prop,
+            kind,
+            constant,
+            sig,
+            comp,
+            write,
+        )
+    };
 }
-// Signature: V_I64IIPPP (NodeId, PropId, Kind, ValPtr, StatePtr, CompPtr)
-define_prim!(hlp_blinc_apply_string, hl_blinc_apply_string, "V_I64IIPPP");
+define_prim!(
+    hlp_blinc_apply_value,
+    hl_blinc_apply_value,
+    "PliiXblinc_value_Xblinc_signal_Xblinc_computed__v"
+);
 
+// ============================================================================
+// STRINGS
+// ============================================================================
+
+/// `FontFamily` and `TextContent`. Blinc's `RenderProps` has no font family
+/// field and `LayoutTree` cannot change a text node's content after creation,
+/// so neither has anywhere to go yet and this applies nothing.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_apply_string(
+    _node: u64,
+    _prop: i32,
+    _kind: i32,
+    _constant: *const vbyte,
+    _sig: *mut c_void,
+    _comp: *mut c_void,
+) {
+}
+define_prim!(
+    hlp_blinc_apply_string,
+    hl_blinc_apply_string,
+    "PliiBXblinc_signal_Xblinc_computed__v"
+);
