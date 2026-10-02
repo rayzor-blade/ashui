@@ -44,7 +44,7 @@ class Node {
 				BlincNative.blinc_apply_f32(id, prop, KIND_CONST, v, null, null);
 			case Bound(s):
 				BlincNative.blinc_apply_f32(id, prop, KIND_SIGNAL, 0, s.ptr, null);
-			case Computed(c):
+			case Derived(c):
 				BlincNative.blinc_apply_f32(id, prop, KIND_COMPUTED, 0, null, c.ptr);
 		}
 		Guard.check();
@@ -56,7 +56,7 @@ class Node {
 				BlincNative.blinc_apply_i32(id, prop, KIND_CONST, v, null, null);
 			case Bound(s):
 				BlincNative.blinc_apply_i32(id, prop, KIND_SIGNAL, 0, s.ptr, null);
-			case Computed(c):
+			case Derived(c):
 				BlincNative.blinc_apply_i32(id, prop, KIND_COMPUTED, 0, null, c.ptr);
 		}
 		Guard.check();
@@ -69,7 +69,7 @@ class Node {
 				BlincNative.blinc_apply_value(id, prop, KIND_CONST, v == null ? null : v.ptr, null, null);
 			case Bound(s):
 				BlincNative.blinc_apply_value(id, prop, KIND_SIGNAL, null, s.ptr, null);
-			case Computed(c):
+			case Derived(c):
 				BlincNative.blinc_apply_value(id, prop, KIND_COMPUTED, null, null, c.ptr);
 		}
 		Guard.check();
@@ -81,7 +81,7 @@ class Node {
 				BlincNative.blinc_apply_string(id, prop, KIND_CONST, Utf8.encode(v), null, null);
 			case Bound(s):
 				BlincNative.blinc_apply_string(id, prop, KIND_SIGNAL, null, s.ptr, null);
-			case Computed(c):
+			case Derived(c):
 				BlincNative.blinc_apply_string(id, prop, KIND_COMPUTED, null, null, c.ptr);
 		}
 		Guard.check();

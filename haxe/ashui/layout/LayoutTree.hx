@@ -2,6 +2,8 @@ package ashui.layout;
 
 import ashui.core.Utf8;
 import ashui.core.externs.LayoutTreeNative;
+import ashui.reactive.Guard;
+import ashui.reactive.Watch;
 import ashui.types.Style.GenericFont;
 
 /**
@@ -55,9 +57,15 @@ class LayoutTree {
 		LayoutTreeNative.blinc_tree_replace_children(this.ptr, parent, ids, children.length);
 	}
 
-	/** Applies property writes queued since the last flush; true if any needs a relayout. **/
-	public inline function flush():Bool {
-		return LayoutTreeNative.blinc_tree_flush(this.ptr);
+	/**
+		Lets watches react to what changed, then applies the property writes
+		queued since the last flush. True if anything needs a relayout.
+	**/
+	public function flush():Bool {
+		var reacted = Watch.pollAll();
+		var relayout = LayoutTreeNative.blinc_tree_flush(this.ptr);
+		Guard.check();
+		return reacted || relayout;
 	}
 
 	public inline function computeLayout(root:Node, width:Single, height:Single):Void {

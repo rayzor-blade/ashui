@@ -1,3 +1,5 @@
+import ashui.layout.Element;
+import ashui.layout.IntoReactive;
 import ashui.layout.LayoutTree;
 import ashui.layout.PropertyId;
 import ashui.reactive.Computed;
@@ -6,6 +8,7 @@ import ashui.reactive.Signal;
 import ashui.types.Brush;
 import ashui.types.Color;
 import ashui.types.Style;
+import ashui.ui.Component;
 import ashui.ui.Div;
 import ashui.ui.Text;
 import ashui.ui.Hxx.hxx;
@@ -172,7 +175,11 @@ class Smoke {
 			</Div>
 		'));
 		var hxxLabel:Text = Owner.root(tree, _ -> hxx('<Text>Count: ${hxxCount}</Text>'));
-		var badge:Badge = Owner.root(tree, _ -> hxx('<Badge label={"hi"} />'));
+		var disposeBadge:Void->Void = null;
+		var badge:Badge = Owner.root(tree, dispose -> {
+			disposeBadge = dispose;
+			hxx('<Badge label={"n=" + hxxCount.get()} />');
+		});
 		root.appendChild(view);
 		root.appendChild(hxxLabel);
 		root.appendChild(badge);
@@ -192,6 +199,59 @@ class Smoke {
 			'$labelBefore -> $labelAfter');
 		var b = tree.getBounds(badge.node);
 		check("hxx builds a component tag", b != null && near(b.width, 50), b);
+
+		disposeBadge();
+		check("removing a component disposes what it rendered", badge.node == null);
+
+		// --- <if> swaps branches at the next flush ---
+		var visible = Signal.make(true);
+		var shown:Div = Owner.root(tree, _ -> hxx('
+			<Div flexShrink={0}>
+				<if {visible}>
+					<Div width={30} height={30} />
+				<else>
+					<Div width={10} height={10} />
+				</if>
+			</Div>
+		'));
+		root.appendChild(shown);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var shownBefore = tree.getBounds(shown.node);
+		visible.set(false);
+		check("a changed condition queues a relayout", tree.flush());
+		tree.computeLayout(root.node, 800, 600);
+		var shownAfter = tree.getBounds(shown.node);
+		check("<if> shows the branch for its condition", shownBefore != null && near(shownBefore.width, 30) && shownAfter != null
+			&& near(shownAfter.width, 10), '$shownBefore -> $shownAfter');
+
+		// --- <for> keeps the element of an item still in the list ---
+		var numbers = Signal.make([1, 2, 3]);
+		var built = 0;
+		function cell(n:Int):Element {
+			built++;
+			return new Div({width: n * 10, height: 5});
+		}
+		var listed:Div = Owner.root(tree, _ -> hxx('
+			<Div flexShrink={0}>
+				<for {n in numbers}>{cell(n)}</for>
+			</Div>
+		'));
+		root.appendChild(listed);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var l = tree.getBounds(listed.node);
+		check("<for> builds one item per value", l != null && near(l.width, 60) && built == 3, '$l built=$built');
+		numbers.set([3, 1]);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		l = tree.getBounds(listed.node);
+		check("<for> drops removed items and reuses kept ones", l != null && near(l.width, 40) && built == 3, '$l built=$built');
+		numbers.set([3, 1, 4]);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		l = tree.getBounds(listed.node);
+		check("<for> builds only new items", l != null && near(l.width, 80) && built == 4, '$l built=$built');
 
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
@@ -220,9 +280,8 @@ class Smoke {
 	}
 }
 
-/** A component: a Div with its own children, built from an attribute object. **/
-class Badge extends Div {
-	public function new(attrs:{label:String}) {
-		super({width: 50, height: 20}, [new Text(attrs.label)]);
-	}
+/** A component whose label follows what its attribute reads. **/
+class Badge extends Component<{label:IntoReactive<String>}> {
+	function render():Element
+		return new Div({width: 50, height: 20}, [new Text(props.label)]);
 }

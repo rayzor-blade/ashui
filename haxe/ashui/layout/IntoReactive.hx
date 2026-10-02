@@ -9,7 +9,8 @@ import ashui.reactive.Computed;
 enum ReactiveType<T> {
     Const(value: T);
     Bound(state: Signal<T>);
-    Computed(computed: Computed<T>);
+    /** A computed's value; named apart from `Computed`, which this enum would otherwise shadow wherever it is imported. **/
+    Derived(computed: Computed<T>);
 }
 
 /**
@@ -42,6 +43,6 @@ abstract IntoReactive<T>(ReactiveType<T>) from ReactiveType<T> to ReactiveType<T
     
     @:from 
     public static inline function fromComputed<T>(comp: Computed<T>): IntoReactive<T> {
-        return Computed(comp);
+        return Derived(comp);
     }
 }

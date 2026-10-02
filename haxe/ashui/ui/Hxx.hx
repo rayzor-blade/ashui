@@ -20,14 +20,20 @@ using haxe.macro.TypeTools;
 
 	`Div` and `Text` become their constructor plus one `node.set(Prop.X, v)`
 	per attribute, with no attribute object; `bg` is `Prop.Background` and any
-	other name is the key of that name, capitalised. Any other tag is a
-	component, built as `new Tag({attributes}, [children])`.
+	other name is the key of that name, capitalised. Any other tag must be a
+	`Component`: it is built as `new Tag({attributes}, [children])` and each
+	attribute is checked against the component's props.
 
 	A value typed as a signal or computed is bound as it is. An attribute or
 	text interpolation that calls `.get()` becomes a computed of that
-	expression, so it follows what it reads. Interpolating a signal or
-	computed reads it. Text and interpolations directly inside a `Div` become
-	a `Text`. Elements take their tree from the current `Owner`.
+	expression, so it follows what it reads; for a component, only props typed
+	`IntoReactive<T>` do. Interpolating a signal or computed reads it.
+	Interpolating an element or an array of elements places them as children.
+	Text and interpolations directly inside a `Div` become a `Text`.
+
+	`<if {cond}>...<else>...</if>` is a `Show` and `<for {v in list}>...</for>`
+	a `For`; a branch or loop body of more than one element is wrapped in a
+	`Div`. Elements take their tree from the current `Owner`.
 **/
 class Hxx {
 	public static macro function hxx(template:Expr):Expr {
@@ -41,62 +47,150 @@ class Hxx {
 	#if macro
 	static var counter = 0;
 
-	static function single(nodes:Array<Expr>, pos:Position):Expr {
+	/** Loop variables in scope where the template is being lowered. **/
+	static var locals:Array<{name:String, type:ComplexType}> = [];
+
+	/** `e`'s type with the enclosing loop variables declared, or null if it does not type. **/
+	static function typeOf(e:Expr):Null<Type> {
+		var scoped = e;
+		for (local in locals) {
+			var name = local.name, type = local.type;
+			scoped = macro {
+				var $name:$type = cast null;
+				$scoped;
+			};
+		}
+		return try Context.typeof(scoped) catch (_:Dynamic) null;
+	}
+
+	/** The only element of a template. **/
+	static function single(nodes:Array<Piece>, pos:Position):Expr {
 		return switch nodes {
-			case [one]: one;
+			case [One(e)]: e;
 			case []: Context.error('hxx: the template is empty', pos);
+			case [Many(e)]: Context.error('hxx: a template\'s root is one element, not an array', e.pos);
 			case _: Context.error('hxx: a template has exactly one root element', pos);
 		}
 	}
 
+	/** The elements of a branch or loop body, wrapped in a `Div` if there are several. **/
+	static function group(nodes:Array<Piece>, pos:Position):Expr {
+		return switch nodes {
+			case [One(e)]: e;
+			case []: Context.error('hxx: this body is empty', pos);
+			case _: macro @:pos(pos) new ashui.ui.Div(null, ${childArray(nodes)});
+		}
+	}
+
+	/** The children as one `Array<Element>` expression. **/
+	static function childArray(nodes:Array<Piece>):Expr {
+		var result:Null<Expr> = null;
+		var ones:Array<Expr> = [];
+		function append(e:Expr)
+			result = result == null ? e : macro $result.concat($e);
+		for (node in nodes)
+			switch node {
+				case One(e):
+					ones.push(e);
+				case Many(e):
+					if (ones.length > 0)
+						append(macro $a{ones});
+					ones = [];
+					append(e);
+			}
+		if (ones.length > 0 || result == null)
+			append(macro $a{ones});
+		return result;
+	}
+
 	/** The children of a node as element expressions. **/
-	static function elements(children:Children):Array<Expr> {
-		var out = [];
+	static function elements(children:Children):Array<Piece> {
+		var out:Array<Piece> = [];
 		if (children == null)
 			return out;
 		var run:Array<Child> = [];
 		function endText() {
 			if (run.length > 0)
-				out.push(textElement(run, [], run[0].pos));
+				out.push(One(textElement(run, [], run[0].pos)));
 			run = [];
 		}
 		for (child in children.value)
 			switch child.value {
 				case CNode(node):
 					endText();
-					out.push(lowerNode(node));
-				case CText(text):
+					out.push(One(lowerNode(node)));
+				case CText(_):
 					run.push(child);
-				case CExpr(e) if (isElement(e)):
+				case CExpr(e):
+					switch placement(e) {
+						case null:
+							run.push(child);
+						case piece:
+							endText();
+							out.push(piece);
+					}
+				case CIf(cond, cons, alt):
 					endText();
-					out.push(e);
-				case CExpr(_):
-					run.push(child);
+					var then = group(elements(cons), child.pos);
+					var otherwise = alt == null || alt.value.length == 0 ? macro null : macro () -> ${group(elements(alt), alt.pos)};
+					out.push(One(macro @:pos(child.pos) new ashui.ui.Show(() -> ${read(cond)}, () -> $then, $otherwise)));
+				case CFor(head, body):
+					endText();
+					switch head.expr {
+						case EBinop(OpIn, {expr: EConst(CIdent(name))}, list):
+							var each = read(list);
+							var valueType = switch typeOf(each) {
+								case null: Context.error('hxx: cannot type this list', list.pos);
+								case t: switch Context.follow(t) {
+										case TInst(_.get() => {pack: [], name: 'Array'}, [v]): v.toComplexType();
+										case _: Context.error('hxx: <for> needs an array, or a signal or computed of one', list.pos);
+									}
+							}
+							locals.push({name: name, type: valueType});
+							var item = try group(elements(body), child.pos) catch (e:Dynamic) {
+								locals.pop();
+								throw e;
+							}
+							locals.pop();
+							out.push(One(macro @:pos(child.pos) new ashui.ui.For(() -> $each, ($name : $valueType) -> $item)));
+						case _:
+							Context.error('hxx: a for loop is <for {value in list}>', head.pos);
+					}
 				case CSplat(e):
 					Context.error('hxx: spreading children is not supported', e.pos);
-				case _:
-					Context.error('hxx: control flow is not supported yet', child.pos);
+				case CLet(_, _) | CSwitch(_, _):
+					Context.error('hxx: <let> and <switch> are not supported', child.pos);
 			}
 		endText();
 		return out;
+	}
+
+	/** An interpolation that places elements, or null for one that is text. **/
+	static function placement(e:Expr):Null<Piece> {
+		var type = typeOf(e);
+		if (type == null)
+			return null;
+		if (Context.unify(type, Context.getType('ashui.layout.Element')))
+			return One(e);
+		if (Context.unify(type, (macro :Array<ashui.layout.Element>).toType()))
+			return Many(e);
+		return null;
 	}
 
 	static function lowerNode(node:Node):Expr {
 		return switch node.name.value {
 			case 'Div': lowerDiv(node);
 			case 'Text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
-			case 'if' | 'else' | 'for' | 'switch' | 'case' | 'let':
-				Context.error('hxx: control flow is not supported yet', node.name.pos);
 			case _: lowerComponent(node);
 		}
 	}
 
 	static function lowerDiv(node:Node):Expr {
 		var el = '__div${counter++}';
-		var kids = elements(node.children);
+		var kids = childArray(elements(node.children));
 		var sets = [for (a in node.attributes) setter(el, a, 'Div')];
 		return macro @:pos(node.name.pos) {
-			var $el = new ashui.ui.Div(null, $a{kids});
+			var $el = new ashui.ui.Div(null, $kids);
 			$b{sets};
 			$i{el};
 		};
@@ -141,24 +235,67 @@ class Hxx {
 		};
 	}
 
+	/** `new Tag({props}, [children])` for a `Component` subclass. **/
 	static function lowerComponent(node:Node):Expr {
-		var parts = node.name.value.split('.');
-		var path:TypePath = {pack: parts.slice(0, -1), name: parts[parts.length - 1]};
+		var tag = node.name.value;
+		var type = try Context.getType(tag) catch (_:Dynamic) Context.error('hxx: unknown tag <$tag>', node.name.pos);
+		var cls = switch type {
+			case TInst(c, _): c.get();
+			case _: Context.error('hxx: <$tag> is not a class', node.name.pos);
+		}
+		var props = switch componentProps(type) {
+			case null: Context.error('hxx: <$tag> is not an ashui.ui.Component', node.name.pos);
+			case p: p;
+		}
+		var propTypes = switch Context.follow(props) {
+			case TAnonymous(a): [for (f in a.get().fields) f.name => f.type];
+			case _: Context.error('hxx: <$tag>\'s props are not a structure', node.name.pos);
+		}
 		var fields = [
 			for (a in node.attributes)
 				switch a {
-					case Regular(name, value): {field: name.value, expr: value};
-					case Empty(name): {field: name.value, expr: macro @:pos(name.pos) true};
-					case Splat(e): Context.error('hxx: spreading attributes is not supported', e.pos);
+					case Regular(name, value):
+						var propType = propTypes.get(name.value);
+						if (propType == null)
+							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
+						{field: name.value, expr: propValue(value, propType)};
+					case Empty(name):
+						if (!propTypes.exists(name.value))
+							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
+						{field: name.value, expr: macro @:pos(name.pos) true};
+					case Splat(e):
+						Context.error('hxx: spreading attributes is not supported', e.pos);
 				}
 		];
-		var args:Array<Expr> = [];
-		var kids = elements(node.children);
-		if (fields.length > 0 || kids.length > 0)
-			args.push(fields.length > 0 ? {expr: EObjectDecl(fields), pos: node.name.pos} : macro null);
-		if (kids.length > 0)
-			args.push(macro $a{kids});
-		return {expr: ENew(path, args), pos: node.name.pos};
+		var module = cls.module.split('.').pop();
+		var path:TypePath = module == cls.name ? {pack: cls.pack, name: cls.name} : {pack: cls.pack, name: module, sub: cls.name};
+		var propsExpr:Expr = {expr: EObjectDecl(fields), pos: node.name.pos};
+		var kids = childArray(elements(node.children));
+		return {expr: ENew(path, [propsExpr, kids]), pos: node.name.pos};
+	}
+
+	/** The `Props` of `ashui.ui.Component<Props>` that `type` extends, or null. **/
+	static function componentProps(type:Type):Null<Type> {
+		var current = switch type {
+			case TInst(c, _): c.get().superClass;
+			case _: null;
+		}
+		while (current != null) {
+			var cls = current.t.get();
+			if (cls.pack.join('.') == 'ashui.ui' && cls.name == 'Component')
+				return current.params[0];
+			current = cls.superClass;
+		}
+		return null;
+	}
+
+	/** A prop's value: reactive when the prop takes `IntoReactive<T>`. **/
+	static function propValue(value:Expr, propType:Type):Expr {
+		return switch propType {
+			case TAbstract(_.get() => {pack: ['ashui', 'layout'], name: 'IntoReactive'}, [inner]): bindable(value, inner);
+			case TType(_, _) | TLazy(_): propValue(value, Context.follow(propType, true));
+			case _: value;
+		}
 	}
 
 	/** `el.node.set(Prop.Key, value)` for one attribute. **/
@@ -182,7 +319,7 @@ class Hxx {
 
 	/** An attribute value as `Node.set` takes it: bound, computed, or constant. **/
 	static function bindable(value:Expr, valueType:Type):Expr {
-		var type = try Context.typeof(value) catch (_:Dynamic) null;
+		var type = typeOf(value);
 		if (type != null && isReactive(type))
 			return value;
 		if (callsGet(value)) {
@@ -192,9 +329,15 @@ class Hxx {
 		return value;
 	}
 
+	/** A condition or list read inside a `Show` or `For`: a signal or computed is read. **/
+	static function read(e:Expr):Expr {
+		var type = typeOf(e);
+		return type != null && isReactive(type) ? macro @:pos(e.pos) $e.get() : e;
+	}
+
 	/** An interpolated value as a string piece, and whether it reads a signal. **/
 	static function readValue(e:Expr):{expr:Expr, reactive:Bool} {
-		var type = try Context.typeof(e) catch (_:Dynamic) null;
+		var type = typeOf(e);
 		if (type != null && isReactive(type))
 			return {expr: macro @:pos(e.pos) $e.get(), reactive: true};
 		return {expr: e, reactive: callsGet(e)};
@@ -222,10 +365,13 @@ class Hxx {
 			case _: false;
 		}
 	}
-
-	static function isElement(e:Expr):Bool {
-		var type = try Context.typeof(e) catch (_:Dynamic) null;
-		return type != null && Context.unify(type, Context.getType('ashui.layout.Element'));
-	}
 	#end
 }
+
+#if macro
+/** One element, or an array of them spliced into the children. **/
+private enum Piece {
+	One(e:Expr);
+	Many(e:Expr);
+}
+#end

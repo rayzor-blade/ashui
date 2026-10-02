@@ -23,9 +23,13 @@ class Owner {
 	final cleanups:Array<Void->Void> = [];
 	var disposed = false;
 
-	/** A child of the current owner, with its tree unless given another. **/
-	public function new(?tree:LayoutTree) {
-		parent = current;
+	/**
+		A child of `parent`, or of the current owner, with its tree unless
+		given another.
+	**/
+	public function new(?tree:LayoutTree, ?parent:Owner) {
+		this.parent = parent != null ? parent : current;
+		parent = this.parent;
 		this.tree = tree != null ? tree : parent != null ? parent.tree : null;
 		if (this.tree == null)
 			throw "an Owner needs a tree, or a current owner to take one from";
