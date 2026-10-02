@@ -405,6 +405,93 @@ class Smoke {
 		check("a clipping box with nothing to draw still clips its children",
 			list.count == 1 && list.get(0, 46) == 1 && list.get(0, 34) == 8, [list.count, list.get(0, 46), list.get(0, 34)]);
 
+		// --- Theme tokens, as Blinc's blinc_theme has them ---
+		var hybridLight = ashui.theme.themes.HybridTheme.light();
+		check("a theme reads its tokens",
+			hybridLight.colors.get(Primary).rgb() == 0x2A63E9 && Math.abs(hybridLight.colors.get(SuccessBg).a - 0.12) < 1e-6
+			&& hybridLight.spacing.get(Space4) == 16 && hybridLight.radii.get(Xl) == 18 && hybridLight.shadows.get(Md).length == 2
+			&& hybridLight.typography.get(TextSm) == 13 && hybridLight.animations.get(DurationNormal) == 240);
+		check("the default colours are the default theme's", ashui.theme.ColorTokens.defaults().get(Primary).rgb() == 0x2A63E9);
+		var off = ashui.theme.ShapeTokens.OFF;
+		var hybridN = ashui.theme.themes.HybridTheme.shape().effectiveCornerN();
+		check("shape tokens give the squircle n Blinc does",
+			off.isOff() && off.effectiveCornerN() == 1 && Math.abs(hybridN - Math.log(2.52) / Math.log(2)) < 0.001
+			&& ashui.theme.themes.RestrainedTheme.shape().effectiveCornerN() > hybridN
+			&& hybridN > ashui.theme.themes.ExpressiveTheme.shape().effectiveCornerN()
+			&& ashui.theme.themes.ExpressiveTheme.shape().effectiveCornerN() > 1, hybridN);
+		check("easings evaluate as Blinc's",
+			ashui.theme.Easing.EasingTools.evaluate(EaseIn, 0.5) == 0.25 && ashui.theme.Easing.EasingTools.evaluate(Linear, 2) == 1
+			&& Math.abs(ashui.theme.Easing.EasingTools.evaluate(CubicBezier(0.25, 0.1, 0.25, 1), 0.5) - 0.5375) < 1e-9);
+
+		// --- Corners take the theme's squircle as Blinc's paint walk resolves them ---
+		var CS = ashui.core.render.CornerShape;
+		var smooth = ashui.theme.themes.HybridTheme.shape();
+		var n = smooth.effectiveCornerN();
+		function shapeOf(radii:Array<Float>, w:Float, h:Float, ?explicit:ashui.core.render.CornerShape, locked = false, ?theme)
+			return CS.resolve(explicit != null ? explicit : CS.ROUND, radii, w, h, theme != null ? theme : smooth, 9999, locked);
+		function corners(s:ashui.core.render.CornerShape)
+			return [s.topLeft, s.topRight, s.bottomRight, s.bottomLeft];
+		check("an explicit corner shape wins over the theme", shapeOf([20, 20, 20, 20], 100, 100, CS.BEVEL).equals(CS.BEVEL));
+		check("a theme with smoothing off keeps corners round", shapeOf([20, 20, 20, 20], 100, 100, null, false, off).equals(CS.ROUND));
+		check("a full radius stays round", shapeOf([9999, 9999, 9999, 9999], 300, 300).equals(CS.ROUND));
+		check("a locked shape stays round", shapeOf([20, 20, 20, 20], 100, 100, null, true).equals(CS.ROUND));
+		check("a circle and a pill stay round", shapeOf([16, 16, 16, 16], 32, 32).equals(CS.ROUND) && shapeOf([20, 20, 20, 20], 200, 40).equals(CS.ROUND));
+		check("small corners stay round, large ones are smoothed",
+			corners(shapeOf([15, 15, 15, 4], 40, 40)).join(",") == [n, n, n, 1].join(","), corners(shapeOf([15, 15, 15, 4], 40, 40)));
+		check("a corner near a full circle stays round", corners(shapeOf([19, 19, 19, 4], 40, 40)).join(",") == "1,1,1,1");
+		check("each corner is resolved on its own", corners(shapeOf([8, 16, 16, 8], 200, 100)).join(",") == [1, n, n, 1].join(","));
+		check("a smoothed corner is between a circle and a squircle", shapeOf([20, 20, 20, 20], 200, 100).topLeft > 1 && n < 2);
+
+		// --- ThemeState: overrides, CSS variables, schemes ---
+		ashui.theme.ThemeState.init(ashui.theme.themes.HybridTheme.bundle(), Light);
+		var themeState = ashui.theme.ThemeState.get();
+		var vars = themeState.toCssVariableMap();
+		check("the CSS variable map writes values as Blinc does",
+			[for (k in vars.keys()) k].length == 118 && vars.get("radius-xl") == "18px" && vars.get("text-sm") == "13px"
+			&& vars.get("primary") == "#2a63e9" && vars.get("border") == "rgba(15,20,34,0.1)" && vars.get("focus-ring") == "rgba(42,99,233,0.35)"
+			&& vars.get("font-sans").indexOf('"Noto Sans"') == 0 && vars.get("ease-default") == "cubic-bezier(0.25, 0.1, 0.25, 1)"
+			&& vars.get("leading-tight") == "1.25" && vars.get("tracking-tight") == "-0.025em" && vars.get("duration-fast") == "180ms",
+			[for (k in ["border", "focus-ring", "ease-default", "leading-tight", "tracking-tight", "font-sans"]) vars.get(k)]);
+		themeState.setColorOverride(Primary, ashui.theme.Rgba.fromHex(0x112233));
+		themeState.setRadiusOverride(Lg, 3);
+		check("an override wins over the theme, but not in the token sets",
+			themeState.color(Primary).rgb() == 0x112233 && themeState.colors().get(Primary).rgb() == 0x2A63E9 && themeState.radius(Lg) == 3
+			&& themeState.radii().get(Lg) == 14 && themeState.toCssVariableMap().get("primary") == "#112233");
+		themeState.clearOverrides();
+		themeState.setScheme(Dark);
+		check("without a scheduler a scheme switch is instant", themeState.color(Surface).rgb() == 0x1A1F2E && !themeState.isAnimating());
+		var scheduler = new ashui.animation.AnimationScheduler();
+		themeState.setScheduler(scheduler);
+		themeState.setScheme(Light);
+		var before = themeState.color(Surface).rgb();
+		scheduler.tick(0.1);
+		themeState.tick();
+		var during = themeState.color(Surface);
+		for (_ in 0...200) {
+			scheduler.tick(1 / 60);
+			themeState.tick();
+		}
+		check("with a scheduler the colours spring to the new scheme",
+			before == 0x1A1F2E && during.r > 0x1A / 255 && during.r < 1 && themeState.color(Surface).rgb() == 0xFFFFFF && !themeState.isAnimating(),
+			[before, during.rgb(), themeState.color(Surface).rgb()]);
+
+		var themeTree = new LayoutTree();
+		var themed = Owner.root(themeTree, _ -> new Div({width: 100, height: 60, bg: ashui.theme.Themed.brush(Surface), cornerRadius: ashui.types.CornerRadius.all(14)}));
+		themeTree.flush();
+		themeTree.computeLayout(themed.node, 100, 60);
+		var themeList = new ashui.layout.DisplayList();
+		themeList.update(themeTree, themed.node);
+		var lightFill = themeList.get(0, 8);
+		var squircle = themeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD);
+		themeState.setScheduler(null);
+		themeState.setScheme(Dark);
+		themeTree.flush();
+		themeList.update(themeTree, themed.node);
+		var darkFill = themeList.get(0, 8);
+		themeState.setScheme(Light);
+		check("a prop bound to a colour token follows the scheme", lightFill == 1 && Math.abs(darkFill - 0x1A / 255) < 0.01, [lightFill, darkFill]);
+		check("a box gets the theme's squircle in its record", Math.abs(squircle - n) < 1e-6, squircle);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

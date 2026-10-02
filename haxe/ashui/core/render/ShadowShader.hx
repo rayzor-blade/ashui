@@ -30,7 +30,8 @@ class ShadowShader implements UiShader {
 			var result = vec4(0., 0., 0., 0.);
 			if (s.z > 0. || s.w != 0.) {
 				var spread = vec2(s.w, s.w);
-				var d = sdRoundedRect(p, origin + s.xy - spread, size + spread * 2., primitive.cornerRadius + vec4(s.w, s.w, s.w, s.w));
+				var d = sdShapedRect(p, origin + s.xy - spread, size + spread * 2., primitive.cornerRadius + vec4(s.w, s.w, s.w, s.w),
+					primitive.cornerShape);
 				var alpha = 0.;
 				if (s.z < 0.001) {
 					if (d < 0.)
@@ -40,7 +41,7 @@ class ShadowShader implements UiShader {
 				}
 				result = primitive.shadowColor * alpha;
 			}
-			var outside = smoothstep(-0.75, 0.75, sdRoundedRect(p, origin, size, primitive.cornerRadius));
+			var outside = smoothstep(-0.75, 0.75, sdShapedRect(p, origin, size, primitive.cornerRadius, primitive.cornerShape));
 			output.color = vec4(result.rgb, result.a * outside * clip);
 		}
 	};

@@ -10,11 +10,15 @@ import ashui.core.externs.LayoutTreeNative;
 	it is.
 **/
 class DisplayList {
-	public static inline var RECORD_FLOATS = 48;
+	public static inline var RECORD_FLOATS = 52;
 	public static inline var RECORD_BYTES = RECORD_FLOATS * 4;
 
 	/** Where the primitive type sits in a record, and its values. **/
 	public static inline var KIND_FIELD = 44;
+	/** 1 when the node keeps its corner shape whatever the theme. **/
+	public static inline var SHAPE_LOCKED_FIELD = 47;
+	/** The four corners' `n`, top-left first. **/
+	public static inline var CORNER_SHAPE_FIELD = 48;
 	public static inline var PRIM_RECT = 0;
 	public static inline var PRIM_SHADOW = 3;
 
@@ -34,11 +38,35 @@ class DisplayList {
 			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, bytes.getData(), capacity);
 		}
 		count = needed;
+		smoothCorners();
+	}
+
+	/** Gives each record the installed theme's squircle, as Blinc's paint walk does; nothing without a theme. **/
+	function smoothCorners():Void {
+		var theme = ashui.theme.ThemeState.tryGet();
+		if (theme == null)
+			return;
+		var shape = theme.shape();
+		var radiusFull = theme.radii().radiusFull;
+		for (r in 0...count) {
+			var explicit = new ashui.core.render.CornerShape(get(r, CORNER_SHAPE_FIELD), get(r, CORNER_SHAPE_FIELD + 1),
+				get(r, CORNER_SHAPE_FIELD + 2), get(r, CORNER_SHAPE_FIELD + 3));
+			var resolved = ashui.core.render.CornerShape.resolve(explicit, [for (c in 4...8) get(r, c)], get(r, 2), get(r, 3), shape, radiusFull,
+				get(r, SHAPE_LOCKED_FIELD) == 1);
+			set(r, CORNER_SHAPE_FIELD, resolved.topLeft);
+			set(r, CORNER_SHAPE_FIELD + 1, resolved.topRight);
+			set(r, CORNER_SHAPE_FIELD + 2, resolved.bottomRight);
+			set(r, CORNER_SHAPE_FIELD + 3, resolved.bottomLeft);
+		}
 	}
 
 	/** The primitive type of record `record`. **/
 	public inline function kind(record:Int):Int {
 		return Std.int(get(record, KIND_FIELD));
+	}
+
+	inline function set(record:Int, field:Int, value:Float):Void {
+		bytes.setFloat((record * RECORD_FLOATS + field) * 4, value);
 	}
 
 	/** Field `field` of record `record`. **/

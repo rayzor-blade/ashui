@@ -42,6 +42,49 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			return length(max(qa, vec2(0., 0.))) + min(max(qa.x, qa.y), 0.) - r;
 		}
 
+		/**
+			Distance to a box whose corners each follow a superellipse of
+			`shape`'s `n`: 1 round, 2 squircle, 0 bevel, -1 scoop, 100 or more
+			square, -100 or less notch. Blinc's `sd_shaped_rect`.
+		**/
+		function sdShapedRect(p : Vec2, origin : Vec2, size : Vec2, radius : Vec4, shape : Vec4) : Float {
+			var halfSize = size * 0.5;
+			var rel = p - (origin + halfSize);
+			var q = abs(rel) - halfSize;
+			var r = radius.w;
+			var n = shape.w;
+			if (rel.y < 0.) {
+				r = radius.x;
+				n = shape.x;
+				if (rel.x > 0.) {
+					r = radius.y;
+					n = shape.y;
+				}
+			} else if (rel.x > 0.) {
+				r = radius.z;
+				n = shape.z;
+			}
+			r = min(r, min(halfSize.x, halfSize.y));
+			var qa = q + vec2(r, r);
+			var d = 0.;
+			if (n <= -100.) {
+				d = min(max(q.x, q.y + r), max(q.x + r, q.y));
+			} else if (abs(n - 1.) < 0.01) {
+				d = length(max(qa, vec2(0., 0.))) + min(max(qa.x, qa.y), 0.) - r;
+			} else if (qa.x <= 0. || qa.y <= 0.) {
+				d = max(q.x, q.y);
+			} else if (n >= 100.) {
+				d = max(qa.x, qa.y) - r;
+			} else {
+				var t = qa / max(r, 0.001);
+				var e = pow(2., min(abs(n), 5.));
+				d = (pow(pow(t.x, e) + pow(t.y, e), 1. / e) - 1.) * r;
+				if (n < 0.)
+					d = -d;
+			}
+			return d;
+		}
+
 		/** Distance to the inside of a quarter ellipse, for a border's inner corner. **/
 		function quarterEllipseSdf(point : Vec2, radii : Vec2) : Float {
 			var safe = max(radii, vec2(0.001, 0.001));

@@ -1,32 +1,49 @@
 import ashui.core.render.Snapshot;
+import ashui.layout.Prop;
+import ashui.theme.ColorScheme;
+import ashui.theme.Themed;
+import ashui.theme.ThemeState;
+import ashui.theme.themes.DefaultTheme;
 import ashui.types.Brush;
-import ashui.types.Color;
-import ashui.types.CornerRadius;
-import ashui.types.Shadow;
 import ashui.types.Style;
 import ashui.ui.Div;
 import ashui.ui.Hxx.hxx;
 
-/** A card with a shadow, a gradient header and a row of chips. **/
+/**
+	A card in the default theme, light and dark: surface, border and shadow
+	from the theme's tokens, corners on its radius ladder, so the larger
+	ones take the theme's squircle and the pills stay round.
+**/
 class Demo {
 	static function main() {
-		Snapshot.scene("demo", 320, 200, () -> {
-			var card:Div = hxx('
-				<Div width={280} height={160} margin={20} padding={12} gap={10} flexDirection={Column}
-					cornerRadius={CornerRadius.all(14)} bg={Brush.solid(0xffffff)}
-					borderColor={new Color(0xd0d7de)} borderWidth={1}>
-					<Div height={48} flexShrink={0} cornerRadius={CornerRadius.all(8)}
-						bg={Brush.linearGradient(0, 0, 256, 0, 0x6366f1, 1, 0xec4899, 1)} />
-					<Div flexDirection={Row} gap={8}>
-						<Div width={60} height={24} cornerRadius={CornerRadius.all(12)} bg={Brush.solid(0xdbeafe)} />
-						<Div width={44} height={24} cornerRadius={CornerRadius.all(12)} bg={Brush.solid(0xdcfce7)} />
-						<Div width={72} height={24} cornerRadius={CornerRadius.all(12)} bg={Brush.solid(0xfef3c7)} />
-					</Div>
+		ThemeState.init(DefaultTheme.bundle(), Light);
+		var theme = ThemeState.get();
+		for (scheme in [ColorScheme.Light, ColorScheme.Dark]) {
+			theme.setScheme(scheme);
+			var page = theme.color(Background);
+			Snapshot.scene(scheme == Light ? "demo-light" : "demo-dark", 320, 200, card, page.rgb(), page.a);
+		}
+	}
+
+	static function card():Div {
+		var theme = ThemeState.get();
+		var primary = theme.color(Primary).rgb();
+		var accent = theme.color(Accent).rgb();
+		var chips = [Themed.brush(AccentSubtle), Themed.brush(SuccessBg), Themed.brush(WarningBg)];
+		var card:Div = hxx('
+			<Div width={280} height={160} margin={20} padding={16} gap={12} flexDirection={Column}
+				cornerRadius={Themed.radius(Xl)} bg={Themed.brush(Surface)}
+				borderColor={Themed.color(Border)} borderWidth={1}>
+				<Div height={56} flexShrink={0} cornerRadius={Themed.radius(Lg)}
+					bg={Brush.linearGradient(0, 0, 248, 0, primary, 1, accent, 0.6)} />
+				<Div flexDirection={Row} gap={8}>
+					<Div width={64} height={24} cornerRadius={Themed.radius(Full)} bg={chips[0]} />
+					<Div width={48} height={24} cornerRadius={Themed.radius(Full)} bg={chips[1]} />
+					<Div width={72} height={24} cornerRadius={Themed.radius(Full)} bg={chips[2]} />
 				</Div>
-			');
-			card.node.set(ashui.layout.Prop.Shadow, new Shadow(0, 8, 16, 0x0f172a, 0.25));
-			var page:Div = new Div({width: 320, height: 200, bg: Brush.solid(0xf1f5f9)}, [card]);
-			page;
-		}, 0xf1f5f9);
+			</Div>
+		');
+		card.node.set(Prop.Shadow, Themed.shadow(Lg));
+		return new Div({width: 320, height: 200}, [card]);
 	}
 }

@@ -39,7 +39,8 @@ class UiFramework extends Extension {
 				clipBounds : Vec4,
 				clipRadius : Vec4,
 				gradient : Vec4,
-				typeInfo : Vec4
+				typeInfo : Vec4,
+				cornerShape : Vec4
 			};
 			@global var viewport : Vec2;
 		};

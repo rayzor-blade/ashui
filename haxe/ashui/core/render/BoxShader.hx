@@ -2,8 +2,8 @@ package ashui.core.render;
 
 /**
 	A box: its fill, solid or a two-stop gradient, with its border drawn
-	inside its edge, under its clip. Blinc's `sdf_core.wgsl` for rect
-	primitives, without transforms or corner shapes.
+	inside its edge, its corners shaped as its record says, under its clip.
+	Blinc's `sdf_core.wgsl` for rect primitives, without transforms.
 **/
 class BoxShader implements UiShader {
 	static var SRC = {
@@ -29,8 +29,8 @@ class BoxShader implements UiShader {
 			between the edge and the inner shape; straight alpha. With
 			different side widths the inner corners are quarter ellipses.
 		**/
-		function withBorder(p : Vec2, origin : Vec2, size : Vec2, radii : Vec4, d : Float, coverage : Float, fill : Vec4, border : Vec4,
-				borderColor : Vec4) : Vec4 {
+		function withBorder(p : Vec2, origin : Vec2, size : Vec2, radii : Vec4, shape : Vec4, d : Float, coverage : Float, fill : Vec4,
+				border : Vec4, borderColor : Vec4) : Vec4 {
 			var result = fill;
 			if (max(max(border.x, border.y), max(border.z, border.w)) > 0.) {
 				var aa = 0.5;
@@ -46,12 +46,17 @@ class BoxShader implements UiShader {
 				var halfSize = size * 0.5;
 				var rel = p - (origin + halfSize);
 				var r = radii.w;
+				var n = shape.w;
 				if (rel.y < 0.) {
 					r = radii.x;
-					if (rel.x > 0.)
+					n = shape.x;
+					if (rel.x > 0.) {
 						r = radii.y;
+						n = shape.y;
+					}
 				} else if (rel.x > 0.) {
 					r = radii.z;
+					n = shape.z;
 				}
 				r = min(r, min(halfSize.x, halfSize.y));
 				var bx = right;
@@ -76,8 +81,20 @@ class BoxShader implements UiShader {
 						innerSdf = -(d + reduced.x);
 					else if (cornerCenterToPoint.x <= 0. || cornerCenterToPoint.y <= 0.)
 						innerSdf = -max(straightInner.x, straightInner.y);
-					else
+					else if (abs(n - 1.) < 0.01)
 						innerSdf = quarterEllipseSdf(cornerCenterToPoint, max(vec2(0., 0.), vec2(r, r) - reduced));
+					else {
+						// The inner corner of a squircle border: a superellipse of the reduced radii.
+						var innerRadii = max(vec2(0., 0.), vec2(r, r) - reduced);
+						var e = pow(2., min(abs(n), 5.));
+						if (min(innerRadii.x, innerRadii.y) < 0.001) {
+							innerSdf = -length(max(vec2(0., 0.), cornerCenterToPoint));
+						} else {
+							var it = cornerCenterToPoint / innerRadii;
+							var se = pow(max(it.x, 0.), e) + pow(max(it.y, 0.), e);
+							innerSdf = -((pow(se, 1. / e) - 1.) * sqrt(innerRadii.x * innerRadii.y));
+						}
+					}
 					var borderA = borderColor.a * smoothstep(-aa, aa, -innerSdf) * step(0.001, coverage);
 					var outA = borderA + fill.a * (1. - borderA);
 					var rgb = vec3(0., 0., 0.);
@@ -102,10 +119,11 @@ class BoxShader implements UiShader {
 				discard;
 			var origin = primitive.bounds.xy;
 			var size = primitive.bounds.zw;
-			var d = sdRoundedRect(p, origin, size, primitive.cornerRadius);
+			var d = sdShapedRect(p, origin, size, primitive.cornerRadius, primitive.cornerShape);
 			var coverage = 1. - smoothstep(-0.5, 0.5, d);
 			var fill = fillAt(p, primitive.color, primitive.color2, primitive.gradient, primitive.typeInfo.y);
-			fill = withBorder(p, origin, size, primitive.cornerRadius, d, coverage, fill, primitive.border, primitive.borderColor);
+			fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
+				primitive.borderColor);
 			output.color = vec4(fill.rgb, fill.a * clip * coverage);
 		}
 	};

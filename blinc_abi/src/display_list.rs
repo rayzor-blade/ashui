@@ -17,19 +17,22 @@
 //! | 8  | clip bounds x, y, width, height                                |
 //! | 9  | clip corner radii                                              |
 //! | 10 | gradient: linear x1, y1, x2, y2 or radial cx, cy, r, 0 (pixels) |
-//! | 11 | primitive type, fill type, clip type, 0                        |
+//! | 11 | primitive type, fill type, clip type, corner shape locked (1/0) |
+//! | 12 | corner shape `n`: top-left, top-right, bottom-right, bottom-left |
 //!
 //! The walk follows Blinc's `paint/basic.rs`: a node's shadows, last first,
 //! then its fill merged with its border, then its children under the clip it
 //! pushes when its overflow is not visible. Glass, blur and image brushes
-//! draw nothing yet; transforms are not applied.
+//! draw nothing yet; transforms are not applied. The corner shape is the
+//! node's own; ashui applies its theme's squircle to it after the walk.
 
 use crate::node::Tree;
 use blinc_core::{Brush, Color, CornerRadius, Gradient, GradientSpace};
+use blinc_layout::element::RenderProps;
 use blinc_layout::tree::LayoutNodeId;
 use taffy::Overflow;
 
-pub const RECORD_FLOATS: usize = 48;
+pub const RECORD_FLOATS: usize = 52;
 
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
@@ -198,6 +201,8 @@ struct Primitive {
     gradient: [f32; 4],
     kind: f32,
     fill_type: f32,
+    corner_shape: [f32; 4],
+    shape_locked: f32,
 }
 
 impl Primitive {
@@ -214,7 +219,15 @@ impl Primitive {
             gradient: [0.0, 0.0, 1.0, 0.0],
             kind,
             fill_type: FILL_SOLID,
+            corner_shape: [1.0; 4],
+            shape_locked: 0.0,
         }
+    }
+
+    /// The node's own corner shape, which the theme may yet smooth unless locked.
+    fn shape_from(&mut self, props: &RenderProps) {
+        self.corner_shape = props.corner_shape.to_array();
+        self.shape_locked = if props.corner_shape_locked { 1.0 } else { 0.0 };
     }
 
     fn push(&self, clip: &([f32; 4], [f32; 4], f32), out: &mut Vec<f32>) {
@@ -233,7 +246,8 @@ impl Primitive {
         ] {
             out.extend_from_slice(row);
         }
-        out.extend_from_slice(&[self.kind, self.fill_type, clip.2, 0.0]);
+        out.extend_from_slice(&[self.kind, self.fill_type, clip.2, self.shape_locked]);
+        out.extend_from_slice(&self.corner_shape);
     }
 }
 
@@ -268,6 +282,7 @@ pub fn append(
 
         for s in props.shadow.iter().rev() {
             let mut p = Primitive::new(PRIM_SHADOW, rect, radii);
+            p.shape_from(props);
             p.shadow = [s.offset_x, s.offset_y, s.blur, s.spread];
             p.shadow_color = rgba(s.color, opacity);
             if p.shadow_color[3] > 0.0 {
@@ -281,6 +296,7 @@ pub fn append(
         let transparent = Brush::Solid(Color::TRANSPARENT);
         let brush = props.background.as_ref().or(border.map(|_| &transparent));
         let mut p = Primitive::new(PRIM_RECT, rect, radii);
+        p.shape_from(props);
         if brush.is_some_and(|b| fill(&mut p, b, opacity)) {
             if let Some(bc) = border {
                 p.border = [bw; 4];
