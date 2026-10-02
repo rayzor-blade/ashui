@@ -3,11 +3,7 @@ package ashui.core.render;
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
 
-/**
-	PNG encoding of 8-bit RGBA pixels, in plain Haxe so it runs on any
-	runtime: the image data is deflated as stored blocks, uncompressed, which
-	needs no zlib. Files are about the size of the pixels.
-**/
+/** PNG encoding of 8-bit RGBA pixels, deflated with `haxe.zip.Compress`. **/
 class Png {
 	/** `pixels` holds `width` × `height` RGBA pixels, rows top first, `stride` bytes apart. **/
 	public static function encode(width:Int, height:Int, pixels:Bytes, ?stride:Int):Bytes {
@@ -33,31 +29,8 @@ class Png {
 		for (b in [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
 			out.addByte(b);
 		chunk(out, "IHDR", header);
-		chunk(out, "IDAT", zlibStored(raw));
+		chunk(out, "IDAT", haxe.zip.Compress.run(raw, 6));
 		chunk(out, "IEND", Bytes.alloc(0));
-		return out.getBytes();
-	}
-
-	/** `data` as a zlib stream of stored deflate blocks. **/
-	static function zlibStored(data:Bytes):Bytes {
-		var out = new BytesBuffer();
-		out.addByte(0x78);
-		out.addByte(0x01);
-		var pos = 0;
-		do {
-			var len = data.length - pos;
-			if (len > 0xFFFF)
-				len = 0xFFFF;
-			out.addByte(pos + len == data.length ? 1 : 0);
-			out.addByte(len & 0xFF);
-			out.addByte(len >> 8);
-			out.addByte(~len & 0xFF);
-			out.addByte((~len >> 8) & 0xFF);
-			out.addBytes(data, pos, len);
-			pos += len;
-		} while (pos < data.length);
-		var adler = haxe.crypto.Adler32.make(data);
-		out.addInt32(bigEndian(adler));
 		return out.getBytes();
 	}
 
