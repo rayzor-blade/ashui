@@ -75,8 +75,8 @@ class Snapshot {
 	/** RGBA rows of `list` drawn at `width` × `height`, `stride` bytes apart. **/
 	static function render(list:DisplayList, width:Int, height:Int, clear:Int, clearAlpha:Float):{bytes:haxe.io.Bytes, stride:Int} {
 		if (device == null) {
-			var adapter = settle(new GpuInstance().requestAdapter(Power.HighPerformance));
-			device = settle(adapter.requestDevice());
+			var adapter = new GpuInstance().requestAdapter(Power.HighPerformance).await();
+			device = adapter.requestDevice().await();
 			renderer = new Renderer(device, TextureFormat.Rgba8unorm);
 		}
 		var size = new GpuExtent3D(width);
@@ -91,7 +91,7 @@ class Snapshot {
 		var encoder = device.encoder();
 		encoder.copyTextureToBuffer(target, readback, width, height, stride);
 		encoder.submit(device.queue());
-		settle(device.mapBuffer(readback, 0, stride * height));
+		device.mapBuffer(readback, 0, stride * height).await();
 		var bytes = haxe.io.Bytes.alloc(stride * height);
 		readback.copyOut(0, bytes, bytes.length);
 		readback.unmap();
@@ -101,16 +101,6 @@ class Snapshot {
 		if (error != null)
 			throw 'gpu error capturing: $error';
 		return {bytes: bytes, stride: stride};
-	}
-
-	/**
-		The value of `future`. Polls `isReady` instead of parking in `await`,
-		which on Ash does not yet wake for futures hlwgpu settles (ash 158658d).
-	**/
-	static function settle<T>(future:ash.Future<T>):T {
-		while (!future.isReady())
-			Sys.sleep(0.001);
-		return future.await();
 	}
 
 	static function event(line:String):Void {
