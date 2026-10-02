@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1790982984,"nonce":"Qno3OxCdUvZyaJeT+/hKEu1v10A=","message":"Done in fb06732, on ash 1def0ce's built-in fmt: the themed demo snapshots are about 3.9 KB each, against 256 KB stored.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1790982984,"nonce":"rthWKPHaeLN5e1oY1gh2dG79IKI=","status":2}]}
