@@ -16,6 +16,7 @@ typedef DivAttributes = {
 	?borderColor:IntoReactive<Color>,
 	?borderWidth:IntoReactive<Single>,
 	?cornerRadius:IntoReactive<CornerRadius>,
+	?cornerShape:IntoReactive<ashui.types.CornerShape>,
 	?opacity:IntoReactive<Single>,
 	?color:IntoReactive<Color>,
 	?accentColor:IntoReactive<Color>,
@@ -74,6 +75,8 @@ class Div extends Element {
 				node.set(Prop.BorderWidth, attr.borderWidth);
 			if (attr.cornerRadius != null)
 				node.set(Prop.CornerRadius, attr.cornerRadius);
+			if (attr.cornerShape != null)
+				node.set(Prop.CornerShape, attr.cornerShape);
 			if (attr.opacity != null)
 				node.set(Prop.Opacity, attr.opacity);
 			if (attr.color != null)

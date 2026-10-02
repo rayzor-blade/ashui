@@ -75,9 +75,11 @@ class BoxShader implements UiShader {
 				var nearCorner = cornerCenterToPoint.x >= 0. && cornerCenterToPoint.y >= 0.;
 				var straightInner = cornerToPoint + reduced;
 				var insideStraight = straightInner.x < -aa && straightInner.y < -aa;
-				if (nearCorner || !insideStraight) {
+				// A concave corner's edges lie inside the box and away from its corner square.
+				var concave = n < 0.;
+				if (nearCorner || !insideStraight || concave) {
 					var innerSdf = 0.;
-					if (abs(reduced.x - reduced.y) < 0.001)
+					if (abs(reduced.x - reduced.y) < 0.001 || concave)
 						innerSdf = -(d + reduced.x);
 					else if (cornerCenterToPoint.x <= 0. || cornerCenterToPoint.y <= 0.)
 						innerSdf = -max(straightInner.x, straightInner.y);

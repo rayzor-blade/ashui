@@ -424,23 +424,22 @@ class Smoke {
 			&& Math.abs(ashui.theme.Easing.EasingTools.evaluate(CubicBezier(0.25, 0.1, 0.25, 1), 0.5) - 0.5375) < 1e-9);
 
 		// --- Corners take the theme's squircle as Blinc's paint walk resolves them ---
-		var CS = ashui.core.render.CornerShape;
+		var CS = ashui.core.render.CornerShapes;
 		var smooth = ashui.theme.themes.HybridTheme.shape();
 		var n = smooth.effectiveCornerN();
-		function shapeOf(radii:Array<Float>, w:Float, h:Float, ?explicit:ashui.core.render.CornerShape, locked = false, ?theme)
-			return CS.resolve(explicit != null ? explicit : CS.ROUND, radii, w, h, theme != null ? theme : smooth, 9999, locked);
-		function corners(s:ashui.core.render.CornerShape)
-			return [s.topLeft, s.topRight, s.bottomRight, s.bottomLeft];
-		check("an explicit corner shape wins over the theme", shapeOf([20, 20, 20, 20], 100, 100, CS.BEVEL).equals(CS.BEVEL));
-		check("a theme with smoothing off keeps corners round", shapeOf([20, 20, 20, 20], 100, 100, null, false, off).equals(CS.ROUND));
-		check("a full radius stays round", shapeOf([9999, 9999, 9999, 9999], 300, 300).equals(CS.ROUND));
-		check("a locked shape stays round", shapeOf([20, 20, 20, 20], 100, 100, null, true).equals(CS.ROUND));
-		check("a circle and a pill stay round", shapeOf([16, 16, 16, 16], 32, 32).equals(CS.ROUND) && shapeOf([20, 20, 20, 20], 200, 40).equals(CS.ROUND));
-		check("small corners stay round, large ones are smoothed",
-			corners(shapeOf([15, 15, 15, 4], 40, 40)).join(",") == [n, n, n, 1].join(","), corners(shapeOf([15, 15, 15, 4], 40, 40)));
-		check("a corner near a full circle stays round", corners(shapeOf([19, 19, 19, 4], 40, 40)).join(",") == "1,1,1,1");
-		check("each corner is resolved on its own", corners(shapeOf([8, 16, 16, 8], 200, 100)).join(",") == [1, n, n, 1].join(","));
-		check("a smoothed corner is between a circle and a squircle", shapeOf([20, 20, 20, 20], 200, 100).topLeft > 1 && n < 2);
+		function shapeOf(radii:Array<Float>, w:Float, h:Float, ?explicit:Array<Float>, locked = false, ?theme)
+			return CS.resolve(explicit != null ? explicit : CS.ROUND, radii, w, h, theme != null ? theme : smooth, 9999, locked).join(",");
+		var round = "1,1,1,1";
+		check("an explicit corner shape wins over the theme", shapeOf([20, 20, 20, 20], 100, 100, [0, 0, 0, 0]) == "0,0,0,0");
+		check("a theme with smoothing off keeps corners round", shapeOf([20, 20, 20, 20], 100, 100, null, false, off) == round);
+		check("a full radius stays round", shapeOf([9999, 9999, 9999, 9999], 300, 300) == round);
+		check("a locked shape stays round", shapeOf([20, 20, 20, 20], 100, 100, null, true) == round);
+		check("a circle and a pill stay round", shapeOf([16, 16, 16, 16], 32, 32) == round && shapeOf([20, 20, 20, 20], 200, 40) == round);
+		check("small corners stay round, large ones are smoothed", shapeOf([15, 15, 15, 4], 40, 40) == [n, n, n, 1].join(","),
+			shapeOf([15, 15, 15, 4], 40, 40));
+		check("a corner near a full circle stays round", shapeOf([19, 19, 19, 4], 40, 40) == round);
+		check("each corner is resolved on its own", shapeOf([8, 16, 16, 8], 200, 100) == [1, n, n, 1].join(","));
+		check("a smoothed corner is between a circle and a squircle", Std.parseFloat(shapeOf([20, 20, 20, 20], 200, 100)) > 1 && n < 2);
 
 		// --- ThemeState: overrides, CSS variables, schemes ---
 		ashui.theme.ThemeState.init(ashui.theme.themes.HybridTheme.bundle(), Light);
@@ -510,6 +509,25 @@ class Smoke {
 		stackTree.computeLayout(themedShadow.node, 10, 10);
 		stackList.update(stackTree, themedShadow.node);
 		check("a theme shadow binds its whole stack", stackList.count == 3, stackList.count);
+
+		// --- An explicit corner shape reaches the record and wins over the theme ---
+		var shapeTree = new LayoutTree();
+		var beveled = Owner.root(shapeTree, _ -> new Div({width: 100, height: 60, bg: Brush.solid(0xffffff),
+			cornerRadius: ashui.types.CornerRadius.all(14), cornerShape: ashui.types.CornerShape.bevel()}));
+		var lockedRound = Owner.root(shapeTree, _ -> new Div({width: 100, height: 60, bg: Brush.solid(0xffffff),
+			cornerRadius: ashui.types.CornerRadius.all(14), cornerShape: ashui.types.CornerShape.round().lock()}));
+		shapeTree.flush();
+		shapeTree.computeLayout(beveled.node, 100, 60);
+		shapeTree.computeLayout(lockedRound.node, 100, 60);
+		var shapeList = new ashui.layout.DisplayList();
+		shapeList.update(shapeTree, beveled.node);
+		var beveledN = shapeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD);
+		var beveledRadius = shapeList.get(0, 4);
+		shapeList.update(shapeTree, lockedRound.node);
+		check("an explicit corner shape wins over the theme's squircle, and keeps the radius",
+			beveledN == 0 && beveledRadius == 14 && shapeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD) == 1
+			&& shapeList.get(0, ashui.layout.DisplayList.SHAPE_LOCKED_FIELD) == 1,
+			[beveledN, beveledRadius, shapeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD)]);
 
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {

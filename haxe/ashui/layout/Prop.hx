@@ -13,6 +13,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var BorderColor:Prop<ashui.types.Color> = cast PropertyId.BorderColor;
 	public static inline var BorderWidth:Prop<Single> = cast PropertyId.BorderWidth;
 	public static inline var CornerRadius:Prop<ashui.types.CornerRadius> = cast PropertyId.CornerRadius;
+	/** Shares its id with `CornerRadius`; the two are told apart by value. **/
+	public static inline var CornerShape:Prop<ashui.types.CornerShape> = cast PropertyId.CornerRadius;
 	public static inline var Opacity:Prop<Single> = cast PropertyId.Opacity;
 	public static inline var Transform:Prop<ashui.types.Transform> = cast PropertyId.Transform;
 	public static inline var Shadow:Prop<ashui.types.Shadow> = cast PropertyId.Shadow;

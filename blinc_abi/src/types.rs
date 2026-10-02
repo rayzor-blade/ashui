@@ -19,6 +19,8 @@ pub enum Value {
     Radius(CornerRadius),
     Transform(Transform),
     Shadow(Vec<Shadow>),
+    /// A corner shape's `n` per corner, and whether the theme may not smooth it.
+    CornerShape([f32; 4], bool),
 }
 
 /// `0xRRGGBB` plus a separate alpha, as the Haxe API spells colors.
@@ -156,6 +158,27 @@ define_prim!(
 );
 
 // --- Shadows ---
+
+/// Each corner's superellipse `n`, top-left first; `locked` keeps it from
+/// the theme's squircle.
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_corner_shape(
+    top_left: f32,
+    top_right: f32,
+    bottom_right: f32,
+    bottom_left: f32,
+    locked: bool,
+) -> *mut c_void {
+    value(Value::CornerShape(
+        [top_left, top_right, bottom_right, bottom_left],
+        locked,
+    ))
+}
+define_prim!(
+    hlp_blinc_corner_shape,
+    hl_blinc_corner_shape,
+    "Pffffb_Xblinc_value_"
+);
 
 fn shadow_layer(
     offset_x: f32,

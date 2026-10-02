@@ -45,7 +45,9 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 		/**
 			Distance to a box whose corners each follow a superellipse of
 			`shape`'s `n`: 1 round, 2 squircle, 0 bevel, -1 scoop, 100 or more
-			square, -100 or less notch. Blinc's `sd_shaped_rect`.
+			square, -100 or less notch. Blinc's `sd_shaped_rect`, with a scoop
+			centred on the corner's tip as CSS draws it and distances that are
+			continuous and a pixel per pixel, for even edges and borders.
 		**/
 		function sdShapedRect(p : Vec2, origin : Vec2, size : Vec2, radius : Vec4, shape : Vec4) : Float {
 			var halfSize = size * 0.5;
@@ -66,23 +68,43 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			}
 			r = min(r, min(halfSize.x, halfSize.y));
 			var qa = q + vec2(r, r);
+			// The box with sharp corners.
+			var box = length(max(q, vec2(0., 0.))) + min(max(q.x, q.y), 0.);
 			var d = 0.;
 			if (n <= -100.) {
-				d = min(max(q.x, q.y + r), max(q.x + r, q.y));
+				// A notch: the box less everything beyond the corner's step, whose only edges are the step's two faces.
+				var cut = length(max(-qa, vec2(0., 0.))) + min(max(-qa.x, -qa.y), 0.);
+				d = max(box, -cut);
 			} else if (abs(n - 1.) < 0.01) {
 				d = length(max(qa, vec2(0., 0.))) + min(max(qa.x, qa.y), 0.) - r;
-			} else if (qa.x <= 0. || qa.y <= 0.) {
-				d = max(q.x, q.y);
+			} else if (n < 0.) {
+				// A scoop: the box less a superellipse centred on the corner's tip.
+				d = max(box, -superellipse(-q, r, n));
 			} else if (n >= 100.) {
-				d = max(qa.x, qa.y) - r;
+				d = box;
+			} else if (abs(n) < 0.01) {
+				// A bevel: the box cut by the chamfer's half-plane.
+				d = max(box, (qa.x + qa.y - r) * 0.70710678);
 			} else {
-				var t = qa / max(r, 0.001);
-				var e = pow(2., min(abs(n), 5.));
-				d = (pow(pow(t.x, e) + pow(t.y, e), 1. / e) - 1.) * r;
-				if (n < 0.)
-					d = -d;
+				// The corner lies inside the box, so it is never deeper than the box.
+				d = max(box, superellipse(qa, r, n));
 			}
 			return d;
+		}
+
+		/**
+			Signed distance from `v`, at least 0 in both axes, to a quarter
+			superellipse of radius `r` and exponent `2^|n|` about the origin. The
+			norm is divided by its gradient's length, so the value moves a pixel
+			per pixel and edges and borders have the same width at every `n`.
+		**/
+		function superellipse(v : Vec2, r : Float, n : Float) : Float {
+			var e = pow(2., min(abs(n), 5.));
+			// Kept off zero: WGSL's pow(0, 0) is undefined, and a bevel's e - 1 is 0.
+			var t = max(v / max(r, 0.001), vec2(0.000001, 0.000001));
+			var norm = pow(pow(t.x, e) + pow(t.y, e), 1. / e);
+			var grad = vec2(pow(t.x, e - 1.), pow(t.y, e - 1.)) / pow(max(norm, 0.000001), e - 1.);
+			return (norm - 1.) * r / max(length(grad), 0.0001);
 		}
 
 		/** Distance to the inside of a quarter ellipse, for a border's inner corner. **/

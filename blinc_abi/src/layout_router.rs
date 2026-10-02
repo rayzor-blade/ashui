@@ -16,6 +16,7 @@
 use crate::hl::{handle_ref, opt_string_from};
 use crate::reactive::{AnyComputed, AnySignal, Slot};
 use crate::types::Value;
+use blinc_core::CornerShape;
 use blinc_layout::binding::{
     register_typed, register_typed_computed, register_typed_layout, register_typed_layout_computed,
 };
@@ -481,11 +482,17 @@ fn value_write(prop: PropertyId) -> Option<Write<Value>> {
                 p.outline_color = Some(c);
             }
         }),
-        P::CornerRadius => render(|p, v| {
-            if let Value::Radius(r) = v {
+        // The radius and the corner shape share this property.
+        P::CornerRadius => render(|p, v| match v {
+            Value::Radius(r) => {
                 p.border_radius = r;
                 p.border_radius_explicit = true;
             }
+            Value::CornerShape(n, locked) => {
+                p.corner_shape = CornerShape::new(n[0], n[1], n[2], n[3]);
+                p.corner_shape_locked = locked;
+            }
+            _ => {}
         }),
         P::Transform => render(|p, v| {
             if let Value::Transform(t) = v {

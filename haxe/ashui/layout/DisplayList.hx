@@ -49,14 +49,12 @@ class DisplayList {
 		var shape = theme.shape();
 		var radiusFull = theme.radii().radiusFull;
 		for (r in 0...count) {
-			var explicit = new ashui.core.render.CornerShape(get(r, CORNER_SHAPE_FIELD), get(r, CORNER_SHAPE_FIELD + 1),
-				get(r, CORNER_SHAPE_FIELD + 2), get(r, CORNER_SHAPE_FIELD + 3));
-			var resolved = ashui.core.render.CornerShape.resolve(explicit, [for (c in 4...8) get(r, c)], get(r, 2), get(r, 3), shape, radiusFull,
-				get(r, SHAPE_LOCKED_FIELD) == 1);
-			set(r, CORNER_SHAPE_FIELD, resolved.topLeft);
-			set(r, CORNER_SHAPE_FIELD + 1, resolved.topRight);
-			set(r, CORNER_SHAPE_FIELD + 2, resolved.bottomRight);
-			set(r, CORNER_SHAPE_FIELD + 3, resolved.bottomLeft);
+			var explicit:Array<Float> = [for (c in 0...4) get(r, CORNER_SHAPE_FIELD + c)];
+			var radii:Array<Float> = [for (c in 4...8) get(r, c)];
+			var resolved = ashui.core.render.CornerShapes.resolve(explicit, radii, get(r, 2), get(r, 3), shape,
+				radiusFull, get(r, SHAPE_LOCKED_FIELD) == 1);
+			for (c in 0...4)
+				set(r, CORNER_SHAPE_FIELD + c, resolved[c]);
 		}
 	}
 
