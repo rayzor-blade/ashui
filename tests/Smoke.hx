@@ -355,6 +355,17 @@ class Smoke {
 		check("a disposed tree has no bounds", spare.getBounds(spareBox.node) == null);
 		check("the live tree still flushes after another is disposed", tree.flush() == false);
 
+		// --- Text is measured with real fonts, not estimated ---
+		var narrow = new Text("iiiiii", {fontSize: 32, wrap: false}, tree);
+		var wide = new Text("WWWWWW", {fontSize: 32, wrap: false}, tree);
+		root.appendChild(narrow);
+		root.appendChild(wide);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var n = tree.getBounds(narrow.node);
+		var w = tree.getBounds(wide.node);
+		check("text is measured with real fonts", n != null && w != null && w.width > n.width * 2, '"iiiiii" $n vs "WWWWWW" $w');
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

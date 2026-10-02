@@ -9,6 +9,6 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 blinc_core = {git = "https://github.com/project-blinc/blinc", branch = "main"}
-blinc_layout = {git = "https://github.com/project-blinc/blinc", branch = "main"}
+blinc_layout = {git = "https://github.com/project-blinc/blinc", branch = "main", features = ["text_measurer"]}
 hl_abi = {git="https://github.com/rayzor-blade/hl_abi", branch="main"}
 taffy = { version = "0.6", features = ["content_size"] }

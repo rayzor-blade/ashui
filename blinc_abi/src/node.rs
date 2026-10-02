@@ -7,12 +7,13 @@ use crate::reactive::collect_released;
 use blinc_layout::binding::unregister_node;
 use blinc_layout::div::GenericFont;
 use blinc_layout::element::RenderProps;
+use blinc_layout::init_text_measurer;
 use blinc_layout::stateful::take_pending_partial_prop_updates;
 use blinc_layout::tree::{LayoutNodeId, LayoutTree, TextMeasureContext};
 use hl_abi::{define_prim, vbyte};
 use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
-use std::sync::Mutex;
+use std::sync::{Mutex, Once};
 use taffy::prelude::{AvailableSpace, Size, Style};
 
 pub struct Tree {
@@ -85,8 +86,14 @@ fn clear_children(tree: &mut Tree, parent: LayoutNodeId) {
 // LIFECYCLE AND NODES
 // ============================================================================
 
+/// Blinc measures text with real fonts once its measurer is installed, which
+/// must happen before the first tree holds text; without it every width is an
+/// estimate. Installed once per process.
+static TEXT_MEASURER: Once = Once::new();
+
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_tree_new() -> *mut c_void {
+    TEXT_MEASURER.call_once(init_text_measurer);
     into_handle(Tree {
         layout: LayoutTree::new(),
         props: HashMap::new(),
