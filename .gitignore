@@ -1,3 +1,4 @@
 target/
 internal/**/*.md
 tests/bin/
+tests/fixtures/**/bin/
