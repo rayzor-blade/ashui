@@ -2,8 +2,3 @@
 resolver = "3"
 members = ["blinc_abi"]
 
-# Blinc changes not yet on its main branch build from the sibling checkout.
-# Drop this once they are pushed.
-[patch."https://github.com/project-blinc/blinc"]
-blinc_core = { path = "../Blinc/crates/blinc_core" }
-blinc_layout = { path = "../Blinc/crates/blinc_layout" }
