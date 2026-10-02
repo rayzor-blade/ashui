@@ -56,11 +56,11 @@ typedef DivAttributes = {
 }
 
 class Div extends Element {
-	public function new(?attr:DivAttributes, ?children:Array<Element>, tree:LayoutTree) {
+	public function new(?attr:DivAttributes, ?children:Array<Element>, ?tree:LayoutTree) {
 		super(tree);
 
 		// 1. Mint the native node arena in Rust
-		var node = tree.createNode();
+		var node = this.tree.createNode();
 		this.node = node;
 
 		// 2. Automatically bind all attributes dynamically using the unified node setter
@@ -149,7 +149,7 @@ class Div extends Element {
 		// 3. Mount children structure
 		if (children != null) {
 			for (child in children) {
-				tree.addChild(node.id, child.node.id);
+				this.tree.addChild(node.id, child.node.id);
 			}
 		}
 	}

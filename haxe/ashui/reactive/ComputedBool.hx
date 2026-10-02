@@ -7,6 +7,7 @@ class ComputedBool implements IComputed<Bool> {
 
 	public function new(compute:Void->Bool) {
 		ptr = BlincNative.blinc_computed_bool(Guard.wrap(() -> BlincNative.blinc_return_bool(compute() ? 1 : 0)));
+		Owner.adoptComputed(ptr);
 	}
 
 	public function get():Bool {

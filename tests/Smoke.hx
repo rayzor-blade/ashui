@@ -1,6 +1,7 @@
 import ashui.layout.LayoutTree;
 import ashui.layout.PropertyId;
 import ashui.reactive.Computed;
+import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 import ashui.types.Brush;
 import ashui.types.Color;
@@ -132,6 +133,34 @@ class Smoke {
 		tree.computeLayout(root.node, 800, 600);
 		var barBounds = tree.getBounds(bar.node);
 		check("bound computed survives collection", barBounds != null && near(barBounds.height, 50), barBounds);
+
+		// --- An owner supplies the tree and cleans up what was built under it ---
+		var log = [];
+		var ownedLevel = Signal.make(3);
+		var ownedBox:Div = null;
+		var ownedLabel:Text = null;
+		var disposeOwned = Owner.root(tree, dispose -> {
+			Owner.onCleanup(() -> log.push("root"));
+			ownedLabel = new Text("owned");
+			ownedBox = new Div({width: 20, height: ownedLevel.computed(v -> (v * 10 : Single))}, [ownedLabel]);
+			new Owner().run(() -> Owner.onCleanup(() -> log.push("child")));
+			dispose;
+		});
+		root.appendChild(ownedBox);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var ownedBounds = tree.getBounds(ownedBox.node);
+		check("element under an owner takes its tree", ownedBounds != null && near(ownedBounds.height, 30), ownedBounds);
+		var ownedNode = ownedBox.node;
+		var labelNode = ownedLabel.node;
+		disposeOwned();
+		check("an owner disposes its children, then its cleanups latest first", log.join(",") == "child,root", log);
+		check("disposing an owner removes its elements", ownedBox.node == null && ownedLabel.node == null);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		check("removed nodes are gone from the tree", tree.getBounds(ownedNode) == null && tree.getBounds(labelNode) == null);
+		ownedLevel.set(4);
+		check("a released computed's signal can still be set", tree.flush() == false);
 
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {

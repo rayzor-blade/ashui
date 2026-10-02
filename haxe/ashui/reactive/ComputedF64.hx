@@ -7,6 +7,7 @@ class ComputedF64 implements IComputed<Float> {
 
 	public function new(compute:Void->Float) {
 		ptr = BlincNative.blinc_computed_f64(Guard.wrap(() -> BlincNative.blinc_return_f64(compute())));
+		Owner.adoptComputed(ptr);
 	}
 
 	public function get():Float {

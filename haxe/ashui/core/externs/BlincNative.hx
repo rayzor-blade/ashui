@@ -61,6 +61,8 @@ extern class BlincNative {
 	// --- Any type ---
 	static function blinc_signal_touch(sig:hl.Abstract<"blinc_signal">):Void;
 	static function blinc_computed_touch(comp:hl.Abstract<"blinc_computed">):Void;
+	/** Queues the computed for release at the next flush, before its handle is collected. **/
+	static function blinc_computed_release(comp:hl.Abstract<"blinc_computed">):Void;
 
 	// --- Property routers: kind 0 applies `constant`, 1 binds `sig`, 2 binds `comp` ---
 	static function blinc_apply_f32(node:haxe.Int64, prop:Int, kind:Int, constant:Single, sig:hl.Abstract<"blinc_signal">,

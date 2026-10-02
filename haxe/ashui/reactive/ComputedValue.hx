@@ -14,6 +14,7 @@ class ComputedValue<T:IValue> implements IComputed<T> {
 			last = compute();
 			BlincNative.blinc_return_value(last == null ? null : last.ptr);
 		}));
+		Owner.adoptComputed(ptr);
 	}
 
 	public function get():T {

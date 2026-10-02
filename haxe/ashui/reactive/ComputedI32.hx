@@ -7,6 +7,7 @@ class ComputedI32 implements IComputed<Int> {
 
 	public function new(compute:Void->Int) {
 		ptr = BlincNative.blinc_computed_i32(Guard.wrap(() -> BlincNative.blinc_return_i32(compute())));
+		Owner.adoptComputed(ptr);
 	}
 
 	public function get():Int {

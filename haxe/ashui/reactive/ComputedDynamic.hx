@@ -14,6 +14,7 @@ class ComputedDynamic<T> implements IComputed<T> {
 			last = compute();
 			BlincNative.blinc_return_i32(++version);
 		}));
+		Owner.adoptComputed(ptr);
 	}
 
 	public function get():T {

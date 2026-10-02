@@ -70,20 +70,29 @@ impl Drop for AnySignal {
     }
 }
 
-impl Drop for AnyComputed {
-    fn drop(&mut self) {
-        let id = match self {
+impl AnyComputed {
+    fn derived_id(&self) -> DerivedId {
+        match self {
             AnyComputed::I32(c) => c.derived_id(),
             AnyComputed::F32(c) => c.derived_id(),
             AnyComputed::F64(c) => c.derived_id(),
             AnyComputed::Bool(c) => c.derived_id(),
             AnyComputed::Str(c) => c.derived_id(),
             AnyComputed::Value(c) => c.derived_id(),
-        };
+        }
+    }
+
+    fn release(&self) {
         RELEASED_DERIVEDS
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .push(id);
+            .push(self.derived_id());
+    }
+}
+
+impl Drop for AnyComputed {
+    fn drop(&mut self) {
+        self.release();
     }
 }
 
@@ -518,6 +527,21 @@ define_prim!(
     hlp_blinc_signal_touch,
     hl_blinc_signal_touch,
     "PXblinc_signal__v"
+);
+
+/// Release a computed before its handle is collected, as its owner does when
+/// disposed. Queued like a finalizer's release, so it takes effect at the next
+/// flush; releasing the same computed again is a no-op there.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_computed_release(h: *mut c_void) {
+    if let Some(c) = unsafe { handle_ref::<AnyComputed>(h) } {
+        c.release();
+    }
+}
+define_prim!(
+    hlp_blinc_computed_release,
+    hl_blinc_computed_release,
+    "PXblinc_computed__v"
 );
 
 /// Bring a computed up to date, running its closure if a dependency changed.
