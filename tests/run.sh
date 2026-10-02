@@ -6,6 +6,9 @@
 #   run.sh memory   resident memory per round of allocations; prints, does not assert
 #   run.sh render   draws a scene offscreen with hlwgpu and checks pixels; Ash only,
 #                   needs a built ../hlwgpu checkout beside this one
+#   run.sh window   opens a window with hlwindow and draws into it through a scheme
+#                   switch; Ash only, needs ../hlwgpu and ../hlwindow built, and a
+#                   desktop. Captures go to ../.ashui/snapshots on macOS.
 set -e
 cd "$(dirname "$0")"
 cargo build --manifest-path ../Cargo.toml
@@ -71,6 +74,21 @@ render)
 		--class-path fixtures/render -main Pixels -hl bin/pixels.hl
 	run pixels.hl
 	;;
+window)
+	xgpu=$(ls -t ../../hlwgpu/target/*/libhlwgpu.dylib ../../hlwgpu/target/*/libhlwgpu.so 2>/dev/null | head -1)
+	xwindow=$(ls -t ../../hlwindow/target/*/libhlwindow.dylib ../../hlwindow/target/*/libhlwindow.so 2>/dev/null | head -1)
+	if [ -z "$xgpu" ] || [ -z "$xwindow" ]; then
+		echo "build ../hlwgpu and ../hlwindow first (cargo build --release)" >&2
+		exit 1
+	fi
+	cp "$xgpu" bin/xgpu.hdll
+	cp "$xwindow" bin/xwindow.hdll
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../hlwindow/haxe --class-path ../../ash/haxelib/ash-future \
+		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/window -main WindowDemo -hl bin/window.hl
+	mkdir -p ../.ashui/snapshots
+	run window.hl "$(cd ../.ashui/snapshots && pwd)"
+	;;
 memory)
 	$haxe_ui --class-path fixtures/memory -main Memory -hl bin/memory.hl
 	for kind in tree tree-dispose color signal computed; do
@@ -88,7 +106,7 @@ memory)
 	[ $smoke -eq 0 ] && [ $compile -eq 0 ]
 	;;
 *)
-	echo "usage: run.sh [memory|render]" >&2
+	echo "usage: run.sh [memory|render|window]" >&2
 	exit 2
 	;;
 esac
