@@ -492,6 +492,25 @@ class Smoke {
 		check("a prop bound to a colour token follows the scheme", lightFill == 1 && Math.abs(darkFill - 0x1A / 255) < 0.01, [lightFill, darkFill]);
 		check("a box gets the theme's squircle in its record", Math.abs(squircle - n) < 1e-6, squircle);
 
+		// --- Shadows stack layers, each with its spread ---
+		var stackTree = new LayoutTree();
+		var stacked = new Div({width: 10, height: 10, bg: Brush.solid(0xffffff)}, stackTree);
+		stacked.node.set(ashui.layout.Prop.Shadow, new ashui.types.Shadow(0, 1, 2, 0x000000, 0.5).and(0, 8, 16, 0x000000, 0.25, 3));
+		stackTree.flush();
+		stackTree.computeLayout(stacked.node, 10, 10);
+		var stackList = new ashui.layout.DisplayList();
+		stackList.update(stackTree, stacked.node);
+		check("a shadow of two layers draws both, the last first, with its spread",
+			stackList.count == 3 && stackList.kind(0) == 3 && stackList.kind(1) == 3 && stackList.kind(2) == 0 && stackList.get(0, 25) == 8
+			&& stackList.get(0, 27) == 3 && stackList.get(1, 25) == 1 && stackList.get(1, 27) == 0,
+			[for (r in 0...stackList.count) [stackList.kind(r), stackList.get(r, 25), stackList.get(r, 27)]]);
+		var themedShadow = Owner.root(stackTree, _ -> new Div({width: 10, height: 10, bg: Brush.solid(0xffffff)}));
+		themedShadow.node.set(ashui.layout.Prop.Shadow, ashui.theme.Themed.shadow(Md));
+		stackTree.flush();
+		stackTree.computeLayout(themedShadow.node, 10, 10);
+		stackList.update(stackTree, themedShadow.node);
+		check("a theme shadow binds its whole stack", stackList.count == 3, stackList.count);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

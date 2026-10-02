@@ -4,7 +4,7 @@
 //! signal kind and one property router carry all of them; the router checks
 //! that the variant suits the property.
 
-use crate::hl::{into_handle, string_from};
+use crate::hl::{handle_mut, into_handle, string_from};
 use blinc_core::layer::{BlurStyle, GlassStyle, Gradient, ImageBrush, ImageFit, Point, Shadow};
 use blinc_core::{Brush, Color, CornerRadius, Transform};
 use hl_abi::{define_prim, vbyte};
@@ -157,15 +157,57 @@ define_prim!(
 
 // --- Shadows ---
 
+fn shadow_layer(
+    offset_x: f32,
+    offset_y: f32,
+    blur: f32,
+    spread: f32,
+    hex: i32,
+    alpha: f32,
+) -> Shadow {
+    Shadow {
+        offset_x,
+        offset_y,
+        blur,
+        spread,
+        color: hex_color(hex, alpha),
+    }
+}
+
+/// A shadow of one layer; `blinc_shadow_push` adds more.
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_shadow(
     offset_x: f32,
     offset_y: f32,
     blur: f32,
+    spread: f32,
     hex: i32,
     alpha: f32,
 ) -> *mut c_void {
-    let shadow = Shadow::new(offset_x, offset_y, blur, hex_color(hex, alpha));
-    value(Value::Shadow(vec![shadow]))
+    value(Value::Shadow(vec![shadow_layer(
+        offset_x, offset_y, blur, spread, hex, alpha,
+    )]))
 }
-define_prim!(hlp_blinc_shadow, hl_blinc_shadow, "Pfffif_Xblinc_value_");
+define_prim!(hlp_blinc_shadow, hl_blinc_shadow, "Pffffif_Xblinc_value_");
+
+/// Adds a layer to `shadow`, a shadow value; layers are drawn last first.
+/// Values already bound to a node keep the layers they had.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_shadow_push(
+    shadow: *mut c_void,
+    offset_x: f32,
+    offset_y: f32,
+    blur: f32,
+    spread: f32,
+    hex: i32,
+    alpha: f32,
+) {
+    if let Some(Value::Shadow(layers)) = unsafe { handle_mut::<Value>(shadow) } {
+        layers.push(shadow_layer(offset_x, offset_y, blur, spread, hex, alpha));
+    }
+}
+define_prim!(
+    hlp_blinc_shadow_push,
+    hl_blinc_shadow_push,
+    "PXblinc_value_ffffif_v"
+);

@@ -37,8 +37,20 @@ final class Shadow {
 		];
 	}
 
-	/** This layer for a node, as `ashui.types.Shadow` takes it; its spread is not drawn yet. **/
+	/** This layer for a node. **/
 	public function toShadow():ashui.types.Shadow {
-		return new ashui.types.Shadow(offsetX, offsetY, blur, color.rgb(), color.a);
+		return new ashui.types.Shadow(offsetX, offsetY, blur, color.rgb(), color.a, spread);
+	}
+
+	/** A whole stack for a node, in order; null for an empty stack, which sets no shadow. **/
+	public static function toShadowStack(stack:Array<Shadow>):Null<ashui.types.Shadow> {
+		if (stack.length == 0)
+			return null;
+		var shadow = stack[0].toShadow();
+		for (i in 1...stack.length) {
+			var layer = stack[i];
+			shadow.and(layer.offsetX, layer.offsetY, layer.blur, layer.color.rgb(), layer.color.a, layer.spread);
+		}
+		return shadow;
 	}
 }

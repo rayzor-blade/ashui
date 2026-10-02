@@ -50,13 +50,13 @@ class Themed {
 		});
 	}
 
-	/** The broadest layer of `token`'s shadow stack; a node draws one layer yet. **/
+	/** `token`'s whole shadow stack; `None` gives one transparent layer. **/
 	public static function shadow(token:ShadowToken):Computed<ashui.types.Shadow> {
 		var state = ready();
 		return Computed.make(() -> {
 			state.revision.get();
-			var stack = state.shadows().get(token);
-			(stack.length == 0 ? Shadow.none() : stack[stack.length - 1]).toShadow();
+			var stack = Shadow.toShadowStack(state.shadows().get(token));
+			stack != null ? stack : Shadow.none().toShadow();
 		});
 	}
 

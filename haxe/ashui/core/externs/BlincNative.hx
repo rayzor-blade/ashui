@@ -89,5 +89,7 @@ extern class BlincNative {
 	static function blinc_corner_radius(tl:Single, tr:Single, br:Single, bl:Single):hl.Abstract<"blinc_value">;
 	static function blinc_transform_identity():hl.Abstract<"blinc_value">;
 	static function blinc_transform_translate(x:Single, y:Single):hl.Abstract<"blinc_value">;
-	static function blinc_shadow(offsetX:Single, offsetY:Single, blur:Single, hex:Int, alpha:Single):hl.Abstract<"blinc_value">;
+	static function blinc_shadow(offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single):hl.Abstract<"blinc_value">;
+	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int,
+		alpha:Single):Void;
 }
