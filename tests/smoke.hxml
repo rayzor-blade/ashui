@@ -1,5 +1,8 @@
 --class-path ../haxe
 --class-path .
 -lib hashlink
+-lib tink_hxx
+# tink's own sources use deprecated metadata
+-w -WDeprecated
 -main Smoke
 -hl bin/smoke.hl

@@ -8,6 +8,7 @@ import ashui.types.Color;
 import ashui.types.Style;
 import ashui.ui.Div;
 import ashui.ui.Text;
+import ashui.ui.Hxx.hxx;
 
 /** End-to-end check of the Haxe bindings against blinc_abi.hdll. **/
 class Smoke {
@@ -162,6 +163,36 @@ class Smoke {
 		ownedLevel.set(4);
 		check("a released computed's signal can still be set", tree.flush() == false);
 
+		// --- hxx lowers templates to elements and bindings ---
+		var hxxCount = Signal.make(1);
+		var hxxWidth = Signal.make((40 : Single));
+		var view:Div = Owner.root(tree, _ -> hxx('
+			<Div width={hxxWidth} height={hxxCount.get() * 10} flexShrink={0} bg={Brush.solid(0x336699)} flexDirection={Column}>
+				<Div width={8} height={8} />
+			</Div>
+		'));
+		var hxxLabel:Text = Owner.root(tree, _ -> hxx('<Text>Count: ${hxxCount}</Text>'));
+		var badge:Badge = Owner.root(tree, _ -> hxx('<Badge label={"hi"} />'));
+		root.appendChild(view);
+		root.appendChild(hxxLabel);
+		root.appendChild(badge);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var v = tree.getBounds(view.node);
+		var labelBefore = tree.getBounds(hxxLabel.node);
+		check("hxx binds a signal attribute", v != null && near(v.width, 40), v);
+		check("hxx makes a .get() attribute a computed", v != null && near(v.height, 10), v);
+		hxxCount.set(12345);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		v = tree.getBounds(view.node);
+		var labelAfter = tree.getBounds(hxxLabel.node);
+		check("hxx computed attribute follows its signal", v != null && near(v.height, 123450), v);
+		check("hxx interpolated text follows its signal", labelBefore != null && labelAfter != null && labelAfter.width > labelBefore.width,
+			'$labelBefore -> $labelAfter');
+		var b = tree.getBounds(badge.node);
+		check("hxx builds a component tag", b != null && near(b.width, 50), b);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);
@@ -186,5 +217,12 @@ class Smoke {
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
+	}
+}
+
+/** A component: a Div with its own children, built from an attribute object. **/
+class Badge extends Div {
+	public function new(attrs:{label:String}) {
+		super({width: 50, height: 20}, [new Text(attrs.label)]);
 	}
 }
