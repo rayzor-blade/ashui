@@ -68,8 +68,8 @@ render)
 	cp "$xgpu" bin/xgpu.hdll
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \
-		--class-path fixtures/render -main Offscreen -hl bin/offscreen.hl
-	run offscreen.hl
+		--class-path fixtures/render -main Pixels -hl bin/pixels.hl
+	run pixels.hl
 	;;
 memory)
 	$haxe_ui --class-path fixtures/memory -main Memory -hl bin/memory.hl
