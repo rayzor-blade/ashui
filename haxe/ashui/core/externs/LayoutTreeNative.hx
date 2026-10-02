@@ -22,6 +22,9 @@ extern class LayoutTreeNative {
 	static function blinc_tree_remove_subtree(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Void;
 	static function blinc_tree_clear_children(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64):Void;
 
+	/** Puts `next` where `old` is among its parent's children; `old` is detached, not deleted. **/
+	static function blinc_tree_replace_node(tree:hl.Abstract<"blinc_tree">, old:haxe.Int64, next:haxe.Int64):Void;
+
 	/** `children` holds `len` consecutive 64-bit ids. **/
 	static function blinc_tree_replace_children(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64, children:hl.Bytes, len:Int):Void;
 

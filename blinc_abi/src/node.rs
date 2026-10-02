@@ -212,6 +212,31 @@ define_prim!(
     "PXblinc_tree_l_v"
 );
 
+/// Put `new` where `old` is among its parent's children, leaving `old`
+/// detached but not deleted. Nothing happens when `old` has no parent.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_replace_node(h: *mut c_void, old: u64, new: u64) {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return;
+    };
+    let (old, new) = (id(old), id(new));
+    let Some(&parent) = tree.layout.ancestors(old).first() else {
+        return;
+    };
+    let children = tree
+        .layout
+        .children(parent)
+        .into_iter()
+        .map(|child| if child == old { new } else { child })
+        .collect();
+    tree.layout.replace_children(parent, children);
+}
+define_prim!(
+    hlp_blinc_tree_replace_node,
+    hl_blinc_tree_replace_node,
+    "PXblinc_tree_ll_v"
+);
+
 /// `children` is `len` consecutive 64-bit node ids.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_replace_children(

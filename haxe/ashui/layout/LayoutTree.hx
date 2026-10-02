@@ -53,6 +53,11 @@ class LayoutTree {
 		LayoutTreeNative.blinc_tree_remove_subtree(this.ptr, node);
 	}
 
+	/** Puts `next` where `old` is in its parent; `old` is detached, not deleted. **/
+	public inline function replaceNode(old:Node, next:Node):Void {
+		LayoutTreeNative.blinc_tree_replace_node(this.ptr, old.id, next.id);
+	}
+
 	public function replaceChildren(parent:haxe.Int64, children:Array<haxe.Int64>):Void {
 		if (children.length == 0) {
 			LayoutTreeNative.blinc_tree_clear_children(this.ptr, parent);
