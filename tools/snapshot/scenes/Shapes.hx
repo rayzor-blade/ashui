@@ -7,22 +7,24 @@ import ashui.types.CornerShape;
 import ashui.types.Style;
 import ashui.ui.Div;
 
-/** Each corner shape on the same 24px radius: theme squircle, round, squircle, bevel, scoop, notch, square. **/
+/** Each corner shape on the same 24px radius: theme squircle, round, squircle, superellipse 3 and 5, bevel, scoop, notch, square. **/
 class Shapes {
 	static function main() {
 		ThemeState.init(DefaultTheme.bundle(), Light);
 		var page = ThemeState.get().color(Background);
-		Snapshot.scene("shapes", 560, 120, () -> {
+		Snapshot.scene("shapes", 720, 120, () -> {
 			var shapes:Array<Null<CornerShape>> = [
 				null,
 				CornerShape.round().lock(),
 				CornerShape.squircle(),
+				CornerShape.superellipse(3),
+				CornerShape.superellipse(5),
 				CornerShape.bevel(),
 				CornerShape.scoop(),
 				CornerShape.notch(),
 				CornerShape.square()
 			];
-			new Div({width: 560, height: 120, padding: 16, gap: 16, flexDirection: FlexDirection.Row}, [
+			new Div({width: 720, height: 120, padding: 16, gap: 16, flexDirection: FlexDirection.Row}, [
 				for (shape in shapes)
 					new Div({
 						width: 64, height: 88, flexShrink: 0, cornerRadius: CornerRadius.all(24), cornerShape: shape,

@@ -102,8 +102,11 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			var e = pow(2., min(abs(n), 5.));
 			// Kept off zero: WGSL's pow(0, 0) is undefined, and a bevel's e - 1 is 0.
 			var t = max(v / max(r, 0.001), vec2(0.000001, 0.000001));
-			var norm = pow(pow(t.x, e) + pow(t.y, e), 1. / e);
-			var grad = vec2(pow(t.x, e - 1.), pow(t.y, e - 1.)) / pow(max(norm, 0.000001), e - 1.);
+			// The larger component is factored out: t^e alone underflows f32 once e reaches 8.
+			var m = max(t.x, t.y);
+			var u = t / m;
+			var norm = m * pow(pow(u.x, e) + pow(u.y, e), 1. / e);
+			var grad = vec2(pow(min(t.x / norm, 1.), e - 1.), pow(min(t.y / norm, 1.), e - 1.));
 			return (norm - 1.) * r / max(length(grad), 0.0001);
 		}
 
