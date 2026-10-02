@@ -7,8 +7,13 @@
 //!
 //! Enum-valued properties use the integer codes of the Haxe enum abstracts in
 //! `ashui.types.Style`. Codes out of range fall back to the property's default.
+//!
+//! Properties a text node is measured by also change its measure context.
+//! Blinc's queue carries only render and layout writes, so those bindings
+//! record the change here and `blinc_tree_flush` applies it through
+//! `LayoutTree::update_text`.
 
-use crate::hl::handle_ref;
+use crate::hl::{handle_ref, string_from};
 use crate::reactive::{Slot, computed_of, state_of};
 use crate::types::Value;
 use blinc_layout::binding::{
@@ -19,10 +24,10 @@ use blinc_layout::element::RenderProps;
 use blinc_layout::element_style::FontStyle;
 use blinc_layout::property::PropertyId;
 use blinc_layout::stateful::{queue_layout_update_partial, queue_prop_update_partial};
-use blinc_layout::tree::LayoutNodeId;
+use blinc_layout::tree::{LayoutNodeId, TextMeasureContext};
 use hl_abi::{define_prim, vbyte};
 use std::ffi::c_void;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use taffy::prelude::*;
 use taffy::{Overflow, Point};
 
@@ -85,6 +90,26 @@ fn property(raw: i32) -> Option<PropertyId> {
         .ok()
         .and_then(|i| PROPERTIES.get(i))
         .copied()
+}
+
+// ============================================================================
+// TEXT MEASURE CONTEXT
+// ============================================================================
+
+pub type TextWrite = Box<dyn FnOnce(&mut TextMeasureContext) + Send>;
+
+static PENDING_TEXT: Mutex<Vec<(LayoutNodeId, TextWrite)>> = Mutex::new(Vec::new());
+
+fn record_text(node: LayoutNodeId, write: impl FnOnce(&mut TextMeasureContext) + Send + 'static) {
+    PENDING_TEXT
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .push((node, Box::new(write)));
+}
+
+/// Text changes recorded since the last call, oldest first.
+pub fn take_pending_text() -> Vec<(LayoutNodeId, TextWrite)> {
+    std::mem::take(&mut *PENDING_TEXT.lock().unwrap_or_else(|e| e.into_inner()))
 }
 
 // ============================================================================
@@ -193,7 +218,7 @@ unsafe fn bind<T: Slot>(
 // F32: lengths, flex factors, opacity, typography metrics
 // ============================================================================
 
-fn f32_write(prop: PropertyId) -> Option<Write<f32>> {
+fn f32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<f32>> {
     use PropertyId as P;
     match prop {
         P::Width => layout(|s, v| s.size.width = Dimension::Length(v)),
@@ -236,9 +261,15 @@ fn f32_write(prop: PropertyId) -> Option<Write<f32>> {
         P::Left => layout(|s, v| s.inset.left = LengthPercentageAuto::Length(v)),
         P::Opacity => render(|p, v| p.opacity = v),
         P::BorderWidth => render(|p, v| p.border_width = v),
-        P::FontSize => render(|p, v| p.font_size = Some(v)),
+        P::FontSize => render(move |p, v| {
+            p.font_size = Some(v);
+            record_text(node, move |c| c.font_size = v);
+        }),
         P::LetterSpacing => render(|p, v| p.letter_spacing = Some(v)),
-        P::LineHeight => render(|p, v| p.line_height = Some(v)),
+        P::LineHeight => render(move |p, v| {
+            p.line_height = Some(v);
+            record_text(node, move |c| c.line_height = v);
+        }),
         _ => None,
     }
 }
@@ -252,19 +283,12 @@ pub unsafe extern "C" fn hl_blinc_apply_f32(
     sig: *mut c_void,
     comp: *mut c_void,
 ) {
+    let node = LayoutNodeId::from_raw(node);
     let Some(prop) = property(prop) else { return };
-    let Some(write) = f32_write(prop) else { return };
-    unsafe {
-        bind(
-            LayoutNodeId::from_raw(node),
-            prop,
-            kind,
-            constant,
-            sig,
-            comp,
-            write,
-        )
+    let Some(write) = f32_write(node, prop) else {
+        return;
     };
+    unsafe { bind(node, prop, kind, constant, sig, comp, write) };
 }
 define_prim!(
     hlp_blinc_apply_f32,
@@ -378,7 +402,7 @@ fn text_align(v: i32) -> TextAlign {
     }
 }
 
-fn i32_write(prop: PropertyId) -> Option<Write<i32>> {
+fn i32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<i32>> {
     use PropertyId as P;
     match prop {
         P::Display => layout(|s, v| s.display = display(v)),
@@ -392,8 +416,14 @@ fn i32_write(prop: PropertyId) -> Option<Write<i32>> {
             let o = overflow(v);
             s.overflow = Point { x: o, y: o };
         }),
-        P::FontWeight => render(|p, v| p.font_weight = Some(font_weight(v))),
-        P::FontStyle => render(|p, v| p.font_style = Some(font_style(v))),
+        P::FontWeight => render(move |p, v| {
+            p.font_weight = Some(font_weight(v));
+            record_text(node, move |c| c.font_weight = v.clamp(1, 1000) as u16);
+        }),
+        P::FontStyle => render(move |p, v| {
+            p.font_style = Some(font_style(v));
+            record_text(node, move |c| c.italic = v == 1);
+        }),
         P::TextAlign => render(|p, v| p.text_align = Some(text_align(v))),
         _ => None,
     }
@@ -408,19 +438,12 @@ pub unsafe extern "C" fn hl_blinc_apply_i32(
     sig: *mut c_void,
     comp: *mut c_void,
 ) {
+    let node = LayoutNodeId::from_raw(node);
     let Some(prop) = property(prop) else { return };
-    let Some(write) = i32_write(prop) else { return };
-    unsafe {
-        bind(
-            LayoutNodeId::from_raw(node),
-            prop,
-            kind,
-            constant,
-            sig,
-            comp,
-            write,
-        )
+    let Some(write) = i32_write(node, prop) else {
+        return;
     };
+    unsafe { bind(node, prop, kind, constant, sig, comp, write) };
 }
 define_prim!(
     hlp_blinc_apply_i32,
@@ -514,18 +537,35 @@ define_prim!(
 // STRINGS
 // ============================================================================
 
-/// `FontFamily` and `TextContent`. Blinc's `RenderProps` has no font family
-/// field and `LayoutTree` cannot change a text node's content after creation,
-/// so neither has anywhere to go yet and this applies nothing.
+/// `TextContent` and `FontFamily`. Both live only in a text node's measure
+/// context: Blinc's `RenderProps` has neither field.
+fn string_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<String>> {
+    use PropertyId as P;
+    match prop {
+        P::TextContent => render(move |_, v| record_text(node, move |c| c.content = v)),
+        P::FontFamily => render(move |_, v: String| {
+            record_text(node, move |c| c.font_name = (!v.is_empty()).then_some(v))
+        }),
+        _ => None,
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_apply_string(
-    _node: u64,
-    _prop: i32,
-    _kind: i32,
-    _constant: *const vbyte,
-    _sig: *mut c_void,
-    _comp: *mut c_void,
+    node: u64,
+    prop: i32,
+    kind: i32,
+    constant: *const vbyte,
+    sig: *mut c_void,
+    comp: *mut c_void,
 ) {
+    let node = LayoutNodeId::from_raw(node);
+    let Some(prop) = property(prop) else { return };
+    let Some(write) = string_write(node, prop) else {
+        return;
+    };
+    let constant = unsafe { string_from(constant) };
+    unsafe { bind(node, prop, kind, constant, sig, comp, write) };
 }
 define_prim!(
     hlp_blinc_apply_string,

@@ -69,6 +69,19 @@ class Smoke {
 		var s = tree.getBounds(short.node);
 		check("text measured from full content", t != null && s != null && t.width > s.width * 4, '$t vs $s');
 
+		// --- Text bound to a computed string is measured again when it changes ---
+		var clicks = Signal.make(1);
+		var counter = new Text(clicks.computed(c -> 'Value: $c'), tree);
+		root.appendChild(counter);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var before = tree.getBounds(counter.node);
+		clicks.set(1000000);
+		check("bound text change queues relayout", tree.flush());
+		tree.computeLayout(root.node, 800, 600);
+		var after = tree.getBounds(counter.node);
+		check("bound text measured again", before != null && after != null && after.width > before.width * 1.3, '$before -> $after');
+
 		// --- Dependency tracking across signals and types ---
 		var count = Signal.make(3);
 		var label2 = count.computed(c -> 'Value: $c');

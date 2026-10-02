@@ -13,14 +13,22 @@ typedef TextAttributes = {
 }
 
 class Text extends Element {
-	public function new(content:String, ?attr:TextAttributes, tree:LayoutTree) {
+	/** `content` is a string, or a signal or computed of one. **/
+	public function new(content:IntoReactive<String>, ?attr:TextAttributes, tree:LayoutTree) {
 		super(tree);
 
 		// Allocate native text measurement context in Rust
 		var fs:Single = attr != null && attr.fontSize != null ? attr.fontSize : 16.0;
 		var wrap = attr != null && attr.wrap != null ? attr.wrap : true;
 
-		this.node = tree.createTextNode(content, fs, 1.2, wrap);
+		switch (content) {
+			case Const(s):
+				this.node = tree.createTextNode(s, fs, 1.2, wrap);
+			case _:
+				// The binding supplies the content; it takes effect at the next flush.
+				this.node = tree.createTextNode("", fs, 1.2, wrap);
+				node.set(PropertyId.TextContent, content);
+		}
 
 		if (attr != null) {
 			if (attr.color != null)

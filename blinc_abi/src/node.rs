@@ -2,6 +2,7 @@
 //! applying queued property writes, computing layout, reading bounds.
 
 use crate::hl::{handle_mut, into_handle, opt_string_from, string_from};
+use crate::layout_router::take_pending_text;
 use blinc_layout::div::GenericFont;
 use blinc_layout::element::RenderProps;
 use blinc_layout::stateful::take_pending_partial_prop_updates;
@@ -205,6 +206,10 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
         if let Some(write) = update.render_write {
             write(tree.props.entry(update.node_id).or_default());
         }
+    }
+    // Recorded by the render writes above, so applied after them.
+    for (node, write) in take_pending_text() {
+        needs_layout |= tree.layout.update_text(node, write);
     }
     needs_layout
 }
