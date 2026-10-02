@@ -1,4 +1,4 @@
-package ashui.render;
+package ashui.core.render;
 
 import ashui.layout.DisplayList;
 import gpu.BlendFactor;
@@ -44,8 +44,8 @@ class Renderer {
 		this.device = device;
 		frameBytes = haxe.io.Bytes.alloc(BoxShader.FRAME_SIZE);
 		frame = device.createBuffer(new GpuBufferDescriptor(BoxShader.FRAME_SIZE, BufferUsage.UNIFORM | BufferUsage.COPY_DST));
-		boxes = pass(BoxShader.WGSL, Inputs.of(ashui.render.BoxShader), format);
-		shadows = pass(ShadowShader.WGSL, Inputs.of(ashui.render.ShadowShader), format);
+		boxes = pass(BoxShader.WGSL, Inputs.of(ashui.core.render.BoxShader), format);
+		shadows = pass(ShadowShader.WGSL, Inputs.of(ashui.core.render.ShadowShader), format);
 	}
 
 	function pass(wgsl:String, inputs:Array<{offset:Int, location:Int}>, format:TextureFormat):Pass {

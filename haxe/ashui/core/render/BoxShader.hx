@@ -1,4 +1,4 @@
-package ashui.render;
+package ashui.core.render;
 
 /**
 	A box: its fill, solid or a two-stop gradient, with its border drawn
@@ -7,7 +7,7 @@ package ashui.render;
 **/
 class BoxShader implements UiShader {
 	static var SRC = {
-		@:import ashui.render.Sdf;
+		@:import ashui.core.render.Sdf;
 
 		var output : { position : Vec4, color : Vec4 };
 		var pixel : Vec2;

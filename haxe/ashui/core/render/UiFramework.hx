@@ -1,4 +1,4 @@
-package ashui.render;
+package ashui.core.render;
 
 #if macro
 #if ashui_caribou
@@ -18,11 +18,11 @@ import hlwgpu.hxsl.Extensions;
 	`frame` block, bound once per frame and shared by every UI shader.
 
 	Registered from ashui's extraParams.hxml, or `--macro
-	ashui.render.UiFramework.register()`.
+	ashui.core.render.UiFramework.register()`.
 **/
 class UiFramework extends Extension {
 	public static function register() {
-		Extensions.register(new UiFramework(), "ashui.render.UiShader");
+		Extensions.register(new UiFramework(), "ashui.core.render.UiShader");
 	}
 
 	override function prelude():Null<haxe.macro.Expr> {

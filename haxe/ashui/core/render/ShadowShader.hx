@@ -1,4 +1,4 @@
-package ashui.render;
+package ashui.core.render;
 
 /**
 	A box shadow: a Gaussian of the box offset and spread, drawn outside the
@@ -6,7 +6,7 @@ package ashui.render;
 **/
 class ShadowShader implements UiShader {
 	static var SRC = {
-		@:import ashui.render.Sdf;
+		@:import ashui.core.render.Sdf;
 
 		var output : { position : Vec4, color : Vec4 };
 		var pixel : Vec2;

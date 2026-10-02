@@ -1,7 +1,7 @@
 import ashui.layout.DisplayList;
 import ashui.layout.LayoutTree;
 import ashui.layout.Prop;
-import ashui.render.Renderer;
+import ashui.core.render.Renderer;
 import ashui.types.Brush;
 import ashui.types.Color;
 import ashui.types.CornerRadius;

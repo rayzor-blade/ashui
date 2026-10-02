@@ -1,4 +1,4 @@
-package ashui.render;
+package ashui.core.render;
 
 #if macro
 import haxe.macro.Context;

@@ -67,7 +67,7 @@ render)
 	fi
 	cp "$xgpu" bin/xgpu.hdll
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
-		--macro 'ashui.render.UiFramework.register()' \
+		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main Offscreen -hl bin/offscreen.hl
 	run offscreen.hl
 	;;

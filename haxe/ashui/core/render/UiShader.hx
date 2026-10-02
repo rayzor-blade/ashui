@@ -1,4 +1,4 @@
-package ashui.render;
+package ashui.core.render;
 
 /**
 	A shader of ashui's renderer. `UiFramework` gives each one the display-list

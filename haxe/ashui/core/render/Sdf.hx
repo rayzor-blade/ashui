@@ -1,4 +1,4 @@
-package ashui.render;
+package ashui.core.render;
 
 /**
 	Signed distances and coverage for UI primitives, imported by the UI

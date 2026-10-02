@@ -6,4 +6,4 @@
 --class-path ./haxe
 
 # ashui's HXSL extension, before any shader is typed
---macro ashui.render.UiFramework.register()
+--macro ashui.core.render.UiFramework.register()
