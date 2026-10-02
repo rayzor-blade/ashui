@@ -25,7 +25,8 @@ using haxe.macro.TypeTools;
 	attribute is checked against the component's props.
 
 	A value typed as a signal or computed is bound as it is. An attribute or
-	text interpolation that calls `.get()` becomes a computed of that
+	text interpolation that reads a signal, by calling `.get()` or by reading
+	a `@:state` field of the component it is in, becomes a computed of that
 	expression, so it follows what it reads; for a component, only props typed
 	`IntoReactive<T>` do. Interpolating a signal or computed reads it.
 	Interpolating an element or an array of elements places them as children.
@@ -322,7 +323,7 @@ class Hxx {
 		var type = typeOf(value);
 		if (type != null && isReactive(type))
 			return value;
-		if (callsGet(value)) {
+		if (reads(value)) {
 			var ct = valueType.toComplexType();
 			return macro @:pos(value.pos) ashui.reactive.Computed.make(() -> ($value : $ct));
 		}
@@ -340,7 +341,37 @@ class Hxx {
 		var type = typeOf(e);
 		if (type != null && isReactive(type))
 			return {expr: macro @:pos(e.pos) $e.get(), reactive: true};
-		return {expr: e, reactive: callsGet(e)};
+		return {expr: e, reactive: reads(e)};
+	}
+
+	/** Whether `e` reads a signal: a `.get()` call, or a `@:state` field of the component. **/
+	static function reads(e:Expr):Bool {
+		return callsGet(e) || readsState(e);
+	}
+
+	static function readsState(e:Expr):Bool {
+		var names = [];
+		var cls = Context.getLocalClass();
+		var current = cls == null ? null : cls.get();
+		while (current != null) {
+			for (f in current.fields.get())
+				if (f.meta.has(':state'))
+					names.push(f.name);
+			current = current.superClass == null ? null : current.superClass.t.get();
+		}
+		if (names.length == 0)
+			return false;
+		var shadowed = [for (local in locals) local.name];
+		var found = false;
+		function visit(e:Expr)
+			switch e.expr {
+				case EConst(CIdent(name)) if (names.contains(name) && !shadowed.contains(name)): found = true;
+				case EField({expr: EConst(CIdent('this'))}, name) if (names.contains(name)): found = true;
+				case EFunction(_, _): // a nested function reads when it is called, not here
+				case _: e.iter(visit);
+			}
+		visit(e);
+		return found;
 	}
 
 	static function callsGet(e:Expr):Bool {

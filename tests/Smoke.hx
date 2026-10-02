@@ -11,6 +11,7 @@ import ashui.types.Style;
 import ashui.ui.Component;
 import ashui.ui.Div;
 import ashui.ui.Text;
+import ashui.ui.View;
 import ashui.ui.Hxx.hxx;
 
 /** End-to-end check of the Haxe bindings against blinc_abi.hdll. **/
@@ -302,6 +303,21 @@ class Smoke {
 		check("an <if> on a computed follows its signals", small != null && near(small.width, 4) && large != null && near(large.width, 40),
 			'$small -> $large');
 
+		// --- @:state is read in templates without .get(), and followed ---
+		var counter:CounterView = Owner.root(tree, _ -> hxx('<CounterView />'));
+		root.appendChild(counter);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var counted = tree.getBounds(counter.node);
+		counter.increment();
+		counter.increment();
+		check("a @:state field reads and writes its signal", counter.count == 3, counter.count);
+		check("changing @:state queues a relayout", tree.flush());
+		tree.computeLayout(root.node, 800, 600);
+		var recounted = tree.getBounds(counter.node);
+		check("a template attribute reading @:state follows it", counted != null && near(counted.width, 10) && recounted != null
+			&& near(recounted.width, 30), '$counted -> $recounted');
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);
@@ -333,4 +349,19 @@ class Smoke {
 class Badge extends Component<{label:IntoReactive<String>}> {
 	function render():Element
 		return new Div({width: 50, height: 20}, [new Text(props.label)]);
+}
+
+/** The spec's counter: state read without .get(), and a template body. **/
+class CounterView extends View {
+	@:state public var count:Int = 1;
+
+	function render() '
+		<Div width={count * 10} height={8} flexShrink={0}>
+			<Text>Value: ${count}</Text>
+		</Div>
+	';
+
+	public function increment():Void {
+		count++;
+	}
 }

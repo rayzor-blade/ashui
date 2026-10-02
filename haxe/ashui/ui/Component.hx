@@ -14,8 +14,11 @@ import ashui.reactive.Owner;
 
 	`render` runs under the component's own owner, so what it creates is
 	cleaned up when the component is removed. Field initializers run before
-	it, so a component can keep signals in fields.
+	it, so a component can keep signals in fields; `@:state var x:T = init`
+	does that for it, and `function render() '<template>'` is a template
+	(see `ComponentBuilder`).
 **/
+@:autoBuild(ashui.ui.ComponentBuilder.build())
 abstract class Component<Props> extends Element {
 	public final props:Props;
 	final children:Array<Element>;
