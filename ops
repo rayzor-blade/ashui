@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":5,"timestamp":1790962985,"nonce":"wObS4DNKfzWIm+wMxiBWvwKIw4k=","added":["debt","area:abi","priority:high"],"removed":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1790963570,"nonce":"IUcpSBn1OiLNWlYOjdGks/xogt8=","message":"Blinc's local main now carries two unpushed commits ashui depends on: 5ff701e5 (update_text) and 64ce3702 (dispose).","files":null}]}
