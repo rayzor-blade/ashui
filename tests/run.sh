@@ -11,7 +11,13 @@ Darwin) lib=libblinc_abi.dylib ;;
 esac
 cp "../target/debug/$lib" bin/blinc_abi.hdll
 haxe smoke.hxml
+# The sibling ash checkout's release build when there is one: an installed
+# ash can lag behind it.
+runtime=ash
+if [ -x ../../ash/target/release/ash ]; then
+	runtime="$(cd ../../ash/target/release && pwd)/ash"
+fi
 # Stock hl finds the hdll through its rpath entry for the current directory;
 # Ash looks beside the program, so the path is absolute.
 cd bin
-exec "${HL:-ash}" "$PWD/smoke.hl"
+exec "${HL:-$runtime}" "$PWD/smoke.hl"
