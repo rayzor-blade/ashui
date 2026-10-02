@@ -3,7 +3,7 @@ package ashui.ui;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
 import ashui.layout.LayoutTree;
-import ashui.layout.PropertyId;
+import ashui.layout.Prop;
 import ashui.types.Color;
 
 typedef TextAttributes = {
@@ -27,12 +27,12 @@ class Text extends Element {
 			case _:
 				// The binding supplies the content; it takes effect at the next flush.
 				this.node = tree.createTextNode("", fs, 1.2, wrap);
-				node.set(PropertyId.TextContent, content);
+				node.set(Prop.TextContent, content);
 		}
 
 		if (attr != null) {
 			if (attr.color != null)
-				node.set(PropertyId.Color, attr.color);
+				node.set(Prop.Color, attr.color);
 		}
 	}
 }

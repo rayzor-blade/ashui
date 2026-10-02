@@ -25,8 +25,8 @@ class Node {
 		current value at once and every change after it; `LayoutTree.flush`
 		makes them take effect.
 	**/
-	public function set<T>(prop:PropertyId, reactive:IntoReactive<T>):Void {
-		switch (prop.getDataType()) {
+	public function set<T>(prop:Prop<T>, reactive:IntoReactive<T>):Void {
+		switch ((prop : PropertyId).getDataType()) {
 			case TypeF32:
 				applyF32(prop, cast reactive);
 			case TypeI32:

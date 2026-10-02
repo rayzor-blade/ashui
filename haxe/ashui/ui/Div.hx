@@ -3,7 +3,7 @@ package ashui.ui;
 import ashui.layout.Element;
 import ashui.layout.LayoutTree;
 import ashui.layout.Node;
-import ashui.layout.PropertyId;
+import ashui.layout.Prop;
 import ashui.layout.IntoReactive;
 import ashui.types.Brush;
 import ashui.types.Color;
@@ -67,83 +67,83 @@ class Div extends Element {
 		if (attr != null) {
 			// Visuals
 			if (attr.bg != null)
-				node.set(Background, attr.bg);
+				node.set(Prop.Background, attr.bg);
 			if (attr.borderColor != null)
-				node.set(BorderColor, attr.borderColor);
+				node.set(Prop.BorderColor, attr.borderColor);
 			if (attr.borderWidth != null)
-				node.set(BorderWidth, attr.borderWidth);
+				node.set(Prop.BorderWidth, attr.borderWidth);
 			if (attr.cornerRadius != null)
-				node.set(CornerRadius, attr.cornerRadius);
+				node.set(Prop.CornerRadius, attr.cornerRadius);
 			if (attr.opacity != null)
-				node.set(Opacity, attr.opacity);
+				node.set(Prop.Opacity, attr.opacity);
 			if (attr.color != null)
-				node.set(Color, attr.color);
+				node.set(Prop.Color, attr.color);
 			if (attr.accentColor != null)
-				node.set(AccentColor, attr.accentColor);
+				node.set(Prop.AccentColor, attr.accentColor);
 
 			// Layout & Flexbox
 			if (attr.width != null)
-				node.set(Width, attr.width);
+				node.set(Prop.Width, attr.width);
 			if (attr.height != null)
-				node.set(Height, attr.height);
+				node.set(Prop.Height, attr.height);
 			if (attr.minWidth != null)
-				node.set(MinWidth, attr.minWidth);
+				node.set(Prop.MinWidth, attr.minWidth);
 			if (attr.maxWidth != null)
-				node.set(MaxWidth, attr.maxWidth);
+				node.set(Prop.MaxWidth, attr.maxWidth);
 			if (attr.minHeight != null)
-				node.set(MinHeight, attr.minHeight);
+				node.set(Prop.MinHeight, attr.minHeight);
 			if (attr.maxHeight != null)
-				node.set(MaxHeight, attr.maxHeight);
+				node.set(Prop.MaxHeight, attr.maxHeight);
 			if (attr.padding != null)
-				node.set(Padding, attr.padding);
+				node.set(Prop.Padding, attr.padding);
 			if (attr.margin != null)
-				node.set(Margin, attr.margin);
+				node.set(Prop.Margin, attr.margin);
 			if (attr.gap != null)
-				node.set(Gap, attr.gap);
+				node.set(Prop.Gap, attr.gap);
 			if (attr.flexDirection != null)
-				node.set(FlexDirection, attr.flexDirection);
+				node.set(Prop.FlexDirection, attr.flexDirection);
 			if (attr.alignItems != null)
-				node.set(AlignItems, attr.alignItems);
+				node.set(Prop.AlignItems, attr.alignItems);
 			if (attr.justifyContent != null)
-				node.set(JustifyContent, attr.justifyContent);
+				node.set(Prop.JustifyContent, attr.justifyContent);
 			if (attr.alignSelf != null)
-				node.set(AlignSelf, attr.alignSelf);
+				node.set(Prop.AlignSelf, attr.alignSelf);
 			if (attr.flexGrow != null)
-				node.set(FlexGrow, attr.flexGrow);
+				node.set(Prop.FlexGrow, attr.flexGrow);
 			if (attr.flexShrink != null)
-				node.set(FlexShrink, attr.flexShrink);
+				node.set(Prop.FlexShrink, attr.flexShrink);
 			if (attr.flexWrap != null)
-				node.set(FlexWrap, attr.flexWrap);
+				node.set(Prop.FlexWrap, attr.flexWrap);
 			if (attr.flexBasis != null)
-				node.set(FlexBasis, attr.flexBasis);
+				node.set(Prop.FlexBasis, attr.flexBasis);
 			if (attr.display != null)
-				node.set(Display, attr.display);
+				node.set(Prop.Display, attr.display);
 			if (attr.overflow != null)
-				node.set(Overflow, attr.overflow);
+				node.set(Prop.Overflow, attr.overflow);
 			if (attr.position != null)
-				node.set(Position, attr.position);
+				node.set(Prop.Position, attr.position);
 			if (attr.top != null)
-				node.set(Top, attr.top);
+				node.set(Prop.Top, attr.top);
 			if (attr.right != null)
-				node.set(Right, attr.right);
+				node.set(Prop.Right, attr.right);
 			if (attr.bottom != null)
-				node.set(Bottom, attr.bottom);
+				node.set(Prop.Bottom, attr.bottom);
 			if (attr.left != null)
-				node.set(Left, attr.left);
+				node.set(Prop.Left, attr.left);
 
 			// Typography
 			if (attr.fontSize != null)
-				node.set(FontSize, attr.fontSize);
+				node.set(Prop.FontSize, attr.fontSize);
 			if (attr.fontWeight != null)
-				node.set(FontWeight, attr.fontWeight);
+				node.set(Prop.FontWeight, attr.fontWeight);
 			if (attr.fontStyle != null)
-				node.set(FontStyle, attr.fontStyle);
+				node.set(Prop.FontStyle, attr.fontStyle);
 			if (attr.letterSpacing != null)
-				node.set(LetterSpacing, attr.letterSpacing);
+				node.set(Prop.LetterSpacing, attr.letterSpacing);
 			if (attr.lineHeight != null)
-				node.set(LineHeight, attr.lineHeight);
+				node.set(Prop.LineHeight, attr.lineHeight);
 			if (attr.textAlign != null)
-				node.set(TextAlign, attr.textAlign);
+				node.set(Prop.TextAlign, attr.textAlign);
 		}
 
 		// 3. Mount children structure
