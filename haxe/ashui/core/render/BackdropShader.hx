@@ -39,26 +39,21 @@ class BackdropShader implements UiShader {
 				* shapeCoverage(place.zw);
 			if (cover < 0.001)
 				discard;
-			var x = int(fragCoord.x);
-			var y0 = int(fragCoord.y);
+			var size = textureSize(layer);
 			var sigma = max(primitive.color.x, 0.0001);
-			var last = int(textureSize(layer).y) - 1;
-			var reach = int(ceil(sigma * 3.));
-			var step = max(1, int(sigma / 6.));
+			// Texels three deviations each side, two at a time: one filtered read between
+			// a pair, at the ratio of their weights, is their weighted sum.
+			var reach = ceil(sigma * 3.);
 			var sum = vec4(0., 0., 0., 0.);
 			var weights = 0.;
 			var i = -reach;
 			while (i <= reach) {
-				var y = y0 + i;
-				if (y < 0)
-					y = 0;
-				if (y > last)
-					y = last;
-				var d = float(i);
-				var w = exp(-d * d / (2. * sigma * sigma));
-				sum += layer.fetch(ivec2(x, y)) * w;
+				var w0 = exp(-i * i / (2. * sigma * sigma));
+				var w1 = exp(-(i + 1.) * (i + 1.) / (2. * sigma * sigma));
+				var w = w0 + w1;
+				sum += textureLod(layer, vec2(fragCoord.x, fragCoord.y + i + w1 / w) / size, 0.) * w;
 				weights += w;
-				i += step;
+				i += 2.;
 			}
 			var texel = sum / weights;
 			var rgb = vec3(0., 0., 0.);

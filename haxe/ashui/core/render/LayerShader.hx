@@ -38,23 +38,20 @@ class LayerShader implements UiShader {
 			var texel = layer.fetch(ivec2(x, y0));
 			var sigma = primitive.color.x;
 			if (sigma > 0.) {
-				var last = int(textureSize(layer).y) - 1;
-				var reach = int(ceil(sigma * 3.));
-				var step = max(1, int(sigma / 6.));
+				var size = textureSize(layer);
+				// Texels three deviations each side, two at a time: one filtered read between
+				// a pair, at the ratio of their weights, is their weighted sum.
+				var reach = ceil(sigma * 3.);
 				var sum = vec4(0., 0., 0., 0.);
 				var weights = 0.;
 				var i = -reach;
 				while (i <= reach) {
-					var y = y0 + i;
-					if (y < 0)
-						y = 0;
-					if (y > last)
-						y = last;
-					var d = float(i);
-					var w = exp(-d * d / (2. * sigma * sigma));
-					sum += layer.fetch(ivec2(x, y)) * w;
+					var w0 = exp(-i * i / (2. * sigma * sigma));
+					var w1 = exp(-(i + 1.) * (i + 1.) / (2. * sigma * sigma));
+					var w = w0 + w1;
+					sum += textureLod(layer, vec2(fragCoord.x, fragCoord.y + i + w1 / w) / size, 0.) * w;
 					weights += w;
-					i += step;
+					i += 2.;
 				}
 				texel = sum / weights;
 			}
@@ -73,23 +70,18 @@ class LayerShader implements UiShader {
 				var fallen = 0.;
 				if (sx >= 0 && sx < int(size.x)) {
 					var sigma2 = max(primitive.gradient.z, 0.0001);
-					var last = int(size.y) - 1;
-					var reach = int(ceil(sigma2 * 3.));
-					var step = max(1, int(sigma2 / 6.));
+					// Two texels a read, as in LayerBlurShader, in the shadow's whole-pixel offset column.
+					var reach = ceil(sigma2 * 3.);
 					var sum = 0.;
 					var weights = 0.;
 					var i = -reach;
 					while (i <= reach) {
-						var sy = sy0 + i;
-						if (sy < 0)
-							sy = 0;
-						if (sy > last)
-							sy = last;
-						var d = float(i);
-						var w = exp(-d * d / (2. * sigma2 * sigma2));
-						sum += shadow.fetch(ivec2(sx, sy)).a * w;
+						var w0 = exp(-i * i / (2. * sigma2 * sigma2));
+						var w1 = exp(-(i + 1.) * (i + 1.) / (2. * sigma2 * sigma2));
+						var w = w0 + w1;
+						sum += textureLod(shadow, vec2(float(sx) + 0.5, float(sy0) + 0.5 + i + w1 / w) / size, 0.).a * w;
 						weights += w;
-						i += step;
+						i += 2.;
 					}
 					fallen = sum / weights;
 				}

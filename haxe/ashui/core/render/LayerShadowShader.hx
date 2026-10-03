@@ -22,27 +22,21 @@ class LayerShadowShader implements UiShader {
 
 		function fragment() {
 			var sigma = primitive.gradient.z;
-			var last = int(textureSize(layer).x) - 1;
-			var x0 = int(fragCoord.x);
-			var y = int(fragCoord.y);
-			var alpha = layer.fetch(ivec2(x0, y)).a;
+			var size = textureSize(layer);
+			var alpha = layer.fetch(ivec2(int(fragCoord.x), int(fragCoord.y))).a;
 			if (sigma > 0.25) {
-				var reach = int(ceil(sigma * 3.));
-				var step = max(1, int(sigma / 6.));
+				// Two texels a read, as in LayerBlurShader.
+				var reach = ceil(sigma * 3.);
 				var sum = 0.;
 				var weights = 0.;
 				var i = -reach;
 				while (i <= reach) {
-					var x = x0 + i;
-					if (x < 0)
-						x = 0;
-					if (x > last)
-						x = last;
-					var d = float(i);
-					var w = exp(-d * d / (2. * sigma * sigma));
-					sum += layer.fetch(ivec2(x, y)).a * w;
+					var w0 = exp(-i * i / (2. * sigma * sigma));
+					var w1 = exp(-(i + 1.) * (i + 1.) / (2. * sigma * sigma));
+					var w = w0 + w1;
+					sum += textureLod(layer, vec2(fragCoord.x + i + w1 / w, fragCoord.y) / size, 0.).a * w;
 					weights += w;
-					i += step;
+					i += 2.;
 				}
 				alpha = sum / weights;
 			}

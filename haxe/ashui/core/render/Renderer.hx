@@ -365,10 +365,13 @@ class Renderer {
 		size.height(height);
 		function target():GpuTexture
 			return device.texture(new GpuTextureDescriptor(size, format, TextureUsage.RENDER_ATTACHMENT | TextureUsage.TEXTURE_BINDING));
-		function group(pass:Pass, frameGroup:Int, of:GpuTextureView):GpuBindGroup {
+		// A pass that blurs reads its texture through the linear sampler, two texels a read; the blit only fetches.
+		function group(pass:Pass, frameGroup:Int, of:GpuTextureView, sampled = true):GpuBindGroup {
 			var bindings = new GpuBindings();
 			bindings.buffer(frame);
 			bindings.texture(of);
+			if (sampled)
+				bindings.sampler(glyphSampler);
 			var made = device.bindGroup(pass.pipeline, frameGroup, bindings);
 			bindings.destroy();
 			return made;
@@ -381,6 +384,7 @@ class Renderer {
 		var shadowView = shadow.createView(new GpuTextureViewDescriptor());
 		var shadowBindings = new GpuBindings();
 		shadowBindings.texture(shadowView);
+		shadowBindings.sampler(glyphSampler);
 		var shadowGroup = device.bindGroup(layerPass.pipeline, LayerShader.TEXTURE_shadow_GROUP, shadowBindings);
 		shadowBindings.destroy();
 		return {
@@ -397,7 +401,7 @@ class Renderer {
 			shadowGroup: shadowGroup,
 			backdropRowsGroup: group(backdropRowsPass, BackdropRowsShader.FRAME_GROUP, view),
 			backdropGroup: group(backdropPass, BackdropShader.FRAME_GROUP, rowsView),
-			blitGroup: group(blitPass, BlitShader.FRAME_GROUP, view),
+			blitGroup: group(blitPass, BlitShader.FRAME_GROUP, view, false),
 			width: width,
 			height: height
 		};

@@ -22,27 +22,21 @@ class LayerBlurShader implements UiShader {
 		}
 
 		function fragment() {
+			var size = textureSize(layer);
 			var sigma = max(primitive.color.x, 0.0001);
-			var last = int(textureSize(layer).x) - 1;
-			var x0 = int(fragCoord.x);
-			var y = int(fragCoord.y);
-			// Three deviations each side, in at most about forty steps.
-			var reach = int(ceil(sigma * 3.));
-			var step = max(1, int(sigma / 6.));
+			// Texels three deviations each side, two at a time: one filtered read between
+			// a pair, at the ratio of their weights, is their weighted sum.
+			var reach = ceil(sigma * 3.);
 			var sum = vec4(0., 0., 0., 0.);
 			var weights = 0.;
 			var i = -reach;
 			while (i <= reach) {
-				var x = x0 + i;
-				if (x < 0)
-					x = 0;
-				if (x > last)
-					x = last;
-				var d = float(i);
-				var w = exp(-d * d / (2. * sigma * sigma));
-				sum += layer.fetch(ivec2(x, y)) * w;
+				var w0 = exp(-i * i / (2. * sigma * sigma));
+				var w1 = exp(-(i + 1.) * (i + 1.) / (2. * sigma * sigma));
+				var w = w0 + w1;
+				sum += textureLod(layer, vec2(fragCoord.x + i + w1 / w, fragCoord.y) / size, 0.) * w;
 				weights += w;
-				i += step;
+				i += 2.;
 			}
 			output.color = sum / weights;
 		}
