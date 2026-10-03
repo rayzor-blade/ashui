@@ -88,7 +88,8 @@ pub const PRIM_IMAGE: f32 = 32.0;
 /// their own: a group with opacity, as CSS composites one.
 pub const PRIM_LAYER_BEGIN: f32 = 40.0;
 /// Draws the layer the last `PRIM_LAYER_BEGIN` began over its bounds, its
-/// alpha times `color.a`.
+/// alpha times `color.a`, its colour through the colour filter in rows 3 to
+/// 5 (see `filter_matrix`).
 pub const PRIM_LAYER: f32 = 41.0;
 
 /// `type_info.y`, as Blinc's `FillType`.
@@ -694,8 +695,8 @@ pub fn append(
         .unwrap_or(color);
     let mut pushed = false;
     let mut shaped = false;
-    // Where its layer's begin record is in `out`, and the layer's opacity.
-    let mut layer: Option<(usize, f32)> = None;
+    // Where its layer's begin record is in `out`, the layer's opacity and its colour filter.
+    let mut layer: Option<(usize, f32, ColorMatrix)> = None;
     // A border drawn after the children, with the clips its node is drawn under.
     let mut after: Option<(Primitive, Clipping)> = None;
     if let Some(props) = tree.props.get(&node) {
@@ -713,8 +714,9 @@ pub fn append(
         }
         // A group with opacity over more than one painted node is drawn into a
         // layer and faded as one; otherwise multiplying the opacity in is exact.
-        if props.opacity < 1.0 && painted_at_least(tree, node, 2) {
-            layer = Some((out.len(), opacity * props.opacity));
+        let filtered = props.filter.as_ref().map(filter_matrix).filter(|m| *m != IDENTITY_MATRIX);
+        if filtered.is_some() || (props.opacity < 1.0 && painted_at_least(tree, node, 2)) {
+            layer = Some((out.len(), opacity * props.opacity, filtered.unwrap_or(IDENTITY_MATRIX)));
             Primitive::new(PRIM_LAYER_BEGIN, [0.0; 4], [0.0; 4]).push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
             opacity = 1.0;
         } else {
@@ -882,11 +884,82 @@ pub fn append(
     if shaped {
         clips.pop();
     }
-    if let Some((begin, alpha)) = layer {
+    if let Some((begin, alpha, matrix)) = layer {
         let mut c = Primitive::new(PRIM_LAYER, records_bounds(&out[begin + RECORD_FLOATS..]), [0.0; 4]);
         c.color = [1.0, 1.0, 1.0, alpha];
+        // The colour filter's rows in the rows a box's second colour and border take.
+        [c.color2, c.border, c.border_color] = matrix;
         c.push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
     }
+}
+
+/// A colour filter as an affine map of straight RGB: each row's first three
+/// are its weights of r, g and b, its fourth the offset.
+type ColorMatrix = [[f32; 4]; 3];
+
+const IDENTITY_MATRIX: ColorMatrix = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]];
+
+/// `outer` applied after `inner`.
+fn then(inner: ColorMatrix, outer: ColorMatrix) -> ColorMatrix {
+    let mut m = [[0.0; 4]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            m[i][j] = (0..3).map(|k| outer[i][k] * inner[k][j]).sum();
+        }
+        m[i][3] = (0..3).map(|k| outer[i][k] * inner[k][3]).sum::<f32>() + outer[i][3];
+    }
+    m
+}
+
+/// The colour filters of `f` as one matrix, in the order Tailwind composes
+/// its filter classes: brightness, contrast, grayscale, hue-rotate, invert,
+/// saturate, sepia; each by the CSS Filter Effects formula.
+fn filter_matrix(f: &blinc_layout::element_style::CssFilter) -> ColorMatrix {
+    let diag = |v: f32, o: f32| [[v, 0.0, 0.0, o], [0.0, v, 0.0, o], [0.0, 0.0, v, o]];
+    let mut m = IDENTITY_MATRIX;
+    if f.brightness != 1.0 {
+        m = then(m, diag(f.brightness, 0.0));
+    }
+    if f.contrast != 1.0 {
+        m = then(m, diag(f.contrast, 0.5 - 0.5 * f.contrast));
+    }
+    if f.grayscale != 0.0 {
+        let s = 1.0 - f.grayscale.clamp(0.0, 1.0);
+        m = then(m, [
+            [0.2126 + 0.7874 * s, 0.7152 - 0.7152 * s, 0.0722 - 0.0722 * s, 0.0],
+            [0.2126 - 0.2126 * s, 0.7152 + 0.2848 * s, 0.0722 - 0.0722 * s, 0.0],
+            [0.2126 - 0.2126 * s, 0.7152 - 0.7152 * s, 0.0722 + 0.9278 * s, 0.0],
+        ]);
+    }
+    if f.hue_rotate != 0.0 {
+        let (sin, cos) = f.hue_rotate.to_radians().sin_cos();
+        m = then(m, [
+            [0.213 + cos * 0.787 - sin * 0.213, 0.715 - cos * 0.715 - sin * 0.715, 0.072 - cos * 0.072 + sin * 0.928, 0.0],
+            [0.213 - cos * 0.213 + sin * 0.143, 0.715 + cos * 0.285 + sin * 0.140, 0.072 - cos * 0.072 - sin * 0.283, 0.0],
+            [0.213 - cos * 0.213 - sin * 0.787, 0.715 - cos * 0.715 + sin * 0.715, 0.072 + cos * 0.928 + sin * 0.072, 0.0],
+        ]);
+    }
+    if f.invert != 0.0 {
+        let a = f.invert.clamp(0.0, 1.0);
+        m = then(m, diag(1.0 - 2.0 * a, a));
+    }
+    if f.saturate != 1.0 {
+        let s = f.saturate;
+        m = then(m, [
+            [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s, 0.0],
+            [0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s, 0.0],
+            [0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s, 0.0],
+        ]);
+    }
+    if f.sepia != 0.0 {
+        let s = 1.0 - f.sepia.clamp(0.0, 1.0);
+        m = then(m, [
+            [0.393 + 0.607 * s, 0.769 - 0.769 * s, 0.189 - 0.189 * s, 0.0],
+            [0.349 - 0.349 * s, 0.686 + 0.314 * s, 0.168 - 0.168 * s, 0.0],
+            [0.272 - 0.272 * s, 0.534 - 0.534 * s, 0.131 + 0.869 * s, 0.0],
+        ]);
+    }
+    m
 }
 
 /// Whether `node`'s subtree paints at least `n` nodes: a fill, a border, a

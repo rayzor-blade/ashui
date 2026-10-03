@@ -29,6 +29,18 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var FadeLeft:Prop<Single> = cast PropertyId.FadeLeft;
 	/** The shape the element and everything inside it are clipped to, as CSS's `clip-path`. **/
 	public static inline var ClipPath:Prop<ashui.types.ClipPath> = cast PropertyId.ClipPath;
+	/**
+		CSS's colour filters over the element and everything inside it, drawn
+		as one layer: brightness, contrast and saturate as multipliers (1 is
+		none), grayscale, invert and sepia from 0 to 1, hue-rotate in degrees.
+	**/
+	public static inline var FilterBrightness:Prop<Single> = cast PropertyId.FilterBrightness;
+	public static inline var FilterContrast:Prop<Single> = cast PropertyId.FilterContrast;
+	public static inline var FilterGrayscale:Prop<Single> = cast PropertyId.FilterGrayscale;
+	public static inline var FilterHueRotate:Prop<Single> = cast PropertyId.FilterHueRotate;
+	public static inline var FilterInvert:Prop<Single> = cast PropertyId.FilterInvert;
+	public static inline var FilterSaturate:Prop<Single> = cast PropertyId.FilterSaturate;
+	public static inline var FilterSepia:Prop<Single> = cast PropertyId.FilterSepia;
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;

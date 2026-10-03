@@ -150,8 +150,16 @@ class Renderer {
 		imageRevision = imageAtlas.revision;
 	}
 
-	/** Draws `list` into `view`, `width` × `height` pixels, after clearing it to the given colour. **/
-	public function draw(list:DisplayList, view:GpuTextureView, width:Int, height:Int, r = 0.0, g = 0.0, b = 0.0, a = 0.0):Void {
+	/**
+		Draws `list` into `view`, `width` × `height` units, after clearing it
+		to the given colour. `pixelWidth` × `pixelHeight` is the size of
+		`view`'s texture, which layers match; the same as the units unless
+		they are scaled.
+	**/
+	public function draw(list:DisplayList, view:GpuTextureView, width:Int, height:Int, r = 0.0, g = 0.0, b = 0.0, a = 0.0, ?pixelWidth:Int,
+			?pixelHeight:Int):Void {
+		var layerWidth = pixelWidth != null ? pixelWidth : width;
+		var layerHeight = pixelHeight != null ? pixelHeight : height;
 		var queue = device.queue();
 		frameBytes.setFloat(BoxShader.FRAME_viewport, width);
 		frameBytes.setFloat(BoxShader.FRAME_viewport + 4, height);
@@ -175,7 +183,7 @@ class Renderer {
 					// What follows draws into a cleared layer, until its composite record.
 					encoder.renderEnd();
 					depth++;
-					beginPass(encoder, layerAt(depth, width, height).view, true, 0, 0, 0, 0);
+					beginPass(encoder, layerAt(depth, layerWidth, layerHeight).view, true, 0, 0, 0, 0);
 					start++;
 					continue;
 				}
@@ -228,7 +236,7 @@ class Renderer {
 		encoder.beginRenderPass(descriptor);
 	}
 
-	/** The layer at `depth`, from 1, a texture `width` × `height` of the target's format, made or remade to fit. **/
+	/** The layer at `depth`, from 1, a texture `width` × `height` pixels in the target's format, made or remade to fit. **/
 	function layerAt(depth:Int, width:Int, height:Int):Layer {
 		var at = layers[depth - 1];
 		if (at != null && at.width == width && at.height == height)

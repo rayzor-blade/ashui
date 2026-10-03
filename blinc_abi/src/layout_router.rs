@@ -240,7 +240,8 @@ fn length_auto(v: f32) -> LengthPercentageAuto {
 
 /// ashui's own number properties, numbered after Blinc's: one side of a
 /// box's padding, margin, gap or border, a size as a fraction of the
-/// parent's, an outline's width or offset, or one side's overflow fade. Each is updated under the
+/// parent's, an outline's width or offset, one side's overflow fade, or a
+/// colour filter's amount. Each is updated under the
 /// Blinc property it is part of.
 const SIDES_BASE: i32 = 43;
 
@@ -299,6 +300,14 @@ fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
         29 => (P::Opacity, render(|p, v| p.overflow_fade.right = v)?),
         30 => (P::Opacity, render(|p, v| p.overflow_fade.bottom = v)?),
         31 => (P::Opacity, render(|p, v| p.overflow_fade.left = v)?),
+        // CSS's colour filters, each over the identity: 1 for brightness, contrast and saturate, 0 for the rest.
+        33 => (P::Filter, render(|p, v| filter(p).brightness = v)?),
+        34 => (P::Filter, render(|p, v| filter(p).contrast = v)?),
+        35 => (P::Filter, render(|p, v| filter(p).grayscale = v)?),
+        36 => (P::Filter, render(|p, v| filter(p).hue_rotate = v)?),
+        37 => (P::Filter, render(|p, v| filter(p).invert = v)?),
+        38 => (P::Filter, render(|p, v| filter(p).saturate = v)?),
+        39 => (P::Filter, render(|p, v| filter(p).sepia = v)?),
         _ => return None,
     })
 }
@@ -316,6 +325,10 @@ fn side(slot: &mut Option<BorderSide>) -> &mut BorderSide {
             a: 0.0,
         },
     })
+}
+
+fn filter(p: &mut RenderProps) -> &mut blinc_layout::element_style::CssFilter {
+    p.filter.get_or_insert_with(Default::default)
 }
 
 /// ashui's own value properties, numbered after its number ones: the

@@ -45,6 +45,9 @@ import gpu.TextureUsage;
 	shows as half-strength red with no blue through it, as a group
 	composites; and a red box at half opacity holding a green one.
 
+	Then colour filters: red in grayscale, blue inverted, red at half
+	brightness, and white in sepia.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -242,6 +245,26 @@ class Pixels {
 		probe("a child over it shows none of the fill through", 24, 24, (r, g, b) -> r > 250 && Math.abs(g - 128) < 4 && Math.abs(b - 128) < 4);
 		probe("outside the group, untouched", 60, 60, near(0xffffff));
 		probe("a child of a faded group over its fill", 52, 16, (r, g, b) -> Math.abs(r - 128) < 4 && g > 250 && Math.abs(b - 128) < 4);
+
+		var filterTree = new LayoutTree();
+		function filtered(left:Int, top:Int, colour:Int, prop:ashui.layout.Prop<Single>, amount:Single) {
+			var d = new Div({position: Position.Absolute, left: left, top: top, width: 16, height: 16, bg: Brush.solid(colour)}, filterTree);
+			d.node.set(prop, amount);
+			return d;
+		}
+		var filterRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [
+			filtered(4, 4, 0xff0000, Prop.FilterGrayscale, 1),
+			filtered(24, 4, 0x0000ff, Prop.FilterInvert, 1),
+			filtered(44, 4, 0xff0000, Prop.FilterBrightness, 0.5),
+			filtered(4, 24, 0xffffff, Prop.FilterSepia, 1)
+		], filterTree);
+		pixels = offscreen.renderToRgba8(filterRoot, SIZE, SIZE);
+		label = "filters: ";
+		probe("grayscale takes red to its luminance", 12, 12, (r, g, b) -> Math.abs(r - 54) < 3 && Math.abs(g - 54) < 3 && Math.abs(b - 54) < 3);
+		probe("invert takes blue to yellow", 32, 12, near(0xffff00));
+		probe("brightness-50 halves red", 52, 12, (r, g, b) -> Math.abs(r - 128) < 3 && g < 3 && b < 3);
+		probe("sepia tints white", 12, 32, (r, g, b) -> r == 255 && Math.abs(g - 255) < 3 && Math.abs(b - 239) < 3);
+		probe("next to them, untouched", 60, 60, near(0xffffff));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

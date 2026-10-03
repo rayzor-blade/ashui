@@ -33,6 +33,11 @@ import haxe.macro.Type;
 	  (`overflow-hidden`, `overflow-y-auto` …), `fade-4` fades them out
 	  over the spacing step in from every edge, `fade-y-8` from the top and
 	  bottom, `fade-t-2` from one side;
+	- colour filters over the element and everything inside it, drawn as
+	  one layer: `grayscale`, `sepia`, `invert` (and `-0`), `brightness-50`
+	  … `brightness-200`, `contrast-50` … `contrast-200`, `saturate-0` …
+	  `saturate-200`, `hue-rotate-15` … `hue-rotate-180` and their minus;
+	  `opacity-` over more than one painted element fades them as a group;
 	- clip paths, Tailwind's arbitrary property `[clip-path:…]` with any
 	  CSS shape, underscores for spaces: `[clip-path:circle()]`,
 	  `[clip-path:inset(8px_round_16px)]`,
@@ -550,11 +555,29 @@ class Tw {
 			float('ring-offset-$width', "OutlineOffset", width);
 		}
 		float("ring", "OutlineWidth", 3);
+		// Tailwind's colour filters, at its scales.
+		float("grayscale", "FilterGrayscale", 1);
+		float("grayscale-0", "FilterGrayscale", 0);
+		float("sepia", "FilterSepia", 1);
+		float("sepia-0", "FilterSepia", 0);
+		float("invert", "FilterInvert", 1);
+		float("invert-0", "FilterInvert", 0);
+		for (p in [0, 50, 75, 90, 95, 100, 105, 110, 125, 150, 200])
+			float('brightness-$p', "FilterBrightness", p / 100);
+		for (p in [0, 50, 75, 100, 125, 150, 200])
+			float('contrast-$p', "FilterContrast", p / 100);
+		for (p in [0, 50, 100, 150, 200])
+			float('saturate-$p', "FilterSaturate", p / 100);
+		for (d in [0, 15, 30, 60, 90, 180]) {
+			float('hue-rotate-$d', "FilterHueRotate", d);
+			float('-hue-rotate-$d', "FilterHueRotate", -d);
+		}
 		for (percent in 0...21)
 			float('opacity-${percent * 5}', "Opacity", percent * 5 / 100);
 
 		refused = [
-			{pattern: ~/^-/, why: "only translate, rotate and skew take a minus sign"},
+			{pattern: ~/^-/, why: "only translate, rotate, skew and hue-rotate take a minus sign"},
+			{pattern: ~/^(blur|drop-shadow|backdrop-)/, why: "blur, drop shadows and backdrop filters are not drawn yet"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},

@@ -105,6 +105,14 @@ enum abstract PropertyId(Int) from Int to Int {
     var FadeLeft = 74;
     // A CSS clip-path: the shape the element and everything inside it are clipped to.
     var ClipPath = 75;
+    // CSS colour filters, each an amount over the identity: 1 for brightness, contrast and saturate, 0 for the rest.
+    var FilterBrightness = 76;
+    var FilterContrast = 77;
+    var FilterGrayscale = 78;
+    var FilterHueRotate = 79;
+    var FilterInvert = 80;
+    var FilterSaturate = 81;
+    var FilterSepia = 82;
 
     /**
      * Determines what data type category this property belongs to,
@@ -127,7 +135,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
                  Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
-                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft:
+                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft | FilterBrightness | FilterContrast | FilterGrayscale | FilterHueRotate | FilterInvert | FilterSaturate | FilterSepia:
                 TypeF32;
 
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)

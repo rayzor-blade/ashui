@@ -41,6 +41,10 @@ class Offscreen {
 	**/
 	public var scale = 1.0;
 
+	/** The target texture's size in pixels, when it is not the size drawn at times `scale` rounded: a window's surface. **/
+	public var targetWidth:Null<Int> = null;
+	public var targetHeight:Null<Int> = null;
+
 	/** Seconds the last `render` spent flushing, laying out, building the display list and encoding the draw. **/
 	public var timings(default, null) = {flush: 0.0, layout: 0.0, list: 0.0, draw: 0.0};
 
@@ -86,7 +90,10 @@ class Offscreen {
 		list.update(tree, root, scale);
 		var t1 = haxe.Timer.stamp();
 		timings.list = t1 - t0;
-		renderer.draw(list, view, width, height, (clear >> 16 & 0xff) / 255, (clear >> 8 & 0xff) / 255, (clear & 0xff) / 255, clearAlpha);
+		var pixelWidth = targetWidth != null ? targetWidth : Math.round(width * scale);
+		var pixelHeight = targetHeight != null ? targetHeight : Math.round(height * scale);
+		renderer.draw(list, view, width, height, (clear >> 16 & 0xff) / 255, (clear >> 8 & 0xff) / 255, (clear & 0xff) / 255, clearAlpha,
+			pixelWidth, pixelHeight);
 		timings.draw = haxe.Timer.stamp() - t1;
 	}
 

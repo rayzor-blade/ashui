@@ -422,6 +422,8 @@ class WindowedApp {
 		offscreen.clear = background.rgb();
 		offscreen.clearAlpha = background.a;
 		offscreen.scale = window.scaleFactor();
+		offscreen.targetWidth = window.width();
+		offscreen.targetHeight = window.height();
 		offscreen.render(root, view, logicalWidth(), logicalHeight());
 		if (!paceOnRedraw) {
 			device.queue().presentSurface(surface);

@@ -1299,6 +1299,21 @@ class Smoke {
 		check("[clip-path:…] in a class clips, and hover:[clip-path:none] takes it away", shapeKind == 3 && classList.get(classList.count - 1, 94) == 0,
 			[shapeKind, classList.get(classList.count - 1, 94)]);
 
+		// --- Colour filter classes reach the layer they composite through ---
+		var filterTree = new LayoutTree();
+		var muted:Div = Owner.root(filterTree, _ -> hxx('<div class="w-10 h-10 bg-surface grayscale hover:grayscale-0" />'));
+		filterTree.flush();
+		filterTree.computeLayout(muted.node, 100, 100);
+		var filterList = new ashui.layout.DisplayList();
+		filterList.update(filterTree, muted.node);
+		var greyRow = [for (i in 12...16) Math.round(filterList.get(filterList.count - 1, i) * 1000) / 1000];
+		var layered = filterList.count == 3 && filterList.kind(0) == ashui.layout.DisplayList.PRIM_LAYER_BEGIN && filterList.kind(2) == ashui.layout.DisplayList.PRIM_LAYER;
+		ashui.input.Pointer.move(filterTree, 5, 5);
+		filterTree.flush();
+		filterList.update(filterTree, muted.node);
+		check("grayscale composites through a grey matrix, and hover:grayscale-0 drops the layer", layered && greyRow.join(",") == "0.213,0.715,0.072,0"
+			&& filterList.count == 1, [layered, greyRow, filterList.count]);
+
 		// --- A clip-path's shape is what a press hits ---
 		var hitTree = new LayoutTree();
 		var hitLog:Array<String> = [];
