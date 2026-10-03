@@ -305,6 +305,23 @@ class Tw {
 		var known = vocabulary.get(word);
 		if (known != null)
 			return known;
+		// A colour class with an opacity, `bg-primary/50`: its alpha times 0.5.
+		var faded = ~/^(.+)\/(\d{1,3})$/;
+		if (faded.match(word)) {
+			var percent = Std.parseInt(faded.matched(2));
+			var base = faded.matched(1);
+			for (target in COLOR_TARGETS) {
+				if (!StringTools.startsWith(base, target.prefix + "-"))
+					continue;
+				var name = base.substr(target.prefix.length + 1);
+				if (fixedColor(name) == null && !colors.exists(name))
+					continue;
+				if (percent > 100)
+					Context.error('tw: $word: an opacity is 0 to 100', pos);
+				return colorSetter(target, name, percent / 100);
+			}
+			return null;
+		}
 		var arbitrary = ~/^\[clip-path:(.+)\]$/;
 		if (!arbitrary.match(word))
 			return null;
@@ -432,26 +449,16 @@ class Tw {
 			v.set('size-$name', node -> [set(node, "WidthPercent", value), set(node, "HeightPercent", value)]);
 		}
 
-		// Colours, from ColorToken, named as their CSS variables: tooltipBg is "tooltip-bg".
+		// Colours, from ColorToken, named as their CSS variables (tooltipBg is
+		// "tooltip-bg"), and Tailwind's white, black and transparent.
 		colors = new Map();
-		for (token in tokenNames("ashui.theme.ColorToken")) {
-			var name = kebab(tokenValue("ashui.theme.ColorToken", token));
-			colors.set(name, token);
-			one('bg-$name', "Background", macro ashui.theme.Themed.brush(ashui.theme.ColorToken.$token));
-			one('text-$name', "Color", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
-			one('border-$name', "BorderColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
-			one('outline-$name', "OutlineColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
-			for (side in [["t", "Top"], ["r", "Right"], ["b", "Bottom"], ["l", "Left"]])
-				one('border-${side[0]}-$name', 'Border${side[1]}Color', macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
-			for (pair in [["x", "Left", "Right"], ["y", "Top", "Bottom"]]) {
-				var a = 'Border${pair[1]}Color', b = 'Border${pair[2]}Color';
-				v.set('border-${pair[0]}-$name', node -> [
-					set(node, a, macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token)),
-					set(node, b, macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token))
-				]);
+		for (token in tokenNames("ashui.theme.ColorToken"))
+			colors.set(kebab(tokenValue("ashui.theme.ColorToken", token)), token);
+		for (name in colorNames())
+			for (target in COLOR_TARGETS) {
+				var made = colorSetter(target, name, 1.0);
+				v.set('${target.prefix}-$name', made);
 			}
-			one('ring-$name', "OutlineColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
-		}
 
 		// Corners, from RadiusToken: Default is bare `rounded`.
 		for (token in tokenNames("ashui.theme.RadiusToken")) {
@@ -603,6 +610,52 @@ class Tw {
 		];
 		known = v;
 		return v;
+	}
+
+	/** What colour classes set: `bg-` a brush, the rest a colour, to each of `props`. **/
+	static final COLOR_TARGETS:Array<{prefix:String, props:Array<String>, brush:Bool}> = [
+		{prefix: "bg", props: ["Background"], brush: true},
+		{prefix: "text", props: ["Color"], brush: false},
+		{prefix: "border", props: ["BorderColor"], brush: false},
+		{prefix: "border-t", props: ["BorderTopColor"], brush: false},
+		{prefix: "border-r", props: ["BorderRightColor"], brush: false},
+		{prefix: "border-b", props: ["BorderBottomColor"], brush: false},
+		{prefix: "border-l", props: ["BorderLeftColor"], brush: false},
+		{prefix: "border-x", props: ["BorderLeftColor", "BorderRightColor"], brush: false},
+		{prefix: "border-y", props: ["BorderTopColor", "BorderBottomColor"], brush: false},
+		{prefix: "outline", props: ["OutlineColor"], brush: false},
+		{prefix: "ring", props: ["OutlineColor"], brush: false},
+	];
+
+	/** The colour tokens' class names, then Tailwind's fixed colours. **/
+	static function colorNames():Array<String> {
+		var names = [for (name in colors.keys()) name];
+		names.sort(Reflect.compare);
+		return names.concat(["white", "black", "transparent"]);
+	}
+
+	/** Tailwind's colours that no theme changes: `0xRRGGBB` and alpha. **/
+	static function fixedColor(name:String):Null<{hex:Int, alpha:Float}> {
+		return switch name {
+			case "white": {hex: 0xffffff, alpha: 1.0};
+			case "black": {hex: 0x000000, alpha: 1.0};
+			case "transparent": {hex: 0x000000, alpha: 0.0};
+			case _: null;
+		}
+	}
+
+	/** Sets `target`'s props to colour `name`, its alpha scaled by `alpha`; a theme colour follows the theme. **/
+	static function colorSetter(target:{prefix:String, props:Array<String>, brush:Bool}, name:String, alpha:Float):Expr->Array<Expr> {
+		var fixed = fixedColor(name);
+		var value = if (fixed != null) {
+			var a = fixed.alpha * alpha;
+			target.brush ? macro ashui.types.Brush.solid($v{fixed.hex}, $v{a}) : macro new ashui.types.Color($v{fixed.hex}, $v{a});
+		} else {
+			var token = colors.get(name);
+			target.brush ? macro ashui.theme.Themed.brush(ashui.theme.ColorToken.$token, $v{alpha}) : macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token,
+				$v{alpha});
+		}
+		return node -> [for (key in target.props) macro $node.set(ashui.layout.Prop.$key, $value)];
 	}
 
 	@:allow(ashui.style.Gradient) static function colorToken(name:String):Null<String> {

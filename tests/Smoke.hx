@@ -645,6 +645,20 @@ class Smoke {
 			twList.get(0, 2) == 100 && twList.get(0, 3) == 64 && twList.get(0, 4) == 18 && Math.abs(twList.get(0, 8) - 0x2A / 255) < 0.01
 			&& twList.get(0, 11) == 0.5 && twList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD) == 0,
 			[for (f in [2, 3, 4, 8, 11, ashui.layout.DisplayList.CORNER_SHAPE_FIELD]) twList.get(0, f)]);
+		var fadedWhite:Div = Owner.root(twTree, _ -> hxx('<div class="w-10 h-10 bg-white/40" />'));
+		var halfPrimary:Div = Owner.root(twTree, _ -> hxx('<div class="w-10 h-10 bg-primary/50" />'));
+		var fullPrimary:Div = Owner.root(twTree, _ -> hxx('<div class="w-10 h-10 bg-primary" />'));
+		twTree.flush();
+		var fills = [];
+		for (box in [fadedWhite, halfPrimary, fullPrimary]) {
+			twTree.computeLayout(box.node, 200, 200);
+			twList.update(twTree, box.node);
+			fills.push([for (f in 8...12) twList.get(0, f)]);
+		}
+		check("bg-white/40 is white at 0.4", fills[0][0] == 1 && fills[0][1] == 1 && fills[0][2] == 1 && Math.abs(fills[0][3] - 0.4) < 0.001,
+			fills[0]);
+		check("bg-primary/50 is the theme's primary at half its alpha",
+			fills[1][0] == fills[2][0] && fills[1][2] == fills[2][2] && Math.abs(fills[1][3] - fills[2][3] * 0.5) < 0.001, fills);
 		twList.update(twTree, styled.node);
 		check("a style from classes applies to a div",
 			twList.count == 3 && twList.get(2, 4) == 14 && twList.get(2, 16) == 1 && twList.get(2, 8) == 1,

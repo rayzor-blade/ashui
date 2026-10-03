@@ -12,23 +12,26 @@ import ashui.reactive.Computed;
 	rebuilt. Installs the default theme if none is.
 **/
 class Themed {
-	/** `token`'s colour. **/
-	public static function color(token:ColorToken):Computed<ashui.types.Color> {
+	/** `token`'s colour, its alpha scaled by `alpha`, as Tailwind's `/50` does. **/
+	public static function color(token:ColorToken, alpha:Float = 1.0):Computed<ashui.types.Color> {
 		var state = ready();
 		return Computed.make(() -> {
 			state.revision.get();
-			state.color(token).toColor();
+			scaled(state.color(token), alpha).toColor();
 		});
 	}
 
-	/** `token`'s colour as a solid fill. **/
-	public static function brush(token:ColorToken):Computed<ashui.types.Brush> {
+	/** `token`'s colour as a solid fill, its alpha scaled by `alpha`. **/
+	public static function brush(token:ColorToken, alpha:Float = 1.0):Computed<ashui.types.Brush> {
 		var state = ready();
 		return Computed.make(() -> {
 			state.revision.get();
-			state.color(token).toBrush();
+			scaled(state.color(token), alpha).toBrush();
 		});
 	}
+
+	static inline function scaled(c:Rgba, alpha:Float):Rgba
+		return alpha == 1.0 ? c : c.withAlpha(c.a * alpha);
 
 	/** `token`'s spacing in pixels. **/
 	public static function spacing(token:SpacingToken):Computed<Single> {
