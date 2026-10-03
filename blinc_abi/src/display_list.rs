@@ -787,15 +787,24 @@ pub fn append(
         // A glass or blur brush draws what is behind the box, blurred and
         // filtered, in place of a fill; the border still draws, over nothing.
         let behind = props.background.as_ref().and_then(backdrop_of);
-        if let Some((blur, matrix)) = behind {
+        if let Some((blur, matrix, liquid)) = &behind {
+            let (blur, matrix) = (*blur, *matrix);
             let scale = (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
             let mut b = Primitive::new(PRIM_BACKDROP, local, radii);
             b.shape_from(props, &glyphs.shapes);
-            // Deviation in target pixels; how far the row pass reaches past the box, in layout units.
-            b.color = [blur * scale * glyphs.display_scale, 3.0 * blur * scale, 0.0, 0.0];
+            // Deviation in target pixels; how far the row pass reaches past the box, in layout units,
+            // further for liquid glass, whose rim samples up to LIQUID_REACH outside it.
+            let reach = 3.0 * blur * scale + if liquid.is_some() { LIQUID_REACH * scale } else { 0.0 };
+            b.color = [blur * scale * glyphs.display_scale, reach, 0.0, 0.0];
             b.color2 = matrix[0];
             b.border = matrix[1];
             b.border_color = matrix[2];
+            if let Some(l) = liquid {
+                // gradient: liquid, refraction, the rim line's width, the light's angle; via: tint; the top side's colour: border.
+                b.gradient = [1.0, 1.0, l.edge, -std::f32::consts::FRAC_PI_4];
+                b.via = l.tint;
+                b.side_colors[0] = l.border;
+            }
             b.place(m, x, y);
             b.push(&clip, out);
         }
@@ -987,20 +996,36 @@ pub fn append(
 
 /// A colour filter as an affine map of straight RGB: each row's first three
 /// are its weights of r, g and b, its fourth the offset.
+/// How far liquid glass's rim samples outside the box, in layout units: Blinc's 60 pixels at the edge.
+const LIQUID_REACH: f32 = 60.0;
+
+/// What liquid glass draws beyond its blur: the rim line's width, its tint and its border colour, each RGBA.
+struct Liquid {
+    edge: f32,
+    tint: [f32; 4],
+    border: [f32; 4],
+}
+
 /// A glass or blur brush's blur, in layout units, and the colour filter it
-/// puts what is behind the box through: Blinc's frosted glass saturates,
-/// brightens and adds half its tint; a blur brush mixes its tint over.
-fn backdrop_of(brush: &Brush) -> Option<(f32, ColorMatrix)> {
+/// puts what is behind the box through, with liquid glass's rim when the
+/// glass is not simple. Blinc's frosted glass saturates, brightens and adds
+/// half its tint; its liquid glass mixes in a little of its tint after the
+/// rim's light, in the shader; a blur brush mixes its tint over.
+fn backdrop_of(brush: &Brush) -> Option<(f32, ColorMatrix, Option<Liquid>)> {
     match brush {
         Brush::Glass(g) => {
             let mut m = saturation(g.saturation);
             m = then(m, [[g.brightness, 0.0, 0.0, 0.0], [0.0, g.brightness, 0.0, 0.0], [0.0, 0.0, g.brightness, 0.0]]);
             let t = g.tint;
+            if !g.simple {
+                let border = g.border_color.map_or([0.0; 4], |c| [c.r, c.g, c.b, c.a]);
+                return Some((g.blur.max(0.0), m, Some(Liquid { edge: g.border_thickness, tint: [t.r, t.g, t.b, t.a], border })));
+            }
             let k = t.a * 0.5;
             for (row, c) in m.iter_mut().zip([t.r, t.g, t.b]) {
                 row[3] += c * k;
             }
-            Some((g.blur.max(0.0), m))
+            Some((g.blur.max(0.0), m, None))
         }
         Brush::Blur(b) => {
             let mut m = IDENTITY_MATRIX;
@@ -1008,7 +1033,7 @@ fn backdrop_of(brush: &Brush) -> Option<(f32, ColorMatrix)> {
                 let keep = 1.0 - t.a;
                 m = [[keep, 0.0, 0.0, t.r * t.a], [0.0, keep, 0.0, t.g * t.a], [0.0, 0.0, keep, t.b * t.a]];
             }
-            Some((b.radius.max(0.0), m))
+            Some((b.radius.max(0.0), m, None))
         }
         _ => None,
     }

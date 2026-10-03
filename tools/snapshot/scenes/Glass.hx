@@ -10,7 +10,8 @@ import ashui.ui.Hxx.hxx;
 	by 0, 2, 4, 8, 16 and 32, clear to heavy. The bottom row is frosted
 	glass at the same blur with a white tint from none to strong, then a
 	dark one. The last row is Tailwind's: a background colour at an
-	opacity over a `backdrop-blur-` size, light frost to heavy. Each panel
+	opacity over a `backdrop-blur-` size, light frost to heavy; then liquid
+	glass, its rim bending what is behind and catching light. Each panel
 	blurs only what is behind its own box, clipped to its rounded corners,
 	with its label sharp over it. Rendered at one and two image pixels per
 	layout unit.
@@ -27,9 +28,11 @@ class Glass {
 			{x: 430, y: 190, r: 60, c: 0xdc2626}, {x: 520, y: 260, r: 70, c: 0x0891b2}, {x: 610, y: 200, r: 45, c: 0xdb2777},
 			{x: -30, y: 380, r: 65, c: 0xdc2626}, {x: 100, y: 340, r: 55, c: 0x0891b2}, {x: 200, y: 400, r: 70, c: 0x9333ea},
 			{x: 330, y: 350, r: 50, c: 0x16a34a}, {x: 420, y: 400, r: 65, c: 0xf59e0b}, {x: 540, y: 350, r: 60, c: 0x2563eb},
+			{x: 40, y: 520, r: 70, c: 0xdb2777}, {x: 200, y: 560, r: 60, c: 0x0891b2}, {x: 330, y: 510, r: 75, c: 0x65a30d},
+			{x: 480, y: 560, r: 65, c: 0xdc2626},
 		];
 		var build = () -> hxx('
-			<div width={640} height={520}>
+			<div width={640} height={700}>
 				<for {b in blobs}>
 					<div class="absolute rounded-full" left={b.x} top={b.y} width={b.r * 2} height={b.r * 2} bg={Brush.solid(b.c)} />
 				</for>
@@ -52,6 +55,18 @@ class Glass {
 					<div class="flex flex-col justify-end p-2 rounded-2xl border border-white/20" width={92} height={110}
 						bg={Brush.glass(12, 0x000000, 0.8, true)}>
 						<text class="text-xs font-bold text-white">black 0.8</text>
+					</div>
+				</div>
+				<text class="absolute text-3xl font-bold text-white" left={24} top={580}>Liquid glass, edges bending what is behind</text>
+				<div class="absolute flex flex-row gap-6" left={24} top={540} width={600} height={140}>
+					<div class="flex flex-col justify-end p-3 rounded-3xl" width={180} height={140} bg={Brush.glass(2, 0xffffff, 0.2, false)}>
+						<text class="text-xs font-bold text-white">liquid, light blur</text>
+					</div>
+					<div class="flex flex-col justify-end p-3 rounded-full" width={140} height={140} bg={Brush.glass(6, 0xffffff, 0.3, false)}>
+						<text class="text-xs font-bold text-white">liquid, round</text>
+					</div>
+					<div class="flex flex-col justify-end p-3 rounded-3xl" width={220} height={140} bg={Brush.glass(14, 0x6366f1, 0.5, false)}>
+						<text class="text-xs font-bold text-white">liquid, tinted</text>
 					</div>
 				</div>
 				<text class="absolute text-3xl font-bold text-white" left={24} top={410}>Tailwind: a colour over a backdrop blur</text>
@@ -77,7 +92,7 @@ class Glass {
 				</div>
 			</div>
 		');
-		Snapshot.scene("glass", 640, 520, build, page.rgb(), page.a);
-		Snapshot.scene("glass@2x", 640, 520, build, page.rgb(), page.a, 2.0);
+		Snapshot.scene("glass", 640, 700, build, page.rgb(), page.a);
+		Snapshot.scene("glass@2x", 640, 700, build, page.rgb(), page.a, 2.0);
 	}
 }
