@@ -3,7 +3,6 @@
 //! child on top. Pointer events in ashui are dispatched from this.
 
 use crate::display_list::{Affine, IDENTITY, apply, compose};
-use crate::hl::handle_mut;
 use crate::node::Tree;
 use blinc_core::Transform;
 use blinc_layout::tree::LayoutNodeId;
@@ -122,7 +121,7 @@ pub unsafe extern "C" fn hl_blinc_tree_hit_test(
     out: *mut vbyte,
     capacity: i32,
 ) -> i32 {
-    let Some(tree) = (unsafe { handle_mut::<Tree>(h) }) else {
+    let Some(tree) = (unsafe { crate::node::tree(h) }) else {
         return 0;
     };
     let mut hits = Vec::new();
@@ -175,7 +174,7 @@ pub unsafe extern "C" fn hl_blinc_tree_order(
     out: *mut vbyte,
     capacity: i32,
 ) -> i32 {
-    let Some(tree) = (unsafe { handle_mut::<Tree>(h) }) else {
+    let Some(tree) = (unsafe { crate::node::tree(h) }) else {
         return 0;
     };
     let mut ids = Vec::new();
@@ -213,7 +212,7 @@ pub unsafe extern "C" fn hl_blinc_tree_path(
     out: *mut vbyte,
     capacity: i32,
 ) -> i32 {
-    let Some(tree) = (unsafe { handle_mut::<Tree>(h) }) else {
+    let Some(tree) = (unsafe { crate::node::tree(h) }) else {
         return 0;
     };
     let mut ids = Vec::new();

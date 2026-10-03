@@ -1,5 +1,12 @@
 //! The layout tree as a Haxe handle, and the per-frame steps that drive it:
 //! applying queued property writes, computing layout, reading bounds.
+//!
+//! Every handle is a view onto one Blinc tree for the whole process. Blinc
+//! keeps one queue of property writes and one binding registry, both keyed
+//! by node id, and node ids are unique only within a Blinc tree; with one
+//! tree they are unique everywhere, so a write or binding can never reach
+//! another handle's node. A handle owns the nodes it created, and dropping
+//! or disposing it removes them.
 
 use crate::hl::{handle_mut, into_handle, opt_string_from, string_from, take_handle};
 use crate::layout_router::take_pending_text;
@@ -11,8 +18,9 @@ use blinc_layout::init_text_measurer;
 use blinc_layout::stateful::take_pending_partial_prop_updates;
 use blinc_layout::tree::{LayoutNodeId, LayoutTree, TextMeasureContext};
 use hl_abi::{define_prim, vbyte};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::ffi::c_void;
+use std::cell::UnsafeCell;
 use std::sync::{Mutex, Once};
 use taffy::prelude::{AvailableSpace, Size, Style};
 
@@ -22,33 +30,85 @@ pub struct Tree {
     pub(crate) props: HashMap<LayoutNodeId, RenderProps>,
     /// Set by removals, so the next flush drops props of nodes now gone.
     pruned: bool,
-    /// Every live node, so a dropped tree can drop their bindings.
-    nodes: HashSet<LayoutNodeId>,
+    /// Every live node and the handle that created it.
+    owners: HashMap<LayoutNodeId, u64>,
     /// Nodes that draw an image in their content box: an SVG or a bitmap,
     /// named by a slot the caller resolves after the walk.
     pub(crate) images: HashMap<LayoutNodeId, i32>,
 }
 
-/// Nodes of trees dropped since the last flush, whose bindings are still
-/// registered. A tree may be dropped by its finalizer, inside a collection,
-/// where taking the binding registry's lock is not safe, so the next flush
-/// unbinds them. Until then, a later tree reusing an id could receive a write
-/// meant for the dropped node; disposing a tree unbinds at once instead.
-static RELEASED_NODES: Mutex<Vec<LayoutNodeId>> = Mutex::new(Vec::new());
+/// What a Haxe `blinc_tree` handle holds: which of the shared tree's nodes
+/// are its own.
+struct TreeHandle {
+    id: u64,
+    /// Its nodes are already gone: disposed, so its drop queues nothing.
+    released: bool,
+}
 
-impl Drop for Tree {
-    fn drop(&mut self) {
-        RELEASED_NODES
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .extend(self.nodes.drain());
+/// The one tree. The runtime calls in from one thread, and no call into it
+/// re-enters another, so a plain cell suffices.
+struct Shared(UnsafeCell<Option<Tree>>);
+unsafe impl Sync for Shared {}
+static SHARED: Shared = Shared(UnsafeCell::new(None));
+static NEXT_HANDLE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+fn shared() -> &'static mut Tree {
+    unsafe {
+        (*SHARED.0.get()).get_or_insert_with(|| Tree {
+            layout: LayoutTree::new(),
+            props: HashMap::new(),
+            pruned: false,
+            owners: HashMap::new(),
+            images: HashMap::new(),
+        })
     }
 }
 
+/// Handles dropped since the last flush, whose nodes are still in the tree.
+/// A handle may be dropped by its finalizer, inside a collection, where
+/// touching the tree or the binding registry is not safe, so the next flush
+/// removes them; disposing a handle removes them at once instead.
+static RELEASED_HANDLES: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+
+impl Drop for TreeHandle {
+    fn drop(&mut self) {
+        if self.released {
+            return;
+        }
+        RELEASED_HANDLES
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(self.id);
+    }
+}
+
+/// The shared tree, through a live handle; `None` for a null or disposed one.
+///
 /// # Safety
 /// `h` must be null or a `blinc_tree` handle.
-unsafe fn tree<'a>(h: *mut c_void) -> Option<&'a mut Tree> {
-    unsafe { handle_mut::<Tree>(h) }
+pub(crate) unsafe fn tree<'a>(h: *mut c_void) -> Option<&'a mut Tree> {
+    unsafe { handle_mut::<TreeHandle>(h) }.map(|_| shared())
+}
+
+/// The id of the handle `h`, for the nodes it creates.
+unsafe fn owner(h: *mut c_void) -> u64 {
+    unsafe { handle_mut::<TreeHandle>(h) }.map_or(0, |t| t.id)
+}
+
+/// Removes every node `handle` created, with its bindings and props.
+fn release_handle(tree: &mut Tree, handle: u64) {
+    let nodes: Vec<LayoutNodeId> = tree
+        .owners
+        .iter()
+        .filter(|&(_, &o)| o == handle)
+        .map(|(&n, _)| n)
+        .collect();
+    forget(tree, &nodes);
+    for node in nodes {
+        tree.layout.remove_node(node);
+        tree.props.remove(&node);
+        tree.images.remove(&node);
+    }
 }
 
 fn id(raw: u64) -> LayoutNodeId {
@@ -71,7 +131,7 @@ fn subtree(layout: &LayoutTree, node: LayoutNodeId) -> Vec<LayoutNodeId> {
 fn forget(tree: &mut Tree, nodes: &[LayoutNodeId]) {
     for node in nodes {
         unregister_node(*node);
-        tree.nodes.remove(node);
+        tree.owners.remove(node);
     }
 }
 
@@ -97,12 +157,10 @@ static TEXT_MEASURER: Once = Once::new();
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_tree_new() -> *mut c_void {
     TEXT_MEASURER.call_once(init_text_measurer);
-    into_handle(Tree {
-        layout: LayoutTree::new(),
-        props: HashMap::new(),
-        pruned: false,
-        nodes: HashSet::new(),
-        images: HashMap::new(),
+    shared();
+    into_handle(TreeHandle {
+        id: NEXT_HANDLE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        released: false,
     })
 }
 define_prim!(hlp_blinc_tree_new, hl_blinc_tree_new, "P_Xblinc_tree_");
@@ -113,7 +171,7 @@ pub unsafe extern "C" fn hl_blinc_tree_create_node(h: *mut c_void) -> u64 {
         return 0;
     };
     let node = tree.layout.create_node(Style::default());
-    tree.nodes.insert(node);
+    tree.owners.insert(node, unsafe { owner(h) });
     node.to_raw()
 }
 define_prim!(
@@ -154,7 +212,7 @@ pub unsafe extern "C" fn hl_blinc_tree_create_text_node(
         italic: flags & 2 != 0,
     };
     let node = tree.layout.create_text_node(Style::default(), context);
-    tree.nodes.insert(node);
+    tree.owners.insert(node, unsafe { owner(h) });
     node.to_raw()
 }
 define_prim!(
@@ -267,17 +325,17 @@ define_prim!(
     "PXblinc_tree_lBi_v"
 );
 
-fn drain_released_nodes() -> Vec<LayoutNodeId> {
-    std::mem::take(&mut *RELEASED_NODES.lock().unwrap_or_else(|e| e.into_inner()))
+fn drain_released_handles() -> Vec<u64> {
+    std::mem::take(&mut *RELEASED_HANDLES.lock().unwrap_or_else(|e| e.into_inner()))
 }
 
-/// Free the tree now rather than when its handle is collected, dropping its
-/// nodes' bindings. Calls on the handle afterwards do nothing.
+/// Remove the handle's nodes now rather than when the handle is collected,
+/// with their bindings. Calls on the handle afterwards do nothing.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_dispose(h: *mut c_void) {
-    if let Some(mut tree) = unsafe { take_handle::<Tree>(h) } {
-        let nodes: Vec<_> = tree.nodes.iter().copied().collect();
-        forget(&mut tree, &nodes);
+    if let Some(mut handle) = unsafe { take_handle::<TreeHandle>(h) } {
+        release_handle(shared(), handle.id);
+        handle.released = true;
     }
 }
 define_prim!(
@@ -292,18 +350,16 @@ define_prim!(
 
 /// Apply every property write queued since the last flush, and report whether
 /// any of them needs a relayout. Signals and computeds whose handles were
-/// collected since the last flush are removed from Blinc's graph first.
-///
-/// Blinc keeps one queue for the process and node ids are only unique within
-/// a tree, so this assumes the program has a single tree.
+/// collected since the last flush are removed from Blinc's graph first. The
+/// writes are the whole process's, applied to the one tree every handle shares.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
     let Some(tree) = (unsafe { tree(h) }) else {
         return false;
     };
     // Unbinding first frees the computeds bound only to those nodes.
-    for node in drain_released_nodes() {
-        unregister_node(node);
+    for handle in drain_released_handles() {
+        release_handle(tree, handle);
     }
     collect_released();
     if std::mem::take(&mut tree.pruned) {

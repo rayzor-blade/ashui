@@ -730,6 +730,32 @@ class Smoke {
 		keepTree.flush();
 		clock.tick(1);
 
+		// --- Trees share no node ids: a late tree's bindings are its own ---
+		var lateTheme = ashui.theme.ThemeState.get();
+		lateTheme.setScheduler(clock);
+		var lateTree = new LayoutTree();
+		var late:Div = Owner.root(lateTree, _ -> hxx('<div class="w-5 h-5 bg-primary hover:bg-primary-hover" />'));
+		lateTree.flush();
+		lateTree.computeLayout(late.node, 20, 20);
+		var lateList = new ashui.layout.DisplayList();
+		ashui.input.Interaction.of(late.node).hovered.set(true);
+		lateTree.flush();
+		lateTheme.setScheme(Dark);
+		var lateBehind = 0.0;
+		var lateSteps = 0;
+		while (lateTheme.isAnimating() && lateSteps++ < 600) {
+			clock.tick(1 / 60);
+			lateTheme.tick();
+			lateTree.flush();
+			lateList.update(lateTree, late.node);
+			lateBehind = Math.max(lateBehind, Math.abs(lateList.get(0, 8) - lateTheme.color(PrimaryHover).r));
+		}
+		check("a node in one of many trees draws only its own bindings, through a scheme transition", lateSteps > 5 && lateBehind < 3 / 255,
+			[lateBehind, lateSteps]);
+		lateTheme.setScheduler(null);
+		lateTheme.setScheme(Light);
+		lateTree.flush();
+
 		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
 		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");
 		check("path data: compact numbers and implicit lines", compact[0].equals(MoveTo(0.5, -1.5)) && compact[1].equals(LineTo(0.5, 0.5)),

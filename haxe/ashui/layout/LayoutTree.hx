@@ -7,11 +7,11 @@ import ashui.reactive.Watch;
 import ashui.types.Style.GenericFont;
 
 /**
-	A Blinc layout tree. Its native memory is released when this object is
-	collected.
-
-	Blinc queues every property write for the whole process, so a program has
-	one tree: `flush` applies the queue to the tree it is called on.
+	A layout tree: the nodes an element hierarchy is laid out and drawn from.
+	A program can have any number; they are views onto one tree Blinc keeps
+	for the process, so a node, its bindings and its queued writes belong to
+	exactly one of them. Its nodes are removed when this object is collected,
+	or at once with `dispose`.
 **/
 class LayoutTree {
 	public var ptr(default, null):hl.Abstract<"blinc_tree">;
