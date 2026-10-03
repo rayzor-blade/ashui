@@ -17,6 +17,7 @@ case "$(uname)" in
 Darwin) lib=libblinc_abi.dylib ;;
 *) lib=libblinc_abi.so ;;
 esac
+rm -f bin/blinc_abi.hdll
 cp "../target/debug/$lib" bin/blinc_abi.hdll
 
 # The sibling ash checkout's release build when there is one: an installed
@@ -29,6 +30,9 @@ runtime="${HL:-$runtime}"
 
 # tink's own sources use deprecated metadata.
 haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe -lib hashlink -lib tink_hxx -w -WDeprecated"
+
+# A library copied over an older copy in place keeps a stale code signature
+# on macOS, which kills the process that loads it; so copies replace files.
 
 # Stock hl finds the hdll through its rpath entry for the current directory;
 # Ash looks beside the program, so programs run from bin by absolute path.
@@ -68,6 +72,7 @@ render)
 		echo "no hlwgpu build: run cargo build in ../hlwgpu" >&2
 		exit 1
 	fi
+	rm -f bin/xgpu.hdll
 	cp "$xgpu" bin/xgpu.hdll
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \
@@ -81,7 +86,9 @@ window)
 		echo "build ../hlwgpu and ../hlwindow first (cargo build --release)" >&2
 		exit 1
 	fi
+	rm -f bin/xgpu.hdll
 	cp "$xgpu" bin/xgpu.hdll
+	rm -f bin/xwindow.hdll
 	cp "$xwindow" bin/xwindow.hdll
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \

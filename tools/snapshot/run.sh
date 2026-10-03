@@ -40,7 +40,9 @@ render() {
 		echo "$out" >&2
 		return 1
 	fi
+	rm -f bin/blinc_abi.hdll
 	cp "$repo/target/debug/libblinc_abi.$ext" bin/blinc_abi.hdll
+	rm -f bin/xgpu.hdll
 	cp "$(ls -t "$vib"/hlwgpu/target/*/libhlwgpu.$ext | head -1)" bin/xgpu.hdll
 	if ! out=$(haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" \

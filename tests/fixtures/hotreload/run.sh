@@ -19,6 +19,7 @@ case "$(uname)" in
 Darwin) lib=libblinc_abi.dylib ;;
 *) lib=libblinc_abi.so ;;
 esac
+rm -f bin/blinc_abi.hdll
 cp "$root/target/debug/$lib" bin/blinc_abi.hdll
 ash="$(cd $root/../ash/target/release && pwd)/ash"
 

@@ -9,6 +9,7 @@ cd "$(dirname "$0")/../../.."
 root="$(cd .. && pwd)"
 mkdir -p bin
 cargo build --manifest-path "$root/Cargo.toml" >/dev/null 2>&1
+rm -f bin/blinc_abi.hdll
 cp "$root/target/debug/libblinc_abi.dylib" bin/blinc_abi.hdll 2>/dev/null || cp "$root/target/debug/libblinc_abi.so" bin/blinc_abi.hdll
 haxe smoke.hxml >/dev/null
 runtime="${HL:-$(cd ../../ash/target/release && pwd)/ash}"
