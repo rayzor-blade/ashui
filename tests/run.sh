@@ -2,7 +2,7 @@
 # Builds blinc_abi.hdll and runs the UI tests under Ash, or the runtime named
 # by $HL (HL=hl for stock HashLink).
 #
-#   run.sh          the smoke test, the CSS parser tests, then the compile fixtures
+#   run.sh          the smoke test, the CSS parser and value tests, then the compile fixtures
 #   run.sh memory   resident memory per round of allocations; prints, does not assert
 #   run.sh render   draws a scene offscreen with hlwgpu and checks pixels; Ash only,
 #                   needs a built ../hlwgpu checkout beside this one
@@ -118,6 +118,7 @@ memory)
 	# Pure Haxe, so the interpreter runs it.
 	css=0
 	haxe --class-path ../haxe --class-path . -main CssParse --interp || css=$?
+	haxe --class-path ../haxe --class-path . -main CssValues --interp || css=$?
 	compile=0
 	compile_fixtures || compile=$?
 	[ $smoke -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
