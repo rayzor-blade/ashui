@@ -1,0 +1,4 @@
+/* The classes Smoke's templates use beside Tw's. */
+.card { padding: 16px; }
+.pill { border-radius: 9999px; }
+.selected { outline: 2px solid red; }

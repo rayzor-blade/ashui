@@ -38,6 +38,7 @@ class Text extends Element {
 				this.node = this.tree.createTextNode("", fs, 1.2, wrap);
 				node.set(Prop.TextContent, content);
 		}
+		ashui.css.Identity.register(this.tree, node.id, "text");
 
 		// Without a colour of its own, text inherits one (see DisplayList.update).
 		if (attr != null && attr.color != null)

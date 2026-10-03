@@ -33,6 +33,7 @@ class Svg extends Element {
 		super(tree);
 		this.document = document;
 		node = this.tree.createNode();
+		ashui.css.Identity.register(this.tree, node.id, "svg");
 		node.set(Prop.Width, attr != null && attr.width != null ? attr.width : (document.width : Single));
 		node.set(Prop.Height, attr != null && attr.height != null ? attr.height : (document.height : Single));
 		node.set(Prop.FlexShrink, (0 : Single));

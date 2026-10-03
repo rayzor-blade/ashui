@@ -222,6 +222,22 @@ class Hxx {
 		return parts.join('.');
 	}
 
+	/**
+		`class=`'s setters: Tw's utilities, then the element's CSS classes, the
+		words that are classes of the declared CSS, set on its identity.
+	**/
+	static function classSetters(value:Expr, el:String):Array<Expr> {
+		var css = [];
+		var sets = ashui.style.Tw.setters(value, macro $i{el}.node, css);
+		if (css.length > 0)
+			sets.unshift(macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setClasses($v{css}));
+		return sets;
+	}
+
+	/** `id=`: the element's id, which CSS's `#id` selects. **/
+	static function idSetter(value:Expr, el:String):Expr
+		return macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setId(($value : String));
+
 	static function lowerDiv(node:Node):Expr {
 		var el = '__div${counter++}';
 		var kids = childArray(elements(node.children));
@@ -230,7 +246,9 @@ class Hxx {
 		for (a in node.attributes)
 			switch a {
 				case Regular(name, value) if (name.value == 'class'):
-					classes = classes.concat(ashui.style.Tw.setters(value, macro $i{el}.node));
+					classes = classes.concat(classSetters(value, el));
+				case Regular(name, value) if (name.value == 'id'):
+					own.push(idSetter(value, el));
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
 				case _:
@@ -274,7 +292,9 @@ class Hxx {
 							case "object-fill": fit = macro ashui.types.Brush.ImageFit.Fill;
 							case _: rest.push(word);
 						}
-					classes = classes.concat(ashui.style.Tw.setters({expr: EConst(CString(rest.join(" "))), pos: value.pos}, macro $i{el}.node));
+					classes = classes.concat(classSetters({expr: EConst(CString(rest.join(" "))), pos: value.pos}, el));
+				case Regular(name, value) if (name.value == 'id'):
+					own.push(idSetter(value, el));
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
 				case _:
@@ -303,7 +323,7 @@ class Hxx {
 		for (a in node.attributes)
 			switch a {
 				case Regular(name, value) if (name.value == 'class'):
-					classes = classes.concat(ashui.style.Tw.setters(value, macro $i{el}.node));
+					classes = classes.concat(classSetters(value, el));
 				case Regular(name, {expr: EConst(CString(text))}):
 					xml.set(name.value, text);
 				case Regular(name, value) if (name.value == 'style'):
@@ -383,7 +403,9 @@ class Hxx {
 				case Regular(name, value) if (name.value == 'wrap'):
 					options.push({field: 'wrap', expr: value});
 				case Regular(name, value) if (name.value == 'class'):
-					classes = classes.concat(ashui.style.Tw.setters(value, macro $i{el}.node));
+					classes = classes.concat(classSetters(value, el));
+				case Regular(name, value) if (name.value == 'id'):
+					own.push(idSetter(value, el));
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
 				case _:

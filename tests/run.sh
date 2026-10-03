@@ -54,7 +54,9 @@ compile_fixtures() {
 	for f in fixtures/compile/*.hx; do
 		name=$(basename "$f" .hx)
 		expect=$(sed -n '1s|^// expect: ||p' "$f")
-		if out=$($haxe_ui --class-path fixtures/compile -main "$name" -hl bin/compile.hl --no-output 2>&1); then
+		# An optional second line, "// flags: …", adds compiler flags.
+		flags=$(sed -n '2s|^// flags: ||p' "$f")
+		if out=$($haxe_ui --class-path fixtures/compile $flags -main "$name" -hl bin/compile.hl --no-output 2>&1); then
 			echo "FAIL $name: compiled"
 			status=1
 		else

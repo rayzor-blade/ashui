@@ -132,7 +132,7 @@ class Tw {
 	@:allow(ashui.style.Gradient) static var colors:Map<String, String>;
 
 	/** One `node.set` per property the classes in `classes`, a string literal, give. **/
-	public static function setters(classes:Expr, node:Expr):Array<Expr> {
+	public static function setters(classes:Expr, node:Expr, ?cssClasses:Array<String>):Array<Expr> {
 		var text = switch classes.expr {
 			case EConst(CString(s, _)): s;
 			case _: Context.error("tw: classes must be a string literal, resolved at compile time", classes.pos);
@@ -168,6 +168,8 @@ class Tw {
 				if (variant.match(rest))
 					Context.error('tw: $word: one variant per class', pos);
 				var make = lookup(vocabulary, rest, pos);
+				if (make == null && ashui.css.DeclaredCss.has(rest))
+					Context.error('tw: $word: a variant takes Tw classes; for a CSS class, write .$rest:$state in the stylesheet', pos);
 				if (make == null)
 					Context.error('tw: $word: $rest is not a class a variant can take', pos);
 				for (set in make(node))
@@ -206,11 +208,23 @@ class Tw {
 					out.push({expr: set.expr, pos: pos});
 				continue;
 			}
+			// Not Tw's: a class of the CSS the build declares, for the element's identity.
+			if (ashui.css.DeclaredCss.has(word)) {
+				if (cssClasses == null)
+					Context.error('tw: $word is a CSS class, which goes in an element\'s class=, not in a style', pos);
+				if (cssClasses.indexOf(word) < 0)
+					cssClasses.push(word);
+				continue;
+			}
 			for (rule in refused)
 				if (rule.pattern.match(word))
 					Context.error('tw: $word: ${rule.why}', pos);
-			var near = nearest(word, vocabulary);
-			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : ""), pos);
+			var candidates:Map<String, Dynamic> = [for (k in vocabulary.keys()) k => true];
+			for (k in ashui.css.DeclaredCss.classes().keys())
+				candidates.set(k, true);
+			var near = nearest(word, candidates);
+			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : "")
+				+ (Context.definedValue("ashui_css") == null ? "" : ", or a class of the CSS in -D ashui_css"), pos);
 		}
 		if (backdrop != null) {
 			if (variants.exists("Background"))

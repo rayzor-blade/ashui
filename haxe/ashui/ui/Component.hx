@@ -61,6 +61,7 @@ abstract class Component<Props> extends Element {
 		Owner.onCleanup(forget);
 		if (builder == null) {
 			node = build(owner);
+			identify();
 			roots.push(cast this);
 			return;
 		}
@@ -73,6 +74,7 @@ abstract class Component<Props> extends Element {
 			previous = old.built;
 		}
 		node = build(owner);
+		identify();
 		previous = null;
 	}
 
@@ -93,6 +95,19 @@ abstract class Component<Props> extends Element {
 			builder.built.remove(cast this);
 		hosts.remove(owner);
 		node = null;
+	}
+
+	/** Adds the component's tag to its node's identity, so a CSS type selector, `counter-view`, matches it. **/
+	function identify():Void {
+		if (node != null)
+			ashui.css.Identity.register(tree, node.id, tag(Type.getClass(this)));
+	}
+
+	/** A component class's tag, as hxx spells it: `CounterView` is `counter-view`. **/
+	public static function tag(c:Class<Dynamic>):String {
+		var name = Type.getClassName(c);
+		name = name.substr(name.lastIndexOf(".") + 1);
+		return ~/([a-z0-9])([A-Z])/g.map(name, r -> r.matched(1) + "-" + r.matched(2)).toLowerCase();
 	}
 
 	/** Removes and returns the first component the last render built of class `c`, if any. **/
@@ -154,6 +169,7 @@ abstract class Component<Props> extends Element {
 		owner.dispose();
 		owner = next;
 		node = fresh;
+		identify();
 	}
 
 	override public function remove():Void {

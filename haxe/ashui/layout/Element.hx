@@ -36,6 +36,7 @@ class Element {
 	/** Removes this element's node and everything below it from the tree. **/
 	public function remove():Void {
 		if (node != null) {
+			ashui.css.Identity.forgetSubtree(tree, node.id);
 			tree.removeSubtree(node.id);
 			node = null;
 		}

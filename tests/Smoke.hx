@@ -749,6 +749,28 @@ class Smoke {
 			[idle, hovered, pressed, left]);
 		check("dark: follows the scheme", Math.abs(dark - 0x7D / 255) < 0.01, dark);
 
+		// --- CSS identity: an element's types, id and classes ---
+		var idTree = new LayoutTree();
+		var tagged:Div = Owner.root(idTree, _ -> hxx('<div id="save" class="w-10 h-10 card pill" />'));
+		var tagIdentity = ashui.css.Identity.of(idTree, tagged.node.id);
+		check("hxx class= gives Tw utilities and CSS classes, id= the id", tagIdentity != null && tagIdentity.id == "save"
+			&& tagIdentity.classes().join(",") == "card,pill" && tagIdentity.types.join(",") == "div",
+			tagIdentity == null ? null : [tagIdentity.id, tagIdentity.classes(), tagIdentity.types]);
+		var picked = Signal.make(["card"]);
+		var toggled = Owner.root(idTree, _ -> new Div({id: "row", classes: picked, width: 10}, idTree));
+		var toggledIdentity = ashui.css.Identity.of(idTree, toggled.node.id);
+		picked.set(["card", "selected"]);
+		idTree.flush();
+		check("a Div's classes follow a signal", toggledIdentity.id == "row" && toggledIdentity.hasClass("selected"), toggledIdentity.classes());
+		var counted:CounterView = Owner.root(idTree, _ -> hxx('<counter-view />'));
+		check("a component adds its tag to its root's types", ashui.css.Identity.of(idTree, counted.node.id).types.join(",") == "div,counter-view",
+			ashui.css.Identity.of(idTree, counted.node.id).types);
+		var labelled:Div = Owner.root(idTree, _ -> hxx('<div><text>hi</text></div>'));
+		var label = idTree.children(labelled.node.id)[0];
+		check("text is of type text", ashui.css.Identity.of(idTree, label).types.join(",") == "text");
+		labelled.remove();
+		check("a removed element leaves no identity", ashui.css.Identity.of(idTree, label) == null && ashui.css.Identity.of(idTree, labelled.node == null ? label : labelled.node.id) == null);
+
 		// --- Transform classes compose into one transform; hover: on top ---
 		var turnTree = new LayoutTree();
 		var turned:Div = Owner.root(turnTree, _ -> hxx('
