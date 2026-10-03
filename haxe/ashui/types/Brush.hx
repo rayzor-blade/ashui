@@ -13,13 +13,20 @@ enum abstract ImageFit(Int) from Int to Int {
 class Brush implements IValue {
 	public var ptr(default, null):hl.Abstract<"blinc_value">;
 
+	/** A solid brush's colour, `0xRRGGBB`, and alpha; -1 for any other brush. **/
+	public var solidRgb(default, null) = -1;
+	public var solidAlpha(default, null) = 1.0;
+
 	private function new(ptr:hl.Abstract<"blinc_value">) {
 		this.ptr = ptr;
 	}
 
 	// 1. Solid Color
-	public static inline function solid(hex:Int, alpha:Single = 1.0):Brush {
-		return new Brush(BlincNative.blinc_brush_solid(hex, alpha));
+	public static function solid(hex:Int, alpha:Single = 1.0):Brush {
+		var brush = new Brush(BlincNative.blinc_brush_solid(hex, alpha));
+		brush.solidRgb = hex & 0xFFFFFF;
+		brush.solidAlpha = alpha;
+		return brush;
 	}
 
 	// 2. Glass (iOS/macOS style frosted background)

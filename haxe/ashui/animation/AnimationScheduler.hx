@@ -6,7 +6,12 @@ package ashui.animation;
 	of its own.
 **/
 class AnimationScheduler {
+	/** The scheduler transitions run on; a window's loop ticks it. **/
+	public static final main = new AnimationScheduler();
+
 	final springs = new Map<Int, Spring>();
+	/** Called each tick with the seconds passed; dropped once they return false. **/
+	final tickers:Array<Float->Bool> = [];
 	var nextId = 1;
 	var running = false;
 	#if target.threaded
@@ -68,7 +73,15 @@ class AnimationScheduler {
 	}
 
 	public function hasActive():Bool {
-		return locked(() -> springs.keys().hasNext());
+		return locked(() -> springs.keys().hasNext() || tickers.length > 0);
+	}
+
+	/** Calls `ticker` every tick until it returns false. **/
+	public function addTicker(ticker:Float->Bool):Void {
+		locked(() -> {
+			tickers.push(ticker);
+			null;
+		});
 	}
 
 	/** Advances every spring `dt` seconds, dropping those that settle. **/
@@ -82,6 +95,14 @@ class AnimationScheduler {
 			}
 			for (id in settled)
 				springs.remove(id);
+			null;
+		});
+		// Outside the lock: a ticker may add another.
+		var running = locked(() -> tickers.splice(0, tickers.length));
+		var kept = [for (ticker in running) if (ticker(dt)) ticker];
+		locked(() -> {
+			for (i in 0...kept.length)
+				tickers.insert(i, kept[i]);
 			null;
 		});
 	}

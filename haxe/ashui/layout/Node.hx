@@ -16,6 +16,15 @@ class Node {
 	// 64-bit LayoutNodeId minted by Blinc
 	public var id(default, null):haxe.Int64;
 
+	/** What animates when a property it covers is set again or its value changes. **/
+	public var transition(default, set):Null<ashui.animation.Transition>;
+
+	var tweens:Null<Map<Int, ashui.animation.Tweened<Dynamic>>>;
+
+	function set_transition(value:Null<ashui.animation.Transition>) {
+		return transition = value;
+	}
+
 	public function new(id:haxe.Int64) {
 		this.id = id;
 	}
@@ -23,10 +32,41 @@ class Node {
 	/**
 		Binds `prop` to a constant, signal or computed. A binding applies the
 		current value at once and every change after it; `LayoutTree.flush`
-		makes them take effect.
+		makes them take effect. Under a `transition` that covers `prop`, each
+		change after the first moves there over the transition's time.
 	**/
 	public function set<T>(prop:Prop<T>, reactive:IntoReactive<T>):Void {
-		switch ((prop : PropertyId).getDataType()) {
+		var key:PropertyId = prop;
+		if (transition != null && transition.covers(key) && !isCornerShape(reactive)) {
+			if (tweens == null)
+				tweens = new Map();
+			var tween = tweens.get(key);
+			if (tween != null) {
+				tween.follow(cast reactive);
+				return;
+			}
+			tween = ashui.animation.Tweened.bind(this, key, transition, cast reactive);
+			if (tween != null) {
+				tweens.set(key, tween);
+				return;
+			}
+		}
+		bind(prop, reactive);
+	}
+
+	/** A corner shape shares the radius's property but switches at once. **/
+	static function isCornerShape<T>(reactive:IntoReactive<T>):Bool {
+		return switch (reactive : ReactiveType<T>) {
+			case Const(v): Std.isOfType(v, ashui.types.CornerShape);
+			case Bound(s): Std.isOfType(s.get(), ashui.types.CornerShape);
+			case Derived(c): Std.isOfType(c.get(), ashui.types.CornerShape);
+		}
+	}
+
+	/** `prop` bound to `reactive` directly, whatever the transition. **/
+	@:allow(ashui.animation.Tweened)
+	function bind<T>(prop:PropertyId, reactive:IntoReactive<T>):Void {
+		switch (prop.getDataType()) {
 			case TypeF32:
 				applyF32(prop, cast reactive);
 			case TypeI32:

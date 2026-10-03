@@ -28,6 +28,15 @@ import haxe.macro.Type;
 	  `shadow-inner`, `shadow-none`;
 	- type, `TypographyToken`: `text-xs` … `text-5xl`, `font-thin` …
 	  `font-black`, `leading-none` … `leading-loose`;
+	- transitions, composed into one `ashui.animation.Transition`:
+	  `transition` (colours, opacity, shadow, transform), `transition-colors`,
+	  `-opacity`, `-shadow`, `-transform`, `-all`, `-none`; `duration-fastest`
+	  … `duration-slowest` from `AnimationToken`, or Tailwind's
+	  `duration-150` and so on in milliseconds; `ease-default`, `ease-in`,
+	  `ease-out`, `ease-in-out`, `ease-state`, `ease-nav`, `ease-spring`,
+	  `ease-sheet` from the theme's curves, and `ease-linear`; `delay-150`
+	  and the like. Without a duration or curve the theme's fast duration
+	  and default curve apply;
 	- gradients over the colours: a direction, `bg-linear-to-r` (or
 	  Tailwind 3's `bg-gradient-to-r`) for each side and corner or
 	  `bg-radial`, with `from-`, `via-` and `to-` stops and positions such
@@ -65,6 +74,7 @@ class Tw {
 		var vocabulary = vocabulary();
 		var out = [];
 		var gradient = new Gradient();
+		var motion = new Motion();
 		var start = 0;
 		for (word in ~/\s+/g.split(text)) {
 			var offset = text.indexOf(word, start);
@@ -72,7 +82,7 @@ class Tw {
 			if (word == "")
 				continue;
 			var pos = within(classes.pos, offset, word.length);
-			if (gradient.take(word, pos))
+			if (gradient.take(word, pos) || motion.take(word, pos))
 				continue;
 			var make = vocabulary.get(word);
 			if (make != null) {
@@ -89,6 +99,10 @@ class Tw {
 		var background = gradient.build(node);
 		if (background != null)
 			out.push(background);
+		// The transition goes first: it covers the properties set after it.
+		var transition = motion.build(node);
+		if (transition != null)
+			out.unshift(transition);
 		return out;
 	}
 
@@ -211,7 +225,7 @@ class Tw {
 			{pattern: ~/^-/, why: "negative values have no token"},
 			{pattern: ~/^(w|h|min-w|max-w|min-h|max-h|size)-(full|screen|auto|\d+\/\d+)$/, why: "relative sizes are not bound yet"},
 			{pattern: ~/^tracking-/, why: "letter spacing in ems needs the font size, which is not bound yet"},
-			{pattern: ~/^(duration|ease|transition|animate)/, why: "transitions need a motion system (b2fbc73)"},
+			{pattern: ~/^animate-/, why: "keyframe animations need transforms, which are not drawn yet"},
 			{pattern: ~/\[.*\]/, why: "arbitrary values are not supported; use a token or an attribute"}
 		];
 		known = v;
@@ -295,6 +309,104 @@ class Tw {
 }
 
 #if macro
+/** The transition classes of one class string, composed into one `Transition`. **/
+private class Motion {
+	static final GROUPS = [
+		"transition" => "DEFAULT", "transition-all" => "ALL", "transition-colors" => "COLORS", "transition-opacity" => "opacity",
+		"transition-shadow" => "shadow", "transition-transform" => "transform", "transition-none" => "none"
+	];
+	static final DURATIONS = [
+		"fastest" => "DurationFastest", "faster" => "DurationFaster", "fast" => "DurationFast", "normal" => "DurationNormal",
+		"slow" => "DurationSlow", "slower" => "DurationSlower", "slowest" => "DurationSlowest"
+	];
+	static final EASINGS = [
+		"default" => "Default", "in" => "In", "out" => "Out", "in-out" => "InOut", "state" => "State", "nav" => "Nav", "spring" => "Spring",
+		"sheet" => "Sheet"
+	];
+	// Tailwind's millisecond steps for durations and delays.
+	static final MILLISECONDS = [0, 75, 100, 150, 200, 300, 500, 700, 1000];
+
+	var group:Null<String> = null;
+	var at:Null<Position> = null;
+	var duration:Null<Expr> = null;
+	var milliseconds:Null<Int> = null;
+	var easing:Null<Expr> = null;
+	var curve:Null<Expr> = null;
+	var delay = 0;
+	var loose:Null<Position> = null;
+
+	public function new() {}
+
+	public function take(word:String, pos:Position):Bool {
+		var g = GROUPS.get(word);
+		if (g != null) {
+			group = g;
+			at = pos;
+			return true;
+		}
+		var timed = ~/^(duration|delay)-(.+)$/;
+		if (timed.match(word)) {
+			var which = timed.matched(1), value = timed.matched(2);
+			loose = loose == null ? pos : loose;
+			var token = DURATIONS.get(value);
+			if (which == "duration" && token != null) {
+				duration = macro ashui.theme.AnimationToken.$token;
+				milliseconds = null;
+				return true;
+			}
+			var ms = Std.parseInt(value);
+			if (ms == null || MILLISECONDS.indexOf(ms) < 0 || Std.string(ms) != value)
+				Context.error('tw: $word: use a theme duration (fastest … slowest) or one of ${MILLISECONDS.join(", ")} ms', pos);
+			if (which == "duration") {
+				milliseconds = ms;
+				duration = null;
+			} else
+				delay = ms;
+			return true;
+		}
+		var eased = ~/^ease-(.+)$/;
+		if (eased.match(word)) {
+			loose = loose == null ? pos : loose;
+			var name = eased.matched(1);
+			if (name == "linear") {
+				curve = macro ashui.theme.Easing.Linear;
+				easing = null;
+				return true;
+			}
+			var token = EASINGS.get(name);
+			if (token == null)
+				Context.error('tw: $word: the curves are ${[for (k in EASINGS.keys()) 'ease-$k'].join(", ")} and ease-linear', pos);
+			easing = macro ashui.theme.EasingToken.$token;
+			curve = null;
+			return true;
+		}
+		return false;
+	}
+
+	public function build(node:Expr):Null<Expr> {
+		if (group == null) {
+			if (loose != null)
+				Context.error("tw: duration-, ease- and delay- need a transition class, such as transition or transition-colors", loose);
+			return null;
+		}
+		var properties = switch group {
+			case "none": macro [];
+			case "DEFAULT" | "ALL" | "COLORS":
+				var name = group;
+				macro ashui.animation.Transition.$name;
+			case single:
+				var key = single.charAt(0).toUpperCase() + single.substr(1);
+				macro [ashui.layout.PropertyId.$key];
+		}
+		var d = duration != null ? duration : macro null;
+		var ms = milliseconds != null ? macro $v{milliseconds} : macro null;
+		var e = easing != null ? easing : macro null;
+		var c = curve != null ? curve : macro null;
+		var value = macro new ashui.animation.Transition($properties, $d, $ms, $e, $c, $v{delay});
+		return {expr: (macro $node.transition = $value).expr, pos: at};
+	}
+}
+
 /**
 	The gradient classes of one class string, composed into one fill as
 	Tailwind's CSS variables compose them in the browser: a direction

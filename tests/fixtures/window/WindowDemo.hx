@@ -8,15 +8,17 @@ import ashui.ui.Hxx.hxx;
 
 /**
 	Opens the demo card in a window, captures it, switches the scheme, lets
-	the transition run, captures again and closes. Prints the frames each
-	stage took; fails when a stage presented none.
+	the colours spring, captures again, then widens a pill whose width
+	transitions, captures that and closes. Prints the frames each stage
+	took; fails when a stage drew too few.
 	Usage: WindowDemo.hl [capture-directory]
 **/
 class WindowDemo {
 	static function main() {
 		var dir = Sys.args().length > 0 ? Sys.args()[0] : null;
+		pill = ashui.reactive.Signal.make((64 : Single));
 		var stage = 0;
-		var stageFrames = [0, 0];
+		var stageFrames = [0, 0, 0];
 		var onFrame = (frame:Int, seconds:Float) -> {
 			var app = WindowedApp.current;
 			var theme = ThemeState.get();
@@ -25,19 +27,25 @@ class WindowDemo {
 				capture(app, dir, "window-" + (theme.scheme() == Light ? "light" : "dark"));
 				stage = 1;
 				theme.toggleScheme();
-			} else if (!theme.isAnimating()) {
+			} else if (stage == 1 && !theme.isAnimating()) {
 				capture(app, dir, "window-" + (theme.scheme() == Light ? "light" : "dark"));
+				stage = 2;
+				pill.set(200);
+			} else if (stage == 2 && !ashui.animation.AnimationScheduler.main.hasActive()) {
+				capture(app, dir, "window-transition");
 				app.quit();
 			}
 			if (seconds > 15)
 				app.quit();
 		};
 		var frames = WindowedApp.run({title: "ashui", width: 360, height: 240, onFrame: onFrame}, card);
-		Sys.println('presented $frames frames: ${stageFrames[0]} before the switch, ${stageFrames[1]} for the transition');
-		var ok = stageFrames[0] > 0 && stageFrames[1] > 1;
+		Sys.println('presented $frames frames: ${stageFrames[0]} before the switch, ${stageFrames[1]} for the scheme, ${stageFrames[2]} for the width');
+		var ok = stageFrames[0] > 0 && stageFrames[1] > 1 && stageFrames[2] > 1;
 		Sys.println(ok ? "ALL PASSED" : "FAILED");
 		Sys.exit(ok ? 0 : 1);
 	}
+
+	static var pill:ashui.reactive.Signal<Single>;
 
 	static function card():Div {
 		var card:Div = hxx('
@@ -46,7 +54,7 @@ class WindowDemo {
 				borderColor={Themed.color(Border)} borderWidth={1}>
 				<div height={56} flexShrink={0} cornerRadius={Themed.radius(Lg)} bg={Themed.brush(Primary)} />
 				<div flexDirection={Row} gap={8}>
-					<div width={64} height={24} cornerRadius={Themed.radius(Full)} bg={Themed.brush(AccentSubtle)} />
+					<div class="transition-all duration-normal ease-state h-6 rounded-full bg-accent-subtle" width={pill} />
 					<div width={48} height={24} cornerRadius={Themed.radius(Full)} bg={Themed.brush(SuccessBg)} />
 				</div>
 			</div>

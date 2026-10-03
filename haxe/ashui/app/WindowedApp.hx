@@ -52,7 +52,7 @@ class WindowedApp {
 	final adapter:GpuAdapter;
 	final surface:GpuSurface;
 	final format:TextureFormat;
-	final scheduler = new AnimationScheduler();
+	final scheduler = AnimationScheduler.main;
 	var root:Element;
 	var dirty = true;
 	var quitting = false;
@@ -126,7 +126,8 @@ class WindowedApp {
 		var last = opened;
 		while (!quitting) {
 			// Short waits only while something animates; otherwise the loop sleeps on the window.
-			var event = window.wait(theme.isAnimating() ? 1 / 120 : 0.1);
+			var animating = scheduler.hasActive();
+			var event = window.wait(animating ? 1 / 120 : 0.1);
 			while (event != None) {
 				handle(event);
 				event = window.poll();
@@ -134,7 +135,7 @@ class WindowedApp {
 			var now = haxe.Timer.stamp();
 			scheduler.tick(now - last);
 			last = now;
-			if (theme.tick())
+			if (theme.tick() || animating)
 				dirty = true;
 			if (tree.flush())
 				dirty = true;

@@ -419,9 +419,10 @@ class Smoke {
 			&& ashui.theme.themes.RestrainedTheme.shape().effectiveCornerN() > hybridN
 			&& hybridN > ashui.theme.themes.ExpressiveTheme.shape().effectiveCornerN()
 			&& ashui.theme.themes.ExpressiveTheme.shape().effectiveCornerN() > 1, hybridN);
-		check("easings evaluate as Blinc's",
+		var cssEase = ashui.theme.Easing.EasingTools.evaluate(CubicBezier(0.25, 0.1, 0.25, 1), 0.5);
+		check("easings evaluate as CSS does",
 			ashui.theme.Easing.EasingTools.evaluate(EaseIn, 0.5) == 0.25 && ashui.theme.Easing.EasingTools.evaluate(Linear, 2) == 1
-			&& Math.abs(ashui.theme.Easing.EasingTools.evaluate(CubicBezier(0.25, 0.1, 0.25, 1), 0.5) - 0.5375) < 1e-9);
+			&& Math.abs(cssEase - 0.8024033877) < 1e-6, cssEase);
 
 		// --- Corners take the theme's squircle as Blinc's paint walk resolves them ---
 		var CS = ashui.core.render.CornerShapes;
@@ -572,6 +573,36 @@ class Smoke {
 		twList.update(twTree, styled.node);
 		check("a class follows the theme's scheme", Math.abs(twList.get(2, 8) - 0x1A / 255) < 0.01, twList.get(2, 8));
 		ashui.theme.ThemeState.get().setScheme(Light);
+
+		// --- Transitions move a property to its new value over time ---
+		ashui.theme.ThemeState.get().setScheduler(null);
+		var moveTree = new LayoutTree();
+		var fading = Signal.make((1 : Single));
+		var moving = Owner.root(moveTree, _ -> new Div({width: 20, height: 20,
+			style: ashui.style.Tw.tw("transition duration-200 ease-linear bg-surface"), opacity: fading}));
+		moveTree.flush();
+		moveTree.computeLayout(moving.node, 20, 20);
+		var moveList = new ashui.layout.DisplayList();
+		function fillAndOpacity() {
+			moveTree.flush();
+			moveList.update(moveTree, moving.node);
+			return [moveList.get(0, 8), moveList.get(0, 11)];
+		}
+		var settled = fillAndOpacity();
+		ashui.theme.ThemeState.get().setScheme(Dark);
+		fading.set(0.2);
+		moveTree.flush();
+		ashui.animation.AnimationScheduler.main.tick(0.1);
+		var midway = fillAndOpacity();
+		ashui.animation.AnimationScheduler.main.tick(0.15);
+		var done = fillAndOpacity();
+		ashui.theme.ThemeState.get().setScheme(Light);
+		moveTree.flush();
+		ashui.animation.AnimationScheduler.main.tick(1);
+		check("a transitioned colour moves to its new value over the duration",
+			settled[0] == 1 && Math.abs(midway[0] - (1 + 0x1A / 255) / 2) < 0.02 && Math.abs(done[0] - 0x1A / 255) < 0.01, [settled[0], midway[0], done[0]]);
+		check("a transitioned number follows its signal over the duration",
+			settled[1] == 1 && Math.abs(midway[1] - 0.6) < 0.02 && Math.abs(done[1] - 0.2) < 1e-6, [settled[1], midway[1], done[1]]);
 
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
