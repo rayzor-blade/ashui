@@ -1,3 +1,6 @@
+import ashui.svg.PathData.PathCommand;
+import ashui.svg.SvgDocument.Paint;
+import ashui.svg.SvgDocument.SvgNode;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
 import ashui.layout.LayoutTree;
@@ -701,6 +704,52 @@ class Smoke {
 			settled[0] == 1 && Math.abs(midway[0] - (1 + 0x1A / 255) / 2) < 0.02 && Math.abs(done[0] - 0x1A / 255) < 0.01, [settled[0], midway[0], done[0]]);
 		check("a transitioned number follows its signal over the duration",
 			settled[1] == 1 && Math.abs(midway[1] - 0.6) < 0.02 && Math.abs(done[1] - 0.2) < 1e-6, [settled[1], midway[1], done[1]]);
+
+		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
+		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");
+		check("path data: compact numbers and implicit lines", compact[0].equals(MoveTo(0.5, -1.5)) && compact[1].equals(LineTo(0.5, 0.5)),
+			compact.slice(0, 2));
+		check("path data: relative, horizontal and vertical steps", compact[2].equals(LineTo(1.5, 1.5)) && compact[3].equals(LineTo(3.5, 1.5))
+			&& compact[4].equals(LineTo(3.5, 4)), compact.slice(2, 5));
+		check("path data: S reflects the last control point", compact[6].equals(CubicTo(7.5, 8, 10.5, 11, 11.5, 12)), compact[6]);
+		check("path data: T reflects the last quadratic control point", compact[8].equals(QuadTo(14.5, 16, 16.5, 17)), compact[8]);
+		check("path data: arc flags run into the next number", compact[9].equals(ArcTo(1, 1, 0, false, true, 17.5, 18)), compact[9]);
+		check("path data: Z returns to the subpath start", compact[10].equals(Close), compact[10]);
+		var pathError = try {
+			ashui.svg.PathData.parse("M 0 0 L 5");
+			"";
+		} catch (e:ashui.svg.SvgError) e.message;
+		check("path data: a cut-off command is an error", pathError.indexOf("ends in the middle") >= 0, pathError);
+		var badge = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 10 10" width="20"><g fill="#ff0000" stroke="rgb(0, 0, 255)" opacity="0.5" transform="translate(1 2) scale(2)"><rect x="1" y="1" width="4" height="2" rx="1"/><circle style="fill: none" cx="5" cy="5" r="2"/></g><title>t</title></svg>');
+		check("svg: natural size from width, and viewBox height", badge.width == 20 && badge.height == 10, [badge.width, badge.height]);
+		switch badge.nodes {
+			case [Group(opacity, transform, [Shape(rect), Shape(circle)])]:
+				check("svg: groups keep their opacity and transform", opacity == 0.5 && transform.join(",") == "2,0,0,2,1,2", [opacity, transform]);
+				check("svg: paint passes down to shapes", rect.fill.equals(Solid(0xff0000, 1)) && rect.stroke.equals(Solid(0x0000ff, 1)), rect);
+				check("svg: style declarations win over inherited paint", circle.fill.equals(NoPaint), circle.fill);
+				check("svg: a rounded rect becomes arcs", rect.path.length == 10 && rect.path[2].match(ArcTo(1, 1, 0, false, true, 5, 2)), rect.path);
+			case other:
+				check("svg: one group of a rect and a circle", false, other);
+		}
+		check("svg: fixed colours are not a mask", !badge.mask);
+		var icon = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 12 5 5L20 6"/></svg>');
+		check("svg: currentColor alone is a mask", icon.mask);
+		check("svg: equal markup is one document",
+			ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M4 12l5 5L20 6"/></svg>') == icon);
+		var compiled = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 12 5 5L20 6"/></svg>);
+		check("svg: inline markup compiles to the same document", compiled == icon);
+		var unsupported = try {
+			ashui.svg.SvgDocument.parse('<svg viewBox="0 0 1 1"><rect width="1" height="1" fill="url(#g)"/></svg>');
+			"";
+		} catch (e:ashui.svg.SvgError) e.message;
+		check("svg: gradients are reported as unsupported", unsupported.indexOf("not supported yet") >= 0, unsupported);
+		var svgTree = new LayoutTree();
+		var svgElement:ashui.ui.Svg = Owner.root(svgTree, _ -> hxx('<svg class="w-6" viewBox="0 0 48 24"><path d="M0 0h48v24z"/></svg>'));
+		svgTree.flush();
+		svgTree.computeLayout(svgElement.node, 400, 400);
+		var svgBounds = svgTree.getBounds(svgElement.node);
+		check("svg in hxx: classes size it, the document gives the rest", svgBounds != null && near(svgBounds.width, 24) && near(svgBounds.height, 24),
+			svgBounds);
 
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {

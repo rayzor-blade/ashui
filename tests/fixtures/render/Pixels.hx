@@ -29,6 +29,10 @@ import gpu.TextureUsage;
 	that covers its bounding box: the child shows inside the turned box and
 	not in its bounding box's corners.
 
+	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
+	the element's colour, and a colour square that is blue whatever the
+	element's colour, each with a transparent margin.
+
 	Then text, on white: black "MM" at 24px, which must ink pixels, and "MM"
 	at 10px under a 4x zoom, whose stem edges must stay about a pixel wide,
 	as a glyph rasterized at its on-screen size has and a magnified one,
@@ -119,6 +123,20 @@ class Pixels {
 		probe("child inside the turned box", 32, 32, near(0x00ff00));
 		probe("child inside, near the turned box's tip", 32, 13, near(0x00ff00));
 		probe("nothing in the bounding box's corner", 14, 14, near(0xffffff));
+
+		var svgTree = new LayoutTree();
+		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');
+		var colourDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="#0000ff"/></svg>');
+		var maskIcon = new ashui.ui.Svg(maskDoc, {width: 24, height: 24, color: new Color(0xff0000)}, svgTree);
+		var colourIcon = new ashui.ui.Svg(colourDoc, {width: 24, height: 24, color: new Color(0xff0000)}, svgTree);
+		var svgRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), gap: 8, padding: 4, flexDirection: Row},
+			[maskIcon, colourIcon], svgTree);
+		pixels = offscreen.renderToRgba8(svgRoot, SIZE, SIZE);
+		label = "svg: ";
+		probe("mask drawn in the element's colour", 16, 16, near(0xff0000));
+		probe("mask's transparent margin", 6, 6, near(0xffffff));
+		probe("colour image as drawn", 48, 16, near(0x0000ff));
+		probe("colour image's transparent margin", 38, 6, near(0xffffff));
 
 		var textTree = new LayoutTree();
 		var label24 = new ashui.ui.Text("MM", {fontSize: 24, color: new Color(0x000000), wrap: false}, textTree);

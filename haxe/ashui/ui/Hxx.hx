@@ -18,6 +18,9 @@ using haxe.macro.TypeTools;
 
 	    hxx('<div width={w} bg={color}><text>Value: ${count}</text></div>')
 
+	`<svg>` is SVG, written as it is: it is parsed and checked at compile
+	time and becomes an `Svg` element (see `lowerSvg`).
+
 	Tags are lowercase kebab-case. `<div>` and `<text>` become their
 	constructor plus one `node.set(Prop.X, v)` per attribute, with no
 	attribute object; `bg` is `Prop.Background` and any other name is the key
@@ -192,6 +195,7 @@ class Hxx {
 		return switch tag {
 			case 'div': lowerDiv(node);
 			case 'text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
+			case 'svg': lowerSvg(node);
 			case _: lowerComponent(node);
 		}
 	}
@@ -233,6 +237,68 @@ class Hxx {
 			$b{sets};
 			$i{el};
 		};
+	}
+
+	/**
+		An `Svg` of the markup itself, parsed and checked now. Quoted attributes
+		and everything inside are SVG; on the `<svg>`, `class`, a `style` that
+		is an expression, and `width`, `height` and `color` given as
+		expressions set the element instead.
+	**/
+	static function lowerSvg(node:Node):Expr {
+		var el = '__svg${counter++}';
+		var classes = [], styles = [], own = [];
+		var xml = Xml.createElement('svg');
+		for (a in node.attributes)
+			switch a {
+				case Regular(name, value) if (name.value == 'class'):
+					classes = classes.concat(ashui.style.Tw.setters(value, macro $i{el}.node));
+				case Regular(name, {expr: EConst(CString(text))}):
+					xml.set(name.value, text);
+				case Regular(name, value) if (name.value == 'style'):
+					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
+				case Regular(name, _) if (['width', 'height', 'color'].indexOf(name.value) >= 0):
+					own.push(setter(el, a, '<svg>'));
+				case Regular(name, value):
+					Context.error('hxx: <svg> takes "${name.value}" only as a quoted value', value.pos);
+				case _:
+					own.push(setter(el, a, '<svg>'));
+			}
+		svgChildren(node, xml);
+		var doc = ashui.svg.SvgDocument.compileXml(xml, node.name.pos);
+		var sets = classes.concat(styles).concat(own);
+		return macro @:pos(node.name.pos) {
+			var $el = new ashui.ui.Svg($doc);
+			$b{sets};
+			$i{el};
+		};
+	}
+
+	/** Adds the elements inside `node`, SVG all the way down, to `xml`. **/
+	static function svgChildren(node:Node, xml:Xml):Void {
+		if (node.children == null)
+			return;
+		for (child in node.children.value)
+			switch child.value {
+				case CNode(n):
+					var e = Xml.createElement(n.name.value);
+					for (a in n.attributes)
+						switch a {
+							case Regular(name, {expr: EConst(CString(text))}):
+								e.set(name.value, text);
+							case Regular(name, value):
+								Context.error('hxx: inside <svg>, "${name.value}" takes only a quoted value', value.pos);
+							case Empty(name):
+								Context.error('hxx: attribute "${name.value}" needs a value', name.pos);
+							case Splat(e):
+								Context.error('hxx: spreading attributes is not supported', e.pos);
+						}
+					svgChildren(n, e);
+					xml.addChild(e);
+				case CText(text) if (StringTools.trim(text.value) == ''):
+				case _:
+					Context.error('hxx: inside <svg>, only SVG elements', child.pos);
+			}
 	}
 
 	/** A `Text` from a run of text and interpolations, with its attributes. **/

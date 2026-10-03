@@ -41,6 +41,9 @@ extern class LayoutTreeNative {
 	**/
 	static function blinc_tree_display_list(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, scale:Single, out:hl.Bytes, capacity:Int):Int;
 
+	/** Makes `node` draw image `slot`, which the renderer resolves, in its content box; a negative slot stops it. **/
+	static function blinc_tree_set_image(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
+
 	/** Writes absolute x, y, width, height as four F32s into `out`. **/
 	static function blinc_tree_get_bounds(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 }

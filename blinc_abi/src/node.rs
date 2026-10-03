@@ -24,6 +24,9 @@ pub struct Tree {
     pruned: bool,
     /// Every live node, so a dropped tree can drop their bindings.
     nodes: HashSet<LayoutNodeId>,
+    /// Nodes that draw an image in their content box: an SVG or a bitmap,
+    /// named by a slot the caller resolves after the walk.
+    pub(crate) images: HashMap<LayoutNodeId, i32>,
 }
 
 /// Nodes of trees dropped since the last flush, whose bindings are still
@@ -99,6 +102,7 @@ pub extern "C" fn hl_blinc_tree_new() -> *mut c_void {
         props: HashMap::new(),
         pruned: false,
         nodes: HashSet::new(),
+        images: HashMap::new(),
     })
 }
 define_prim!(hlp_blinc_tree_new, hl_blinc_tree_new, "P_Xblinc_tree_");
@@ -306,6 +310,8 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
         let layout = &tree.layout;
         tree.props
             .retain(|node, _| layout.get_style(*node).is_some());
+        tree.images
+            .retain(|node, _| layout.get_style(*node).is_some());
     }
     let mut needs_layout = false;
     for update in take_pending_partial_prop_updates() {
@@ -401,6 +407,24 @@ define_prim!(
     hlp_blinc_tree_display_list,
     hl_blinc_tree_display_list,
     "PXblinc_tree_lfBi_i"
+);
+
+/// Makes `node` draw the image the caller knows as `slot` in its content
+/// box, as Blinc's image and SVG elements do; a negative `slot` stops it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_set_image(h: *mut c_void, node: u64, slot: i32) {
+    if let Some(tree) = unsafe { tree(h) } {
+        if slot < 0 {
+            tree.images.remove(&id(node));
+        } else {
+            tree.images.insert(id(node), slot);
+        }
+    }
+}
+define_prim!(
+    hlp_blinc_tree_set_image,
+    hl_blinc_tree_set_image,
+    "PXblinc_tree_li_v"
 );
 
 /// Write the node's absolute `x, y, width, height` as four f32s into `out`.

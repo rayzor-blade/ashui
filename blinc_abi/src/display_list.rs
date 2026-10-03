@@ -29,6 +29,12 @@
 //! glyph's rect in its atlas in pixels, and whose fill type is 1 when that
 //! is the colour-glyph atlas (see `text`).
 //!
+//! A node with an image adds a `PRIM_IMAGE` record over its content box,
+//! coloured with its text colour, which an SVG's `currentColor` takes, and
+//! with its opacity in `color2.a`. Its gradient row holds the image's slot
+//! and the device pixels per unit it covers on screen; the caller replaces
+//! them with the image's rect in its atlas.
+//!
 //! The walk follows Blinc's `paint/basic.rs`: a node's shadows, last first,
 //! then its fill merged with its border, then its children under the clip it
 //! pushes when its overflow is not visible. Glass, blur and image brushes
@@ -59,6 +65,8 @@ pub const RECORD_FLOATS: usize = 64;
 pub const PRIM_RECT: f32 = 0.0;
 pub const PRIM_SHADOW: f32 = 3.0;
 pub const PRIM_TEXT: f32 = 7.0;
+/// ashui's own: Blinc draws images in a pass of their own.
+pub const PRIM_IMAGE: f32 = 32.0;
 
 /// `type_info.y`, as Blinc's `FillType`.
 const FILL_SOLID: f32 = 0.0;
@@ -471,6 +479,9 @@ pub fn append(
         }
     }
 
+    if let Some(&slot) = tree.images.get(&node) {
+        image_record(tree, node, slot, (x, y), opacity, m, clips, glyphs.display_scale, out);
+    }
     if let Some(context) = tree.layout.text_context(node) {
         text_records(tree, node, context, (x, y, w), opacity, m, clips, glyphs, out);
     }
@@ -574,4 +585,44 @@ fn text_records(
         }
         p.push(&clipping(clips, m, at, true), out);
     }
+}
+
+/// The record of an image drawn in the content box of a node laid out at `(x, y)`.
+#[allow(clippy::too_many_arguments)]
+fn image_record(
+    tree: &Tree,
+    node: LayoutNodeId,
+    slot: i32,
+    (x, y): (f32, f32),
+    opacity: f32,
+    m: Affine,
+    clips: &[Clip],
+    display_scale: f32,
+    out: &mut Vec<f32>,
+) {
+    let Some(layout) = tree.layout.get_layout(node) else {
+        return;
+    };
+    let (p, b) = (layout.padding, layout.border);
+    let left = p.left + b.left;
+    let top = p.top + b.top;
+    let w = layout.size.width - left - p.right - b.right;
+    let h = layout.size.height - top - p.bottom - b.bottom;
+    if w <= 0.0 || h <= 0.0 || opacity <= 0.0 {
+        return;
+    }
+    let props = tree.props.get(&node);
+    let tint = props.and_then(|p| p.text_color).unwrap_or([0.0, 0.0, 0.0, 1.0]);
+    let mut rec = Primitive::new(PRIM_IMAGE, [0.0, 0.0, w, h], [0.0; 4]);
+    rec.color = [tint[0], tint[1], tint[2], tint[3] * opacity];
+    rec.color2 = [1.0, 1.0, 1.0, opacity];
+    let on_screen = display_scale * (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
+    rec.gradient = [slot as f32, on_screen, 0.0, 0.0];
+    rec.place(m, x + left, y + top);
+    // As glyphs: on whole device pixels when nothing turns or slants it.
+    if m[1] == 0.0 && m[2] == 0.0 {
+        rec.bounds[0] = (rec.bounds[0] * display_scale).round() / display_scale;
+        rec.bounds[1] = (rec.bounds[1] * display_scale).round() / display_scale;
+    }
+    rec.push(&clipping(clips, m, (x + left, y + top), true), out);
 }

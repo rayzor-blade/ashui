@@ -23,6 +23,8 @@ class DisplayList {
 	public static inline var PRIM_SHADOW = 3;
 	/** A glyph of text, sampled from a glyph atlas. **/
 	public static inline var PRIM_TEXT = 7;
+	/** An image in a node's content box, which the renderer looks up in its image atlas. **/
+	public static inline var PRIM_IMAGE = 32;
 
 	public var bytes(default, null):haxe.io.Bytes;
 	public var count(default, null) = 0;
@@ -55,7 +57,7 @@ class DisplayList {
 		var shape = theme.shape();
 		var radiusFull = theme.radii().radiusFull;
 		for (r in 0...count) {
-			if (kind(r) == PRIM_TEXT)
+			if (kind(r) == PRIM_TEXT || kind(r) == PRIM_IMAGE)
 				continue;
 			var explicit:Array<Float> = [for (c in 0...4) get(r, CORNER_SHAPE_FIELD + c)];
 			var radii:Array<Float> = [for (c in 4...8) get(r, c)];
@@ -71,7 +73,8 @@ class DisplayList {
 		return Std.int(get(record, KIND_FIELD));
 	}
 
-	inline function set(record:Int, field:Int, value:Float):Void {
+	/** Sets field `field` of record `record`, for the renderer filling in what only it knows. **/
+	public inline function set(record:Int, field:Int, value:Float):Void {
 		bytes.setFloat((record * RECORD_FLOATS + field) * 4, value);
 	}
 

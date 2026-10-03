@@ -28,7 +28,8 @@ import gpu.VertexStepMode;
 	run of records of one kind is one draw with that kind's pipeline, so
 	paint order holds across kinds. Colours are straight alpha, blended over
 	the target in gamma space as Blinc does on native targets. Glyphs sample
-	the text engine's atlases, uploaded before each frame that changed them.
+	the text engine's atlases, uploaded before each frame that changed them;
+	images sample an atlas of their own, rasterized into as they appear.
 
 	Written against hlwgpu's `gpu` package; the shaders are HXSL, so
 	caribou-gpu takes the same ones.
@@ -43,6 +44,9 @@ class Renderer {
 	final atlas:GlyphAtlas;
 	final colorAtlas:GlyphAtlas;
 	final glyphSampler:GpuSampler;
+	final images:Pass;
+	final imageAtlas:ImageAtlas;
+	var imageRevision = -1;
 	/** The atlas revisions `text`'s bind group holds views of. **/
 	var textRevisions = "";
 	var instances:Null<GpuBuffer> = null;
@@ -62,6 +66,8 @@ class Renderer {
 		sampler.minFilter(Linear);
 		glyphSampler = device.sampler(sampler);
 		text = pass(TextShader.WGSL, Inputs.of(ashui.core.render.TextShader), format, false);
+		imageAtlas = new ImageAtlas(device);
+		images = pass(ImageShader.WGSL, Inputs.of(ashui.core.render.ImageShader), format, false);
 	}
 
 	function pass(wgsl:String, inputs:Array<{offset:Int, location:Int}>, format:TextureFormat, bind = true):Pass {
@@ -109,6 +115,22 @@ class Renderer {
 		textRevisions = revisions;
 	}
 
+	/** Rasterizes the list's new images, and binds the image pass to the atlas's current view. **/
+	function syncImages(list:DisplayList):Void {
+		Images.resolve(list, imageAtlas);
+		if (imageAtlas.revision == imageRevision)
+			return;
+		var bindings = new GpuBindings();
+		bindings.buffer(frame);
+		bindings.texture(imageAtlas.view);
+		bindings.sampler(glyphSampler);
+		if (images.group != null)
+			images.group.destroy();
+		images.group = device.bindGroup(images.pipeline, ImageShader.FRAME_GROUP, bindings);
+		bindings.destroy();
+		imageRevision = imageAtlas.revision;
+	}
+
 	/** Draws `list` into `view`, `width` × `height` pixels, after clearing it to the given colour. **/
 	public function draw(list:DisplayList, view:GpuTextureView, width:Int, height:Int, r = 0.0, g = 0.0, b = 0.0, a = 0.0):Void {
 		var queue = device.queue();
@@ -116,6 +138,7 @@ class Renderer {
 		frameBytes.setFloat(BoxShader.FRAME_viewport + 4, height);
 		queue.writeBuffer(frame, 0, frameBytes, frameBytes.length);
 		syncText();
+		syncImages(list);
 		if (list.count > 0) {
 			reserve(list.count);
 			queue.writeBuffer(instances, 0, list.bytes, list.count * DisplayList.RECORD_BYTES);
@@ -134,6 +157,7 @@ class Renderer {
 				drawRun(encoder, switch kind {
 					case DisplayList.PRIM_SHADOW: shadows;
 					case DisplayList.PRIM_TEXT: text;
+					case DisplayList.PRIM_IMAGE: images;
 					default: boxes;
 				}, start, end - start);
 				start = end;

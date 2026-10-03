@@ -7,5 +7,6 @@ mod hl;
 pub mod layout_router;
 pub mod node;
 pub mod reactive;
+pub mod svg;
 pub mod text;
 pub mod types;
