@@ -746,7 +746,8 @@ pub fn append(
         let shadow_clip = clipping(clips, m, (x, y), false);
         let clip = clipping(clips, m, (x, y), true);
 
-        for s in props.shadow.iter().rev() {
+        // Outer shadows under the fill; inset ones go over it, after.
+        for s in props.shadow.iter().rev().filter(|s| !s.inset) {
             let mut p = Primitive::new(PRIM_SHADOW, local, radii);
             p.shape_from(props, &glyphs.shapes);
             p.shadow = [s.offset_x, s.offset_y, s.blur, s.spread];
@@ -791,6 +792,22 @@ pub fn append(
             }
             if let Some(ring) = ring_after {
                 after = Some((ring, clip));
+            }
+        }
+
+        // Inset shadows, inside the padding box: over the fill, under the border's inner edge.
+        let [top, right, bottom, left] = sides;
+        let inner = [0.0, 0.0, (w - left - right).max(0.0), (h - top - bottom).max(0.0)];
+        let inner_radii = radii.map(|r| (r - top.max(right).max(bottom).max(left)).max(0.0));
+        for s in props.shadow.iter().rev().filter(|s| s.inset) {
+            let mut p = Primitive::new(PRIM_SHADOW, inner, inner_radii);
+            p.shape_from(props, &glyphs.shapes);
+            p.fill_type = 1.0;
+            p.shadow = [s.offset_x, s.offset_y, s.blur, s.spread];
+            p.shadow_color = rgba(s.color, opacity);
+            p.place(m, x + left, y + top);
+            if p.shadow_color[3] > 0.0 {
+                p.push(&shadow_clip, out);
             }
         }
 

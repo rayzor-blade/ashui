@@ -22,7 +22,8 @@ abstract ShadowTokens(ShadowTokensData) from ShadowTokensData to ShadowTokensDat
 			case Lg: this.shadowLg;
 			case Xl: this.shadowXl;
 			case Xxl: this.shadow2xl;
-			case Inner: this.shadowInner;
+			// `shadow-inner` is cast inside the box whatever its layers say.
+			case Inner: [for (s in this.shadowInner) s.inside()];
 			case None: this.shadowNone;
 		}
 	}

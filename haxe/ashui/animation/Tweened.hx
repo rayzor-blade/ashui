@@ -173,7 +173,7 @@ class Tweened<T> {
 	static function lerpShadow(a:Shadow, b:Shadow, t:Float):Null<Shadow> {
 		if (a == null || b == null)
 			return null;
-		var none = [0.0, 0, 0, 0, 0, 0];
+		var none = [0.0, 0, 0, 0, 0, 0, 0];
 		var n = Std.int(Math.max(a.layers.length, b.layers.length));
 		var out:Null<Shadow> = null;
 		for (i in 0...n) {
@@ -184,10 +184,12 @@ class Tweened<T> {
 			var yc = i < b.layers.length ? Std.int(y[4]) : Std.int(x[4]);
 			var l = [for (k in 0...4) mix(x[k], y[k], t)];
 			var rgb = mixRgb(xc, yc, t), alpha = mix(x[5], y[5], t);
+			// Inside or out is the target's, as CSS jumps it rather than blending.
+			var inset = (i < b.layers.length ? y[6] : x[6]) > 0.5;
 			if (out == null)
-				out = new Shadow(l[0], l[1], l[2], rgb, alpha, l[3]);
+				out = new Shadow(l[0], l[1], l[2], rgb, alpha, l[3], inset);
 			else
-				out.and(l[0], l[1], l[2], rgb, alpha, l[3]);
+				out.and(l[0], l[1], l[2], rgb, alpha, l[3], inset);
 		}
 		return out;
 	}

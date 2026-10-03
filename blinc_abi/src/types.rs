@@ -355,6 +355,7 @@ fn shadow_layer(
     spread: f32,
     hex: i32,
     alpha: f32,
+    inset: bool,
 ) -> Shadow {
     Shadow {
         offset_x,
@@ -362,10 +363,12 @@ fn shadow_layer(
         blur,
         spread,
         color: hex_color(hex, alpha),
+        inset,
     }
 }
 
-/// A shadow of one layer; `blinc_shadow_push` adds more.
+/// A shadow of one layer, cast inside the box when `inset`;
+/// `blinc_shadow_push` adds more.
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_shadow(
     offset_x: f32,
@@ -374,12 +377,13 @@ pub extern "C" fn hl_blinc_shadow(
     spread: f32,
     hex: i32,
     alpha: f32,
+    inset: bool,
 ) -> *mut c_void {
     value(Value::Shadow(vec![shadow_layer(
-        offset_x, offset_y, blur, spread, hex, alpha,
+        offset_x, offset_y, blur, spread, hex, alpha, inset,
     )]))
 }
-define_prim!(hlp_blinc_shadow, hl_blinc_shadow, "Pffffif_Xblinc_value_");
+define_prim!(hlp_blinc_shadow, hl_blinc_shadow, "Pffffifb_Xblinc_value_");
 
 /// Adds a layer to `shadow`, a shadow value; layers are drawn last first.
 /// Values already bound to a node keep the layers they had.
@@ -392,13 +396,14 @@ pub unsafe extern "C" fn hl_blinc_shadow_push(
     spread: f32,
     hex: i32,
     alpha: f32,
+    inset: bool,
 ) {
     if let Some(Value::Shadow(layers)) = unsafe { handle_mut::<Value>(shadow) } {
-        layers.push(shadow_layer(offset_x, offset_y, blur, spread, hex, alpha));
+        layers.push(shadow_layer(offset_x, offset_y, blur, spread, hex, alpha, inset));
     }
 }
 define_prim!(
     hlp_blinc_shadow_push,
     hl_blinc_shadow_push,
-    "PXblinc_value_ffffif_v"
+    "PXblinc_value_ffffifb_v"
 );

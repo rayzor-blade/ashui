@@ -54,6 +54,9 @@ import gpu.TextureUsage;
 	Then drop shadows: a red circle's sharp black one offset by 6, cast by
 	the circle rather than its box, and a red square's blurred one.
 
+	Then inset shadows on grey: a white box with a sharp black one 4 wide,
+	and a narrow white box with one offset down and right and blurred.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -297,6 +300,20 @@ class Pixels {
 		probe("under the content", 16, 16, near(0xff0000));
 		probe("a blurred one shades just past the edge", 37, 16, (r, g, b) -> r < 230 && r > 60 && Math.abs(r - g) < 3);
 		probe("and the content stays on top", 48, 16, near(0xff0000));
+
+		var insetTree = new LayoutTree();
+		var rimmed = new Div({position: Position.Absolute, left: 8, top: 8, width: 32, height: 32, bg: Brush.solid(0xffffff)}, insetTree);
+		rimmed.node.set(Prop.Shadow, new ashui.types.Shadow(0, 0, 0, 0x000000, 1, 4, true));
+		var sunk = new Div({position: Position.Absolute, left: 44, top: 8, width: 16, height: 32, bg: Brush.solid(0xffffff)}, insetTree);
+		sunk.node.set(Prop.Shadow, new ashui.types.Shadow(4, 4, 4, 0x000000, 1, 0, true));
+		var insetRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xc0c0c0)}, [rimmed, sunk], insetTree);
+		pixels = offscreen.renderToRgba8(insetRoot, SIZE, SIZE);
+		label = "inset shadow: ";
+		probe("a band inside the box's edge", 10, 24, near(0x000000));
+		probe("its middle untouched", 24, 24, near(0xffffff));
+		probe("nothing outside the box", 6, 24, near(0xc0c0c0));
+		probe("an offset one shades the top-left inner edge", 45, 9, (r, g, b) -> r < 80);
+		probe("and fades toward the far side", 58, 38, (r, g, b) -> r > 200);
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');
