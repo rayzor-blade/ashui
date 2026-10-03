@@ -73,6 +73,12 @@ fn hit(
     };
     let (lx, ly) = apply(to_layout, px, py);
     let (lx, ly) = (lx - x, ly - y);
+    // Outside its clip-path, nothing of the node or inside it is there to hit.
+    if let Some(path) = tree.props.get(&node).and_then(|p| p.clip_path.as_ref()) {
+        if !crate::display_list::shape_contains(path, w, h, lx, ly) {
+            return false;
+        }
+    }
 
     let overflow = tree.layout.get_style(node).map(|s| s.overflow);
     let clipped = overflow.is_some_and(|o| o.x != Overflow::Visible || o.y != Overflow::Visible);

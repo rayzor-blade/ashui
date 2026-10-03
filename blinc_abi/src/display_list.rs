@@ -227,6 +227,43 @@ struct ShapeClip {
 const SHAPE_ELLIPSE: f32 = 1.0;
 const SHAPE_RECT: f32 = 2.0;
 
+/// Whether `(lx, ly)`, in the coordinates of an element `w` × `h`, is
+/// inside its `path`: the shape the shaders clip to, for the hit test.
+pub(crate) fn shape_contains(path: &blinc_core::ClipPath, w: f32, h: f32, lx: f32, ly: f32) -> bool {
+    let mut points = Vec::new();
+    let s = shape_clip(path, (0.0, 0.0), w, h, IDENTITY, &mut points);
+    let [a, b, c, d] = s.params;
+    match s.rest[2] {
+        k if k == SHAPE_ELLIPSE => {
+            let (u, v) = ((lx - a) / c.max(1e-4), (ly - b) / d.max(1e-4));
+            u * u + v * v <= 1.0
+        }
+        k if k == SHAPE_RECT => {
+            let r = s.rest[3].min(c * 0.5).min(d * 0.5).max(0.0);
+            let (qx, qy) = ((lx - (a + c * 0.5)).abs() - c * 0.5 + r, (ly - (b + d * 0.5)).abs() - d * 0.5 + r);
+            let outside = (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) - r;
+            outside <= 0.0
+        }
+        k if k == SHAPE_POLYGON => {
+            let (first, count) = (a as usize * 2, b as usize);
+            let at = |i: usize| (points[first + 2 * i], points[first + 2 * i + 1]);
+            let mut inside = false;
+            for i in 1..count {
+                let ((x0, y0), (x1, y1)) = (at(i - 1), at(i));
+                // A point at 1e30 parts two rings of a path.
+                if x0 >= 1e29 || x1 >= 1e29 {
+                    continue;
+                }
+                if (y1 > ly) != (y0 > ly) && lx < (x0 - x1) * (ly - y1) / (y0 - y1) + x1 {
+                    inside = !inside;
+                }
+            }
+            inside
+        }
+        _ => true,
+    }
+}
+
 /// Adds `ring` to `points` from a row's start, closed back to its first
 /// point when `close`, and gives the shape: its first row and point count.
 fn polygon(points: &mut Vec<f32>, ring: &[(f32, f32)], close: bool) -> (f32, [f32; 4], f32) {

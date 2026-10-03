@@ -1271,6 +1271,29 @@ class Smoke {
 		check("clipPath={ClipPath.circle()} clips the child to the largest centred circle", Std.int(shapeList.get(shapeList.count - 1, 94)) == 1
 			&& shapeRow.join(",") == "20,20,20,20", [shapeList.get(shapeList.count - 1, 94), shapeRow]);
 
+		// --- A clip-path's shape is what a press hits ---
+		var hitTree = new LayoutTree();
+		var hitLog:Array<String> = [];
+		var round:Div = Owner.root(hitTree, _ -> hxx('
+			<div class="w-32 h-32" onClick={() -> hitLog.push("page")}>
+				<div class="w-10 h-10" clipPath={ashui.types.ClipPath.circle()} onClick={() -> hitLog.push("circle")} />
+				<div class="w-10 h-10" clipPath={ashui.types.ClipPath.path("M0 0H40V40H0Z M10 10H30V30H10Z")} onClick={() -> hitLog.push("frame")} />
+			</div>
+		'));
+		hitTree.flush();
+		hitTree.computeLayout(round.node, 200, 200);
+		function tap(x:Float, y:Float) {
+			ashui.input.Pointer.move(hitTree, x, y);
+			ashui.input.Pointer.press(hitTree);
+			ashui.input.Pointer.release(hitTree);
+		}
+		tap(2, 2);
+		tap(20, 20);
+		tap(60, 20);
+		tap(45, 5);
+		// Each click bubbles on to the page.
+		check("clip-path: a press outside the shape misses it, inside hits it", hitLog.join(" ") == "page circle page page frame page", hitLog);
+
 		// --- focus-within:, group- and peer- follow another element's state ---
 		var relTree = new LayoutTree();
 		var field:Div = null;
