@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":5,"timestamp":1791070339,"nonce":"piwEEWSzej61/i2R6zO4VzPRH+0=","added":["bug","area:style","area:layout"],"removed":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791070366,"nonce":"+mlI/E0wEKBsD1hm6dk4uEN49J8=","message":"Fixed in 6981a78 (cascade, fragment host); AfterChildren in e1d27ee.","files":null}]}
