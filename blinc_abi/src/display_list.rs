@@ -688,6 +688,10 @@ pub fn append(
     let Some(layout) = tree.layout.get_layout(node) else {
         return;
     };
+    // display: none draws nothing, its subtree included, as CSS's does: not even a shadow of its empty box.
+    if tree.layout.get_style(node).is_some_and(|s| s.display == taffy::Display::None) {
+        return;
+    }
     let x = origin.0 + layout.location.x;
     let y = origin.1 + layout.location.y;
     let (w, h) = (layout.size.width, layout.size.height);

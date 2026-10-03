@@ -266,14 +266,14 @@ class Hxx {
 				case _:
 					own.push(setter(el, a, '<div>'));
 			}
-		var sets = classes.concat(styles).concat(own);
-		var attr = tag == null ? macro null : macro {tag: $v{tag}};
 		// A button takes focus from Tab and a press, as HTML's does.
 		if (tag == 'button' && !Lambda.exists(node.attributes, a -> switch a {
 			case Regular(name, _) | Empty(name): name.value == 'focusable';
 			case _: false;
 		}))
 			own.unshift(macro ashui.input.Interaction.of($i{el}.node).setFocusable(true));
+		var sets = classes.concat(styles).concat(own);
+		var attr = tag == null ? macro null : macro {tag: $v{tag}};
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Div($attr, $kids);
 			$b{sets};

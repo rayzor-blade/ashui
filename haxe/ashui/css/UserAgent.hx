@@ -60,5 +60,40 @@ class UserAgent {
 
 		/* Labels: their text beside their control. */
 		label { flex-direction: row; align-items: center; gap: 8px; color: var(--text-primary); }
+
+		/* Selects: the control, its list of options in the top layer, the options and their group headings. */
+		select {
+			flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; min-width: 120px;
+			padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);
+		}
+		select:hover { border-color: var(--border-hover); }
+		select:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+		select:disabled { opacity: 0.5; }
+		select > .chevron { color: var(--text-secondary); }
+		listbox {
+			flex-direction: column; padding: 4px; border: 1px solid var(--border); border-radius: 8px;
+			background: var(--surface-elevated); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+		}
+		option { flex-direction: row; align-items: center; padding: 6px 10px; border-radius: 6px; color: var(--text-primary); }
+		option:hover, option:focus { background: var(--accent-subtle); }
+		option:checked { font-weight: 600; }
+		option:disabled { opacity: 0.5; }
+		optgroup { padding: 6px 10px 2px 10px; font-size: 0.8em; font-weight: 600; color: var(--text-secondary); }
+
+		/* Dialogs: a panel, centred over a dimmed backdrop when modal. */
+		dialog {
+			flex-direction: column; gap: 12px; padding: 20px; min-width: 280px; border-radius: 12px;
+			background: var(--surface-elevated); color: var(--text-primary); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+		}
+		dialog:not([open]) { display: none; }
+
+		/* Details: a summary that opens and closes the rest. */
+		details { flex-direction: column; gap: 6px; }
+		summary { flex-direction: row; align-items: center; gap: 6px; color: var(--text-primary); font-weight: 500; }
+		summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+		summary > .marker { color: var(--text-secondary); transition: transform 150ms ease-out; }
+		details[open] > summary > .marker { transform: rotate(90deg); }
+		details:not([open]) > .content { display: none; }
+		details > .content { flex-direction: column; gap: 6px; padding-left: 18px; }
 	';
 }

@@ -23,8 +23,21 @@ typedef TextAttributes = {
 **/
 class Text extends Element {
 	/** `content` is a string, or a signal or computed of one. **/
+	/** What it shows: a string, or a signal or computed of one. **/
+	public final content:IntoReactive<String>;
+
+	/** Its text now. **/
+	public function text():String {
+		return switch (content : ReactiveType<String>) {
+			case Const(s): s;
+			case Bound(s): s.get();
+			case Derived(c): c.get();
+		}
+	}
+
 	public function new(content:IntoReactive<String>, ?attr:TextAttributes, ?tree:LayoutTree) {
 		super(tree);
+		this.content = content;
 
 		// The node is measured with this size and wrapping.
 		var fs:Single = attr != null && attr.fontSize != null ? attr.fontSize : 16.0;

@@ -78,11 +78,29 @@ class Focus {
 	}
 
 	/** Moves focus to the next focusable node after the focused one, or the previous with `backward`, wrapping. **/
+	static final scopes = new haxe.ds.ObjectMap<LayoutTree, Array<ashui.layout.Node>>();
+
+	/**
+		Keeps Tab and Shift+Tab inside `node` until the returned function
+		releases it, as a modal dialog keeps focus in itself. Scopes nest: the
+		innermost holds.
+	**/
+	public static function trap(node:ashui.layout.Node):Void->Void {
+		var tree = node.tree;
+		var list = scopes.get(tree);
+		if (list == null)
+			scopes.set(tree, list = []);
+		list.push(node);
+		return () -> list.remove(node);
+	}
+
 	public static function move(tree:LayoutTree, backward = false):Void {
+		var scope = scopes.get(tree);
+		var inside = scope == null || scope.length == 0 ? null : scope[scope.length - 1];
 		var order = [];
 		for (id in tree.order()) {
 			var i = Interaction.byId(tree, id);
-			if (i != null && i.focusable && !i.disabled.get())
+			if (i != null && i.focusable && !i.disabled.get() && (inside == null || id == inside.id || tree.ancestors(id).indexOf(inside.id) >= 0))
 				order.push(i);
 		}
 		if (order.length == 0)

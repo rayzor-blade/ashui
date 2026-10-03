@@ -848,6 +848,85 @@ class Smoke {
 		check("built-in controls are typed for CSS", ashui.css.Identity.of(formTree, box).attribute("type") == "checkbox"
 			&& ashui.css.Identity.of(formTree, formNodes[4]).types.join(",") == "button");
 
+		// --- Built-in select, details and dialog: the top layer ---
+		var layerTree = new LayoutTree();
+		var fruit = Signal.make("pear");
+		var shown = Signal.make(false);
+		var fruitSelect:Null<ashui.ui.Select> = null;
+		var page:Div = Owner.root(layerTree, _ -> {
+			fruitSelect = new ashui.ui.Select({value: fruit}, [
+				new ashui.ui.Option({value: "apple"}, [new ashui.ui.Text("Apple")]),
+				new ashui.ui.Option({value: "pear"}, [new ashui.ui.Text("Pear")]),
+				new ashui.ui.Optgroup({label: "Citrus"}, [
+					new ashui.ui.Option({value: "lemon", disabled: true}, [new ashui.ui.Text("Lemon")]),
+					new ashui.ui.Option({value: "lime"}, [new ashui.ui.Text("Lime")])
+				])
+			]);
+			hxx('
+				<div width={400} height={400} flexDirection={Column} alignItems={Start} gap={8}>
+					{fruitSelect}
+					<details><summary>More</summary><p>Hidden</p></details>
+					<dialog open={shown}><p>Sure?</p><button>Yes</button><button>No</button></dialog>
+					<button>Outside</button>
+				</div>
+			');
+		});
+		function settle() {
+			layerTree.flush();
+			layerTree.computeLayout(page.node, 400, 400);
+			layerTree.flush();
+		}
+		settle();
+		function key(k:window.Key, code:window.KeyCode, pressed = true):window.KeyEvent
+			return Input(Code(code), k, None, Standard, pressed ? Pressed : Released, false, Unavailable);
+		var selectNode = fruitSelect.node.id;
+		var sb = layerTree.getBounds(fruitSelect.node);
+		ashui.input.Pointer.move(layerTree, sb.x + 4, sb.y + 4);
+		ashui.input.Pointer.press(layerTree);
+		ashui.input.Pointer.release(layerTree);
+		settle();
+		var opened = fruitSelect.isOpen() && layerTree.children(page.node.id).length == 5;
+		var shade = layerTree.children(page.node.id)[4];
+		var listbox = layerTree.children(layerTree.children(shade)[0])[0];
+		var listWidth = layerTree.getBounds(new ashui.layout.Node(listbox)).width;
+		check("the list of options is as wide as its select", Math.abs(listWidth - sb.width) < 0.5, [listWidth, sb.width]);
+		ashui.input.Keyboard.input(layerTree, key(Named(ArrowDown), ArrowDown));
+		ashui.input.Keyboard.input(layerTree, key(Named(Enter), Enter));
+		settle();
+		check("a select opens its list in the top layer, and the arrows and Enter choose, skipping a disabled option",
+			opened && fruit.get() == "lime" && !fruitSelect.isOpen() && ashui.input.Focus.of(layerTree).node.id == selectNode, [opened, fruit.get()]);
+		ashui.input.Keyboard.input(layerTree, key(Named(ArrowUp), ArrowUp));
+		settle();
+		var reopened = fruitSelect.isOpen();
+		ashui.input.Keyboard.input(layerTree, key(Named(Escape), Escape));
+		settle();
+		check("Escape closes the list without choosing", reopened && !fruitSelect.isOpen() && fruit.get() == "lime");
+		ashui.input.Keyboard.text(layerTree, "a");
+		check("typing chooses by label while closed", fruit.get() == "apple", fruit.get());
+
+		var detailsNode = layerTree.children(page.node.id)[1];
+		var summaryNode = layerTree.children(detailsNode)[0];
+		var detailsIdentity = ashui.css.Identity.of(layerTree, detailsNode);
+		var closedFirst = detailsIdentity.attribute("open") == null;
+		var sumBounds = layerTree.getBounds(new ashui.layout.Node(summaryNode));
+		ashui.input.Pointer.move(layerTree, sumBounds.x + 2, sumBounds.y + 2);
+		ashui.input.Pointer.press(layerTree);
+		ashui.input.Pointer.release(layerTree);
+		settle();
+		check("a details opens when its summary is clicked, marked [open]", closedFirst && detailsIdentity.attribute("open") == "", detailsIdentity.attribute("open"));
+
+		shown.set(true);
+		settle();
+		var inDialog = ashui.input.Focus.of(layerTree);
+		ashui.input.Keyboard.input(layerTree, key(Named(Tab), Tab));
+		ashui.input.Keyboard.input(layerTree, key(Named(Tab), Tab));
+		var stillIn = ashui.input.Focus.of(layerTree);
+		var dialogText = inDialog == null ? "" : ashui.css.Identity.of(layerTree, layerTree.children(inDialog.node.id)[0]) == null ? "" : "button";
+		ashui.input.Keyboard.input(layerTree, key(Named(Escape), Escape));
+		settle();
+		check("a modal dialog takes focus, keeps Tab inside, and Escape closes it, setting its signal",
+			inDialog != null && stillIn == inDialog && !shown.get(), [inDialog == null, stillIn == inDialog, shown.get()]);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('

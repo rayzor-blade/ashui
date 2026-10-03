@@ -129,6 +129,12 @@ class LayoutTree {
 		layoutChildren(parent);
 	}
 
+	/** Takes `parent`'s children out from under it without deleting them, so they can be placed elsewhere. **/
+	public function detachChildren(parent:haxe.Int64):Void {
+		childrenChanged(parent);
+		setNative(parent, [], true);
+	}
+
 	/** Deletes `node` alone; `removeSubtree` deletes what is below it too. **/
 	public function removeNode(node:haxe.Int64):Void {
 		var parent = parentOf(node);
