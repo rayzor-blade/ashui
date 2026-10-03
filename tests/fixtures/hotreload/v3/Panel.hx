@@ -6,9 +6,9 @@ class Panel extends View {
 	@:state public var count:Int = 1;
 
 	function render() '
-		<Div width={count * 20} height={count * 2}>
-			<Text>v3 ${count}</Text>
-		</Div>
+		<div width={count * 20} height={count * 2}>
+			<text>v3 ${count}</text>
+		</div>
 	';
 
 	public function version():String

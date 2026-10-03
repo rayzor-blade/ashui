@@ -41,15 +41,15 @@ class WindowDemo {
 
 	static function card():Div {
 		var card:Div = hxx('
-			<Div width={280} height={160} margin={40} padding={16} gap={12} flexDirection={Column}
+			<div width={280} height={160} margin={40} padding={16} gap={12} flexDirection={Column}
 				cornerRadius={Themed.radius(Xl)} bg={Themed.brush(Surface)}
 				borderColor={Themed.color(Border)} borderWidth={1}>
-				<Div height={56} flexShrink={0} cornerRadius={Themed.radius(Lg)} bg={Themed.brush(Primary)} />
-				<Div flexDirection={Row} gap={8}>
-					<Div width={64} height={24} cornerRadius={Themed.radius(Full)} bg={Themed.brush(AccentSubtle)} />
-					<Div width={48} height={24} cornerRadius={Themed.radius(Full)} bg={Themed.brush(SuccessBg)} />
-				</Div>
-			</Div>
+				<div height={56} flexShrink={0} cornerRadius={Themed.radius(Lg)} bg={Themed.brush(Primary)} />
+				<div flexDirection={Row} gap={8}>
+					<div width={64} height={24} cornerRadius={Themed.radius(Full)} bg={Themed.brush(AccentSubtle)} />
+					<div width={48} height={24} cornerRadius={Themed.radius(Full)} bg={Themed.brush(SuccessBg)} />
+				</div>
+			</div>
 		');
 		card.node.set(Prop.Shadow, Themed.shadow(Lg));
 		return new Div({width: 360, height: 240}, [card]);

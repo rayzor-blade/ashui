@@ -16,13 +16,15 @@ using haxe.macro.TypeTools;
 /**
 	Templates lowered at compile time:
 
-	    hxx('<Div width={w} bg={color}><Text>Value: ${count}</Text></Div>')
+	    hxx('<div width={w} bg={color}><text>Value: ${count}</text></div>')
 
-	`Div` and `Text` become their constructor plus one `node.set(Prop.X, v)`
-	per attribute, with no attribute object; `bg` is `Prop.Background` and any
-	other name is the key of that name, capitalised. Any other tag must be a
-	`Component`: it is built as `new Tag({attributes}, [children])` and each
-	attribute is checked against the component's props.
+	Tags are lowercase kebab-case. `<div>` and `<text>` become their
+	constructor plus one `node.set(Prop.X, v)` per attribute, with no
+	attribute object; `bg` is `Prop.Background` and any other name is the key
+	of that name, capitalised. Any other tag names a `Component` class by its
+	kebab-case name, `<my-card>` for `MyCard` and `<ui.my-card>` for
+	`ui.MyCard`: it is built as `new MyCard({attributes}, [children])` and
+	each attribute is checked against the component's props.
 
 	A value typed as a signal or computed is bound as it is. An attribute or
 	text interpolation that reads a signal, by calling `.get()` or by reading
@@ -30,11 +32,11 @@ using haxe.macro.TypeTools;
 	expression, so it follows what it reads; for a component, only props typed
 	`IntoReactive<T>` do. Interpolating a signal or computed reads it.
 	Interpolating an element or an array of elements places them as children.
-	Text and interpolations directly inside a `Div` become a `Text`.
+	Text and interpolations directly inside a `<div>` become a `<text>`.
 
 	`<if {cond}>...<else>...</if>` is a `Show` and `<for {v in list}>...</for>`
 	a `For`; a branch or loop body of more than one element is wrapped in a
-	`Div`. Elements take their tree from the current `Owner`.
+	`<div>`. Elements take their tree from the current `Owner`.
 **/
 class Hxx {
 	public static macro function hxx(template:Expr):Expr {
@@ -179,17 +181,37 @@ class Hxx {
 	}
 
 	static function lowerNode(node:Node):Expr {
-		return switch node.name.value {
-			case 'Div': lowerDiv(node);
-			case 'Text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
+		var tag = node.name.value;
+		if (~/[A-Z]/.match(tag))
+			Context.error('hxx: tags are lowercase kebab-case: write <${kebab(tag)}>', node.name.pos);
+		return switch tag {
+			case 'div': lowerDiv(node);
+			case 'text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
 			case _: lowerComponent(node);
 		}
+	}
+
+	/** `MyCard` as a tag: `my-card`; a package stays as it is. **/
+	static function kebab(name:String):String {
+		var parts = name.split('.');
+		var last = ~/([a-z0-9])([A-Z])/g.replace(parts.pop(), '$1-$2');
+		last = ~/([A-Z])([A-Z][a-z])/g.replace(last, '$1-$2');
+		parts.push(last.toLowerCase());
+		return parts.join('.');
+	}
+
+	/** The class a component tag names: `my-card` is `MyCard`, `ui.my-card` is `ui.MyCard`. **/
+	static function className(tag:String):String {
+		var parts = tag.split('.');
+		var last = [for (word in parts.pop().split('-')) word.charAt(0).toUpperCase() + word.substr(1)].join('');
+		parts.push(last);
+		return parts.join('.');
 	}
 
 	static function lowerDiv(node:Node):Expr {
 		var el = '__div${counter++}';
 		var kids = childArray(elements(node.children));
-		var sets = [for (a in node.attributes) setter(el, a, 'Div')];
+		var sets = [for (a in node.attributes) setter(el, a, '<div>')];
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Div(null, $kids);
 			$b{sets};
@@ -226,7 +248,7 @@ class Hxx {
 				case Regular(name, value) if (name.value == 'wrap'):
 					options.push({field: 'wrap', expr: value});
 				case _:
-					sets.push(setter(el, a, 'Text'));
+					sets.push(setter(el, a, '<text>'));
 			}
 		var attr = options.length == 0 ? macro null : {expr: EObjectDecl(options), pos: pos};
 		return macro @:pos(pos) {
@@ -239,7 +261,7 @@ class Hxx {
 	/** `new Tag({props}, [children])` for a `Component` subclass. **/
 	static function lowerComponent(node:Node):Expr {
 		var tag = node.name.value;
-		var type = try Context.getType(tag) catch (_:Dynamic) Context.error('hxx: unknown tag <$tag>', node.name.pos);
+		var type = try Context.getType(className(tag)) catch (_:Dynamic) Context.error('hxx: unknown tag <$tag>', node.name.pos);
 		var cls = switch type {
 			case TInst(c, _): c.get();
 			case _: Context.error('hxx: <$tag> is not a class', node.name.pos);

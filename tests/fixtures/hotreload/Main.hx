@@ -11,7 +11,7 @@ import ashui.ui.Hxx.hxx;
 class Main {
 	static function main() {
 		var tree = new LayoutTree();
-		var panel:Panel = Owner.root(tree, _ -> hxx('<Panel />'));
+		var panel:Panel = Owner.root(tree, _ -> hxx('<panel />'));
 		panel.count = 5;
 		// A two-character string built at run time, the length of v1's
 		// version() literal: a reload must leave it alone.

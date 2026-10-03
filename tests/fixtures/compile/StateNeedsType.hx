@@ -4,7 +4,7 @@ import ashui.ui.View;
 class Counter extends View {
 	@:state var count = 0;
 
-	function render() '<Div />';
+	function render() '<div />';
 }
 
 class StateNeedsType {

@@ -1,4 +1,4 @@
-// expect: hxx: <Label> has no prop "colour"
+// expect: hxx: <label> has no prop "colour"
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
 import ashui.layout.LayoutTree;
@@ -14,6 +14,6 @@ class Label extends Component<{text:IntoReactive<String>}> {
 
 class HxxUnknownProp {
 	static function main() {
-		Owner.root(new LayoutTree(), _ -> hxx('<Label text={"x"} colour={1} />'));
+		Owner.root(new LayoutTree(), _ -> hxx('<label text={"x"} colour={1} />'));
 	}
 }

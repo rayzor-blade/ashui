@@ -31,17 +31,17 @@ class Demo {
 		var accent = theme.color(Accent).rgb();
 		var chips = [Themed.brush(AccentSubtle), Themed.brush(SuccessBg), Themed.brush(WarningBg)];
 		var card:Div = hxx('
-			<Div width={280} height={160} margin={20} padding={16} gap={12} flexDirection={Column}
+			<div width={280} height={160} margin={20} padding={16} gap={12} flexDirection={Column}
 				cornerRadius={Themed.radius(Xl)} bg={Themed.brush(Surface)}
 				borderColor={Themed.color(Border)} borderWidth={1}>
-				<Div height={56} flexShrink={0} cornerRadius={Themed.radius(Lg)}
+				<div height={56} flexShrink={0} cornerRadius={Themed.radius(Lg)}
 					bg={Brush.linearGradient(0, 0, 248, 0, primary, 1, accent, 0.6)} />
-				<Div flexDirection={Row} gap={8}>
-					<Div width={64} height={24} cornerRadius={Themed.radius(Full)} bg={chips[0]} />
-					<Div width={48} height={24} cornerRadius={Themed.radius(Full)} bg={chips[1]} />
-					<Div width={72} height={24} cornerRadius={Themed.radius(Full)} bg={chips[2]} />
-				</Div>
-			</Div>
+				<div flexDirection={Row} gap={8}>
+					<div width={64} height={24} cornerRadius={Themed.radius(Full)} bg={chips[0]} />
+					<div width={48} height={24} cornerRadius={Themed.radius(Full)} bg={chips[1]} />
+					<div width={72} height={24} cornerRadius={Themed.radius(Full)} bg={chips[2]} />
+				</div>
+			</div>
 		');
 		card.node.set(Prop.Shadow, Themed.shadow(Lg));
 		return new Div({width: 320, height: 200}, [card]);

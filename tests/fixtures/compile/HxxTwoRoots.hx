@@ -5,6 +5,6 @@ import ashui.ui.Hxx.hxx;
 
 class HxxTwoRoots {
 	static function main() {
-		Owner.root(new LayoutTree(), _ -> hxx('<Div /><Div />'));
+		Owner.root(new LayoutTree(), _ -> hxx('<div /><div />'));
 	}
 }

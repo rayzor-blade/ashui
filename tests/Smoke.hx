@@ -171,15 +171,15 @@ class Smoke {
 		var hxxCount = Signal.make(1);
 		var hxxWidth = Signal.make((40 : Single));
 		var view:Div = Owner.root(tree, _ -> hxx('
-			<Div width={hxxWidth} height={hxxCount.get() * 10} flexShrink={0} bg={Brush.solid(0x336699)} flexDirection={Column}>
-				<Div width={8} height={8} />
-			</Div>
+			<div width={hxxWidth} height={hxxCount.get() * 10} flexShrink={0} bg={Brush.solid(0x336699)} flexDirection={Column}>
+				<div width={8} height={8} />
+			</div>
 		'));
-		var hxxLabel:Text = Owner.root(tree, _ -> hxx('<Text>Count: ${hxxCount}</Text>'));
+		var hxxLabel:Text = Owner.root(tree, _ -> hxx('<text>Count: ${hxxCount}</text>'));
 		var disposeBadge:Void->Void = null;
 		var badge:Badge = Owner.root(tree, dispose -> {
 			disposeBadge = dispose;
-			hxx('<Badge label={"n=" + hxxCount.get()} />');
+			hxx('<badge label={"n=" + hxxCount.get()} />');
 		});
 		root.appendChild(view);
 		root.appendChild(hxxLabel);
@@ -207,13 +207,13 @@ class Smoke {
 		// --- <if> swaps branches at the next flush ---
 		var visible = Signal.make(true);
 		var shown:Div = Owner.root(tree, _ -> hxx('
-			<Div flexShrink={0}>
+			<div flexShrink={0}>
 				<if {visible}>
-					<Div width={30} height={30} />
+					<div width={30} height={30} />
 				<else>
-					<Div width={10} height={10} />
+					<div width={10} height={10} />
 				</if>
-			</Div>
+			</div>
 		'));
 		root.appendChild(shown);
 		tree.flush();
@@ -234,9 +234,9 @@ class Smoke {
 			return new Div({width: n * 10, height: 5});
 		}
 		var listed:Div = Owner.root(tree, _ -> hxx('
-			<Div flexShrink={0}>
+			<div flexShrink={0}>
 				<for {n in numbers}>{cell(n)}</for>
-			</Div>
+			</div>
 		'));
 		root.appendChild(listed);
 		tree.flush();
@@ -259,10 +259,10 @@ class Smoke {
 		var flagB = Signal.make(true);
 		var builtA = 0, builtB = 0;
 		var pair:Div = Owner.root(tree, _ -> hxx('
-			<Div flexShrink={0}>
+			<div flexShrink={0}>
 				<if {flagA}>{(() -> { builtA++; new Div({width: 5, height: 5}); })()}</if>
 				<if {flagB}>{(() -> { builtB++; new Div({width: 5, height: 5}); })()}</if>
-			</Div>
+			</div>
 		'));
 		root.appendChild(pair);
 		tree.flush();
@@ -288,9 +288,9 @@ class Smoke {
 		var size = Signal.make(5);
 		var big = size.computed(v -> v > 10);
 		var sized:Div = Owner.root(tree, _ -> hxx('
-			<Div flexShrink={0}>
-				<if {big}><Div width={40} height={4} /><else><Div width={4} height={4} /></if>
-			</Div>
+			<div flexShrink={0}>
+				<if {big}><div width={40} height={4} /><else><div width={4} height={4} /></if>
+			</div>
 		'));
 		root.appendChild(sized);
 		tree.flush();
@@ -304,7 +304,7 @@ class Smoke {
 			'$small -> $large');
 
 		// --- @:state is read in templates without .get(), and followed ---
-		var counter:CounterView = Owner.root(tree, _ -> hxx('<CounterView />'));
+		var counter:CounterView = Owner.root(tree, _ -> hxx('<counter-view />'));
 		root.appendChild(counter);
 		tree.flush();
 		tree.computeLayout(root.node, 800, 600);
@@ -567,9 +567,9 @@ class CounterView extends View {
 	@:state public var count:Int = 1;
 
 	function render() '
-		<Div width={count * 10} height={8} flexShrink={0}>
-			<Text>Value: ${count}</Text>
-		</Div>
+		<div width={count * 10} height={8} flexShrink={0}>
+			<text>Value: ${count}</text>
+		</div>
 	';
 
 	public function increment():Void {

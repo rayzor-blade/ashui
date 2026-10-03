@@ -6,6 +6,6 @@ import ashui.ui.Hxx.hxx;
 
 class HxxWrongType {
 	static function main() {
-		Owner.root(new LayoutTree(), _ -> hxx('<Div width={Brush.solid(1)} />'));
+		Owner.root(new LayoutTree(), _ -> hxx('<div width={Brush.solid(1)} />'));
 	}
 }

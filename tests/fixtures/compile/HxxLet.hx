@@ -5,6 +5,6 @@ import ashui.ui.Hxx.hxx;
 
 class HxxLet {
 	static function main() {
-		Owner.root(new LayoutTree(), _ -> hxx('<Div><let w={10}><Div width={w} /></let></Div>'));
+		Owner.root(new LayoutTree(), _ -> hxx('<div><let w={10}><div width={w} /></let></div>'));
 	}
 }
