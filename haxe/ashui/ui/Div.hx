@@ -12,6 +12,8 @@ import ashui.types.Style;
 
 /** A `Div`'s attributes: each optional, each one property of its node (see `Prop`). **/
 typedef DivAttributes = {
+	/** Its element type for CSS, `div` unless a built-in element sets another: `h1`, `p`, `button`. **/
+	?tag:String,
 	/** Its id, which CSS's `#id` selects. **/
 	?id:String,
 	/** Its CSS classes, which CSS's `.class` selects; a signal or computed of them is followed. **/
@@ -80,7 +82,11 @@ class Div extends Element {
 		// Its node, made in the tree.
 		var node = this.tree.createNode();
 		this.node = node;
-		var identity = ashui.css.Identity.register(this.tree, node, "div");
+		var tag = attr != null && attr.tag != null ? attr.tag : "div";
+		var identity = ashui.css.Identity.register(this.tree, node, tag);
+		// A built-in element's look comes from the user-agent stylesheet.
+		if (tag != "div")
+			ashui.css.Css.useUserAgent();
 		if (attr != null) {
 			if (attr.id != null)
 				identity.setId(attr.id);

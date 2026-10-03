@@ -239,11 +239,31 @@ class Css {
 		changed();
 	}
 
-	/** Takes every sheet out of force. **/
+	/** Takes every sheet out of force but the user-agent sheet. **/
 	public static function clear():Void {
-		if (sheets.length == 0)
+		var keep = sheets.filter(s -> s == userAgent);
+		if (sheets.length == keep.length)
 			return;
 		sheets.resize(0);
+		for (s in keep)
+			sheets.push(s);
+		changed();
+	}
+
+	/** The user-agent stylesheet once in force: built-in elements' default looks. **/
+	public static var userAgent(default, null):Null<Stylesheet> = null;
+
+	/**
+		Puts the user-agent stylesheet (`UserAgent.CSS`) in force, first, so
+		every other sheet's rule of equal specificity wins over it, as a
+		browser's defaults lose to the page's. Built-in elements call it.
+	**/
+	public static function useUserAgent():Void {
+		if (userAgent != null)
+			return;
+		userAgent = Stylesheet.parse(UserAgent.CSS, "user-agent.css");
+		unknown(userAgent);
+		sheets.unshift(userAgent);
 		changed();
 	}
 
@@ -376,6 +396,15 @@ class Css {
 				continue;
 			resolved.set(name, substitute(v, values, identity));
 		}
+		// The parent's font-size is passed down computed, in pixels; this element's too, before an unchanged restyle returns.
+		var fontSize = rootFontSize;
+		if (inherited != null && inherited.values.exists("font-size"))
+			fontSize = pixelsOr(inherited.values.get("font-size"), rootFontSize);
+		var ownFontSize = fontSize;
+		if (resolved.exists("font-size")) {
+			ownFontSize = pixelsOr(resolved.get("font-size"), fontSize);
+			values.set("font-size", '${ownFontSize}px');
+		}
 		var signature = [for (name => v in resolved) '$name:$v'];
 		signature.sort(Reflect.compare);
 		var sig = signature.join(";");
@@ -385,9 +414,6 @@ class Css {
 			return;
 		}
 
-		var fontSize = rootFontSize;
-		if (inherited != null && inherited.values.exists("font-size"))
-			fontSize = pixelsOr(inherited.values.get("font-size"), rootFontSize);
 		var ctx:Properties.ApplyContext = {
 			viewportWidth: viewportWidth,
 			viewportHeight: viewportHeight,
@@ -429,7 +455,7 @@ class Css {
 				ctx = {
 					viewportWidth: ctx.viewportWidth,
 					viewportHeight: ctx.viewportHeight,
-					fontSize: pixelsOr(v, ctx.fontSize),
+					fontSize: ownFontSize,
 					rootFontSize: ctx.rootFontSize,
 					currentColor: ctx.currentColor
 				};

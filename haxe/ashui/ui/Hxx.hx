@@ -198,6 +198,7 @@ class Hxx {
 			Context.error('hxx: tags are lowercase kebab-case: write <${kebab(tag)}>', node.name.pos);
 		return switch tag {
 			case 'div': lowerDiv(node);
+			case t if (TEXT_TAGS.indexOf(t) >= 0): lowerDiv(node, t);
 			case 'text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
 			case 'svg': lowerSvg(node);
 			case 'img': lowerImg(node);
@@ -238,7 +239,15 @@ class Hxx {
 	static function idSetter(value:Expr, el:String):Expr
 		return macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setId(($value : String));
 
-	static function lowerDiv(node:Node):Expr {
+	/**
+		HTML's text elements, built in: each a box of its type holding its
+		text, which the user-agent stylesheet gives its look (`h1`'s size,
+		`strong`'s weight, `code`'s face). Inline elements inside one sit
+		beside its text in a wrapping row; text does not yet flow across them.
+	**/
+	static final TEXT_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u"];
+
+	static function lowerDiv(node:Node, ?tag:String):Expr {
 		var el = '__div${counter++}';
 		var kids = childArray(elements(node.children));
 		// Classes first, then a style, then the element's own attributes, each winning over the last.
@@ -255,8 +264,9 @@ class Hxx {
 					own.push(setter(el, a, '<div>'));
 			}
 		var sets = classes.concat(styles).concat(own);
+		var attr = tag == null ? macro null : macro {tag: $v{tag}};
 		return macro @:pos(node.name.pos) {
-			var $el = new ashui.ui.Div(null, $kids);
+			var $el = new ashui.ui.Div($attr, $kids);
 			$b{sets};
 			$i{el};
 		};

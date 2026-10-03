@@ -771,6 +771,26 @@ class Smoke {
 		labelled.remove();
 		check("a removed element leaves no identity", ashui.css.Identity.of(idTree, label) == null && ashui.css.Identity.of(idTree, labelled.node == null ? label : labelled.node.id) == null);
 
+		// --- Built-in text elements: tags without imports, looks from the user-agent stylesheet ---
+		var textTree = new LayoutTree();
+		var article:Div = Owner.root(textTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Start}>
+				<h1>Title</h1>
+				<p>Body text</p>
+				<strong>Bold</strong>
+			</div>
+		'));
+		textTree.flush();
+		textTree.computeLayout(article.node, 400, 400);
+		var blocks = textTree.children(article.node.id);
+		var heights = [for (b in blocks) textTree.getBounds(new ashui.layout.Node(textTree.children(b)[0])).height];
+		var types = [for (b in blocks) ashui.css.Identity.of(textTree, b).types.join(",")];
+		check("text elements are built in, typed for CSS", types.join("|") == "h1|p|strong", types);
+		// strong keeps the default line height, as h1 does; p's is 1.5.
+		check("h1's text is twice the size of strong's, and p's lines are 1.5 tall, from the user-agent stylesheet",
+			heights[0] > heights[2] * 1.9 && heights[0] < heights[2] * 2.2 && Math.abs(heights[1] - 24) <= 1, heights);
+		check("the user-agent sheet is in force first", ashui.css.Css.userAgent != null);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('
