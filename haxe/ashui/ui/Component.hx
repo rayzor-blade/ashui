@@ -100,7 +100,7 @@ abstract class Component<Props> extends Element {
 	/** Adds the component's tag to its node's identity, so a CSS type selector, `counter-view`, matches it. **/
 	function identify():Void {
 		if (node != null)
-			ashui.css.Identity.register(tree, node.id, tag(Type.getClass(this)));
+			ashui.css.Identity.register(tree, node, tag(Type.getClass(this)));
 	}
 
 	/** A component class's tag, as hxx spells it: `CounterView` is `counter-view`. **/

@@ -80,7 +80,7 @@ class Div extends Element {
 		// Its node, made in the tree.
 		var node = this.tree.createNode();
 		this.node = node;
-		var identity = ashui.css.Identity.register(this.tree, node.id, "div");
+		var identity = ashui.css.Identity.register(this.tree, node, "div");
 		if (attr != null) {
 			if (attr.id != null)
 				identity.setId(attr.id);

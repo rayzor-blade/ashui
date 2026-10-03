@@ -29,7 +29,7 @@ class Image extends Element {
 		super(tree);
 		this.bitmap = bitmap;
 		node = this.tree.createNode();
-		ashui.css.Identity.register(this.tree, node.id, "img");
+		ashui.css.Identity.register(this.tree, node, "img");
 		node.set(Prop.Width, attr != null && attr.width != null ? attr.width : (bitmap.width : Single));
 		node.set(Prop.Height, attr != null && attr.height != null ? attr.height : (bitmap.height : Single));
 		node.set(Prop.FlexShrink, (0 : Single));

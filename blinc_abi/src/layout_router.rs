@@ -741,3 +741,139 @@ define_prim!(
     hl_blinc_apply_string,
     "PliiBXblinc_signal_Xblinc_computed__v"
 );
+
+// ============================================================================
+// UNSET: a property back to what a new node has
+// ============================================================================
+
+/// Corner shapes share CornerRadius's property; this id resets the shape alone.
+const CORNER_SHAPE: i32 = 1003;
+
+/// Puts property `raw` (an ashui `PropertyId`, or `CORNER_SHAPE`) of `node`
+/// back to its value on a new node: taffy's default style, Blinc's default
+/// render props, and for text the measurer's defaults `Text` starts from.
+/// A per-side or percentage id resets the field it writes, so `Width` and
+/// `WidthPercent` reset the same one. A binding to a signal or computed is
+/// not dropped; unset only what was set to a constant.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
+    let node = LayoutNodeId::from_raw(node);
+    let d = Style::default();
+    let zero = LengthPercentage::Length(0.0);
+    let lay = |prop: PropertyId, f: Box<dyn Fn(&mut Style) + Send + Sync>| {
+        queue_layout_update_partial(node, prop, prop.side_effects(), move |s| f(s))
+    };
+    let ren = |prop: PropertyId, f: Box<dyn Fn(&mut RenderProps) + Send + Sync>| {
+        queue_prop_update_partial(node, prop, prop.side_effects(), move |p| f(p))
+    };
+    use PropertyId as P;
+    match raw {
+        0 => ren(P::Background, Box::new(|p| p.background = None)),
+        1 => ren(P::BorderColor, Box::new(|p| p.border_color = None)),
+        2 => ren(P::BorderWidth, Box::new(|p| p.border_width = RenderProps::default().border_width)),
+        3 => ren(P::CornerRadius, Box::new(|p| {
+            p.border_radius = Default::default();
+            p.border_radius_explicit = false;
+        })),
+        CORNER_SHAPE => ren(P::CornerRadius, Box::new(|p| {
+            let d = RenderProps::default();
+            p.corner_shape = d.corner_shape;
+            p.corner_shape_locked = d.corner_shape_locked;
+        })),
+        4 => ren(P::Opacity, Box::new(|p| p.opacity = 1.0)),
+        5 => ren(P::Transform, Box::new(|p| p.transform = None)),
+        6 => ren(P::Shadow, Box::new(|p| p.shadow = Default::default())),
+        7 => ren(P::Color, Box::new(|p| p.text_color = None)),
+        8 => ren(P::Filter, Box::new(|p| p.filter = None)),
+        9 | 66 => ren(P::AccentColor, Box::new(|p| p.outline_color = None)),
+        10 | 53 => lay(P::Width, Box::new(move |s| s.size.width = d.size.width)),
+        11 | 54 => lay(P::Height, Box::new(move |s| s.size.height = d.size.height)),
+        12 | 55 => lay(P::MinWidth, Box::new(move |s| s.min_size.width = d.min_size.width)),
+        13 | 56 => lay(P::MaxWidth, Box::new(move |s| s.max_size.width = d.max_size.width)),
+        14 | 57 => lay(P::MinHeight, Box::new(move |s| s.min_size.height = d.min_size.height)),
+        15 | 58 => lay(P::MaxHeight, Box::new(move |s| s.max_size.height = d.max_size.height)),
+        16 => lay(P::Padding, Box::new(move |s| s.padding = d.padding)),
+        17 => lay(P::Margin, Box::new(move |s| s.margin = d.margin)),
+        18 => lay(P::Gap, Box::new(move |s| s.gap = d.gap)),
+        19 => lay(P::FlexDirection, Box::new(move |s| s.flex_direction = d.flex_direction)),
+        20 => lay(P::AlignItems, Box::new(move |s| s.align_items = d.align_items)),
+        21 => lay(P::JustifyContent, Box::new(move |s| s.justify_content = d.justify_content)),
+        22 => lay(P::AlignSelf, Box::new(move |s| s.align_self = d.align_self)),
+        23 => lay(P::FlexGrow, Box::new(move |s| s.flex_grow = d.flex_grow)),
+        24 => lay(P::FlexShrink, Box::new(move |s| s.flex_shrink = d.flex_shrink)),
+        25 => lay(P::FlexWrap, Box::new(move |s| s.flex_wrap = d.flex_wrap)),
+        26 | 59 => lay(P::FlexBasis, Box::new(move |s| s.flex_basis = d.flex_basis)),
+        27 => lay(P::Display, Box::new(move |s| s.display = d.display)),
+        28 => lay(P::Overflow, Box::new(move |s| s.overflow = d.overflow)),
+        29 => lay(P::Position, Box::new(move |s| s.position = d.position)),
+        30 => lay(P::Top, Box::new(move |s| s.inset.top = d.inset.top)),
+        31 => lay(P::Right, Box::new(move |s| s.inset.right = d.inset.right)),
+        32 => lay(P::Bottom, Box::new(move |s| s.inset.bottom = d.inset.bottom)),
+        33 => lay(P::Left, Box::new(move |s| s.inset.left = d.inset.left)),
+        34 => ren(P::FontSize, Box::new(move |p| {
+            p.font_size = None;
+            record_text(node, |c| c.font_size = 16.0);
+        })),
+        35 => ren(P::FontFamily, Box::new(move |_| record_text(node, |c| c.font_name = None))),
+        36 => ren(P::FontWeight, Box::new(move |p| {
+            p.font_weight = None;
+            record_text(node, |c| c.font_weight = 400);
+        })),
+        37 => ren(P::FontStyle, Box::new(move |p| {
+            p.font_style = None;
+            record_text(node, |c| c.italic = false);
+        })),
+        38 => ren(P::LetterSpacing, Box::new(|p| p.letter_spacing = None)),
+        39 => ren(P::LineHeight, Box::new(move |p| {
+            p.line_height = None;
+            record_text(node, |c| c.line_height = 1.2);
+        })),
+        40 => ren(P::TextAlign, Box::new(|p| p.text_align = None)),
+        43 => lay(P::Padding, Box::new(move |s| s.padding.top = zero)),
+        44 => lay(P::Padding, Box::new(move |s| s.padding.right = zero)),
+        45 => lay(P::Padding, Box::new(move |s| s.padding.bottom = zero)),
+        46 => lay(P::Padding, Box::new(move |s| s.padding.left = zero)),
+        47 => lay(P::Margin, Box::new(move |s| s.margin.top = d.margin.top)),
+        48 => lay(P::Margin, Box::new(move |s| s.margin.right = d.margin.right)),
+        49 => lay(P::Margin, Box::new(move |s| s.margin.bottom = d.margin.bottom)),
+        50 => lay(P::Margin, Box::new(move |s| s.margin.left = d.margin.left)),
+        51 => lay(P::Gap, Box::new(move |s| s.gap.width = zero)),
+        52 => lay(P::Gap, Box::new(move |s| s.gap.height = zero)),
+        60 => ren(P::BorderWidth, Box::new(|p| side(&mut p.border_sides.top).width = -1.0)),
+        61 => ren(P::BorderWidth, Box::new(|p| side(&mut p.border_sides.right).width = -1.0)),
+        62 => ren(P::BorderWidth, Box::new(|p| side(&mut p.border_sides.bottom).width = -1.0)),
+        63 => ren(P::BorderWidth, Box::new(|p| side(&mut p.border_sides.left).width = -1.0)),
+        64 => ren(P::BorderWidth, Box::new(|p| p.outline_width = RenderProps::default().outline_width)),
+        65 => ren(P::BorderWidth, Box::new(|p| p.outline_offset = RenderProps::default().outline_offset)),
+        67..=70 => {
+            let unset = blinc_core::Color { r: f32::NAN, g: 0.0, b: 0.0, a: 0.0 };
+            ren(P::BorderColor, Box::new(move |p| {
+                let s = &mut p.border_sides;
+                let slot = match raw {
+                    67 => &mut s.top,
+                    68 => &mut s.right,
+                    69 => &mut s.bottom,
+                    _ => &mut s.left,
+                };
+                side(slot).color = unset;
+            }))
+        }
+        71 => ren(P::Opacity, Box::new(|p| p.overflow_fade.top = 0.0)),
+        72 => ren(P::Opacity, Box::new(|p| p.overflow_fade.right = 0.0)),
+        73 => ren(P::Opacity, Box::new(|p| p.overflow_fade.bottom = 0.0)),
+        74 => ren(P::Opacity, Box::new(|p| p.overflow_fade.left = 0.0)),
+        75 => ren(P::Transform, Box::new(|p| p.clip_path = None)),
+        // Each colour filter back to its identity.
+        76 => ren(P::Filter, Box::new(|p| filter(p).brightness = 1.0)),
+        77 => ren(P::Filter, Box::new(|p| filter(p).contrast = 1.0)),
+        78 => ren(P::Filter, Box::new(|p| filter(p).grayscale = 0.0)),
+        79 => ren(P::Filter, Box::new(|p| filter(p).hue_rotate = 0.0)),
+        80 => ren(P::Filter, Box::new(|p| filter(p).invert = 0.0)),
+        81 => ren(P::Filter, Box::new(|p| filter(p).saturate = 1.0)),
+        82 => ren(P::Filter, Box::new(|p| filter(p).sepia = 0.0)),
+        83 => ren(P::Filter, Box::new(|p| filter(p).blur = 0.0)),
+        84 => ren(P::Filter, Box::new(|p| filter(p).drop_shadow = None)),
+        _ => {}
+    }
+}
+define_prim!(hlp_blinc_unset, hl_blinc_unset, "li_v");

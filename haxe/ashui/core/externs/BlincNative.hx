@@ -87,6 +87,13 @@ extern class BlincNative {
 	static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:hl.Bytes, sig:hl.Abstract<"blinc_signal">,
 		comp:hl.Abstract<"blinc_computed">):Void;
 
+	/**
+		Puts property `prop` (a `PropertyId`, or `Node.CORNER_SHAPE`) of
+		`node` back to a new node's value; a percentage or per-side id resets
+		the field it writes.
+	**/
+	static function blinc_unset(node:haxe.Int64, prop:Int):Void;
+
 	// --- Style values ---
 	static function blinc_brush_solid(hex:Int, alpha:Single):hl.Abstract<"blinc_value">;
 	static function blinc_brush_glass(blur:Single, tintHex:Int, tintAlpha:Single, simple:Int):hl.Abstract<"blinc_value">;

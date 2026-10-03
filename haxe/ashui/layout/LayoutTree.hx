@@ -81,6 +81,21 @@ class LayoutTree {
 	**/
 	public static final flushHooks:Array<LayoutTree->Void> = [];
 
+	/** Called with a node whose children changed: added, removed, replaced or reordered. **/
+	public static final childrenHooks:Array<(LayoutTree, haxe.Int64) -> Void> = [];
+
+	inline function childrenChanged(parent:haxe.Int64):Void
+		for (hook in childrenHooks)
+			hook(this, parent);
+
+	/** The parent of `node`, if it has one, for the hooks above. **/
+	function parentOf(node:haxe.Int64):Null<haxe.Int64> {
+		if (childrenHooks.length == 0)
+			return null;
+		var up = ancestors(node);
+		return up.length == 0 ? null : up[0];
+	}
+
 	final fragments = new Map<String, Fragment>();
 
 	/** The children of nodes that hold a fragment, fragments included. **/
@@ -103,6 +118,7 @@ class LayoutTree {
 
 	/** Places `child` last under `parent`; under a fragment, it is laid out in the fragment's parent. **/
 	public function addChild(parent:haxe.Int64, child:haxe.Int64):Void {
+		childrenChanged(parent);
 		var list = fragmentOrPlaced(parent, isFragment(child));
 		if (list == null) {
 			LayoutTreeNative.blinc_tree_add_child(this.ptr, parent, child);
@@ -115,12 +131,18 @@ class LayoutTree {
 
 	/** Deletes `node` alone; `removeSubtree` deletes what is below it too. **/
 	public function removeNode(node:haxe.Int64):Void {
+		var parent = parentOf(node);
+		if (parent != null)
+			childrenChanged(parent);
 		unplace(node);
 		LayoutTreeNative.blinc_tree_remove_node(this.ptr, node);
 	}
 
 	/** Deletes `node` and everything below it, a fragment's items included. **/
 	public function removeSubtree(node:haxe.Int64):Void {
+		var parent = parentOf(node);
+		if (parent != null)
+			childrenChanged(parent);
 		var f = fragments.get(key(node));
 		if (f != null) {
 			for (item in f.items.copy())
@@ -134,6 +156,9 @@ class LayoutTree {
 
 	/** Puts `next` where `old` is in its parent; `old` is detached, not deleted. **/
 	public function replaceNode(old:Node, next:Node):Void {
+		var changed = parentOf(old.id);
+		if (changed != null)
+			childrenChanged(changed);
 		var parent = placedIn.get(key(old.id));
 		if (parent == null) {
 			LayoutTreeNative.blinc_tree_replace_node(this.ptr, old.id, next.id);
@@ -148,6 +173,7 @@ class LayoutTree {
 
 	/** Makes `children` `parent`'s children, in order; with none, deletes what it had. **/
 	public function replaceChildren(parent:haxe.Int64, children:Array<haxe.Int64>):Void {
+		childrenChanged(parent);
 		var holdsFragment = Lambda.exists(children, isFragment);
 		var list = fragmentOrPlaced(parent, holdsFragment);
 		if (list == null) {

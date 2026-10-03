@@ -771,6 +771,81 @@ class Smoke {
 		labelled.remove();
 		check("a removed element leaves no identity", ashui.css.Identity.of(idTree, label) == null && ashui.css.Identity.of(idTree, labelled.node == null ? label : labelled.node.id) == null);
 
+		// --- CSS: rules apply by the cascade, under what an element sets itself ---
+		var cssTree = new LayoutTree();
+		var sheet = ashui.css.Css.load('
+			.card.selected { background: #0000ff; }
+			.card { padding: 12px; background: #ff0000; width: 50px; height: 40px; }
+			#save { opacity: 0.5 }
+			.list > .row:first-child { height: 10px; }
+			.list .row:nth-child(2) { height: 20px }
+			:root { --brand: #00ff00 }
+			.brand { background: var(--brand); width: 10px; height: 10px }
+			.big { font-size: 32px }
+			.oops { colour: red; width: wide }
+		');
+		check("a stylesheet loads, an unknown property a warning",
+			sheet.diagnostics.length == 1 && sheet.diagnostics[0].severity == Warning && sheet.diagnostics[0].message.indexOf("colour") == 0
+			&& sheet.diagnostics[0].line == 10, sheet.report());
+		var cssList = new ashui.layout.DisplayList();
+		function fillOf(d:Div):Array<Float> {
+			cssTree.flush();
+			cssTree.computeLayout(d.node, 400, 400);
+			cssList.update(cssTree, d.node);
+			return cssList.count == 0 ? [] : [for (f in 8...12) cssList.get(0, f)];
+		}
+		function boundsOf(d:Div) {
+			cssTree.flush();
+			cssTree.computeLayout(d.node, 400, 400);
+			return cssTree.getBounds(d.node);
+		}
+		var picked = Signal.make(["card"]);
+		var card = Owner.root(cssTree, _ -> new Div({id: "save", classes: picked}, cssTree));
+		var f = fillOf(card);
+		var b = boundsOf(card);
+		check("a rule's declarations apply, the id rule's opacity too", f.join(",") == "1,0,0,0.5" && b != null && b.width == 50 && b.height == 40,
+			[f, b]);
+		picked.set(["card", "selected"]);
+		check("a class added matches again, and specificity beats source order", fillOf(card).join(",") == "0,0,1,0.5", fillOf(card));
+		picked.set([]);
+		var gone = boundsOf(card);
+		check("what no rule sets any more goes back", fillOf(card).length == 0 && gone != null && gone.width == 0, [fillOf(card), gone]);
+		picked.set(["card"]);
+		var owned = Owner.root(cssTree, _ -> new Div({classes: ["card"], width: 80}, cssTree));
+		var ob = boundsOf(owned);
+		check("an element's own attribute wins over a rule", ob != null && ob.width == 80 && ob.height == 40, ob);
+
+		var rows = [for (_ in 0...3) new Div({classes: ["row"], width: 5}, cssTree)];
+		var list = Owner.root(cssTree, _ -> new Div({classes: ["list"], flexDirection: Column, alignItems: Start}, [for (r in rows) (r : Element)], cssTree));
+		boundsOf(list);
+		var heights = [for (r in rows) cssTree.getBounds(r.node).height];
+		check("child combinators and structural pseudo-classes", heights[0] == 10 && heights[1] == 20 && heights[2] == 0, heights);
+
+		var branded = Owner.root(cssTree, _ -> new Div({classes: ["brand"]}, cssTree));
+		check("var() reads :root's custom properties", fillOf(branded).join(",") == "0,1,0,1", fillOf(branded));
+
+		var small = new ashui.ui.Text("Ag", null, cssTree);
+		var large = new ashui.ui.Text("Ag", null, cssTree);
+		var plainBox = Owner.root(cssTree, _ -> new Div({alignItems: Start, flexDirection: Column}, [small], cssTree));
+		var bigBox = Owner.root(cssTree, _ -> new Div({classes: ["big"], alignItems: Start, flexDirection: Column}, [large], cssTree));
+		boundsOf(plainBox);
+		boundsOf(bigBox);
+		var smallHeight = cssTree.getBounds(small.node).height, largeHeight = cssTree.getBounds(large.node).height;
+		check("text inherits font-size from the element around it", largeHeight > smallHeight * 1.5, [smallHeight, largeHeight]);
+		var oops = Owner.root(cssTree, _ -> new Div({classes: ["oops"]}, cssTree));
+		boundsOf(oops);
+		check("a value that does not read is reported once it applies", ashui.css.Css.problems.filter(p -> p.indexOf("width: expected a length") >= 0).length == 1,
+			ashui.css.Css.problems);
+
+		var bound = Owner.root(cssTree, _ -> hxx('<div class="card p-1"><div width={4} height={4} /></div>'));
+		boundsOf(bound);
+		var inner = cssTree.children(bound.node.id)[0];
+		check("a Tw class wins over a rule", cssTree.getBounds(new ashui.layout.Node(inner)).x == 4, cssTree.getBounds(new ashui.layout.Node(inner)));
+
+		ashui.css.Css.remove(sheet);
+		var after = boundsOf(card);
+		check("a sheet taken out of force takes its values with it", fillOf(card).length == 0 && after.width == 0, [fillOf(card), after]);
+
 		// --- Transform classes compose into one transform; hover: on top ---
 		var turnTree = new LayoutTree();
 		var turned:Div = Owner.root(turnTree, _ -> hxx('

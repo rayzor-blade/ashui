@@ -49,6 +49,14 @@ class Node {
 		change after the first moves there over the transition's time.
 	**/
 	public function set<T>(prop:Prop<T>, reactive:IntoReactive<T>):Void {
+		if (own == null)
+			own = new Map();
+		own.set(field(prop, isCornerShape(reactive)), true);
+		apply(prop, reactive);
+	}
+
+	/** `set` without claiming the property: how transitions and stylesheets write. **/
+	function apply<T>(prop:Prop<T>, reactive:IntoReactive<T>):Void {
 		var key:PropertyId = prop;
 		if (transition != null && transition.covers(key) && !isCornerShape(reactive)) {
 			if (tweens == null)
@@ -65,6 +73,76 @@ class Node {
 			}
 		}
 		bind(prop, reactive);
+	}
+
+	/**
+		Properties the node's own code set, by `field`: its classes, its
+		style, its attributes and calls to `set`. A stylesheet never writes
+		these, as an element's own styles win over its stylesheet's in
+		Tailwind's layers. Null until one is set.
+	**/
+	var own:Null<Map<Int, Bool>> = null;
+
+	/** Properties a stylesheet set, by `field`, so one no rule sets any more can be unset. **/
+	var styled:Null<Map<Int, Bool>> = null;
+
+	/** The corner shape's key: it shares the corner radius's property but is a field of its own. **/
+	public static inline var CORNER_SHAPE = 1003;
+
+	/**
+		The field `prop` writes, as a key: two properties that write the same
+		field share one, `Width` and `WidthPercent`, `AccentColor` and
+		`OutlineColor`, and a corner shape has its own.
+	**/
+	public static function field(prop:PropertyId, cornerShape = false):Int {
+		var raw:Int = prop;
+		if (cornerShape)
+			return CORNER_SHAPE;
+		return switch raw {
+			case 53 | 54 | 55 | 56 | 57 | 58: raw - 43;
+			case 59: 26;
+			case 66: 9;
+			case _: raw;
+		}
+	}
+
+	/** The shorthand a field is part of, which owning covers it: `Padding` for `PaddingTop`. **/
+	static function shorthand(key:Int):Int {
+		return switch key {
+			case 43 | 44 | 45 | 46: 16;
+			case 47 | 48 | 49 | 50: 17;
+			case 51 | 52: 18;
+			case 60 | 61 | 62 | 63: 2;
+			case 67 | 68 | 69 | 70: 1;
+			case 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84: 8;
+			case _: -1;
+		}
+	}
+
+	/** Whether the node's own code set the field `key`, or a shorthand covering it. **/
+	public function owns(key:Int):Bool
+		return own != null && (own.exists(key) || own.exists(shorthand(key)));
+
+	/** A stylesheet's value for `prop`, written unless the node owns its field; true if written. **/
+	@:allow(ashui.css)
+	function style<T>(prop:Prop<T>, value:T, cornerShape = false):Bool {
+		var key = field(prop, cornerShape);
+		if (owns(key))
+			return false;
+		if (styled == null)
+			styled = new Map();
+		styled.set(key, true);
+		apply(prop, Const(value));
+		return true;
+	}
+
+	/** Takes back a stylesheet's value for the field `key`: the field returns to a new node's, unless the node owns it. **/
+	@:allow(ashui.css)
+	function unstyle(key:Int):Void {
+		if (styled == null || !styled.remove(key))
+			return;
+		if (!owns(key))
+			BlincNative.blinc_unset(id, key);
 	}
 
 	/** A corner shape shares the radius's property but switches at once. **/

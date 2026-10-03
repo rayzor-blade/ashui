@@ -16,10 +16,16 @@ import ashui.reactive.Signal;
 class Identity {
 	static final trees = new haxe.ds.ObjectMap<LayoutTree, Map<String, Identity>>();
 
+	/** The node it is the identity of. **/
+	public final node:ashui.layout.Node;
+
 	/** Element types, most specific last: a component's tag after its root's `div`. **/
 	public final types:Array<String> = [];
 
 	public var id(default, null):Null<String> = null;
+
+	/** The tree its node is in. **/
+	public var tree(default, null):LayoutTree;
 
 	static final NONE:Array<String> = [];
 
@@ -29,7 +35,8 @@ class Identity {
 	/** Classes that follow a signal or computed; only an element given such has one. **/
 	var classSignal:Null<Signal<Array<String>>> = null;
 
-	function new() {}
+	function new(node:ashui.layout.Node)
+		this.node = node;
 
 	/** The identity of the node `id` of `tree`, null if it has none. **/
 	public static function of(tree:LayoutTree, node:haxe.Int64):Null<Identity> {
@@ -37,17 +44,24 @@ class Identity {
 		return nodes == null ? null : nodes.get(key(node));
 	}
 
-	/** Registers the node `node` of `tree` as being of `type`, adding the type if it has an identity already. **/
-	public static function register(tree:LayoutTree, node:haxe.Int64, type:String):Identity {
+	/** Called with each identity made, and with one whose classes change. **/
+	public static final hooks:Array<Identity->Void> = [];
+
+	/** Registers `node` of `tree` as being of `type`, adding the type if it has an identity already. **/
+	public static function register(tree:LayoutTree, node:ashui.layout.Node, type:String):Identity {
 		var nodes = trees.get(tree);
 		if (nodes == null)
 			trees.set(tree, nodes = new Map());
-		var k = key(node);
+		var k = key(node.id);
 		var identity = nodes.get(k);
-		if (identity == null)
-			nodes.set(k, identity = new Identity());
+		if (identity == null) {
+			nodes.set(k, identity = new Identity(node));
+			identity.tree = tree;
+		}
 		if (identity.types.indexOf(type) < 0)
 			identity.types.push(type);
+		for (hook in hooks)
+			hook(identity);
 		return identity;
 	}
 
@@ -75,6 +89,8 @@ class Identity {
 	/** Sets the id, `#id` in CSS. **/
 	public function setId(value:Null<String>):Identity {
 		id = value;
+		for (hook in hooks)
+			hook(this);
 		return this;
 	}
 
@@ -86,6 +102,8 @@ class Identity {
 					classSignal.set(list);
 				else
 					fixed = list;
+				for (hook in hooks)
+					hook(this);
 			case Bound(source):
 				follow(() -> source.get());
 			case Derived(source):
@@ -98,7 +116,11 @@ class Identity {
 		if (classSignal == null)
 			classSignal = Signal.make(fixed);
 		var target = classSignal;
-		new ashui.reactive.Watch(read, list -> target.set(list));
+		new ashui.reactive.Watch(read, list -> {
+			target.set(list);
+			for (hook in hooks)
+				hook(this);
+		});
 	}
 
 	/** The classes now; read inside a computed, it follows them. **/
