@@ -35,13 +35,13 @@ Darwin) ext=dylib ;;
 esac
 
 render() {
-	if ! out=$(cargo build --manifest-path "$repo/Cargo.toml" 2>&1); then
+	if ! out=$(cargo build --release --manifest-path "$repo/Cargo.toml" 2>&1); then
 		echo "error $name blinc_abi failed to build: $(echo "$out" | grep -m1 '^error')" >> "$events"
 		echo "$out" >&2
 		return 1
 	fi
 	rm -f bin/blinc_abi.hdll
-	cp "$repo/target/debug/libblinc_abi.$ext" bin/blinc_abi.hdll
+	cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
 	rm -f bin/xgpu.hdll
 	cp "$(ls -t "$vib"/hlwgpu/target/*/libhlwgpu.$ext | head -1)" bin/xgpu.hdll
 	if ! out=$(haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \

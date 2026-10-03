@@ -14,9 +14,9 @@ Darwin) ext=dylib ;;
 *) ext=so ;;
 esac
 mkdir -p bin
-cargo build --manifest-path "$repo/Cargo.toml"
+cargo build --release --manifest-path "$repo/Cargo.toml"
 rm -f bin/blinc_abi.hdll
-cp "$repo/target/debug/libblinc_abi.$ext" bin/blinc_abi.hdll
+cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
 rm -f bin/xgpu.hdll
 cp "$(ls -t "$vib"/hlwgpu/target/*/libhlwgpu.$ext | head -1)" bin/xgpu.hdll
 rm -f bin/xwindow.hdll
