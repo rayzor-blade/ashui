@@ -97,14 +97,16 @@ class TextField extends Component<TextFieldProps> {
 				onFocus={_ -> { focused.set(true); restartBlink(); }}
 				onBlur={_ -> { focused.set(false); dragging = false; anchor.set(caret.get()); }}>
 				${clip = hxx('<div class="relative grow h-full overflow-hidden">
-					<div class="absolute top-0 bottom-0" left={stripLeft} width={4096}>
-						<div class="absolute top-2 bottom-2 bg-selection" left={selectionLeft} width={selectionWidth} />
-						<div class="absolute top-0 bottom-0 flex flex-row items-center" left={0}>${text}</div>
-						<div class="absolute top-0 bottom-0 flex flex-row items-center" left={0}>
-							<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
+					<div class="absolute top-0 bottom-0 flex flex-row items-center" left={stripLeft} width={4096}>
+						<div class="relative">
+							<div class="absolute top-0 bottom-0 bg-selection" left={selectionLeft} width={selectionWidth} />
+							${text}
+							<div class="absolute top-0" left={0}>
+								<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
+							</div>
+							<div class="absolute top-0 bottom-0 bg-text-primary" left={caretLeft} width={1.5}
+								opacity={Computed.make(() -> (focused.get() && caretShown.get() ? 1 : 0 : Single))} />
 						</div>
-						<div class="absolute top-2 bottom-2 bg-text-primary" left={caretLeft} width={1.5}
-							opacity={Computed.make(() -> (focused.get() && caretShown.get() ? 1 : 0 : Single))} />
 					</div>
 				</div>')}
 			</div>
