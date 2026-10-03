@@ -230,6 +230,28 @@ define_prim!(
     "Pff_Xblinc_value_"
 );
 
+/// The 2D affine `x' = a·x + c·y + tx`, `y' = b·x + d·y + ty`.
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_transform_affine(
+    a: f32,
+    b: f32,
+    c: f32,
+    d: f32,
+    tx: f32,
+    ty: f32,
+) -> *mut c_void {
+    value(Value::Transform(Transform::Affine2D(
+        blinc_core::Affine2D {
+            elements: [a, b, c, d, tx, ty],
+        },
+    )))
+}
+define_prim!(
+    hlp_blinc_transform_affine,
+    hl_blinc_transform_affine,
+    "Pffffff_Xblinc_value_"
+);
+
 // --- Shadows ---
 
 /// Each corner's superellipse `n`, top-left first; `locked` keeps it from

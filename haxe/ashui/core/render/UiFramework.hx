@@ -42,7 +42,8 @@ class UiFramework extends Extension {
 				typeInfo : Vec4,
 				cornerShape : Vec4,
 				via : Vec4,
-				stops : Vec4
+				stops : Vec4,
+				affine : Vec4
 			};
 			@global var viewport : Vec2;
 		};

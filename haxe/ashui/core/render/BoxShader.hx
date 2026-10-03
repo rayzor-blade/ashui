@@ -10,7 +10,10 @@ class BoxShader implements UiShader {
 		@:import ashui.core.render.Sdf;
 
 		var output : { position : Vec4, color : Vec4 };
+		/** Where the fragment is on screen, for the clip. **/
 		var pixel : Vec2;
+		/** Where it is in the box's own coordinates, from its top-left, for the shape and fill. **/
+		var local : Vec2;
 
 		/**
 			The fill at `p`: `fillType` 0 is solid, 1 linear from `g.xy` to
@@ -126,16 +129,17 @@ class BoxShader implements UiShader {
 
 		function vertex() {
 			var b = primitive.bounds;
-			pixel = b.xy + quadCorner(vertexID) * b.zw;
+			local = quadCorner(vertexID) * b.zw;
+			pixel = placed(b.xy, primitive.affine, local);
 			output.position = pixelToClip(pixel, viewport);
 		}
 
 		function fragment() {
-			var p = pixel;
-			var clip = clipCoverage(p, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z);
+			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z);
 			if (clip < 0.001)
 				discard;
-			var origin = primitive.bounds.xy;
+			var p = local;
+			var origin = vec2(0., 0.);
 			var size = primitive.bounds.zw;
 			var d = sdShapedRect(p, origin, size, primitive.cornerRadius, primitive.cornerShape);
 			var coverage = 1. - smoothstep(-0.5, 0.5, d);

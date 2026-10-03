@@ -91,6 +91,7 @@ extern class BlincNative {
 	static function blinc_transform_translate(x:Single, y:Single):hl.Abstract<"blinc_value">;
 	static function blinc_brush_gradient(radial:Bool, x1:Single, y1:Single, x2:Single, y2:Single, bbox:Bool):hl.Abstract<"blinc_value">;
 	static function blinc_brush_gradient_stop(brush:hl.Abstract<"blinc_value">, offset:Single, hex:Int, alpha:Single):Void;
+	static function blinc_transform_affine(a:Single, b:Single, c:Single, d:Single, tx:Single, ty:Single):hl.Abstract<"blinc_value">;
 	static function blinc_corner_shape(topLeft:Single, topRight:Single, bottomRight:Single, bottomLeft:Single, locked:Bool):hl.Abstract<"blinc_value">;
 	static function blinc_shadow(offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single):hl.Abstract<"blinc_value">;
 	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int,

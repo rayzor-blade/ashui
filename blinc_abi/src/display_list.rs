@@ -6,7 +6,7 @@
 //! that a box needs, field for field, so ashui's shaders are ports of
 //! Blinc's `sdf_core` and `sdf_shadow`. Each row is a vec4:
 //!
-//! | 0  | bounds x, y, width, height (absolute, layout pixels)          |
+//! | 0  | the box's top-left on screen after transforms, width, height   |
 //! | 1  | corner radii: top-left, top-right, bottom-right, bottom-left   |
 //! | 2  | fill colour, or gradient start; straight alpha, opacity applied |
 //! | 3  | gradient end colour                                            |
@@ -16,25 +16,29 @@
 //! | 7  | shadow colour, opacity applied                                 |
 //! | 8  | clip bounds x, y, width, height                                |
 //! | 9  | clip corner radii                                              |
-//! | 10 | gradient: linear x1, y1, x2, y2 or radial cx, cy, r, 0 (pixels) |
+//! | 10 | gradient: linear x1, y1, x2, y2 or radial cx, cy, r, 0, in pixels from the box's top-left |
 //! | 11 | primitive type, fill type, clip type, corner shape locked (1/0) |
 //! | 12 | corner shape `n`: top-left, top-right, bottom-right, bottom-left |
 //! | 13 | gradient middle stop colour, opacity applied                   |
 //! | 14 | gradient stop offsets: first, middle, last; 1 if there is a middle |
+//! | 15 | a, b, c, d: a point `(x, y)` from the box's top-left is at       |
+//! |    | `(a·x + c·y, b·x + d·y)` from its screen top-left                |
 //!
 //! The walk follows Blinc's `paint/basic.rs`: a node's shadows, last first,
 //! then its fill merged with its border, then its children under the clip it
 //! pushes when its overflow is not visible. Glass, blur and image brushes
-//! draw nothing yet; transforms are not applied. The corner shape is the
-//! node's own; ashui applies its theme's squircle to it after the walk.
+//! draw nothing yet. A node's 2D transform applies about its centre, after
+//! its ancestors'; clips under a transform are their bounding boxes. The
+//! corner shape is the node's own; ashui applies its theme's squircle to it
+//! after the walk.
 
 use crate::node::Tree;
-use blinc_core::{Brush, Color, CornerRadius, Gradient, GradientSpace};
+use blinc_core::{Brush, Color, CornerRadius, Gradient, GradientSpace, Transform};
 use blinc_layout::element::RenderProps;
 use blinc_layout::tree::LayoutNodeId;
 use taffy::Overflow;
 
-pub const RECORD_FLOATS: usize = 60;
+pub const RECORD_FLOATS: usize = 64;
 
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
@@ -51,6 +55,48 @@ const CLIP_RECT: f32 = 1.0;
 
 /// Blinc's bounds for "no clip".
 const NO_CLIP: [f32; 4] = [-10000.0, -10000.0, 100000.0, 100000.0];
+
+/// A 2D affine `[a, b, c, d, tx, ty]`: `x' = a·x + c·y + tx`, `y' = b·x + d·y + ty`.
+pub type Affine = [f32; 6];
+
+pub const IDENTITY: Affine = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+
+/// `outer` after `inner`: the point goes through `inner` first.
+fn compose(outer: Affine, inner: Affine) -> Affine {
+    let [a, b, c, d, e, f] = outer;
+    let [a2, b2, c2, d2, e2, f2] = inner;
+    [
+        a * a2 + c * b2,
+        b * a2 + d * b2,
+        a * c2 + c * d2,
+        b * c2 + d * d2,
+        a * e2 + c * f2 + e,
+        b * e2 + d * f2 + f,
+    ]
+}
+
+fn apply(m: Affine, x: f32, y: f32) -> (f32, f32) {
+    (m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5])
+}
+
+/// The axis-aligned box around `rect` after `m`.
+fn bounding(m: Affine, rect: [f32; 4]) -> [f32; 4] {
+    let [x, y, w, h] = rect;
+    let corners = [
+        apply(m, x, y),
+        apply(m, x + w, y),
+        apply(m, x, y + h),
+        apply(m, x + w, y + h),
+    ];
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+    for (cx, cy) in corners {
+        x0 = x0.min(cx);
+        y0 = y0.min(cy);
+        x1 = x1.max(cx);
+        y1 = y1.max(cy);
+    }
+    [x0, y0, x1 - x0, y1 - y0]
+}
 
 /// A clip a node pushes for its children: a rect, rounded when `radii` are.
 #[derive(Clone, Copy)]
@@ -220,6 +266,7 @@ struct Primitive {
     shape_locked: f32,
     via: [f32; 4],
     offsets: [f32; 4],
+    affine: [f32; 4],
 }
 
 impl Primitive {
@@ -240,7 +287,16 @@ impl Primitive {
             shape_locked: 0.0,
             via: [0.0; 4],
             offsets: [0.0, 0.0, 1.0, 0.0],
+            affine: [1.0, 0.0, 0.0, 1.0],
         }
+    }
+
+    /// Places the box, laid out at `(x, y)`, on screen through `m`.
+    fn place(&mut self, m: Affine, x: f32, y: f32) {
+        let (sx, sy) = apply(m, x, y);
+        self.bounds[0] = sx;
+        self.bounds[1] = sy;
+        self.affine = [m[0], m[1], m[2], m[3]];
     }
 
     /// The node's own corner shape, which the theme may yet smooth unless locked.
@@ -269,17 +325,19 @@ impl Primitive {
         out.extend_from_slice(&self.corner_shape);
         out.extend_from_slice(&self.via);
         out.extend_from_slice(&self.offsets);
+        out.extend_from_slice(&self.affine);
     }
 }
 
 /// Appends the records of `node` and everything below it, which sits at
-/// `origin` in its parent, under the ancestors' combined `opacity` and the
-/// clips they pushed.
+/// `origin` in its parent's layout, under the ancestors' combined
+/// `opacity`, their transform `m` and the clips they pushed.
 pub fn append(
     tree: &Tree,
     node: LayoutNodeId,
     origin: (f32, f32),
     opacity: f32,
+    m: Affine,
     clips: &mut Vec<Clip>,
     out: &mut Vec<f32>,
 ) {
@@ -289,12 +347,23 @@ pub fn append(
     let x = origin.0 + layout.location.x;
     let y = origin.1 + layout.location.y;
     let (w, h) = (layout.size.width, layout.size.height);
-    let rect = [x, y, w, h];
+    // Fills and shapes are drawn in the box's own coordinates.
+    let local = [0.0, 0.0, w, h];
+    let mut m = m;
     let mut opacity = opacity;
     let mut pushed = false;
     if let Some(props) = tree.props.get(&node) {
         if !props.visible {
             return;
+        }
+        // The node's transform turns it about its centre, after its ancestors'.
+        if let Some(Transform::Affine2D(t)) = &props.transform {
+            let (cx, cy) = (x + w / 2.0, y + h / 2.0);
+            let about = compose(
+                [1.0, 0.0, 0.0, 1.0, cx, cy],
+                compose(t.elements, [1.0, 0.0, 0.0, 1.0, -cx, -cy]),
+            );
+            m = compose(m, about);
         }
         opacity *= props.opacity;
         let r: CornerRadius = props.border_radius;
@@ -302,10 +371,11 @@ pub fn append(
         let clip = clip_data(clips);
 
         for s in props.shadow.iter().rev() {
-            let mut p = Primitive::new(PRIM_SHADOW, rect, radii);
+            let mut p = Primitive::new(PRIM_SHADOW, local, radii);
             p.shape_from(props);
             p.shadow = [s.offset_x, s.offset_y, s.blur, s.spread];
             p.shadow_color = rgba(s.color, opacity);
+            p.place(m, x, y);
             if p.shadow_color[3] > 0.0 {
                 p.push(&clip, out);
             }
@@ -316,13 +386,14 @@ pub fn append(
         // A border with no background draws over a transparent fill.
         let transparent = Brush::Solid(Color::TRANSPARENT);
         let brush = props.background.as_ref().or(border.map(|_| &transparent));
-        let mut p = Primitive::new(PRIM_RECT, rect, radii);
+        let mut p = Primitive::new(PRIM_RECT, local, radii);
         p.shape_from(props);
         if brush.is_some_and(|b| fill(&mut p, b, opacity)) {
             if let Some(bc) = border {
                 p.border = [bw; 4];
                 p.border_color = rgba(bc, opacity);
             }
+            p.place(m, x, y);
             if p.color[3] > 0.0 || p.color2[3] > 0.0 || p.border_color[3] > 0.0 {
                 p.push(&clip, out);
             }
@@ -330,7 +401,7 @@ pub fn append(
     }
 
     // Children are clipped to the padding box, rounded by what is left of a
-    // uniform radius after the border.
+    // uniform radius after the border; under a transform, to its bounding box.
     let overflow = tree.layout.get_style(node).map(|s| s.overflow);
     if overflow.is_some_and(|o| o.x != Overflow::Visible || o.y != Overflow::Visible) {
         let (bw, r) = tree
@@ -338,24 +409,29 @@ pub fn append(
             .get(&node)
             .map(|p| (p.border_width, p.border_radius))
             .unwrap_or_default();
-        let inset_radius = if r.is_uniform() && r.top_left > bw {
+        let inset_radius = if r.is_uniform() && r.top_left > bw && m == IDENTITY {
             r.top_left - bw
         } else {
             0.0
         };
+        let inner = [
+            x + bw,
+            y + bw,
+            (w - 2.0 * bw).max(0.0),
+            (h - 2.0 * bw).max(0.0),
+        ];
         clips.push(Clip {
-            rect: [
-                x + bw,
-                y + bw,
-                (w - 2.0 * bw).max(0.0),
-                (h - 2.0 * bw).max(0.0),
-            ],
+            rect: if m == IDENTITY {
+                inner
+            } else {
+                bounding(m, inner)
+            },
             radii: [inset_radius; 4],
         });
         pushed = true;
     }
     for child in tree.layout.children(node) {
-        append(tree, child, (x, y), opacity, clips, out);
+        append(tree, child, (x, y), opacity, m, clips, out);
     }
     if pushed {
         clips.pop();

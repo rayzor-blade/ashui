@@ -19,6 +19,11 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			return c;
 		}
 
+		/** Where a point `rel` from a box's top-left lands on screen: the box's screen top-left `at` plus `rel` through the 2x2 `m`. **/
+		function placed(at : Vec2, m : Vec4, rel : Vec2) : Vec2 {
+			return at + vec2(m.x * rel.x + m.z * rel.y, m.y * rel.x + m.w * rel.y);
+		}
+
 		/** A pixel position, y down, as clip space. **/
 		function pixelToClip(pos : Vec2, size : Vec2) : Vec4 {
 			return vec4(pos.x / size.x * 2. - 1., 1. - pos.y / size.y * 2., 0., 1.);

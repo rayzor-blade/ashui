@@ -369,6 +369,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
         id(root),
         (0.0, 0.0),
         1.0,
+        crate::display_list::IDENTITY,
         &mut Vec::new(),
         &mut records,
     );

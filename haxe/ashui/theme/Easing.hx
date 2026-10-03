@@ -11,17 +11,30 @@ enum Easing {
 
 class EasingTools {
 	/**
-		Progress at `t`, clamped to 0..1. A cubic bézier is solved for the x
-		at `t` and gives the y there, as CSS's `cubic-bezier` does.
+		Progress at `t`, which is clamped to 0..1: the curve's y where its x is
+		`t`, as CSS's `cubic-bezier` gives it. The result is not clamped, so a
+		spring curve overshoots past 1 partway through.
 	**/
 	public static function evaluate(easing:Easing, t:Float):Float {
 		var t = Math.max(0, Math.min(1, t));
+		return switch controlPoints(easing) {
+			case null: t;
+			case p: bezier(p[0], p[1], p[2], p[3], t);
+		}
+	}
+
+	/**
+		The cubic bézier the curve is, as CSS writes it: the named curves are
+		CSS's `ease-in`, `ease-out` and `ease-in-out`. Null for linear. The
+		theme's CSS variables and `evaluate` both read it, so they agree.
+	**/
+	public static function controlPoints(easing:Easing):Null<Array<Float>> {
 		return switch easing {
-			case Linear: t;
-			case EaseIn: t * t;
-			case EaseOut: 1 - (1 - t) * (1 - t);
-			case EaseInOut: t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-			case CubicBezier(x1, y1, x2, y2): bezier(x1, y1, x2, y2, t);
+			case Linear: null;
+			case EaseIn: [0.4, 0, 1, 1];
+			case EaseOut: [0, 0, 0.2, 1];
+			case EaseInOut: [0.4, 0, 0.2, 1];
+			case CubicBezier(x1, y1, x2, y2): [x1, y1, x2, y2];
 		}
 	}
 

@@ -43,6 +43,15 @@ import haxe.macro.Type;
 	  `ease-sheet` from the theme's curves, and `ease-linear`; `delay-150`
 	  and the like. Without a duration or curve the theme's fast duration
 	  and default curve apply;
+	- transforms, composed into one `Transform` about the element's centre:
+	  `translate-x-` and `translate-y-` over the spacing steps, `rotate-`
+	  (degrees: 0, 1, 2, 3, 6, 12, 45, 90, 180), `scale-`, `scale-x-`,
+	  `scale-y-` (percent: 0, 50, 75, 90, 95, 100, 105, 110, 125, 150),
+	  `skew-x-`, `skew-y-` (degrees: 0, 1, 2, 3, 6, 12), a minus sign before
+	  translate, rotate and skew; and `hover:`/`active:` on any of them;
+	- Tailwind's looping animations `animate-spin`, `animate-ping`,
+	  `animate-pulse`, `animate-bounce`, which replace the transform as CSS
+	  animations do;
 	- gradients over the colours: a direction, `bg-linear-to-r` (or
 	  Tailwind 3's `bg-gradient-to-r`) for each side and corner or
 	  `bg-radial`, with `from-`, `via-` and `to-` stops and positions such
@@ -91,6 +100,7 @@ class Tw {
 		var out = [];
 		var gradient = new Gradient();
 		var motion = new Motion();
+		var transform = new TransformClasses();
 		// Letter spacing is in ems of the font size this string sets, else the theme's base size.
 		var tracking:Null<{token:String, pos:Position}> = null;
 		var size = "TextBase";
@@ -106,6 +116,8 @@ class Tw {
 			if (word == "")
 				continue;
 			var pos = within(classes.pos, offset, word.length);
+			if (transform.take(word, pos))
+				continue;
 			if (variant.match(word)) {
 				var state = variant.matched(1), rest = variant.matched(2);
 				if (variant.match(rest))
@@ -146,6 +158,16 @@ class Tw {
 			var near = nearest(word, vocabulary);
 			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : ""), pos);
 		}
+		var moved = transform.build(node);
+		if (moved != null) {
+			out.push(moved.base);
+			for (state => value in moved.states) {
+				if (!variants.exists("Transform"))
+					variants.set("Transform", new Map());
+				variants.get("Transform").set(state, value);
+			}
+		}
+
 		// Each property a variant sets becomes one value that follows the pointer and the scheme:
 		// active over hover over dark over the base class of the same property.
 		var interaction = false;
@@ -374,9 +396,10 @@ class Tw {
 
 		refused = [
 			{pattern: ~/^(focus|focus-visible|focus-within|disabled|group-hover|peer-hover):/, why: "this variant needs focus or group state, which there is none of yet"},
-			{pattern: ~/^-/, why: "negative values have no token"},
+			{pattern: ~/^-/, why: "only translate, rotate and skew take a minus sign"},
+			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
-			{pattern: ~/^animate-/, why: "keyframe animations need transforms, which are not drawn yet"},
+			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},
 			{pattern: ~/\[.*\]/, why: "arbitrary values are not supported; use a token or an attribute"}
 		];
 		known = v;
@@ -460,6 +483,131 @@ class Tw {
 }
 
 #if macro
+/**
+	The transform classes of one class string, composed into one transform,
+	as Tailwind's `--tw-translate-x` and the like compose in the browser;
+	`hover:` and `active:` ones compose over the plain ones. An `animate-`
+	class replaces the transform, and for ping and pulse the opacity.
+**/
+private class TransformClasses {
+	static final ROTATIONS = [0, 1, 2, 3, 6, 12, 45, 90, 180];
+	static final SCALES = [0, 50, 75, 90, 95, 100, 105, 110, 125, 150];
+	static final SKEWS = [0, 1, 2, 3, 6, 12];
+
+	// Parts by state: "" for the plain classes.
+	final parts = new Map<String, Map<String, Expr>>();
+	var at:Null<Position> = null;
+	var animation:Null<String> = null;
+	var animationAt:Null<Position> = null;
+
+	public function new() {}
+
+	public function take(word:String, pos:Position):Bool {
+		var anim = ~/^animate-(spin|ping|pulse|bounce|none)$/;
+		if (anim.match(word)) {
+			animation = anim.matched(1);
+			animationAt = pos;
+			return true;
+		}
+		var state = "";
+		var rest = word;
+		var prefixed = ~/^(hover|active):(.+)$/;
+		if (prefixed.match(word)) {
+			state = prefixed.matched(1);
+			rest = prefixed.matched(2);
+		}
+		var negative = StringTools.startsWith(rest, "-");
+		if (negative)
+			rest = rest.substr(1);
+		var sign = negative ? -1.0 : 1.0;
+		var part:Null<String> = null;
+		var value:Null<Expr> = null;
+		var translate = ~/^translate-([xy])-(.+)$/;
+		var rotate = ~/^rotate-(\d+)$/;
+		var scale = ~/^scale-(?:([xy])-)?(\d+)$/;
+		var skew = ~/^skew-([xy])-(\d+)$/;
+		if (translate.match(rest)) {
+			var token = "Space" + translate.matched(2).split(".").join("_");
+			if (!Lambda.has(@:privateAccess Tw.tokenNames("ashui.theme.SpacingToken"), token))
+				return false;
+			part = translate.matched(1) == "x" ? "translateX" : "translateY";
+			value = macro ashui.style.Variant.space(ashui.theme.SpacingToken.$token) * $v{sign};
+		} else if (rotate.match(rest)) {
+			var degrees = Std.parseInt(rotate.matched(1));
+			if (ROTATIONS.indexOf(degrees) < 0)
+				Context.error('tw: $word: rotations are ${ROTATIONS.join(", ")} degrees', pos);
+			part = "rotate";
+			value = macro $v{degrees * sign};
+		} else if (scale.match(rest)) {
+			if (negative)
+				return false;
+			var percent = Std.parseInt(scale.matched(2));
+			if (SCALES.indexOf(percent) < 0)
+				Context.error('tw: $word: scales are ${SCALES.join(", ")} percent', pos);
+			var axis = scale.matched(1);
+			var axes = if (axis == null) ["scaleX", "scaleY"] else if (axis == "x") ["scaleX"] else ["scaleY"];
+			for (p in axes)
+				put(state, p, macro $v{percent / 100});
+			at = at == null ? pos : at;
+			return true;
+		} else if (skew.match(rest)) {
+			var degrees = Std.parseInt(skew.matched(2));
+			if (SKEWS.indexOf(degrees) < 0)
+				Context.error('tw: $word: skews are ${SKEWS.join(", ")} degrees', pos);
+			part = skew.matched(1) == "x" ? "skewX" : "skewY";
+			value = macro $v{degrees * sign};
+		} else {
+			return false;
+		}
+		put(state, part, value);
+		at = at == null ? pos : at;
+		return true;
+	}
+
+	function put(state:String, part:String, value:Expr):Void {
+		if (!parts.exists(state))
+			parts.set(state, new Map());
+		parts.get(state).set(part, value);
+	}
+
+	/** The plain transform's set, and each state's transform; null if the string has neither. **/
+	public function build(node:Expr):Null<{base:Expr, states:Map<String, {value:Expr, pos:Position}>}> {
+		if (animation != null) {
+			if (parts.exists("hover") || parts.exists("active"))
+				Context.error("tw: an animate- class replaces the transform, so hover: and active: transforms do nothing beside it", animationAt);
+			function set(key:String, value:Expr):Expr
+				return macro $node.set(ashui.layout.Prop.$key, $value);
+			var sets = switch animation {
+				case "spin": [set("Transform", macro ashui.animation.Keyframes.spin())];
+				case "ping": [set("Transform", macro ashui.animation.Keyframes.pingScale()), set("Opacity", macro ashui.animation.Keyframes.pingOpacity())];
+				case "pulse": [set("Opacity", macro ashui.animation.Keyframes.pulse())];
+				case "bounce": [set("Transform", macro ashui.animation.Keyframes.bounce($node))];
+				case _: [];
+			}
+			return {base: {expr: EBlock(sets), pos: animationAt}, states: new Map()};
+		}
+		if (at == null)
+			return null;
+		var base = parts.exists("") ? parts.get("") : new Map();
+		function transform(own:Map<String, Expr>):Expr {
+			function part(name:String, fallback:Float):Expr {
+				var v = own.exists(name) ? own.get(name) : base.get(name);
+				return v != null ? v : macro $v{fallback};
+			}
+			var made = macro new ashui.types.Transform(${part("translateX", 0)}, ${part("translateY", 0)}, ${part("rotate", 0)}, ${part("scaleX", 1)},
+				${part("scaleY", 1)}, ${part("skewX", 0)}, ${part("skewY", 0)});
+			// Spacing tokens follow the theme, so a transform that reads one is a computed.
+			return macro ashui.reactive.Computed.make(() -> $made);
+		}
+		var states = new Map<String, {value:Expr, pos:Position}>();
+		for (state in ["hover", "active"])
+			if (parts.exists(state))
+				states.set(state, {value: transform(parts.get(state)), pos: at});
+		var value = transform(new Map());
+		return {base: {expr: (macro $node.set(ashui.layout.Prop.Transform, $value)).expr, pos: at}, states: states};
+	}
+}
+
 /** The transition classes of one class string, composed into one `Transition`. **/
 private class Motion {
 	static final GROUPS = [

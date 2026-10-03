@@ -420,9 +420,13 @@ class Smoke {
 			&& hybridN > ashui.theme.themes.ExpressiveTheme.shape().effectiveCornerN()
 			&& ashui.theme.themes.ExpressiveTheme.shape().effectiveCornerN() > 1, hybridN);
 		var cssEase = ashui.theme.Easing.EasingTools.evaluate(CubicBezier(0.25, 0.1, 0.25, 1), 0.5);
-		check("easings evaluate as CSS does",
-			ashui.theme.Easing.EasingTools.evaluate(EaseIn, 0.5) == 0.25 && ashui.theme.Easing.EasingTools.evaluate(Linear, 2) == 1
-			&& Math.abs(cssEase - 0.8024033877) < 1e-6, cssEase);
+		var easeIn = ashui.theme.Easing.EasingTools.evaluate(EaseIn, 0.5);
+		var springPeak = 0.0;
+		for (i in 0...101)
+			springPeak = Math.max(springPeak, ashui.theme.Easing.EasingTools.evaluate(CubicBezier(0.34, 1.56, 0.64, 1), i / 100));
+		check("easings evaluate as CSS does, spring curves overshooting",
+			Math.abs(easeIn - 0.3248146106) < 1e-6 && ashui.theme.Easing.EasingTools.evaluate(Linear, 2) == 1
+			&& Math.abs(cssEase - 0.8024033877) < 1e-6 && springPeak > 1.05, [easeIn, cssEase, springPeak]);
 
 		// --- Corners take the theme's squircle as Blinc's paint walk resolves them ---
 		var CS = ashui.core.render.CornerShapes;
@@ -636,6 +640,37 @@ class Smoke {
 			idle == 1 && Math.abs(hovered - 0x2A / 255) < 0.01 && Math.abs(pressed - 0xDC / 255) < 0.01 && left == 1,
 			[idle, hovered, pressed, left]);
 		check("dark: follows the scheme", Math.abs(dark - 0x7D / 255) < 0.01, dark);
+
+		// --- Transform classes compose into one transform; hover: on top ---
+		var turnTree = new LayoutTree();
+		var turned:Div = Owner.root(turnTree, _ -> hxx('
+			<div class="w-10 h-10 bg-primary translate-x-2 rotate-90 hover:scale-150" />
+		'));
+		turnTree.flush();
+		turnTree.computeLayout(turned.node, 100, 100);
+		var turnList = new ashui.layout.DisplayList();
+		turnList.update(turnTree, turned.node);
+		// A quarter turn about the centre (20, 20), moved 8 right: the top-left lands at (48, 0).
+		var aff = [for (f in 60...64) turnList.get(0, f)];
+		check("transform classes compose and turn the box about its centre",
+			Math.abs(turnList.get(0, 0) - 48) < 1e-3 && Math.abs(turnList.get(0, 1)) < 1e-3 && Math.abs(aff[0]) < 1e-6 && Math.abs(aff[1] - 1) < 1e-6
+			&& Math.abs(aff[2] + 1) < 1e-6 && Math.abs(aff[3]) < 1e-6,
+			[turnList.get(0, 0), turnList.get(0, 1)].concat(aff));
+		ashui.input.Pointer.move(turnTree, 20, 20);
+		turnTree.flush();
+		turnList.update(turnTree, turned.node);
+		check("hover: scales the transform", Math.abs(turnList.get(0, 61) - 1.5) < 1e-6, turnList.get(0, 61));
+
+		// --- animate-spin turns a full circle a second ---
+		var spinTree = new LayoutTree();
+		var spinner:Div = Owner.root(spinTree, _ -> hxx('<div class="w-10 h-10 bg-primary animate-spin" />'));
+		spinTree.flush();
+		spinTree.computeLayout(spinner.node, 100, 100);
+		ashui.animation.AnimationScheduler.main.tick(0.25);
+		spinTree.flush();
+		var spinList = new ashui.layout.DisplayList();
+		spinList.update(spinTree, spinner.node);
+		check("animate-spin is a quarter turn after a quarter second", Math.abs(spinList.get(0, 61) - 1) < 1e-4, spinList.get(0, 61));
 
 		// --- Transitions move a property to its new value over time ---
 		ashui.theme.ThemeState.get().setScheduler(null);

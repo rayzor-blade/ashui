@@ -465,13 +465,8 @@ class ThemeState {
 	}
 
 	static function easing(e:Easing):String {
-		return switch e {
-			case Linear: "linear";
-			case EaseIn: "cubic-bezier(0.4, 0, 1, 1)";
-			case EaseOut: "cubic-bezier(0, 0, 0.2, 1)";
-			case EaseInOut: "cubic-bezier(0.4, 0, 0.2, 1)";
-			case CubicBezier(a, b, c, d): 'cubic-bezier(${F32.toString(a)}, ${F32.toString(b)}, ${F32.toString(c)}, ${F32.toString(d)})';
-		}
+		var p = Easing.EasingTools.controlPoints(e);
+		return p == null ? "linear" : 'cubic-bezier(${[for (v in p) F32.toString(v)].join(", ")})';
 	}
 
 	// --- internals ---

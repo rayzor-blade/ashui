@@ -56,6 +56,9 @@ class Tweened<T> {
 				cast new Tweened<IValue>(node, prop, transition, Signal.make((read(value) : IValue)), lerpRadius);
 			case TypeShadow:
 				cast new Tweened<Shadow>(node, prop, transition, Signal.make((read(value) : Shadow)), lerpShadow);
+			case TypeTransform:
+				cast new Tweened<ashui.types.Transform>(node, prop, transition, Signal.make((read(value) : ashui.types.Transform)),
+					(a, b, t) -> a == null || b == null ? null : ashui.types.Transform.lerp(a, b, t));
 			case _:
 				null;
 		}
@@ -132,21 +135,22 @@ class Tweened<T> {
 		return a + (b - a) * t;
 
 	static function mixRgb(a:Int, b:Int, t:Float):Int {
+		// Clamped: a spring curve overshoots past its end.
 		inline function channel(shift:Int):Int
-			return Math.round(mix((a >> shift) & 0xFF, (b >> shift) & 0xFF, t)) << shift;
+			return Std.int(Math.max(0, Math.min(255, Math.round(mix((a >> shift) & 0xFF, (b >> shift) & 0xFF, t))))) << shift;
 		return channel(16) | channel(8) | channel(0);
 	}
 
 	static function lerpColor(a:Color, b:Color, t:Float):Null<Color> {
 		if (a == null || b == null)
 			return null;
-		return new Color(mixRgb(a.rgb, b.rgb, t), mix(a.alpha, b.alpha, t));
+		return new Color(mixRgb(a.rgb, b.rgb, t), Math.max(0, Math.min(1, mix(a.alpha, b.alpha, t))));
 	}
 
 	static function lerpBrush(a:Brush, b:Brush, t:Float):Null<Brush> {
 		if (a == null || b == null || a.solidRgb < 0 || b.solidRgb < 0)
 			return null;
-		return Brush.solid(mixRgb(a.solidRgb, b.solidRgb, t), mix(a.solidAlpha, b.solidAlpha, t));
+		return Brush.solid(mixRgb(a.solidRgb, b.solidRgb, t), Math.max(0, Math.min(1, mix(a.solidAlpha, b.solidAlpha, t))));
 	}
 
 	static function lerpRadius(a:IValue, b:IValue, t:Float):Null<IValue> {
