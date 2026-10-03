@@ -14,7 +14,6 @@ use crate::reactive::collect_released;
 use blinc_layout::binding::unregister_node;
 use blinc_layout::div::GenericFont;
 use blinc_layout::element::RenderProps;
-use blinc_layout::init_text_measurer;
 use blinc_layout::stateful::take_pending_partial_prop_updates;
 use blinc_layout::tree::{LayoutNodeId, LayoutTree, TextMeasureContext};
 use hl_abi::{define_prim, vbyte};
@@ -170,7 +169,8 @@ static TEXT_MEASURER: Once = Once::new();
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_tree_new() -> *mut c_void {
-    TEXT_MEASURER.call_once(init_text_measurer);
+    // The renderer's own registry, so layout measures with the faces text is drawn with.
+    TEXT_MEASURER.call_once(|| blinc_layout::init_text_measurer_with_registry(crate::text::renderer().font_registry()));
     shared();
     into_handle(TreeHandle {
         id: NEXT_HANDLE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -225,6 +225,7 @@ pub unsafe extern "C" fn hl_blinc_tree_create_text_node(
         font_weight: font_weight.clamp(1, 1000) as u16,
         italic: flags & 2 != 0,
     };
+    crate::text::ensure_face(&context);
     let node = tree.layout.create_text_node(Style::default(), context);
     tree.owners.insert(node, unsafe { owner(h) });
     node.to_raw()
@@ -506,6 +507,10 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
     // Recorded by the render writes above, so applied after them.
     for (node, write) in take_pending_text() {
         needs_layout |= tree.layout.update_text(node, write);
+        // A new weight, style or font is loaded before layout measures with it.
+        if let Some(context) = tree.layout.text_context(node) {
+            crate::text::ensure_face(context);
+        }
     }
     needs_layout || painted
 }

@@ -22,6 +22,30 @@ pub fn renderer() -> MutexGuard<'static, TextRenderer> {
     RENDERER.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Loads the face `context` is set in, if the renderer has not yet: layout
+/// measures only with loaded faces, and estimates the rest.
+pub fn ensure_face(context: &TextMeasureContext) {
+    let generic = generic(context.generic_font);
+    let registry = renderer().font_registry();
+    let mut registry = registry.lock().unwrap_or_else(|e| e.into_inner());
+    let name = context.font_name.as_deref();
+    if registry
+        .get_for_render_with_style(name, generic, context.font_weight, context.italic)
+        .is_none()
+    {
+        let _ = registry.load_with_fallback_styled(name, generic, context.font_weight, context.italic);
+    }
+}
+
+fn generic(g: LayoutGeneric) -> GenericFont {
+    match g {
+        LayoutGeneric::Monospace => GenericFont::Monospace,
+        LayoutGeneric::Serif => GenericFont::Serif,
+        LayoutGeneric::SansSerif => GenericFont::SansSerif,
+        _ => GenericFont::System,
+    }
+}
+
 /// Steps per doubling of scale that glyphs are rasterized at.
 const STEPS_PER_OCTAVE: f32 = 12.0;
 
@@ -69,12 +93,7 @@ pub fn prepare(
         line_height: context.line_height,
         letter_spacing: letter_spacing * scale,
     };
-    let generic = match context.generic_font {
-        LayoutGeneric::Monospace => GenericFont::Monospace,
-        LayoutGeneric::Serif => GenericFont::Serif,
-        LayoutGeneric::SansSerif => GenericFont::SansSerif,
-        _ => GenericFont::System,
-    };
+    let generic = generic(context.generic_font);
     renderer.prepare_text_with_style(
         &context.content,
         context.font_size * scale,
@@ -312,3 +331,44 @@ define_prim!(
     hl_blinc_text_carets,
     "PXblinc_tree_lBffBiB_i"
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use blinc_layout::text_measure::{TextLayoutOptions, measure_text_with_options};
+
+    /// Layout measures text as wide as it is drawn, so a word laid out on one
+    /// line is not broken when drawn: regular and bold alike.
+    #[test]
+    fn layout_measures_text_as_drawn() {
+        blinc_layout::init_text_measurer_with_registry(renderer().font_registry());
+        let options = LayoutOptions {
+            max_width: None,
+            alignment: TextAlignment::Left,
+            anchor: TextAnchor::Top,
+            line_break: LineBreakMode::None,
+            line_height: 1.2,
+            letter_spacing: 0.0,
+        };
+        for weight in [400u16, 700] {
+            ensure_face(&TextMeasureContext {
+                content: "Card".into(),
+                font_size: 12.0,
+                line_height: 1.2,
+                wrap: false,
+                font_name: None,
+                generic_font: LayoutGeneric::System,
+                font_weight: weight,
+                italic: false,
+            });
+            let mut measure = TextLayoutOptions::new();
+            measure.font_weight = weight;
+            let measured = measure_text_with_options("Card", 12.0, &measure).width;
+            let drawn = renderer()
+                .prepare_text_with_style("Card", 12.0, [1.0; 4], &options, None, GenericFont::System, weight, false)
+                .unwrap()
+                .width;
+            assert!((measured - drawn).abs() < 0.01, "weight {weight}: measured {measured}, drawn {drawn}");
+        }
+    }
+}
