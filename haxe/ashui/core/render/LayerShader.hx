@@ -8,7 +8,9 @@ package ashui.core.render;
 	and the alpha multiplied by the group's opacity, `color.a`; the usual
 	blend then composites it. The colour goes through the group's colour
 	filter on the way, a 3 × 4 matrix in the `color2`, `border` and
-	`borderColor` rows: the identity when it has none.
+	`borderColor` rows: the identity when it has none. With a blur of
+	`color.r` pixels of deviation, `layer` is `LayerBlurShader`'s rows
+	already blurred, and this blurs its columns.
 **/
 class LayerShader implements UiShader {
 	static var SRC = {
@@ -26,7 +28,31 @@ class LayerShader implements UiShader {
 
 		function fragment() {
 			// The layer is the target's size, so the fragment's position is its texel.
-			var texel = layer.fetch(ivec2(int(fragCoord.x), int(fragCoord.y)));
+			var x = int(fragCoord.x);
+			var y0 = int(fragCoord.y);
+			var texel = layer.fetch(ivec2(x, y0));
+			var sigma = primitive.color.x;
+			if (sigma > 0.) {
+				var last = int(textureSize(layer).y) - 1;
+				var reach = int(ceil(sigma * 3.));
+				var step = max(1, int(sigma / 6.));
+				var sum = vec4(0., 0., 0., 0.);
+				var weights = 0.;
+				var i = -reach;
+				while (i <= reach) {
+					var y = y0 + i;
+					if (y < 0)
+						y = 0;
+					if (y > last)
+						y = last;
+					var d = float(i);
+					var w = exp(-d * d / (2. * sigma * sigma));
+					sum += layer.fetch(ivec2(x, y)) * w;
+					weights += w;
+					i += step;
+				}
+				texel = sum / weights;
+			}
 			var rgb = vec3(0., 0., 0.);
 			if (texel.a > 0.0001)
 				rgb = texel.rgb / texel.a;

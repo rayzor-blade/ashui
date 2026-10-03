@@ -89,7 +89,7 @@ pub const PRIM_IMAGE: f32 = 32.0;
 pub const PRIM_LAYER_BEGIN: f32 = 40.0;
 /// Draws the layer the last `PRIM_LAYER_BEGIN` began over its bounds, its
 /// alpha times `color.a`, its colour through the colour filter in rows 3 to
-/// 5 (see `filter_matrix`).
+/// 5 (see `filter_matrix`), blurred by a Gaussian of `color.r` pixels.
 pub const PRIM_LAYER: f32 = 41.0;
 
 /// `type_info.y`, as Blinc's `FillType`.
@@ -695,8 +695,8 @@ pub fn append(
         .unwrap_or(color);
     let mut pushed = false;
     let mut shaped = false;
-    // Where its layer's begin record is in `out`, the layer's opacity and its colour filter.
-    let mut layer: Option<(usize, f32, ColorMatrix)> = None;
+    // Where its layer's begin record is in `out`, the layer's opacity, its colour filter and its blur.
+    let mut layer: Option<(usize, f32, ColorMatrix, f32)> = None;
     // A border drawn after the children, with the clips its node is drawn under.
     let mut after: Option<(Primitive, Clipping)> = None;
     if let Some(props) = tree.props.get(&node) {
@@ -715,8 +715,9 @@ pub fn append(
         // A group with opacity over more than one painted node is drawn into a
         // layer and faded as one; otherwise multiplying the opacity in is exact.
         let filtered = props.filter.as_ref().map(filter_matrix).filter(|m| *m != IDENTITY_MATRIX);
-        if filtered.is_some() || (props.opacity < 1.0 && painted_at_least(tree, node, 2)) {
-            layer = Some((out.len(), opacity * props.opacity, filtered.unwrap_or(IDENTITY_MATRIX)));
+        let blur = props.filter.as_ref().map_or(0.0, |f| f.blur.max(0.0));
+        if filtered.is_some() || blur > 0.0 || (props.opacity < 1.0 && painted_at_least(tree, node, 2)) {
+            layer = Some((out.len(), opacity * props.opacity, filtered.unwrap_or(IDENTITY_MATRIX), blur));
             Primitive::new(PRIM_LAYER_BEGIN, [0.0; 4], [0.0; 4]).push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
             opacity = 1.0;
         } else {
@@ -884,9 +885,13 @@ pub fn append(
     if shaped {
         clips.pop();
     }
-    if let Some((begin, alpha, matrix)) = layer {
-        let mut c = Primitive::new(PRIM_LAYER, records_bounds(&out[begin + RECORD_FLOATS..]), [0.0; 4]);
-        c.color = [1.0, 1.0, 1.0, alpha];
+    if let Some((begin, alpha, matrix, blur)) = layer {
+        // A blur spreads the layer three of its deviations past what was drawn.
+        let [bx, by, bw, bh] = records_bounds(&out[begin + RECORD_FLOATS..]);
+        let spread = (blur * 3.0).ceil();
+        let mut c = Primitive::new(PRIM_LAYER, [bx - spread, by - spread, bw + 2.0 * spread, bh + 2.0 * spread], [0.0; 4]);
+        // The blur's standard deviation in the target's pixels, CSS's `blur()` radius.
+        c.color = [blur * glyphs.display_scale, 1.0, 1.0, alpha];
         // The colour filter's rows in the rows a box's second colour and border take.
         [c.color2, c.border, c.border_color] = matrix;
         c.push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);

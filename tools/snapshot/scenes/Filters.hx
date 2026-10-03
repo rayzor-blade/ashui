@@ -8,7 +8,8 @@ import ashui.ui.Hxx.hxx;
 	a gradient with a badge and a line of text, under no filter, grayscale,
 	sepia, invert, hue-rotate-90, saturate-200, brightness-125 and
 	contrast-50; and two cards at opacity-50, whose badge overlaps the
-	gradient: faded as one group, the gradient does not show through it.
+	gradient: faded as one group, the gradient does not show through it;
+	and blur-xs, blur-md and blur-sm with grayscale.
 	Rendered at one and two image pixels per layout unit.
 **/
 class Filters {
@@ -31,7 +32,7 @@ class Filters {
 			');
 		// Class strings are read at compile time, so each filter is written out.
 		var build = () -> hxx('
-			<div class="flex flex-row flex-wrap items-start p-6 gap-6" width={700} height={320}>
+			<div class="flex flex-row flex-wrap items-start p-6 gap-6" width={700} height={460}>
 				${labelled(hxx('<div>${card()}</div>'), "none")}
 				${labelled(hxx('<div class="grayscale">${card()}</div>'), "grayscale")}
 				${labelled(hxx('<div class="sepia">${card()}</div>'), "sepia")}
@@ -42,9 +43,12 @@ class Filters {
 				${labelled(hxx('<div class="contrast-50">${card()}</div>'), "contrast-50")}
 				${labelled(hxx('<div class="opacity-50">${card()}</div>'), "opacity-50")}
 				${labelled(hxx('<div class="opacity-50 grayscale">${card()}</div>'), "opacity-50 grayscale")}
+				${labelled(hxx('<div class="blur-xs">${card()}</div>'), "blur-xs")}
+				${labelled(hxx('<div class="blur-md">${card()}</div>'), "blur-md")}
+				${labelled(hxx('<div class="blur-sm grayscale">${card()}</div>'), "blur-sm grayscale")}
 			</div>
 		');
-		Snapshot.scene("filters", 700, 320, build, page.rgb(), page.a);
-		Snapshot.scene("filters@2x", 700, 320, build, page.rgb(), page.a, 2.0);
+		Snapshot.scene("filters", 700, 460, build, page.rgb(), page.a);
+		Snapshot.scene("filters@2x", 700, 460, build, page.rgb(), page.a, 2.0);
 	}
 }

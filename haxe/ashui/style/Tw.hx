@@ -37,6 +37,7 @@ import haxe.macro.Type;
 	  one layer: `grayscale`, `sepia`, `invert` (and `-0`), `brightness-50`
 	  … `brightness-200`, `contrast-50` … `contrast-200`, `saturate-0` …
 	  `saturate-200`, `hue-rotate-15` … `hue-rotate-180` and their minus;
+	  and `blur-xs` … `blur-3xl` (`blur` is `blur-sm`), Tailwind 4's scale;
 	  `opacity-` over more than one painted element fades them as a group;
 	- clip paths, Tailwind's arbitrary property `[clip-path:…]` with any
 	  CSS shape, underscores for spaces: `[clip-path:circle()]`,
@@ -568,6 +569,13 @@ class Tw {
 			float('contrast-$p', "FilterContrast", p / 100);
 		for (p in [0, 50, 100, 150, 200])
 			float('saturate-$p', "FilterSaturate", p / 100);
+		// Tailwind 4's blur scale, in pixels.
+		for (entry in [
+			{name: "none", px: 0}, {name: "xs", px: 4}, {name: "sm", px: 8}, {name: "md", px: 12}, {name: "lg", px: 16}, {name: "xl", px: 24},
+			{name: "2xl", px: 40}, {name: "3xl", px: 64}
+		])
+			float('blur-${entry.name}', "FilterBlur", entry.px);
+		float("blur", "FilterBlur", 8);
 		for (d in [0, 15, 30, 60, 90, 180]) {
 			float('hue-rotate-$d', "FilterHueRotate", d);
 			float('-hue-rotate-$d', "FilterHueRotate", -d);
@@ -577,7 +585,7 @@ class Tw {
 
 		refused = [
 			{pattern: ~/^-/, why: "only translate, rotate, skew and hue-rotate take a minus sign"},
-			{pattern: ~/^(blur|drop-shadow|backdrop-)/, why: "blur, drop shadows and backdrop filters are not drawn yet"},
+			{pattern: ~/^(drop-shadow|backdrop-)/, why: "drop shadows and backdrop filters are not drawn yet"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},

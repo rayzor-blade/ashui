@@ -308,6 +308,7 @@ fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
         37 => (P::Filter, render(|p, v| filter(p).invert = v)?),
         38 => (P::Filter, render(|p, v| filter(p).saturate = v)?),
         39 => (P::Filter, render(|p, v| filter(p).sepia = v)?),
+        40 => (P::Filter, render(|p, v| filter(p).blur = v)?),
         _ => return None,
     })
 }

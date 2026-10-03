@@ -48,6 +48,9 @@ import gpu.TextureUsage;
 	Then colour filters: red in grayscale, blue inverted, red at half
 	brightness, and white in sepia.
 
+	Then a red square blurred by 4: red in its middle, a pink halo past its
+	edges, white away from it.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -265,6 +268,17 @@ class Pixels {
 		probe("brightness-50 halves red", 52, 12, (r, g, b) -> Math.abs(r - 128) < 3 && g < 3 && b < 3);
 		probe("sepia tints white", 12, 32, (r, g, b) -> r == 255 && Math.abs(g - 255) < 3 && Math.abs(b - 239) < 3);
 		probe("next to them, untouched", 60, 60, near(0xffffff));
+
+		var blurTree = new LayoutTree();
+		var blurred = new Div({position: Position.Absolute, left: 24, top: 24, width: 16, height: 16, bg: Brush.solid(0xff0000)}, blurTree);
+		blurred.node.set(Prop.FilterBlur, (4 : Single));
+		var blurRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [blurred], blurTree);
+		pixels = offscreen.renderToRgba8(blurRoot, SIZE, SIZE);
+		label = "blur: ";
+		probe("the middle stays red", 32, 32, (r, g, b) -> r > 250 && g < 90 && b < 90);
+		probe("spreads past its edge", 21, 32, (r, g, b) -> r > 250 && g > 110 && g < 245);
+		probe("fades out away from it", 8, 32, (r, g, b) -> r > 250 && g > 250 && b > 250);
+		probe("its corner is softer than its edge's middle", 25, 25, (r, g, b) -> g > 100);
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

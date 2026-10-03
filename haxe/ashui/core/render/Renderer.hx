@@ -59,7 +59,12 @@ class Renderer {
 	final images:Pass;
 	final imageAtlas:ImageAtlas;
 	final layerPass:Pass;
+	/** The first pass of a layer's blur, written as it is: blending off. **/
+	final blurPass:Pass;
 	final format:TextureFormat;
+	/** A composite record's blur, its `color.r`: its deviation in pixels. **/
+	static inline var BLUR_FIELD = 8;
+
 	/** Layer textures by depth, from 1, the target's size, each with its bind group for `layerPass`. **/
 	final layers:Array<Layer> = [];
 	var imageRevision = -1;
@@ -87,15 +92,17 @@ class Renderer {
 		imageAtlas = new ImageAtlas(device);
 		images = pass(ImageShader.WGSL, format, false);
 		layerPass = pass(LayerShader.WGSL, format, false);
+		blurPass = pass(LayerBlurShader.WGSL, format, false, false);
 		this.format = format;
 	}
 
-	function pass(wgsl:String, format:TextureFormat, bind = true):Pass {
+	function pass(wgsl:String, format:TextureFormat, bind = true, blend = true):Pass {
 		var shader = device.createShader(wgsl);
 		var builder = device.pipeline();
 		builder.shader(shader, "vertex", "fragment");
 		builder.target(format, ColorWrite.ALL);
-		builder.blend(BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha, BlendOperation.Add, BlendFactor.One, BlendFactor.OneMinusSrcAlpha,
+		if (blend)
+			builder.blend(BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha, BlendOperation.Add, BlendFactor.One, BlendFactor.OneMinusSrcAlpha,
 			BlendOperation.Add);
 		builder.primitive(PrimitiveTopology.TriangleList, CullMode.None, FrontFace.Ccw);
 		var pipeline = builder.build();
@@ -188,13 +195,23 @@ class Renderer {
 					continue;
 				}
 				if (kind == DisplayList.PRIM_LAYER) {
-					// Back to the layer or target under it, keeping what it holds, to composite this one.
+					// Back to the layer or target under it, keeping what it holds, to composite this one;
+					// a blurred one blurs along its rows into its second texture first.
 					encoder.renderEnd();
 					var inner = layers[depth - 1];
+					var blurred = list.get(start, BLUR_FIELD) > 0;
+					if (blurred) {
+						beginPass(encoder, inner.rowsView, true, 0, 0, 0, 0);
+						encoder.renderSetPipeline(blurPass.pipeline);
+						encoder.renderSetBindGroup(LayerBlurShader.FRAME_GROUP, inner.blurGroup);
+						encoder.renderSetBindGroup(LayerBlurShader.TEXTURE_records_GROUP, blurPass.records);
+						encoder.renderDrawRange(6, 1, 0, start);
+						encoder.renderEnd();
+					}
 					depth--;
 					beginPass(encoder, depth == 0 ? view : layers[depth - 1].view, false, 0, 0, 0, 0);
 					encoder.renderSetPipeline(layerPass.pipeline);
-					encoder.renderSetBindGroup(LayerShader.FRAME_GROUP, inner.group);
+					encoder.renderSetBindGroup(LayerShader.FRAME_GROUP, blurred ? inner.rowsGroup : inner.group);
 					encoder.renderSetBindGroup(LayerShader.TEXTURE_records_GROUP, layerPass.records);
 					encoder.renderDrawRange(6, 1, 0, start);
 					start++;
@@ -242,19 +259,38 @@ class Renderer {
 		if (at != null && at.width == width && at.height == height)
 			return at;
 		if (at != null) {
-			at.group.destroy();
+			for (g in [at.group, at.rowsGroup, at.blurGroup])
+				g.destroy();
 			at.texture.destroy();
+			at.rows.destroy();
 		}
 		var size = new GpuExtent3D(width);
 		size.height(height);
-		var texture = device.texture(new GpuTextureDescriptor(size, format, TextureUsage.RENDER_ATTACHMENT | TextureUsage.TEXTURE_BINDING));
+		function target():GpuTexture
+			return device.texture(new GpuTextureDescriptor(size, format, TextureUsage.RENDER_ATTACHMENT | TextureUsage.TEXTURE_BINDING));
+		function group(pass:Pass, frameGroup:Int, of:GpuTextureView):GpuBindGroup {
+			var bindings = new GpuBindings();
+			bindings.buffer(frame);
+			bindings.texture(of);
+			var made = device.bindGroup(pass.pipeline, frameGroup, bindings);
+			bindings.destroy();
+			return made;
+		}
+		var texture = target();
 		var view = texture.createView(new GpuTextureViewDescriptor());
-		var bindings = new GpuBindings();
-		bindings.buffer(frame);
-		bindings.texture(view);
-		var group = device.bindGroup(layerPass.pipeline, LayerShader.FRAME_GROUP, bindings);
-		bindings.destroy();
-		var made:Layer = {texture: texture, view: view, group: group, width: width, height: height};
+		var rows = target();
+		var rowsView = rows.createView(new GpuTextureViewDescriptor());
+		var made:Layer = {
+			texture: texture,
+			view: view,
+			group: group(layerPass, LayerShader.FRAME_GROUP, view),
+			rows: rows,
+			rowsView: rowsView,
+			rowsGroup: group(layerPass, LayerShader.FRAME_GROUP, rowsView),
+			blurGroup: group(blurPass, LayerBlurShader.FRAME_GROUP, view),
+			width: width,
+			height: height
+		};
 		layers[depth - 1] = made;
 		return made;
 	}
@@ -291,7 +327,14 @@ class Renderer {
 private typedef Layer = {
 	final texture:GpuTexture;
 	final view:GpuTextureView;
+	/** `layerPass`'s bindings of the layer itself. **/
 	final group:GpuBindGroup;
+	/** The layer blurred along its rows, the first pass of a blur. **/
+	final rows:GpuTexture;
+	final rowsView:GpuTextureView;
+	/** `layerPass`'s bindings of `rows`, and `blurPass`'s of the layer. **/
+	final rowsGroup:GpuBindGroup;
+	final blurGroup:GpuBindGroup;
 	final width:Int;
 	final height:Int;
 }

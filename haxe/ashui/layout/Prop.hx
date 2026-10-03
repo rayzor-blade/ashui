@@ -41,6 +41,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var FilterInvert:Prop<Single> = cast PropertyId.FilterInvert;
 	public static inline var FilterSaturate:Prop<Single> = cast PropertyId.FilterSaturate;
 	public static inline var FilterSepia:Prop<Single> = cast PropertyId.FilterSepia;
+	/** CSS's `blur()`: the element and everything inside it blurred, this standard deviation in layout units. **/
+	public static inline var FilterBlur:Prop<Single> = cast PropertyId.FilterBlur;
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;
