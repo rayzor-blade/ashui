@@ -167,9 +167,10 @@ class WindowedApp {
 
 	function loop(build:Void->Element, onFrame:Null<(Int, Float) -> Void>):Void {
 		var theme = ThemeState.get();
+		// The window's own scheme first, before there is a scheduler, so it applies at once rather than as a transition.
+		WindowTheme.follow(window);
 		theme.setScheduler(scheduler);
 		ThemeState.setRedrawCallback(() -> dirty = true);
-		WindowTheme.follow(window);
 		ashui.input.WindowState.active.set(window.hasFocus());
 		// The input method is on while text has focus, its candidates by the caret.
 		new ashui.reactive.Watch(() -> ashui.input.WindowState.textCaret.get(), area -> {
