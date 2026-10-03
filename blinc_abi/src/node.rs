@@ -35,6 +35,18 @@ pub struct Tree {
     /// Nodes that draw an image in their content box: an SVG or a bitmap,
     /// named by a slot the caller resolves after the walk.
     pub(crate) images: HashMap<LayoutNodeId, i32>,
+    /// Scroll containers: how far their content is scrolled, and their thumb.
+    pub(crate) scrolls: HashMap<LayoutNodeId, Scroll>,
+}
+
+/// A scroll container's state, which the paint walk and the hit test read.
+#[derive(Clone, Copy, Default)]
+pub struct Scroll {
+    /// How far the content is moved up and left, in layout units.
+    pub x: f32,
+    pub y: f32,
+    /// The thumb's colour, straight alpha; transparent hides it.
+    pub thumb: [f32; 4],
 }
 
 /// What a Haxe `blinc_tree` handle holds: which of the shared tree's nodes
@@ -60,6 +72,7 @@ fn shared() -> &'static mut Tree {
             pruned: false,
             owners: HashMap::new(),
             images: HashMap::new(),
+            scrolls: HashMap::new(),
         })
     }
 }
@@ -108,6 +121,7 @@ fn release_handle(tree: &mut Tree, handle: u64) {
         tree.layout.remove_node(node);
         tree.props.remove(&node);
         tree.images.remove(&node);
+        tree.scrolls.remove(&node);
     }
 }
 
@@ -368,6 +382,8 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
             .retain(|node, _| layout.get_style(*node).is_some());
         tree.images
             .retain(|node, _| layout.get_style(*node).is_some());
+        tree.scrolls
+            .retain(|node, _| layout.get_style(*node).is_some());
     }
     let mut needs_layout = false;
     for update in take_pending_partial_prop_updates() {
@@ -514,5 +530,61 @@ pub unsafe extern "C" fn hl_blinc_tree_get_bounds(
 define_prim!(
     hlp_blinc_tree_get_bounds,
     hl_blinc_tree_get_bounds,
+    "PXblinc_tree_lB_b"
+);
+
+/// Scrolls container `node`'s content by `(x, y)` and colours its thumb
+/// `thumb`, `0xAARRGGBB` (0 hides it), as Blinc's scroll containers do.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_set_scroll(h: *mut c_void, node: u64, x: f32, y: f32, thumb: i32) {
+    if let Some(tree) = unsafe { tree(h) } {
+        let c = |shift: i32| ((thumb >> shift) & 0xff) as f32 / 255.0;
+        tree.scrolls.insert(
+            id(node),
+            Scroll {
+                x,
+                y,
+                thumb: [c(16), c(8), c(0), c(24)],
+            },
+        );
+    }
+}
+define_prim!(
+    hlp_blinc_tree_set_scroll,
+    hl_blinc_tree_set_scroll,
+    "PXblinc_tree_lffi_v"
+);
+
+/// Writes container `node`'s viewport width and height (inside its border)
+/// and its content's width and height as four f32s into `out`; false before
+/// it is laid out.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_scroll_extent(h: *mut c_void, node: u64, out: *mut vbyte) -> bool {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return false;
+    };
+    let Some(layout) = tree.layout.get_layout(id(node)) else {
+        return false;
+    };
+    if out.is_null() {
+        return false;
+    }
+    let b = layout.border;
+    let view = (
+        layout.size.width - b.left - b.right,
+        layout.size.height - b.top - b.bottom,
+    );
+    let out = out as *mut f32;
+    for (i, v) in [view.0, view.1, layout.content_size.width, layout.content_size.height]
+        .into_iter()
+        .enumerate()
+    {
+        unsafe { out.add(i).write_unaligned(v) };
+    }
+    true
+}
+define_prim!(
+    hlp_blinc_tree_scroll_extent,
+    hl_blinc_tree_scroll_extent,
     "PXblinc_tree_lB_b"
 );

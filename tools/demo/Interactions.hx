@@ -16,7 +16,7 @@ import ashui.ui.TextField;
 	- a text field: typing, selection with Shift, the mouse or Command+A,
 	  word and line moves with Alt and Command, Enter submitting;
 	- a turned card whose button is hit where it is drawn, clipped to the card;
-	- a box that adds up wheel and trackpad scrolling;
+	- a scroll list whose rows scroll under the wheel or trackpad, with a thumb;
 	- icons in currentColor, which follow their button's text colour;
 	- a theme switch, and a line logging the latest event.
 **/
@@ -24,7 +24,6 @@ class Interactions {
 	static final clicks = Signal.make(0);
 	static final locked = Signal.make(false);
 	static final typed = Signal.make("");
-	static final scrolled = Signal.make(0.0);
 	static final latest = Signal.make("Events show here.");
 
 	static function main() {
@@ -44,11 +43,6 @@ class Interactions {
 		log(locked.get() ? "the target button is disabled" : "the target button is enabled");
 	}
 
-	static function scroll(e:PointerEvent):Void {
-		scrolled.set(scrolled.get() + e.deltaY);
-		log('wheel ${Math.round(e.deltaX)}, ${Math.round(e.deltaY)}');
-	}
-
 	static function page():Div {
 		return hxx('
 			<div class="flex flex-col p-6 gap-5 bg-background" width={760} height={540}>
@@ -62,7 +56,7 @@ class Interactions {
 						<text class="text-sm">Theme</text>
 					</div>
 				</div>
-				<text class="text-sm text-text-secondary">Hover and press the buttons. Tab and Shift+Tab move focus; Enter, or Space, clicks. Click the field and type. Scroll over the wheel box.</text>
+				<text class="text-sm text-text-secondary">Hover and press the buttons. Tab and Shift+Tab move focus; Enter, or Space, clicks. Click the field and type. Scroll the list.</text>
 
 				<div class="flex flex-row items-center gap-3">
 					<div class="flex flex-row items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover active:bg-primary-active text-text-inverse border-2 border-primary focus-visible:border-border-focus transition-colors"
@@ -101,10 +95,10 @@ class Interactions {
 						</div>
 					</div>
 					<div class="flex flex-col gap-2">
-						<text class="text-xs text-text-tertiary">Wheel box</text>
-						<div class="flex items-center justify-center rounded-xl bg-surface border-2 border-border hover:border-border-hover transition-colors"
-							width={160} height={96} onWheel={scroll}>
-							<text class="text-sm">Scrolled ${Math.round(scrolled.get())}</text>
+						<text class="text-xs text-text-tertiary">Scroll list: wheel or trackpad</text>
+						<div class="flex flex-col gap-1 p-1 rounded-xl bg-surface border-2 border-border overflow-y-auto" width={180} height={110}>
+							${[for (i in 0...20) hxx('<div class="shrink-0 px-3 py-1.5 rounded-md bg-surface hover:bg-surface-elevated transition-colors"
+								onClick={() -> log("row " + (i + 1) + " clicked")}><text class="text-sm">Row ${i + 1}</text></div>')]}
 						</div>
 					</div>
 				</div>

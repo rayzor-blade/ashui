@@ -70,6 +70,8 @@ import haxe.macro.Type;
 	override updates it, and nothing is rebuilt. Layout keywords with no
 	token are Tailwind's: `flex`, `flex-col`, `items-center`,
 	`justify-between`, `grow`, `shrink-0`, `overflow-hidden`, `absolute`,
+	scroll containers `overflow-auto`, `overflow-scroll` and their `-x-`/`-y-`
+	forms (see `ashui.input.Scroll`),
 	`opacity-50`, `border`, `border-2` and the like.
 
 	An unknown class is a compile error at the class, naming the nearest
@@ -374,8 +376,19 @@ class Tw {
 			["around", "SpaceAround"], ["evenly", "SpaceEvenly"]
 		])
 			keyword('justify-${entry[0]}', "JustifyContent", "Justify", entry[1]);
-		for (entry in [["visible", "Visible"], ["hidden", "Hidden"], ["clip", "Clip"], ["scroll", "Scroll"]])
+		for (entry in [["visible", "Visible"], ["hidden", "Hidden"], ["clip", "Clip"]])
 			keyword('overflow-${entry[0]}', "Overflow", "Overflow", entry[1]);
+		// Scroll containers: the content moves under the wheel or trackpad along the axes they name.
+		for (entry in [
+			{name: "auto", x: true, y: true}, {name: "scroll", x: true, y: true}, {name: "x-auto", x: true, y: false},
+			{name: "y-auto", x: false, y: true}, {name: "x-scroll", x: true, y: false}, {name: "y-scroll", x: false, y: true}
+		]) {
+			var x = entry.x, y = entry.y;
+			v.set('overflow-${entry.name}', node -> [
+				set(node, "Overflow", macro $style.Overflow.Scroll),
+				macro ashui.input.Scroll.attach($node, $v{x}, $v{y})
+			]);
+		}
 		keyword("relative", "Position", "Position", "Relative");
 		keyword("absolute", "Position", "Position", "Absolute");
 		for (entry in [["left", "Left"], ["center", "Center"], ["right", "Right"]])

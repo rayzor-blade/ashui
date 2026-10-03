@@ -532,11 +532,64 @@ pub fn append(
         });
         pushed = true;
     }
+    // A scroll container's content moves up and left by its offset.
+    let scroll = tree.scrolls.get(&node).copied();
+    let (sx, sy) = scroll.map_or((0.0, 0.0), |s| (s.x, s.y));
     for child in tree.layout.children(node) {
-        append(tree, child, (x, y), opacity, color, m, clips, glyphs, out);
+        append(tree, child, (x - sx, y - sy), opacity, color, m, clips, glyphs, out);
+    }
+    if let Some(s) = scroll {
+        thumbs(tree, node, s, (x, y), opacity, m, clips, out);
     }
     if pushed {
         clips.pop();
+    }
+}
+
+/// Width of a scroll thumb, and its gap from the container's edge.
+const THUMB: f32 = 4.0;
+const THUMB_GAP: f32 = 2.0;
+/// The shortest a thumb gets, so a long list still has something to see.
+const THUMB_MIN: f32 = 24.0;
+
+/// The thumbs of scroll container `node`, laid out at `(x, y)`: one per
+/// axis its content overflows, as long as the visible part is of the whole
+/// and as far along as the offset is of the distance it can scroll.
+#[allow(clippy::too_many_arguments)]
+fn thumbs(tree: &Tree, node: LayoutNodeId, s: crate::node::Scroll, (x, y): (f32, f32), opacity: f32, m: Affine, clips: &[Clip], out: &mut Vec<f32>) {
+    let alpha = s.thumb[3] * opacity;
+    if alpha <= 0.0 {
+        return;
+    }
+    let Some(layout) = tree.layout.get_layout(node) else {
+        return;
+    };
+    let b = layout.border;
+    let (left, top) = (b.left, b.top);
+    let (view_w, view_h) = (
+        layout.size.width - b.left - b.right,
+        layout.size.height - b.top - b.bottom,
+    );
+    let (content_w, content_h) = (layout.content_size.width, layout.content_size.height);
+    let color = [s.thumb[0], s.thumb[1], s.thumb[2], alpha];
+    let mut bar = |rect: [f32; 4]| {
+        let mut p = Primitive::new(PRIM_RECT, [0.0, 0.0, rect[2], rect[3]], [THUMB / 2.0; 4]);
+        p.color = color;
+        p.color2 = color;
+        p.place(m, x + rect[0], y + rect[1]);
+        p.push(&clipping(clips, m, (x + rect[0], y + rect[1]), true), out);
+    };
+    if content_h > view_h + 0.5 && view_h > 0.0 {
+        let track = view_h - 2.0 * THUMB_GAP;
+        let len = (track * view_h / content_h).max(THUMB_MIN).min(track);
+        let along = (s.y / (content_h - view_h)).clamp(0.0, 1.0) * (track - len);
+        bar([left + view_w - THUMB_GAP - THUMB, top + THUMB_GAP + along, THUMB, len]);
+    }
+    if content_w > view_w + 0.5 && view_w > 0.0 {
+        let track = view_w - 2.0 * THUMB_GAP;
+        let len = (track * view_w / content_w).max(THUMB_MIN).min(track);
+        let along = (s.x / (content_w - view_w)).clamp(0.0, 1.0) * (track - len);
+        bar([left + THUMB_GAP + along, top + view_h - THUMB_GAP - THUMB, len, THUMB]);
     }
 }
 

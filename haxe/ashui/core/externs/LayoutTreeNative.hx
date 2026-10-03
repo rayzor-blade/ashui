@@ -60,6 +60,12 @@ extern class LayoutTreeNative {
 	/** Writes `node` and its ancestors up to `root` as 64-bit ids, at most `capacity`; 0 when `node` is not under `root`. **/
 	static function blinc_tree_path(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, node:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
 
+	/** Scrolls container `node`'s content by `(x, y)` and colours its thumb `thumb`, `0xAARRGGBB`; 0 hides it. **/
+	static function blinc_tree_set_scroll(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, x:Single, y:Single, thumb:Int):Void;
+
+	/** Writes container `node`'s viewport width and height and its content's width and height as four F32s; false before layout. **/
+	static function blinc_tree_scroll_extent(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
+
 	/** Writes absolute x, y, width, height as four F32s into `out`. **/
 	static function blinc_tree_get_bounds(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 }

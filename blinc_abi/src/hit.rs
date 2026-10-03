@@ -84,9 +84,10 @@ fn hit(
         });
     }
     let children = tree.layout.children(node);
+    let (sx, sy) = tree.scrolls.get(&node).map_or((0.0, 0.0), |s| (s.x, s.y));
     let mut found = false;
     for &child in children.iter().rev() {
-        if hit(tree, child, (x, y), m, clips, px, py, out) {
+        if hit(tree, child, (x - sx, y - sy), m, clips, px, py, out) {
             found = true;
             break;
         }

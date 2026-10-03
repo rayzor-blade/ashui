@@ -806,6 +806,67 @@ class Smoke {
 		ashui.input.Keyboard.text(fieldTree, "-");
 		check("text field: a click places the caret at the nearest character boundary", fieldValue.get() == "g-o", fieldValue.get());
 
+		// --- Scroll containers move their content under the wheel ---
+		var scrollTree = new LayoutTree();
+		var clicked = -1;
+		var rows:Array<Div> = [];
+		var outerList:Div = null;
+		var innerList:Div = null;
+		var scroller:Div = Owner.root(scrollTree, _ -> {
+			for (i in 0...10) {
+				var n = i;
+				rows.push(hxx('<div class="shrink-0 bg-surface" height={30} onClick={() -> clicked = n} />'));
+			}
+			innerList = hxx('<div class="flex flex-col shrink-0 overflow-y-auto" height={60}>
+				<div class="shrink-0" height={50} />
+				<div class="shrink-0" height={50} />
+			</div>');
+			outerList = hxx('<div class="flex flex-col overflow-y-auto" width={100} height={100}>${rows}</div>');
+			outerList.appendChild(innerList);
+			outerList;
+		});
+		scrollTree.flush();
+		scrollTree.computeLayout(scroller.node, 100, 100);
+		var outerScroll = ashui.input.Scroll.of(outerList.node);
+		var innerScroll = ashui.input.Scroll.of(innerList.node);
+		check("scroll: the classes make scroll containers", outerScroll != null && innerScroll != null);
+		check("scroll: how far a container can scroll is its content beyond its view", outerScroll.limits().y == 260 && innerScroll.limits().y == 40,
+			[outerScroll.limits(), innerScroll.limits()]);
+		ashui.input.Pointer.move(scrollTree, 50, 50);
+		ashui.input.Pointer.wheel(scrollTree, 0, -45);
+		scrollTree.flush();
+		var scrollList = new ashui.layout.DisplayList();
+		scrollList.update(scrollTree, scroller.node);
+		var firstRowY = scrollList.get(0, 1);
+		for (r in 0...scrollList.count)
+			if (scrollList.kind(r) == 0 && scrollList.get(r, 3) == 30) {
+				firstRowY = scrollList.get(r, 1);
+				break;
+			}
+		check("scroll: the wheel moves the offset and the content with it", outerScroll.y.get() == 45 && firstRowY == -45, [outerScroll.y.get(), firstRowY]);
+		clicked = -1;
+		ashui.input.Pointer.move(scrollTree, 50, 20);
+		ashui.input.Pointer.press(scrollTree);
+		ashui.input.Pointer.release(scrollTree);
+		check("scroll: a click lands on the row now under the pointer", clicked == 2, clicked);
+		ashui.input.Pointer.wheel(scrollTree, 0, 1000);
+		check("scroll: the offset stops at the start", outerScroll.y.get() == 0, outerScroll.y.get());
+		ashui.input.Pointer.wheel(scrollTree, 0, -1000);
+		check("scroll: and at the end", outerScroll.y.get() == 260, outerScroll.y.get());
+		scrollTree.flush();
+		// The inner list now fills the view's last 60 units: wheel over it, past its own end.
+		ashui.input.Pointer.move(scrollTree, 50, 70);
+		ashui.input.Pointer.wheel(scrollTree, 0, 30);
+		check("scroll: the innermost container under the pointer takes the wheel", innerScroll.y.get() == 0 && outerScroll.y.get() == 230,
+			[innerScroll.y.get(), outerScroll.y.get()]);
+		scrollTree.flush();
+		ashui.input.Pointer.move(scrollTree, 50, 90);
+		ashui.input.Pointer.wheel(scrollTree, 0, -30);
+		var innerFirst = innerScroll.y.get();
+		ashui.input.Pointer.wheel(scrollTree, 0, -30);
+		check("scroll: an inner container takes the wheel until its edge, then it goes on",
+			innerFirst == 30 && innerScroll.y.get() == 40 && outerScroll.y.get() == 230, [innerFirst, innerScroll.y.get(), outerScroll.y.get()]);
+
 		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
 		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");
 		check("path data: compact numbers and implicit lines", compact[0].equals(MoveTo(0.5, -1.5)) && compact[1].equals(LineTo(0.5, 0.5)),
