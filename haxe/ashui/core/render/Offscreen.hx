@@ -34,6 +34,13 @@ class Offscreen {
 	public var clear = 0x000000;
 	public var clearAlpha = 0.0;
 
+	/**
+		Device pixels per layout unit: the target's size over the size the UI
+		is laid out at. Text is rasterized for it, so it is sharp on a dense
+		display.
+	**/
+	public var scale = 1.0;
+
 	/** How many primitives the last frame drew. **/
 	public var primitives(get, never):Int;
 
@@ -67,7 +74,7 @@ class Offscreen {
 
 	/** Draws `root` of `tree`, already laid out, into `view`. **/
 	public function renderTree(tree:LayoutTree, root:Node, view:GpuTextureView, width:Int, height:Int):Void {
-		list.update(tree, root);
+		list.update(tree, root, scale);
 		renderer.draw(list, view, width, height, (clear >> 16 & 0xff) / 255, (clear >> 8 & 0xff) / 255, (clear & 0xff) / 255, clearAlpha);
 	}
 

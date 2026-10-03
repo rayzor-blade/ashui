@@ -351,28 +351,45 @@ define_prim!(
 );
 
 /// Pack the primitives to draw under `root` into `out` (see `display_list`), at
-/// most `capacity` records. Returns how many there are, which may be more
+/// most `capacity` records, with text rasterized for `display_scale` device
+/// pixels per layout unit. Returns how many there are, which may be more
 /// than were written: the caller grows its buffer and asks again.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_display_list(
     h: *mut c_void,
     root: u64,
+    display_scale: f32,
     out: *mut vbyte,
     capacity: i32,
 ) -> i32 {
     let Some(tree) = (unsafe { tree(h) }) else {
         return 0;
     };
+    let mut renderer = crate::text::renderer();
     let mut records = Vec::new();
-    crate::display_list::append(
-        tree,
-        id(root),
-        (0.0, 0.0),
-        1.0,
-        crate::display_list::IDENTITY,
-        &mut Vec::new(),
-        &mut records,
-    );
+    // A frame whose glyphs overflow the atlases starts them afresh, once.
+    for _ in 0..2 {
+        let mut glyphs = crate::display_list::Glyphs {
+            renderer: &mut renderer,
+            display_scale: if display_scale > 0.0 { display_scale } else { 1.0 },
+            atlas_full: false,
+        };
+        records.clear();
+        crate::display_list::append(
+            tree,
+            id(root),
+            (0.0, 0.0),
+            1.0,
+            crate::display_list::IDENTITY,
+            &mut Vec::new(),
+            &mut glyphs,
+            &mut records,
+        );
+        if !glyphs.atlas_full {
+            break;
+        }
+        renderer.clear();
+    }
     let count = records.len() / crate::display_list::RECORD_FLOATS;
     let written = count.min(capacity.max(0) as usize) * crate::display_list::RECORD_FLOATS;
     if !out.is_null() && written > 0 {
@@ -383,7 +400,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
 define_prim!(
     hlp_blinc_tree_display_list,
     hl_blinc_tree_display_list,
-    "PXblinc_tree_lBi_i"
+    "PXblinc_tree_lfBi_i"
 );
 
 /// Write the node's absolute `x, y, width, height` as four f32s into `out`.

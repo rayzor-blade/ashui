@@ -14,6 +14,8 @@ import gpu.GpuBufferDescriptor;
 import gpu.GpuDevice;
 import gpu.GpuEncoder;
 import gpu.GpuPipeline;
+import gpu.GpuSampler;
+import gpu.GpuSamplerDescriptor;
 import gpu.GpuTextureView;
 import gpu.PrimitiveTopology;
 import gpu.TextureFormat;
@@ -25,7 +27,8 @@ import gpu.VertexStepMode;
 	primitives: each record is an instanced quad of six vertices, and each
 	run of records of one kind is one draw with that kind's pipeline, so
 	paint order holds across kinds. Colours are straight alpha, blended over
-	the target in gamma space as Blinc does on native targets.
+	the target in gamma space as Blinc does on native targets. Glyphs sample
+	the text engine's atlases, uploaded before each frame that changed them.
 
 	Written against hlwgpu's `gpu` package; the shaders are HXSL, so
 	caribou-gpu takes the same ones.
@@ -36,6 +39,12 @@ class Renderer {
 	final frameBytes:haxe.io.Bytes;
 	final boxes:Pass;
 	final shadows:Pass;
+	final text:Pass;
+	final atlas:GlyphAtlas;
+	final colorAtlas:GlyphAtlas;
+	final glyphSampler:GpuSampler;
+	/** The atlas revisions `text`'s bind group holds views of. **/
+	var textRevisions = "";
 	var instances:Null<GpuBuffer> = null;
 	var instanceCapacity = 0;
 
@@ -46,9 +55,16 @@ class Renderer {
 		frame = device.createBuffer(new GpuBufferDescriptor(BoxShader.FRAME_SIZE, BufferUsage.UNIFORM | BufferUsage.COPY_DST));
 		boxes = pass(BoxShader.WGSL, Inputs.of(ashui.core.render.BoxShader), format);
 		shadows = pass(ShadowShader.WGSL, Inputs.of(ashui.core.render.ShadowShader), format);
+		atlas = new GlyphAtlas(device, false);
+		colorAtlas = new GlyphAtlas(device, true);
+		var sampler = new GpuSamplerDescriptor();
+		sampler.magFilter(Linear);
+		sampler.minFilter(Linear);
+		glyphSampler = device.sampler(sampler);
+		text = pass(TextShader.WGSL, Inputs.of(ashui.core.render.TextShader), format, false);
 	}
 
-	function pass(wgsl:String, inputs:Array<{offset:Int, location:Int}>, format:TextureFormat):Pass {
+	function pass(wgsl:String, inputs:Array<{offset:Int, location:Int}>, format:TextureFormat, bind = true):Pass {
 		var shader = device.createShader(wgsl);
 		var builder = device.pipeline();
 		builder.shader(shader, "vertex", "fragment");
@@ -62,11 +78,35 @@ class Renderer {
 		var pipeline = builder.build();
 		failOnError('building a pipeline: ${shader.messages()}');
 		// An inferred layout is the pipeline's own, so each pipeline gets its own group.
+		var group:Null<GpuBindGroup> = null;
+		if (bind) {
+			var bindings = new GpuBindings();
+			bindings.buffer(frame);
+			group = device.bindGroup(pipeline, BoxShader.FRAME_GROUP, bindings);
+			bindings.destroy();
+		}
+		return {pipeline: pipeline, group: group};
+	}
+
+	/** Uploads changed atlases, and binds the text pass to their current views. **/
+	function syncText():Void {
+		atlas.sync();
+		colorAtlas.sync();
+		var revisions = '${atlas.revision}/${colorAtlas.revision}';
+		if (revisions == textRevisions)
+			return;
+		// Bindings follow the shader's order: the frame block, then each texture and its sampler.
 		var bindings = new GpuBindings();
 		bindings.buffer(frame);
-		var group = device.bindGroup(pipeline, BoxShader.FRAME_GROUP, bindings);
+		bindings.texture(atlas.view);
+		bindings.sampler(glyphSampler);
+		bindings.texture(colorAtlas.view);
+		bindings.sampler(glyphSampler);
+		if (text.group != null)
+			text.group.destroy();
+		text.group = device.bindGroup(text.pipeline, TextShader.FRAME_GROUP, bindings);
 		bindings.destroy();
-		return {pipeline: pipeline, group: group};
+		textRevisions = revisions;
 	}
 
 	/** Draws `list` into `view`, `width` × `height` pixels, after clearing it to the given colour. **/
@@ -75,6 +115,7 @@ class Renderer {
 		frameBytes.setFloat(BoxShader.FRAME_viewport, width);
 		frameBytes.setFloat(BoxShader.FRAME_viewport + 4, height);
 		queue.writeBuffer(frame, 0, frameBytes, frameBytes.length);
+		syncText();
 		if (list.count > 0) {
 			reserve(list.count);
 			queue.writeBuffer(instances, 0, list.bytes, list.count * DisplayList.RECORD_BYTES);
@@ -90,7 +131,11 @@ class Renderer {
 				var end = start + 1;
 				while (end < list.count && list.kind(end) == kind)
 					end++;
-				drawRun(encoder, kind == DisplayList.PRIM_SHADOW ? shadows : boxes, start, end - start);
+				drawRun(encoder, switch kind {
+					case DisplayList.PRIM_SHADOW: shadows;
+					case DisplayList.PRIM_TEXT: text;
+					default: boxes;
+				}, start, end - start);
 				start = end;
 			}
 		}
@@ -125,5 +170,5 @@ class Renderer {
 
 private typedef Pass = {
 	final pipeline:GpuPipeline;
-	final group:GpuBindGroup;
+	var group:Null<GpuBindGroup>;
 }

@@ -24,6 +24,11 @@ import gpu.TextureUsage;
 	- a blue circle of radius 12 at (32,8) with a 2px green border;
 	- a 24×16 bar at (8,40), a gradient from red on the left to blue;
 	- a 16×16 box at (40,40) that clips a 32×32 green child to itself.
+
+	Then text, on white: black "MM" at 24px, which must ink pixels, and "MM"
+	at 10px under a 4x zoom, whose stem edges must stay about a pixel wide,
+	as a glyph rasterized at its on-screen size has and a magnified one,
+	about four pixels, does not.
 **/
 class Pixels {
 	static inline var SIZE = 64;
@@ -98,6 +103,55 @@ class Pixels {
 		probe("gradient end", 31, 48, (r, g, b) -> b > 220 && r < 35 && g < 5);
 		probe("clipped child inside the clip", 48, 48, near(0x00ff00));
 		probe("clipped child outside the clip", 60, 48, near(0xffffff));
+
+		var textTree = new LayoutTree();
+		var label24 = new ashui.ui.Text("MM", {fontSize: 24, color: new Color(0x000000), wrap: false}, textTree);
+		var plain = new Div({position: Position.Absolute, left: 8, top: 8}, [label24], textTree);
+		var label10 = new ashui.ui.Text("MM", {fontSize: 10, color: new Color(0x000000), wrap: false}, textTree);
+		var zoomed = new Div({position: Position.Absolute, left: 144, top: 56, width: 32, height: 16}, [label10], textTree);
+		zoomed.node.set(Prop.Transform, new ashui.types.Transform(0, 0, 0, 4, 4));
+		var textRoot = new Div({width: 4 * SIZE, height: 2 * SIZE, bg: Brush.solid(0xffffff)}, [plain, zoomed], textTree);
+		var w = 4 * SIZE;
+		var h = 2 * SIZE;
+		var text = offscreen.renderToRgba8(textRoot, w, h);
+		function ink(x0:Int, y0:Int, x1:Int, y1:Int) {
+			var full = 0;
+			var partial = 0;
+			for (y in y0...y1)
+				for (x in x0...x1) {
+					var r = text.get((y * w + x) * 4);
+					if (r < 40)
+						full++;
+					else if (r < 215)
+						partial++;
+				}
+			return {full: full, partial: partial};
+		}
+		var small = ink(0, 0, 64, 48);
+		label = "text: ";
+		var inked = small.full > 40;
+		if (!inked)
+			failures++;
+		Sys.println('${inked ? "ok  " : "FAIL"} text: 24px glyphs ink ${small.full} pixels');
+		// Across each row of the zoomed text, how many pixels the first edge,
+		// the left side of the first M's stem, takes from paper to ink.
+		var edges = [];
+		for (y in 0...h) {
+			var x = 80;
+			while (x < w && text.get((y * w + x) * 4) >= 215)
+				x++;
+			var start = x;
+			while (x < w && text.get((y * w + x) * 4) >= 40)
+				x++;
+			if (x < w)
+				edges.push(x - start);
+		}
+		edges.sort((a, b) -> a - b);
+		var median = edges.length > 0 ? edges[edges.length >> 1] : -1;
+		var sharp = edges.length > 20 && median >= 0 && median <= 2;
+		if (!sharp)
+			failures++;
+		Sys.println('${sharp ? "ok  " : "FAIL"} text: zoomed glyph edges are $median pixels wide over ${edges.length} rows');
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

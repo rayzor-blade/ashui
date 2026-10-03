@@ -34,11 +34,12 @@ extern class LayoutTreeNative {
 	static function blinc_tree_compute_layout(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, width:Single, height:Single):Void;
 
 	/**
-		Packs the boxes to draw under `root` into `out`, at most `capacity`
-		records (see `DisplayList`). Returns how many there are, which may be
-		more than were written.
+		Packs the primitives to draw under `root` into `out`, at most
+		`capacity` records (see `DisplayList`), with text rasterized for
+		`scale` device pixels per layout unit. Returns how many there are,
+		which may be more than were written.
 	**/
-	static function blinc_tree_display_list(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
+	static function blinc_tree_display_list(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, scale:Single, out:hl.Bytes, capacity:Int):Int;
 
 	/** Writes absolute x, y, width, height as four F32s into `out`. **/
 	static function blinc_tree_get_bounds(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;

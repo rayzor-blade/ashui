@@ -58,6 +58,7 @@ version = "0.1.0"
 dependencies = [
  "blinc_core",
  "blinc_layout",
+ "blinc_text",
  "hl_abi",
  "taffy",
 ]

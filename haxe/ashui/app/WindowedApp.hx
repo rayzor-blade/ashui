@@ -189,6 +189,7 @@ class WindowedApp {
 		var background = ThemeState.get().color(Background);
 		offscreen.clear = background.rgb();
 		offscreen.clearAlpha = background.a;
+		offscreen.scale = window.scaleFactor();
 		offscreen.render(root, view, logicalWidth(), logicalHeight());
 		device.queue().presentSurface(surface);
 		return true;

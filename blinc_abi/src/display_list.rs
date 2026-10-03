@@ -24,6 +24,11 @@
 //! | 15 | a, b, c, d: a point `(x, y)` from the box's top-left is at       |
 //! |    | `(a·x + c·y, b·x + d·y)` from its screen top-left                |
 //!
+//! A text node adds one record per glyph, a `PRIM_TEXT` quad whose bounds
+//! are the glyph's, whose colour is the text's, whose gradient row is the
+//! glyph's rect in its atlas in pixels, and whose fill type is 1 when that
+//! is the colour-glyph atlas (see `text`).
+//!
 //! The walk follows Blinc's `paint/basic.rs`: a node's shadows, last first,
 //! then its fill merged with its border, then its children under the clip it
 //! pushes when its overflow is not visible. Glass, blur and image brushes
@@ -33,9 +38,11 @@
 //! after the walk.
 
 use crate::node::Tree;
+use crate::text;
 use blinc_core::{Brush, Color, CornerRadius, Gradient, GradientSpace, Transform};
 use blinc_layout::element::RenderProps;
 use blinc_layout::tree::LayoutNodeId;
+use blinc_text::{TextError, TextRenderer};
 use taffy::Overflow;
 
 pub const RECORD_FLOATS: usize = 64;
@@ -43,6 +50,7 @@ pub const RECORD_FLOATS: usize = 64;
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
 pub const PRIM_SHADOW: f32 = 3.0;
+pub const PRIM_TEXT: f32 = 7.0;
 
 /// `type_info.y`, as Blinc's `FillType`.
 const FILL_SOLID: f32 = 0.0;
@@ -96,6 +104,14 @@ fn bounding(m: Affine, rect: [f32; 4]) -> [f32; 4] {
         y1 = y1.max(cy);
     }
     [x0, y0, x1 - x0, y1 - y0]
+}
+
+/// What text drawing needs on the walk: the text engine, the device pixels
+/// per layout unit, and whether a node's glyphs did not fit the atlases.
+pub struct Glyphs<'a> {
+    pub renderer: &'a mut TextRenderer,
+    pub display_scale: f32,
+    pub atlas_full: bool,
 }
 
 /// A clip a node pushes for its children: a rect, rounded when `radii` are.
@@ -339,6 +355,7 @@ pub fn append(
     opacity: f32,
     m: Affine,
     clips: &mut Vec<Clip>,
+    glyphs: &mut Glyphs,
     out: &mut Vec<f32>,
 ) {
     let Some(layout) = tree.layout.get_layout(node) else {
@@ -400,6 +417,10 @@ pub fn append(
         }
     }
 
+    if let Some(context) = tree.layout.text_context(node) {
+        text_records(tree, node, context, (x, y, w), opacity, m, clips, glyphs, out);
+    }
+
     // Children are clipped to the padding box, rounded by what is left of a
     // uniform radius after the border; under a transform, to its bounding box.
     let overflow = tree.layout.get_style(node).map(|s| s.overflow);
@@ -431,9 +452,68 @@ pub fn append(
         pushed = true;
     }
     for child in tree.layout.children(node) {
-        append(tree, child, (x, y), opacity, m, clips, out);
+        append(tree, child, (x, y), opacity, m, clips, glyphs, out);
     }
     if pushed {
         clips.pop();
+    }
+}
+
+/// The glyph records of a text node laid out at `(x, y)` and `w` wide.
+#[allow(clippy::too_many_arguments)]
+fn text_records(
+    tree: &Tree,
+    node: LayoutNodeId,
+    context: &blinc_layout::tree::TextMeasureContext,
+    (x, y, w): (f32, f32, f32),
+    opacity: f32,
+    m: Affine,
+    clips: &[Clip],
+    glyphs: &mut Glyphs,
+    out: &mut Vec<f32>,
+) {
+    let props = tree.props.get(&node);
+    let color = props
+        .and_then(|p| p.text_color)
+        .unwrap_or([0.0, 0.0, 0.0, 1.0]);
+    let color = [color[0], color[1], color[2], color[3] * opacity];
+    if color[3] <= 0.0 || context.content.is_empty() {
+        return;
+    }
+    let on_screen = glyphs.display_scale * (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
+    let k = text::raster_scale(context.font_size, on_screen);
+    let prepared = match text::prepare(
+        glyphs.renderer,
+        context,
+        w,
+        props.and_then(|p| p.text_align),
+        props.and_then(|p| p.letter_spacing).unwrap_or(0.0),
+        color,
+        k,
+    ) {
+        Ok(prepared) => prepared,
+        Err(TextError::AtlasFull) => {
+            glyphs.atlas_full = true;
+            return;
+        }
+        Err(_) => return,
+    };
+    let clip = clip_data(clips);
+    // Without rotation or skew, glyphs start on whole device pixels, so their
+    // texels land on pixels instead of being resampled between them.
+    let snap = m[1] == 0.0 && m[2] == 0.0;
+    let display = glyphs.display_scale;
+    for g in &prepared.glyphs {
+        let [gx, gy, gw, gh] = g.bounds;
+        let mut p = Primitive::new(PRIM_TEXT, [0.0, 0.0, gw / k, gh / k], [0.0; 4]);
+        p.color = g.color;
+        p.gradient = g.uv_bounds;
+        p.fill_type = if g.is_color { 1.0 } else { 0.0 };
+        p.place(m, x + gx / k, y + gy / k);
+        if snap {
+            p.bounds[0] = (p.bounds[0] * display).round() / display;
+            p.bounds[1] = (p.bounds[1] * display).round() / display;
+        }
+        p.push(&clip, out);
     }
 }

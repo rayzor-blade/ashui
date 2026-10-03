@@ -28,16 +28,16 @@ class Snapshot {
 
 	/**
 		Builds a UI with `build` under a new owner and tree, lays it out at
-		`width` × `height` and captures it as `name`. An exception is logged
-		as an error event, then rethrown.
+		`width` × `height` and captures it as `name`, `scale` image pixels per
+		layout unit. An exception is logged as an error event, then rethrown.
 	**/
-	public static function scene(name:String, width:Int, height:Int, build:Void->Element, clear = 0xffffff, clearAlpha = 1.0):String {
+	public static function scene(name:String, width:Int, height:Int, build:Void->Element, clear = 0xffffff, clearAlpha = 1.0, scale = 1.0):String {
 		try {
 			var tree = new LayoutTree();
 			var root:Element = Owner.root(tree, _ -> build());
 			tree.flush();
 			tree.computeLayout(root.node, width, height);
-			return capture(name, tree, root.node, width, height, clear, clearAlpha);
+			return capture(name, tree, root.node, width, height, clear, clearAlpha, scale);
 		} catch (e:haxe.Exception) {
 			event('error $name ${e.message.split("\n").join(" ")}');
 			throw e;
@@ -45,19 +45,25 @@ class Snapshot {
 	}
 
 	/**
-		Draws `root` of `tree`, already laid out, into a `width` × `height`
-		image cleared to `clear`, and writes it as `name`. Returns the PNG's
-		path.
+		Draws `root` of `tree`, laid out at `width` × `height`, into an image
+		`scale` times that size cleared to `clear`, and writes it as `name`.
+		Returns the PNG's path.
 	**/
-	public static function capture(name:String, tree:LayoutTree, root:Node, width:Int, height:Int, clear = 0xffffff, clearAlpha = 1.0):String {
+	public static function capture(name:String, tree:LayoutTree, root:Node, width:Int, height:Int, clear = 0xffffff, clearAlpha = 1.0,
+			scale = 1.0):String {
 		if (offscreen == null)
 			offscreen = Offscreen.create();
 		offscreen.clear = clear;
 		offscreen.clearAlpha = clearAlpha;
-		var texture = offscreen.createTexture(width, height);
+		offscreen.scale = scale;
+		var pixelWidth = Math.round(width * scale);
+		var pixelHeight = Math.round(height * scale);
+		var texture = offscreen.createTexture(pixelWidth, pixelHeight);
 		offscreen.renderTree(tree, root, texture.createView(new GpuTextureViewDescriptor()), width, height);
-		var pixels = offscreen.readRgba8(texture, width, height);
+		var pixels = offscreen.readRgba8(texture, pixelWidth, pixelHeight);
 		texture.destroy();
+		width = pixelWidth;
+		height = pixelHeight;
 
 		sys.FileSystem.createDirectory(dir());
 		var path = sys.FileSystem.absolutePath(haxe.io.Path.join([dir(), '$name.png']));
