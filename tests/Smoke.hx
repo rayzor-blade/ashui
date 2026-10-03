@@ -868,6 +868,27 @@ class Smoke {
 			rest.join("|") == "1,0,0|0,0,0" && hovered.join("|") == "0,1,0|0,0,1" && left.join("|") == "1,0,0|0,0,0", [rest, hovered, left]);
 		ashui.css.Css.remove(stateSheet);
 
+		// --- CSS theme variables: var(--primary) follows the scheme ---
+		var themeSheet = ashui.css.Css.load('.themed { width: 10px; height: 10px; background: var(--primary); }');
+		var themeTree = new LayoutTree();
+		var themed = Owner.root(themeTree, _ -> new Div({classes: ["themed"]}, themeTree));
+		var themeList = new ashui.layout.DisplayList();
+		function red():Float {
+			themeTree.flush();
+			themeTree.computeLayout(themed.node, 50, 50);
+			themeList.update(themeTree, themed.node);
+			return themeList.count == 0 ? -1 : themeList.get(0, 8);
+		}
+		var light = red();
+		ashui.theme.ThemeState.get().setScheme(Dark);
+		var darkRed = red();
+		ashui.theme.ThemeState.get().setScheme(Light);
+		var back = red();
+		var expect = ashui.theme.ThemeState.get().color(Primary).r;
+		check("var() reads a theme token, and follows a scheme switch", Math.abs(light - expect) < 0.01 && Math.abs(darkRed - light) > 0.05
+			&& Math.abs(back - light) < 0.01, [light, darkRed, back, expect]);
+		ashui.css.Css.remove(themeSheet);
+
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);
 		check("a sheet taken out of force takes its values with it", fillOf(card).length == 0 && after.width == 0, [fillOf(card), after]);

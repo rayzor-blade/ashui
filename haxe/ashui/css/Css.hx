@@ -43,8 +43,12 @@ private typedef Applied = {
 	Text inherits `font-size`, `font-weight`, `font-style`, `font-family`,
 	`line-height`, `letter-spacing` and `text-align` from the elements
 	around it, as CSS's inherited properties do; `color` is inherited by
-	drawing. `var(--name, fallback)` reads the custom properties of `:root`
-	rules and of the element and its ancestors.
+	drawing. `var(--name, fallback)` reads the custom properties of the
+	element and its ancestors, then of `:root` rules, then the theme's
+	tokens (`--primary`, `--surface`, `--radius-lg` …; see
+	`ThemeState.toCssVariableMap`), following the theme: an element that
+	reads a token is matched again when the theme changes, a switch between
+	light and dark included.
 
 	State pseudo-classes read the element's `Interaction`: `:hover`,
 	`:active`, `:focus`, `:focus-visible`, `:focus-within`, `:disabled` and
@@ -250,7 +254,7 @@ class Css {
 			// Inherited font properties reach text alone; other elements take only their own.
 			if (!own.exists(name) && !text)
 				continue;
-			resolved.set(name, substitute(v, values));
+			resolved.set(name, substitute(v, values, identity));
 		}
 		var signature = [for (name => v in resolved) '$name:$v'];
 		signature.sort(Reflect.compare);
@@ -269,7 +273,7 @@ class Css {
 			viewportHeight: viewportHeight,
 			fontSize: fontSize,
 			rootFontSize: rootFontSize,
-			currentColor: values.exists("color") ? (try CssValue.color(substitute(values.get("color"), values)) catch (_:String) CurrentColor) : CurrentColor
+			currentColor: values.exists("color") ? (try CssValue.color(substitute(values.get("color"), values, identity)) catch (_:String) CurrentColor) : CurrentColor
 		};
 		var fields:Array<Int> = [];
 		// font-size first: em in the rest is the element's own font size.
@@ -319,8 +323,33 @@ class Css {
 		return out.join(";");
 	}
 
-	/** `var(--name, fallback)` replaced by the element's custom property, then `:root`'s, then the fallback. **/
-	static function substitute(value:String, values:Map<String, String>):String {
+	/** The theme's variables, made again when the theme changes. **/
+	static var themeVariables:Null<Map<String, String>> = null;
+
+	/** Elements that read a theme variable, matched again when the theme changes. **/
+	static final themeDependents = new haxe.ds.ObjectMap<Identity, Bool>();
+
+	static var themeWatched = false;
+
+	static function theme():Map<String, String> {
+		if (themeVariables != null)
+			return themeVariables;
+		var state = try ashui.theme.ThemeState.get() catch (_:Dynamic) null;
+		if (state == null)
+			return themeVariables = new Map();
+		if (!themeWatched) {
+			themeWatched = true;
+			new ashui.reactive.Watch(() -> state.revision.get(), _ -> {
+				themeVariables = null;
+				for (d in themeDependents.keys())
+					mark(d);
+			});
+		}
+		return themeVariables = state.toCssVariableMap();
+	}
+
+	/** `var(--name, fallback)` replaced by the element's custom property, then `:root`'s, then the theme's, then the fallback. **/
+	static function substitute(value:String, values:Map<String, String>, ?reader:Identity):String {
 		var pass = 0;
 		while (value.indexOf("var(") >= 0 && pass++ < 10) {
 			var at = value.indexOf("var(");
@@ -347,6 +376,11 @@ class Css {
 					if (v != null)
 						found = v;
 				}
+			if (found == null) {
+				found = theme().get(name.substr(2));
+				if (found != null && reader != null)
+					themeDependents.set(reader, true);
+			}
 			if (found == null)
 				found = fallback == null ? "" : fallback;
 			value = value.substr(0, at) + found + value.substr(end + 1);
