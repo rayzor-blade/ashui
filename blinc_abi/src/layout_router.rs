@@ -221,16 +221,85 @@ unsafe fn bind<T: Slot>(
 // F32: lengths, flex factors, opacity, typography metrics
 // ============================================================================
 
+/// A length in pixels; NaN is `auto`.
+fn dimension(v: f32) -> Dimension {
+    if v.is_nan() {
+        Dimension::Auto
+    } else {
+        Dimension::Length(v)
+    }
+}
+
+fn length_auto(v: f32) -> LengthPercentageAuto {
+    if v.is_nan() {
+        LengthPercentageAuto::Auto
+    } else {
+        LengthPercentageAuto::Length(v)
+    }
+}
+
+/// ashui's own number properties, numbered after Blinc's: one side of a
+/// box's padding, margin or gap, or a size as a fraction of the parent's.
+/// Each is updated under the Blinc property it is part of.
+const SIDES_BASE: i32 = 43;
+
+fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
+    use PropertyId as P;
+    let pad = |v: f32| LengthPercentage::Length(v);
+    Some(match raw - SIDES_BASE {
+        0 => (P::Padding, layout(move |s, v| s.padding.top = pad(v))?),
+        1 => (P::Padding, layout(move |s, v| s.padding.right = pad(v))?),
+        2 => (P::Padding, layout(move |s, v| s.padding.bottom = pad(v))?),
+        3 => (P::Padding, layout(move |s, v| s.padding.left = pad(v))?),
+        4 => (P::Margin, layout(|s, v| s.margin.top = length_auto(v))?),
+        5 => (P::Margin, layout(|s, v| s.margin.right = length_auto(v))?),
+        6 => (P::Margin, layout(|s, v| s.margin.bottom = length_auto(v))?),
+        7 => (P::Margin, layout(|s, v| s.margin.left = length_auto(v))?),
+        // Taffy's gap.width is the gap between columns, gap.height between rows.
+        8 => (P::Gap, layout(move |s, v| s.gap.width = pad(v))?),
+        9 => (P::Gap, layout(move |s, v| s.gap.height = pad(v))?),
+        10 => (
+            P::Width,
+            layout(|s, v| s.size.width = Dimension::Percent(v))?,
+        ),
+        11 => (
+            P::Height,
+            layout(|s, v| s.size.height = Dimension::Percent(v))?,
+        ),
+        12 => (
+            P::MinWidth,
+            layout(|s, v| s.min_size.width = Dimension::Percent(v))?,
+        ),
+        13 => (
+            P::MaxWidth,
+            layout(|s, v| s.max_size.width = Dimension::Percent(v))?,
+        ),
+        14 => (
+            P::MinHeight,
+            layout(|s, v| s.min_size.height = Dimension::Percent(v))?,
+        ),
+        15 => (
+            P::MaxHeight,
+            layout(|s, v| s.max_size.height = Dimension::Percent(v))?,
+        ),
+        16 => (
+            P::FlexBasis,
+            layout(|s, v| s.flex_basis = Dimension::Percent(v))?,
+        ),
+        _ => return None,
+    })
+}
+
 fn f32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<f32>> {
     use PropertyId as P;
     match prop {
-        P::Width => layout(|s, v| s.size.width = Dimension::Length(v)),
-        P::Height => layout(|s, v| s.size.height = Dimension::Length(v)),
-        P::MinWidth => layout(|s, v| s.min_size.width = Dimension::Length(v)),
-        P::MaxWidth => layout(|s, v| s.max_size.width = Dimension::Length(v)),
-        P::MinHeight => layout(|s, v| s.min_size.height = Dimension::Length(v)),
-        P::MaxHeight => layout(|s, v| s.max_size.height = Dimension::Length(v)),
-        P::FlexBasis => layout(|s, v| s.flex_basis = Dimension::Length(v)),
+        P::Width => layout(|s, v| s.size.width = dimension(v)),
+        P::Height => layout(|s, v| s.size.height = dimension(v)),
+        P::MinWidth => layout(|s, v| s.min_size.width = dimension(v)),
+        P::MaxWidth => layout(|s, v| s.max_size.width = dimension(v)),
+        P::MinHeight => layout(|s, v| s.min_size.height = dimension(v)),
+        P::MaxHeight => layout(|s, v| s.max_size.height = dimension(v)),
+        P::FlexBasis => layout(|s, v| s.flex_basis = dimension(v)),
         P::FlexGrow => layout(|s, v| s.flex_grow = v),
         P::FlexShrink => layout(|s, v| s.flex_shrink = v),
         P::Padding => layout(|s, v| {
@@ -243,7 +312,7 @@ fn f32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<f32>> {
             };
         }),
         P::Margin => layout(|s, v| {
-            let l = LengthPercentageAuto::Length(v);
+            let l = length_auto(v);
             s.margin = Rect {
                 left: l,
                 right: l,
@@ -258,10 +327,10 @@ fn f32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<f32>> {
                 height: l,
             };
         }),
-        P::Top => layout(|s, v| s.inset.top = LengthPercentageAuto::Length(v)),
-        P::Right => layout(|s, v| s.inset.right = LengthPercentageAuto::Length(v)),
-        P::Bottom => layout(|s, v| s.inset.bottom = LengthPercentageAuto::Length(v)),
-        P::Left => layout(|s, v| s.inset.left = LengthPercentageAuto::Length(v)),
+        P::Top => layout(|s, v| s.inset.top = length_auto(v)),
+        P::Right => layout(|s, v| s.inset.right = length_auto(v)),
+        P::Bottom => layout(|s, v| s.inset.bottom = length_auto(v)),
+        P::Left => layout(|s, v| s.inset.left = length_auto(v)),
         P::Opacity => render(|p, v| p.opacity = v),
         P::BorderWidth => render(|p, v| p.border_width = v),
         P::FontSize => render(move |p, v| {
@@ -287,6 +356,10 @@ pub unsafe extern "C" fn hl_blinc_apply_f32(
     comp: *mut c_void,
 ) {
     let node = LayoutNodeId::from_raw(node);
+    if let Some((prop, write)) = side_write(prop) {
+        unsafe { bind(node, prop, kind, constant, sig, comp, write) };
+        return;
+    }
     let Some(prop) = property(prop) else { return };
     let Some(write) = f32_write(node, prop) else {
         return;

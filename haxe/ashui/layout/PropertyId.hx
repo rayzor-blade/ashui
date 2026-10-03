@@ -65,6 +65,24 @@ enum abstract PropertyId(Int) from Int to Int {
     var TextContent = 41;
 
     var Compound = 42;
+    // --- ashui's own, after Blinc's: one side of the spacing, or a size as a fraction (0 to 1) of the parent's ---
+    var PaddingTop = 43;
+    var PaddingRight = 44;
+    var PaddingBottom = 45;
+    var PaddingLeft = 46;
+    var MarginTop = 47;
+    var MarginRight = 48;
+    var MarginBottom = 49;
+    var MarginLeft = 50;
+    var GapX = 51;
+    var GapY = 52;
+    var WidthPercent = 53;
+    var HeightPercent = 54;
+    var MinWidthPercent = 55;
+    var MaxWidthPercent = 56;
+    var MinHeightPercent = 57;
+    var MaxHeightPercent = 58;
+    var FlexBasisPercent = 59;
 
     /**
      * Determines what data type category this property belongs to,
@@ -86,7 +104,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
                  Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
-                 FontSize | LetterSpacing | LineHeight:
+                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent:
                 TypeF32;
 
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)

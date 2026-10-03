@@ -574,6 +574,27 @@ class Smoke {
 		check("a class follows the theme's scheme", Math.abs(twList.get(2, 8) - 0x1A / 255) < 0.01, twList.get(2, 8));
 		ashui.theme.ThemeState.get().setScheme(Light);
 
+		// --- Per-side spacing, auto margins and fractions of the parent ---
+		var sideTree = new LayoutTree();
+		var centred:Div = null, half:Div = null, cells:Array<ashui.layout.Element> = [];
+		var padded = Owner.root(sideTree, _ -> {
+			centred = new Div({style: ashui.style.Tw.tw("w-8 h-2 mx-auto shrink-0")});
+			half = new Div({style: ashui.style.Tw.tw("w-1/2 h-full shrink")});
+			new Div({style: ashui.style.Tw.tw("pt-1 px-4 flex flex-col"), width: 100, height: 100}, [centred, half]);
+		});
+		var wrapped = Owner.root(sideTree, _ -> {
+			cells = [for (_ in 0...3) new Div({style: ashui.style.Tw.tw("w-5 h-5 shrink-0")})];
+			new Div({style: ashui.style.Tw.tw("flex flex-row flex-wrap gap-x-2 gap-y-4"), width: 50, height: 56}, cells);
+		});
+		sideTree.flush();
+		sideTree.computeLayout(padded.node, 100, 100);
+		sideTree.computeLayout(wrapped.node, 50, 56);
+		var c = sideTree.getBounds(centred.node), h = sideTree.getBounds(half.node);
+		check("one-side padding, auto margins and fractions lay out as Tailwind's",
+			c.x == 34 && c.y == 4 && h.x == 16 && h.width == 34 && h.y == 12, [c.x, c.y, h.x, h.width, h.y]);
+		var second = sideTree.getBounds(cells[1].node), third = sideTree.getBounds(cells[2].node);
+		check("gap-x spaces columns and gap-y rows", second.x == 28 && third.x == 0 && third.y == 36, [second.x, third.x, third.y]);
+
 		// --- Transitions move a property to its new value over time ---
 		ashui.theme.ThemeState.get().setScheduler(null);
 		var moveTree = new LayoutTree();

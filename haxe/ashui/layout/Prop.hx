@@ -47,6 +47,29 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var Bottom:Prop<Single> = cast PropertyId.Bottom;
 	public static inline var Left:Prop<Single> = cast PropertyId.Left;
 
+	// --- one side, or a fraction of the parent ---
+	// A margin, size or inset of NaN is `auto`.
+	public static inline var PaddingTop:Prop<Single> = cast PropertyId.PaddingTop;
+	public static inline var PaddingRight:Prop<Single> = cast PropertyId.PaddingRight;
+	public static inline var PaddingBottom:Prop<Single> = cast PropertyId.PaddingBottom;
+	public static inline var PaddingLeft:Prop<Single> = cast PropertyId.PaddingLeft;
+	public static inline var MarginTop:Prop<Single> = cast PropertyId.MarginTop;
+	public static inline var MarginRight:Prop<Single> = cast PropertyId.MarginRight;
+	public static inline var MarginBottom:Prop<Single> = cast PropertyId.MarginBottom;
+	public static inline var MarginLeft:Prop<Single> = cast PropertyId.MarginLeft;
+	/** The gap between columns. **/
+	public static inline var GapX:Prop<Single> = cast PropertyId.GapX;
+	/** The gap between rows. **/
+	public static inline var GapY:Prop<Single> = cast PropertyId.GapY;
+	/** A fraction of the parent's width, 0 to 1. **/
+	public static inline var WidthPercent:Prop<Single> = cast PropertyId.WidthPercent;
+	public static inline var HeightPercent:Prop<Single> = cast PropertyId.HeightPercent;
+	public static inline var MinWidthPercent:Prop<Single> = cast PropertyId.MinWidthPercent;
+	public static inline var MaxWidthPercent:Prop<Single> = cast PropertyId.MaxWidthPercent;
+	public static inline var MinHeightPercent:Prop<Single> = cast PropertyId.MinHeightPercent;
+	public static inline var MaxHeightPercent:Prop<Single> = cast PropertyId.MaxHeightPercent;
+	public static inline var FlexBasisPercent:Prop<Single> = cast PropertyId.FlexBasisPercent;
+
 	// --- text ---
 	public static inline var FontSize:Prop<Single> = cast PropertyId.FontSize;
 	public static inline var FontFamily:Prop<String> = cast PropertyId.FontFamily;

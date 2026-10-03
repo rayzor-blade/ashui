@@ -22,7 +22,9 @@ class Transition {
 	/** Everything that can move between two values. **/
 	public static final ALL:Array<PropertyId> = DEFAULT.concat([
 		Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight, Padding, Margin, Gap, Top, Right, Bottom, Left, BorderWidth, CornerRadius, FontSize,
-		LetterSpacing, LineHeight, FlexGrow, FlexShrink, FlexBasis
+		LetterSpacing, LineHeight, FlexGrow, FlexShrink, FlexBasis, PaddingTop, PaddingRight, PaddingBottom, PaddingLeft, MarginTop, MarginRight,
+		MarginBottom, MarginLeft, GapX, GapY, WidthPercent, HeightPercent, MinWidthPercent, MaxWidthPercent, MinHeightPercent, MaxHeightPercent,
+		FlexBasisPercent
 	]);
 
 	public final properties:Array<PropertyId>;

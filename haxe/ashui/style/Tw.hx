@@ -18,7 +18,11 @@ import haxe.macro.Type;
 
 	- spacing, `SpacingToken` steps: `p-`, `m-`, `gap-`, `w-`, `h-`, `size-`,
 	  `min-w-`, `max-w-`, `min-h-`, `max-h-`, `top-`, `right-`, `bottom-`,
-	  `left-`, `inset-` with `0`, `0.5`, `1` … `32`;
+	  `left-`, `inset-` with `0`, `0.5`, `1` … `32`; one side with `pt-`,
+	  `pr-`, `pb-`, `pl-`, two with `px-`, `py-`, the same for `m`, and
+	  `gap-x-`, `gap-y-`;
+	- `auto` margins, sizes and insets (`mx-auto`, `w-auto`), and fractions of
+	  the parent (`w-full`, `w-1/2`, `h-2/3`, `basis-1/4` …);
 	- colours, `ColorToken` by its CSS variable name: `bg-`, `text-`,
 	  `border-` with `primary`, `surface-elevated`, `text-secondary` …;
 	- corners, `RadiusToken`: `rounded`, `rounded-sm` … `rounded-3xl`,
@@ -61,6 +65,11 @@ class Tw {
 
 	#if macro
 	static var known:Null<Map<String, Expr->Array<Expr>>>;
+	// The sides a spacing class names, and the properties' suffixes for them.
+	static final SIDES = [
+		{name: "t", keys: ["Top"]}, {name: "r", keys: ["Right"]}, {name: "b", keys: ["Bottom"]}, {name: "l", keys: ["Left"]},
+		{name: "x", keys: ["Left", "Right"]}, {name: "y", keys: ["Top", "Bottom"]}
+	];
 	static var refused:Null<Array<{pattern:EReg, why:String}>>;
 	/** Colour class names to `ColorToken` names: `surface-elevated` is `SurfaceElevated`. **/
 	@:allow(ashui.style.Gradient) static var colors:Map<String, String>;
@@ -133,6 +142,37 @@ class Tw {
 				one('${entry[0]}-$step', entry[1], value);
 			v.set('size-$step', node -> [set(node, "Width", value), set(node, "Height", value)]);
 			v.set('inset-$step', node -> [for (k in ["Top", "Right", "Bottom", "Left"]) set(node, k, value)]);
+			// One side, or two: px- is left and right, py- top and bottom.
+			for (box in [["p", "Padding"], ["m", "Margin"]])
+				for (side in SIDES)
+					v.set('${box[0]}${side.name}-$step', node -> [for (k in side.keys) set(node, box[1] + k, value)]);
+			one('gap-x-$step', "GapX", value);
+			one('gap-y-$step', "GapY", value);
+		}
+
+		// Auto margins, sizes and insets: NaN is `auto` to the layout.
+		var auto = macro(Math.NaN : Single);
+		one("m-auto", "Margin", auto);
+		for (side in SIDES)
+			v.set('m${side.name}-auto', node -> [for (k in side.keys) set(node, "Margin" + k, auto)]);
+		for (entry in [["w", "Width"], ["h", "Height"], ["basis", "FlexBasis"], ["top", "Top"], ["right", "Right"], ["bottom", "Bottom"], ["left", "Left"]])
+			one('${entry[0]}-auto', entry[1], auto);
+		v.set("size-auto", node -> [set(node, "Width", auto), set(node, "Height", auto)]);
+		v.set("inset-auto", node -> [for (k in ["Top", "Right", "Bottom", "Left"]) set(node, k, auto)]);
+
+		// Fractions of the parent, as Tailwind spells them.
+		var fractions:Array<{name:String, value:Float}> = [{name: "full", value: 1.0}];
+		for (d in [2, 3, 4, 5, 6, 12])
+			for (n in 1...d)
+				fractions.push({name: '$n/$d', value: n / d});
+		for (f in fractions) {
+			var name = f.name, value = macro($v{f.value} : Single);
+			for (entry in [
+				["w", "WidthPercent"], ["h", "HeightPercent"], ["min-w", "MinWidthPercent"], ["max-w", "MaxWidthPercent"],
+				["min-h", "MinHeightPercent"], ["max-h", "MaxHeightPercent"], ["basis", "FlexBasisPercent"]
+			])
+				one('${entry[0]}-$name', entry[1], value);
+			v.set('size-$name', node -> [set(node, "WidthPercent", value), set(node, "HeightPercent", value)]);
 		}
 
 		// Colours, from ColorToken, named as their CSS variables: tooltipBg is "tooltip-bg".
@@ -221,9 +261,8 @@ class Tw {
 
 		refused = [
 			{pattern: ~/^(hover|focus|active|disabled|dark|group-hover|focus-visible):/, why: "state variants need input events (e532fc0)"},
-			{pattern: ~/^(p[xytrbl]|m[xytrbl]|gap-[xy])-/, why: "per-side spacing has no property to bind to yet"},
 			{pattern: ~/^-/, why: "negative values have no token"},
-			{pattern: ~/^(w|h|min-w|max-w|min-h|max-h|size)-(full|screen|auto|\d+\/\d+)$/, why: "relative sizes are not bound yet"},
+			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^tracking-/, why: "letter spacing in ems needs the font size, which is not bound yet"},
 			{pattern: ~/^animate-/, why: "keyframe animations need transforms, which are not drawn yet"},
 			{pattern: ~/\[.*\]/, why: "arbitrary values are not supported; use a token or an attribute"}
