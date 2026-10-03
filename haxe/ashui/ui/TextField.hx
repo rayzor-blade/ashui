@@ -15,7 +15,9 @@ typedef TextFieldProps = {
 	/** Shown, dimmed, while the value is empty. **/
 	?placeholder:String,
 	?disabled:IntoReactive<Bool>,
-	/** Its width in layout units; 240 by default. **/
+	/** HTML's input type, which CSS's `input[type=...]` sees: `text` by default; `password` shows dots and refuses copying. **/
+	?type:String,
+	/** Its width in layout units; the user-agent stylesheet's by default. **/
 	?width:Single,
 	/** Called with the new value after each edit. **/
 	?onInput:String->Void,
@@ -33,6 +35,11 @@ typedef TextFieldProps = {
 	`onSubmit`. Clicking places the caret and dragging selects. A value
 	longer than the field scrolls to keep the caret in view. `TextEditing`
 	does the editing; `TextArea` is the many-line view of the same.
+
+	It is the `<input>` of a text type: its look is the user-agent
+	stylesheet's `input[type="text"]` (or the type given), with `:hover`,
+	`:focus` and `:disabled`. Children are placed after the text, inside
+	the box, as a number input's steppers are.
 **/
 class TextField extends Component<TextFieldProps> {
 	/** Space kept between the clipped text and the field's inner edge, so a glyph or the caret at either end is not cut. **/
@@ -48,10 +55,12 @@ class TextField extends Component<TextFieldProps> {
 
 	function render():Element {
 		var e = editing = new TextEditing(props.value != null ? props.value : Signal.make(""), false, 0);
+		var type = props.type != null ? props.type.toLowerCase() : "text";
+		if (type == "password")
+			e.mask = "\u2022";
 		e.onInput = props.onInput;
 		e.onSubmit = props.onSubmit;
 		var value = e.value;
-		var width:Single = props.width != null ? props.width : 240;
 		var shown = Computed.make(() -> e.display());
 		var empty = Computed.make(() -> shown.get() == "");
 		var placeholder = props.placeholder != null ? props.placeholder : "";
@@ -82,14 +91,7 @@ class TextField extends Component<TextFieldProps> {
 		var stripLeft = Computed.make(() -> (INSET - scroll.get() : Single));
 		text = new Text(shown, {wrap: false, fontSize: e.fontSize.get()});
 		e.text = text;
-		var clip:Div = null;
-		box = hxx('
-			<div class="flex flex-row items-center px-2.5 rounded-lg bg-input-bg focus:bg-input-bg-focus disabled:bg-input-bg-disabled border-2 border-border hover:border-border-hover focus:border-border-focus disabled:border-border transition-colors"
-				width={width} height={38} focusable={true}
-				onPointerDown={p -> e.press(textX(p.x), 0, p.shift, p.clickCount)} onPointerMove={p -> e.drag(textX(p.x), 0)} onPointerUp={_ -> e.release()}
-				onKeyDown={e.key} onKeyUp={e.keyUp} onTextInput={e.type} onComposition={e.compose}
-				onFocus={_ -> e.focus()} onBlur={_ -> e.blur()}>
-				${clip = hxx('<div class="relative grow h-full overflow-hidden">
+		clip = hxx('<div class="relative grow h-full overflow-hidden">
 					<div class="absolute top-0 bottom-0 flex flex-row items-center" left={stripLeft} width={4096}>
 						<div class="relative">
 							<div class="absolute top-0 bottom-0 bg-selection" left={selectionLeft} width={selectionWidth} />
@@ -102,12 +104,22 @@ class TextField extends Component<TextFieldProps> {
 								opacity={Computed.make(() -> (e.showsCaret() ? e.caretAlpha.get() : 0 : Single))} />
 						</div>
 					</div>
-				</div>')}
-			</div>
-		');
-		this.clip = clip;
+				</div>');
+		box = new Div({tag: "input"}, ([clip] : Array<Element>).concat(children));
+		if (props.width != null)
+			box.node.set(ashui.layout.Prop.Width, props.width);
+		ashui.css.Identity.of(box.tree, box.node.id).setAttribute("type", type);
 		text.node.set(ashui.layout.Prop.FontSize, e.fontSize);
-		e.interaction = Interaction.of(box.node);
+		var i = e.interaction = Interaction.of(box.node).setFocusable(true);
+		i.onPointerDown(p -> e.press(textX(p.x), 0, p.shift, p.clickCount));
+		i.onPointerMove(p -> e.drag(textX(p.x), 0));
+		i.onPointerUp(_ -> e.release());
+		i.onKeyDown(e.key);
+		i.onKeyUp(e.keyUp);
+		i.onTextInput(e.type);
+		i.onComposition(e.compose);
+		i.onFocus(_ -> e.focus());
+		i.onBlur(_ -> e.blur());
 		e.onEscape = () -> Focus.clear(box.tree);
 		if (props.disabled != null)
 			e.interaction.setDisabled(props.disabled);

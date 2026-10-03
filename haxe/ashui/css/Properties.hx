@@ -180,10 +180,18 @@ class Properties {
 				number(n, Prop.FlexShrink, parts[1], 0)
 			].concat(handlers.get("flex-basis")(n, parts[2], c));
 		});
-		h.set("overflow", (n, v, _) -> [
-			enumWrite(n, Prop.Overflow, v, ["visible" => Overflow.Visible, "clip" => Overflow.Clip, "hidden" => Overflow.Hidden, "scroll" => Overflow.Scroll,
-				"auto" => Overflow.Scroll])
-		]);
+		// Scrolling along one axis or both makes the element a scroll container, as Tw's `overflow-auto` does.
+		for (axis in [{name: "overflow", x: true, y: true}, {name: "overflow-x", x: true, y: false}, {name: "overflow-y", x: false, y: true}]) {
+			h.set(axis.name, (n, v, _) -> {
+				var key = StringTools.trim(v).toLowerCase();
+				if (key == "scroll" || key == "auto")
+					ashui.input.Scroll.attach(n, axis.x, axis.y);
+				[
+					enumWrite(n, Prop.Overflow, v, ["visible" => Overflow.Visible, "clip" => Overflow.Clip, "hidden" => Overflow.Hidden, "scroll" => Overflow.Scroll,
+						"auto" => Overflow.Scroll])
+				];
+			});
+		}
 
 		// --- Paint ---
 		h.set("opacity", (n, v, _) -> {

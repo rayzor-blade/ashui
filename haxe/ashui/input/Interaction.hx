@@ -63,6 +63,10 @@ class Interaction {
 
 	final handlers = new Map<String, Array<Dynamic->Void>>();
 	var disabledWatch:Null<ashui.reactive.Watch<Bool>>;
+	/** Disabled by its own `setDisabled`; `disabled` is that or any of `disablers`. **/
+	var ownDisabled = false;
+	/** What disables it from outside, as a disabled fieldset does what it holds. **/
+	final disablers:Array<{}> = [];
 
 	function new(node:Node) {
 		this.node = node;
@@ -145,15 +149,37 @@ class Interaction {
 		}
 		switch (value : ReactiveType<Bool>) {
 			case Const(v):
-				disabled.set(v);
+				setOwnDisabled(v);
 			case Bound(s):
-				disabledWatch = new ashui.reactive.Watch(() -> s.get(), v -> disabled.set(v));
+				disabledWatch = new ashui.reactive.Watch(() -> s.get(), setOwnDisabled);
 			case Derived(c):
-				disabledWatch = new ashui.reactive.Watch(() -> c.get(), v -> disabled.set(v));
+				disabledWatch = new ashui.reactive.Watch(() -> c.get(), setOwnDisabled);
 		}
-		if (disabled.get() && focused.get())
-			Focus.clear(node.tree);
 		return this;
+	}
+
+	/** Disables it while `on`, on behalf of `source`, whatever its own `setDisabled` says; each source is counted once. **/
+	public function disableFrom(source:{}, on:Bool):Interaction {
+		var has = disablers.indexOf(source) >= 0;
+		if (on && !has)
+			disablers.push(source);
+		else if (!on && has)
+			disablers.remove(source);
+		applyDisabled();
+		return this;
+	}
+
+	function setOwnDisabled(v:Bool):Void {
+		ownDisabled = v;
+		applyDisabled();
+	}
+
+	function applyDisabled():Void {
+		var v = ownDisabled || disablers.length > 0;
+		if (disabled.get() != v)
+			disabled.set(v);
+		if (v && focused.get())
+			Focus.clear(node.tree);
 	}
 
 	/** Calls `handler` on a press and release of the primary button over it, or Enter or Space while it has focus. **/

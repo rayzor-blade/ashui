@@ -59,6 +59,13 @@ class TextEditing {
 
 	/** The text node the stops are measured for; set by the view. **/
 	public var text:Null<Text>;
+	/** A password's: the character each of the value's is shown and measured as, and copying and cutting are refused; null shows the value. **/
+	public var mask:Null<String> = null;
+	/** What may be typed or pasted: the inserted text, with anything refused taken out; null takes everything. **/
+	public var accept:Null<String->String> = null;
+	/** Called first with each key going down; true when it handled the key, so editing does not. **/
+	public var onKey:Null<KeyEvent->Bool> = null;
+
 	/** The view's input state, whose `disabled` stops editing; set by the view. **/
 	public var interaction:Null<Interaction>;
 
@@ -89,6 +96,8 @@ class TextEditing {
 		var size:Float = fontSize.get();
 		if ((measured == s && measuredSize == size) || text == null)
 			return stops;
+		var key = s;
+		s = masked(s);
 		var capacity = s.length + 2;
 		var out = new hl.Bytes(capacity * 12);
 		var info = new hl.Bytes(8);
@@ -97,7 +106,7 @@ class TextEditing {
 			stops = [for (i in 0...n) {index: Std.int(out.getF32(i * 12)), x: out.getF32(i * 12 + 4), line: Std.int(out.getF32(i * 12 + 8))}];
 			lineHeight = info.getF32(0);
 			lines = Std.int(info.getF32(4));
-			measured = s;
+			measured = key;
 			measuredSize = size;
 		}
 		return stops;
@@ -165,7 +174,8 @@ class TextEditing {
 
 	/** Where the word before, or after, `i` starts or ends. **/
 	function word(i:Int, forward:Bool):Int {
-		var s = value.get();
+		// A password is one word, so moving by word gives nothing of it away.
+		var s = masked(value.get());
 		inline function space(at:Int)
 			return StringTools.isSpace(s, at);
 		if (forward) {
@@ -237,15 +247,19 @@ class TextEditing {
 		return value.get().substring(r.from, r.to);
 	}
 
-	/** The text as shown: the value, with any composition in place of the selection. **/
+	/** The text as shown: the value, with any composition in place of the selection, masked for a password. **/
 	public function display():String {
 		var c = composing.get();
 		if (c == "")
-			return value.get();
+			return masked(value.get());
 		var r = selectionRange();
 		var s = value.get();
-		return s.substr(0, r.from) + c + s.substr(r.to);
+		return masked(s.substr(0, r.from) + c + s.substr(r.to));
 	}
+
+	/** `s` as shown: one mask character for each of its, keeping indices, or `s` itself. **/
+	function masked(s:String):String
+		return mask == null ? s : StringTools.lpad("", mask, s.length);
 
 	/** Where the caret is shown in `display()`: in the composition while there is one. **/
 	public function displayCaret():Int {
@@ -296,14 +310,19 @@ class TextEditing {
 
 	/** Inserts typed text in place of the selection; a line break is a space unless multiline. **/
 	public function type(e:TextInputEvent):Void {
-		if (!disabled())
-			replace(multiline ? e.text : ~/\r\n|\r|\n/g.replace(e.text, " "));
+		if (disabled())
+			return;
+		var typed = accept == null ? e.text : accept(e.text);
+		if (typed != "")
+			replace(multiline ? typed : ~/\r\n|\r|\n/g.replace(typed, " "));
 	}
 
 	/** Moves, selects, deletes, copies, pastes or submits for a key going down. **/
 	public function key(e:KeyEvent):Void {
 		// The input method handles keys while it composes.
 		if (disabled() || composing.get() != "")
+			return;
+		if (onKey != null && onKey(e))
 			return;
 		var mac = Sys.systemName() == "Mac";
 		var byLine = e.superKey || (e.control && !mac);
@@ -356,10 +375,10 @@ class TextEditing {
 				anchor.set(0);
 				move(length, true);
 			case Character(c) if ((c == "c" || c == "C") && (e.superKey || e.control)):
-				if (selected)
+				if (selected && mask == null)
 					Clipboard.setText(selection());
 			case Character(c) if ((c == "x" || c == "X") && (e.superKey || e.control)):
-				if (selected) {
+				if (selected && mask == null) {
 					Clipboard.setText(selection());
 					replace("");
 				}
@@ -370,6 +389,8 @@ class TextEditing {
 					pasted = ~/\r\n|\r|\n/g.replace(pasted, " ");
 				else
 					pasted = ~/\r\n|\r/g.replace(pasted, "\n");
+				if (accept != null)
+					pasted = accept(pasted);
 				if (pasted != "" || selected)
 					replace(pasted);
 			case _:
@@ -426,7 +447,7 @@ class TextEditing {
 
 	/** The word, or paragraph, around string index `i`, as the press's granularity takes it. **/
 	function unit(i:Int):{from:Int, to:Int} {
-		var s = value.get();
+		var s = masked(value.get());
 		if (granularity >= 3) {
 			var from = s.lastIndexOf("\n", i - 1) + 1;
 			var to = s.indexOf("\n", i);

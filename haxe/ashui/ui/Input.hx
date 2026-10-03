@@ -2,6 +2,8 @@ package ashui.ui;
 
 import ashui.input.Events;
 import ashui.input.Interaction;
+import ashui.input.Pointer;
+import ashui.layout.Prop;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
 import ashui.layout.LayoutTree;
@@ -11,7 +13,7 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 typedef InputProps = {
-	/** HTML's input type: `checkbox` or `radio`. **/
+	/** HTML's input type: `checkbox`, `radio`, `range`, `number`, or a text type: `text` (the default), `password`, `search`, `email`, `tel` or `url`. **/
 	?type:String,
 
 	/** Whether it is checked. A signal is read and written, so the input and your code share it; a constant sets it once. **/
@@ -20,8 +22,23 @@ typedef InputProps = {
 	/** A checkbox in neither state, until it is clicked; CSS's `:indeterminate`. **/
 	?indeterminate:IntoReactive<Bool>,
 
-	/** A radio's value: what its group holds while it is checked. **/
-	?value:String,
+	/**
+		Its value as text. A text input's or a number's: a signal is read and
+		written, as `checked` is. A radio's: what its group holds while it is
+		checked. A range's: where it starts, unless `valueAsNumber` is given.
+	**/
+	?value:IntoReactive<String>,
+
+	/** A number's or a range's value, read and written when a signal; NaN while a number input is empty. **/
+	?valueAsNumber:IntoReactive<Float>,
+
+	/** A number's or a range's bounds and the step its value moves by; a range is 0 to 100 in steps of 1 by default. **/
+	?min:Float,
+	?max:Float,
+	?step:Float,
+
+	/** Shown, dimmed, while a text input or a number is empty. **/
+	?placeholder:String,
 
 	/**
 		Radios sharing a value: the checked one's, set as one is checked, so
@@ -38,8 +55,11 @@ typedef InputProps = {
 	/** Its id, which CSS's `#id` and a label's `for` find. **/
 	?id:String,
 
-	/** Called after a click, Space or a label checks or unchecks it, with whether it is checked now. **/
-	?onChange:Bool->Void
+	/** A checkbox's or a radio's: called after a click, Space or a label checks or unchecks it, with whether it is checked now. **/
+	?onChange:Bool->Void,
+
+	/** A text input's, a number's or a range's: called with the value as text after each edit, step or drag. **/
+	?onInput:String->Void
 }
 
 /**
@@ -48,9 +68,18 @@ typedef InputProps = {
 	checked the same ways, and the arrow keys move focus to the next or
 	previous radio of its set and check it. Disabled, it takes none of that.
 
-	Its look is the user-agent stylesheet's, through `input[type="checkbox"]`,
-	`input[type="radio"]`, `:checked`, `:indeterminate`, `:hover`,
-	`:focus-visible` and `:disabled`, so CSS or Tw classes restyle it.
+	A text input is a `TextField`: `password` shows dots and refuses copying,
+	and Escape empties a `search`. A `number` is one that takes only what a
+	number is written with; the up and down arrows, or its steppers, move it
+	by `step` within `min` and `max`. A `range` is a slider: pressing or
+	dragging along it sets the value, as do the arrows, Page Up and Page
+	Down (a tenth of the range), Home and End.
+
+	Its look is the user-agent stylesheet's, through `input[type="..."]`,
+	`:checked`, `:indeterminate`, `:hover`, `:focus`, `:focus-visible` and
+	`:disabled`, so CSS or Tw classes restyle it. A range's parts are
+	`.fill`, `.thumb` and `.rest`; a number's steppers `.steppers` with
+	`.step-up` and `.step-down`.
 **/
 class Input extends Component<InputProps> {
 	/** Inputs by node, for labels to find. **/
@@ -65,19 +94,53 @@ class Input extends Component<InputProps> {
 	/** Whether it is checked; the caller's signal when `checked` was one. **/
 	public var state(default, null):Signal<Bool>;
 
+	/** A text input's or a number's text; the caller's signal when `value` was one. **/
+	public var value(default, null):Null<Signal<String>> = null;
+
+	/** A number's or a range's value; the caller's signal when `valueAsNumber` was one. **/
+	public var valueAsNumber(default, null):Null<Signal<Float>> = null;
+
+	/** A text input's or a number's editing: its caret, selection and what it shows. **/
+	public var editing(default, null):Null<TextEditing> = null;
+
 	var interaction:Interaction;
 
 	function render():Element {
 		var type = props.type == null ? "text" : props.type.toLowerCase();
-		if (type != "checkbox" && type != "radio")
-			throw 'input: type "$type" is not built in yet; checkbox and radio are';
+		state = Signal.make(false);
+		var el = switch type {
+			case "checkbox" | "radio": checkable(type);
+			case "range": range();
+			case "number": textual(type);
+			case t if (TEXT_TYPES.indexOf(t) >= 0): textual(type);
+			case _: throw 'input: type "$type" is not built in; checkbox, radio, range, number and ${TEXT_TYPES.join(", ")} are';
+		}
+		var key = haxe.Int64.toStr(el.node.id);
+		byNode.set(key, this);
+		Owner.onCleanup(() -> byNode.remove(key));
+		return el;
+	}
+
+	static final TEXT_TYPES = ["text", "password", "search", "email", "tel", "url"];
+
+	/** The value prop as a constant, for a radio's or a checkbox's; null when it is not one. **/
+	function constValue():Null<String>
+		return switch props.value {
+			case Const(v): v;
+			case Bound(s): s.get();
+			case Derived(c): c.get();
+			case null: null;
+		}
+
+	function checkable(type:String):Element {
 		var box = new Div({tag: "input", id: props.id});
 		var identity = ashui.css.Identity.of(box.tree, box.node.id);
 		identity.setAttribute("type", type);
 		if (props.name != null)
 			identity.setAttribute("name", props.name);
-		if (props.value != null)
-			identity.setAttribute("value", props.value);
+		var radioValue = constValue();
+		if (radioValue != null)
+			identity.setAttribute("value", radioValue);
 		interaction = Interaction.of(box.node).setFocusable(true);
 		if (props.disabled != null)
 			interaction.setDisabled(props.disabled);
@@ -92,7 +155,7 @@ class Input extends Component<InputProps> {
 				s;
 		}
 		if (type == "radio" && props.group != null) {
-			var group = props.group, value = props.value;
+			var group = props.group, value = radioValue;
 			// Checked while the group holds its value; setting the group checks it.
 			state.set(group.get() == value);
 			new Watch(() -> group.get(), v -> state.set(v == value));
@@ -132,10 +195,6 @@ class Input extends Component<InputProps> {
 			});
 		}
 
-		var key = haxe.Int64.toStr(box.node.id);
-		byNode.set(key, this);
-		Owner.onCleanup(() -> byNode.remove(key));
-
 		interaction.onClick(_ -> activate());
 		interaction.onKeyDown(e -> {
 			switch e.key {
@@ -154,11 +213,233 @@ class Input extends Component<InputProps> {
 		return box;
 	}
 
-	/** Checks or flips it, as a click, Space or its label does; nothing while it is disabled. **/
+	/** A text input, or a number: a `TextField`, with a number's steppers inside it. **/
+	function textual(type:String):Element {
+		var text = switch props.value {
+			case Bound(s): s;
+			case Const(v): Signal.make(v);
+			case Derived(c):
+				var s = Signal.make(c.get());
+				new Watch(() -> c.get(), v -> s.set(v));
+				s;
+			case null: Signal.make("");
+		}
+		value = text;
+		var steppers:Array<Element> = [];
+		if (type == "number") {
+			var n = valueAsNumber = numberState(parseNumber(text.get()));
+			if (!same(parseNumber(text.get()), n.get()))
+				text.set(formatNumber(n.get()));
+			// The text and the number follow each other; text that is no number yet, as "1e" is while typed, leaves the number.
+			new Watch(() -> text.get(), t -> {
+				var v = parseNumber(t);
+				if ((t == "" || !Math.isNaN(v)) && !same(v, n.get()))
+					n.set(v);
+			});
+			new Watch(() -> n.get(), v -> if (!same(parseNumber(text.get()), v)) text.set(formatNumber(v)));
+			var up = new Div({classes: ["step-up"]}, [new Svg(chevron(true), {width: 10, height: 10})]);
+			var down = new Div({classes: ["step-down"]}, [new Svg(chevron(false), {width: 10, height: 10})]);
+			Interaction.of(up.node).onClick(_ -> stepNumber(1));
+			Interaction.of(down.node).onClick(_ -> stepNumber(-1));
+			steppers = [new Div({classes: ["steppers"]}, [up, down])];
+		}
+		var field = new TextField({
+			value: text,
+			type: type,
+			placeholder: props.placeholder,
+			disabled: props.disabled,
+			onInput: props.onInput
+		}, steppers);
+		var e = editing = field.editing;
+		interaction = e.interaction;
+		if (type == "number") {
+			e.accept = typed -> ~/[^0-9.eE+-]/g.replace(typed, "");
+			e.onKey = k -> switch k.key {
+				case Named(ArrowUp):
+					stepNumber(1);
+					true;
+				case Named(ArrowDown):
+					stepNumber(-1);
+					true;
+				case _: false;
+			}
+		} else if (type == "search") {
+			// Escape empties a search, and gives up focus only when it is empty already.
+			e.onKey = k -> if (k.key.match(Named(Escape)) && text.get() != "") {
+				text.set("");
+				if (props.onInput != null)
+					props.onInput("");
+				true;
+			} else false;
+		}
+		var identity = ashui.css.Identity.of(field.tree, field.node.id);
+		if (props.id != null)
+			identity.setId(props.id);
+		if (props.name != null)
+			identity.setAttribute("name", props.name);
+		return field;
+	}
+
+	/** A number's or a range's value: `valueAsNumber`, else `value` read as a number, else `initial`. **/
+	function numberState(initial:Float):Signal<Float> {
+		switch props.valueAsNumber {
+			case Bound(s): return s;
+			case Const(v): return Signal.make(v);
+			case Derived(c):
+				var s = Signal.make(c.get());
+				new Watch(() -> c.get(), v -> s.set(v));
+				return s;
+			case null:
+		}
+		var parsed = parseNumber(constValue() == null ? "" : constValue());
+		return Signal.make(Math.isNaN(parsed) ? initial : parsed);
+	}
+
+	/** Moves a number by `by` steps from where it is, or from nothing, within its bounds. **/
+	function stepNumber(by:Int):Void {
+		if (interaction.disabled.get())
+			return;
+		var n = valueAsNumber;
+		var step = props.step != null && props.step > 0 ? props.step : 1;
+		var from = Math.isNaN(n.get()) ? (props.min != null ? props.min : 0) - (by > 0 ? step : -step) : n.get();
+		var v = snap(from + by * step, props.min, props.max, step);
+		if (!same(v, n.get())) {
+			n.set(v);
+			if (props.onInput != null)
+				props.onInput(formatNumber(v));
+		}
+	}
+
+	/** A range: a slider, its `.fill` and `.rest` either side of its `.thumb`, grown in proportion to the value. **/
+	function range():Element {
+		var min = props.min != null ? props.min : 0.0;
+		var max = props.max != null ? props.max : 100.0;
+		if (max < min)
+			max = min;
+		var step = props.step != null && props.step > 0 ? props.step : 1.0;
+		var n = valueAsNumber = numberState(snap(min + (max - min) / 2, min, max, step));
+		var fraction = Computed.make(() -> {
+			var v = n.get();
+			(max > min && !Math.isNaN(v) ? Math.max(0, Math.min(1, (v - min) / (max - min))) : 0.0);
+		});
+		var fill = new Div({classes: ["fill"]});
+		var thumb = new Div({classes: ["thumb"]});
+		var rest = new Div({classes: ["rest"]});
+		// Grown in proportion, the two together taking all the room the thumb leaves.
+		fill.node.set(Prop.FlexGrow, Computed.make(() -> (fraction.get() : Single)));
+		rest.node.set(Prop.FlexGrow, Computed.make(() -> (1 - fraction.get() : Single)));
+		var box = new Div({tag: "input", id: props.id}, [fill, thumb, rest]);
+		var identity = ashui.css.Identity.of(box.tree, box.node.id);
+		identity.setAttribute("type", "range");
+		if (props.name != null)
+			identity.setAttribute("name", props.name);
+		interaction = Interaction.of(box.node).setFocusable(true);
+		if (props.disabled != null)
+			interaction.setDisabled(props.disabled);
+		var tree = box.tree;
+		function set(v:Float) {
+			v = snap(v, min, max, step);
+			if (same(v, n.get()))
+				return;
+			n.set(v);
+			if (props.onInput != null)
+				props.onInput(formatNumber(v));
+		}
+		// The value under window x: the thumb's centre travels from one end less half its width to the other.
+		function seek(x:Float) {
+			var b = tree.getBounds(box.node), t = tree.getBounds(thumb.node);
+			if (b == null || t == null)
+				return;
+			var travel = b.width - t.width;
+			set(min + (travel > 0 ? (x - b.x - t.width / 2) / travel : 0) * (max - min));
+		}
+		// A drag follows the pointer until the button comes up, wherever the pointer goes.
+		var drag:Null<LayoutTree->Void> = null;
+		function stopDrag() {
+			if (drag != null)
+				Pointer.hooks.remove(drag);
+			drag = null;
+		}
+		interaction.onPointerDown(p -> {
+			seek(p.x);
+			stopDrag();
+			drag = t -> if (t == tree) {
+				var at = Pointer.at(tree);
+				if (at.pressed) seek(at.x) else stopDrag();
+			}
+			Pointer.hooks.push(drag);
+		});
+		Owner.onCleanup(stopDrag);
+		interaction.onKeyDown(e -> {
+			var page = Math.max(step, (max - min) / 10);
+			var v = n.get();
+			switch e.key {
+				case Named(ArrowRight) | Named(ArrowUp): set(v + step);
+				case Named(ArrowLeft) | Named(ArrowDown): set(v - step);
+				case Named(PageUp): set(v + page);
+				case Named(PageDown): set(v - page);
+				case Named(Home): set(min);
+				case Named(End): set(max);
+				case _: return;
+			}
+			e.preventDefault();
+		});
+		return box;
+	}
+
+	/** `v` on the grid of `step` from `min` (or 0), within `min` and `max` where given, rounded to the step's decimals. **/
+	static function snap(v:Float, min:Null<Float>, max:Null<Float>, step:Float):Float {
+		if (Math.isNaN(v))
+			return v;
+		var base = min != null ? min : 0.0;
+		var places = decimals(step) + decimals(base);
+		var scale = Math.pow(10, places);
+		inline function grid(x:Float)
+			return Math.round((base + x * step) * scale) / scale;
+		v = grid(Math.round((v - base) / step));
+		if (max != null && v > max)
+			v = grid(Math.floor((max - base) / step));
+		if (min != null && v < min)
+			v = min;
+		return v;
+	}
+
+	static function decimals(x:Float):Int {
+		var s = Std.string(x);
+		var dot = s.indexOf(".");
+		return dot < 0 || s.indexOf("e") >= 0 ? 0 : s.length - dot - 1;
+	}
+
+	/** `s` as a number, as HTML reads one: NaN when it is not one, or empty. **/
+	static function parseNumber(s:String):Float
+		return ~/^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?$/.match(StringTools.trim(s)) ? Std.parseFloat(StringTools.trim(s)) : Math.NaN;
+
+	static function formatNumber(v:Float):String
+		return Math.isNaN(v) ? "" : Std.string(v);
+
+	static inline function same(a:Float, b:Float):Bool
+		return a == b || (Math.isNaN(a) && Math.isNaN(b));
+
+	static var upMark:Null<ashui.svg.SvgDocument> = null;
+	static var downMark:Null<ashui.svg.SvgDocument> = null;
+
+	static function chevron(up:Bool):ashui.svg.SvgDocument {
+		if (upMark == null) {
+			upMark = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>');
+			downMark = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>');
+		}
+		return up ? upMark : downMark;
+	}
+
+	/** Checks or flips it, as a click, Space or its label does, or focuses any other type; nothing while it is disabled. **/
 	public function activate():Void {
 		if (interaction.disabled.get())
 			return;
-		var type = props.type.toLowerCase();
+		var type = props.type == null ? "text" : props.type.toLowerCase();
+		if (type != "checkbox" && type != "radio") {
+			ashui.input.Focus.set(interaction, false);
+			return;
+		}
 		if (type == "checkbox") {
 			interaction.indeterminate.set(false);
 			state.set(!state.get());
@@ -173,12 +454,12 @@ class Input extends Component<InputProps> {
 
 	/** Whether it is checked now: a grouped radio while its group holds its value, read now rather than when `state` catches up. **/
 	public function isChecked():Bool
-		return props.group != null && props.type.toLowerCase() == "radio" ? props.group.get() == props.value : state.get();
+		return props.group != null && props.type != null && props.type.toLowerCase() == "radio" ? props.group.get() == constValue() : state.get();
 
 	/** Checks this radio: its group takes its value, or the others of its name uncheck. **/
 	function check():Void {
 		if (props.group != null) {
-			props.group.set(props.value);
+			props.group.set(constValue());
 			return;
 		}
 		state.set(true);

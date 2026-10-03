@@ -927,6 +927,117 @@ class Smoke {
 		check("a modal dialog takes focus, keeps Tab inside, and Escape closes it, setting its signal",
 			inDialog != null && stillIn == inDialog && !shown.get(), [inDialog == null, stillIn == inDialog, shown.get()]);
 
+		// --- Built-in text, number and range inputs; progress, meter, fieldset, a, hr, textarea ---
+		var formsTree = new LayoutTree();
+		var typed = Signal.make("");
+		var pass = Signal.make("abc");
+		var count = Signal.make(2.0);
+		var level = Signal.make(50.0);
+		var locked = Signal.make(false);
+		var followed = 0;
+		var formsPage:Div = Owner.root(formsTree, _ -> hxx('
+			<div width={400} height={640} flexDirection={Column} alignItems={Start} gap={8}>
+				<input type="text" value={typed} />
+				<input type="password" value={pass} />
+				<input type="number" valueAsNumber={count} min={0} max={3} step={0.5} />
+				<input type="range" valueAsNumber={level} min={0} max={100} step={10} />
+				<fieldset disabled={locked}><legend><input type="checkbox" /></legend><input type="checkbox" /></fieldset>
+				<progress value={0.25} />
+				<meter value={0.9} low={0.3} high={0.7} optimum={0.1} />
+				<a onClick={_ -> followed++}>Go</a>
+				<hr />
+				<textarea />
+			</div>
+		'));
+		function formsSettle() {
+			formsTree.flush();
+			formsTree.computeLayout(formsPage.node, 400, 640);
+			formsTree.flush();
+		}
+		formsSettle();
+		var formKids = formsTree.children(formsPage.node.id);
+		function formNode(i:Int)
+			return new ashui.layout.Node(formKids[i]);
+		function clickAt(i:Int, fx:Float) {
+			var b = formsTree.getBounds(formNode(i));
+			ashui.input.Pointer.move(formsTree, b.x + b.width * fx, b.y + b.height / 2);
+			ashui.input.Pointer.press(formsTree);
+			ashui.input.Pointer.release(formsTree);
+			formsSettle();
+		}
+		function formKey(k:window.Key, code:window.KeyCode) {
+			ashui.input.Keyboard.input(formsTree, key(k, code));
+			formsSettle();
+		}
+		clickAt(0, 0.5);
+		ashui.input.Keyboard.text(formsTree, "hi");
+		formsSettle();
+		check("a text input edits its value signal", typed.get() == "hi", typed.get());
+		var passInput = ashui.ui.Input.at(formsTree, formKids[1]);
+		check("a password shows a dot for each character", passInput.editing.display() == "\u2022\u2022\u2022", passInput.editing.display());
+
+		var numberInput = ashui.ui.Input.at(formsTree, formKids[2]);
+		var shownFirst = numberInput.value.get();
+		clickAt(2, 0.3);
+		formKey(Named(ArrowUp), ArrowUp);
+		var stepped = count.get();
+		formKey(Named(ArrowUp), ArrowUp);
+		formKey(Named(ArrowUp), ArrowUp);
+		check("a number shows its value, and the up arrow steps it, no further than max", shownFirst == "2" && stepped == 2.5 && count.get() == 3
+			&& numberInput.value.get() == "3", [shownFirst, stepped, count.get(), numberInput.value.get()]);
+		ashui.input.Keyboard.text(formsTree, "x");
+		formsSettle();
+		count.set(1.5);
+		formsSettle();
+		check("a number refuses what no number is written with, and follows its signal", numberInput.value.get() == "1.5", numberInput.value.get());
+
+		var rangeBounds = formsTree.getBounds(formNode(3));
+		var thumbWidth = formsTree.getBounds(new ashui.layout.Node(formsTree.children(formKids[3])[1])).width;
+		function rangeX(f:Float)
+			return rangeBounds.x + thumbWidth / 2 + f * (rangeBounds.width - thumbWidth);
+		clickAt(3, 0.5);
+		formKey(Named(ArrowRight), ArrowRight);
+		var afterArrow = level.get();
+		formKey(Named(End), End);
+		var atEnd = level.get();
+		formKey(Named(Home), Home);
+		check("a range steps by the arrows, and Home and End go to its ends", afterArrow == 60 && atEnd == 100 && level.get() == 0,
+			[afterArrow, atEnd, level.get()]);
+		ashui.input.Pointer.move(formsTree, rangeX(0.7), rangeBounds.y + rangeBounds.height / 2);
+		ashui.input.Pointer.press(formsTree);
+		var pressedAt = level.get();
+		ashui.input.Pointer.move(formsTree, rangeX(0.2), rangeBounds.y + 200);
+		var draggedTo = level.get();
+		ashui.input.Pointer.release(formsTree);
+		ashui.input.Pointer.move(formsTree, rangeX(0.9), rangeBounds.y + rangeBounds.height / 2);
+		formsSettle();
+		check("a range is set where it is pressed, follows a drag off it, and stops at the release", pressedAt == 70 && draggedTo == 20
+			&& level.get() == 20, [pressedAt, draggedTo, level.get()]);
+
+		var fieldsetKids = formsTree.children(formKids[4]);
+		var legendBox = ashui.input.Interaction.byId(formsTree, formsTree.children(fieldsetKids[0])[0]);
+		var heldBox = ashui.input.Interaction.byId(formsTree, fieldsetKids[1]);
+		locked.set(true);
+		formsSettle();
+		var lockedNow = heldBox.disabled.get() && !legendBox.disabled.get()
+			&& ashui.css.Identity.of(formsTree, formKids[4]).attribute("disabled") == "";
+		locked.set(false);
+		formsSettle();
+		check("a disabled fieldset disables what it holds, but what is in its legend", lockedNow && !heldBox.disabled.get(),
+			[lockedNow, heldBox.disabled.get()]);
+
+		var progressWidth = formsTree.getBounds(formNode(5)).width;
+		var progressBar = formsTree.getBounds(new ashui.layout.Node(formsTree.children(formKids[5])[0])).width;
+		check("a progress bar fills to its value", Math.abs(progressBar - progressWidth * 0.25) < 0.5, [progressBar, progressWidth]);
+		var meterBar = ashui.css.Identity.of(formsTree, formsTree.children(formKids[6])[0]);
+		check("a meter judges a value beyond the part its optimum is in as even less good", @:privateAccess meterBar.fixed.indexOf("even-less-good") >= 0
+			|| @:privateAccess (meterBar.classSignal != null && meterBar.classSignal.get().indexOf("even-less-good") >= 0));
+		clickAt(7, 0.5);
+		check("an a is followed when clicked", followed == 1, followed);
+		var hrBounds = formsTree.getBounds(formNode(8));
+		check("an hr is a rule across what holds it", hrBounds.height == 1 && hrBounds.width == 400, [hrBounds.width, hrBounds.height]);
+		check("<textarea> is the built-in text area", ashui.css.Identity.of(formsTree, formKids[9]).types.indexOf("textarea") >= 0);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('

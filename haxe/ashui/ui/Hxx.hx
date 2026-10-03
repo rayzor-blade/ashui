@@ -199,7 +199,7 @@ class Hxx {
 		return switch tag {
 			case 'div': lowerDiv(node);
 			case t if (TEXT_TAGS.indexOf(t) >= 0): lowerDiv(node, t);
-			case 'button': lowerDiv(node, 'button');
+			case 'button' | 'hr' | 'legend': lowerDiv(node, tag);
 			case 'text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
 			case 'svg': lowerSvg(node);
 			case 'img': lowerImg(node);
@@ -246,7 +246,10 @@ class Hxx {
 		`strong`'s weight, `code`'s face). Inline elements inside one sit
 		beside its text in a wrapping row; text does not yet flow across them.
 	**/
-	static final TEXT_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u"];
+	static final TEXT_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u", "output"];
+
+	/** Built-in elements whose class is not named after their tag. **/
+	static final BUILT_IN_CLASSES = ["a" => "Anchor", "textarea" => "TextArea"];
 
 	static function lowerDiv(node:Node, ?tag:String):Expr {
 		var el = '__div${counter++}';
@@ -259,8 +262,8 @@ class Hxx {
 					classes = classes.concat(classSetters(value, el));
 				case Regular(name, value) if (name.value == 'id'):
 					own.push(idSetter(value, el));
-				case Regular(name, value) if (name.value == 'type' && tag == 'button'):
-					own.push(macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setAttribute("type", ($value : String)));
+				case Regular(name, value) if ((name.value == 'type' && tag == 'button') || ((name.value == 'for' || name.value == 'name') && tag == 'output')):
+					own.push(macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setAttribute($v{name.value}, ($value : String)));
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
 				case _:
@@ -443,7 +446,8 @@ class Hxx {
 	static function lowerComponent(node:Node):Expr {
 		var tag = node.name.value;
 		// A built-in element's class is ashui.ui's, needing no import.
-		var type = try Context.getType(className(tag)) catch (_:Dynamic) try Context.getType("ashui.ui." + className(tag)) catch (_:Dynamic)
+		var builtIn = BUILT_IN_CLASSES.exists(tag) ? BUILT_IN_CLASSES.get(tag) : className(tag);
+		var type = try Context.getType(className(tag)) catch (_:Dynamic) try Context.getType("ashui.ui." + builtIn) catch (_:Dynamic)
 			Context.error('hxx: unknown tag <$tag>', node.name.pos);
 		var cls = switch type {
 			case TInst(c, _): c.get();

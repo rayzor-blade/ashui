@@ -29,6 +29,15 @@ class UserAgent {
 		}
 		kbd { border: 1px solid var(--border); }
 		mark { background: rgba(250, 204, 21, 0.4); }
+		output { flex-direction: row; flex-wrap: wrap; align-items: baseline; color: var(--text-primary); }
+
+		/* Links. */
+		a { flex-direction: row; flex-wrap: wrap; align-items: baseline; color: var(--text-link); }
+		a:hover { opacity: 0.8; }
+		a:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: 2px; }
+
+		/* A thematic break: a rule across what holds it. */
+		hr { height: 1px; flex-shrink: 0; align-self: stretch; margin: 8px 0; background: var(--border); }
 
 		/* Buttons. */
 		button {
@@ -55,8 +64,62 @@ class UserAgent {
 		input[type="checkbox"] > svg, input[type="radio"] > .dot { display: none; }
 		input[type="checkbox"]:checked:not(:indeterminate) > .check, input[type="checkbox"]:indeterminate > .dash { display: flex; }
 		input[type="radio"]:checked > .dot { display: flex; width: 8px; height: 8px; border-radius: 9999px; background: var(--primary); }
-		input:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
-		input:disabled { opacity: 0.5; }
+		input:is([type="checkbox"], [type="radio"], [type="range"]):focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+		input:is([type="checkbox"], [type="radio"], [type="range"]):disabled { opacity: 0.5; }
+
+		/* Text fields, numbers and text areas: a bordered box the text is edited in. */
+		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]), textarea {
+			border: 2px solid var(--border); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);
+			transition: background 150ms ease-out, border-color 150ms ease-out;
+		}
+		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]) {
+			flex-direction: row; align-items: center; width: 240px; height: 38px; padding: 0 10px;
+		}
+		textarea { flex-direction: column; }
+		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]):hover, textarea:hover {
+			border-color: var(--border-hover);
+		}
+		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]):focus, textarea:focus {
+			background: var(--input-bg-focus); border-color: var(--border-focus);
+		}
+		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]):disabled, textarea:disabled {
+			background: var(--input-bg-disabled); border-color: var(--border);
+		}
+		input[type="number"] { width: 120px; padding-right: 2px; }
+		input[type="number"] > .steppers { flex-direction: column; flex-shrink: 0; margin-left: 4px; }
+		input[type="number"] > .steppers > div {
+			width: 20px; height: 14px; align-items: center; justify-content: center; border-radius: 3px; color: var(--text-secondary);
+		}
+		input[type="number"] > .steppers > div:hover { background: var(--accent-subtle); color: var(--text-primary); }
+
+		/* Ranges: a track, filled up to the thumb. */
+		input[type="range"] { flex-direction: row; align-items: center; width: 160px; height: 20px; }
+		input[type="range"] > .fill, input[type="range"] > .rest { flex-basis: 0; min-width: 0; height: 4px; }
+		input[type="range"] > .fill { border-radius: 2px 0 0 2px; background: var(--primary); }
+		input[type="range"] > .rest { border-radius: 0 2px 2px 0; background: var(--border); }
+		input[type="range"] > .thumb {
+			width: 16px; height: 16px; flex-shrink: 0; border-radius: 9999px;
+			background: var(--surface-elevated); border: 2px solid var(--primary); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+			transition: transform 120ms ease-out;
+		}
+		input[type="range"]:hover > .thumb { transform: scale(1.1); }
+
+		/* Progress and meters: a track, filled to the value. */
+		progress, meter { flex-direction: row; width: 160px; height: 8px; border-radius: 9999px; background: var(--border); overflow: hidden; }
+		progress > .bar, meter > .bar { height: 100%; border-radius: 9999px; }
+		progress > .bar { background: var(--primary); }
+		progress:indeterminate > .bar { width: 30%; animation: ashui-progress-pulse 1.2s ease-in-out infinite alternate; }
+		@keyframes ashui-progress-pulse { from { opacity: 0.35; } to { opacity: 1; } }
+		meter > .optimum { background: var(--success); }
+		meter > .suboptimum { background: var(--warning); }
+		meter > .even-less-good { background: var(--error); }
+
+		/* Fieldsets: a bordered group of controls, its legend first. */
+		fieldset {
+			flex-direction: column; gap: 8px; padding: 12px 14px; margin: 0;
+			border: 1px solid var(--border); border-radius: 8px;
+		}
+		legend { flex-direction: row; align-items: baseline; padding: 0 2px; font-weight: 600; color: var(--text-primary); }
 
 		/* Labels: their text beside their control. */
 		label { flex-direction: row; align-items: center; gap: 8px; color: var(--text-primary); }

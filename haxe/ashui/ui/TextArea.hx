@@ -84,33 +84,41 @@ class TextArea extends Component<TextAreaProps> {
 		});
 		text = new Text(shown, {wrap: true, fontSize: e.fontSize.get()});
 		e.text = text;
-		box = hxx('
-			<div class="flex flex-col rounded-lg bg-input-bg focus:bg-input-bg-focus disabled:bg-input-bg-disabled border-2 border-border hover:border-border-hover focus:border-border-focus disabled:border-border transition-colors overflow-y-auto"
-				width={width} height={height} padding={PADDING} focusable={true}
-				onPointerDown={p -> e.press(textX(p.x), textY(p.y), p.shift, p.clickCount)} onPointerMove={p -> e.drag(textX(p.x), textY(p.y))}
-				onPointerUp={_ -> e.release()} onKeyDown={e.key} onKeyUp={e.keyUp} onTextInput={e.type} onComposition={e.compose}
-				onFocus={_ -> e.focus()} onBlur={_ -> e.blur()}>
-				<div class="relative shrink-0" width={wrapWidth}>
-					<for {r in selection}>
-						<div class="absolute bg-selection" left={r.x} top={r.y} width={r.w} height={r.h} />
-					</for>
-					${text}
-					<for {r in composed}>
-						<div class="absolute bg-text-primary" left={r.x} top={r.y} width={r.w} height={r.h} />
-					</for>
-					<div class="absolute top-0" left={0}>
-						<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
-					</div>
-					<div class="absolute bg-text-primary" left={caretLeft} top={caretTop} width={1.5} height={lineHeight}
-						opacity={Computed.make(() -> (e.showsCaret() ? e.caretAlpha.get() : 0 : Single))} />
+		var content = hxx('
+			<div class="relative shrink-0" width={wrapWidth}>
+				<for {r in selection}>
+					<div class="absolute bg-selection" left={r.x} top={r.y} width={r.w} height={r.h} />
+				</for>
+				${text}
+				<for {r in composed}>
+					<div class="absolute bg-text-primary" left={r.x} top={r.y} width={r.w} height={r.h} />
+				</for>
+				<div class="absolute top-0" left={0}>
+					<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
 				</div>
+				<div class="absolute bg-text-primary" left={caretLeft} top={caretTop} width={1.5} height={lineHeight}
+					opacity={Computed.make(() -> (e.showsCaret() ? e.caretAlpha.get() : 0 : Single))} />
 			</div>
 		');
+		// The look is the user-agent stylesheet's `textarea`; the size and padding are kept here, as the wrap width is worked out from them.
+		box = new Div({tag: "textarea", width: width, height: height, padding: PADDING}, [content]);
+		var i = Interaction.of(box.node).setFocusable(true);
+		i.onPointerDown(p -> e.press(textX(p.x), textY(p.y), p.shift, p.clickCount));
+		i.onPointerMove(p -> e.drag(textX(p.x), textY(p.y)));
+		i.onPointerUp(_ -> e.release());
+		i.onKeyDown(e.key);
+		i.onKeyUp(e.keyUp);
+		i.onTextInput(e.type);
+		i.onComposition(e.compose);
+		i.onFocus(_ -> e.focus());
+		i.onBlur(_ -> e.blur());
 		text.node.set(ashui.layout.Prop.FontSize, e.fontSize);
 		text.node.set(ashui.layout.Prop.Width, wrapWidth);
 		e.interaction = Interaction.of(box.node);
 		e.onEscape = () -> Focus.clear(box.tree);
-		scroller = Scroll.of(box.node);
+		// Scrolled by the area itself, whatever a stylesheet says of its overflow.
+		box.node.set(ashui.layout.Prop.Overflow, ashui.types.Style.Overflow.Scroll);
+		scroller = Scroll.attach(box.node, false, true);
 		e.pageLines = () -> e.lineHeight > 0 ? Std.int(Math.max(1, Math.floor((height - 2 * (PADDING + BORDER)) / e.lineHeight) - 1)) : 1;
 		if (props.disabled != null)
 			e.interaction.setDisabled(props.disabled);

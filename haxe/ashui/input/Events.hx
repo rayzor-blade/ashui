@@ -80,6 +80,14 @@ class InputEvent {
 /** A pointer moved, pressed, released, clicked, entered, left or scrolled. **/
 class PointerEvent extends InputEvent {
 	/** Where the pointer is in the window, in layout units. **/
+	/** Whether a handler called `preventDefault`. **/
+	public var defaultPrevented(default, null) = false;
+
+	/** Stops what follows the handlers: an `<a>` opening its `href`. **/
+	public function preventDefault():Void {
+		defaultPrevented = true;
+	}
+
 	public final x:Float;
 
 	public final y:Float;
