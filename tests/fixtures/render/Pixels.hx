@@ -35,8 +35,10 @@ import gpu.TextureUsage;
 
 	Then inherited colour: mask icons with no colour of their own, inside a
 	parent coloured red; inside a blue box inside that red one; inside a
-	parent whose colour signal turns green after the first frame; and one
-	added to the red parent after the first frame.
+	parent whose colour signal turns green after the first frame; one
+	added to the red parent after the first frame; and a two-colour icon in
+	a red parent, whose currentColor half turns red while its fixed blue
+	half stays blue.
 
 	Then text, on white: black "MM" at 24px, which must ink pixels, and "MM"
 	at 10px under a 4x zoom, whose stem edges must stay about a pixel wide,
@@ -159,14 +161,17 @@ class Pixels {
 		bound.node.set(Prop.Color, tone);
 		var later = box(96, []);
 		later.node.set(Prop.Color, new Color(0xff0000));
-		var inheritRoot = new Div({width: 128, height: 24, bg: Brush.solid(0xffffff)}, [red, outer, bound, later], inheritTree);
-		offscreen.renderToRgba8(inheritRoot, 128, 24);
+		var twoTone = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect width="12" height="24" fill="currentColor"/><rect x="12" width="12" height="24" fill="#0000ff"/></svg>');
+		var mixed = box(128, [new ashui.ui.Svg(twoTone, {width: 24, height: 24}, inheritTree)]);
+		mixed.node.set(Prop.Color, new Color(0xff0000));
+		var inheritRoot = new Div({width: 160, height: 24, bg: Brush.solid(0xffffff)}, [red, outer, bound, later, mixed], inheritTree);
+		offscreen.renderToRgba8(inheritRoot, 160, 24);
 		tone.set(new Color(0x00ff00));
 		later.appendChild(icon());
-		pixels = offscreen.renderToRgba8(inheritRoot, 128, 24);
+		pixels = offscreen.renderToRgba8(inheritRoot, 160, 24);
 		label = "inherited colour: ";
 		function at(x:Int, y:Int, want:Int, name:String) {
-			var i = (y * 128 + x) * 4;
+			var i = (y * 160 + x) * 4;
 			var ok = Math.abs(pixels.get(i) - (want >> 16 & 0xff)) <= 2 && Math.abs(pixels.get(i + 1) - (want >> 8 & 0xff)) <= 2
 				&& Math.abs(pixels.get(i + 2) - (want & 0xff)) <= 2;
 			if (!ok)
@@ -177,6 +182,8 @@ class Pixels {
 		at(44, 12, 0x0000ff, "from the nearest ancestor that sets one");
 		at(76, 12, 0x00ff00, "follows the parent's colour after it changes");
 		at(108, 12, 0xff0000, "reaches a child added after the first frame");
+		at(134, 12, 0xff0000, "is a two-colour icon's currentColor");
+		at(146, 12, 0x0000ff, "leaves a two-colour icon's fixed colour as written");
 
 		var textTree = new LayoutTree();
 		var label24 = new ashui.ui.Text("MM", {fontSize: 24, color: new Color(0x000000), wrap: false}, textTree);
