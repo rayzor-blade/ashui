@@ -38,7 +38,9 @@
 //!
 //! The walk follows Blinc's `paint/basic.rs`: a node's shadows, last first,
 //! then its fill merged with its border, then its children under the clip it
-//! pushes when its overflow is not visible. Glass, blur and image brushes
+//! pushes when its overflow is not visible, which follows its corner shape.
+//! A node that clips draws its border after its children instead, so they
+//! cannot cover it where the curves differ. Glass, blur and image brushes
 //! draw nothing yet. A node's 2D transform applies about its centre, after
 //! its ancestors'.
 //!
@@ -190,6 +192,7 @@ pub struct Clip {
 
 /// The clips of one record: on screen, and in its own coordinates, and the
 /// corner `n` of the innermost rounded one.
+#[derive(Clone)]
 struct Clipping {
     screen: ([f32; 4], [f32; 4], f32),
     local: Option<([f32; 4], [f32; 4])>,
@@ -376,6 +379,7 @@ fn fill(p: &mut Primitive, brush: &Brush, opacity: f32) -> bool {
 }
 
 /// The fields of one record, before packing.
+#[derive(Clone)]
 struct Primitive {
     bounds: [f32; 4],
     radii: [f32; 4],
@@ -499,6 +503,8 @@ pub fn append(
         .and_then(|p| p.text_color)
         .unwrap_or(color);
     let mut pushed = false;
+    // A border drawn after the children, with the clips its node is drawn under.
+    let mut after: Option<(Primitive, Clipping)> = None;
     if let Some(props) = tree.props.get(&node) {
         if !props.visible {
             return;
@@ -543,8 +549,24 @@ pub fn append(
                 p.border_color = rgba(bc, opacity);
             }
             p.place(m, x, y);
+            // A node that clips its children draws its border after them, so
+            // where its clip's curve and its border's inner edge differ by a
+            // fraction of a pixel, a child cannot paint over the border.
+            let mut ring_after = None;
+            if clips_children(tree, node) && p.border_color[3] > 0.0 {
+                let mut ring = p.clone();
+                ring.color = [0.0; 4];
+                ring.color2 = [0.0; 4];
+                ring.fill_type = FILL_SOLID;
+                p.border = [0.0; 4];
+                p.border_color = [0.0; 4];
+                ring_after = Some(ring);
+            }
             if p.color[3] > 0.0 || p.color2[3] > 0.0 || p.border_color[3] > 0.0 {
                 p.push(&clip, out);
+            }
+            if let Some(ring) = ring_after {
+                after = Some((ring, clip));
             }
         }
     }
@@ -558,8 +580,7 @@ pub fn append(
 
     // Children are clipped to the padding box, rounded by what is left of a
     // uniform radius after the border.
-    let overflow = tree.layout.get_style(node).map(|s| s.overflow);
-    if overflow.is_some_and(|o| o.x != Overflow::Visible || o.y != Overflow::Visible) {
+    if clips_children(tree, node) {
         let (bw, r) = tree
             .props
             .get(&node)
@@ -613,6 +634,16 @@ pub fn append(
     if pushed {
         clips.pop();
     }
+    if let Some((ring, clip)) = after {
+        ring.push(&clip, out);
+    }
+}
+
+/// Whether `node` clips its children: its overflow is not visible on some axis.
+fn clips_children(tree: &Tree, node: LayoutNodeId) -> bool {
+    tree.layout
+        .get_style(node)
+        .is_some_and(|s| s.overflow.x != Overflow::Visible || s.overflow.y != Overflow::Visible)
 }
 
 /// Width of a scroll thumb, and its gap from the container's edge.
