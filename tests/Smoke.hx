@@ -705,6 +705,31 @@ class Smoke {
 		check("a transitioned number follows its signal over the duration",
 			settled[1] == 1 && Math.abs(midway[1] - 0.6) < 0.02 && Math.abs(done[1] - 0.2) < 1e-6, [settled[1], midway[1], done[1]]);
 
+		// --- During a scheme transition a transitioned colour follows the theme's own animation ---
+		var schemeTheme = ashui.theme.ThemeState.get();
+		var clock = ashui.animation.AnimationScheduler.main;
+		schemeTheme.setScheduler(clock);
+		var keepTree = new LayoutTree();
+		var keeping:Div = Owner.root(keepTree, _ -> hxx('<div class="w-5 h-5 bg-primary transition-colors duration-500 ease-linear" />'));
+		keepTree.flush();
+		keepTree.computeLayout(keeping.node, 20, 20);
+		var keepList = new ashui.layout.DisplayList();
+		schemeTheme.setScheme(Dark);
+		var steps = 0;
+		var behind = 0.0;
+		while (schemeTheme.isAnimating() && steps++ < 600) {
+			clock.tick(1 / 60);
+			schemeTheme.tick();
+			keepTree.flush();
+			keepList.update(keepTree, keeping.node);
+			behind = Math.max(behind, Math.abs(keepList.get(0, 8) - schemeTheme.color(Primary).r));
+		}
+		check("a transitioned colour keeps up with a scheme transition instead of trailing it", steps > 5 && behind < 3 / 255, [behind, steps]);
+		schemeTheme.setScheduler(null);
+		schemeTheme.setScheme(Light);
+		keepTree.flush();
+		clock.tick(1);
+
 		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
 		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");
 		check("path data: compact numbers and implicit lines", compact[0].equals(MoveTo(0.5, -1.5)) && compact[1].equals(LineTo(0.5, 0.5)),

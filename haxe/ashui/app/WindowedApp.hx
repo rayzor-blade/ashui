@@ -131,9 +131,10 @@ class WindowedApp {
 		var opened = haxe.Timer.stamp();
 		var last = opened;
 		while (!quitting) {
-			// Short waits only while something animates; otherwise the loop sleeps on the window.
+			// No wait when a frame is already due, short ones while something
+			// animates; otherwise the loop sleeps on the window.
 			var animating = scheduler.hasActive();
-			var event = window.wait(animating ? 1 / 120 : 0.1);
+			var event = dirty ? window.poll() : window.wait(animating ? 1 / 120 : 0.1);
 			while (event != None) {
 				handle(event);
 				event = window.poll();

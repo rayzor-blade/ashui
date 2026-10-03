@@ -92,6 +92,13 @@ class Tweened<T> {
 	function retarget(value:T):Void {
 		if (value == to)
 			return;
+		// A scheme transition already animates every themed value; tweening
+		// each of its frames again would trail it, so the value follows.
+		var theme = ashui.theme.ThemeState.tryGet();
+		if (theme != null && theme.isAnimating()) {
+			jump(value);
+			return;
+		}
 		from = current;
 		to = value;
 		elapsed = -transition.delay();

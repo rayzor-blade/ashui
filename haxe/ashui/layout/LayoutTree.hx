@@ -88,6 +88,13 @@ class LayoutTree {
 		var reacted = Watch.runQueued();
 		var relayout = LayoutTreeNative.blinc_tree_flush(this.ptr);
 		Guard.check();
+		// Blinc runs effects inside its flush, so watches it queued there, and
+		// what their reactions write, are applied now rather than a frame later.
+		while (Watch.runQueued()) {
+			reacted = true;
+			relayout = LayoutTreeNative.blinc_tree_flush(this.ptr) || relayout;
+			Guard.check();
+		}
 		return reacted || relayout;
 	}
 
