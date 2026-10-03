@@ -29,6 +29,30 @@ class Identity {
 
 	static final NONE:Array<String> = [];
 
+	/** Attributes CSS's `[name=value]` tests, as HTML elements have: `type`, `name`, `value`. **/
+	var attributes:Null<Map<String, String>> = null;
+
+	/** Sets attribute `name` to `value`, or removes it with null. **/
+	public function setAttribute(name:String, value:Null<String>):Identity {
+		if (value == null) {
+			if (attributes == null || !attributes.remove(name))
+				return this;
+		} else {
+			if (attributes == null)
+				attributes = new Map();
+			if (attributes.get(name) == value)
+				return this;
+			attributes.set(name, value);
+		}
+		for (hook in hooks)
+			hook(this);
+		return this;
+	}
+
+	/** Attribute `name`'s value, null when it has none. **/
+	public function attribute(name:String):Null<String>
+		return attributes == null ? null : attributes.get(name);
+
 	/** Constant classes. **/
 	var fixed:Array<String> = NONE;
 

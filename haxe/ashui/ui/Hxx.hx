@@ -199,6 +199,7 @@ class Hxx {
 		return switch tag {
 			case 'div': lowerDiv(node);
 			case t if (TEXT_TAGS.indexOf(t) >= 0): lowerDiv(node, t);
+			case 'button': lowerDiv(node, 'button');
 			case 'text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
 			case 'svg': lowerSvg(node);
 			case 'img': lowerImg(node);
@@ -258,6 +259,8 @@ class Hxx {
 					classes = classes.concat(classSetters(value, el));
 				case Regular(name, value) if (name.value == 'id'):
 					own.push(idSetter(value, el));
+				case Regular(name, value) if (name.value == 'type' && tag == 'button'):
+					own.push(macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setAttribute("type", ($value : String)));
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
 				case _:
@@ -265,6 +268,12 @@ class Hxx {
 			}
 		var sets = classes.concat(styles).concat(own);
 		var attr = tag == null ? macro null : macro {tag: $v{tag}};
+		// A button takes focus from Tab and a press, as HTML's does.
+		if (tag == 'button' && !Lambda.exists(node.attributes, a -> switch a {
+			case Regular(name, _) | Empty(name): name.value == 'focusable';
+			case _: false;
+		}))
+			own.unshift(macro ashui.input.Interaction.of($i{el}.node).setFocusable(true));
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Div($attr, $kids);
 			$b{sets};
@@ -433,7 +442,9 @@ class Hxx {
 	/** `new Tag({props}, [children])` for a `Component` subclass. **/
 	static function lowerComponent(node:Node):Expr {
 		var tag = node.name.value;
-		var type = try Context.getType(className(tag)) catch (_:Dynamic) Context.error('hxx: unknown tag <$tag>', node.name.pos);
+		// A built-in element's class is ashui.ui's, needing no import.
+		var type = try Context.getType(className(tag)) catch (_:Dynamic) try Context.getType("ashui.ui." + className(tag)) catch (_:Dynamic)
+			Context.error('hxx: unknown tag <$tag>', node.name.pos);
 		var cls = switch type {
 			case TInst(c, _): c.get();
 			case _: Context.error('hxx: <$tag> is not a class', node.name.pos);
@@ -450,10 +461,12 @@ class Hxx {
 			for (a in node.attributes)
 				switch a {
 					case Regular(name, value):
-						var propType = propTypes.get(name.value);
+						// HTML's for, a Haxe keyword, is the htmlFor prop.
+						var field = name.value == "for" ? "htmlFor" : name.value;
+						var propType = propTypes.get(field);
 						if (propType == null)
 							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
-						{field: name.value, expr: propValue(value, propType)};
+						{field: field, expr: propValue(value, propType)};
 					case Empty(name):
 						if (!propTypes.exists(name.value))
 							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);

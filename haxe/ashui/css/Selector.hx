@@ -53,6 +53,9 @@ class Compound {
 
 	public var id:Null<String> = null;
 	public final classes:Array<String> = [];
+
+	/** Attribute tests: `[name]`, or `[name op "value"]` with op one of `=`, `~=`, `|=`, `^=`, `$=`, `*=`. **/
+	public final attributes:Array<{name:String, op:Null<String>, value:Null<String>}> = [];
 	public final pseudos:Array<Pseudo> = [];
 
 	/** A pseudo-element, `placeholder` for `::placeholder`, or null. **/
@@ -66,6 +69,8 @@ class Compound {
 			out += '#$id';
 		for (c in classes)
 			out += '.$c';
+		for (a in attributes)
+			out += a.op == null ? '[${a.name}]' : '[${a.name}${a.op}"${a.value}"]';
 		for (p in pseudos)
 			out += pseudoString(p);
 		if (pseudoElement != null)
@@ -109,7 +114,7 @@ class Compound {
 **/
 class Selector {
 	/** The states a `State` pseudo-class may name. **/
-	public static final STATES = ["hover", "active", "focus", "focus-visible", "focus-within", "disabled", "enabled", "checked"];
+	public static final STATES = ["hover", "active", "focus", "focus-visible", "focus-within", "disabled", "enabled", "checked", "indeterminate"];
 
 	public final compounds:Array<Compound>;
 	public final combinators:Array<Combinator>;
@@ -145,7 +150,7 @@ class Selector {
 		var n = 0;
 		if (c.id != null)
 			n += 1000000;
-		n += 1000 * c.classes.length;
+		n += 1000 * (c.classes.length + c.attributes.length);
 		if (c.type != null)
 			n += 1;
 		if (c.pseudoElement != null)

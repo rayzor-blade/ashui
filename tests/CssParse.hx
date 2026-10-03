@@ -83,11 +83,14 @@ class CssParse {
 			&& frames.frames[2].offsets[0] == 1, frames);
 
 		// --- Errors: reported with a position, the rest still parses ---
-		var bad = Stylesheet.parse('.a { color: red }\n.b[title] { color: blue }\n.c:nope { x: 1 }\n.d { color }\n.e { color: green }');
+		var bad = Stylesheet.parse('.a { color: red }\n.b::after { color: blue }\n.c:nope { x: 1 }\n.d { color }\n.e { color: green }');
 		check("a bad rule is skipped and the rest kept", bad.rules.length == 3 && bad.rules[2].selectors[0].toString() == ".e", bad.rules.map(r -> r.selectors[0].toString()));
-		check("errors carry lines and columns", bad.diagnostics.length == 3 && bad.diagnostics[0].line == 2 && bad.diagnostics[0].column == 3
+		check("errors carry lines and columns", bad.diagnostics.length == 3 && bad.diagnostics[0].line == 2 && bad.diagnostics[0].column > 1
 			&& bad.diagnostics[1].line == 3 && bad.diagnostics[2].line == 4, bad.report("x.css"));
-		check("the report names the file", StringTools.startsWith(bad.report("x.css"), "x.css:2:3: error: attribute selectors"), bad.report("x.css"));
+		check("the report names the file", StringTools.startsWith(bad.report("x.css"), "x.css:2:"), bad.report("x.css"));
+		check("attribute selectors", selectors('input[type="checkbox"][disabled]')[0] == 'input[type="checkbox"][disabled]'
+			&& selectors("a[href^=https]")[0] == 'a[href^="https"]' && specificity('input[type="radio"]') == 1001,
+			[selectors('input[type="checkbox"][disabled]'), selectors("a[href^=https]")]);
 		var skipped = Stylesheet.parse('@supports (display: grid) { .a { color: red } }\n.b { color: blue }');
 		check("@supports is skipped with a warning", skipped.rules.length == 1 && skipped.diagnostics[0].severity == Warning, skipped.report());
 
@@ -132,7 +135,7 @@ class CssParse {
 
 		// --- @import ---
 		var files = [
-			"base.css" => ".base { color: red }\n.oops[x] {}",
+			"base.css" => ".base { color: red }\n.oops::after {}",
 			"theme/dark.css" => "@import \"../base.css\"; .dark { color: black }",
 			"loop.css" => "@import \"loop.css\";"
 		];

@@ -156,6 +156,12 @@ class Node {
 		if (styled == null)
 			styled = new Map();
 		styled.set(key, true);
+		// Within a restyle, the last write to each field is the one made, so a
+		// shorthand then a longhand for the same field moves once, not twice.
+		if (batch != null && !immediate) {
+			batch.set(key, () -> apply(prop, Const(value)));
+			return true;
+		}
 		// An animation's frames are each where the property is, not somewhere to move to.
 		if (immediate) {
 			var id:PropertyId = prop;
@@ -167,6 +173,26 @@ class Node {
 		} else
 			apply(prop, Const(value));
 		return true;
+	}
+
+	/** A stylesheet's writes held while the cascade restyles this node, the last per field. **/
+	var batch:Null<Map<Int, Void->Void>> = null;
+
+	/** Runs `writes`, the stylesheet's writes to this node, then makes the last write to each field. **/
+	@:allow(ashui.css)
+	function styleAll(writes:Void->Void):Void {
+		var outer = batch;
+		batch = new Map();
+		try
+			writes()
+		catch (e:haxe.Exception) {
+			batch = outer;
+			throw e;
+		}
+		var held = batch;
+		batch = outer;
+		for (write in held)
+			write();
 	}
 
 	/** While true, a stylesheet's writes take effect at once, past any transition: an animation's frames. **/

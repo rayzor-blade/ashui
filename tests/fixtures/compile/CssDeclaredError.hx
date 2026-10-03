@@ -1,4 +1,4 @@
-// expect: broken.css:2: characters 5-6 : css: attribute selectors are not supported
+// expect: broken.css:2: characters 12-13 : css: ::after is not supported; ::placeholder is
 // flags: -D ashui_css=fixtures/css/broken.css
 import ashui.layout.LayoutTree;
 import ashui.reactive.Owner;

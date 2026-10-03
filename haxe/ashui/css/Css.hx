@@ -65,10 +65,9 @@ private typedef Applied = {
 
 	State pseudo-classes read the element's `Interaction`: `:hover`,
 	`:active`, `:focus`, `:focus-visible`, `:focus-within`, `:disabled` and
-	`:enabled`, of the element itself or of one a combinator reaches
-	(`.card:hover .title`). An element whose rules test a state is matched
-	again when that state changes, and only then. `:checked` matches
-	nothing, as ashui has no checked state yet.
+	`:enabled`, `:checked` and `:indeterminate`, of the element itself or of
+	one a combinator reaches (`.card:hover .title`). An element whose rules
+	test a state is matched again when that state changes, and only then.
 **/
 class Css {
 	/** The sheets in force, in order. **/
@@ -431,35 +430,38 @@ class Css {
 		}
 		// Animations: started, kept running or stopped as the element's animation values change.
 		var held = Animations.update(identity, resolved, values, ctx, from);
-		// font-size first: em in the rest is the element's own font size.
+		// Each field written once, the last write to it: a shorthand then its longhand do not move twice.
 		// Declarations that read the pointer are the pointer query's, applied as it moves.
 		var live = new Map<String, String>();
 		for (name => v in resolved)
 			if (!POINTER.exists(name) && !MOTION.exists(name) && (v.indexOf("env(") >= 0 || v.indexOf("pointer-") >= 0))
 				live.set(name, v);
-		var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name];
-		names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Reflect.compare(a, b));
-		for (name in names) {
-			var v = resolved.get(name);
-			if (!Properties.known(name)) {
-				report(from.get(name), '$name is not a property this supports');
-				continue;
+		@:privateAccess identity.node.styleAll(() -> {
+			// font-size first: em in the rest is the element's own font size.
+			var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name];
+			names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Reflect.compare(a, b));
+			for (name in names) {
+				var v = resolved.get(name);
+				if (!Properties.known(name)) {
+					report(from.get(name), '$name is not a property this supports');
+					continue;
+				}
+				try {
+					for (f in Properties.apply(identity.node, name, v, ctx))
+						fields.push(f);
+				} catch (e:String) {
+					report(from.get(name), '$name: $e');
+				}
+				if (name == "font-size")
+					ctx = {
+						viewportWidth: ctx.viewportWidth,
+						viewportHeight: ctx.viewportHeight,
+						fontSize: ownFontSize,
+						rootFontSize: ctx.rootFontSize,
+						currentColor: ctx.currentColor
+					};
 			}
-			try {
-				for (f in Properties.apply(identity.node, name, v, ctx))
-					fields.push(f);
-			} catch (e:String) {
-				report(from.get(name), '$name: $e');
-			}
-			if (name == "font-size")
-				ctx = {
-					viewportWidth: ctx.viewportWidth,
-					viewportHeight: ctx.viewportHeight,
-					fontSize: ownFontSize,
-					rootFontSize: ctx.rootFontSize,
-					currentColor: ctx.currentColor
-				};
-		}
+		});
 		var pointer = try PointerQueries.config(resolved) catch (e:String) {
 			report(from.get("pointer-range"), e);
 			null;
@@ -817,12 +819,31 @@ private class TreeWalk {
 		for (name in c.classes)
 			if (!identity.hasClass(name))
 				return false;
+		for (a in c.attributes)
+			if (!attribute(identity.attribute(a.name), a.op, a.value))
+				return false;
 		if (c.pseudoElement != null)
 			return false;
 		for (p in c.pseudos)
 			if (!pseudo(p, node, identity))
 				return false;
 		return true;
+	}
+
+	/** Whether an attribute's value `v` (null when it has none) passes `[name op value]`. **/
+	static function attribute(v:Null<String>, op:Null<String>, want:Null<String>):Bool {
+		if (v == null)
+			return false;
+		return switch op {
+			case null: true;
+			case "=": v == want;
+			case "~=": v.split(" ").indexOf(want) >= 0;
+			case "|=": v == want || StringTools.startsWith(v, want + "-");
+			case "^=": want != "" && StringTools.startsWith(v, want);
+			case "$=": want != "" && StringTools.endsWith(v, want);
+			case "*=": want != "" && v.indexOf(want) >= 0;
+			case _: false;
+		}
 	}
 
 	function pseudo(p:Pseudo, node:haxe.Int64, identity:Identity):Bool {
@@ -866,8 +887,6 @@ private class TreeWalk {
 
 	/** Whether `identity`'s element is in state `name` now; the element being matched is matched again when it changes. **/
 	function state(name:String, identity:Identity):Bool {
-		if (name == "checked")
-			return false;
 		var interaction = ashui.input.Interaction.of(identity.node);
 		var signal = switch name {
 			case "hover": interaction.hovered;
@@ -875,6 +894,8 @@ private class TreeWalk {
 			case "focus": interaction.focused;
 			case "focus-visible": interaction.focusVisible;
 			case "focus-within": interaction.focusWithin;
+			case "checked": interaction.checked;
+			case "indeterminate": interaction.indeterminate;
 			case _: interaction.disabled;
 		}
 		if (subject != null)

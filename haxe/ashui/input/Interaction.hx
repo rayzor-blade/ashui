@@ -46,6 +46,12 @@ class Interaction {
 	/** It takes no presses, clicks or focus; set with `setDisabled`. **/
 	public final disabled:Signal<Bool>;
 
+	/** A checkbox or radio that is checked, or an option that is selected: CSS's `:checked`. **/
+	public final checked:Signal<Bool>;
+
+	/** A checkbox in neither state, CSS's `:indeterminate`. **/
+	public final indeterminate:Signal<Bool>;
+
 	/** Whether pressing it or tabbing to it gives it focus. **/
 	public var focusable(default, null) = false;
 
@@ -66,6 +72,8 @@ class Interaction {
 		focusVisible = Signal.make(false);
 		focusWithin = Signal.make(false);
 		disabled = Signal.make(false);
+		checked = Signal.make(false);
+		indeterminate = Signal.make(false);
 	}
 
 	/** `node`'s interaction, made the first time it is asked for. Not to be called inside a computed. **/

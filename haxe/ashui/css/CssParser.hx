@@ -735,7 +735,8 @@ private class SelectorReader {
 					at++;
 					c.classes.push(need(name(), "a class name after ."));
 				case "[".code:
-					fail("attribute selectors are not supported");
+					at++;
+					c.attributes.push(attribute());
 				case ":".code:
 					at++;
 					if (!done() && peek() == ":".code) {
@@ -753,6 +754,49 @@ private class SelectorReader {
 		if (at == start)
 			fail(done() ? "a selector is missing" : 'unexpected "${String.fromCharCode(peek())}" in a selector');
 		return c;
+	}
+
+	/** `name]`, or `name op value]` with the value quoted or a bare word; the `[` is consumed. **/
+	function attribute():{name:String, op:Null<String>, value:Null<String>} {
+		space();
+		var n = need(name(), "an attribute name after [").toLowerCase();
+		space();
+		if (!done() && peek() == "]".code) {
+			at++;
+			return {name: n, op: null, value: null};
+		}
+		var op = "";
+		if (!done() && "~|^$*".indexOf(String.fromCharCode(peek())) >= 0) {
+			op += String.fromCharCode(peek());
+			at++;
+		}
+		if (done() || peek() != "=".code)
+			fail('expected =, ~=, |=, ^=, $$= or *= in [$n]');
+		at++;
+		op += "=";
+		space();
+		var value = if (!done() && (peek() == '"'.code || peek() == "'".code)) {
+			var q = peek();
+			at++;
+			var start = at;
+			while (!done() && peek() != q)
+				at++;
+			var v = text.substring(start, at);
+			if (done())
+				fail("a quoted attribute value is not closed");
+			at++;
+			v;
+		} else
+			need(name(), 'a value in [$n$op]');
+		space();
+		// A case-insensitive flag is accepted and has no effect on these values.
+		if (!done() && (peek() == "i".code || peek() == "s".code) && at + 1 < text.length)
+			at++;
+		space();
+		if (done() || peek() != "]".code)
+			fail('expected ] after [$n$op"$value"');
+		at++;
+		return {name: n, op: op, value: value};
 	}
 
 	function pseudo():Pseudo {

@@ -791,6 +791,63 @@ class Smoke {
 			heights[0] > heights[2] * 1.9 && heights[0] < heights[2] * 2.2 && Math.abs(heights[1] - 24) <= 1, heights);
 		check("the user-agent sheet is in force first", ashui.css.Css.userAgent != null);
 
+		// --- Built-in controls: checkbox, radio, label, button ---
+		var formTree = new LayoutTree();
+		var agreed = Signal.make(false);
+		var size = Signal.make("m");
+		var pressedCount = 0;
+		var form:Div = Owner.root(formTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Start} gap={8}>
+				<label><input type="checkbox" checked={agreed} />Agree</label>
+				<input type="radio" name="size" value="s" group={size} />
+				<input type="radio" name="size" value="m" group={size} />
+				<input type="radio" name="size" value="l" group={size} disabled={true} />
+				<button onClick={() -> pressedCount++}>Go</button>
+			</div>
+		'));
+		formTree.flush();
+		formTree.computeLayout(form.node, 400, 400);
+		var formNodes = formTree.children(form.node.id);
+		var label = formNodes[0];
+		var box = formTree.children(label)[0];
+		var labelText = formTree.children(label)[1];
+		function clickAt(node:haxe.Int64) {
+			var b = formTree.getBounds(new ashui.layout.Node(node));
+			ashui.input.Pointer.move(formTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(formTree);
+			ashui.input.Pointer.release(formTree);
+			formTree.flush();
+		}
+		var boxBounds = formTree.getBounds(new ashui.layout.Node(box));
+		check("a checkbox has the user-agent sheet's size", boxBounds != null && boxBounds.width == 18 && boxBounds.height == 18, boxBounds);
+		clickAt(box);
+		var afterBox = agreed.get();
+		clickAt(labelText);
+		var afterLabel = agreed.get();
+		check("clicking a checkbox flips its signal, and so does clicking its label", afterBox && !afterLabel, [afterBox, afterLabel]);
+		@:privateAccess check(":checked follows it", !ashui.input.Interaction.byId(formTree, box).checked.get());
+		function key(k:window.Key, code:window.KeyCode, pressed:Bool):window.KeyEvent
+			return Input(Code(code), k, None, Standard, pressed ? Pressed : Released, false, Unavailable);
+		ashui.input.Focus.set(ashui.input.Interaction.byId(formTree, box), true);
+		ashui.input.Keyboard.input(formTree, key(Named(Space), Space, true));
+		ashui.input.Keyboard.input(formTree, key(Named(Space), Space, false));
+		var afterSpace = agreed.get();
+		ashui.input.Keyboard.input(formTree, key(Named(Enter), Enter, true));
+		check("Space flips a focused checkbox, Enter does not", afterSpace && agreed.get(), [afterSpace, agreed.get()]);
+		var radioS = formNodes[1], radioM = formNodes[2];
+		clickAt(radioS);
+		var picked = size.get();
+		ashui.input.Keyboard.input(formTree, key(Named(ArrowDown), ArrowDown, true));
+		var arrowed = size.get();
+		ashui.input.Keyboard.input(formTree, key(Named(ArrowDown), ArrowDown, true));
+		var wrapped = size.get();
+		check("a radio sets its group; the arrows move through the set, skipping a disabled one",
+			picked == "s" && arrowed == "m" && wrapped == "s" && ashui.input.Focus.of(formTree).node.id == radioS, [picked, arrowed, wrapped]);
+		clickAt(formNodes[4]);
+		check("a button clicks", pressedCount == 1, pressedCount);
+		check("built-in controls are typed for CSS", ashui.css.Identity.of(formTree, box).attribute("type") == "checkbox"
+			&& ashui.css.Identity.of(formTree, formNodes[4]).types.join(",") == "button");
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('
