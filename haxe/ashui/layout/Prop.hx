@@ -107,6 +107,12 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var MaxHeightPercent:Prop<Single> = cast PropertyId.MaxHeightPercent;
 	public static inline var FlexBasisPercent:Prop<Single> = cast PropertyId.FlexBasisPercent;
 
+	// --- grid, as CSS writes it: `repeat(3, 1fr) 120px`, `span 2`, `1 / -1` ---
+	public static inline var GridTemplateColumns:Prop<String> = cast PropertyId.GridTemplateColumns;
+	public static inline var GridTemplateRows:Prop<String> = cast PropertyId.GridTemplateRows;
+	public static inline var GridColumn:Prop<String> = cast PropertyId.GridColumn;
+	public static inline var GridRow:Prop<String> = cast PropertyId.GridRow;
+
 	// --- text ---
 	public static inline var FontSize:Prop<Single> = cast PropertyId.FontSize;
 	public static inline var FontFamily:Prop<String> = cast PropertyId.FontFamily;

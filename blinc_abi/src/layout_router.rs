@@ -713,25 +713,58 @@ fn string_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<Option<Str
             record_text(node, move |c| c.content = v.unwrap_or_default())
         }),
         P::FontFamily => render(move |_, v: Option<String>| {
-            record_text(node, move |c| c.font_name = v.filter(|v| !v.is_empty()))
+            let (name, generic) = v.as_deref().map(crate::text::resolve_family).unwrap_or_default();
+            record_text(node, move |c| {
+                c.font_name = name;
+                c.generic_font = generic;
+            })
         }),
         _ => None,
     }
+}
+
+/// ashui's grid properties, written as CSS text: `GridTemplateColumns`
+/// (85), `GridTemplateRows` (86), `GridColumn` (87) and `GridRow` (88).
+/// Text that does not parse puts the default back.
+fn own_string_write(raw: i32) -> Option<(PropertyId, Write<Option<String>>)> {
+    let d = Style::default();
+    let write: Write<Option<String>> = match raw {
+        85 => layout(move |s, v: Option<String>| {
+            s.grid_template_columns = v.as_deref().and_then(crate::grid::template).unwrap_or_else(|| d.grid_template_columns.clone())
+        })?,
+        86 => {
+            let d = Style::default();
+            layout(move |s, v: Option<String>| {
+                s.grid_template_rows = v.as_deref().and_then(crate::grid::template).unwrap_or_else(|| d.grid_template_rows.clone())
+            })?
+        }
+        87 => layout(move |s, v: Option<String>| s.grid_column = v.as_deref().and_then(crate::grid::line_pair).unwrap_or(d.grid_column))?,
+        88 => layout(move |s, v: Option<String>| s.grid_row = v.as_deref().and_then(crate::grid::line_pair).unwrap_or(d.grid_row))?,
+        _ => return None,
+    };
+    // Changing tracks or placement relayouts, as Display does.
+    Some((PropertyId::Display, write))
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_apply_string(
     node: u64,
     prop: i32,
+
     kind: i32,
     constant: *const vbyte,
     sig: *mut c_void,
     comp: *mut c_void,
 ) {
     let node = LayoutNodeId::from_raw(node);
-    let Some(prop) = property(prop) else { return };
-    let Some(write) = string_write(node, prop) else {
-        return;
+    let (prop, write) = if let Some(own) = own_string_write(prop) {
+        own
+    } else {
+        let Some(prop) = property(prop) else { return };
+        let Some(write) = string_write(node, prop) else {
+            return;
+        };
+        (prop, write)
     };
     let constant = unsafe { opt_string_from(constant) };
     unsafe { bind(node, prop, kind, constant, sig, comp, write) };
@@ -814,7 +847,12 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
             p.font_size = None;
             record_text(node, |c| c.font_size = 16.0);
         })),
-        35 => ren(P::FontFamily, Box::new(move |_| record_text(node, |c| c.font_name = None))),
+        35 => ren(P::FontFamily, Box::new(move |_| {
+            record_text(node, |c| {
+                c.font_name = None;
+                c.generic_font = Default::default();
+            })
+        })),
         36 => ren(P::FontWeight, Box::new(move |p| {
             p.font_weight = None;
             record_text(node, |c| c.font_weight = 400);
@@ -873,6 +911,10 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
         82 => ren(P::Filter, Box::new(|p| filter(p).sepia = 0.0)),
         83 => ren(P::Filter, Box::new(|p| filter(p).blur = 0.0)),
         84 => ren(P::Filter, Box::new(|p| filter(p).drop_shadow = None)),
+        85 => lay(P::Display, Box::new(move |s| s.grid_template_columns = Vec::new())),
+        86 => lay(P::Display, Box::new(move |s| s.grid_template_rows = Vec::new())),
+        87 => lay(P::Display, Box::new(move |s| s.grid_column = Line { start: GridPlacement::Auto, end: GridPlacement::Auto })),
+        88 => lay(P::Display, Box::new(move |s| s.grid_row = Line { start: GridPlacement::Auto, end: GridPlacement::Auto })),
         _ => {}
     }
 }

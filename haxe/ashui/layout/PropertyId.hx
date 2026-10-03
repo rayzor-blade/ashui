@@ -125,6 +125,11 @@ enum abstract PropertyId(Int) from Int to Int {
     var FilterBlur = 83;
     // CSS's drop-shadow(): a Shadow's first layer, cast by the element's shape, not its box.
     var DropShadow = 84;
+    // CSS grid, as CSS text: a grid's tracks, and an item's lines.
+    var GridTemplateColumns = 85;
+    var GridTemplateRows = 86;
+    var GridColumn = 87;
+    var GridRow = 88;
 
     /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
@@ -139,7 +144,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case DropShadow: TypeShadow;
 
             // Strings (Typography / Paths / Content)
-            case FontFamily | TextContent: TypeString;
+            case FontFamily | TextContent | GridTemplateColumns | GridTemplateRows | GridColumn | GridRow: TypeString;
             
             // Floats (Dimensions, Spacing, Opacity, Strokes, Typography metrics)
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |

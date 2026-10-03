@@ -37,6 +37,48 @@ pub fn ensure_face(context: &TextMeasureContext) {
     }
 }
 
+/// A CSS font stack resolved as a browser does: the first family installed,
+/// or the first generic keyword (`monospace`, `serif`, `sans-serif`,
+/// `system-ui` and kin) as Blinc's generic face. `ui-monospace`,
+/// `ui-serif` and `ui-sans-serif` name the platform's own face, which the
+/// families after them usually list, so they are used only if none of
+/// those is installed. A stack with none is the system face.
+pub fn resolve_family(stack: &str) -> (Option<String>, LayoutGeneric) {
+    let registry = renderer().font_registry();
+    let mut registry = registry.lock().unwrap_or_else(|e| e.into_inner());
+    let mut platform = None;
+    for name in stack.split(',') {
+        let name = name.trim().trim_matches(|c| c == '"' || c == '\'');
+        let generic = match name.to_ascii_lowercase().as_str() {
+            "" => continue,
+            "ui-monospace" => {
+                platform.get_or_insert(LayoutGeneric::Monospace);
+                continue;
+            }
+            "ui-serif" => {
+                platform.get_or_insert(LayoutGeneric::Serif);
+                continue;
+            }
+            "ui-sans-serif" => {
+                platform.get_or_insert(LayoutGeneric::SansSerif);
+                continue;
+            }
+            "monospace" => Some(LayoutGeneric::Monospace),
+            "serif" => Some(LayoutGeneric::Serif),
+            "sans-serif" => Some(LayoutGeneric::SansSerif),
+            "system-ui" | "-apple-system" | "blinkmacsystemfont" => Some(LayoutGeneric::System),
+            _ => None,
+        };
+        if let Some(g) = generic {
+            return (None, platform.unwrap_or(g));
+        }
+        if registry.has_font(name) {
+            return (Some(name.to_string()), LayoutGeneric::System);
+        }
+    }
+    (None, platform.unwrap_or(LayoutGeneric::System))
+}
+
 fn generic(g: LayoutGeneric) -> GenericFont {
     match g {
         LayoutGeneric::Monospace => GenericFont::Monospace,

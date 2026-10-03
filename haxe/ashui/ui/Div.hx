@@ -50,6 +50,11 @@ typedef DivAttributes = {
 	?flexShrink:IntoReactive<Single>,
 	?flexWrap:IntoReactive<FlexWrap>,
 	?flexBasis:IntoReactive<Single>,
+	/** CSS grid, written as CSS writes it: the tracks of a `display: Grid` box, `repeat(3, 1fr) 120px`, and the lines a child takes, `span 2`, `1 / -1`. **/
+	?gridTemplateColumns:IntoReactive<String>,
+	?gridTemplateRows:IntoReactive<String>,
+	?gridColumn:IntoReactive<String>,
+	?gridRow:IntoReactive<String>,
 	?display:IntoReactive<Display>,
 	?overflow:IntoReactive<Overflow>,
 	?position:IntoReactive<Position>,
@@ -153,6 +158,14 @@ class Div extends Element {
 				node.set(Prop.FlexWrap, attr.flexWrap);
 			if (attr.flexBasis != null)
 				node.set(Prop.FlexBasis, attr.flexBasis);
+			if (attr.gridTemplateColumns != null)
+				node.set(Prop.GridTemplateColumns, attr.gridTemplateColumns);
+			if (attr.gridTemplateRows != null)
+				node.set(Prop.GridTemplateRows, attr.gridTemplateRows);
+			if (attr.gridColumn != null)
+				node.set(Prop.GridColumn, attr.gridColumn);
+			if (attr.gridRow != null)
+				node.set(Prop.GridRow, attr.gridRow);
 			if (attr.display != null)
 				node.set(Prop.Display, attr.display);
 			if (attr.overflow != null)

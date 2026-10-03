@@ -193,6 +193,24 @@ class Properties {
 			});
 		}
 
+		// --- Grid: tracks and lines, passed on as CSS text with lengths in px ---
+		h.set("grid-template-columns", (n, v, c) -> {
+			write(n, Prop.GridTemplateColumns, gridTemplate(v, c));
+			[Node.field(Prop.GridTemplateColumns)];
+		});
+		h.set("grid-template-rows", (n, v, c) -> {
+			write(n, Prop.GridTemplateRows, gridTemplate(v, c));
+			[Node.field(Prop.GridTemplateRows)];
+		});
+		h.set("grid-column", (n, v, _) -> {
+			write(n, Prop.GridColumn, gridLines(v));
+			[Node.field(Prop.GridColumn)];
+		});
+		h.set("grid-row", (n, v, _) -> {
+			write(n, Prop.GridRow, gridLines(v));
+			[Node.field(Prop.GridRow)];
+		});
+
 		// --- Paint ---
 		h.set("opacity", (n, v, _) -> {
 			write(n, Prop.Opacity, clamp01(CssValue.amount(v)));
@@ -439,12 +457,8 @@ class Properties {
 			enumWrite(n, Prop.FontStyle, v, ["normal" => FontStyle.Normal, "italic" => FontStyle.Italic, "oblique" => FontStyle.Italic])
 		]);
 		h.set("font-family", (n, v, _) -> {
-			// The first family named; generic names select the theme's.
-			var first = StringTools.trim(CssValue.split(v, ",")[0]);
-			if ((StringTools.startsWith(first, '"') && StringTools.endsWith(first, '"'))
-				|| (StringTools.startsWith(first, "'") && StringTools.endsWith(first, "'")))
-				first = first.substr(1, first.length - 2);
-			write(n, Prop.FontFamily, first);
+			// The whole stack: the first family installed is used, or the first generic name, as the theme's monospace.
+			write(n, Prop.FontFamily, StringTools.trim(v));
 			[Node.field(Prop.FontFamily)];
 		});
 		h.set("line-height", (n, v, c) -> {
@@ -488,6 +502,73 @@ class Properties {
 			case 4: parts;
 			case _: throw '$name takes one to four values';
 		}
+	}
+
+	/** `v`'s top-level parts, split at `sep` or, for a space, at any whitespace, leaving parentheses whole. **/
+	static function topLevel(v:String, sep:String):Array<String> {
+		var out = [], depth = 0, start = 0;
+		for (i in 0...v.length) {
+			var ch = v.charAt(i);
+			if (ch == "(")
+				depth++;
+			else if (ch == ")")
+				depth--;
+			else if (depth == 0 && (sep == " " ? StringTools.isSpace(v, i) : ch == sep)) {
+				out.push(v.substring(start, i));
+				start = i + 1;
+			}
+		}
+		out.push(v.substr(start));
+		return [for (p in out) if (StringTools.trim(p) != "") StringTools.trim(p)];
+	}
+
+	/** A track list checked, its lengths resolved to px, as the layout reads it. **/
+	static function gridTemplate(v:String, c:ApplyContext):String {
+		var value = StringTools.trim(v).toLowerCase();
+		if (value == "none")
+			return value;
+		function size(t:String, flexible:Bool):String {
+			if (t == "auto" || t == "min-content" || t == "max-content" || (flexible && ~/^[0-9]*\.?[0-9]+fr$/.match(t)))
+				return t;
+			if (StringTools.endsWith(t, "%") && CssValue.number(t.substr(0, t.length - 1)) >= 0)
+				return t;
+			return pixels(CssValue.length(t), c) + "px";
+		}
+		function track(t:String):String {
+			var inner = ~/^(minmax|fit-content)\((.*)\)$/;
+			if (!inner.match(t))
+				return size(t, true);
+			var args = topLevel(inner.matched(2), ",");
+			return switch [inner.matched(1), args.length] {
+				case ["minmax", 2]: 'minmax(${size(args[0], false)}, ${size(args[1], true)})';
+				case ["fit-content", 1]: 'fit-content(${size(args[0], false)})';
+				case _: throw 'expected minmax(min, max) or fit-content(length), not "$t"';
+			}
+		}
+		return [
+			for (part in topLevel(value, " ")) {
+				var repeat = ~/^repeat\((.*)\)$/;
+				if (repeat.match(part)) {
+					var args = topLevel(repeat.matched(1), ",");
+					var count = args.shift();
+					if (args.length != 1 || (count != "auto-fill" && count != "auto-fit" && !~/^[1-9][0-9]*$/.match(count)))
+						throw 'expected repeat(count, tracks), not "$part"';
+					'repeat($count, ${[for (t in topLevel(args[0], " ")) track(t)].join(" ")})';
+				} else
+					track(part);
+			}
+		].join(" ");
+	}
+
+	/** `grid-column` or `grid-row`: a start and an optional end, each a line number, `span n` or `auto`. **/
+	static function gridLines(v:String):String {
+		var parts = [for (p in v.split("/")) StringTools.trim(p).toLowerCase()];
+		if (parts.length > 2)
+			throw 'expected start / end, not "$v"';
+		for (p in parts)
+			if (p != "auto" && !~/^span [1-9][0-9]*$/.match(p) && !~/^-?[1-9][0-9]*$/.match(p))
+				throw 'expected a line, span n or auto, not "$p"';
+		return parts.join(" / ");
 	}
 
 	static function pixels(l:CssLength, c:ApplyContext):Float {

@@ -4,6 +4,7 @@
 
 pub mod bitmap;
 mod display_list;
+mod grid;
 mod hit;
 mod hl;
 pub mod layout_router;
