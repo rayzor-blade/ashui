@@ -46,7 +46,12 @@ private typedef Applied = {
 	drawing. `var(--name, fallback)` reads the custom properties of `:root`
 	rules and of the element and its ancestors.
 
-	State pseudo-classes, `:hover` and the like, match nothing yet.
+	State pseudo-classes read the element's `Interaction`: `:hover`,
+	`:active`, `:focus`, `:focus-visible`, `:focus-within`, `:disabled` and
+	`:enabled`, of the element itself or of one a combinator reaches
+	(`.card:hover .title`). An element whose rules test a state is matched
+	again when that state changes, and only then. `:checked` matches
+	nothing, as ashui has no checked state yet.
 **/
 class Css {
 	/** The sheets in force, in order. **/
@@ -193,6 +198,7 @@ class Css {
 
 	static function restyle(identity:Identity, walk:TreeWalk):Void {
 		var node = identity.node.id;
+		walk.subject = identity;
 		// The declarations of every rule that matches, in cascade order.
 		var matched:Array<Matched> = [];
 		for (s => entries in index)
@@ -408,6 +414,24 @@ class Css {
 		return out;
 	}
 
+	/** Watches on element states, by node and state, and the identities matched again when one changes. **/
+	static final stateWatches = new Map<String, Array<Identity>>();
+
+	/** `subject` depends on `signal`, a state of the node `node`: it is matched again when the state changes. **/
+	@:allow(ashui.css.TreeWalk)
+	static function dependOn(node:haxe.Int64, state:String, signal:ashui.reactive.Signal<Bool>, subject:Identity):Void {
+		var key = haxe.Int64.toStr(node) + ":" + state;
+		var deps = stateWatches.get(key);
+		if (deps == null) {
+			var list:Array<Identity> = [];
+			deps = list;
+			stateWatches.set(key, deps);
+			new ashui.reactive.Watch(() -> signal.get(), _ -> for (d in list) mark(d));
+		}
+		if (deps.indexOf(subject) < 0)
+			deps.push(subject);
+	}
+
 	static function hasHas(s:Selector):Bool
 		return Lambda.exists(s.compounds, c -> Lambda.exists(c.pseudos, p -> switch p {
 			case Has(_): true;
@@ -424,6 +448,9 @@ private typedef Entry = {
 /** Selector matching over a tree, caching what it asks the tree. **/
 private class TreeWalk {
 	final tree:LayoutTree;
+
+	/** The element being matched, which depends on any state a selector tests. **/
+	public var subject:Null<Identity> = null;
 	final up = new Map<String, Array<haxe.Int64>>();
 	final down = new Map<String, Array<haxe.Int64>>();
 
@@ -541,7 +568,7 @@ private class TreeWalk {
 			});
 		}
 		return switch p {
-			case State(_): false;
+			case State(name): state(name, identity);
 			case Root:
 				tree.root != null ? tree.root.id == node : parent(node) == null;
 			case Empty: children(node).length == 0;
@@ -567,6 +594,25 @@ private class TreeWalk {
 			case Is(list) | Where(list): Lambda.exists(list, s -> matches(s, node));
 			case Has(list): Lambda.exists(list, s -> has(s, node));
 		}
+	}
+
+	/** Whether `identity`'s element is in state `name` now; the element being matched is matched again when it changes. **/
+	function state(name:String, identity:Identity):Bool {
+		if (name == "checked")
+			return false;
+		var interaction = ashui.input.Interaction.of(identity.node);
+		var signal = switch name {
+			case "hover": interaction.hovered;
+			case "active": interaction.pressed;
+			case "focus": interaction.focused;
+			case "focus-visible": interaction.focusVisible;
+			case "focus-within": interaction.focusWithin;
+			case _: interaction.disabled;
+		}
+		if (subject != null)
+			@:privateAccess Css.dependOn(identity.node.id, name, signal, subject);
+		var on = signal.get();
+		return name == "enabled" ? !on : on;
 	}
 
 	/** Whether an element related to `anchor` as `selector`'s leading combinator says matches it. **/

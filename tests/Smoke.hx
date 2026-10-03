@@ -842,6 +842,32 @@ class Smoke {
 		var inner = cssTree.children(bound.node.id)[0];
 		check("a Tw class wins over a rule", cssTree.getBounds(new ashui.layout.Node(inner)).x == 4, cssTree.getBounds(new ashui.layout.Node(inner)));
 
+		// --- CSS states: :hover on the element, and on an ancestor ---
+		var stateSheet = ashui.css.Css.load('
+			.btn { width: 40px; height: 40px; background: #ff0000; }
+			.btn:hover { background: #00ff00; }
+			.btn:hover .dot { background: #0000ff; }
+			.dot { width: 10px; height: 10px; background: #000000; }
+		');
+		var stateTree = new LayoutTree();
+		var dot = new Div({classes: ["dot"]}, stateTree);
+		var btn = Owner.root(stateTree, _ -> new Div({classes: ["btn"]}, [dot], stateTree));
+		var stateList = new ashui.layout.DisplayList();
+		function fills():Array<String> {
+			stateTree.flush();
+			stateTree.computeLayout(btn.node, 100, 100);
+			stateList.update(stateTree, btn.node);
+			return [for (r in 0...stateList.count) '${Std.int(stateList.get(r, 8))},${Std.int(stateList.get(r, 9))},${Std.int(stateList.get(r, 10))}'];
+		}
+		var rest = fills();
+		ashui.input.Pointer.move(stateTree, 20, 20);
+		var hovered = fills();
+		ashui.input.Pointer.move(stateTree, 90, 90);
+		var left = fills();
+		check(":hover applies while hovered, to the element and through a combinator",
+			rest.join("|") == "1,0,0|0,0,0" && hovered.join("|") == "0,1,0|0,0,1" && left.join("|") == "1,0,0|0,0,0", [rest, hovered, left]);
+		ashui.css.Css.remove(stateSheet);
+
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);
 		check("a sheet taken out of force takes its values with it", fillOf(card).length == 0 && after.width == 0, [fillOf(card), after]);
