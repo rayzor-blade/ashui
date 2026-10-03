@@ -1041,15 +1041,32 @@ class Smoke {
 		check("svg: fixed colours are not a mask", !badge.mask);
 		var icon = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 12 5 5L20 6"/></svg>');
 		check("svg: currentColor alone is a mask", icon.mask);
-		check("svg: equal markup is one document",
-			ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M4 12l5 5L20 6"/></svg>') == icon);
+		check("svg: the same SVG, attributes in any order, is one document",
+			ashui.svg.SvgDocument.parse('<svg stroke="currentColor" fill="none" viewBox="0 0 24 24"><!-- tick --><path d="m4 12 5 5L20 6"/></svg>') == icon);
 		var compiled = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 12 5 5L20 6"/></svg>);
 		check("svg: inline markup compiles to the same document", compiled == icon);
-		var unsupported = try {
-			ashui.svg.SvgDocument.parse('<svg viewBox="0 0 1 1"><rect width="1" height="1" fill="url(#g)"/></svg>');
-			"";
-		} catch (e:ashui.svg.SvgError) e.message;
-		check("svg: gradients are reported as unsupported", unsupported.indexOf("not supported yet") >= 0, unsupported);
+		var rich = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 10 10" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><linearGradient id="g"><stop offset="0" stop-color="red"/></linearGradient></defs><rect id="r" width="1" height="1" fill="url(#g)"/><use xlink:href="#r" x="2"/><text x="1" y="9" fill="chartreuse">Hi &amp; bye</text></svg>');
+		switch rich.nodes {
+			case [OtherElement("defs", [OtherElement("linearGradient", _)]), Shape(gradientRect), OtherElement("use", []), OtherElement("text", [])]:
+				check("svg: a gradient paint is kept as it is written", gradientRect.fill.equals(Other("url(#g)")), gradientRect.fill);
+			case other:
+				check("svg: gradients, <use> and text are kept as other elements", false, other);
+		}
+		check("svg: a document with elements outside the model is not a mask", !rich.mask);
+		check("svg: the markup rendered is the SVG as written, text and links included",
+			rich.markup.indexOf("Hi &amp; bye</text>") > 0 && rich.markup.indexOf('xlink:href="#r"') > 0 && rich.markup.indexOf('fill="chartreuse"') > 0,
+			rich.markup);
+		var plain = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 1 1"><use xlink:href="#a"/></svg>');
+		check("svg: the SVG and XLink namespaces are declared for the renderer",
+			StringTools.startsWith(plain.markup, '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox'), plain.markup);
+		check("svg: currentColor is given the element's colour on the root",
+			StringTools.startsWith(icon.withColor("#123456"), '<svg color="#123456" xmlns='), icon.withColor("#123456"));
+		var ownColor = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 1 1" color="red"><rect width="1" height="1" fill="currentColor"/></svg>');
+		check("svg: an SVG with a colour of its own keeps it, and is not a mask",
+			ownColor.withColor("#123456") == ownColor.markup && !ownColor.mask);
+		var lenient = ashui.svg.SvgDocument.parse('<svg width="2in" height="1em"><rect width="1" height="1" fill-rule="inherit" transform="skewX(10) frobnicate(2)"/></svg>');
+		check("svg: units are converted, and values this model does not read are left to the renderer",
+			lenient.width == 192 && lenient.height == 150, [lenient.width, lenient.height]);
 		var svgTree = new LayoutTree();
 		var svgElement:ashui.ui.Svg = Owner.root(svgTree, _ -> hxx('<svg class="w-6" viewBox="0 0 48 24"><path d="M0 0h48v24z"/></svg>'));
 		svgTree.flush();

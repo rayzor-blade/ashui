@@ -14,6 +14,8 @@ enum Paint {
 	CurrentColor;
 	/** A fixed colour, `0xRRGGBB`, and its alpha from 0 to 1. **/
 	Solid(rgb:Int, alpha:Float);
+	/** A paint this model does not read, such as a gradient `url(#g)`; the renderer draws it. **/
+	Other(value:String);
 }
 
 /** Which parts of a self-crossing outline count as inside. **/
@@ -41,28 +43,34 @@ typedef SvgShape = {
 	final transform:Null<Array<Float>>;
 }
 
-/** A shape, or a group drawn as one layer under its own opacity and transform. **/
+/** A shape, or a group drawn as one layer under its own opacity and transform, or an element this model does not describe. **/
 enum SvgNode {
 	Shape(shape:SvgShape);
 	Group(opacity:Float, transform:Null<Array<Float>>, children:Array<SvgNode>);
+	/** A gradient, text, `<use>`, a filter or any element besides shapes and groups, with what is inside it. **/
+	OtherElement(name:String, children:Array<SvgNode>);
 }
 
 /**
-	A parsed SVG image: its coordinate box (`viewBox`), its natural size, and
-	its shapes. ashui reads SVG itself, with Haxe's XML support, and keeps
-	shapes, paths, solid paints, groups and transforms; gradients, text,
-	`<use>` and masks are not supported yet and are reported as errors.
+	An SVG image: its markup, its natural size, and its shapes. Any SVG is
+	drawn whole: gradients, patterns, text, `<use>`, clip paths, masks,
+	filters, images and CSS in `<style>` included. ashui also reads it, with
+	Haxe's XML support, into a typed model of its shapes, paths, paints,
+	groups and transforms, in `nodes`; elements outside that model are
+	`Other` nodes there and still drawn.
 
 	Get one at compile time with `SvgDocument.embed("icon.svg")`, from Haxe
 	inline markup with `SvgDocument.of(<svg viewBox="0 0 24 24">...</svg>)`,
 	or by writing the `<svg>` straight into an hxx template; malformed SVG
-	is then a compile error. At runtime `SvgDocument.parse(source)` reads a
+	is then a compile error, as is path data that does not parse. At runtime `SvgDocument.parse(source)` reads a
 	string. Documents with the same content are one document, so an icon used
 	many times is rasterized once per size.
 
-	An SVG whose only colour is `currentColor` is a **mask**: it is drawn in
-	the colour of the element showing it, which can follow the theme or
-	animate without rasterizing it again.
+	`currentColor` in an SVG is the colour of the element showing it. An SVG
+	whose only colour is `currentColor`, in shapes and groups alone, is a
+	**mask**: rasterized once and tinted when drawn, so it can follow the
+	theme or animate without rasterizing it again. Any other SVG is
+	rasterized with that colour in it.
 **/
 class SvgDocument {
 	static var nextId = 0;
@@ -72,7 +80,7 @@ class SvgDocument {
 	/** Names the document to the renderer. **/
 	public final id:Int;
 
-	/** The SVG as ashui writes it back, every path absolute: what is rasterized. **/
+	/** The SVG as written, read as XML and written back so it is well-formed: what is rasterized. **/
 	public final markup:String;
 
 	/** True when its only colour is `currentColor`. **/
@@ -101,26 +109,99 @@ class SvgDocument {
 		return nodes;
 	}
 
+	/** `markup` with `currentColor` as `color`, a CSS colour, unless its `<svg>` sets a colour of its own. **/
+	public function withColor(color:String):String {
+		var tagEnd = markup.indexOf(">");
+		if (~/\scolor\s*=/.match(markup.substring(0, tagEnd)))
+			return markup;
+		var nameEnd = 1;
+		while (nameEnd < tagEnd && !StringTools.isSpace(markup, nameEnd) && markup.charAt(nameEnd) != "/")
+			nameEnd++;
+		return markup.substr(0, nameEnd) + ' color="$color"' + markup.substr(nameEnd);
+	}
+
 	/** The document `parse` gave a slot of, if any. **/
 	public static function get(id:Int):Null<SvgDocument>
 		return byId.get(id);
 
-	/** `source`, an SVG document; throws `SvgError` when it is malformed or unsupported. **/
+	/** `source`, an SVG document; throws `SvgError` when it is malformed. **/
 	public static function parse(source:String):SvgDocument {
 		var xml = try Xml.parse(source) catch (e:haxe.Exception) throw new SvgError('not XML: ${e.message}');
-		return fromParsed(SvgParser.parse(xml));
+		return fromXml(xml);
 	}
 
 	/** The document of an already parsed `<svg>` element. **/
-	public static function fromXml(xml:Xml):SvgDocument
-		return fromParsed(SvgParser.parse(xml));
-
-	static function fromParsed(parsed:Parsed):SvgDocument {
-		var markup = SvgWriter.write(parsed);
+	public static function fromXml(xml:Xml):SvgDocument {
+		var parsed = SvgParser.parse(xml);
+		var markup = write(xml);
 		var known = byMarkup.get(markup);
 		if (known != null)
 			return known;
-		return register(new SvgDocument(markup, SvgWriter.isMask(parsed.nodes), parsed.width, parsed.height, parsed.nodes));
+		return register(new SvgDocument(markup, isMask(parsed.nodes), parsed.width, parsed.height, parsed.nodes));
+	}
+
+	/**
+		The `<svg>` element of `xml` as markup, with its SVG namespace
+		declared, and XLink's when it uses it, as a renderer needs. Attributes
+		are written sorted and comments left out, so the same SVG is the same
+		markup whichever way it was read.
+	**/
+	public static function write(xml:Xml):String {
+		var root = xml.nodeType == Document ? xml.firstElement() : xml;
+		var out = new StringBuf();
+		writeNode(root, out);
+		var markup = out.toString();
+		var namespaces = "";
+		if (root.nodeName == "svg" && !root.exists("xmlns"))
+			namespaces += ' xmlns="http://www.w3.org/2000/svg"';
+		if (!root.exists("xmlns:xlink") && markup.indexOf("xlink:") >= 0)
+			namespaces += ' xmlns:xlink="http://www.w3.org/1999/xlink"';
+		var nameEnd = root.nodeName.length + 1;
+		return markup.substr(0, nameEnd) + namespaces + markup.substr(nameEnd);
+	}
+
+	static function writeNode(x:Xml, out:StringBuf):Void {
+		switch x.nodeType {
+			case Element:
+				out.add("<" + x.nodeName);
+				var names = [for (a in x.attributes()) a];
+				names.sort(Reflect.compare);
+				for (a in names)
+					out.add(' $a="${StringTools.htmlEscape(x.get(a), true)}"');
+				if (!x.iterator().hasNext()) {
+					out.add("/>");
+					return;
+				}
+				out.add(">");
+				for (child in x)
+					writeNode(child, out);
+				out.add("</" + x.nodeName + ">");
+			case PCData:
+				out.add(StringTools.htmlEscape(x.nodeValue));
+			case CData:
+				out.add("<![CDATA[" + x.nodeValue + "]]>");
+			case _:
+		}
+	}
+
+	/**
+		True when `currentColor` is the only paint, in shapes and groups alone,
+		so the image is coverage tinted when drawn. Any element outside the
+		model may paint on its own, so it is not a mask.
+	**/
+	public static function isMask(nodes:Array<SvgNode>):Bool {
+		for (node in nodes)
+			switch node {
+				case Group(_, _, kids):
+					if (!isMask(kids))
+						return false;
+				case Shape(s):
+					if (!s.fill.match(NoPaint | CurrentColor) || !s.stroke.match(NoPaint | CurrentColor))
+						return false;
+				case OtherElement(_, _):
+					return false;
+			}
+		return true;
 	}
 
 	/** A document the compiler parsed and checked; what `embed`, `of` and hxx emit. **/
@@ -164,8 +245,8 @@ class SvgDocument {
 	/** The expression of a document parsed from `xml` now, or a compile error at `pos`. **/
 	public static function compileXml(xml:Xml, pos:Position):Expr {
 		var parsed = try SvgParser.parse(xml) catch (e:SvgError) Context.error('svg: ${e.message}', pos);
-		var markup = SvgWriter.write(parsed);
-		var mask = SvgWriter.isMask(parsed.nodes);
+		var markup = write(xml);
+		var mask = isMask(parsed.nodes);
 		return macro @:pos(pos) ashui.svg.SvgDocument.compiled($v{markup}, $v{mask}, $v{parsed.width}, $v{parsed.height});
 	}
 	#end

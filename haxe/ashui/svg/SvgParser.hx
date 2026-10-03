@@ -10,7 +10,12 @@ import ashui.svg.SvgDocument.SvgShape;
 /**
 	Reads an `<svg>` element, from Haxe's `Xml`, into shapes with their paint
 	resolved. Runs at compile time for SVG in templates and at runtime for
-	`SvgDocument.parse`, so both report the same errors.
+	`SvgDocument.parse`, so both report the same errors: XML that is not an
+	`<svg>`, and path data that does not parse. Everything else SVG allows is
+	kept, whether or not this model describes it: an element it does not
+	model (a gradient, text, `<use>`, a filter) is an `Other` node and a paint
+	it cannot resolve (`url(#g)`, a colour name it does not know) an `Other`
+	paint. The renderer draws the whole document, not this model.
 
 	Paint properties (`fill`, `stroke`, their opacities, widths, caps and
 	joins, and `color`) pass from a group to what is in it, as in SVG;
@@ -21,23 +26,24 @@ class SvgParser {
 	/** Elements that only describe the image. **/
 	static final IGNORED = ["title", "desc", "metadata"];
 
+	/** The shapes this model reads into paths. **/
+	static final SHAPES = ["path" => true, "rect" => true, "circle" => true, "ellipse" => true, "line" => true, "polyline" => true,
+		"polygon" => true];
+
 	public static function parse(xml:Xml):Parsed {
 		var root = xml.nodeType == Document ? xml.firstElement() : xml;
 		if (root == null || local(root.nodeName) != "svg")
 			throw new SvgError("the root element is not <svg>");
 		var width = length(root.get("width"));
 		var height = length(root.get("height"));
-		var viewBox:Array<Float> = switch root.get("viewBox") {
-			case null:
-				if (width == null || height == null)
-					throw new SvgError("<svg> needs a viewBox, or a width and a height");
-				[0.0, 0.0, (width : Float), (height : Float)];
-			case v:
-				var box = numbers(v, "viewBox");
-				if (box.length != 4 || box[2] <= 0 || box[3] <= 0)
-					throw new SvgError('viewBox "$v" is not four numbers with a positive width and height');
-				box;
-		}
+		var box = root.get("viewBox") == null ? [] : numbers(root.get("viewBox"), "viewBox");
+		// Without a usable viewBox, the size; without either, CSS's default 300 by 150.
+		var viewBox:Array<Float> = box.length == 4 && box[2] > 0 && box[3] > 0 ? box : [
+			0.0,
+			0.0,
+			width != null ? (width : Float) : 300.0,
+			height != null ? (height : Float) : 150.0
+		];
 		var style = properties(root, Style.initial());
 		return {
 			viewBox: viewBox,
@@ -73,6 +79,8 @@ class SvgParser {
 			var kids = children(e, style);
 			return kids.length == 0 ? null : Group(opacity, transform, kids);
 		}
+		if (!SHAPES.exists(name))
+			return OtherElement(name, children(e, style));
 		var path = switch name {
 			case "path":
 				var d = e.get("d");
@@ -84,9 +92,7 @@ class SvgParser {
 			case "ellipse": ellipse(num(e, "cx"), num(e, "cy"), num(e, "rx"), num(e, "ry"));
 			case "line": [MoveTo(num(e, "x1"), num(e, "y1")), LineTo(num(e, "x2"), num(e, "y2"))];
 			case "polyline": poly(e, false);
-			case "polygon": poly(e, true);
-			case "svg": throw new SvgError("an <svg> inside an <svg> is not supported yet");
-			case other: throw new SvgError('<$other> is not supported yet');
+			case _: poly(e, true);
 		}
 		if (path.length == 0)
 			return null;
@@ -198,48 +204,54 @@ class SvgParser {
 		return v == null ? 0 : v;
 	}
 
-	/** A length in user units: a number, optionally in `px`; null when absent or a percentage. **/
+	/**
+		A length in user units: a number, optionally with a unit, `px` and the
+		absolute ones converted; null when absent, a percentage, relative to
+		the font, or not a length, which the renderer resolves on its own.
+	**/
 	public static function length(v:Null<String>):Null<Float> {
 		if (v == null)
 			return null;
-		var s = StringTools.trim(v);
-		if (StringTools.endsWith(s, "%"))
+		var m = ~/^\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s*([a-zA-Z%]*)\s*$/;
+		if (!m.match(v))
 			return null;
-		if (StringTools.endsWith(s, "px"))
-			s = s.substr(0, s.length - 2);
-		var f = Std.parseFloat(s);
-		if (Math.isNaN(f))
-			throw new SvgError('"$v" is not a length');
-		return f;
+		var f = Std.parseFloat(m.matched(1));
+		return switch m.matched(2).toLowerCase() {
+			case "" | "px": f;
+			case "pt": f * 4 / 3;
+			case "pc": f * 16;
+			case "in": f * 96;
+			case "cm": f * 96 / 2.54;
+			case "mm": f * 96 / 25.4;
+			case "q": f * 96 / 101.6;
+			case _: null;
+		}
 	}
 
-	/** A number from 0 to 1, or a percentage; 1 when absent. **/
+	/** A number from 0 to 1, or a percentage; 1 when absent or not a number. **/
 	public static function unit(v:Null<String>, what:String):Float {
 		if (v == null)
 			return 1;
 		var percent = StringTools.endsWith(v, "%");
 		var f = Std.parseFloat(percent ? v.substr(0, v.length - 1) : v);
 		if (Math.isNaN(f))
-			throw new SvgError('$what "$v" is not a number');
+			return 1;
 		if (percent)
 			f /= 100;
 		return Math.max(0, Math.min(1, f));
 	}
 
-	/** Numbers separated by whitespace or commas. **/
+	/** Numbers separated by whitespace or commas, up to the first thing that is neither, as SVG reads them. **/
 	public static function numbers(v:String, what:String):Array<Float> {
 		var out = [];
 		var number = ~/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/;
 		var rest = v;
 		while (number.match(rest)) {
-			var gap = number.matchedLeft();
-			if (!~/^[\s,]*$/.match(gap))
-				throw new SvgError('$what "$v" is not a list of numbers');
+			if (!~/^[\s,]*$/.match(number.matchedLeft()))
+				break;
 			out.push(Std.parseFloat(number.matched(0)));
 			rest = number.matchedRight();
 		}
-		if (!~/^[\s,]*$/.match(rest))
-			throw new SvgError('$what "$v" is not a list of numbers');
 		return out;
 	}
 }
@@ -290,10 +302,8 @@ private class Style {
 			return;
 		switch name {
 			case "fill":
-				paint(v);
 				fill = v;
 			case "stroke":
-				paint(v);
 				stroke = v;
 			case "fill-opacity":
 				fillOpacity = SvgParser.unit(v, name);
@@ -302,27 +312,25 @@ private class Style {
 			case "stroke-width":
 				var w = SvgParser.length(v);
 				strokeWidth = w == null ? 1 : Math.max(0, w);
+			// Values this model does not know leave the property as it was; the renderer reads them itself.
 			case "fill-rule":
-				fillRule = switch v {
-					case "nonzero": NonZero;
-					case "evenodd": EvenOdd;
-					case _: throw new SvgError('fill-rule "$v" is not nonzero or evenodd');
-				}
+				if (v == "nonzero")
+					fillRule = NonZero;
+				else if (v == "evenodd")
+					fillRule = EvenOdd;
 			case "stroke-linecap":
-				if (["butt", "round", "square"].indexOf(v) < 0)
-					throw new SvgError('stroke-linecap "$v" is not butt, round or square');
-				lineCap = v;
+				if (["butt", "round", "square"].indexOf(v) >= 0)
+					lineCap = v;
 			case "stroke-linejoin":
-				if (["miter", "round", "bevel"].indexOf(v) < 0)
-					throw new SvgError('stroke-linejoin "$v" is not miter, round or bevel');
-				lineJoin = v;
+				if (["miter", "round", "bevel", "miter-clip", "arcs"].indexOf(v) >= 0)
+					lineJoin = v;
 			case "stroke-miterlimit":
-				miterLimit = Math.max(1, SvgParser.numbers(v, name)[0]);
+				var n = SvgParser.numbers(v, name);
+				if (n.length > 0)
+					miterLimit = Math.max(1, n[0]);
 			case "color":
-				if (v != "currentColor") {
-					Colors.parse(v);
+				if (v.toLowerCase() != "currentcolor")
 					color = v;
-				}
 			case "display":
 				if (v == "none")
 					hidden = true;
@@ -331,15 +339,17 @@ private class Style {
 		}
 	}
 
-	/** Paint `v`, with `currentColor` resolved when an SVG `color` set it. **/
+	/**
+		Paint `v`, with `currentColor` resolved when an SVG `color` set it. A
+		gradient, a pattern or a colour this model cannot read is `Other`.
+	**/
 	public function paint(v:String):Paint {
-		if (v == "none" || v == "transparent")
+		var t = StringTools.trim(v);
+		if (t == "none" || t == "transparent")
 			return NoPaint;
-		if (v == "currentColor")
+		if (t.toLowerCase() == "currentcolor")
 			return color == null ? CurrentColor : paint(color);
-		if (StringTools.startsWith(v, "url("))
-			throw new SvgError('paint "$v": gradients and patterns are not supported yet');
-		var c = Colors.parse(v);
-		return Solid(c.rgb, c.alpha);
+		var c = Colors.tryParse(t);
+		return c == null ? Other(t) : Solid(c.rgb, c.alpha);
 	}
 }

@@ -12,6 +12,11 @@ class Colors {
 		"lightgray" => 0xd3d3d3, "dimgray" => 0x696969, "whitesmoke" => 0xf5f5f5, "gainsboro" => 0xdcdcdc
 	];
 
+	/** `v` as `0xRRGGBB` and an alpha from 0 to 1, or null when it is not a colour this reads. **/
+	public static function tryParse(v:String):Null<{rgb:Int, alpha:Float}> {
+		return try parse(v) catch (_:SvgError) null;
+	}
+
 	/** `v` as `0xRRGGBB` and an alpha from 0 to 1; throws `SvgError` when it is not a colour. **/
 	public static function parse(v:String):{rgb:Int, alpha:Float} {
 		var s = StringTools.trim(v).toLowerCase();

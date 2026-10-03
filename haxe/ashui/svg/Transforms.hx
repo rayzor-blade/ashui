@@ -6,17 +6,18 @@ package ashui.svg;
 	`[a, b, c, d, e, f]` maps `(x, y)` to `(a·x + c·y + e, b·x + d·y + f)`.
 **/
 class Transforms {
+	/** `v`'s matrix; functions it cannot read count as none, as the renderer reads them itself. **/
 	public static function parse(v:String):Array<Float> {
 		var m = [1.0, 0, 0, 1, 0, 0];
 		var fn = ~/^\s*,?\s*([a-zA-Z]+)\s*\(([^)]*)\)/;
 		var rest = v;
 		while (fn.match(rest)) {
 			var args = SvgParser.numbers(fn.matched(2), "transform");
-			m = multiply(m, one(fn.matched(1), args, v));
+			var step = try one(fn.matched(1), args, v) catch (_:SvgError) null;
+			if (step != null)
+				m = multiply(m, step);
 			rest = fn.matchedRight();
 		}
-		if (StringTools.trim(rest) != "")
-			throw new SvgError('transform "$v" is not a list of transform functions');
 		return m;
 	}
 

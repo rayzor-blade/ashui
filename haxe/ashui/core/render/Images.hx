@@ -59,17 +59,16 @@ class Images {
 		var scale = bucket(onScreen);
 		var width = side(list.get(r, BOUNDS + 2) * scale);
 		var height = side(list.get(r, BOUNDS + 3) * scale);
-		var markup = doc.markup;
 		var key = '${doc.id}:${width}x$height';
 		// A mask is rasterized white and tinted when drawn; a colour image bakes in its currentColor.
 		var color = "#ffffff";
 		if (!doc.mask) {
 			color = "#" + StringTools.hex(channel(list.get(r, COLOR)) << 16 | channel(list.get(r, COLOR + 1)) << 8 | channel(list.get(r, COLOR + 2)), 6);
-			if (markup.indexOf("currentColor") >= 0)
+			if (doc.markup.indexOf("currentColor") >= 0)
 				key += color;
 		}
 		return atlas.get(key, width, height, pixels -> {
-			var source = '<svg color="$color"' + markup.substr(4);
+			var source = doc.withColor(color);
 			SvgNative.blinc_svg_rasterize(ashui.core.Utf8.encode(source), width, height, pixels.getData());
 		});
 	}

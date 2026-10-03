@@ -40,6 +40,10 @@ import gpu.TextureUsage;
 	a red parent, whose currentColor half turns red while its fixed blue
 	half stays blue.
 
+	Then SVG beyond the typed model, drawn as written: a red-to-blue linear
+	gradient, a `<use>` of a rect styled green by a `<style>` sheet, linked
+	by `href` and by `xlink:href`, and an embedded magenta PNG `<image>`.
+
 	Then text, on white: black "MM" at 24px, which must ink pixels, and "MM"
 	at 10px under a 4x zoom, whose stem edges must stay about a pixel wide,
 	as a glyph rasterized at its on-screen size has and a magnified one,
@@ -184,6 +188,29 @@ class Pixels {
 		at(108, 12, 0xff0000, "reaches a child added after the first frame");
 		at(134, 12, 0xff0000, "is a two-colour icon's currentColor");
 		at(146, 12, 0x0000ff, "leaves a two-colour icon's fixed colour as written");
+
+		var fullTree = new LayoutTree();
+		var gradient = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><defs><linearGradient id="g"><stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/></linearGradient></defs><rect width="24" height="24" fill="url(#g)"/></svg>');
+		var reused = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><style>.a { fill: #00ff00 }</style><defs><rect id="r" class="a" width="12" height="24"/></defs><use href="#r"/><use xlink:href="#r" x="12" fill="red"/></svg>');
+		function full(doc:ashui.svg.SvgDocument)
+			return new ashui.ui.Svg(doc, {width: 24, height: 24, color: new Color(0xff0000)}, fullTree);
+		var embedded = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><image width="24" height="24" style="image-rendering: pixelated" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z/AfAAQAAf8iCjrwAAAAAElFTkSuQmCC"/></svg>');
+		var fullRoot = new Div({width: 160, height: 24, bg: Brush.solid(0xffffff), gap: 8, flexDirection: Row},
+			[full(gradient), full(reused), full(embedded)], fullTree);
+		pixels = offscreen.renderToRgba8(fullRoot, 160, 24);
+		label = "full svg: ";
+		function hue(x:Int, y:Int, name:String, ok:(r:Int, g:Int, b:Int) -> Bool) {
+			var i = (y * 160 + x) * 4;
+			var passed = ok(pixels.get(i), pixels.get(i + 1), pixels.get(i + 2));
+			if (!passed)
+				failures++;
+			Sys.println('${passed ? "ok  " : "FAIL"} $label$name ($x,$y): [${pixels.get(i)},${pixels.get(i + 1)},${pixels.get(i + 2)}]');
+		}
+		hue(1, 12, "a gradient starts at its first stop", (r, g, b) -> r > 200 && b < 50);
+		hue(22, 12, "and ends at its last", (r, g, b) -> b > 200 && r < 50);
+		hue(36, 12, "<use> draws what it links to, styled by a <style> sheet", (r, g, b) -> g > 200 && r < 50);
+		hue(50, 12, "xlink:href links too", (r, g, b) -> g > 200 && r < 50);
+		hue(76, 12, "an embedded image is drawn", (r, g, b) -> r > 200 && g < 50 && b > 200);
 
 		var textTree = new LayoutTree();
 		var label24 = new ashui.ui.Text("MM", {fontSize: 24, color: new Color(0x000000), wrap: false}, textTree);

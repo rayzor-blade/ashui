@@ -299,9 +299,11 @@ class Hxx {
 						}
 					svgChildren(n, e);
 					xml.addChild(e);
-				case CText(text) if (StringTools.trim(text.value) == ''):
+				case CText(text):
+					// Text content: what `<text>` shows, a `<style>` sheet.
+					xml.addChild(Xml.createPCData(text.value));
 				case _:
-					Context.error('hxx: inside <svg>, only SVG elements', child.pos);
+					Context.error('hxx: inside <svg>, only SVG elements and text', child.pos);
 			}
 	}
 
