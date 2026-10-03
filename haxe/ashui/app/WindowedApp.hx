@@ -97,6 +97,8 @@ class WindowedApp {
 		var window = Window.open(attributes);
 		if (!window.valid())
 			throw "the window could not be opened";
+		// An app started from a terminal or another process is not made active on its own.
+		window.focus();
 		var surface = instance.surface(window.platform(), window.raw(0), window.raw(1), window.raw(2), window.raw(3));
 		if (!surface.valid())
 			throw 'platform ${window.platform()} gave no GPU surface';
@@ -144,6 +146,7 @@ class WindowedApp {
 		theme.setScheduler(scheduler);
 		ThemeState.setRedrawCallback(() -> dirty = true);
 		WindowTheme.follow(window);
+		ashui.input.WindowState.active.set(window.hasFocus());
 		configure();
 		root = Owner.root(tree, _ -> build());
 		opened = haxe.Timer.stamp();
@@ -267,6 +270,8 @@ class WindowedApp {
 			case CursorLeft(_):
 				ashui.input.Pointer.leave(tree);
 			case MouseInput(state, button, _):
+				// Input reaches only the active window, whatever the focus events said.
+				activeByInput();
 				if (state == Pressed)
 					ashui.input.Pointer.press(tree, button);
 				else
@@ -294,6 +299,7 @@ class WindowedApp {
 				modifiers = m;
 				ashui.input.Pointer.modifiers(tree, m);
 			case KeyboardInput(_, key, _):
+				activeByInput();
 				ashui.input.Keyboard.input(tree, key, modifiers);
 				// A key's text is typed unless a shortcut modifier is held or it is a control character.
 				switch key {
@@ -305,6 +311,11 @@ class WindowedApp {
 				ashui.input.Keyboard.text(tree, text, modifiers);
 			case _:
 		}
+	}
+
+	function activeByInput():Void {
+		if (!ashui.input.WindowState.active.get())
+			ashui.input.WindowState.active.set(true);
 	}
 
 	function shortcut():Bool
