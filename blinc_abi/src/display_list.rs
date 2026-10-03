@@ -12,12 +12,12 @@
 //! | 3  | gradient end colour                                            |
 //! | 4  | border widths: top, right, bottom, left                        |
 //! | 5  | border colour, opacity applied                                 |
-//! | 6  | shadow offset x, offset y, blur, spread                        |
-//! | 7  | shadow colour, opacity applied                                 |
+//! | 6  | shadow offset x, offset y, blur, spread; or a local clip rect   |
+//! | 7  | shadow colour, opacity applied; or the local clip's radii       |
 //! | 8  | clip bounds x, y, width, height                                |
 //! | 9  | clip corner radii                                              |
 //! | 10 | gradient: linear x1, y1, x2, y2 or radial cx, cy, r, 0, in pixels from the box's top-left |
-//! | 11 | primitive type, fill type, clip type, corner shape locked (1/0) |
+//! | 11 | primitive type, fill type, clips, corner shape locked (1/0)     |
 //! | 12 | corner shape `n`: top-left, top-right, bottom-right, bottom-left |
 //! | 13 | gradient middle stop colour, opacity applied                   |
 //! | 14 | gradient stop offsets: first, middle, last; 1 if there is a middle |
@@ -33,7 +33,15 @@
 //! then its fill merged with its border, then its children under the clip it
 //! pushes when its overflow is not visible. Glass, blur and image brushes
 //! draw nothing yet. A node's 2D transform applies about its centre, after
-//! its ancestors'; clips under a transform are their bounding boxes. The
+//! its ancestors'.
+//!
+//! A record has up to two clips, each rounded: one in screen space, rows 8
+//! and 9, and one in the record's own coordinates, rows 6 and 7, which only
+//! shadows do not have. A clip pushed under the same transform as the
+//! record is exact in its own coordinates, so a turned card clips its
+//! children to its turned, rounded box; any other clip under a transform is
+//! its bounding box on screen. The clips field is 1 for the screen clip
+//! plus 2 for the local one. The
 //! corner shape is the node's own; ashui applies its theme's squircle to it
 //! after the walk.
 
@@ -114,11 +122,49 @@ pub struct Glyphs<'a> {
     pub atlas_full: bool,
 }
 
-/// A clip a node pushes for its children: a rect, rounded when `radii` are.
+/// A clip a node pushes for its children: on screen, `rect` rounded by
+/// `radii`; in layout coordinates under the transform `frame`, `layout`
+/// rounded by `layout_radii`.
 #[derive(Clone, Copy)]
 pub struct Clip {
     rect: [f32; 4],
     radii: [f32; 4],
+    layout: [f32; 4],
+    layout_radii: [f32; 4],
+    frame: Affine,
+}
+
+/// The clips of one record: on screen, and in its own coordinates.
+struct Clipping {
+    screen: ([f32; 4], [f32; 4], f32),
+    local: Option<([f32; 4], [f32; 4])>,
+}
+
+/// The clips under `clips` for a record placed at `origin` in layout
+/// coordinates under `m`. Those pushed under `m` itself become its local
+/// clip, unless `local` is false; the rest are clipped on screen.
+fn clipping(clips: &[Clip], m: Affine, origin: (f32, f32), local: bool) -> Clipping {
+    let shares = |c: &Clip| local && m != IDENTITY && c.frame == m;
+    let on_screen: Vec<Clip> = clips.iter().filter(|c| !shares(c)).copied().collect();
+    let in_frame: Vec<Clip> = clips
+        .iter()
+        .filter(|c| shares(c))
+        .map(|c| Clip {
+            rect: c.layout,
+            radii: c.layout_radii,
+            ..*c
+        })
+        .collect();
+    let local = if in_frame.is_empty() {
+        None
+    } else {
+        let (r, radii, _) = clip_data(&in_frame);
+        Some(([r[0] - origin.0, r[1] - origin.1, r[2], r[3]], radii))
+    };
+    Clipping {
+        screen: clip_data(&on_screen),
+        local,
+    }
 }
 
 /// The clip every primitive under `clips` gets: the intersection of the
@@ -321,7 +367,12 @@ impl Primitive {
         self.shape_locked = if props.corner_shape_locked { 1.0 } else { 0.0 };
     }
 
-    fn push(&self, clip: &([f32; 4], [f32; 4], f32), out: &mut Vec<f32>) {
+    fn push(&self, clipping: &Clipping, out: &mut Vec<f32>) {
+        let clip = &clipping.screen;
+        let (row6, row7) = match &clipping.local {
+            Some((rect, radii)) => (rect, radii),
+            None => (&self.shadow, &self.shadow_color),
+        };
         for row in [
             &self.bounds,
             &self.radii,
@@ -329,15 +380,16 @@ impl Primitive {
             &self.color2,
             &self.border,
             &self.border_color,
-            &self.shadow,
-            &self.shadow_color,
+            row6,
+            row7,
             &clip.0,
             &clip.1,
             &self.gradient,
         ] {
             out.extend_from_slice(row);
         }
-        out.extend_from_slice(&[self.kind, self.fill_type, clip.2, self.shape_locked]);
+        let clips = clip.2 + if clipping.local.is_some() { 2.0 } else { 0.0 };
+        out.extend_from_slice(&[self.kind, self.fill_type, clips, self.shape_locked]);
         out.extend_from_slice(&self.corner_shape);
         out.extend_from_slice(&self.via);
         out.extend_from_slice(&self.offsets);
@@ -385,7 +437,9 @@ pub fn append(
         opacity *= props.opacity;
         let r: CornerRadius = props.border_radius;
         let radii = [r.top_left, r.top_right, r.bottom_right, r.bottom_left];
-        let clip = clip_data(clips);
+        // A shadow's local-clip rows hold the shadow itself.
+        let shadow_clip = clipping(clips, m, (x, y), false);
+        let clip = clipping(clips, m, (x, y), true);
 
         for s in props.shadow.iter().rev() {
             let mut p = Primitive::new(PRIM_SHADOW, local, radii);
@@ -394,7 +448,7 @@ pub fn append(
             p.shadow_color = rgba(s.color, opacity);
             p.place(m, x, y);
             if p.shadow_color[3] > 0.0 {
-                p.push(&clip, out);
+                p.push(&shadow_clip, out);
             }
         }
 
@@ -422,7 +476,7 @@ pub fn append(
     }
 
     // Children are clipped to the padding box, rounded by what is left of a
-    // uniform radius after the border; under a transform, to its bounding box.
+    // uniform radius after the border.
     let overflow = tree.layout.get_style(node).map(|s| s.overflow);
     if overflow.is_some_and(|o| o.x != Overflow::Visible || o.y != Overflow::Visible) {
         let (bw, r) = tree
@@ -430,7 +484,7 @@ pub fn append(
             .get(&node)
             .map(|p| (p.border_width, p.border_radius))
             .unwrap_or_default();
-        let inset_radius = if r.is_uniform() && r.top_left > bw && m == IDENTITY {
+        let inset_radius = if r.is_uniform() && r.top_left > bw {
             r.top_left - bw
         } else {
             0.0
@@ -441,13 +495,17 @@ pub fn append(
             (w - 2.0 * bw).max(0.0),
             (h - 2.0 * bw).max(0.0),
         ];
+        let (rect, radii) = if m == IDENTITY {
+            (inner, [inset_radius; 4])
+        } else {
+            (bounding(m, inner), [0.0; 4])
+        };
         clips.push(Clip {
-            rect: if m == IDENTITY {
-                inner
-            } else {
-                bounding(m, inner)
-            },
-            radii: [inset_radius; 4],
+            rect,
+            radii,
+            layout: inner,
+            layout_radii: [inset_radius; 4],
+            frame: m,
         });
         pushed = true;
     }
@@ -498,7 +556,6 @@ fn text_records(
         }
         Err(_) => return,
     };
-    let clip = clip_data(clips);
     // Without rotation or skew, glyphs start on whole device pixels, so their
     // texels land on pixels instead of being resampled between them.
     let snap = m[1] == 0.0 && m[2] == 0.0;
@@ -509,11 +566,12 @@ fn text_records(
         p.color = g.color;
         p.gradient = g.uv_bounds;
         p.fill_type = if g.is_color { 1.0 } else { 0.0 };
-        p.place(m, x + gx / k, y + gy / k);
+        let at = (x + gx / k, y + gy / k);
+        p.place(m, at.0, at.1);
         if snap {
             p.bounds[0] = (p.bounds[0] * display).round() / display;
             p.bounds[1] = (p.bounds[1] * display).round() / display;
         }
-        p.push(&clip, out);
+        p.push(&clipping(clips, m, at, true), out);
     }
 }

@@ -10,10 +10,14 @@ class BoxShader implements UiShader {
 		@:import ashui.core.render.Sdf;
 
 		var output : { position : Vec4, color : Vec4 };
-		/** Where the fragment is on screen, for the clip. **/
-		var pixel : Vec2;
-		/** Where it is in the box's own coordinates, from its top-left, for the shape and fill. **/
-		var local : Vec2;
+		/**
+			Where the fragment is in the box's own coordinates, from its top-left,
+			for the shape and fill (`xy`), and on screen, for the clip (`zw`).
+			Values passed between stages are few, so pairs share a vec4.
+		**/
+		var place : Vec4;
+		/** The box's size, then its fill type and clips from `typeInfo`. **/
+		var box : Vec4;
 
 		/**
 			The fill at `p`: `fillType` 0 is solid, 1 linear from `g.xy` to
@@ -49,10 +53,9 @@ class BoxShader implements UiShader {
 			different side widths the inner corners are quarter ellipses.
 		**/
 		function withBorder(p : Vec2, origin : Vec2, size : Vec2, radii : Vec4, shape : Vec4, d : Float, coverage : Float, fill : Vec4,
-				border : Vec4, borderColor : Vec4) : Vec4 {
+				border : Vec4, borderColor : Vec4, aa : Float) : Vec4 {
 			var result = fill;
 			if (max(max(border.x, border.y), max(border.z, border.w)) > 0.) {
-				var aa = 0.5;
 				var top = border.x;
 				var right = border.x;
 				var bottom = border.x;
@@ -129,23 +132,36 @@ class BoxShader implements UiShader {
 
 		function vertex() {
 			var b = primitive.bounds;
-			local = quadCorner(vertexID) * b.zw;
-			pixel = placed(b.xy, primitive.affine, local);
+			// The quad reaches a pixel and a half past the box, so the edge's
+			// anti-aliasing is not cut off where a transform turns the edge.
+			var m = primitive.affine;
+			var grow = vec2(1.5, 1.5) / max(vec2(length(m.xy), length(m.zw)), vec2(0.01, 0.01));
+			var local = quadCorner(vertexID) * (b.zw + grow * 2.) - grow;
+			var pixel = placed(b.xy, primitive.affine, local);
+			place = vec4(local, pixel);
+			box = vec4(b.zw, primitive.typeInfo.y, primitive.typeInfo.z);
 			output.position = pixelToClip(pixel, viewport);
 		}
 
 		function fragment() {
-			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z);
+			// Half a screen pixel in the box's own units, which a transform scales or slants;
+			// taken before the discard, as derivatives need every fragment of the quad.
+			var local = place.xy;
+			var aa = halfPixel(local);
+			var clip = clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, box.w)
+				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, box.w, aa);
 			if (clip < 0.001)
 				discard;
 			var p = local;
 			var origin = vec2(0., 0.);
-			var size = primitive.bounds.zw;
+			var size = box.xy;
 			var d = sdShapedRect(p, origin, size, primitive.cornerRadius, primitive.cornerShape);
-			var coverage = 1. - smoothstep(-0.5, 0.5, d);
-			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, primitive.typeInfo.y);
+			var coverage = 1. - smoothstep(-aa, aa, d);
+			if (coverage < 0.001)
+				discard;
+			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, box.z);
 			fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
-				primitive.borderColor);
+				primitive.borderColor, aa);
 			output.color = vec4(fill.rgb, fill.a * clip * coverage);
 		}
 	};

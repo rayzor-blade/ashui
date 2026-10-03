@@ -129,12 +129,29 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			return sign(x) * y;
 		}
 
-		/** How much of the pixel at `p` a clip leaves; `clipType` 0 is none, 1 a rounded rect. **/
-		function clipCoverage(p : Vec2, bounds : Vec4, radii : Vec4, clipType : Float) : Float {
+		/** How much of the pixel at `p` on screen the screen clip leaves; it is there when `clips` has bit 1. **/
+		function clipCoverage(p : Vec2, bounds : Vec4, radii : Vec4, clips : Float) : Float {
 			var alpha = 1.;
-			if (clipType > 0.5)
+			if (clips - 2. * floor(clips * 0.5) > 0.5)
 				alpha = 1. - smoothstep(-0.75, 0.75, sdRoundedRect(p, bounds.xy, bounds.zw, radii));
 			return alpha;
+		}
+
+		/**
+			How much of the point `p`, in the primitive's own coordinates, its
+			local clip leaves; it is there when `clips` has bit 2. `aa` is half a
+			screen pixel in those coordinates.
+		**/
+		function localClipCoverage(p : Vec2, bounds : Vec4, radii : Vec4, clips : Float, aa : Float) : Float {
+			var alpha = 1.;
+			if (clips > 1.5)
+				alpha = 1. - smoothstep(-aa, aa, sdRoundedRect(p, bounds.xy, bounds.zw, radii));
+			return alpha;
+		}
+
+		/** Half a screen pixel, measured in the coordinates `p` is in. **/
+		function halfPixel(p : Vec2) : Float {
+			return 0.25 * (length(dFdx(p)) + length(dFdy(p)));
 		}
 	};
 }

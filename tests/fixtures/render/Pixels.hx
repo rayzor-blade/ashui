@@ -25,6 +25,10 @@ import gpu.TextureUsage;
 	- a 24×16 bar at (8,40), a gradient from red on the left to blue;
 	- a 16×16 box at (40,40) that clips a 32×32 green child to itself.
 
+	Then a 32×32 box at (16,16) turned 45 degrees, clipping a green child
+	that covers its bounding box: the child shows inside the turned box and
+	not in its bounding box's corners.
+
 	Then text, on white: black "MM" at 24px, which must ink pixels, and "MM"
 	at 10px under a 4x zoom, whose stem edges must stay about a pixel wide,
 	as a glyph rasterized at its on-screen size has and a magnified one,
@@ -103,6 +107,18 @@ class Pixels {
 		probe("gradient end", 31, 48, (r, g, b) -> b > 220 && r < 35 && g < 5);
 		probe("clipped child inside the clip", 48, 48, near(0x00ff00));
 		probe("clipped child outside the clip", 60, 48, near(0xffffff));
+
+		var clipTree = new LayoutTree();
+		var turned = new Div({
+			position: Position.Absolute, left: 16, top: 16, width: 32, height: 32, overflow: Overflow.Clip
+		}, [new Div({position: Position.Absolute, left: -16, top: -16, width: 64, height: 64, bg: Brush.solid(0x00ff00)}, clipTree)], clipTree);
+		turned.node.set(Prop.Transform, ashui.types.Transform.rotation(45));
+		var clipRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [turned], clipTree);
+		pixels = offscreen.renderToRgba8(clipRoot, SIZE, SIZE);
+		label = "turned clip: ";
+		probe("child inside the turned box", 32, 32, near(0x00ff00));
+		probe("child inside, near the turned box's tip", 32, 13, near(0x00ff00));
+		probe("nothing in the bounding box's corner", 14, 14, near(0xffffff));
 
 		var textTree = new LayoutTree();
 		var label24 = new ashui.ui.Text("MM", {fontSize: 24, color: new Color(0x000000), wrap: false}, textTree);
