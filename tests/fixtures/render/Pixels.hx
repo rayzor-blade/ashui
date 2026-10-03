@@ -58,8 +58,9 @@ import gpu.TextureUsage;
 	and a narrow white box with one offset down and right and blurred.
 
 	Then bitmaps, from a PNG of a red pixel and a blue one: stretched,
-	letterboxed in a square, cropped to cover a tall box, and as the
-	background of a round box.
+	letterboxed in a square, cropped to cover a tall box, as the
+	background of a round box, and tiled over a square, red and blue
+	columns one layout unit wide.
 
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
@@ -326,8 +327,9 @@ class Pixels {
 		var letterboxed = new ashui.ui.Image(pair, {width: 16, height: 16, fit: Contain}, bitmapTree);
 		var cropped = new ashui.ui.Image(pair, {width: 8, height: 16, fit: Cover}, bitmapTree);
 		var backed = new Div({width: 24, height: 24, bg: Brush.bitmap(pair, Fill), cornerRadius: CornerRadius.all(12)}, bitmapTree);
+		var tiled = new Div({width: 24, height: 24, bg: Brush.bitmap(pair, Tile)}, bitmapTree);
 		var bitmapRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), gap: 4, padding: 4, flexDirection: Row, flexWrap: Wrap},
-			[stretched, letterboxed, cropped, backed], bitmapTree);
+			[stretched, letterboxed, cropped, backed, tiled], bitmapTree);
 		pixels = offscreen.renderToRgba8(bitmapRoot, SIZE, SIZE);
 		label = "bitmap: ";
 		probe("stretched, red on the left", 5, 8, (r, g, b) -> r > 200 && b < 60);
@@ -337,6 +339,10 @@ class Pixels {
 		probe("cropped to cover, its middle where red meets blue", 52, 12, (r, g, b) -> r > 60 && b > 60);
 		probe("as a background, clipped to its rounded corner", 5, 29, near(0xffffff));
 		probe("and filling its middle", 10, 40, (r, g, b) -> r > 150 && b < 120);
+		probe("tiled, red in an even column", 36, 40, (r, g, b) -> r > 200 && b < 60);
+		probe("blue in the odd one after", 37, 40, (r, g, b) -> b > 200 && r < 60);
+		probe("and red again a cell on", 38, 40, (r, g, b) -> r > 200 && b < 60);
+		probe("repeated across the box", 47, 44, (r, g, b) -> b > 200 && r < 60);
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

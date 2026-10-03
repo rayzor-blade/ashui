@@ -52,7 +52,9 @@ class Images {
 			list.set(r, GRADIENT + 1, rect.y);
 			list.set(r, GRADIENT + 2, rect.x + rect.width);
 			list.set(r, GRADIENT + 3, rect.y + rect.height);
-			list.set(r, FILL, doc != null && doc.mask ? 0 : 1);
+			// 2 repeats the cell `COLOR2`'s first two floats size; see `resampled`.
+			var tiled = bitmap && ((slot - ashui.types.Bitmap.BASE) & 3) == ashui.types.Brush.ImageFit.Tile;
+			list.set(r, FILL, doc != null && doc.mask ? 0 : tiled ? 2 : 1);
 		}
 		return fitted;
 	}
@@ -75,12 +77,27 @@ class Images {
 		});
 	}
 
-	/** A bitmap, `code` its slot times 4 plus its fit, resampled into the atlas at the size its record covers on screen. **/
+	/**
+		A bitmap, `code` its slot times 4 plus its fit, resampled into the
+		atlas at the size its record covers on screen. A tiled one is
+		resampled once at its own size, one layout unit a pixel as CSS sizes
+		images, which `COLOR2` carries for the shader to repeat.
+	**/
 	static function resampled(code:Int, list:DisplayList, r:Int, onScreen:Float, atlas:ImageAtlas):Null<ImageAtlas.Rect> {
 		var scale = bucket(onScreen);
-		var width = side(list.get(r, BOUNDS + 2) * scale);
-		var height = side(list.get(r, BOUNDS + 3) * scale);
 		var slot = code >> 2, fit = code & 3;
+		var w = list.get(r, BOUNDS + 2), h = list.get(r, BOUNDS + 3);
+		if (fit == ashui.types.Brush.ImageFit.Tile) {
+			w = ashui.core.externs.BitmapNative.blinc_bitmap_size(slot, false);
+			h = ashui.core.externs.BitmapNative.blinc_bitmap_size(slot, true);
+			if (w <= 0 || h <= 0)
+				return null;
+			list.set(r, COLOR2, w);
+			list.set(r, COLOR2 + 1, h);
+			fit = ashui.types.Brush.ImageFit.Fill;
+		}
+		var width = side(w * scale);
+		var height = side(h * scale);
 		return atlas.get('bitmap$code:${width}x$height', width, height,
 			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, width, height, fit, pixels.getData()));
 	}
