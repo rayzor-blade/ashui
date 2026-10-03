@@ -58,6 +58,17 @@ class WindowedApp {
 	var root:Element;
 	var dirty = true;
 	var quitting = false;
+	/**
+		On Wayland a frame waits for the compositor's frame callback for the
+		last, which paces frames to the display (see `presentMode`).
+		Elsewhere Fifo's present paces them, and the redraw may not come for a
+		window out of view.
+	**/
+	final paceOnRedraw:Bool;
+
+	/** A frame is presented and the redraw asked for after it has not come: nothing is drawn until it does. **/
+	var awaitingFrame = false;
+	var awaitingSince = 0.0;
 	var opened = 0.0;
 	/** Whether the input method is on: while text has focus. **/
 	var imeOn = false;
@@ -78,6 +89,12 @@ class WindowedApp {
 		var path = Sys.getEnv("ASHUI_FRAME_LOG");
 		path != null && path != "" ? sys.io.File.write(path, false) : null;
 	};
+
+	/** hlwindow's platform code for Wayland. **/
+	static inline var WAYLAND = 4;
+
+	/** How long a frame waits for the redraw after the last before drawing anyway, in seconds: a compositor sends none to a window it does not show. **/
+	static inline var FRAME_WAIT_LIMIT = 1.0;
 
 	/** The longest step animations advance by in one tick, in seconds. **/
 	static inline var MAX_STEP = 0.05;
@@ -128,6 +145,7 @@ class WindowedApp {
 		format = chooseFormat();
 		offscreen = new Offscreen(device, format);
 		tree = new LayoutTree();
+		paceOnRedraw = window.platform() == WAYLAND;
 	}
 
 	/** Closes the window after the frame being drawn. **/
@@ -171,13 +189,20 @@ class WindowedApp {
 		if (frameLog != null)
 			frameLog.writeString("frame\tat_ms\tsince_last_frame\twait\tevents\tn_events\ttick\tflush\tdraw_flush\tlayout\tlist\tgpu\tpresent\tprimitives\n");
 		while (!quitting) {
-			// No wait when a frame is already due, short ones while something
-			// animates; otherwise the loop sleeps on the window, until the next timer at most.
+			// No wait when a frame is due; after a present, until its redraw;
+			// short ones while something animates; otherwise the loop sleeps
+			// on the window. Never past the next timer.
 			var animating = scheduler.hasActive();
 			var timer = scheduler.untilNextTimer();
 			var t0 = haxe.Timer.stamp();
-			var due = dirty && ashui.input.WindowState.visible.get();
-			var event = due ? window.poll() : window.wait(animating ? 1 / 120 : timer != null ? Math.min(0.1, timer) : 0.1);
+			if (awaitingFrame && t0 - awaitingSince > FRAME_WAIT_LIMIT)
+				awaitingFrame = false;
+			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame;
+			// While a frame is awaited the wait ends with its redraw; animation steps when it comes.
+			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? 1 / 120 : 0.1;
+			if (timer != null)
+				timeout = Math.min(timeout, timer);
+			var event = due ? window.poll() : window.wait(timeout);
 			var t1 = haxe.Timer.stamp();
 			var handled = 0;
 			var polling = 0.0;
@@ -206,6 +231,8 @@ class WindowedApp {
 			last = now;
 			if (theme.tick() || animating)
 				dirty = true;
+			if (awaitingFrame && dirty)
+				continue;
 			var t2 = haxe.Timer.stamp();
 			if (tree.flush()) {
 				dirty = true;
@@ -283,7 +310,11 @@ class WindowedApp {
 				if (!hidden)
 					dirty = true;
 			case RedrawRequested:
-				dirty = true;
+				// The one asked for after a present opens the next frame; any other asks for one.
+				if (awaitingFrame)
+					awaitingFrame = false;
+				else
+					dirty = true;
 			case CursorMoved(x, y, _):
 				var scale = window.scaleFactor();
 				pendingMove = {x: x / scale, y: y / scale};
@@ -391,7 +422,16 @@ class WindowedApp {
 		offscreen.clearAlpha = background.a;
 		offscreen.scale = window.scaleFactor();
 		offscreen.render(root, view, logicalWidth(), logicalHeight());
+		if (!paceOnRedraw) {
+			device.queue().presentSurface(surface);
+			return true;
+		}
+		// Asks for a frame callback for what is presented next; the redraw asked for after it waits for that callback.
+		window.prePresentNotify();
 		device.queue().presentSurface(surface);
+		window.requestRedraw();
+		awaitingFrame = true;
+		awaitingSince = haxe.Timer.stamp();
 		return true;
 	}
 
@@ -400,20 +440,33 @@ class WindowedApp {
 		if (window.width() <= 0 || window.height() <= 0)
 			return;
 		var configuration = new GpuSurfaceConfiguration(format, window.width(), window.height());
-		configuration.presentMode(presentMode());
 		var capabilities = surface.capabilities(adapter);
+		configuration.presentMode(presentMode(capabilities));
 		configuration.alphaMode(capabilities.alphaMode(0));
 		device.configureSurfaceWith(surface, configuration);
 	}
 
-	/** `ASHUI_PRESENT_MODE=fifo|fifo-relaxed|mailbox|immediate` picks the present mode, Fifo by default; one the surface lacks fails at configure. **/
-	static function presentMode():gpu.PresentMode {
-		return switch Sys.getEnv("ASHUI_PRESENT_MODE") {
-			case "fifo-relaxed": FifoRelaxed;
-			case "mailbox": Mailbox;
-			case "immediate": Immediate;
-			case _: Fifo;
+	/**
+		Mailbox where frames are paced on the compositor's frame callback and
+		the surface offers it, Fifo otherwise: under Fifo on Wayland the
+		compositor's FIFO and commit-timing protocols can hold frames, while
+		the frame callback alone paces Mailbox to the display.
+		`ASHUI_PRESENT_MODE=fifo|fifo-relaxed|mailbox|immediate` overrides it;
+		one the surface lacks fails at configure.
+	**/
+	function presentMode(capabilities:gpu.GpuSurfaceCapabilities):gpu.PresentMode {
+		switch Sys.getEnv("ASHUI_PRESENT_MODE") {
+			case "fifo": return Fifo;
+			case "fifo-relaxed": return FifoRelaxed;
+			case "mailbox": return Mailbox;
+			case "immediate": return Immediate;
+			case _:
 		}
+		if (paceOnRedraw)
+			for (i in 0...capabilities.presentModeCount())
+				if (capabilities.presentMode(i) == Mailbox)
+					return Mailbox;
+		return Fifo;
 	}
 
 	/** A format without sRGB encoding, as Blinc picks: the theme's colours are already in sRGB. **/
