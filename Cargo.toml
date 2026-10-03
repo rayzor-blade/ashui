@@ -2,3 +2,31 @@
 resolver = "3"
 members = ["blinc_abi"]
 
+
+# Smaller and faster: one optimisation unit across all crates, no symbols. A panic aborts:
+# none is caught, and one crossing into HashLink would abort regardless.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# SVG is parsed and rasterized once per image and size, never per frame: small over fast.
+[profile.release.package.usvg]
+opt-level = "s"
+[profile.release.package.resvg]
+opt-level = "s"
+[profile.release.package.tiny-skia]
+opt-level = "s"
+[profile.release.package.tiny-skia-path]
+opt-level = "s"
+[profile.release.package.roxmltree]
+opt-level = "s"
+[profile.release.package.svgtypes]
+opt-level = "s"
+[profile.release.package.simplecss]
+opt-level = "s"
+[profile.release.package.fontdb]
+opt-level = "s"
+[profile.release.package.blinc_svg]
+opt-level = "s"
