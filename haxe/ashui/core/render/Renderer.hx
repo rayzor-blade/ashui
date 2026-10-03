@@ -179,6 +179,7 @@ class Renderer {
 		encoder.renderSetPipeline(pass.pipeline);
 		encoder.renderSetBindGroup(BoxShader.FRAME_GROUP, pass.group);
 		encoder.renderSetBindGroup(BoxShader.TEXTURE_records_GROUP, pass.records);
+		// Direct and not indexed: on GLES, instance_index counts from `first` only in a direct draw.
 		encoder.renderDrawRange(6, count, 0, first);
 	}
 
