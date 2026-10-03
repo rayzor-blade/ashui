@@ -242,6 +242,11 @@ class CssMotion {
 		what it cannot interpolate.
 	**/
 	public static function interpolate(a:String, b:String, t:Float):String {
+		// `none` against a transform list is that list's identity: rotate(0deg) to rotate(360deg).
+		if (StringTools.trim(a).toLowerCase() == "none" && b.indexOf("(") > 0)
+			a = identity(b);
+		else if (StringTools.trim(b).toLowerCase() == "none" && a.indexOf("(") > 0)
+			b = identity(a);
 		var na = numbers(normalize(a)), nb = numbers(normalize(b));
 		if (na.skeleton != nb.skeleton || na.values.length != nb.values.length)
 			return t < 0.5 ? a : b;
@@ -254,6 +259,24 @@ class CssMotion {
 		}
 		out.add(na.parts[na.values.length]);
 		return out.toString();
+	}
+
+	/** What a property is where nothing sets it, for keyframes that leave out their first or last frame. **/
+	public static final INITIAL:Map<String, String> = [
+		"opacity" => "1", "transform" => "none", "background-color" => "transparent", "background" => "transparent", "color" => "black",
+		"border-color" => "transparent", "box-shadow" => "none", "filter" => "none", "border-radius" => "0px", "padding" => "0px", "margin" => "0px",
+		"gap" => "0px", "letter-spacing" => "0px", "outline-offset" => "0px", "outline-width" => "0px"
+	];
+
+	/** A transform list with each function's identity arguments, its numbers 0 or, for scale, 1. **/
+	static function identity(list:String):String {
+		return ~/([a-zA-Z]+)\(([^)]*)\)/g.map(list, r -> {
+			var name = r.matched(1);
+			var args = r.matched(2);
+			var one = name.toLowerCase().indexOf("scale") == 0;
+			var zero = ~/[+-]?(?:\d+\.?\d*|\.\d+)/g.map(args, _ -> one ? "1" : "0");
+			'$name($zero)';
+		});
 	}
 
 	/** Colours in `text` written as `rgba(r, g, b, a)`, so two of them interpolate number by number. **/

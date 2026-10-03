@@ -46,6 +46,38 @@ class Snapshot {
 	}
 
 	/**
+		An animated UI as `frames` PNGs, `name-000.png` on, `fps` frames a
+		second apart: built with `build` as `scene` builds, then for each
+		frame `before(frame)` runs (to hover, press or change something at
+		that frame), every animation advances a frame's time, and the frame is
+		captured. The time is the frame count's, not the clock's, so the
+		frames are the same each run. Returns the paths.
+	**/
+	public static function sequence(name:String, width:Int, height:Int, build:Void->Element, fps = 30, frames = 30, ?before:(frame:Int,
+			tree:LayoutTree, root:Element) -> Void, clear = 0xffffff, clearAlpha = 1.0, scale = 1.0):Array<String> {
+		try {
+			var tree = new LayoutTree();
+			var root:Element = Owner.root(tree, _ -> build());
+			var paths = [];
+			for (i in 0...frames) {
+				if (before != null)
+					before(i, tree, root);
+				if (i > 0)
+					Offscreen.advance(1 / fps);
+				ashui.css.Css.setViewport(width, height);
+				ashui.css.Css.update();
+				tree.flush();
+				tree.computeLayout(root.node, width, height);
+				paths.push(capture('$name-${StringTools.lpad(Std.string(i), "0", 3)}', tree, root.node, width, height, clear, clearAlpha, scale));
+			}
+			return paths;
+		} catch (e:haxe.Exception) {
+			event('error $name ${e.message.split("\n").join(" ")}');
+			throw e;
+		}
+	}
+
+	/**
 		Draws `root` of `tree`, laid out at `width` × `height`, into an image
 		`scale` times that size cleared to `clear`, and writes it as `name`.
 		Returns the PNG's path.

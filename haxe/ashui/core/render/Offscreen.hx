@@ -123,6 +123,35 @@ class Offscreen {
 		return pixels;
 	}
 
+	/**
+		One frame of an animated UI in time the caller keeps: advances every
+		animation `dt` seconds (transitions, CSS animations, `animate-`
+		classes, springs) on `scheduler`, `AnimationScheduler.main` unless
+		given, and the theme's scheme transition, then draws `root` as
+		`render` does. Stepping a fixed `dt` gives the same frames each run,
+		for recording a UI to video or testing its motion frame by frame.
+	**/
+	public function renderAnimated(root:Element, view:GpuTextureView, width:Int, height:Int, dt:Float,
+			?scheduler:ashui.animation.AnimationScheduler):Void {
+		advance(dt, scheduler);
+		render(root, view, width, height);
+	}
+
+	/** As `renderAnimated`, read back as `width * height * 4` RGBA bytes. **/
+	public function renderAnimatedToRgba8(root:Element, width:Int, height:Int, dt:Float, ?scheduler:ashui.animation.AnimationScheduler):haxe.io.Bytes {
+		advance(dt, scheduler);
+		return renderToRgba8(root, width, height);
+	}
+
+	/** Advances `scheduler`, or the main one, `dt` seconds, and the theme's scheme transition with it. **/
+	public static function advance(dt:Float, ?scheduler:ashui.animation.AnimationScheduler):Void {
+		if (dt > 0)
+			(scheduler != null ? scheduler : ashui.animation.AnimationScheduler.main).tick(dt);
+		var theme = ashui.theme.ThemeState.tryGet();
+		if (theme != null)
+			theme.tick();
+	}
+
 	/** A texture in `format` of `width` × `height` that can be drawn to, sampled and copied. **/
 	public function createTexture(width:Int, height:Int):GpuTexture {
 		var size = new GpuExtent3D(width);

@@ -481,6 +481,25 @@ class Pixels {
 		if (!sharp)
 			failures++;
 		Sys.println('${sharp ? "ok  " : "FAIL"} text: zoomed glyph edges are $median pixels wide over ${edges.length} rows');
+		// Frames of an animated UI in time the test keeps: a bar a CSS animation widens over a second.
+		var motionSheet = ashui.css.Css.load('
+			@keyframes slide { from { width: 10px } to { width: 50px } }
+			.slide { height: 10px; background: #ff0000; animation: slide 1s linear; }
+		');
+		var motionTree = new LayoutTree();
+		var bar = new Div({classes: ["slide"]}, motionTree);
+		var motionRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), alignItems: Start}, [bar], motionTree);
+		label = "animated: ";
+		pixels = offscreen.renderAnimatedToRgba8(motionRoot, SIZE, SIZE, 0);
+		probe("the first frame, the bar 10 wide", 20, 5, near(0xffffff));
+		pixels = offscreen.renderAnimatedToRgba8(motionRoot, SIZE, SIZE, 0.5);
+		probe("half a second on, 30 wide", 25, 5, near(0xff0000));
+		probe("and no wider", 35, 5, near(0xffffff));
+		pixels = offscreen.renderAnimatedToRgba8(motionRoot, SIZE, SIZE, 0.6);
+		probe("ended, back to its own width", 25, 5, near(0xffffff));
+		probe("which it draws", 5, 5, near(0xff0000));
+		ashui.css.Css.remove(motionSheet);
+
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

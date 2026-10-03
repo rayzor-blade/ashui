@@ -953,6 +953,11 @@ class Smoke {
 		var done = widths();
 		check("@keyframes animates, then hands back to the cascade, or holds with forwards", start.join(",") == "10,10" && half.join(",") == "60,60"
 			&& done.join(",") == "10,110", [start, half, done]);
+		check("keyframe values interpolate: none as the identity, colours by channel, unlike shapes switch halfway",
+			ashui.css.CssMotion.interpolate("none", "rotate(360deg)", 0.25) == "rotate(90deg)"
+			&& ashui.css.CssMotion.interpolate("red", "blue", 0.5) == "rgba(127.5, 0, 127.5, 1)"
+			&& ashui.css.CssMotion.interpolate("block", "flex", 0.4) == "block" && ashui.css.CssMotion.interpolate("block", "flex", 0.6) == "flex",
+			[ashui.css.CssMotion.interpolate("none", "rotate(360deg)", 0.25), ashui.css.CssMotion.interpolate("red", "blue", 0.5)]);
 		ashui.css.Css.remove(motionSheet);
 
 		// --- CSS pointer queries: a property reads env(pointer-x) ---

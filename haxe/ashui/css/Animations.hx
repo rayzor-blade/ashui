@@ -146,10 +146,12 @@ private class Run {
 					track.push({offset: o, value: value, easing: easing});
 			}
 		}
-		// A missing first or last frame is the element's own value, as CSS fills it.
+		// A missing first or last frame is the element's own value, or the property's initial one, as CSS fills it.
 		for (name => track in tracks) {
 			track.sort((a, b) -> a.offset < b.offset ? -1 : a.offset > b.offset ? 1 : 0);
 			var own = base.get(name);
+			if (own == null)
+				own = CssMotion.INITIAL.get(name);
 			if (track[0].offset > 0)
 				track.unshift({offset: 0, value: own != null ? own : track[0].value, easing: null});
 			if (track[track.length - 1].offset < 1)
