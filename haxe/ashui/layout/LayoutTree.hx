@@ -81,12 +81,23 @@ class LayoutTree {
 	**/
 	public static final flushHooks:Array<LayoutTree->Void> = [];
 
-	/** Called with a node whose children changed: added, removed, replaced or reordered. **/
+	/**
+		Called with a node whose children are about to change: added, removed,
+		replaced or reordered. For a fragment's, it is called for the node the
+		fragment is laid out in too, whose laid-out children change with them.
+	**/
 	public static final childrenHooks:Array<(LayoutTree, haxe.Int64) -> Void> = [];
 
-	inline function childrenChanged(parent:haxe.Int64):Void
-		for (hook in childrenHooks)
-			hook(this, parent);
+	function childrenChanged(parent:haxe.Int64):Void {
+		if (childrenHooks.length == 0)
+			return;
+		var at:Null<haxe.Int64> = parent;
+		while (at != null) {
+			for (hook in childrenHooks)
+				hook(this, at);
+			at = isFragment(at) ? placedIn.get(key(at)) : null;
+		}
+	}
 
 	/** The parent of `node`, if it has one, for the hooks above. **/
 	function parentOf(node:haxe.Int64):Null<haxe.Int64> {

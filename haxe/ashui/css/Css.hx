@@ -282,7 +282,7 @@ class Css {
 		if (hooked)
 			return;
 		hooked = true;
-		Identity.hooks.push(identity -> if (sheets.length > 0 || applied.exists(identity)) mark(identity));
+		Identity.hooks.push(identity -> if (sheets.length > 0 || applied.exists(identity)) markChanged(identity));
 		Identity.forgetHooks.push(release);
 		LayoutTree.childrenHooks.push((tree, parent) -> if (sheets.length > 0) markSubtree(tree, parent));
 		LayoutTree.flushHooks.push(flush);
@@ -296,6 +296,25 @@ class Css {
 		if (nodes == null)
 			pending.set(tree, nodes = new Map());
 		nodes.set(haxe.Int64.toStr(identity.node.id), identity);
+	}
+
+	/**
+		An element whose classes, id or attributes changed: it, and what a
+		combinator can reach from it, everything under it (`.a .b`, `.a > .b`)
+		and its later siblings and theirs (`.a + .b`, `.a ~ .b`).
+	**/
+	static function markChanged(identity:Identity):Void {
+		var tree = identity.tree, node = identity.node.id;
+		markSubtree(tree, node);
+		var up = tree.ancestors(node);
+		if (up.length == 0)
+			return;
+		var later = false;
+		for (sibling in tree.children(up[0]))
+			if (later)
+				markSubtree(tree, sibling);
+			else if (sibling == node)
+				later = true;
 	}
 
 	/** `parent` and everything under it, and with `:has()` in force, its ancestors. **/
