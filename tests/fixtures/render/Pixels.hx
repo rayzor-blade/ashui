@@ -42,7 +42,8 @@ import gpu.TextureUsage;
 
 	Then SVG beyond the typed model, drawn as written: a red-to-blue linear
 	gradient, a `<use>` of a rect styled green by a `<style>` sheet, linked
-	by `href` and by `xlink:href`, and an embedded magenta PNG `<image>`.
+	by `href` and by `xlink:href`, an embedded magenta PNG `<image>`, and
+	an "M" in `<text>` coloured red by the element.
 
 	Then text, on white: black "MM" at 24px, which must ink pixels, and "MM"
 	at 10px under a 4x zoom, whose stem edges must stay about a pixel wide,
@@ -195,8 +196,9 @@ class Pixels {
 		function full(doc:ashui.svg.SvgDocument)
 			return new ashui.ui.Svg(doc, {width: 24, height: 24, color: new Color(0xff0000)}, fullTree);
 		var embedded = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><image width="24" height="24" style="image-rendering: pixelated" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z/AfAAQAAf8iCjrwAAAAAElFTkSuQmCC"/></svg>');
+		var written = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><text x="0" y="22" font-size="28" font-weight="bold" fill="currentColor">M</text></svg>');
 		var fullRoot = new Div({width: 160, height: 24, bg: Brush.solid(0xffffff), gap: 8, flexDirection: Row},
-			[full(gradient), full(reused), full(embedded)], fullTree);
+			[full(gradient), full(reused), full(embedded), full(written)], fullTree);
 		pixels = offscreen.renderToRgba8(fullRoot, 160, 24);
 		label = "full svg: ";
 		function hue(x:Int, y:Int, name:String, ok:(r:Int, g:Int, b:Int) -> Bool) {
@@ -211,6 +213,17 @@ class Pixels {
 		hue(36, 12, "<use> draws what it links to, styled by a <style> sheet", (r, g, b) -> g > 200 && r < 50);
 		hue(50, 12, "xlink:href links too", (r, g, b) -> g > 200 && r < 50);
 		hue(76, 12, "an embedded image is drawn", (r, g, b) -> r > 200 && g < 50 && b > 200);
+		var textInk = 0;
+		for (y in 0...24)
+			for (x in 96...120) {
+				var i = (y * 160 + x) * 4;
+				if (pixels.get(i) > 200 && pixels.get(i + 1) < 60 && pixels.get(i + 2) < 60)
+					textInk++;
+			}
+		var textOk = textInk > 40;
+		if (!textOk)
+			failures++;
+		Sys.println('${textOk ? "ok  " : "FAIL"} ${label}<text> is drawn in currentColor ($textInk red pixels)');
 
 		var textTree = new LayoutTree();
 		var label24 = new ashui.ui.Text("MM", {fontSize: 24, color: new Color(0x000000), wrap: false}, textTree);
