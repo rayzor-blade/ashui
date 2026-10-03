@@ -304,6 +304,8 @@ class WindowedApp {
 	function draw():Bool {
 		var view = surface.acquire();
 		if (!view.valid()) {
+			if (frameLog != null)
+				frameLog.writeString('noframe\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\twindow=${window.width()}x${window.height()}\n');
 			configure();
 			dirty = true;
 			return false;
