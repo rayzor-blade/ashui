@@ -153,6 +153,24 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			return alpha;
 		}
 
+		/**
+			How much of the point `p`, on screen, a clip that fades what it
+			clips leaves: a linear ramp from nothing at each edge of `bounds`
+			to all of it `fade` in, top, right, bottom, left; 0 is no fade.
+		**/
+		function fadeCoverage(p : Vec2, bounds : Vec4, fade : Vec4) : Float {
+			var alpha = 1.;
+			if (fade.x > 0.)
+				alpha *= clamp((p.y - bounds.y) / fade.x, 0., 1.);
+			if (fade.y > 0.)
+				alpha *= clamp((bounds.x + bounds.z - p.x) / fade.y, 0., 1.);
+			if (fade.z > 0.)
+				alpha *= clamp((bounds.y + bounds.w - p.y) / fade.z, 0., 1.);
+			if (fade.w > 0.)
+				alpha *= clamp((p.x - bounds.x) / fade.w, 0., 1.);
+			return alpha;
+		}
+
 		/** Half a screen pixel, measured in the coordinates `p` is in. **/
 		function halfPixel(p : Vec2) : Float {
 			return 0.25 * (length(dFdx(p)) + length(dFdy(p)));

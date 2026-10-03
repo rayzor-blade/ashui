@@ -22,6 +22,11 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var BorderRightColor:Prop<ashui.types.Color> = cast PropertyId.BorderRightColor;
 	public static inline var BorderBottomColor:Prop<ashui.types.Color> = cast PropertyId.BorderBottomColor;
 	public static inline var BorderLeftColor:Prop<ashui.types.Color> = cast PropertyId.BorderLeftColor;
+	/** How far in from a side a box that clips its children (`Overflow` hidden or scroll) fades them out. **/
+	public static inline var FadeTop:Prop<Single> = cast PropertyId.FadeTop;
+	public static inline var FadeRight:Prop<Single> = cast PropertyId.FadeRight;
+	public static inline var FadeBottom:Prop<Single> = cast PropertyId.FadeBottom;
+	public static inline var FadeLeft:Prop<Single> = cast PropertyId.FadeLeft;
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;

@@ -29,6 +29,10 @@ import haxe.macro.Type;
 	- borders, `border`, `border-0` … `border-8`, and one side or two over
 	  it, `border-t`, `border-x-2`, `border-b-0` …, each side in the
 	  border's colour or its own, `border-t-primary`, `border-x-error` …;
+	- overflow fades, ashui's own: on a box that clips its children
+	  (`overflow-hidden`, `overflow-y-auto` …), `fade-4` fades them out
+	  over the spacing step in from every edge, `fade-y-8` from the top and
+	  bottom, `fade-t-2` from one side;
 	- outlines, a ring outside the border box that follows its corners:
 	  `outline`, `outline-2`, `outline-offset-2`, `outline-none`, and
 	  Tailwind's rings drawn the same way, `ring` (3), `ring-2`,
@@ -340,6 +344,10 @@ class Tw {
 					v.set('${box[0]}${side.name}-$step', node -> [for (k in side.keys) set(node, box[1] + k, value)]);
 			one('gap-x-$step', "GapX", value);
 			one('gap-y-$step', "GapY", value);
+			// ashui's own: what a clipping box clips fades out over this far in from its edges.
+			v.set('fade-$step', node -> [for (k in ["Top", "Right", "Bottom", "Left"]) set(node, "Fade" + k, value)]);
+			for (side in SIDES)
+				v.set('fade-${side.name}-$step', node -> [for (k in side.keys) set(node, "Fade" + k, value)]);
 		}
 
 		// Auto margins, sizes and insets: NaN is `auto` to the layout.

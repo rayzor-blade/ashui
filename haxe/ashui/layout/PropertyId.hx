@@ -97,6 +97,11 @@ enum abstract PropertyId(Int) from Int to Int {
     var BorderRightColor = 68;
     var BorderBottomColor = 69;
     var BorderLeftColor = 70;
+    // How far in from a side a box that clips its children fades them out.
+    var FadeTop = 71;
+    var FadeRight = 72;
+    var FadeBottom = 73;
+    var FadeLeft = 74;
 
     /**
      * Determines what data type category this property belongs to,
@@ -118,7 +123,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
                  Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
-                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset:
+                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft:
                 TypeF32;
 
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)

@@ -240,7 +240,7 @@ fn length_auto(v: f32) -> LengthPercentageAuto {
 
 /// ashui's own number properties, numbered after Blinc's: one side of a
 /// box's padding, margin, gap or border, a size as a fraction of the
-/// parent's, or an outline's width or offset. Each is updated under the
+/// parent's, an outline's width or offset, or one side's overflow fade. Each is updated under the
 /// Blinc property it is part of.
 const SIDES_BASE: i32 = 43;
 
@@ -294,6 +294,11 @@ fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
         20 => (P::BorderWidth, render(|p, v| side(&mut p.border_sides.left).width = v)?),
         21 => (P::BorderWidth, render(|p, v| p.outline_width = v)?),
         22 => (P::BorderWidth, render(|p, v| p.outline_offset = v)?),
+        // How far in from a side a clipping box fades what it clips.
+        28 => (P::Opacity, render(|p, v| p.overflow_fade.top = v)?),
+        29 => (P::Opacity, render(|p, v| p.overflow_fade.right = v)?),
+        30 => (P::Opacity, render(|p, v| p.overflow_fade.bottom = v)?),
+        31 => (P::Opacity, render(|p, v| p.overflow_fade.left = v)?),
         _ => return None,
     })
 }

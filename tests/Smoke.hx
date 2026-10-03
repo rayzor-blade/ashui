@@ -1239,6 +1239,16 @@ class Smoke {
 			[topColour, rightColour]);
 		check("ring-2 with ring-offset-2 draws a ring 4 out", edgeList.count == 2 && [for (v in ringBounds) Std.int(v)].join(",") == "-4,-4,48,48", [edgeList.count, ringBounds]);
 
+		// --- A clipping box's fade reaches the records of what it clips ---
+		var fadeTree = new LayoutTree();
+		var faded:Div = Owner.root(fadeTree, _ -> hxx('<div class="w-10 h-10 overflow-hidden fade-y-4"><div class="w-10 h-10 bg-surface" /></div>'));
+		fadeTree.flush();
+		fadeTree.computeLayout(faded.node, 100, 100);
+		var fadeList = new ashui.layout.DisplayList();
+		fadeList.update(fadeTree, faded.node);
+		var fadeRow = [for (i in 84...88) Std.int(fadeList.get(fadeList.count - 1, i))];
+		check("fade-y-4 fades a clipped child from the top and bottom", fadeRow.join(",") == "16,0,16,0", fadeRow);
+
 		// --- focus-within:, group- and peer- follow another element's state ---
 		var relTree = new LayoutTree();
 		var field:Div = null;

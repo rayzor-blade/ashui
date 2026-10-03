@@ -18,7 +18,8 @@ import ashui.ui.TextField;
 	  word and line moves with Alt and Command, Enter submitting;
 	- a text area of wrapped lines that scrolls, with line-by-line selection;
 	- a turned card whose button is hit where it is drawn, clipped to the card;
-	- a scroll list whose rows scroll under the wheel or trackpad, with a thumb;
+	- a scroll list whose rows scroll under the wheel or trackpad, with a
+	  thumb, fading out at its top and bottom edges;
 	- icons in currentColor, which follow their button's text colour;
 	- a theme switch, and a line logging the latest event.
 **/
@@ -102,7 +103,7 @@ class Interactions {
 					</div>
 					<div class="flex flex-col gap-2">
 						<text class="text-xs text-text-tertiary">Scroll list: wheel or trackpad</text>
-						<div class="flex flex-col gap-1 p-1 rounded-xl bg-surface border-2 border-border overflow-y-auto" width={180} height={110}>
+						<div class="flex flex-col gap-1 p-1 rounded-xl bg-surface border-2 border-border overflow-y-auto fade-y-4" width={180} height={110}>
 							${[for (i in 0...20) hxx('<div class="shrink-0 px-3 py-1.5 rounded-md bg-surface hover:bg-surface-elevated transition-colors"
 								onClick={() -> log("row " + (i + 1) + " clicked")}><text class="text-sm">Row ${i + 1}</text></div>')]}
 						</div>

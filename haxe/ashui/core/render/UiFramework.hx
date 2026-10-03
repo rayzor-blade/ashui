@@ -32,7 +32,8 @@ class UiFramework extends Extension {
 	/** The record's fields, a row each, in `DisplayList`'s order. **/
 	public static final FIELDS = [
 		"bounds", "cornerRadius", "color", "color2", "border", "borderColor", "shadow", "shadowColor", "clipBounds", "clipRadius", "gradient",
-		"typeInfo", "cornerShape", "via", "stops", "affine", "borderTop", "borderRight", "borderBottom", "borderLeft"
+		"typeInfo", "cornerShape", "via", "stops", "affine", "borderTop", "borderRight", "borderBottom", "borderLeft",
+		"fadeBounds", "fade"
 	];
 
 	public static function register() {

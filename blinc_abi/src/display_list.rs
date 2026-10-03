@@ -24,6 +24,8 @@
 //! | 15 | a, b, c, d: a point `(x, y)` from the box's top-left is at       |
 //! |    | `(a·x + c·y, b·x + d·y)` from its screen top-left                |
 //! | 16-19 | each side's border colour, top, right, bottom, left, opacity applied |
+//! | 20 | the on-screen rect of the innermost clip that fades its overflow |
+//! | 21 | that clip's fade distances: top, right, bottom, left; 0 is none |
 //!
 //! A text node adds one record per glyph, a `PRIM_TEXT` quad whose bounds
 //! are the glyph's, whose colour is the text's, whose gradient row is the
@@ -64,7 +66,7 @@ use blinc_layout::tree::LayoutNodeId;
 use blinc_text::{TextError, TextRenderer};
 use taffy::Overflow;
 
-pub const RECORD_FLOATS: usize = 80;
+pub const RECORD_FLOATS: usize = 88;
 
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
@@ -190,6 +192,9 @@ pub struct Clip {
     /// The corner `n` of the node that pushed it, so a squircle parent clips
     /// its children to the same curve it is drawn with.
     n: f32,
+    /// How far in from each edge, top, right, bottom, left, what it clips
+    /// fades out; zeros for none.
+    fade: [f32; 4],
 }
 
 /// The clips of one record: on screen, and in its own coordinates, and the
@@ -199,6 +204,8 @@ struct Clipping {
     screen: ([f32; 4], [f32; 4], f32),
     local: Option<([f32; 4], [f32; 4])>,
     n: f32,
+    /// The innermost fading clip's rect on screen and its fade distances.
+    fade: ([f32; 4], [f32; 4]),
 }
 
 /// The clips under `clips` for a record placed at `origin` in layout
@@ -229,10 +236,16 @@ fn clipping(clips: &[Clip], m: Affine, origin: (f32, f32), local: bool) -> Clipp
         .rev()
         .find(|c| c.layout_radii.iter().any(|&r| r > 0.0))
         .map_or(1.0, |c| c.n);
+    let fade = clips
+        .iter()
+        .rev()
+        .find(|c| c.fade.iter().any(|&f| f > 0.0))
+        .map_or(([0.0; 4], [0.0; 4]), |c| (c.rect, c.fade));
     Clipping {
         screen: clip_data(&on_screen),
         local,
         n,
+        fade,
     }
 }
 
@@ -473,6 +486,8 @@ impl Primitive {
         for c in &self.side_colors {
             out.extend_from_slice(c);
         }
+        out.extend_from_slice(&clipping.fade.0);
+        out.extend_from_slice(&clipping.fade.1);
     }
 }
 
@@ -649,6 +664,10 @@ pub fn append(
             layout_radii: [inset_radius; 4],
             frame: m,
             n,
+            fade: tree.props.get(&node).map_or([0.0; 4], |p| {
+                let f = p.overflow_fade;
+                [f.top, f.right, f.bottom, f.left]
+            }),
         });
         pushed = true;
     }

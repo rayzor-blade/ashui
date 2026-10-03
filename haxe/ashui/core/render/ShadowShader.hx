@@ -22,7 +22,8 @@ class ShadowShader implements UiShader {
 		}
 
 		function fragment() {
-			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w);
+			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
+				* fadeCoverage(pixel, primitive.fadeBounds, primitive.fade);
 			if (clip < 0.001)
 				discard;
 			var p = local;

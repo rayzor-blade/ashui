@@ -33,6 +33,9 @@ import gpu.TextureUsage;
 	2-pixel outline 2 pixels out, and a white box with a 4-pixel border,
 	green but for its red top and blue left.
 
+	Then a box clipping a red child, fading it out over 20 pixels in from
+	its top edge.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -167,6 +170,17 @@ class Pixels {
 		probe("a side in the border's colour, right", 26, 48, near(0x00ff00));
 		probe("and bottom", 16, 58, near(0x00ff00));
 		probe("the sides meet on the corner's diagonal", 5, 38, near(0x0000ff));
+
+		var fadeTree = new LayoutTree();
+		var fadeChild = new Div({width: 40, height: 40, bg: Brush.solid(0xff0000)}, fadeTree);
+		var fading = new Div({position: Position.Absolute, left: 8, top: 8, width: 40, height: 40, overflow: Overflow.Clip}, [fadeChild], fadeTree);
+		fading.node.set(Prop.FadeTop, (20 : Single));
+		var fadeRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [fading], fadeTree);
+		pixels = offscreen.renderToRgba8(fadeRoot, SIZE, SIZE);
+		label = "overflow fade: ";
+		probe("almost gone at the clip's top edge", 28, 9, (r, g, b) -> r > 240 && g > 220);
+		probe("half way through the fade", 28, 18, (r, g, b) -> r > 240 && g > 110 && g < 150);
+		probe("whole past it", 28, 40, near(0xff0000));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

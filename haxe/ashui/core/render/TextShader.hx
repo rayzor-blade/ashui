@@ -35,7 +35,8 @@ class TextShader implements UiShader {
 			var local = uv * primitive.bounds.zw;
 			var aa = halfPixel(local);
 			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
-				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa);
+				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa)
+				* fadeCoverage(pixel, primitive.fadeBounds, primitive.fade);
 			if (clip < 0.001)
 				discard;
 			var rect = primitive.gradient;
