@@ -30,10 +30,8 @@ class Text extends Element {
 				node.set(Prop.TextContent, content);
 		}
 
-		// Without a colour of its own, text takes the theme's primary text colour.
+		// Without a colour of its own, text inherits one (see DisplayList.update).
 		if (attr != null && attr.color != null)
 			node.set(Prop.Color, attr.color);
-		else if (ashui.theme.ThemeState.tryGet() != null)
-			node.set(Prop.Color, ashui.theme.Themed.color(TextPrimary));
 	}
 }

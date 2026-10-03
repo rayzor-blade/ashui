@@ -36,10 +36,12 @@ extern class LayoutTreeNative {
 	/**
 		Packs the primitives to draw under `root` into `out`, at most
 		`capacity` records (see `DisplayList`), with text rasterized for
-		`scale` device pixels per layout unit. Returns how many there are,
-		which may be more than were written.
+		`scale` device pixels per layout unit. `textColor`, `0xAARRGGBB`, is
+		the colour of text that neither it nor an ancestor sets. Returns how
+		many there are, which may be more than were written.
 	**/
-	static function blinc_tree_display_list(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, scale:Single, out:hl.Bytes, capacity:Int):Int;
+	static function blinc_tree_display_list(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, scale:Single, textColor:Int, out:hl.Bytes,
+		capacity:Int):Int;
 
 	/** Makes `node` draw image `slot`, which the renderer resolves, in its content box; a negative slot stops it. **/
 	static function blinc_tree_set_image(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;

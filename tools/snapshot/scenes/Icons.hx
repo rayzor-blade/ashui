@@ -32,7 +32,7 @@ class Icons {
 					</g>
 					<circle cx="24" cy="24" r="5" fill="white" />
 				</svg>
-				${new ashui.ui.Svg(heart, {width: 32, height: 32, color: ashui.theme.Themed.color(ashui.theme.ColorToken.Error)})}
+				<div class="text-error">${new ashui.ui.Svg(heart, {width: 32, height: 32})}</div>
 				<div class="scale-150 ml-6"><div class="scale-150">
 					<svg class="w-6 h-6 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />

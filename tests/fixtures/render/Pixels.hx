@@ -33,6 +33,11 @@ import gpu.TextureUsage;
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
 
+	Then inherited colour: mask icons with no colour of their own, inside a
+	parent coloured red; inside a blue box inside that red one; inside a
+	parent whose colour signal turns green after the first frame; and one
+	added to the red parent after the first frame.
+
 	Then text, on white: black "MM" at 24px, which must ink pixels, and "MM"
 	at 10px under a 4x zoom, whose stem edges must stay about a pixel wide,
 	as a glyph rasterized at its on-screen size has and a magnified one,
@@ -137,6 +142,41 @@ class Pixels {
 		probe("mask's transparent margin", 6, 6, near(0xffffff));
 		probe("colour image as drawn", 48, 16, near(0x0000ff));
 		probe("colour image's transparent margin", 38, 6, near(0xffffff));
+
+		var inheritTree = new LayoutTree();
+		function icon()
+			return new ashui.ui.Svg(maskDoc, {width: 24, height: 24}, inheritTree);
+		function box(left:Int, children:Array<ashui.layout.Element>)
+			return new Div({position: Position.Absolute, left: left, top: 0, width: 24, height: 24}, children, inheritTree);
+		var red = box(0, [icon()]);
+		red.node.set(Prop.Color, new Color(0xff0000));
+		var inner = box(0, [icon()]);
+		inner.node.set(Prop.Color, new Color(0x0000ff));
+		var outer = box(32, [inner]);
+		outer.node.set(Prop.Color, new Color(0xff0000));
+		var tone = ashui.reactive.Signal.make(new Color(0xff0000));
+		var bound = box(64, [icon()]);
+		bound.node.set(Prop.Color, tone);
+		var later = box(96, []);
+		later.node.set(Prop.Color, new Color(0xff0000));
+		var inheritRoot = new Div({width: 128, height: 24, bg: Brush.solid(0xffffff)}, [red, outer, bound, later], inheritTree);
+		offscreen.renderToRgba8(inheritRoot, 128, 24);
+		tone.set(new Color(0x00ff00));
+		later.appendChild(icon());
+		pixels = offscreen.renderToRgba8(inheritRoot, 128, 24);
+		label = "inherited colour: ";
+		function at(x:Int, y:Int, want:Int, name:String) {
+			var i = (y * 128 + x) * 4;
+			var ok = Math.abs(pixels.get(i) - (want >> 16 & 0xff)) <= 2 && Math.abs(pixels.get(i + 1) - (want >> 8 & 0xff)) <= 2
+				&& Math.abs(pixels.get(i + 2) - (want & 0xff)) <= 2;
+			if (!ok)
+				failures++;
+			Sys.println('${ok ? "ok  " : "FAIL"} $label$name ($x,$y): [${pixels.get(i)},${pixels.get(i + 1)},${pixels.get(i + 2)}]');
+		}
+		at(12, 12, 0xff0000, "from the parent");
+		at(44, 12, 0x0000ff, "from the nearest ancestor that sets one");
+		at(76, 12, 0x00ff00, "follows the parent's colour after it changes");
+		at(108, 12, 0xff0000, "reaches a child added after the first frame");
 
 		var textTree = new LayoutTree();
 		var label24 = new ashui.ui.Text("MM", {fontSize: 24, color: new Color(0x000000), wrap: false}, textTree);

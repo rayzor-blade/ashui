@@ -358,16 +358,20 @@ define_prim!(
 
 /// Pack the primitives to draw under `root` into `out` (see `display_list`), at
 /// most `capacity` records, with text rasterized for `display_scale` device
-/// pixels per layout unit. Returns how many there are, which may be more
-/// than were written: the caller grows its buffer and asks again.
+/// pixels per layout unit. `text_color`, `0xAARRGGBB`, is the colour of text
+/// that neither it nor an ancestor sets. Returns how many there are, which
+/// may be more than were written: the caller grows its buffer and asks again.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_display_list(
     h: *mut c_void,
     root: u64,
     display_scale: f32,
+    text_color: i32,
     out: *mut vbyte,
     capacity: i32,
 ) -> i32 {
+    let channel = |shift: i32| ((text_color >> shift) & 0xff) as f32 / 255.0;
+    let text_color = [channel(16), channel(8), channel(0), channel(24)];
     let Some(tree) = (unsafe { tree(h) }) else {
         return 0;
     };
@@ -386,6 +390,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
             id(root),
             (0.0, 0.0),
             1.0,
+            text_color,
             crate::display_list::IDENTITY,
             &mut Vec::new(),
             &mut glyphs,
@@ -406,7 +411,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
 define_prim!(
     hlp_blinc_tree_display_list,
     hl_blinc_tree_display_list,
-    "PXblinc_tree_lfBi_i"
+    "PXblinc_tree_lfiBi_i"
 );
 
 /// Makes `node` draw the image the caller knows as `slot` in its content

@@ -37,16 +37,34 @@ class DisplayList {
 		Fills the list from `tree` under `root`, growing the buffer when it is
 		too small. `scale` is the device pixels per layout unit of the target,
 		which text is rasterized for.
+
+		Text colour is inherited as in CSS: an element's own colour, from a
+		class such as `text-error`, a `color` attribute or a binding, applies
+		to it and to everything inside it that sets none, text and the
+		`currentColor` of SVG alike. What sets none at all takes the theme's
+		primary text colour, or black without a theme. It is resolved while
+		the list is built, so content added or recoloured later inherits what
+		its ancestors have then.
 	**/
 	public function update(tree:LayoutTree, root:Node, scale = 1.0):Void {
-		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, scale, bytes == null ? null : bytes.getData(), capacity);
+		var textColor = defaultTextColor();
+		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, scale, textColor, bytes == null ? null : bytes.getData(), capacity);
 		if (needed > capacity) {
 			capacity = needed + (needed >> 1) + 16;
 			bytes = haxe.io.Bytes.alloc(capacity * RECORD_BYTES);
-			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, scale, bytes.getData(), capacity);
+			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, scale, textColor, bytes.getData(), capacity);
 		}
 		count = needed;
 		smoothCorners();
+	}
+
+	/** The theme's primary text colour now, mid-transition included, as `0xAARRGGBB`. **/
+	static function defaultTextColor():Int {
+		var theme = ashui.theme.ThemeState.tryGet();
+		if (theme == null)
+			return 0xff000000;
+		var c = theme.color(TextPrimary);
+		return Math.round(Math.max(0, Math.min(1, c.a)) * 255) << 24 | c.rgb();
 	}
 
 	/** Gives each record the installed theme's squircle, as Blinc's paint walk does; nothing without a theme. **/

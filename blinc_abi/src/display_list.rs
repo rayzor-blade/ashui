@@ -30,7 +30,8 @@
 //! is the colour-glyph atlas (see `text`).
 //!
 //! A node with an image adds a `PRIM_IMAGE` record over its content box,
-//! coloured with its text colour, which an SVG's `currentColor` takes, and
+//! coloured with its text colour, own or inherited, which an SVG's
+//! `currentColor` takes, and
 //! with its opacity in `color2.a`. Its gradient row holds the image's slot
 //! and the device pixels per unit it covers on screen; the caller replaces
 //! them with the image's rect in its atlas.
@@ -407,12 +408,18 @@ impl Primitive {
 
 /// Appends the records of `node` and everything below it, which sits at
 /// `origin` in its parent's layout, under the ancestors' combined
-/// `opacity`, their transform `m` and the clips they pushed.
+/// `opacity`, their transform `m` and the clips they pushed. `color` is
+/// the text colour it inherits: its own wins, and what it ends up with
+/// passes to its children. Inheritance is resolved here rather than copied
+/// into descendants' props, so a node built or recoloured at any time
+/// inherits what its ancestors have now.
+#[allow(clippy::too_many_arguments)]
 pub fn append(
     tree: &Tree,
     node: LayoutNodeId,
     origin: (f32, f32),
     opacity: f32,
+    color: [f32; 4],
     m: Affine,
     clips: &mut Vec<Clip>,
     glyphs: &mut Glyphs,
@@ -428,6 +435,11 @@ pub fn append(
     let local = [0.0, 0.0, w, h];
     let mut m = m;
     let mut opacity = opacity;
+    let color = tree
+        .props
+        .get(&node)
+        .and_then(|p| p.text_color)
+        .unwrap_or(color);
     let mut pushed = false;
     if let Some(props) = tree.props.get(&node) {
         if !props.visible {
@@ -480,10 +492,10 @@ pub fn append(
     }
 
     if let Some(&slot) = tree.images.get(&node) {
-        image_record(tree, node, slot, (x, y), opacity, m, clips, glyphs.display_scale, out);
+        image_record(tree, node, slot, (x, y), opacity, color, m, clips, glyphs.display_scale, out);
     }
     if let Some(context) = tree.layout.text_context(node) {
-        text_records(tree, node, context, (x, y, w), opacity, m, clips, glyphs, out);
+        text_records(tree, node, context, (x, y, w), opacity, color, m, clips, glyphs, out);
     }
 
     // Children are clipped to the padding box, rounded by what is left of a
@@ -521,7 +533,7 @@ pub fn append(
         pushed = true;
     }
     for child in tree.layout.children(node) {
-        append(tree, child, (x, y), opacity, m, clips, glyphs, out);
+        append(tree, child, (x, y), opacity, color, m, clips, glyphs, out);
     }
     if pushed {
         clips.pop();
@@ -536,15 +548,13 @@ fn text_records(
     context: &blinc_layout::tree::TextMeasureContext,
     (x, y, w): (f32, f32, f32),
     opacity: f32,
+    color: [f32; 4],
     m: Affine,
     clips: &[Clip],
     glyphs: &mut Glyphs,
     out: &mut Vec<f32>,
 ) {
     let props = tree.props.get(&node);
-    let color = props
-        .and_then(|p| p.text_color)
-        .unwrap_or([0.0, 0.0, 0.0, 1.0]);
     let color = [color[0], color[1], color[2], color[3] * opacity];
     if color[3] <= 0.0 || context.content.is_empty() {
         return;
@@ -587,7 +597,8 @@ fn text_records(
     }
 }
 
-/// The record of an image drawn in the content box of a node laid out at `(x, y)`.
+/// The record of an image drawn in the content box of a node laid out at
+/// `(x, y)`; an SVG's `currentColor` is `tint`, the node's text colour.
 #[allow(clippy::too_many_arguments)]
 fn image_record(
     tree: &Tree,
@@ -595,6 +606,7 @@ fn image_record(
     slot: i32,
     (x, y): (f32, f32),
     opacity: f32,
+    tint: [f32; 4],
     m: Affine,
     clips: &[Clip],
     display_scale: f32,
@@ -611,8 +623,6 @@ fn image_record(
     if w <= 0.0 || h <= 0.0 || opacity <= 0.0 {
         return;
     }
-    let props = tree.props.get(&node);
-    let tint = props.and_then(|p| p.text_color).unwrap_or([0.0, 0.0, 0.0, 1.0]);
     let mut rec = Primitive::new(PRIM_IMAGE, [0.0, 0.0, w, h], [0.0; 4]);
     rec.color = [tint[0], tint[1], tint[2], tint[3] * opacity];
     rec.color2 = [1.0, 1.0, 1.0, opacity];

@@ -12,15 +12,16 @@ typedef SvgAttributes = {
 	/** The size it is laid out at; the document's natural size by default. **/
 	?width:IntoReactive<Single>,
 	?height:IntoReactive<Single>,
-	/** What `currentColor` is: the theme's primary text colour by default. **/
+	/** What `currentColor` is; inherited from the elements it is in by default, as text colour is. **/
 	?color:IntoReactive<Color>
 }
 
 /**
 	Draws an SVG image in its box, fitted and centred, rasterized at the size
 	it covers on screen so it stays sharp when zoomed. A mask SVG, one drawn
-	only in `currentColor`, takes the element's colour, so classes such as
-	`text-primary` and transitions colour it.
+	only in `currentColor`, takes the element's text colour, its own or the
+	one it inherits, so classes such as `text-primary` on it or on anything
+	around it, and transitions, colour it.
 
 	In hxx, write the SVG itself: `<svg class="w-6 h-6 text-primary" viewBox="0 0 24 24"><path d="..."/></svg>`.
 **/
@@ -36,8 +37,6 @@ class Svg extends Element {
 		node.set(Prop.FlexShrink, (0 : Single));
 		if (attr != null && attr.color != null)
 			node.set(Prop.Color, attr.color);
-		else if (ashui.theme.ThemeState.tryGet() != null)
-			node.set(Prop.Color, ashui.theme.Themed.color(TextPrimary));
 		LayoutTreeNative.blinc_tree_set_image(this.tree.ptr, node.id, document.id);
 	}
 }
