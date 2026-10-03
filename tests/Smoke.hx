@@ -1226,7 +1226,7 @@ class Smoke {
 
 		// --- One border side over the border, and outlines from classes ---
 		var edgeTree = new LayoutTree();
-		var edged:Div = Owner.root(edgeTree, _ -> hxx('<div class="w-10 h-10 bg-surface border border-b-4 border-border ring-2 ring-primary ring-offset-2" />'));
+		var edged:Div = Owner.root(edgeTree, _ -> hxx('<div class="w-10 h-10 bg-surface border border-b-4 border-border border-t-error ring-2 ring-primary ring-offset-2" />'));
 		edgeTree.flush();
 		edgeTree.computeLayout(edged.node, 100, 100);
 		var edgeList = new ashui.layout.DisplayList();
@@ -1234,6 +1234,9 @@ class Smoke {
 		var sides = [for (i in 16...20) edgeList.get(0, i)];
 		var ringBounds = [for (i in 0...4) edgeList.get(1, i)];
 		check("border-b-4 widens one side over border", [for (v in sides) Std.int(v)].join(",") == "1,1,4,1", sides);
+		var topColour = [for (i in 64...68) edgeList.get(0, i)], rightColour = [for (i in 68...72) edgeList.get(0, i)];
+		check("border-t-error colours the top alone", Math.abs(topColour[0] - 0xDC / 255) < 0.01 && topColour.join(",") != rightColour.join(","),
+			[topColour, rightColour]);
 		check("ring-2 with ring-offset-2 draws a ring 4 out", edgeList.count == 2 && [for (v in ringBounds) Std.int(v)].join(",") == "-4,-4,48,48", [edgeList.count, ringBounds]);
 
 		// --- focus-within:, group- and peer- follow another element's state ---

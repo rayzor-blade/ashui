@@ -92,6 +92,11 @@ enum abstract PropertyId(Int) from Int to Int {
     var OutlineWidth = 64;
     var OutlineOffset = 65;
     var OutlineColor = 66;
+    // One side's border colour over BorderColor.
+    var BorderTopColor = 67;
+    var BorderRightColor = 68;
+    var BorderBottomColor = 69;
+    var BorderLeftColor = 70;
 
     /**
      * Determines what data type category this property belongs to,
@@ -100,7 +105,7 @@ enum abstract PropertyId(Int) from Int to Int {
     public inline function getDataType(): PropertyDataType {
         return switch (this) {
             case Background: TypeBrush;
-            case BorderColor | Color | AccentColor | OutlineColor: TypeColor;
+            case BorderColor | Color | AccentColor | OutlineColor | BorderTopColor | BorderRightColor | BorderBottomColor | BorderLeftColor: TypeColor;
             case CornerRadius: TypeCornerRadius;
 
             case Transform: TypeTransform;

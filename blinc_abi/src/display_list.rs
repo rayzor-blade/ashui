@@ -1,6 +1,6 @@
-//! The laid-out tree as a flat list of primitives to draw, packed for a GPU
-//! vertex buffer: one record of [`RECORD_FLOATS`] f32s per primitive, in
-//! paint order.
+//! The laid-out tree as a flat list of primitives to draw, packed for the
+//! GPU: one record of [`RECORD_FLOATS`] f32s per primitive, in paint order,
+//! which the UI shaders read as rows of a float texture.
 //!
 //! A record is the subset of Blinc's `GpuPrimitive` (blinc_gpu/primitives.rs)
 //! that a box needs, field for field, so ashui's shaders are ports of
@@ -23,6 +23,7 @@
 //! | 14 | gradient stop offsets: first, middle, last; 1 if there is a middle |
 //! | 15 | a, b, c, d: a point `(x, y)` from the box's top-left is at       |
 //! |    | `(a·x + c·y, b·x + d·y)` from its screen top-left                |
+//! | 16-19 | each side's border colour, top, right, bottom, left, opacity applied |
 //!
 //! A text node adds one record per glyph, a `PRIM_TEXT` quad whose bounds
 //! are the glyph's, whose colour is the text's, whose gradient row is the
@@ -63,7 +64,7 @@ use blinc_layout::tree::LayoutNodeId;
 use blinc_text::{TextError, TextRenderer};
 use taffy::Overflow;
 
-pub const RECORD_FLOATS: usize = 64;
+pub const RECORD_FLOATS: usize = 80;
 
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
@@ -397,6 +398,8 @@ struct Primitive {
     via: [f32; 4],
     offsets: [f32; 4],
     affine: [f32; 4],
+    /// Each side's border colour, top, right, bottom, left.
+    side_colors: [[f32; 4]; 4],
 }
 
 impl Primitive {
@@ -417,6 +420,7 @@ impl Primitive {
             via: [0.0; 4],
             offsets: [0.0, 0.0, 1.0, 0.0],
             affine: [1.0, 0.0, 0.0, 1.0],
+            side_colors: [[0.0; 4]; 4],
         }
     }
 
@@ -466,6 +470,9 @@ impl Primitive {
         out.extend_from_slice(&self.via);
         out.extend_from_slice(&self.offsets);
         out.extend_from_slice(&self.affine);
+        for c in &self.side_colors {
+            out.extend_from_slice(c);
+        }
     }
 }
 
@@ -538,18 +545,19 @@ pub fn append(
         }
 
         let sides = border_sides(props);
-        let border = props
-            .border_color
-            .filter(|_| sides.iter().any(|&w| w > 0.0));
+        let side_colors = border_side_colors(props);
+        let border = (0..4).any(|i| sides[i] > 0.0 && side_colors[i].is_some());
         // A border with no background draws over a transparent fill.
         let transparent = Brush::Solid(Color::TRANSPARENT);
-        let brush = props.background.as_ref().or(border.map(|_| &transparent));
+        let brush = props.background.as_ref().or(border.then_some(&transparent));
         let mut p = Primitive::new(PRIM_RECT, local, radii);
         p.shape_from(props, &glyphs.shapes);
         if brush.is_some_and(|b| fill(&mut p, b, opacity)) {
-            if let Some(bc) = border {
+            if border {
                 p.border = sides;
-                p.border_color = rgba(bc, opacity);
+                p.side_colors = side_colors.map(|c| c.map_or([0.0; 4], |c| rgba(c, opacity)));
+                // The most opaque side's, which says whether there is a border to draw.
+                p.border_color = p.side_colors.iter().copied().fold([0.0; 4], |a, c| if c[3] > a[3] { c } else { a });
             }
             p.place(m, x, y);
             // A node that clips its children draws its border after them, so
@@ -583,6 +591,7 @@ pub fn append(
             o.fill_type = FILL_SOLID;
             o.border = [props.outline_width; 4];
             o.border_color = rgba(oc, opacity);
+            o.side_colors = [o.border_color; 4];
             o.place(m, x - grow, y - grow);
             if o.border_color[3] > 0.0 {
                 o.push(&clipping(clips, m, (x - grow, y - grow), true), out);
@@ -815,10 +824,24 @@ fn image_record(
 }
 
 /// A node's border widths, top, right, bottom, left: each side's own where
-/// one is set, else the border's.
+/// one is set, else the border's. An unset side width is negative.
 fn border_sides(props: &RenderProps) -> [f32; 4] {
     let s = &props.border_sides;
     let bw = props.border_width;
-    let of = |side: &Option<blinc_layout::element::BorderSide>| side.as_ref().map_or(bw, |b| b.width);
+    let of = |side: &Option<blinc_layout::element::BorderSide>| {
+        side.as_ref().map_or(bw, |b| if b.width < 0.0 { bw } else { b.width })
+    };
+    [of(&s.top), of(&s.right), of(&s.bottom), of(&s.left)]
+}
+
+/// A node's border colours, top, right, bottom, left: each side's own where
+/// one is set, else the border's; none where neither is. An unset side
+/// colour has a NaN red.
+fn border_side_colors(props: &RenderProps) -> [Option<Color>; 4] {
+    let s = &props.border_sides;
+    let of = |side: &Option<blinc_layout::element::BorderSide>| match side {
+        Some(b) if !b.color.r.is_nan() => Some(b.color),
+        _ => props.border_color,
+    };
     [of(&s.top), of(&s.right), of(&s.bottom), of(&s.left)]
 }

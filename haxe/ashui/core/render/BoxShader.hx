@@ -50,10 +50,13 @@ class BoxShader implements UiShader {
 		/**
 			`fill` with the border composited over it where `p` is in the ring
 			between the edge and the inner shape; straight alpha. With
-			different side widths the inner corners are quarter ellipses.
+			different side widths the inner corners are quarter ellipses. Each
+			side has its colour; a point takes the side it is nearest for that
+			side's width, so two sides meet on the line from the outer corner to
+			the inner one, as CSS joins them.
 		**/
 		function withBorder(p : Vec2, origin : Vec2, size : Vec2, radii : Vec4, shape : Vec4, d : Float, coverage : Float, fill : Vec4,
-				border : Vec4, borderColor : Vec4, aa : Float) : Vec4 {
+				border : Vec4, topColor : Vec4, rightColor : Vec4, bottomColor : Vec4, leftColor : Vec4, aa : Float) : Vec4 {
 			var result = fill;
 			if (max(max(border.x, border.y), max(border.z, border.w)) > 0.) {
 				// Each side its own: ashui writes all four, a uniform border as four equal widths.
@@ -63,6 +66,20 @@ class BoxShader implements UiShader {
 				var left = border.w;
 				var halfSize = size * 0.5;
 				var rel = p - (origin + halfSize);
+				var borderColor = topColor;
+				var nearest = (rel.y + halfSize.y) / max(top, 0.0001);
+				var toRight = (halfSize.x - rel.x) / max(right, 0.0001);
+				if (toRight < nearest) {
+					nearest = toRight;
+					borderColor = rightColor;
+				}
+				var toBottom = (halfSize.y - rel.y) / max(bottom, 0.0001);
+				if (toBottom < nearest) {
+					nearest = toBottom;
+					borderColor = bottomColor;
+				}
+				if ((rel.x + halfSize.x) / max(left, 0.0001) < nearest)
+					borderColor = leftColor;
 				var r = radii.w;
 				var n = shape.w;
 				if (rel.y < 0.) {
@@ -159,7 +176,7 @@ class BoxShader implements UiShader {
 				discard;
 			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, fillType);
 			fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
-				primitive.borderColor, aa);
+				primitive.borderTop, primitive.borderRight, primitive.borderBottom, primitive.borderLeft, aa);
 			output.color = vec4(fill.rgb, fill.a * clip * coverage);
 		}
 	};

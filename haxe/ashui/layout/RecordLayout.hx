@@ -7,10 +7,11 @@ package ashui.layout;
 **/
 class RecordLayout {
 	/** A record is this many rows of four floats, each a texel of the records texture. **/
-	public static inline var RECORD_ROWS = 16;
+	public static inline var RECORD_ROWS = 20;
 
-	/** The records texture's width in texels: whole records to a row, within WebGL2's 2048. **/
-	public static inline var ROW_TEXELS = 2048;
+	/** Whole records to a texture row, as many as fit in WebGL2's 2048 texels. **/
+	public static inline var RECORDS_PER_ROW = 102;
 
-	public static inline var RECORDS_PER_ROW = 128;
+	/** The records texture's width in texels. **/
+	public static inline var ROW_TEXELS = RECORDS_PER_ROW * RECORD_ROWS;
 }

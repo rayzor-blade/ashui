@@ -10,7 +10,7 @@ import ashui.core.externs.LayoutTreeNative;
 	it is.
 **/
 class DisplayList {
-	public static inline var RECORD_FLOATS = 64;
+	public static inline var RECORD_FLOATS = 80;
 	public static inline var RECORD_BYTES = RECORD_FLOATS * 4;
 	public static inline var RECORD_ROWS = RecordLayout.RECORD_ROWS;
 	public static inline var ROW_TEXELS = RecordLayout.ROW_TEXELS;

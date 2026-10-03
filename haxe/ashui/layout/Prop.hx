@@ -17,6 +17,11 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var BorderRightWidth:Prop<Single> = cast PropertyId.BorderRightWidth;
 	public static inline var BorderBottomWidth:Prop<Single> = cast PropertyId.BorderBottomWidth;
 	public static inline var BorderLeftWidth:Prop<Single> = cast PropertyId.BorderLeftWidth;
+	/** One side's border colour, over `BorderColor`. **/
+	public static inline var BorderTopColor:Prop<ashui.types.Color> = cast PropertyId.BorderTopColor;
+	public static inline var BorderRightColor:Prop<ashui.types.Color> = cast PropertyId.BorderRightColor;
+	public static inline var BorderBottomColor:Prop<ashui.types.Color> = cast PropertyId.BorderBottomColor;
+	public static inline var BorderLeftColor:Prop<ashui.types.Color> = cast PropertyId.BorderLeftColor;
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;

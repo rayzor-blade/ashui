@@ -287,26 +287,51 @@ fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
             P::FlexBasis,
             layout(|s, v| s.flex_basis = Dimension::Percent(v))?,
         ),
-        // A side's width over the border's; its colour stays the border's.
-        17 => (P::BorderWidth, render(|p, v| p.border_sides.top = Some(side(v)))?),
-        18 => (P::BorderWidth, render(|p, v| p.border_sides.right = Some(side(v)))?),
-        19 => (P::BorderWidth, render(|p, v| p.border_sides.bottom = Some(side(v)))?),
-        20 => (P::BorderWidth, render(|p, v| p.border_sides.left = Some(side(v)))?),
+        // A side's width over the border's.
+        17 => (P::BorderWidth, render(|p, v| side(&mut p.border_sides.top).width = v)?),
+        18 => (P::BorderWidth, render(|p, v| side(&mut p.border_sides.right).width = v)?),
+        19 => (P::BorderWidth, render(|p, v| side(&mut p.border_sides.bottom).width = v)?),
+        20 => (P::BorderWidth, render(|p, v| side(&mut p.border_sides.left).width = v)?),
         21 => (P::BorderWidth, render(|p, v| p.outline_width = v)?),
         22 => (P::BorderWidth, render(|p, v| p.outline_offset = v)?),
         _ => return None,
     })
 }
 
-fn side(width: f32) -> BorderSide {
-    BorderSide {
-        width,
-        color: blinc_core::Color::TRANSPARENT,
-    }
+/// A border side, made with its width and colour unset, so a side can set
+/// one and take the border's other: a negative width and a NaN red, which
+/// `display_list` reads as the border's.
+fn side(slot: &mut Option<BorderSide>) -> &mut BorderSide {
+    slot.get_or_insert(BorderSide {
+        width: -1.0,
+        color: blinc_core::Color {
+            r: f32::NAN,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        },
+    })
 }
 
-/// ashui's own value properties: the outline's colour.
-const OUTLINE_COLOR: i32 = 66;
+/// ashui's own colour properties, numbered after its number ones: the
+/// outline's colour, then each border side's.
+fn own_value_write(raw: i32) -> Option<(PropertyId, Write<Value>)> {
+    fn color(f: fn(&mut RenderProps, blinc_core::Color)) -> Option<Write<Value>> {
+        render(move |p, v| {
+            if let Value::Color(c) = v {
+                f(p, c);
+            }
+        })
+    }
+    Some(match raw {
+        66 => (PropertyId::AccentColor, color(|p, c| p.outline_color = Some(c))?),
+        67 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.top).color = c)?),
+        68 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.right).color = c)?),
+        69 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.bottom).color = c)?),
+        70 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.left).color = c)?),
+        _ => return None,
+    })
+}
 
 fn f32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<f32>> {
     use PropertyId as P;
@@ -608,15 +633,8 @@ pub unsafe extern "C" fn hl_blinc_apply_value(
     sig: *mut c_void,
     comp: *mut c_void,
 ) {
-    let (prop, write) = if prop == OUTLINE_COLOR {
-        let Some(write) = render(|p, v| {
-            if let Value::Color(c) = v {
-                p.outline_color = Some(c);
-            }
-        }) else {
-            return;
-        };
-        (PropertyId::AccentColor, write)
+    let (prop, write) = if let Some(own) = own_value_write(prop) {
+        own
     } else {
         let Some(prop) = property(prop) else { return };
         let Some(write) = value_write(prop) else {

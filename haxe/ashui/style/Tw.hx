@@ -27,7 +27,8 @@ import haxe.macro.Type;
 	  `border-`, `outline-` and `ring-` with `primary`, `surface-elevated`,
 	  `text-secondary` …;
 	- borders, `border`, `border-0` … `border-8`, and one side or two over
-	  it, `border-t`, `border-x-2`, `border-b-0` …, in the border's colour;
+	  it, `border-t`, `border-x-2`, `border-b-0` …, each side in the
+	  border's colour or its own, `border-t-primary`, `border-x-error` …;
 	- outlines, a ring outside the border box that follows its corners:
 	  `outline`, `outline-2`, `outline-offset-2`, `outline-none`, and
 	  Tailwind's rings drawn the same way, `ring` (3), `ring-2`,
@@ -375,6 +376,15 @@ class Tw {
 			one('text-$name', "Color", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
 			one('border-$name', "BorderColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
 			one('outline-$name', "OutlineColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
+			for (side in [["t", "Top"], ["r", "Right"], ["b", "Bottom"], ["l", "Left"]])
+				one('border-${side[0]}-$name', 'Border${side[1]}Color', macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
+			for (pair in [["x", "Left", "Right"], ["y", "Top", "Bottom"]]) {
+				var a = 'Border${pair[1]}Color', b = 'Border${pair[2]}Color';
+				v.set('border-${pair[0]}-$name', node -> [
+					set(node, a, macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token)),
+					set(node, b, macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token))
+				]);
+			}
 			one('ring-$name', "OutlineColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
 		}
 

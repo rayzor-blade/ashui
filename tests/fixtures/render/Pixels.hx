@@ -29,8 +29,9 @@ import gpu.TextureUsage;
 	that covers its bounding box: the child shows inside the turned box and
 	not in its bounding box's corners.
 
-	Then a white box with a red top border alone, and a green box with a
-	blue 2-pixel outline 2 pixels out.
+	Then a white box with a red top border alone, a green box with a blue
+	2-pixel outline 2 pixels out, and a white box with a 4-pixel border,
+	green but for its red top and blue left.
 
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
@@ -147,7 +148,12 @@ class Pixels {
 		outlined.node.set(Prop.OutlineColor, new Color(0x0000ff));
 		outlined.node.set(Prop.OutlineWidth, (2 : Single));
 		outlined.node.set(Prop.OutlineOffset, (2 : Single));
-		var edgeRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [topOnly, outlined], edgeTree);
+		var fourColours = new Div({position: Position.Absolute, left: 4, top: 36, width: 24, height: 24, bg: Brush.solid(0xffffff)}, edgeTree);
+		fourColours.node.set(Prop.BorderWidth, (4 : Single));
+		fourColours.node.set(Prop.BorderColor, new Color(0x00ff00));
+		fourColours.node.set(Prop.BorderTopColor, new Color(0xff0000));
+		fourColours.node.set(Prop.BorderLeftColor, new Color(0x0000ff));
+		var edgeRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [topOnly, outlined, fourColours], edgeTree);
 		pixels = offscreen.renderToRgba8(edgeRoot, SIZE, SIZE);
 		label = "borders and outlines: ";
 		probe("a top border alone is drawn on top", 16, 5, near(0xff0000));
@@ -156,6 +162,11 @@ class Pixels {
 		probe("an outline outside its box, past its offset", 37, 28, near(0x0000ff));
 		probe("the offset's gap is left clear", 39, 28, near(0xffffff));
 		probe("the box itself is untouched", 48, 28, near(0x00ff00));
+		probe("a side's own colour, top", 16, 37, near(0xff0000));
+		probe("a side's own colour, left", 5, 48, near(0x0000ff));
+		probe("a side in the border's colour, right", 26, 48, near(0x00ff00));
+		probe("and bottom", 16, 58, near(0x00ff00));
+		probe("the sides meet on the corner's diagonal", 5, 38, near(0x0000ff));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');
