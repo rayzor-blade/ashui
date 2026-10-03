@@ -26,6 +26,12 @@
 //! | 16-19 | each side's border colour, top, right, bottom, left, opacity applied |
 //! | 20 | the on-screen rect of the innermost clip that fades its overflow |
 //! | 21 | that clip's fade distances: top, right, bottom, left; 0 is none |
+//! | 22 | the innermost `clip-path`'s frame: a, b, c, d of the inverse of   |
+//! |    | its element's transform, taking a screen point to that element  |
+//! | 23 | that inverse's e and f, less the element's origin; the shape:   |
+//! |    | 0 none, 1 ellipse, 2 rounded rect; and the rect's radius        |
+//! | 24 | the shape in the element's coordinates: ellipse cx, cy, rx, ry, |
+//! |    | or rect x, y, width, height                                     |
 //!
 //! A text node adds one record per glyph, a `PRIM_TEXT` quad whose bounds
 //! are the glyph's, whose colour is the text's, whose gradient row is the
@@ -66,7 +72,7 @@ use blinc_layout::tree::LayoutNodeId;
 use blinc_text::{TextError, TextRenderer};
 use taffy::Overflow;
 
-pub const RECORD_FLOATS: usize = 88;
+pub const RECORD_FLOATS: usize = 100;
 
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
@@ -195,6 +201,70 @@ pub struct Clip {
     /// How far in from each edge, top, right, bottom, left, what it clips
     /// fades out; zeros for none.
     fade: [f32; 4],
+    /// A `clip-path` instead of a rect: it clips by its shape alone.
+    shape: Option<ShapeClip>,
+}
+
+/// A `clip-path` resolved against its element's box, as the shaders read
+/// it: rows 22 to 24 of a record.
+#[derive(Clone, Copy)]
+struct ShapeClip {
+    inverse: [f32; 4],
+    rest: [f32; 4],
+    params: [f32; 4],
+}
+
+const SHAPE_ELLIPSE: f32 = 1.0;
+const SHAPE_RECT: f32 = 2.0;
+
+/// `path` on a box `w` × `h` at `(x, y)` in layout coordinates, drawn under
+/// `m`: CSS's resolution of each shape, a circle's radius against the box's
+/// diagonal over √2 and an unset one reaching the closest side.
+fn shape_clip(path: &blinc_core::ClipPath, (x, y): (f32, f32), w: f32, h: f32, m: Affine) -> ShapeClip {
+    use blinc_core::ClipPath as C;
+    let diagonal = (w * w + h * h).sqrt() / std::f32::consts::SQRT_2;
+    let (kind, params, radius) = match path {
+        C::Circle { radius, center } => {
+            let (cx, cy) = (center.0.resolve(w), center.1.resolve(h));
+            let r = radius.map_or((cx).min(w - cx).min(cy).min(h - cy), |r| r.resolve(diagonal));
+            (SHAPE_ELLIPSE, [cx, cy, r, r], 0.0)
+        }
+        C::Ellipse { rx, ry, center } => {
+            let (cx, cy) = (center.0.resolve(w), center.1.resolve(h));
+            let rx = rx.map_or(cx.min(w - cx), |r| r.resolve(w));
+            let ry = ry.map_or(cy.min(h - cy), |r| r.resolve(h));
+            (SHAPE_ELLIPSE, [cx, cy, rx, ry], 0.0)
+        }
+        C::Inset { top, right, bottom, left, round } => {
+            let (t, r, b, l) = (top.resolve(h), right.resolve(w), bottom.resolve(h), left.resolve(w));
+            (SHAPE_RECT, [l, t, (w - l - r).max(0.0), (h - t - b).max(0.0)], round.unwrap_or(0.0))
+        }
+        C::Rect { top, right, bottom, left, round } => {
+            let (t, r, b, l) = (top.resolve(h), right.resolve(w), bottom.resolve(h), left.resolve(w));
+            (SHAPE_RECT, [l, t, (r - l).max(0.0), (b - t).max(0.0)], round.unwrap_or(0.0))
+        }
+        C::Xywh { x: cx, y: cy, w: cw, h: ch, round } => (
+            SHAPE_RECT,
+            [cx.resolve(w), cy.resolve(h), cw.resolve(w), ch.resolve(h)],
+            round.unwrap_or(0.0),
+        ),
+        // Polygons and paths need their points beside the record: not yet drawn.
+        C::Polygon { .. } | C::Path { .. } => (0.0, [0.0; 4], 0.0),
+    };
+    let [a, b, c, d, e, f] = m;
+    let det = a * d - b * c;
+    let (ia, ib, ic, id) = if det.abs() > 1e-12 {
+        (d / det, -b / det, -c / det, a / det)
+    } else {
+        (1.0, 0.0, 0.0, 1.0)
+    };
+    let ie = -(ia * e + ic * f);
+    let jf = -(ib * e + id * f);
+    ShapeClip {
+        inverse: [ia, ib, ic, id],
+        rest: [ie - x, jf - y, kind, radius],
+        params,
+    }
 }
 
 /// The clips of one record: on screen, and in its own coordinates, and the
@@ -206,6 +276,8 @@ struct Clipping {
     n: f32,
     /// The innermost fading clip's rect on screen and its fade distances.
     fade: ([f32; 4], [f32; 4]),
+    /// The innermost `clip-path`, if any.
+    shape: Option<ShapeClip>,
 }
 
 /// The clips under `clips` for a record placed at `origin` in layout
@@ -213,9 +285,10 @@ struct Clipping {
 /// clip, unless `local` is false; the rest are clipped on screen.
 fn clipping(clips: &[Clip], m: Affine, origin: (f32, f32), local: bool) -> Clipping {
     let shares = |c: &Clip| local && m != IDENTITY && c.frame == m;
-    let on_screen: Vec<Clip> = clips.iter().filter(|c| !shares(c)).copied().collect();
-    let in_frame: Vec<Clip> = clips
-        .iter()
+    // A clip-path clips by its shape alone, not as a rect.
+    let rects = clips.iter().filter(|c| c.shape.is_none());
+    let on_screen: Vec<Clip> = rects.clone().filter(|c| !shares(c)).copied().collect();
+    let in_frame: Vec<Clip> = rects
         .filter(|c| shares(c))
         .map(|c| Clip {
             rect: c.layout,
@@ -246,6 +319,7 @@ fn clipping(clips: &[Clip], m: Affine, origin: (f32, f32), local: bool) -> Clipp
         local,
         n,
         fade,
+        shape: clips.iter().rev().find_map(|c| c.shape),
     }
 }
 
@@ -488,6 +562,14 @@ impl Primitive {
         }
         out.extend_from_slice(&clipping.fade.0);
         out.extend_from_slice(&clipping.fade.1);
+        match &clipping.shape {
+            Some(c) => {
+                out.extend_from_slice(&c.inverse);
+                out.extend_from_slice(&c.rest);
+                out.extend_from_slice(&c.params);
+            }
+            None => out.extend_from_slice(&[0.0; 12]),
+        }
     }
 }
 
@@ -526,6 +608,7 @@ pub fn append(
         .and_then(|p| p.text_color)
         .unwrap_or(color);
     let mut pushed = false;
+    let mut shaped = false;
     // A border drawn after the children, with the clips its node is drawn under.
     let mut after: Option<(Primitive, Clipping)> = None;
     if let Some(props) = tree.props.get(&node) {
@@ -542,6 +625,20 @@ pub fn append(
             m = compose(m, about);
         }
         opacity *= props.opacity;
+        // A clip-path clips the node itself, its shadows and everything inside it.
+        if let Some(path) = &props.clip_path {
+            clips.push(Clip {
+                rect: NO_CLIP,
+                radii: [0.0; 4],
+                layout: NO_CLIP,
+                layout_radii: [0.0; 4],
+                frame: m,
+                n: 1.0,
+                fade: [0.0; 4],
+                shape: Some(shape_clip(path, (x, y), w, h, m)),
+            });
+            shaped = true;
+        }
         let r: CornerRadius = props.border_radius;
         let radii = [r.top_left, r.top_right, r.bottom_right, r.bottom_left];
         // A shadow's local-clip rows hold the shadow itself.
@@ -668,6 +765,7 @@ pub fn append(
                 let f = p.overflow_fade;
                 [f.top, f.right, f.bottom, f.left]
             }),
+            shape: None,
         });
         pushed = true;
     }
@@ -685,6 +783,9 @@ pub fn append(
     }
     if let Some((ring, clip)) = after {
         ring.push(&clip, out);
+    }
+    if shaped {
+        clips.pop();
     }
 }
 

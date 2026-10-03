@@ -33,7 +33,7 @@ class UiFramework extends Extension {
 	public static final FIELDS = [
 		"bounds", "cornerRadius", "color", "color2", "border", "borderColor", "shadow", "shadowColor", "clipBounds", "clipRadius", "gradient",
 		"typeInfo", "cornerShape", "via", "stops", "affine", "borderTop", "borderRight", "borderBottom", "borderLeft",
-		"fadeBounds", "fade"
+		"fadeBounds", "fade", "shapeFrame", "shapeRest", "shape"
 	];
 
 	public static function register() {

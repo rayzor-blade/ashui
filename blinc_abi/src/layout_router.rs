@@ -318,8 +318,8 @@ fn side(slot: &mut Option<BorderSide>) -> &mut BorderSide {
     })
 }
 
-/// ashui's own colour properties, numbered after its number ones: the
-/// outline's colour, then each border side's.
+/// ashui's own value properties, numbered after its number ones: the
+/// outline's colour, each border side's, and the clip path.
 fn own_value_write(raw: i32) -> Option<(PropertyId, Write<Value>)> {
     fn color(f: fn(&mut RenderProps, blinc_core::Color)) -> Option<Write<Value>> {
         render(move |p, v| {
@@ -334,6 +334,14 @@ fn own_value_write(raw: i32) -> Option<(PropertyId, Write<Value>)> {
         68 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.right).color = c)?),
         69 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.bottom).color = c)?),
         70 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.left).color = c)?),
+        75 => (
+            PropertyId::Transform,
+            render(|p, v| {
+                if let Value::ClipPath(c) = v {
+                    p.clip_path = Some(c);
+                }
+            })?,
+        ),
         _ => return None,
     })
 }

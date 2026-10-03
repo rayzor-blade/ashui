@@ -94,6 +94,9 @@ extern class BlincNative {
 	static function blinc_transform_affine(a:Single, b:Single, c:Single, d:Single, tx:Single, ty:Single):hl.Abstract<"blinc_value">;
 	static function blinc_corner_shape(topLeft:Single, topRight:Single, bottomRight:Single, bottomLeft:Single, locked:Bool):hl.Abstract<"blinc_value">;
 	static function blinc_shadow(offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single):hl.Abstract<"blinc_value">;
+
+	/** A clip-path shape; see `blinc_abi::types::hl_blinc_clip_path`. **/
+	static function blinc_clip_path(kind:Int, values:hl.Bytes, percent:Int, none:Int, round:Single):hl.Abstract<"blinc_value">;
 	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int,
 		alpha:Single):Void;
 }

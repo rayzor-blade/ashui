@@ -1249,6 +1249,17 @@ class Smoke {
 		var fadeRow = [for (i in 84...88) Std.int(fadeList.get(fadeList.count - 1, i))];
 		check("fade-y-4 fades a clipped child from the top and bottom", fadeRow.join(",") == "16,0,16,0", fadeRow);
 
+		// --- A clip path from a template reaches its subtree's records ---
+		var shapeTree = new LayoutTree();
+		var avatar:Div = Owner.root(shapeTree, _ -> hxx('<div class="w-10 h-10" clipPath={ashui.types.ClipPath.circle()}><div class="w-10 h-10 bg-surface" /></div>'));
+		shapeTree.flush();
+		shapeTree.computeLayout(avatar.node, 100, 100);
+		var shapeList = new ashui.layout.DisplayList();
+		shapeList.update(shapeTree, avatar.node);
+		var shapeRow = [for (i in 96...100) Std.int(shapeList.get(shapeList.count - 1, i))];
+		check("clipPath={ClipPath.circle()} clips the child to the largest centred circle", Std.int(shapeList.get(shapeList.count - 1, 94)) == 1
+			&& shapeRow.join(",") == "20,20,20,20", [shapeList.get(shapeList.count - 1, 94), shapeRow]);
+
 		// --- focus-within:, group- and peer- follow another element's state ---
 		var relTree = new LayoutTree();
 		var field:Div = null;

@@ -24,6 +24,8 @@ pub enum Value {
     Shadow(Vec<Shadow>),
     /// A corner shape's `n` per corner, and whether the theme may not smooth it.
     CornerShape([f32; 4], bool),
+    /// A CSS `clip-path` shape.
+    ClipPath(blinc_core::ClipPath),
 }
 
 /// `0xRRGGBB` plus a separate alpha, as the Haxe API spells colors.
@@ -34,6 +36,42 @@ fn hex_color(hex: i32, alpha: f32) -> Color {
 fn value(v: Value) -> *mut c_void {
     into_handle(v)
 }
+
+/// A `clip-path` shape. `kind`: 0 circle (radius, cx, cy), 1 ellipse (rx,
+/// ry, cx, cy), 2 inset (top, right, bottom, left), 3 rect (top, right,
+/// bottom, left, from the top-left), 4 xywh (x, y, w, h). `values` holds
+/// the lengths in that order; bit `i` of `percent` makes length `i` a
+/// percentage, and bit `i` of `none` leaves it unset (a radius then reaches
+/// the closest side). A negative `round` is no rounding.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_clip_path(kind: i32, values: *const vbyte, percent: i32, none: i32, round: f32) -> *mut c_void {
+    use blinc_core::{ClipLength, ClipPath};
+    let v = |i: usize| -> f32 {
+        if values.is_null() {
+            0.0
+        } else {
+            unsafe { (values as *const f32).add(i).read_unaligned() }
+        }
+    };
+    let len = |i: usize| -> ClipLength {
+        if percent & (1 << i) != 0 {
+            ClipLength::Percent(v(i))
+        } else {
+            ClipLength::Px(v(i))
+        }
+    };
+    let opt = |i: usize| -> Option<ClipLength> { (none & (1 << i) == 0).then(|| len(i)) };
+    let round = (round >= 0.0).then_some(round);
+    let path = match kind {
+        0 => ClipPath::Circle { radius: opt(0), center: (len(1), len(2)) },
+        1 => ClipPath::Ellipse { rx: opt(0), ry: opt(1), center: (len(2), len(3)) },
+        2 => ClipPath::Inset { top: len(0), right: len(1), bottom: len(2), left: len(3), round },
+        3 => ClipPath::Rect { top: len(0), right: len(1), bottom: len(2), left: len(3), round },
+        _ => ClipPath::Xywh { x: len(0), y: len(1), w: len(2), h: len(3), round },
+    };
+    value(Value::ClipPath(path))
+}
+define_prim!(hlp_blinc_clip_path, hl_blinc_clip_path, "PiBiif_Xblinc_value_");
 
 // --- Brushes ---
 

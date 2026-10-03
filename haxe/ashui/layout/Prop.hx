@@ -27,6 +27,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var FadeRight:Prop<Single> = cast PropertyId.FadeRight;
 	public static inline var FadeBottom:Prop<Single> = cast PropertyId.FadeBottom;
 	public static inline var FadeLeft:Prop<Single> = cast PropertyId.FadeLeft;
+	/** The shape the element and everything inside it are clipped to, as CSS's `clip-path`. **/
+	public static inline var ClipPath:Prop<ashui.types.ClipPath> = cast PropertyId.ClipPath;
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;

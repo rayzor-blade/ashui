@@ -171,6 +171,30 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			return alpha;
 		}
 
+		/**
+			How much of the point `p`, on screen, a `clip-path` leaves:
+			`frame` and `rest.xy` take `p` into its element's coordinates,
+			`rest.z` is the shape (0 none, 1 an ellipse `shape` = cx, cy, rx,
+			ry, 2 a rect `shape` = x, y, w, h rounded by `rest.w`).
+		**/
+		function shapeCoverage(p : Vec2, frame : Vec4, rest : Vec4, shape : Vec4) : Float {
+			// The element's coordinates and their pixel size, before any branch, where derivatives are defined.
+			var q = vec2(frame.x * p.x + frame.z * p.y + rest.x, frame.y * p.x + frame.w * p.y + rest.y);
+			var aa = halfPixel(q);
+			var alpha = 1.;
+			if (rest.z > 1.5) {
+				alpha = 1. - smoothstep(-aa, aa, sdShapedRect(q, shape.xy, shape.zw, vec4(rest.w, rest.w, rest.w, rest.w), vec4(1., 1., 1., 1.)));
+			} else if (rest.z > 0.5) {
+				// An ellipse's distance, to first order: its implicit function over its gradient.
+				var r = max(shape.zw, vec2(0.0001, 0.0001));
+				var u = (q - shape.xy) / r;
+				var lu = length(u);
+				var d = (lu - 1.) * lu / max(length(u / r), 0.0001);
+				alpha = 1. - smoothstep(-aa, aa, d);
+			}
+			return alpha;
+		}
+
 		/** Half a screen pixel, measured in the coordinates `p` is in. **/
 		function halfPixel(p : Vec2) : Float {
 			return 0.25 * (length(dFdx(p)) + length(dFdy(p)));

@@ -36,6 +36,10 @@ import gpu.TextureUsage;
 	Then a box clipping a red child, fading it out over 20 pixels in from
 	its top edge.
 
+	Then clip paths: a red child clipped to its parent's circle, a red box
+	clipped to a wide, flat ellipse and turned 90° so the ellipse stands
+	tall, and a blue box inset by 10 pixels with rounded corners.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -181,6 +185,26 @@ class Pixels {
 		probe("almost gone at the clip's top edge", 28, 9, (r, g, b) -> r > 240 && g > 220);
 		probe("half way through the fade", 28, 18, (r, g, b) -> r > 240 && g > 110 && g < 150);
 		probe("whole past it", 28, 40, near(0xff0000));
+
+		var shapeTree = new LayoutTree();
+		var inCircle = new Div({width: 24, height: 24, bg: Brush.solid(0xff0000)}, shapeTree);
+		var circled = new Div({position: Position.Absolute, left: 4, top: 4, width: 24, height: 24}, [inCircle], shapeTree);
+		circled.node.set(Prop.ClipPath, ashui.types.ClipPath.circle());
+		var band = new Div({position: Position.Absolute, left: 36, top: 4, width: 24, height: 24, bg: Brush.solid(0xff0000)}, shapeTree);
+		band.node.set(Prop.ClipPath, ashui.types.ClipPath.ellipse(Px(12), Px(4)));
+		band.node.set(Prop.Transform, ashui.types.Transform.rotation(90));
+		var inset = new Div({position: Position.Absolute, left: 4, top: 36, width: 24, height: 24, bg: Brush.solid(0x0000ff)}, shapeTree);
+		inset.node.set(Prop.ClipPath, ashui.types.ClipPath.inset(Px(10), Px(10), Px(10), Px(10), 2));
+		var shapeRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [circled, band, inset], shapeTree);
+		pixels = offscreen.renderToRgba8(shapeRoot, SIZE, SIZE);
+		label = "clip-path: ";
+		probe("a circle clips a child's corner away", 6, 6, near(0xffffff));
+		probe("and keeps its middle", 16, 16, near(0xff0000));
+		probe("and its top edge's middle", 16, 5, near(0xff0000));
+		probe("an ellipse turns with its element: tall", 48, 7, near(0xff0000));
+		probe("and narrow", 40, 16, near(0xffffff));
+		probe("an inset keeps its middle", 16, 48, near(0x0000ff));
+		probe("and clears its margin", 8, 48, near(0xffffff));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

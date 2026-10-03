@@ -165,7 +165,8 @@ class BoxShader implements UiShader {
 			var fillType = box.z - 4. * clips;
 			var clip = clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, clips, box.w)
 				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, clips, box.w, aa)
-				* fadeCoverage(place.zw, primitive.fadeBounds, primitive.fade);
+				* fadeCoverage(place.zw, primitive.fadeBounds, primitive.fade)
+				* shapeCoverage(place.zw, primitive.shapeFrame, primitive.shapeRest, primitive.shape);
 			if (clip < 0.001)
 				discard;
 			var p = local;

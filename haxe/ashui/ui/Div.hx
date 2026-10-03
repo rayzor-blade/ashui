@@ -22,6 +22,8 @@ typedef DivAttributes = {
 	?opacity:IntoReactive<Single>,
 	?color:IntoReactive<Color>,
 	?accentColor:IntoReactive<Color>,
+	/** The shape it and everything inside it are clipped to; see `ClipPath`. **/
+	?clipPath:IntoReactive<ashui.types.ClipPath>,
 
 	// --- Tier 2: Layout & Flexbox Properties ---
 	?width:IntoReactive<Single>,
@@ -85,6 +87,8 @@ class Div extends Element {
 				node.set(Prop.Opacity, attr.opacity);
 			if (attr.color != null)
 				node.set(Prop.Color, attr.color);
+			if (attr.clipPath != null)
+				node.set(Prop.ClipPath, attr.clipPath);
 			if (attr.accentColor != null)
 				node.set(Prop.AccentColor, attr.accentColor);
 

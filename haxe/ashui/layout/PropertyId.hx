@@ -9,6 +9,7 @@ enum abstract PropertyDataType(Int) {
     var TypeTransform;
     var TypeShadow;
     var TypeString;
+    var TypeClipPath;
 }
 
 /**
@@ -102,6 +103,8 @@ enum abstract PropertyId(Int) from Int to Int {
     var FadeRight = 72;
     var FadeBottom = 73;
     var FadeLeft = 74;
+    // A CSS clip-path: the shape the element and everything inside it are clipped to.
+    var ClipPath = 75;
 
     /**
      * Determines what data type category this property belongs to,
@@ -115,6 +118,7 @@ enum abstract PropertyId(Int) from Int to Int {
 
             case Transform: TypeTransform;
             case Shadow: TypeShadow;
+            case ClipPath: TypeClipPath;
 
             // Strings (Typography / Paths / Content)
             case FontFamily | TextContent: TypeString;
