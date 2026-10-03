@@ -956,17 +956,18 @@ class Smoke {
 		// --- Timers wake the loop when due, and are not animation ---
 		var timerClock = new ashui.animation.AnimationScheduler();
 		var rang = 0;
-		timerClock.after(0.02, () -> rang++);
-		var cancelled = timerClock.after(0.02, () -> rang += 10);
+		// Long enough that a loaded machine's delays between these lines stay well inside it.
+		timerClock.after(0.2, () -> rang++);
+		var cancelled = timerClock.after(0.2, () -> rang += 10);
 		cancelled.cancel();
 		var waitFor = timerClock.untilNextTimer();
 		var idle = !timerClock.hasActive();
 		timerClock.tick(0.001);
 		var early = rang;
-		Sys.sleep(0.03);
+		Sys.sleep(0.25);
 		timerClock.tick(0.001);
 		check("timers: due at their time, not before, cancelled ones never, and not counted as animation",
-			waitFor != null && waitFor > 0.01 && waitFor <= 0.02 && idle && early == 0 && rang == 1 && timerClock.untilNextTimer() == null,
+			waitFor != null && waitFor > 0.1 && waitFor <= 0.2 && idle && early == 0 && rang == 1 && timerClock.untilNextTimer() == null,
 			[waitFor, idle, early, rang]);
 
 		// --- A text area edits lines: wrapping, Up and Down, per-line selection, scrolling ---
