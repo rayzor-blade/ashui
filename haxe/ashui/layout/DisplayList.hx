@@ -10,7 +10,7 @@ import ashui.core.externs.LayoutTreeNative;
 	it is.
 **/
 class DisplayList {
-	public static inline var RECORD_FLOATS = 52;
+	public static inline var RECORD_FLOATS = 60;
 	public static inline var RECORD_BYTES = RECORD_FLOATS * 4;
 
 	/** Where the primitive type sits in a record, and its values. **/

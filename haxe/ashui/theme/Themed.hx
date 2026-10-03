@@ -50,6 +50,26 @@ class Themed {
 		});
 	}
 
+	/**
+		A gradient over the box it fills, coordinates as fractions of it:
+		linear from `(x1, y1)` to `(x2, y2)`, or radial about `(x1, y1)` of
+		radius `x2`. Each stop is a theme colour at an offset, its alpha
+		scaled by `alpha`; the colours follow the theme.
+	**/
+	public static function gradient(radial:Bool, x1:Float, y1:Float, x2:Float, y2:Float,
+			stops:Array<{token:ColorToken, offset:Float, alpha:Float}>):Computed<ashui.types.Brush> {
+		var state = ready();
+		return Computed.make(() -> {
+			state.revision.get();
+			var brush = radial ? ashui.types.Brush.radial(x1, y1, x2, true) : ashui.types.Brush.linear(x1, y1, x2, y2, true);
+			for (s in stops) {
+				var c = state.color(s.token);
+				brush.stop(s.offset, c.rgb(), c.a * s.alpha);
+			}
+			brush;
+		});
+	}
+
 	/** A weight token's weight, `FontThin` to `FontBlack`. **/
 	public static function fontWeight(token:TypographyToken):Computed<ashui.types.Style.FontWeight> {
 		var state = ready();

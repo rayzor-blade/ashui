@@ -27,7 +27,12 @@ import haxe.macro.Type;
 	- shadows, `ShadowToken`: `shadow`, `shadow-sm` … `shadow-2xl`,
 	  `shadow-inner`, `shadow-none`;
 	- type, `TypographyToken`: `text-xs` … `text-5xl`, `font-thin` …
-	  `font-black`, `leading-none` … `leading-loose`.
+	  `font-black`, `leading-none` … `leading-loose`;
+	- gradients over the colours: a direction, `bg-linear-to-r` (or
+	  Tailwind 3's `bg-gradient-to-r`) for each side and corner or
+	  `bg-radial`, with `from-`, `via-` and `to-` stops and positions such
+	  as `via-30%`. Where Tailwind composes these in the browser through CSS
+	  variables, they are composed here at compile time into one fill.
 
 	A class bound to a token follows the theme: a scheme switch or an
 	override updates it, and nothing is rebuilt. Layout keywords with no
@@ -48,6 +53,8 @@ class Tw {
 	#if macro
 	static var known:Null<Map<String, Expr->Array<Expr>>>;
 	static var refused:Null<Array<{pattern:EReg, why:String}>>;
+	/** Colour class names to `ColorToken` names: `surface-elevated` is `SurfaceElevated`. **/
+	@:allow(ashui.style.Gradient) static var colors:Map<String, String>;
 
 	/** One `node.set` per property the classes in `classes`, a string literal, give. **/
 	public static function setters(classes:Expr, node:Expr):Array<Expr> {
@@ -57,6 +64,7 @@ class Tw {
 		}
 		var vocabulary = vocabulary();
 		var out = [];
+		var gradient = new Gradient();
 		var start = 0;
 		for (word in ~/\s+/g.split(text)) {
 			var offset = text.indexOf(word, start);
@@ -64,6 +72,8 @@ class Tw {
 			if (word == "")
 				continue;
 			var pos = within(classes.pos, offset, word.length);
+			if (gradient.take(word, pos))
+				continue;
 			var make = vocabulary.get(word);
 			if (make != null) {
 				for (set in make(node))
@@ -76,6 +86,9 @@ class Tw {
 			var near = nearest(word, vocabulary);
 			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : ""), pos);
 		}
+		var background = gradient.build(node);
+		if (background != null)
+			out.push(background);
 		return out;
 	}
 
@@ -109,8 +122,10 @@ class Tw {
 		}
 
 		// Colours, from ColorToken, named as their CSS variables: tooltipBg is "tooltip-bg".
+		colors = new Map();
 		for (token in tokenNames("ashui.theme.ColorToken")) {
 			var name = kebab(tokenValue("ashui.theme.ColorToken", token));
+			colors.set(name, token);
 			one('bg-$name', "Background", macro ashui.theme.Themed.brush(ashui.theme.ColorToken.$token));
 			one('text-$name', "Color", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
 			one('border-$name', "BorderColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
@@ -203,6 +218,11 @@ class Tw {
 		return v;
 	}
 
+	@:allow(ashui.style.Gradient) static function colorToken(name:String):Null<String> {
+		vocabulary();
+		return colors.get(name);
+	}
+
 	/** The values of the enum abstract `path`, by name, in declaration order. **/
 	static function tokenNames(path:String):Array<String> {
 		return switch Context.getType(path) {
@@ -273,3 +293,102 @@ class Tw {
 	}
 	#end
 }
+
+#if macro
+/**
+	The gradient classes of one class string, composed into one fill as
+	Tailwind's CSS variables compose them in the browser: a direction
+	(`bg-gradient-to-r`, `bg-linear-to-br`, `bg-radial`) and `from-`, `via-`
+	and `to-` stops, each a theme colour, with positions such as `from-10%`.
+	A missing first or last stop is the nearest stop made transparent.
+**/
+private class Gradient {
+	// Start and end of each direction, as fractions of the box; y down.
+	static final DIRECTIONS:Map<String, Array<Float>> = [
+		"t" => [0.5, 1, 0.5, 0], "tr" => [0, 1, 1, 0], "r" => [0, 0.5, 1, 0.5], "br" => [0, 0, 1, 1],
+		"b" => [0.5, 0, 0.5, 1], "bl" => [1, 0, 0, 1], "l" => [1, 0.5, 0, 0.5], "tl" => [1, 1, 0, 0]
+	];
+
+	var geometry:Null<Array<Float>> = null;
+	var radial = false;
+	var at:Null<Position> = null;
+	final stops = new Map<String, {token:Null<String>, offset:Null<Float>, pos:Position}>();
+
+	public function new() {}
+
+	/** Takes `word` if it is a gradient class; false if it is not one. **/
+	public function take(word:String, pos:Position):Bool {
+		var direction = ~/^bg-(?:gradient|linear)-to-(t|tr|r|br|b|bl|l|tl)$/;
+		if (direction.match(word)) {
+			geometry = DIRECTIONS.get(direction.matched(1));
+			radial = false;
+			at = pos;
+			return true;
+		}
+		if (word == "bg-radial") {
+			// About the centre, out to the corners as CSS's farthest-corner reaches them.
+			geometry = [0.5, 0.5, 0.70710678, 0];
+			radial = true;
+			at = pos;
+			return true;
+		}
+		var stop = ~/^(from|via|to)-(.+)$/;
+		if (!stop.match(word))
+			return false;
+		var which = stop.matched(1);
+		var rest = stop.matched(2);
+		var entry = stops.get(which);
+		if (entry == null) {
+			entry = {token: null, offset: null, pos: pos};
+			stops.set(which, entry);
+		}
+		var percent = ~/^(\d+)%$/;
+		if (percent.match(rest)) {
+			var value = Std.parseInt(percent.matched(1));
+			if (value > 100 || value % 5 != 0)
+				Context.error('tw: $word: stop positions go from 0% to 100% in steps of 5', pos);
+			entry.offset = value / 100;
+			return true;
+		}
+		var token = Tw.colorToken(rest);
+		if (token == null) {
+			// Not a gradient stop after all, as `top-4` is not; let the vocabulary have it.
+			if (entry.token == null && entry.offset == null)
+				stops.remove(which);
+			return false;
+		}
+		entry.token = token;
+		entry.pos = pos;
+		return true;
+	}
+
+	/** The fill these classes give, or null if there were none. **/
+	public function build(node:Expr):Null<Expr> {
+		if (geometry == null && !stops.keys().hasNext())
+			return null;
+		if (geometry == null) {
+			var any = stops.iterator().next();
+			Context.error("tw: from-, via- and to- need a direction, such as bg-linear-to-r or bg-radial", any.pos);
+		}
+		var from = stops.get("from"), via = stops.get("via"), to = stops.get("to");
+		var colored = [for (s in [from, via, to]) if (s != null && s.token != null) s];
+		if (colored.length == 0)
+			Context.error("tw: a gradient needs at least one of from-, via- or to- with a colour", at);
+		for (s in [from, via, to])
+			if (s != null && s.token == null)
+				Context.error("tw: a stop position needs its colour too, such as from-primary from-10%", s.pos);
+		function stop(token:String, offset:Float, alpha:Float):Expr
+			return macro {token: ashui.theme.ColorToken.$token, offset: $v{offset}, alpha: $v{alpha}};
+		var list = [];
+		var first = from != null ? from : colored[0];
+		list.push(stop(first.token, from != null && from.offset != null ? from.offset : 0, from != null ? 1 : 0));
+		if (via != null)
+			list.push(stop(via.token, via.offset != null ? via.offset : 0.5, 1));
+		var last = to != null ? to : colored[colored.length - 1];
+		list.push(stop(last.token, to != null && to.offset != null ? to.offset : 1, to != null ? 1 : 0));
+		var g = geometry;
+		var value = macro ashui.theme.Themed.gradient($v{radial}, $v{g[0]}, $v{g[1]}, $v{g[2]}, $v{g[3]}, $a{list});
+		return {expr: (macro $node.set(ashui.layout.Prop.Background, $value)).expr, pos: at};
+	}
+}
+#end

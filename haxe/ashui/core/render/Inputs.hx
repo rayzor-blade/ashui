@@ -10,7 +10,7 @@ class Inputs {
 	/** The `primitive` fields, in record order; `UiFramework` declares them the same. **/
 	public static final FIELDS = [
 		"bounds", "cornerRadius", "color", "color2", "border", "borderColor", "shadow", "shadowColor", "clipBounds", "clipRadius", "gradient",
-		"typeInfo", "cornerShape"
+		"typeInfo", "cornerShape", "via", "stops"
 	];
 
 	/**

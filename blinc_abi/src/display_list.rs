@@ -19,6 +19,8 @@
 //! | 10 | gradient: linear x1, y1, x2, y2 or radial cx, cy, r, 0 (pixels) |
 //! | 11 | primitive type, fill type, clip type, corner shape locked (1/0) |
 //! | 12 | corner shape `n`: top-left, top-right, bottom-right, bottom-left |
+//! | 13 | gradient middle stop colour, opacity applied                   |
+//! | 14 | gradient stop offsets: first, middle, last; 1 if there is a middle |
 //!
 //! The walk follows Blinc's `paint/basic.rs`: a node's shadows, last first,
 //! then its fill merged with its border, then its children under the clip it
@@ -32,7 +34,7 @@ use blinc_layout::element::RenderProps;
 use blinc_layout::tree::LayoutNodeId;
 use taffy::Overflow;
 
-pub const RECORD_FLOATS: usize = 52;
+pub const RECORD_FLOATS: usize = 60;
 
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
@@ -115,8 +117,8 @@ fn rgba(c: Color, opacity: f32) -> [f32; 4] {
 
 /// Sets `p`'s fill colours, gradient geometry in pixels and fill type to
 /// `brush` over its bounds; Blinc's `brush_to_colors` then
-/// `obb_to_rect_coords`, keeping only the first and last stops as Blinc
-/// does. False for brushes drawn elsewhere.
+/// `obb_to_rect_coords`, with up to three stops: the first, the last and
+/// the one between them. False for brushes drawn elsewhere.
 fn fill(p: &mut Primitive, brush: &Brush, opacity: f32) -> bool {
     let [x, y, w, h] = p.bounds;
     match brush {
@@ -157,6 +159,19 @@ fn fill(p: &mut Primitive, brush: &Brush, opacity: f32) -> bool {
                 (Some(a), Some(b)) => (rgba(a.color, opacity), rgba(b.color, opacity)),
                 _ => ([1.0, 1.0, 1.0, opacity], [1.0, 1.0, 1.0, opacity]),
             };
+            let first = stops.first().map_or(0.0, |s| s.offset);
+            let last = if stops.len() > 1 {
+                stops[stops.len() - 1].offset
+            } else {
+                1.0
+            };
+            if stops.len() >= 3 {
+                let middle = &stops[stops.len() / 2];
+                p.via = rgba(middle.color, opacity);
+                p.offsets = [first, middle.offset, last, 1.0];
+            } else {
+                p.offsets = [first, 0.0, last, 0.0];
+            }
             // User-space points are in the node's own coordinates.
             let params = match (space, fill_type == FILL_RADIAL) {
                 (GradientSpace::ObjectBoundingBox, true) => [
@@ -203,6 +218,8 @@ struct Primitive {
     fill_type: f32,
     corner_shape: [f32; 4],
     shape_locked: f32,
+    via: [f32; 4],
+    offsets: [f32; 4],
 }
 
 impl Primitive {
@@ -221,6 +238,8 @@ impl Primitive {
             fill_type: FILL_SOLID,
             corner_shape: [1.0; 4],
             shape_locked: 0.0,
+            via: [0.0; 4],
+            offsets: [0.0, 0.0, 1.0, 0.0],
         }
     }
 
@@ -248,6 +267,8 @@ impl Primitive {
         }
         out.extend_from_slice(&[self.kind, self.fill_type, clip.2, self.shape_locked]);
         out.extend_from_slice(&self.corner_shape);
+        out.extend_from_slice(&self.via);
+        out.extend_from_slice(&self.offsets);
     }
 }
 

@@ -1,7 +1,7 @@
 package ashui.core.render;
 
 /**
-	A box: its fill, solid or a two-stop gradient, with its border drawn
+	A box: its fill, solid or a gradient of up to three stops, with its border drawn
 	inside its edge, its corners shaped as its record says, under its clip.
 	Blinc's `sdf_core.wgsl` for rect primitives, without transforms.
 **/
@@ -12,14 +12,30 @@ class BoxShader implements UiShader {
 		var output : { position : Vec4, color : Vec4 };
 		var pixel : Vec2;
 
-		/** The fill at `p`: `fillType` 0 is solid, 1 linear from `g.xy` to `g.zw`, 2 radial at `g.xy` of radius `g.z`. **/
-		function fillAt(p : Vec2, c1 : Vec4, c2 : Vec4, g : Vec4, fillType : Float) : Vec4 {
+		/**
+			The fill at `p`: `fillType` 0 is solid, 1 linear from `g.xy` to
+			`g.zw`, 2 radial at `g.xy` of radius `g.z`. A gradient runs from `c1`
+			at `stops.x` to `c2` at `stops.z`, through `via` at `stops.y` when
+			`stops.w` is 1.
+		**/
+		function fillAt(p : Vec2, c1 : Vec4, c2 : Vec4, via : Vec4, stops : Vec4, g : Vec4, fillType : Float) : Vec4 {
 			var c = c1;
-			if (fillType > 0.5 && fillType < 1.5) {
-				var dir = g.zw - g.xy;
-				c = mix(c1, c2, clamp(dot(p - g.xy, dir) / dot(dir, dir), 0., 1.));
-			} else if (fillType > 1.5) {
-				c = mix(c1, c2, clamp(length(p - g.xy) / g.z, 0., 1.));
+			if (fillType > 0.5) {
+				var t = 0.;
+				if (fillType < 1.5) {
+					var dir = g.zw - g.xy;
+					t = dot(p - g.xy, dir) / dot(dir, dir);
+				} else {
+					t = length(p - g.xy) / g.z;
+				}
+				if (stops.w > 0.5) {
+					if (t <= stops.y)
+						c = mix(c1, via, clamp((t - stops.x) / max(stops.y - stops.x, 0.0001), 0., 1.));
+					else
+						c = mix(via, c2, clamp((t - stops.y) / max(stops.z - stops.y, 0.0001), 0., 1.));
+				} else {
+					c = mix(c1, c2, clamp((t - stops.x) / max(stops.z - stops.x, 0.0001), 0., 1.));
+				}
 			}
 			return c;
 		}
@@ -123,7 +139,7 @@ class BoxShader implements UiShader {
 			var size = primitive.bounds.zw;
 			var d = sdShapedRect(p, origin, size, primitive.cornerRadius, primitive.cornerShape);
 			var coverage = 1. - smoothstep(-0.5, 0.5, d);
-			var fill = fillAt(p, primitive.color, primitive.color2, primitive.gradient, primitive.typeInfo.y);
+			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, primitive.typeInfo.y);
 			fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
 				primitive.borderColor);
 			output.color = vec4(fill.rgb, fill.a * clip * coverage);

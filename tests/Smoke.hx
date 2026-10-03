@@ -550,6 +550,23 @@ class Smoke {
 		check("a style from classes applies to a div",
 			twList.count == 3 && twList.get(2, 4) == 14 && twList.get(2, 16) == 1 && twList.get(2, 8) == 1,
 			[twList.count, twList.get(2, 4), twList.get(2, 16), twList.get(2, 8)]);
+		var graded = Owner.root(twTree, _ -> new Div({width: 100, height: 20,
+			style: ashui.style.Tw.tw("bg-linear-to-r from-primary via-accent via-30% to-info")}));
+		var faded = Owner.root(twTree, _ -> new Div({width: 100, height: 20, style: ashui.style.Tw.tw("bg-radial from-primary")}));
+		twTree.flush();
+		twTree.computeLayout(graded.node, 200, 200);
+		twTree.computeLayout(faded.node, 200, 200);
+		twList.update(twTree, graded.node);
+		var stops = [for (f in 52...60) twList.get(0, f)];
+		check("gradient classes compose into one fill with its stops",
+			twList.get(0, 45) == 1 && twList.get(0, 40) == 0 && twList.get(0, 41) == 10 && twList.get(0, 42) == 100 && twList.get(0, 43) == 10
+			&& Math.abs(twList.get(0, 8) - 0x2A / 255) < 0.01 && Math.abs(twList.get(0, 14) - 0xC7 / 255) < 0.01
+			&& Math.abs(stops[0] - 0x2A / 255) < 0.01 && Math.abs(stops[5] - 0.3) < 1e-6 && stops[6] == 1 && stops[7] == 1,
+			[for (f in [45, 40, 41, 42, 43, 8, 14]) twList.get(0, f)].concat(stops));
+		twList.update(twTree, faded.node);
+		check("a lone from- stop fades to its colour made transparent",
+			twList.get(0, 45) == 2 && twList.get(0, 11) == 1 && twList.get(0, 15) == 0 && Math.abs(twList.get(0, 12) - 0x2A / 255) < 0.01,
+			[for (f in [45, 11, 12, 15]) twList.get(0, f)]);
 		ashui.theme.ThemeState.get().setScheme(Dark);
 		twTree.flush();
 		twList.update(twTree, styled.node);
