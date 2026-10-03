@@ -889,6 +889,25 @@ class Smoke {
 			&& Math.abs(back - light) < 0.01, [light, darkRed, back, expect]);
 		ashui.css.Css.remove(themeSheet);
 
+		// --- CSS @media follows the viewport ---
+		var mediaSheet = ashui.css.Css.load('
+			.box { width: 10px; height: 10px; }
+			@media (min-width: 600px) { .box { width: 30px; } }
+			.box { @media (max-height: 300px) { height: 5px } }
+		');
+		var mediaTree = new LayoutTree();
+		var box = Owner.root(mediaTree, _ -> new Div({classes: ["box"]}, mediaTree));
+		function sizeAt(w:Float, h:Float) {
+			ashui.css.Css.setViewport(w, h);
+			mediaTree.flush();
+			mediaTree.computeLayout(box.node, 1000, 1000);
+			var b = mediaTree.getBounds(box.node);
+			return '${Std.int(b.width)}x${Std.int(b.height)}';
+		}
+		var sizes = [sizeAt(400, 800), sizeAt(800, 800), sizeAt(800, 200), sizeAt(400, 800)];
+		check("@media rules apply while their queries hold, nested ones too", sizes.join(",") == "10x10,30x10,30x5,10x10", sizes);
+		ashui.css.Css.remove(mediaSheet);
+
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);
 		check("a sheet taken out of force takes its values with it", fillOf(card).length == 0 && after.width == 0, [fillOf(card), after]);

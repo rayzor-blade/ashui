@@ -14,10 +14,13 @@ typedef Declaration = {
 	final column:Int;
 }
 
-/** A style rule: what its selectors match takes its declarations. **/
+/** A style rule: what its selectors match takes its declarations, while its media conditions hold. **/
 typedef StyleRule = {
 	final selectors:Array<Selector>;
 	final declarations:Array<Declaration>;
+
+	/** The `@media` query lists it is inside, each of which must hold; null outside any. **/
+	final media:Null<Array<Array<Media.MediaQuery>>>;
 
 	/** Its place among the sheet's rules, from 0, for ties in specificity. **/
 	final order:Int;
@@ -50,7 +53,16 @@ typedef Diagnostic = {
 	final message:String;
 	final line:Int;
 	final column:Int;
+
+	/** The file it is in, when it is not the sheet's own: one it imports. **/
+	final ?file:String;
 }
+
+/**
+	Reads an `@import`ed file: `path` as written, `from` the file importing
+	it (null for CSS text with no file). Null when there is no such file.
+**/
+typedef CssLoader = (path:String, from:Null<String>) -> Null<{source:String, file:String}>;
 
 /**
 	A parsed CSS stylesheet: its style rules in source order, the custom
@@ -68,20 +80,39 @@ class Stylesheet {
 	public final variables:Map<String, String> = [];
 
 	public final keyframes:Map<String, Keyframes> = [];
+
+	/** The files it imported, directly or through another, in the order read. **/
+	public final imports:Array<String> = [];
 	public final diagnostics:Array<Diagnostic> = [];
 
 	public function new() {}
 
-	/** `source` parsed; `file` names it in diagnostics. **/
-	public static function parse(source:String, ?file:String):Stylesheet
-		return new CssParser(source, file).stylesheet();
+	/**
+		`source` parsed; `file` names it in diagnostics and is where an
+		`@import` is found from. `load` reads imported files, by default
+		from the file system relative to the importing file.
+	**/
+	public static function parse(source:String, ?file:String, ?load:CssLoader):Stylesheet
+		return CssParser.parse(source, file, load == null ? readFile : load);
+
+	/** Reads `path` relative to the directory of `from`, or as it is. **/
+	public static function readFile(path:String, from:Null<String>):Null<{source:String, file:String}> {
+		#if sys
+		var file = from == null || haxe.io.Path.isAbsolute(path) ? path : haxe.io.Path.join([haxe.io.Path.directory(from), path]);
+		if (!sys.FileSystem.exists(file))
+			return null;
+		return {source: sys.io.File.getContent(file), file: file};
+		#else
+		return null;
+		#end
+	}
 
 	/** The errors and warnings, one a line, as `file:line:column: message`. **/
 	public function report(?file:String):String {
 		var where = file == null ? "" : '$file:';
 		return [
 			for (d in diagnostics)
-				'$where${d.line}:${d.column}: ${d.severity == Error ? "error" : "warning"}: ${d.message}'
+				'${d.file != null ? d.file + ":" : where}${d.line}:${d.column}: ${d.severity == Error ? "error" : "warning"}: ${d.message}'
 		].join("\n");
 	}
 

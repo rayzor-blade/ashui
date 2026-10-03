@@ -88,10 +88,84 @@ class CssParse {
 		check("errors carry lines and columns", bad.diagnostics.length == 3 && bad.diagnostics[0].line == 2 && bad.diagnostics[0].column == 3
 			&& bad.diagnostics[1].line == 3 && bad.diagnostics[2].line == 4, bad.report("x.css"));
 		check("the report names the file", StringTools.startsWith(bad.report("x.css"), "x.css:2:3: error: attribute selectors"), bad.report("x.css"));
-		var skipped = Stylesheet.parse('@media (min-width: 600px) { .a { color: red } }\n.b { color: blue }');
-		check("@media is skipped with a warning", skipped.rules.length == 1 && skipped.diagnostics[0].severity == Warning, skipped.report());
-		var nested = Stylesheet.parse('.a { color: red; .b { color: blue } padding: 4px }');
-		check("a nested rule is skipped, its parent kept", nested.rules[0].declarations.map(d -> d.name).join(",") == "color,padding", nested.report());
+		var skipped = Stylesheet.parse('@supports (display: grid) { .a { color: red } }\n.b { color: blue }');
+		check("@supports is skipped with a warning", skipped.rules.length == 1 && skipped.diagnostics[0].severity == Warning, skipped.report());
+
+		// --- Nesting ---
+		var nest = Stylesheet.parse('
+			.card {
+				padding: 4px;
+				&:hover { color: red }
+				.title { font-size: 2px }
+				> .x { margin: 1px }
+				.list & { gap: 1px }
+				&.on, &.off { opacity: 1 }
+				@media (min-width: 600px) { padding: 8px }
+				color: blue;
+			}
+			nav a { & span { color: green } }
+		');
+		var nested = [for (r in nest.rules) r.selectors.map(s -> s.toString()).join(", ") + (r.media == null ? "" : " @media")];
+		check("nested rules flatten to plain selectors", nested.join(" | ")
+			== ".card | .card:hover | .card .title | .card > .x | .list .card | .card.on, .card.off | .card @media | nav a | :is(nav a) span",
+			nested);
+		check("a rule's own declarations stay together, before its nested rules", nest.rules[0].declarations.map(d -> d.name).join(",") == "padding,color"
+			&& nest.rules[0].order < nest.rules[1].order, nest.rules[0].declarations.map(d -> d.name));
+		check("nesting is clean", nest.diagnostics.length == 0, nest.report());
+
+		// --- @media ---
+		var media = Stylesheet.parse('
+			@media screen and (min-width: 600px) and (orientation: landscape) { .wide { color: red } }
+			@media (400px <= width <= 800px) { .mid { color: red } }
+			@media (prefers-color-scheme: dark), print { .dark { color: red } }
+			@media not print { .always { color: red } }
+			@media (min-width: 600px) { @media (max-height: 500px) { .both { color: red } } }
+		');
+		function holds(i:Int, w:Float, h:Float, dark:Bool):Bool
+			return ashui.css.Media.allHold(media.rules[i].media, {width: w, height: h, dark: dark});
+		check("@media features and types", holds(0, 800, 600, false) && !holds(0, 500, 600, false) && !holds(0, 700, 900, false), media.report());
+		check("range syntax", holds(1, 600, 0, false) && !holds(1, 300, 0, false) && !holds(1, 900, 0, false));
+		check("prefers-color-scheme, and a list holds when any query does", holds(2, 0, 0, true) && !holds(2, 0, 0, false));
+		check("not", holds(3, 0, 0, false));
+		check("nested @media needs both", holds(4, 700, 400, false) && !holds(4, 700, 600, false) && !holds(4, 500, 400, false));
+		check("a bad query is an error", Stylesheet.parse('@media (min-width: wide) { .a { color: red } }').diagnostics[0].severity == Error);
+
+		// --- @import ---
+		var files = [
+			"base.css" => ".base { color: red }\n.oops[x] {}",
+			"theme/dark.css" => "@import \"../base.css\"; .dark { color: black }",
+			"loop.css" => "@import \"loop.css\";"
+		];
+		function load(path:String, from:Null<String>):Null<{source:String, file:String}> {
+			var dir = from == null ? "" : haxe.io.Path.directory(from);
+			var file = haxe.io.Path.normalize(dir == "" ? path : dir + "/" + path);
+			return files.exists(file) ? {source: files.get(file), file: file} : null;
+		}
+		var imp = Stylesheet.parse('@import "theme/dark.css";\n@import url(base.css) (min-width: 600px);\n.own { color: blue }', "main.css", load);
+		var order = [for (r in imp.rules) r.selectors[0].toString() + (r.media == null ? "" : "@")];
+		check("imported rules come first, in order, nested imports found from the importing file", order.join(",") == ".base,.dark,.base@,.own", order);
+		check("an imported file's problems name it", imp.diagnostics.length == 2 && imp.diagnostics[0].file == "base.css", imp.report("main.css"));
+		check("an import cycle and a missing file are errors", Stylesheet.parse('@import "loop.css";', "main.css", load).report().indexOf("imports itself") >= 0
+			&& Stylesheet.parse('@import "nope.css";', "main.css", load).report().indexOf("no file nope.css") >= 0);
+
+		// --- Mixins ---
+		var mixed = Stylesheet.parse('
+			@mixin card($$pad: 16px, $$r) {
+				padding: $$pad;
+				border-radius: $$r;
+				&:hover { opacity: 0.5 }
+			}
+			.a { @include card($$r: 4px); color: red }
+			.b { @include card(24px, 8px); }
+		');
+		var a = mixed.rules[0].declarations.map(d -> '${d.name}:${d.value}').join(";");
+		check("@include puts a mixin's declarations in, defaults and named arguments", a == "padding:16px;border-radius:4px;color:red", a);
+		check("and its nested rules", mixed.rules.map(r -> r.selectors[0].toString()).join(",") == ".a,.a:hover,.b,.b:hover"
+			&& mixed.rules[2].declarations[0].value == "24px", mixed.rules.map(r -> r.selectors[0].toString()));
+		var badMixin = Stylesheet.parse('@mixin m($$x) { width: $$x }\n.a { @include n; }\n.b { @include m; }');
+		check("an unknown mixin or a missing argument is an error at the @include", badMixin.diagnostics.length == 2 && badMixin.diagnostics[0].line == 2
+			&& badMixin.report().indexOf("no value for $x") >= 0, badMixin.report());
+
 		var unclosed = Stylesheet.parse('.a { color: red');
 		check("an unclosed block keeps what it has", unclosed.rules.length == 1 && unclosed.rules[0].declarations.length == 1
 			&& unclosed.diagnostics[0].severity == Error, unclosed.report());

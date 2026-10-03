@@ -50,6 +50,9 @@ private typedef Applied = {
 	reads a token is matched again when the theme changes, a switch between
 	light and dark included.
 
+	A rule inside `@media` applies while its queries hold: of the viewport
+	`setViewport` gives, and `prefers-color-scheme` of the theme's scheme.
+
 	State pseudo-classes read the element's `Interaction`: `:hover`,
 	`:active`, `:focus`, `:focus-visible`, `:focus-within`, `:disabled` and
 	`:enabled`, of the element itself or of one a combinator reaches
@@ -64,10 +67,47 @@ class Css {
 	/** Problems found applying declarations, each once: an unknown property, a value that does not read. **/
 	public static final problems:Array<String> = [];
 
-	/** What `vw` and `vh` are a hundredth of; set it from the window's size. **/
-	public static var viewportWidth = 0.0;
+	/** What `vw` and `vh` are a hundredth of, and what `@media` asks about; see `setViewport`. **/
+	public static var viewportWidth(default, null) = 0.0;
 
-	public static var viewportHeight = 0.0;
+	public static var viewportHeight(default, null) = 0.0;
+
+	/**
+		The viewport's size in layout units, set by the window and the
+		offscreen renderer as it changes. Rules whose `@media` starts or
+		stops holding apply or stop at the next flush.
+	**/
+	public static function setViewport(width:Float, height:Float):Void {
+		if (width == viewportWidth && height == viewportHeight)
+			return;
+		viewportWidth = width;
+		viewportHeight = height;
+		mediaChanged();
+	}
+
+	/** Which `@media` rules hold, as a string, to tell when one flips. **/
+	static var mediaState = "";
+
+	static function environment():Media.MediaEnvironment {
+		var theme = ashui.theme.ThemeState.tryGet();
+		return {width: viewportWidth, height: viewportHeight, dark: theme != null && theme.scheme() == Dark};
+	}
+
+	static function mediaChanged():Void {
+		var env = environment();
+		var state = new StringBuf();
+		for (sheet in sheets)
+			for (rule in sheet.rules)
+				if (rule.media != null)
+					state.add(Media.allHold(rule.media, env) ? "1" : "0");
+		var next = state.toString();
+		if (next == mediaState)
+			return;
+		mediaState = next;
+		for (tree => nodes in @:privateAccess Identity.trees)
+			for (identity in nodes)
+				mark(identity);
+	}
 
 	/** What `rem` is, and the font size of text with none of its own. **/
 	public static var rootFontSize = 16.0;
@@ -135,7 +175,9 @@ class Css {
 
 	static function changed():Void {
 		hook();
+		mediaState = "";
 		index = [for (sheet in sheets) indexOf(sheet)];
+		theme();
 		usesHas = Lambda.exists(sheets, s -> Lambda.exists(s.rules, r -> Lambda.exists(r.selectors, hasHas)));
 		// Every element, to be matched again.
 		for (tree => nodes in @:privateAccess Identity.trees)
@@ -203,10 +245,13 @@ class Css {
 	static function restyle(identity:Identity, walk:TreeWalk):Void {
 		var node = identity.node.id;
 		walk.subject = identity;
+		var env = environment();
 		// The declarations of every rule that matches, in cascade order.
 		var matched:Array<Matched> = [];
 		for (s => entries in index)
 			for (entry in candidates(entries, identity)) {
+				if (entry.rule.media != null && !Media.allHold(entry.rule.media, env))
+					continue;
 				if (!walk.matches(entry.selector, node))
 					continue;
 				for (i => d in entry.rule.declarations)
@@ -343,6 +388,7 @@ class Css {
 				themeVariables = null;
 				for (d in themeDependents.keys())
 					mark(d);
+				mediaChanged();
 			});
 		}
 		return themeVariables = state.toCssVariableMap();

@@ -7,10 +7,11 @@ import haxe.macro.Expr;
 /**
 	The CSS files a build declares with `-D ashui_css=a.css,b.css`, read
 	when it compiles: their errors are compile errors and their warnings
-	compile warnings, at the line in the file, and the class names their
-	selectors mention are the CSS classes hxx's `class=` accepts beside
-	Tw's. A path is found on the class path, or else from the working
-	directory.
+	compile warnings, at the line in the file (an imported file's in that
+	file), and the class names their selectors mention, imported ones
+	included, are the CSS classes hxx's `class=` accepts beside Tw's. A
+	path is found on the class path, or else from the working directory;
+	an `@import` from the importing file's directory.
 **/
 class DeclaredCss {
 	static var cached:Null<Map<String, Bool>> = null;
@@ -29,7 +30,10 @@ class DeclaredCss {
 				var source = sys.io.File.getContent(file);
 				var sheet = Stylesheet.parse(source, file);
 				for (d in sheet.diagnostics) {
-					var pos = at(file, source, d.line, d.column);
+					// A problem in an imported file is reported in that file.
+					var where = d.file == null ? file : d.file;
+					var text = d.file == null ? source : sys.io.File.getContent(d.file);
+					var pos = at(where, text, d.line, d.column);
 					if (d.severity == Error)
 						Context.error('css: ${d.message}', pos);
 					else
@@ -37,8 +41,10 @@ class DeclaredCss {
 				}
 				for (name in sheet.classNames())
 					out.set(name, true);
-				// A change to the file recompiles what depends on it.
+				// A change to the file, or to one it imports, recompiles what depends on it.
 				Context.registerModuleDependency(Context.getLocalModule(), file);
+				for (imported in sheet.imports)
+					Context.registerModuleDependency(Context.getLocalModule(), imported);
 			}
 		return cached = out;
 	}
