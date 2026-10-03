@@ -134,18 +134,14 @@ class Pacing {
 				</div>
 				${field = new TextField({placeholder: "Caret blinks here", width: 280})}
 				${buttons = hxx('<div class="flex flex-row gap-3">
-					<for {i in [for (i in 0...5) i]}>
-						<div class="px-4 py-2 rounded-lg bg-surface hover:bg-primary border-2 border-border hover:border-primary transition-colors">
-							<text class="text-sm">Button ${i + 1}</text>
-						</div>
-					</for>
+					${[for (i in 0...5) hxx('<div class="px-4 py-2 rounded-lg bg-surface hover:bg-primary border-2 border-border hover:border-primary transition-colors">
+						<text class="text-sm">Button ${i + 1}</text>
+					</div>')]}
 				</div>')}
 				${list = hxx('<div class="flex flex-col gap-1 p-1 rounded-xl bg-surface border-2 border-border overflow-y-auto" width={280} height={150}>
-					<for {i in [for (i in 0...40) i]}>
-						<div class="px-3 py-1 rounded-md bg-surface hover:bg-surface-elevated">
-							<text class="text-sm">Row ${i + 1}</text>
-						</div>
-					</for>
+					${[for (i in 0...40) hxx('<div class="shrink-0 px-3 py-1 rounded-md bg-surface hover:bg-surface-elevated">
+						<text class="text-sm">Row ${i + 1}</text>
+					</div>')]}
 				</div>')}
 			</div>
 		');

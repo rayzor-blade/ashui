@@ -400,10 +400,20 @@ class WindowedApp {
 		if (window.width() <= 0 || window.height() <= 0)
 			return;
 		var configuration = new GpuSurfaceConfiguration(format, window.width(), window.height());
-		configuration.presentMode(Fifo);
+		configuration.presentMode(presentMode());
 		var capabilities = surface.capabilities(adapter);
 		configuration.alphaMode(capabilities.alphaMode(0));
 		device.configureSurfaceWith(surface, configuration);
+	}
+
+	/** `ASHUI_PRESENT_MODE=fifo|fifo-relaxed|mailbox|immediate` picks the present mode, Fifo by default; one the surface lacks fails at configure. **/
+	static function presentMode():gpu.PresentMode {
+		return switch Sys.getEnv("ASHUI_PRESENT_MODE") {
+			case "fifo-relaxed": FifoRelaxed;
+			case "mailbox": Mailbox;
+			case "immediate": Immediate;
+			case _: Fifo;
+		}
 	}
 
 	/** A format without sRGB encoding, as Blinc picks: the theme's colours are already in sRGB. **/
