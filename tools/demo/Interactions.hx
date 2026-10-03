@@ -4,6 +4,7 @@ import ashui.reactive.Signal;
 import ashui.theme.ThemeState;
 import ashui.ui.Div;
 import ashui.ui.Hxx.hxx;
+import ashui.ui.TextField;
 
 /**
 	A live window of what ashui's input does so far:
@@ -12,7 +13,8 @@ import ashui.ui.Hxx.hxx;
 	  transitions, one counting its clicks;
 	- a button disabled and enabled by another, with a disabled: class;
 	- Tab and Shift+Tab moving focus, Enter, or Space on release, clicking;
-	- a field that takes typed text and Backspace while it has focus;
+	- a text field: typing, selection with Shift, the mouse or Command+A,
+	  word and line moves with Alt and Command, Enter submitting;
 	- a turned card whose button is hit where it is drawn, clipped to the card;
 	- a box that adds up wheel and trackpad scrolling;
 	- icons in currentColor, which follow their button's text colour;
@@ -40,22 +42,6 @@ class Interactions {
 	static function toggleLock(_:PointerEvent):Void {
 		locked.set(!locked.get());
 		log(locked.get() ? "the target button is disabled" : "the target button is enabled");
-	}
-
-	static function typeKey(e:KeyEvent):Void {
-		switch e.key {
-			case Named(Backspace):
-				var t = typed.get();
-				typed.set(t.substr(0, t.length - 1));
-			case Named(Escape):
-				typed.set("");
-			case _:
-		}
-		log('key down in the field: ${Std.string(e.key)}');
-	}
-
-	static function typeText(e:TextInputEvent):Void {
-		typed.set(typed.get() + e.text);
 	}
 
 	static function scroll(e:PointerEvent):Void {
@@ -100,12 +86,9 @@ class Interactions {
 
 				<div class="flex flex-row items-start gap-6">
 					<div class="flex flex-col gap-2">
-						<text class="text-xs text-text-tertiary">Text field: click it, or Tab to it</text>
-						<div class="flex flex-row items-center px-3 rounded-lg bg-input-bg focus:bg-input-bg-focus border-2 border-border hover:border-border-hover focus:border-border-focus transition-colors"
-							width={280} height={40} focusable={true} onKeyDown={typeKey} onTextInput={typeText}
-							onFocus={_ -> log("the field has focus")} onBlur={_ -> log("the field lost focus")}>
-							<text class="text-sm">${typed.get() == "" ? "Type here; Escape clears" : typed.get()}</text>
-						</div>
+						<text class="text-xs text-text-tertiary">Text field: click it, or Tab to it; Enter submits</text>
+						<text-field value={typed} placeholder="Type here" width={280}
+							onInput={v -> log("input: " + v.length + " characters")} onSubmit={v -> log("submitted: " + v)} />
 					</div>
 					<div class="flex flex-col gap-2">
 						<text class="text-xs text-text-tertiary">Turned card, hit where drawn</text>

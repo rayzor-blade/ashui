@@ -174,3 +174,105 @@ define_prim!(
     hl_blinc_text_atlas_take,
     "PiiBiB_i"
 );
+
+// ============================================================================
+// CARETS
+// ============================================================================
+
+/// Where a caret can stand in `text` set in text node `node`'s font and
+/// letter spacing at `font_size` (the node's own when 0), on one line: for each character boundary, its index in
+/// the string as UTF-16 (Haxe's indexing), its x from the text's left and
+/// its line, as three f32s, at most `capacity` of them. The last is the end
+/// of the text. Returns how many there are; 0 when the node is not text or
+/// its font is not loaded yet.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_text_carets(
+    h: *mut std::ffi::c_void,
+    node: u64,
+    text: *const vbyte,
+    font_size: f32,
+    out: *mut vbyte,
+    capacity: i32,
+) -> i32 {
+    let Some(tree) = (unsafe { crate::node::tree(h) }) else {
+        return 0;
+    };
+    let id = blinc_layout::tree::LayoutNodeId::from_raw(node);
+    let Some(context) = tree.layout.text_context(id) else {
+        return 0;
+    };
+    let text = unsafe { crate::hl::string_from(text) };
+    let letter_spacing = tree
+        .props
+        .get(&id)
+        .and_then(|p| p.letter_spacing)
+        .unwrap_or(0.0);
+    let generic = match context.generic_font {
+        LayoutGeneric::Monospace => GenericFont::Monospace,
+        LayoutGeneric::Serif => GenericFont::Serif,
+        LayoutGeneric::SansSerif => GenericFont::SansSerif,
+        _ => GenericFont::System,
+    };
+    let font = {
+        let registry = global_font_registry();
+        let Ok(mut registry) = registry.lock() else {
+            return 0;
+        };
+        match registry.get_for_render_with_style(
+            context.font_name.as_deref(),
+            generic,
+            context.font_weight,
+            context.italic,
+        ) {
+            Some(font) => font,
+            None => match registry.load_generic(generic) {
+                Ok(font) => font,
+                Err(_) => return 0,
+            },
+        }
+    };
+    let options = LayoutOptions {
+        max_width: None,
+        alignment: TextAlignment::Left,
+        anchor: TextAnchor::Top,
+        line_break: LineBreakMode::None,
+        line_height: context.line_height,
+        letter_spacing,
+    };
+    let size = if font_size > 0.0 { font_size } else { context.font_size };
+    let layout = blinc_text::TextLayoutEngine::new().layout(&text, &font, size, &options);
+    // UTF-16 index of every byte offset that starts a character.
+    let mut utf16 = vec![0u32; text.len() + 1];
+    let mut units = 0u32;
+    for (byte, ch) in text.char_indices() {
+        utf16[byte] = units;
+        units += ch.len_utf16() as u32;
+    }
+    utf16[text.len()] = units;
+    let mut carets: Vec<[f32; 3]> = Vec::new();
+    for (line, l) in layout.lines.iter().enumerate() {
+        for g in &l.glyphs {
+            let index = utf16[g.byte_offset.min(text.len())] as f32;
+            if carets.last().is_none_or(|c| c[0] != index) {
+                carets.push([index, g.x, line as f32]);
+            }
+        }
+    }
+    let last_line = layout.lines.len().saturating_sub(1);
+    let end_x = layout.lines.last().map_or(0.0, |l| l.width);
+    carets.push([units as f32, end_x, last_line as f32]);
+    if !out.is_null() {
+        let out = out as *mut f32;
+        for (i, c) in carets.iter().take(capacity.max(0) as usize).enumerate() {
+            for (j, v) in c.iter().enumerate() {
+                unsafe { out.add(i * 3 + j).write_unaligned(*v) };
+            }
+        }
+    }
+    carets.len() as i32
+}
+define_prim!(
+    hlp_blinc_text_carets,
+    hl_blinc_text_carets,
+    "PXblinc_tree_lBfBi_i"
+);

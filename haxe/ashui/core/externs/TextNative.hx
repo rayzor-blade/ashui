@@ -11,4 +11,13 @@ extern class TextNative {
 		they fit in `capacity`. 0 when the caller has seen this revision.
 	**/
 	static function blinc_text_atlas_take(color:Int, seen:Int, out:hl.Bytes, capacity:Int, info:hl.Bytes):Int;
+
+	/**
+		Where a caret can stand in `text`, set in text node `node`'s font at
+		`fontSize` (the node's own when 0): for each character boundary, its
+		string index, its x and its line, as three F32s in `out`, at most
+		`capacity`. Returns how many there are.
+	**/
+	static function blinc_text_carets(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, text:hl.Bytes, fontSize:Single, out:hl.Bytes,
+		capacity:Int):Int;
 }

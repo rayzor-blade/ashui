@@ -756,6 +756,56 @@ class Smoke {
 		lateTheme.setScheme(Light);
 		lateTree.flush();
 
+		// --- A text field edits its value from keys, text and the pointer ---
+		var fieldTree = new LayoutTree();
+		var fieldValue = Signal.make("");
+		var submitted = "";
+		var field:ashui.ui.TextField = Owner.root(fieldTree, _ -> new ashui.ui.TextField({value: fieldValue, onSubmit: v -> submitted = v}));
+		fieldTree.flush();
+		fieldTree.computeLayout(field.node, 300, 60);
+		fieldTree.flush();
+		fieldTree.computeLayout(field.node, 300, 60);
+		function fieldKey(k:window.Key, code:window.KeyCode, ?mods:window.Modifiers)
+			ashui.input.Keyboard.input(fieldTree, Input(Code(code), k, None, Standard, Pressed, false, Unavailable), mods);
+		var none:window.Modifiers = State(false, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		var shift:window.Modifiers = State(true, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		var alt:window.Modifiers = State(false, false, true, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		var cmd:window.Modifiers = State(false, false, false, true, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		fieldKey(Named(Tab), Tab);
+		check("text field: Tab focuses it", ashui.input.Focus.of(fieldTree) != null && ashui.input.Focus.of(fieldTree).node == field.node);
+		ashui.input.Keyboard.text(fieldTree, "hello world");
+		check("text field: typed text goes into its value", fieldValue.get() == "hello world", fieldValue.get());
+		fieldKey(Named(Backspace), Backspace, alt);
+		check("text field: Alt+Backspace deletes the word before the caret", fieldValue.get() == "hello ", fieldValue.get());
+		ashui.input.Keyboard.text(fieldTree, "there");
+		fieldKey(Named(ArrowLeft), ArrowLeft, alt);
+		fieldKey(Named(ArrowLeft), ArrowLeft);
+		ashui.input.Keyboard.text(fieldTree, ",");
+		check("text field: arrows move by word and by character", fieldValue.get() == "hello, there", fieldValue.get());
+		fieldKey(Named(End), End);
+		fieldKey(Named(ArrowLeft), ArrowLeft, shift);
+		fieldKey(Named(ArrowLeft), ArrowLeft, shift);
+		ashui.input.Keyboard.text(fieldTree, "!");
+		check("text field: Shift selects and typing replaces the selection", fieldValue.get() == "hello, the!", fieldValue.get());
+		fieldKey(Character("a"), KeyA, cmd);
+		fieldKey(Named(Delete), Delete);
+		check("text field: Command+A then Delete empties it", fieldValue.get() == "", fieldValue.get());
+		ashui.input.Keyboard.text(fieldTree, "go");
+		fieldKey(Named(Enter), Enter);
+		check("text field: Enter submits the value and does not click", submitted == "go", submitted);
+		fieldTree.flush();
+		fieldTree.computeLayout(field.node, 300, 60);
+		var stops = @:privateAccess field.stopsFor("abc");
+		check("text field: the text engine gives a caret stop per character and the end", stops.length == 4 && stops[0].x == 0
+			&& stops[1].x > 0 && stops[3].x > stops[2].x, stops);
+		var fieldBounds = fieldTree.getBounds(@:privateAccess field.text.node);
+		var goStops = @:privateAccess field.stopsFor("go");
+		ashui.input.Pointer.move(fieldTree, fieldBounds.x + goStops[1].x + 0.5, fieldBounds.y + 5);
+		ashui.input.Pointer.press(fieldTree);
+		ashui.input.Pointer.release(fieldTree);
+		ashui.input.Keyboard.text(fieldTree, "-");
+		check("text field: a click places the caret at the nearest character boundary", fieldValue.get() == "g-o", fieldValue.get());
+
 		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
 		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");
 		check("path data: compact numbers and implicit lines", compact[0].equals(MoveTo(0.5, -1.5)) && compact[1].equals(LineTo(0.5, 0.5)),
