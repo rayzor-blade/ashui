@@ -96,15 +96,26 @@ class Pacing {
 				run: running -> {
 					var b = tree.getBounds(list.node);
 					var scroller = Scroll.of(list.node);
-					Pointer.move(tree, b.x + b.width / 2, b.y + b.height / 2);
 					var step = -6.0;
-					// A wheel delta each tick, as a trackpad sends, turning at either end.
+					var travelled = 0.0, turns = 0, highest = 0.0;
+					// A wheel delta each tick, as a trackpad sends, turning at either end. The
+					// pointer is put back over the list each tick, as a real one moving elsewhere
+					// would take the wheel with it.
 					scheduler.addTicker(_ -> {
+						if (!running()) {
+							Sys.println('scroll: travelled ${Math.round(travelled)} over a range of 0 to ${Math.round(highest)}, turning $turns times');
+							return false;
+						}
 						var y = scroller.y.get();
-						if ((step < 0 && y >= scroller.limits().y) || (step > 0 && y <= 0))
+						if ((step < 0 && y >= scroller.limits().y) || (step > 0 && y <= 0)) {
 							step = -step;
+							turns++;
+						}
+						Pointer.move(tree, b.x + b.width / 2, b.y + b.height / 2);
 						Pointer.wheel(tree, 0, step);
-						running();
+						travelled += Math.abs(scroller.y.get() - y);
+						highest = Math.max(highest, scroller.y.get());
+						true;
 					});
 				}
 			},
