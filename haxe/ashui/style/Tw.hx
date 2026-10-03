@@ -49,6 +49,11 @@ import haxe.macro.Type;
 	  as `via-30%`. Where Tailwind composes these in the browser through CSS
 	  variables, they are composed here at compile time into one fill.
 
+	`hover:`, `active:` and `dark:` before a class apply it while the
+	pointer is over the element, while it is pressed, or in the dark scheme;
+	the string needs the plain class for the same property too, the value
+	otherwise. With `transition-colors` the change animates.
+
 	A class bound to a token follows the theme: a scheme switch or an
 	override updates it, and nothing is rebuilt. Layout keywords with no
 	token are Tailwind's: `flex`, `flex-col`, `items-center`,
@@ -90,6 +95,9 @@ class Tw {
 		var tracking:Null<{token:String, pos:Position}> = null;
 		var size = "TextBase";
 		var trackingClass = ~/^tracking-(tighter|tight|normal|wide|wider)$/;
+		// hover:, active: and dark: classes, by property, then by variant.
+		var variants = new Map<String, Map<String, {value:Expr, pos:Position}>>();
+		var variant = ~/^(hover|active|dark):(.+)$/;
 		var sizeClass = ~/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/;
 		var start = 0;
 		for (word in ~/\s+/g.split(text)) {
@@ -98,6 +106,23 @@ class Tw {
 			if (word == "")
 				continue;
 			var pos = within(classes.pos, offset, word.length);
+			if (variant.match(word)) {
+				var state = variant.matched(1), rest = variant.matched(2);
+				if (variant.match(rest))
+					Context.error('tw: $word: one variant per class', pos);
+				var make = vocabulary.get(rest);
+				if (make == null)
+					Context.error('tw: $word: $rest is not a class a variant can take', pos);
+				for (set in make(node))
+					switch keyValue(set) {
+						case null:
+						case kv:
+							if (!variants.exists(kv.key))
+								variants.set(kv.key, new Map());
+							variants.get(kv.key).set(state, {value: kv.value, pos: pos});
+					}
+				continue;
+			}
 			if (gradient.take(word, pos) || motion.take(word, pos))
 				continue;
 			if (trackingClass.match(word)) {
@@ -121,6 +146,65 @@ class Tw {
 			var near = nearest(word, vocabulary);
 			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : ""), pos);
 		}
+		// Each property a variant sets becomes one value that follows the pointer and the scheme:
+		// active over hover over dark over the base class of the same property.
+		var interaction = false;
+		for (key => states in variants) {
+			var base:Null<Expr> = null;
+			var at:Null<Position> = null;
+			for (set in out)
+				switch keyValue(set) {
+					case null:
+					case kv if (kv.key == key):
+						base = kv.value;
+						at = set.pos;
+					case _:
+				}
+			if (base == null) {
+				var any = states.iterator().next();
+				Context.error('tw: a variant needs a class for the same property without one, such as bg-surface beside hover:bg-primary', any.pos);
+			}
+			out = [
+				for (set in out) {
+					var kv = keyValue(set);
+					if (kv == null || kv.key != key) set;
+				}
+			];
+			var lets = [macro var __base = $base];
+			var reactive = new Map<String, Bool>();
+			// A signal's or computed's value is read; a constant is used as it is.
+			function mark(name:String, value:Expr) {
+				var type = try haxe.macro.TypeTools.toString(Context.typeof(value)) catch (_:Dynamic) "";
+				reactive.set(name, StringTools.startsWith(type, "ashui.reactive.Computed") || StringTools.startsWith(type, "ashui.reactive.Signal"));
+			}
+			function read(name:String):Expr
+				return reactive.get(name) ? macro $i{name}.get() : macro $i{name};
+			mark("__base", base);
+			var pick = read("__base");
+			for (state in ["dark", "hover", "active"]) {
+				var v = states.get(state);
+				if (v == null)
+					continue;
+				var name = '__$state';
+				lets.push(macro var $name = ${v.value});
+				mark(name, v.value);
+				var test = switch state {
+					case "dark": macro ashui.style.Variant.dark();
+					case "hover": macro __interaction.hovered.get();
+					case _: macro __interaction.pressed.get();
+				}
+				if (state != "dark")
+					interaction = true;
+				pick = macro $test ? ${read(name)} : $pick;
+			}
+			// One block: the values are made before the computed that reads them, not inside it.
+			out.push({
+				expr: EBlock(lets.concat([macro $node.set(ashui.layout.Prop.$key, ashui.reactive.Computed.make(() -> $pick))])),
+				pos: at
+			});
+		}
+		if (interaction)
+			out.unshift(macro var __interaction = ashui.input.Interaction.of($node));
 		if (tracking != null) {
 			var t = tracking.token;
 			var value = macro ashui.theme.Themed.tracking(ashui.theme.TypographyToken.$t, ashui.theme.TypographyToken.$size);
@@ -134,6 +218,14 @@ class Tw {
 		if (transition != null)
 			out.unshift(transition);
 		return out;
+	}
+
+	/** The property and value of a `node.set(Prop.Key, value)`, or null for anything else. **/
+	static function keyValue(e:Expr):Null<{key:String, value:Expr}> {
+		return switch e.expr {
+			case ECall({expr: EField(_, "set", _)}, [{expr: EField(_, key, _)}, value]): {key: key, value: value};
+			case _: null;
+		}
 	}
 
 	/** The part of a string literal at `pos` from `offset` for `length` characters. **/
@@ -281,7 +373,7 @@ class Tw {
 			float('opacity-${percent * 5}', "Opacity", percent * 5 / 100);
 
 		refused = [
-			{pattern: ~/^(hover|focus|active|disabled|dark|group-hover|focus-visible):/, why: "state variants need input events (e532fc0)"},
+			{pattern: ~/^(focus|focus-visible|focus-within|disabled|group-hover|peer-hover):/, why: "this variant needs focus or group state, which there is none of yet"},
 			{pattern: ~/^-/, why: "negative values have no token"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "keyframe animations need transforms, which are not drawn yet"},

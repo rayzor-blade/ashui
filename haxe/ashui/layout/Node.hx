@@ -16,6 +16,9 @@ class Node {
 	// 64-bit LayoutNodeId minted by Blinc
 	public var id(default, null):haxe.Int64;
 
+	/** The tree that made this node. **/
+	public var tree(default, null):Null<LayoutTree>;
+
 	/** What animates when a property it covers is set again or its value changes. **/
 	public var transition(default, set):Null<ashui.animation.Transition>;
 

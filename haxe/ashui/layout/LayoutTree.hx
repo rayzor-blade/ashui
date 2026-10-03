@@ -30,15 +30,19 @@ class LayoutTree {
 		LayoutTreeNative.blinc_tree_dispose(this.ptr);
 	}
 
-	public inline function createNode():Node {
-		return new Node(LayoutTreeNative.blinc_tree_create_node(this.ptr));
+	public function createNode():Node {
+		var node = new Node(LayoutTreeNative.blinc_tree_create_node(this.ptr));
+		@:privateAccess node.tree = this;
+		return node;
 	}
 
 	public function createTextNode(content:String, fontSize:Single = 16.0, lineHeight:Single = 1.2, wrap:Bool = true, ?fontName:String,
 			genericFont:GenericFont = System, fontWeight:Int = 400, italic:Bool = false):TextNode {
 		var flags = (wrap ? 1 : 0) | (italic ? 2 : 0);
-		return new TextNode(LayoutTreeNative.blinc_tree_create_text_node(this.ptr, Utf8.encode(content), Utf8.encode(fontName), fontSize,
+		var node = new TextNode(LayoutTreeNative.blinc_tree_create_text_node(this.ptr, Utf8.encode(content), Utf8.encode(fontName), fontSize,
 			lineHeight, fontWeight, genericFont, flags));
+		@:privateAccess node.tree = this;
+		return node;
 	}
 
 	public inline function addChild(parent:haxe.Int64, child:haxe.Int64):Void {

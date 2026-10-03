@@ -608,6 +608,35 @@ class Smoke {
 		var wider = ashui.theme.Themed.tracking(TrackingWider, Text2xl).get();
 		check("tracking is ems of the font size", Math.abs(wider - 0.05 * 24) < 1e-6, wider);
 
+		// --- hover:, active: and dark: follow the pointer and the scheme ---
+		var hoverTree = new LayoutTree();
+		var button:Div = Owner.root(hoverTree, _ -> hxx('
+			<div class="w-10 h-10 bg-surface hover:bg-primary active:bg-error dark:bg-accent-subtle" />
+		'));
+		hoverTree.flush();
+		hoverTree.computeLayout(button.node, 100, 100);
+		var hoverList = new ashui.layout.DisplayList();
+		function fill() {
+			hoverTree.flush();
+			hoverList.update(hoverTree, button.node);
+			return hoverList.get(0, 8);
+		}
+		var idle = fill();
+		ashui.input.Pointer.move(hoverTree, 20, 20);
+		var hovered = fill();
+		ashui.input.Pointer.press(hoverTree);
+		var pressed = fill();
+		ashui.input.Pointer.release(hoverTree);
+		ashui.input.Pointer.move(hoverTree, 90, 90);
+		var left = fill();
+		ashui.theme.ThemeState.get().setScheme(Dark);
+		var dark = fill();
+		ashui.theme.ThemeState.get().setScheme(Light);
+		check("hover: and active: follow the pointer",
+			idle == 1 && Math.abs(hovered - 0x2A / 255) < 0.01 && Math.abs(pressed - 0xDC / 255) < 0.01 && left == 1,
+			[idle, hovered, pressed, left]);
+		check("dark: follows the scheme", Math.abs(dark - 0x7D / 255) < 0.01, dark);
+
 		// --- Transitions move a property to its new value over time ---
 		ashui.theme.ThemeState.get().setScheduler(null);
 		var moveTree = new LayoutTree();

@@ -37,7 +37,8 @@ typedef WindowConfig = {
 	`WindowedApp` does. A frame is drawn only when something changed: the
 	tree on flush, the theme (a scheme transition draws until it settles),
 	the window's size or scale. Between frames the loop waits on the
-	window's events. The scheme follows the window's appearance.
+	window's events. The scheme follows the window's appearance, and the
+	pointer drives `hover:` and `active:` through `ashui.input.Pointer`.
 **/
 class WindowedApp {
 	/** The running app, if any. **/
@@ -163,6 +164,16 @@ class WindowedApp {
 				WindowTheme.handle(event);
 			case RedrawRequested:
 				dirty = true;
+			case CursorMoved(x, y, _):
+				var scale = window.scaleFactor();
+				ashui.input.Pointer.move(tree, x / scale, y / scale);
+			case CursorLeft(_):
+				ashui.input.Pointer.leave(tree);
+			case MouseInput(state, Left, _):
+				if (state == Pressed)
+					ashui.input.Pointer.press(tree);
+				else
+					ashui.input.Pointer.release(tree);
 			case _:
 		}
 	}
