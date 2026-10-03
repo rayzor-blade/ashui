@@ -32,10 +32,14 @@ class DisplayList {
 	public var bytes(default, null):haxe.io.Bytes;
 	public var count(default, null) = 0;
 
+	/** Records' room the list takes in `bytes`: `count` records, then the points of polygon clips. **/
+	public var stored(default, null) = 0;
+
 	/** Corner smoothing to draw with instead of the installed theme's, with its full radius; null for the theme's. **/
 	public var shapes:Null<{tokens:ashui.theme.ShapeTokens, radiusFull:Float}> = null;
 
-	final params = haxe.io.Bytes.alloc(32);
+	/** Eight F32s for the walk, and a ninth it writes back: how many records to draw. **/
+	final params = haxe.io.Bytes.alloc(36);
 
 	var capacity = 0;
 
@@ -63,7 +67,8 @@ class DisplayList {
 			bytes = haxe.io.Bytes.alloc(capacity * RECORD_BYTES);
 			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes.getData(), capacity);
 		}
-		count = needed;
+		stored = needed;
+		count = Std.int(params.getFloat(32));
 	}
 
 	/**

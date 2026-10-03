@@ -54,10 +54,70 @@ class UiFramework extends Extension {
 			function __init__vertex() {
 				recordIndex = instanceID;
 			}
-			// A record's rows are `ROW_TEXELS` apart in reading order, `RECORD_ROWS` to a record.
-			function __field(row : Int) : Vec4 {
-				var t = recordIndex * $v{ashui.layout.RecordLayout.RECORD_ROWS} + row;
+			// Texels in reading order, `ROW_TEXELS` to a row of the texture.
+			function __texel(t : Int) : Vec4 {
 				return records.fetch(ivec2(t % $v{ashui.layout.RecordLayout.ROW_TEXELS}, t / $v{ashui.layout.RecordLayout.ROW_TEXELS}));
+			}
+			// A record is `RECORD_ROWS` texels.
+			function __field(row : Int) : Vec4 {
+				return __texel(recordIndex * $v{ashui.layout.RecordLayout.RECORD_ROWS} + row);
+			}
+			// The signed distance from `q` to the polygon of `count` points from texel `first`, two to a texel:
+			// negative inside, even-odd. A point at 1e30 or past it parts two rings.
+			function __polygonDistance(q : Vec2, first : Int, count : Int) : Float {
+				var d = 1e20;
+				var inside = false;
+				var prev = vec2(0., 0.);
+				var i = 0;
+				while (i < count) {
+					var t = __texel(first + i / 2);
+					var v = t.xy;
+					if (i % 2 == 1)
+						v = t.zw;
+					if (i > 0 && v.x < 1e29 && prev.x < 1e29) {
+						var e = prev - v;
+						var w = q - v;
+						var b = w - e * clamp(dot(w, e) / max(dot(e, e), 1e-12), 0., 1.);
+						d = min(d, dot(b, b));
+						var c1 = q.y >= v.y;
+						var c2 = q.y < prev.y;
+						var c3 = e.x * w.y > e.y * w.x;
+						if ((c1 && c2 && c3) || (!c1 && !c2 && !c3))
+							inside = !inside;
+					}
+					prev = v;
+					i++;
+				}
+				var dist = sqrt(d);
+				if (inside)
+					dist = -dist;
+				return dist;
+			}
+			/**
+				How much of the point `p`, on screen, the record's `clip-path`
+				leaves. Its frame takes `p` into the element's coordinates; its
+				shape is an ellipse, a rounded rect or a polygon.
+			**/
+			function shapeCoverage(p : Vec2) : Float {
+				var frame = primitive.shapeFrame;
+				var rest = primitive.shapeRest;
+				var shape = primitive.shape;
+				// The element's coordinates and their pixel size, before any branch, where derivatives are defined.
+				var q = vec2(frame.x * p.x + frame.z * p.y + rest.x, frame.y * p.x + frame.w * p.y + rest.y);
+				var aa = halfPixel(q);
+				var alpha = 1.;
+				if (rest.z > 2.5) {
+					alpha = 1. - smoothstep(-aa, aa, __polygonDistance(q, int(shape.x), int(shape.y)));
+				} else if (rest.z > 1.5) {
+					alpha = 1. - smoothstep(-aa, aa, sdShapedRect(q, shape.xy, shape.zw, vec4(rest.w, rest.w, rest.w, rest.w), vec4(1., 1., 1., 1.)));
+				} else if (rest.z > 0.5) {
+					// An ellipse's distance, to first order: its implicit function over its gradient.
+					var r = max(shape.zw, vec2(0.0001, 0.0001));
+					var u = (q - shape.xy) / r;
+					var lu = length(u);
+					alpha = 1. - smoothstep(-aa, aa, (lu - 1.) * lu / max(length(u / r), 0.0001));
+				}
+				return alpha;
 			}
 		};
 	}

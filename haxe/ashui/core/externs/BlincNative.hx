@@ -97,6 +97,9 @@ extern class BlincNative {
 
 	/** A clip-path shape; see `blinc_abi::types::hl_blinc_clip_path`. **/
 	static function blinc_clip_path(kind:Int, values:hl.Bytes, percent:Int, none:Int, round:Single):hl.Abstract<"blinc_value">;
+
+	/** A polygon clip path, `count` points of x and y in `values`, each a percentage where its byte in `percent` is 1; a path's are pixels, rings apart by a 1e30 point. **/
+	static function blinc_clip_polygon(values:hl.Bytes, percent:hl.Bytes, count:Int, path:Bool):hl.Abstract<"blinc_value">;
 	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int,
 		alpha:Single):Void;
 }

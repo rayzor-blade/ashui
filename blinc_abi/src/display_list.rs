@@ -29,9 +29,13 @@
 //! | 22 | the innermost `clip-path`'s frame: a, b, c, d of the inverse of   |
 //! |    | its element's transform, taking a screen point to that element  |
 //! | 23 | that inverse's e and f, less the element's origin; the shape:   |
-//! |    | 0 none, 1 ellipse, 2 rounded rect; and the rect's radius        |
+//! |    | 0 none, 1 ellipse, 2 rounded rect, 3 polygon; the rect's radius |
 //! | 24 | the shape in the element's coordinates: ellipse cx, cy, rx, ry, |
-//! |    | or rect x, y, width, height                                     |
+//! |    | rect x, y, width, height, or a polygon's first texel and point   |
+//! |    | count in the points after the records                           |
+//!
+//! After the records, in whole records' room, come the points of polygon
+//! clips, two to a row; see `Glyphs::points`.
 //!
 //! A text node adds one record per glyph, a `PRIM_TEXT` quad whose bounds
 //! are the glyph's, whose colour is the text's, whose gradient row is the
@@ -142,7 +146,13 @@ pub struct Glyphs<'a> {
     pub display_scale: f32,
     pub atlas_full: bool,
     pub shapes: Shapes,
+    /// Polygon clips' points, x and y, each polygon from a row's start; a
+    /// record's offset into them counts rows from their start until the
+    /// list is packed (see `node::hl_blinc_tree_display_list`).
+    pub points: Vec<f32>,
 }
+
+pub const SHAPE_POLYGON: f32 = 3.0;
 
 /// The installed theme's corner smoothing, as ashui's theme decides it: the
 /// squircle `n` (0 when smoothing is off), the radius below which corners
@@ -217,10 +227,33 @@ struct ShapeClip {
 const SHAPE_ELLIPSE: f32 = 1.0;
 const SHAPE_RECT: f32 = 2.0;
 
+/// Adds `ring` to `points` from a row's start, closed back to its first
+/// point when `close`, and gives the shape: its first row and point count.
+fn polygon(points: &mut Vec<f32>, ring: &[(f32, f32)], close: bool) -> (f32, [f32; 4], f32) {
+    if ring.len() < 3 {
+        return (0.0, [0.0; 4], 0.0);
+    }
+    while points.len() % 4 != 0 {
+        points.push(0.0);
+    }
+    let first = points.len() / 4;
+    for &(px, py) in ring {
+        points.push(px);
+        points.push(py);
+    }
+    let mut count = ring.len();
+    if close {
+        points.push(ring[0].0);
+        points.push(ring[0].1);
+        count += 1;
+    }
+    (SHAPE_POLYGON, [first as f32, count as f32, 0.0, 0.0], 0.0)
+}
+
 /// `path` on a box `w` × `h` at `(x, y)` in layout coordinates, drawn under
 /// `m`: CSS's resolution of each shape, a circle's radius against the box's
 /// diagonal over √2 and an unset one reaching the closest side.
-fn shape_clip(path: &blinc_core::ClipPath, (x, y): (f32, f32), w: f32, h: f32, m: Affine) -> ShapeClip {
+fn shape_clip(path: &blinc_core::ClipPath, (x, y): (f32, f32), w: f32, h: f32, m: Affine, points: &mut Vec<f32>) -> ShapeClip {
     use blinc_core::ClipPath as C;
     let diagonal = (w * w + h * h).sqrt() / std::f32::consts::SQRT_2;
     let (kind, params, radius) = match path {
@@ -248,8 +281,11 @@ fn shape_clip(path: &blinc_core::ClipPath, (x, y): (f32, f32), w: f32, h: f32, m
             [cx.resolve(w), cy.resolve(h), cw.resolve(w), ch.resolve(h)],
             round.unwrap_or(0.0),
         ),
-        // Polygons and paths need their points beside the record: not yet drawn.
-        C::Polygon { .. } | C::Path { .. } => (0.0, [0.0; 4], 0.0),
+        C::Polygon { points: corners } => {
+            let ring: Vec<(f32, f32)> = corners.iter().map(|(px, py)| (px.resolve(w), py.resolve(h))).collect();
+            polygon(points, &ring, true)
+        }
+        C::Path { vertices } => polygon(points, vertices, false),
     };
     let [a, b, c, d, e, f] = m;
     let det = a * d - b * c;
@@ -635,7 +671,7 @@ pub fn append(
                 frame: m,
                 n: 1.0,
                 fade: [0.0; 4],
-                shape: Some(shape_clip(path, (x, y), w, h, m)),
+                shape: Some(shape_clip(path, (x, y), w, h, m, &mut glyphs.points)),
             });
             shaped = true;
         }

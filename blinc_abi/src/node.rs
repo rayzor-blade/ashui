@@ -536,9 +536,10 @@ define_prim!(
 /// most `capacity` records. `params` is eight f32s: the device pixels per
 /// layout unit text is rasterized for; the theme's corner `n` (0 for no
 /// smoothing), smoothing threshold and full radius; and the colour, straight
-/// RGBA, of text that neither it nor an ancestor sets. Returns how many
-/// records there are, which may be more than were written: the caller grows
-/// its buffer and asks again.
+/// RGBA, of text that neither it nor an ancestor sets; and room for a ninth,
+/// where the number of records to draw is written. Returns how many records'
+/// room the list takes, polygon points after the records included, which may
+/// be more than were written: the caller grows its buffer and asks again.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_display_list(
     h: *mut c_void,
@@ -565,6 +566,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
     let text_color = [p(4), p(5), p(6), p(7)];
     let mut renderer = crate::text::renderer();
     let mut records = Vec::new();
+    let mut points = Vec::new();
     // A frame whose glyphs overflow the atlases starts them afresh, once.
     for _ in 0..2 {
         let mut glyphs = crate::display_list::Glyphs {
@@ -572,6 +574,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
             display_scale: if display_scale > 0.0 { display_scale } else { 1.0 },
             atlas_full: false,
             shapes,
+            points: Vec::new(),
         };
         records.clear();
         crate::display_list::append(
@@ -586,11 +589,28 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
             &mut records,
         );
         if !glyphs.atlas_full {
+            points = std::mem::take(&mut glyphs.points);
             break;
         }
         renderer.clear();
     }
-    let count = records.len() / crate::display_list::RECORD_FLOATS;
+    use crate::display_list::{RECORD_FLOATS, SHAPE_POLYGON};
+    let drawn = records.len() / RECORD_FLOATS;
+    // Polygon offsets count rows from the points' start, which is right after the records.
+    let base = (drawn * RECORD_FLOATS / 4) as f32;
+    for r in 0..drawn {
+        if records[r * RECORD_FLOATS + 94] == SHAPE_POLYGON {
+            records[r * RECORD_FLOATS + 96] += base;
+        }
+    }
+    records.extend_from_slice(&points);
+    while records.len() % RECORD_FLOATS != 0 {
+        records.push(0.0);
+    }
+    if !params.is_null() {
+        unsafe { (params as *mut f32).add(8).write_unaligned(drawn as f32) };
+    }
+    let count = records.len() / RECORD_FLOATS;
     let written = count.min(capacity.max(0) as usize) * crate::display_list::RECORD_FLOATS;
     if !out.is_null() && written > 0 {
         unsafe { std::ptr::copy_nonoverlapping(records.as_ptr(), out as *mut f32, written) };

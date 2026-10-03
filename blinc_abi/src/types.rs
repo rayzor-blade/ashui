@@ -73,6 +73,36 @@ pub unsafe extern "C" fn hl_blinc_clip_path(kind: i32, values: *const vbyte, per
 }
 define_prim!(hlp_blinc_clip_path, hl_blinc_clip_path, "PiBiif_Xblinc_value_");
 
+/// A polygon clip path of `count` points, x and y in `values`; byte `k` of
+/// `percent`, when given, makes value `k` a percentage. A `path`'s points
+/// are pixels, with its rings apart by a point at 1e30.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_clip_polygon(values: *const vbyte, percent: *const vbyte, count: i32, path: bool) -> *mut c_void {
+    use blinc_core::{ClipLength, ClipPath};
+    let n = count.max(0) as usize;
+    let v = |k: usize| unsafe { (values as *const f32).add(k).read_unaligned() };
+    let len = |k: usize| {
+        if !percent.is_null() && unsafe { *(percent as *const u8).add(k) } != 0 {
+            ClipLength::Percent(v(k))
+        } else {
+            ClipLength::Px(v(k))
+        }
+    };
+    let clip = if values.is_null() {
+        ClipPath::Polygon { points: Vec::new() }
+    } else if path {
+        ClipPath::Path {
+            vertices: (0..n).map(|i| (v(2 * i), v(2 * i + 1))).collect(),
+        }
+    } else {
+        ClipPath::Polygon {
+            points: (0..n).map(|i| (len(2 * i), len(2 * i + 1))).collect(),
+        }
+    };
+    value(Value::ClipPath(clip))
+}
+define_prim!(hlp_blinc_clip_polygon, hl_blinc_clip_polygon, "PBBib_Xblinc_value_");
+
 // --- Brushes ---
 
 #[unsafe(no_mangle)]

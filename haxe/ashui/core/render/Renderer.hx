@@ -147,7 +147,7 @@ class Renderer {
 		syncImages(list);
 		if (list.count > 0) {
 			// Whole rows: the list's bytes hold whole rows of records, so the last is complete.
-			var rows = Math.ceil(list.count / DisplayList.RECORDS_PER_ROW);
+			var rows = Math.ceil(list.stored / DisplayList.RECORDS_PER_ROW);
 			reserve(rows);
 			queue.writeTexture(records, list.bytes, DisplayList.ROW_TEXELS, rows, DisplayList.ROW_TEXELS * 16);
 		}

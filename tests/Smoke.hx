@@ -1076,6 +1076,17 @@ class Smoke {
 			"";
 		} catch (e:ashui.svg.SvgError) e.message;
 		check("path data: a cut-off command is an error", pathError.indexOf("ends in the middle") >= 0, pathError);
+		var square = ashui.svg.PathData.flatten(ashui.svg.PathData.parse("M0 0L10 0L10 10"));
+		check("path data: flattened subpaths close on their first point", square.length == 1 && square[0].join(",") == "0,0,10,0,10,10,0,0",
+			square);
+		var halfCircle = ashui.svg.PathData.flatten(ashui.svg.PathData.parse("M10 0A10 10 0 0 1 -10 0Z"))[0];
+		var onCircle = true, lowest = 0.0;
+		for (i in 0...Std.int(halfCircle.length / 2) - 1) {
+			var px = halfCircle[i * 2], py = halfCircle[i * 2 + 1];
+			onCircle = onCircle && Math.abs(Math.sqrt(px * px + py * py) - 10) < 0.01;
+			lowest = Math.max(lowest, py);
+		}
+		check("path data: an arc flattens onto its circle, by its sweep", onCircle && Math.abs(lowest - 10) < 0.2, [onCircle, lowest]);
 		var badge = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 10 10" width="20"><g fill="#ff0000" stroke="rgb(0, 0, 255)" opacity="0.5" transform="translate(1 2) scale(2)"><rect x="1" y="1" width="4" height="2" rx="1"/><circle style="fill: none" cx="5" cy="5" r="2"/></g><title>t</title></svg>');
 		check("svg: natural size from width, and viewBox height", badge.width == 20 && badge.height == 10, [badge.width, badge.height]);
 		switch badge.nodes {

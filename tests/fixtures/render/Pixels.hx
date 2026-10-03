@@ -38,7 +38,8 @@ import gpu.TextureUsage;
 
 	Then clip paths: a red child clipped to its parent's circle, a red box
 	clipped to a wide, flat ellipse and turned 90° so the ellipse stands
-	tall, and a blue box inset by 10 pixels with rounded corners.
+	tall, a blue box inset by 10 pixels with rounded corners, and a green
+	triangle from percentages; then a red square path with a square hole.
 
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
@@ -195,7 +196,13 @@ class Pixels {
 		band.node.set(Prop.Transform, ashui.types.Transform.rotation(90));
 		var inset = new Div({position: Position.Absolute, left: 4, top: 36, width: 24, height: 24, bg: Brush.solid(0x0000ff)}, shapeTree);
 		inset.node.set(Prop.ClipPath, ashui.types.ClipPath.inset(Px(10), Px(10), Px(10), Px(10), 2));
-		var shapeRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [circled, band, inset], shapeTree);
+		var triangle = new Div({position: Position.Absolute, left: 36, top: 36, width: 24, height: 24, bg: Brush.solid(0x00ff00)}, shapeTree);
+		triangle.node.set(Prop.ClipPath, ashui.types.ClipPath.polygon([
+			{x: Percent(50), y: Px(0)},
+			{x: Percent(100), y: Percent(100)},
+			{x: Px(0), y: Percent(100)}
+		]));
+		var shapeRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [circled, band, inset, triangle], shapeTree);
 		pixels = offscreen.renderToRgba8(shapeRoot, SIZE, SIZE);
 		label = "clip-path: ";
 		probe("a circle clips a child's corner away", 6, 6, near(0xffffff));
@@ -205,6 +212,16 @@ class Pixels {
 		probe("and narrow", 40, 16, near(0xffffff));
 		probe("an inset keeps its middle", 16, 48, near(0x0000ff));
 		probe("and clears its margin", 8, 48, near(0xffffff));
+		probe("a polygon keeps its triangle's middle", 48, 52, near(0x00ff00));
+		probe("and clears what is beside its apex", 39, 39, near(0xffffff));
+
+		var pathTree = new LayoutTree();
+		var framed = new Div({position: Position.Absolute, left: 8, top: 8, width: 24, height: 24, bg: Brush.solid(0xff0000)}, pathTree);
+		framed.node.set(Prop.ClipPath, ashui.types.ClipPath.path("M0 0H24V24H0Z M8 8H16V16H8Z"));
+		var pathRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [framed], pathTree);
+		pixels = offscreen.renderToRgba8(pathRoot, SIZE, SIZE);
+		probe("a path of two rings keeps the frame", 11, 20, near(0xff0000));
+		probe("and leaves the hole clear, even-odd", 20, 20, near(0xffffff));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

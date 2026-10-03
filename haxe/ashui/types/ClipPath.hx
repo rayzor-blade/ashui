@@ -18,6 +18,7 @@ enum ClipLength {
 	```haxe
 	node.set(Prop.ClipPath, ClipPath.circle());                    // the largest circle centred in the box
 	node.set(Prop.ClipPath, ClipPath.inset(Px(8), Px(8), Px(8), Px(8), 12));
+	node.set(Prop.ClipPath, ClipPath.polygon([{x: Percent(50), y: Px(0)}, {x: Percent(100), y: Percent(100)}, {x: Px(0), y: Percent(100)}]));
 	```
 
 	When clip paths are nested, the innermost one clips.
@@ -61,6 +62,57 @@ class ClipPath implements IValue {
 	/** `xywh(x y width height round radius)`. **/
 	public static function xywh(x:ClipLength, y:ClipLength, width:ClipLength, height:ClipLength, round:Float = -1):ClipPath
 		return new ClipPath(4, [x, y, width, height], round);
+
+	/** `polygon(x1 y1, x2 y2, …)`: the points in order, joined back to the first; even-odd inside. **/
+	public static function polygon(points:Array<{x:ClipLength, y:ClipLength}>):ClipPath {
+		var values = new hl.Bytes(points.length * 8 + 8);
+		var percent = new hl.Bytes(points.length * 2 + 2);
+		for (i in 0...points.length)
+			for (axis in 0...2) {
+				var l = axis == 0 ? points[i].x : points[i].y;
+				var k = i * 2 + axis;
+				switch l {
+					case Px(v):
+						values.setF32(k * 4, v);
+						percent.setUI8(k, 0);
+					case Percent(v):
+						values.setF32(k * 4, v);
+						percent.setUI8(k, 1);
+				}
+			}
+		return fromPolygon(BlincNative.blinc_clip_polygon(values, percent, points.length, false));
+	}
+
+	/**
+		`path("M 0 0 L …")`: SVG path data in the element's pixels, curves
+		and arcs cut into short straight steps; each subpath closes, and a
+		point is inside when an odd number of them surround it.
+	**/
+	public static function path(d:String):ClipPath {
+		var rings = ashui.svg.PathData.flatten(ashui.svg.PathData.parse(d));
+		var flat:Array<Float> = [];
+		for (ring in rings) {
+			if (flat.length > 0) {
+				flat.push(BREAK);
+				flat.push(BREAK);
+			}
+			for (v in ring)
+				flat.push(v);
+		}
+		var values = new hl.Bytes(flat.length * 4 + 4);
+		for (i in 0...flat.length)
+			values.setF32(i * 4, flat[i]);
+		return fromPolygon(BlincNative.blinc_clip_polygon(values, null, Std.int(flat.length / 2), true));
+	}
+
+	/** Between two rings of a path's points, a point at this x and y. **/
+	@:noCompletion public static inline var BREAK = 1e30;
+
+	static function fromPolygon(ptr:hl.Abstract<"blinc_value">):ClipPath {
+		var made:ClipPath = Type.createEmptyInstance(ClipPath);
+		made.ptr = ptr;
+		return made;
+	}
 
 	static inline function center(v:Null<ClipLength>):ClipLength
 		return v != null ? v : Percent(50);

@@ -29,7 +29,7 @@ class ImageShader implements UiShader {
 			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
 				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa)
 				* fadeCoverage(pixel, primitive.fadeBounds, primitive.fade)
-				* shapeCoverage(pixel, primitive.shapeFrame, primitive.shapeRest, primitive.shape);
+				* shapeCoverage(pixel);
 			if (clip < 0.001)
 				discard;
 			var rect = primitive.gradient;
