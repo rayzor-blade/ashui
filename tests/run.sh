@@ -10,6 +10,12 @@
 #                   switch; Ash only, needs ../hlwgpu and ../hlwindow built, and a
 #                   desktop. Captures go to ../.ashui/snapshots on macOS.
 set -e
+# The first of the given files that exists.
+first() {
+	for f in "$@"; do
+		[ -f "$f" ] && { echo "$f"; return; }
+	done
+}
 cd "$(dirname "$0")"
 cargo build --manifest-path ../Cargo.toml
 mkdir -p bin
@@ -31,6 +37,7 @@ runtime="${HL:-$runtime}"
 # tink's own sources use deprecated metadata.
 haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe -lib hashlink -lib tink_hxx -w -WDeprecated"
 
+# The sibling libraries' release builds are used when there are any, the debug ones otherwise.
 # A library copied over an older copy in place keeps a stale code signature
 # on macOS, which kills the process that loads it; so copies replace files.
 
@@ -67,7 +74,7 @@ compile_fixtures() {
 case "${1:-}" in
 render)
 	# The newer of hlwgpu's debug and release builds.
-	xgpu=$(ls -t ../../hlwgpu/target/*/libhlwgpu.dylib ../../hlwgpu/target/*/libhlwgpu.so 2>/dev/null | head -1)
+	xgpu=$(first ../../hlwgpu/target/release/libhlwgpu.dylib ../../hlwgpu/target/release/libhlwgpu.so ../../hlwgpu/target/debug/libhlwgpu.dylib ../../hlwgpu/target/debug/libhlwgpu.so)
 	if [ -z "$xgpu" ]; then
 		echo "no hlwgpu build: run cargo build in ../hlwgpu" >&2
 		exit 1
@@ -80,8 +87,8 @@ render)
 	run pixels.hl
 	;;
 window)
-	xgpu=$(ls -t ../../hlwgpu/target/*/libhlwgpu.dylib ../../hlwgpu/target/*/libhlwgpu.so 2>/dev/null | head -1)
-	xwindow=$(ls -t ../../hlwindow/target/*/libhlwindow.dylib ../../hlwindow/target/*/libhlwindow.so 2>/dev/null | head -1)
+	xgpu=$(first ../../hlwgpu/target/release/libhlwgpu.dylib ../../hlwgpu/target/release/libhlwgpu.so ../../hlwgpu/target/debug/libhlwgpu.dylib ../../hlwgpu/target/debug/libhlwgpu.so)
+	xwindow=$(first ../../hlwindow/target/release/libhlwindow.dylib ../../hlwindow/target/release/libhlwindow.so ../../hlwindow/target/debug/libhlwindow.dylib ../../hlwindow/target/debug/libhlwindow.so)
 	if [ -z "$xgpu" ] || [ -z "$xwindow" ]; then
 		echo "build ../hlwgpu and ../hlwindow first (cargo build --release)" >&2
 		exit 1

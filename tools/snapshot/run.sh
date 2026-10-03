@@ -10,6 +10,12 @@
 # A scene is a class whose main calls Snapshot.scene; see scenes/Demo.hx.
 # Needs built ../ash and ../hlwgpu checkouts beside this repository.
 set -e
+# The first of the given files that exists.
+first() {
+	for f in "$@"; do
+		[ -f "$f" ] && { echo "$f"; return; }
+	done
+}
 watch=0
 if [ "$1" = "--watch" ]; then
 	watch=1
@@ -43,7 +49,7 @@ render() {
 	rm -f bin/blinc_abi.hdll
 	cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
 	rm -f bin/xgpu.hdll
-	cp "$(ls -t "$vib"/hlwgpu/target/*/libhlwgpu.$ext | head -1)" bin/xgpu.hdll
+	cp "$(first "$vib"/hlwgpu/target/release/libhlwgpu.$ext "$vib"/hlwgpu/target/debug/libhlwgpu.$ext)" bin/xgpu.hdll
 	if ! out=$(haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" \
 		--macro 'ashui.core.render.UiFramework.register()' \
