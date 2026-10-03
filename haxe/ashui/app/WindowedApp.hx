@@ -157,7 +157,8 @@ class WindowedApp {
 			var animating = scheduler.hasActive();
 			var timer = scheduler.untilNextTimer();
 			var t0 = haxe.Timer.stamp();
-			var event = dirty ? window.poll() : window.wait(animating ? 1 / 120 : timer != null ? Math.min(0.1, timer) : 0.1);
+			var due = dirty && ashui.input.WindowState.visible.get();
+			var event = due ? window.poll() : window.wait(animating ? 1 / 120 : timer != null ? Math.min(0.1, timer) : 0.1);
 			var t1 = haxe.Timer.stamp();
 			var handled = 0;
 			var polling = 0.0;
@@ -189,7 +190,8 @@ class WindowedApp {
 				ashui.input.Pointer.refresh(tree);
 			}
 			var t3 = haxe.Timer.stamp();
-			if (dirty && !quitting) {
+			// A hidden window draws nothing; what changes waits for it to show again.
+			if (dirty && !quitting && ashui.input.WindowState.visible.get()) {
 				dirty = false;
 				if (draw()) {
 					frames++;
@@ -248,6 +250,15 @@ class WindowedApp {
 				dirty = true;
 			case ThemeChanged(_):
 				WindowTheme.handle(event);
+			case Focused(on):
+				if (ashui.input.WindowState.active.get() != on)
+					ashui.input.WindowState.active.set(on);
+			case Occluded(hidden):
+				if (ashui.input.WindowState.visible.get() == hidden)
+					ashui.input.WindowState.visible.set(!hidden);
+				// Coming back into view draws what changed meanwhile.
+				if (!hidden)
+					dirty = true;
 			case RedrawRequested:
 				dirty = true;
 			case CursorMoved(x, y, _):

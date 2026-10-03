@@ -111,7 +111,7 @@ class TextField extends Component<TextFieldProps> {
 								<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
 							</div>
 							<div class="absolute top-0 bottom-0 bg-text-primary" left={caretLeft} width={1.5}
-								opacity={Computed.make(() -> (focused.get() ? caretAlpha.get() : 0 : Single))} />
+								opacity={Computed.make(() -> (showsCaret() ? caretAlpha.get() : 0 : Single))} />
 						</div>
 					</div>
 				</div>')}
@@ -124,6 +124,8 @@ class TextField extends Component<TextFieldProps> {
 			interaction.setDisabled(props.disabled);
 		// Keeps the caret inside the visible part of the field.
 		new Watch(() -> caretLeft.get(), x -> reveal(x));
+		// The blink stops while the window is in the background or hidden, and starts again on return.
+		new Watch(() -> showsCaret(), shown -> shown ? restartBlink() : stopBlink());
 		return box;
 	}
 
@@ -342,6 +344,19 @@ class TextField extends Component<TextFieldProps> {
 
 	// --- caret blink ---
 
+	/** Whether the caret is drawn at all: the field has focus in the active, visible window. **/
+	function showsCaret():Bool
+		return focused.get() && ashui.input.WindowState.active.get() && ashui.input.WindowState.visible.get();
+
+	function stopBlink():Void {
+		if (blinkTimer != null)
+			blinkTimer.cancel();
+		blinkTimer = null;
+		fadeId++;
+		caretOn = true;
+		caretAlpha.set(1);
+	}
+
 	function restartBlink():Void {
 		if (blinkTimer != null)
 			blinkTimer.cancel();
@@ -355,10 +370,8 @@ class TextField extends Component<TextFieldProps> {
 	/** Starts the caret fading out or in, and sets the next blink while the field has focus. **/
 	function blink():Void {
 		blinkTimer = null;
-		if (!focused.get()) {
-			fadeId++;
-			caretOn = true;
-			caretAlpha.set(1);
+		if (!showsCaret()) {
+			stopBlink();
 			return;
 		}
 		caretOn = !caretOn;

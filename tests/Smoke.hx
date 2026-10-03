@@ -818,6 +818,20 @@ class Smoke {
 		ashui.input.Clipboard.setText("a\nb");
 		fieldKey(Character("v"), KeyV, cmd);
 		check("text field: a pasted line break becomes a space", fieldValue.get() == "a b-og-o", fieldValue.get());
+		fieldTree.flush();
+		var blinkingFocused = @:privateAccess field.blinkTimer != null;
+		ashui.input.WindowState.active.set(false);
+		fieldTree.flush();
+		var stoppedInBackground = @:privateAccess field.blinkTimer == null;
+		ashui.input.WindowState.active.set(true);
+		ashui.input.WindowState.visible.set(false);
+		fieldTree.flush();
+		var stoppedHidden = @:privateAccess field.blinkTimer == null;
+		ashui.input.WindowState.visible.set(true);
+		fieldTree.flush();
+		check("text field: the caret stops blinking while the window is in the background or hidden, and starts again",
+			blinkingFocused && stoppedInBackground && stoppedHidden && @:privateAccess field.blinkTimer != null,
+			[blinkingFocused, stoppedInBackground, stoppedHidden]);
 
 		// --- Scroll containers move their content under the wheel ---
 		var scrollTree = new LayoutTree();
