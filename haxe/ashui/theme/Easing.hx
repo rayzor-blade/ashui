@@ -7,6 +7,8 @@ enum Easing {
 	EaseOut;
 	EaseInOut;
 	CubicBezier(x1:Float, y1:Float, x2:Float, y2:Float);
+	/** CSS's `steps()`: `count` equal jumps, the first at the start when `jumpStart`, else at the end of the first step. **/
+	Steps(count:Int, jumpStart:Bool);
 }
 
 /** Reads an `Easing`: its progress at a time, and its control points. **/
@@ -18,6 +20,11 @@ class EasingTools {
 	**/
 	public static function evaluate(easing:Easing, t:Float):Float {
 		var t = Math.max(0, Math.min(1, t));
+		switch easing {
+			case Steps(n, start):
+				return t >= 1 ? 1 : Math.min(1, (start ? Math.ffloor(t * n) + 1 : Math.ffloor(t * n)) / n);
+			case _:
+		}
 		return switch controlPoints(easing) {
 			case null: t;
 			case p: bezier(p[0], p[1], p[2], p[3], t);
@@ -36,6 +43,7 @@ class EasingTools {
 			case EaseOut: [0, 0, 0.2, 1];
 			case EaseInOut: [0.4, 0, 0.2, 1];
 			case CubicBezier(x1, y1, x2, y2): [x1, y1, x2, y2];
+			case Steps(_, _): null;
 		}
 	}
 

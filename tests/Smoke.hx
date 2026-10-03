@@ -908,6 +908,53 @@ class Smoke {
 		check("@media rules apply while their queries hold, nested ones too", sizes.join(",") == "10x10,30x10,30x5,10x10", sizes);
 		ashui.css.Css.remove(mediaSheet);
 
+		// --- CSS transitions and @keyframes ---
+		var motionSheet = ashui.css.Css.load('
+			.fade { width: 10px; height: 10px; background: #ff0000; opacity: 1; transition: opacity 100ms linear; }
+			.fade.out { opacity: 0; }
+			@keyframes grow { from { width: 10px } to { width: 110px } }
+			.grow { height: 10px; width: 10px; animation: grow 1s linear; }
+			.held { height: 10px; width: 10px; animation: grow 1s linear forwards; }
+		');
+		var motionTree = new LayoutTree();
+		var motionList = new ashui.layout.DisplayList();
+		var fadeClasses = Signal.make(["fade"]);
+		var fading = Owner.root(motionTree, _ -> new Div({classes: fadeClasses}, motionTree));
+		function alpha():Float {
+			motionTree.flush();
+			motionTree.computeLayout(fading.node, 50, 50);
+			motionList.update(motionTree, fading.node);
+			return motionList.count == 0 ? -1 : motionList.get(0, 11);
+		}
+		var scheduler = ashui.animation.AnimationScheduler.main;
+		var before = alpha();
+		fadeClasses.set(["fade", "out"]);
+		alpha();
+		scheduler.tick(0.05);
+		var midway = alpha();
+		scheduler.tick(0.1);
+		var after = alpha();
+		// Fully transparent, the box draws nothing: no record at all.
+		check("a transition moves a property the cascade changes", before == 1 && midway > 0.3 && midway < 0.7 && after <= 0, [before, midway, after]);
+
+		var growing = Owner.root(motionTree, _ -> new Div({classes: ["grow"]}, motionTree));
+		var held = Owner.root(motionTree, _ -> new Div({classes: ["held"]}, motionTree));
+		function widths():Array<Int> {
+			motionTree.flush();
+			motionTree.computeLayout(growing.node, 500, 500);
+			var a = Std.int(motionTree.getBounds(growing.node).width);
+			motionTree.computeLayout(held.node, 500, 500);
+			return [a, Std.int(motionTree.getBounds(held.node).width)];
+		}
+		var start = widths();
+		scheduler.tick(0.5);
+		var half = widths();
+		scheduler.tick(0.6);
+		var done = widths();
+		check("@keyframes animates, then hands back to the cascade, or holds with forwards", start.join(",") == "10,10" && half.join(",") == "60,60"
+			&& done.join(",") == "10,110", [start, half, done]);
+		ashui.css.Css.remove(motionSheet);
+
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);
 		check("a sheet taken out of force takes its values with it", fillOf(card).length == 0 && after.width == 0, [fillOf(card), after]);

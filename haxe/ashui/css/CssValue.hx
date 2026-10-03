@@ -667,6 +667,12 @@ class CssValue {
 	static inline function isSpace(c:Int):Bool
 		return c == " ".code || c == "\t".code || c == "\n".code || c == "\r".code || c == "\x0C".code;
 
+	/** Whether `word` is one of CSS's colour names, or transparent. **/
+	public static function isNamedColor(word:String):Bool {
+		var w = word.toLowerCase();
+		return w == "transparent" || NAMED.exists(w);
+	}
+
 	/** CSS's named colours. **/
 	static final NAMED:Map<String, Int> = [
 		"aliceblue" => 0xf0f8ff, "antiquewhite" => 0xfaebd7, "aqua" => 0x00ffff, "aquamarine" => 0x7fffd4, "azure" => 0xf0ffff,

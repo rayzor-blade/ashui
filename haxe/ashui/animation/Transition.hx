@@ -49,6 +49,10 @@ class Transition {
 		return properties.indexOf(prop) >= 0;
 	}
 
+	/** The transition `prop` moves by; this one, unless timings differ by property, as CSS's can. **/
+	public function forProperty(prop:PropertyId):Transition
+		return this;
+
 	/** Seconds, from the installed theme when given as a token. **/
 	public function seconds():Float {
 		if (milliseconds != null)

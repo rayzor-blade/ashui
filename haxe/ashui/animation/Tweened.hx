@@ -22,7 +22,7 @@ import ashui.types.Shadow;
 	strings) change at once.
 **/
 class Tweened<T> {
-	final transition:Transition;
+	var transition:Transition;
 	final output:Signal<T>;
 	final lerp:(T, T, Float) -> Null<T>;
 	var current:T;
@@ -111,6 +111,10 @@ class Tweened<T> {
 			AnimationScheduler.main.addTicker(tick);
 		}
 	}
+
+	/** Moves by `next` from the next change on, as when a stylesheet gives the property other timing. **/
+	public function retime(next:Transition):Void
+		transition = next;
 
 	function jump(value:T):Void {
 		current = from = to = value;

@@ -35,7 +35,29 @@ class Node {
 	var tweens:Null<Map<Int, ashui.animation.Tweened<Dynamic>>>;
 
 	function set_transition(value:Null<ashui.animation.Transition>) {
+		ownTransition = true;
 		return transition = value;
+	}
+
+	/** Whether the node's own code set its transition, which a stylesheet's then leaves alone. **/
+	var ownTransition = false;
+
+	/** The key a stylesheet's transition is unset by, beside the property fields. **/
+	public static inline var TRANSITION = 2000;
+
+	/** A stylesheet's transition, set unless the node's own code set one; true if set. **/
+	@:allow(ashui.css)
+	function styleTransition(value:Null<ashui.animation.Transition>):Bool {
+		if (ownTransition)
+			return false;
+		transition = value;
+		ownTransition = false;
+		if (value != null) {
+			if (styled == null)
+				styled = new Map();
+			styled.set(TRANSITION, true);
+		}
+		return true;
 	}
 
 	public function new(id:haxe.Int64) {
@@ -61,12 +83,14 @@ class Node {
 		if (transition != null && transition.covers(key) && !isCornerShape(reactive)) {
 			if (tweens == null)
 				tweens = new Map();
+			var timing = transition.forProperty(key);
 			var tween = tweens.get(key);
 			if (tween != null) {
+				tween.retime(timing);
 				tween.follow(cast reactive);
 				return;
 			}
-			tween = ashui.animation.Tweened.bind(this, key, transition, cast reactive);
+			tween = ashui.animation.Tweened.bind(this, key, timing, cast reactive);
 			if (tween != null) {
 				tweens.set(key, tween);
 				return;
@@ -132,15 +156,35 @@ class Node {
 		if (styled == null)
 			styled = new Map();
 		styled.set(key, true);
-		apply(prop, Const(value));
+		// An animation's frames are each where the property is, not somewhere to move to.
+		if (immediate) {
+			var id:PropertyId = prop;
+			var tween = tweens == null ? null : tweens.get(id);
+			if (tween != null)
+				@:privateAccess tween.jump(value);
+			else
+				bind(prop, Const(value));
+		} else
+			apply(prop, Const(value));
 		return true;
 	}
+
+	/** While true, a stylesheet's writes take effect at once, past any transition: an animation's frames. **/
+	@:allow(ashui.css)
+	static var immediate = false;
 
 	/** Takes back a stylesheet's value for the field `key`: the field returns to a new node's, unless the node owns it. **/
 	@:allow(ashui.css)
 	function unstyle(key:Int):Void {
 		if (styled == null || !styled.remove(key))
 			return;
+		if (key == TRANSITION) {
+			if (!ownTransition) {
+				transition = null;
+				ownTransition = false;
+			}
+			return;
+		}
 		if (!owns(key))
 			BlincNative.blinc_unset(id, key);
 	}

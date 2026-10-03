@@ -33,6 +33,13 @@ private typedef Applied = {
 	change, at the next `LayoutTree.flush`. Nothing is re-matched
 	otherwise, so a frame that changes no structure or class costs nothing.
 
+	`transition` gives each property it names its own timing, so a change
+	the cascade makes moves there (an element's own transition, a Tw class,
+	wins over it). `animation` runs `@keyframes` on the animation
+	scheduler, its frames interpolated where two values have the same shape
+	and switched halfway where they do not; an animated property is the
+	animation's while it runs, and with `forwards` after.
+
 	The cascade is CSS's, property by property: `!important` over normal,
 	then specificity, then order (a later sheet's rule after an earlier
 	sheet's, a later rule after an earlier one). As in Tailwind's layers, a
@@ -321,8 +328,17 @@ class Css {
 			currentColor: values.exists("color") ? (try CssValue.color(substitute(values.get("color"), values, identity)) catch (_:String) CurrentColor) : CurrentColor
 		};
 		var fields:Array<Int> = [];
+		// The transition first, so the changes below move by it.
+		try {
+			if (@:privateAccess identity.node.styleTransition(CssMotion.transition(resolved)) && hasTransition(resolved))
+				fields.push(ashui.layout.Node.TRANSITION);
+		} catch (e:String) {
+			report(from.get("transition"), e);
+		}
+		// Animations: started, kept running or stopped as the element's animation values change.
+		var held = Animations.update(identity, resolved, values, ctx, from);
 		// font-size first: em in the rest is the element's own font size.
-		var names = [for (name in resolved.keys()) name];
+		var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !held.exists(name)) name];
 		names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Reflect.compare(a, b));
 		for (name in names) {
 			var v = resolved.get(name);
@@ -345,6 +361,10 @@ class Css {
 					currentColor: ctx.currentColor
 				};
 		}
+		// What an animation writes stays its own until it ends.
+		for (f in Animations.fields(identity))
+			if (fields.indexOf(f) < 0)
+				fields.push(f);
 		if (last != null)
 			for (f in last.fields)
 				if (fields.indexOf(f) < 0)
@@ -359,6 +379,42 @@ class Css {
 					restyle(c, walk);
 			}
 	}
+
+	/** The motion properties, applied as a transition and animations rather than one by one. **/
+	static final MOTION = [
+		for (name in ["transition", "transition-property", "transition-duration", "transition-timing-function", "transition-delay", "animation", "animation-name",
+			"animation-duration", "animation-timing-function", "animation-delay", "animation-iteration-count", "animation-direction",
+			"animation-fill-mode", "animation-play-state"])
+			name => true
+	];
+
+	static function hasTransition(values:Map<String, String>):Bool
+		return values.exists("transition") || values.exists("transition-property");
+
+	/** The `@keyframes` named `name`, the last sheet's that defines it. **/
+	@:allow(ashui.css.Animations)
+	static function keyframes(name:String):Null<Keyframes> {
+		var found:Null<Keyframes> = null;
+		for (sheet in sheets) {
+			var k = sheet.keyframes.get(name);
+			if (k != null)
+				found = k;
+		}
+		return found;
+	}
+
+	/** Matches `identity` again and applies what the cascade gives in full, as when an animation hands its properties back. **/
+	@:allow(ashui.css.Animations)
+	static function markAgain(identity:Identity):Void {
+		var last = applied.get(identity);
+		if (last != null)
+			applied.set(identity, {values: last.values, signature: "", fields: last.fields});
+		mark(identity);
+	}
+
+	@:allow(ashui.css.Animations)
+	static function problem(d:Null<Declaration>, message:String):Void
+		report(d, message);
 
 	static final INHERITED = ["color", "font-size", "font-weight", "font-style", "font-family", "line-height", "letter-spacing", "text-align"];
 
