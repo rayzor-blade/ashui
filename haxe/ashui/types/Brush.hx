@@ -48,9 +48,13 @@ class Brush implements IValue {
 		return new Brush(BlincNative.blinc_brush_glass(blur, tintHex, tintAlpha, simple ? 1 : 0));
 	}
 
-	/** What is behind the box blurred by `radius`, untinted. **/
-	public static inline function blur(radius:Single):Brush {
-		return new Brush(BlincNative.blinc_brush_blur(radius));
+	/**
+		What is behind the box blurred by `radius`, then `tintHex` at
+		`tintAlpha` painted over it, as CSS's `backdrop-filter: blur()` under
+		a translucent background colour.
+	**/
+	public static inline function blur(radius:Single, tintHex:Int = 0, tintAlpha:Single = 0):Brush {
+		return new Brush(BlincNative.blinc_brush_blur(radius, tintHex, tintAlpha));
 	}
 
 	/** The image at `url` filling the box, fitted by `fit`. **/

@@ -140,13 +140,17 @@ define_prim!(
 );
 
 #[unsafe(no_mangle)]
-pub extern "C" fn hl_blinc_brush_blur(radius: f32) -> *mut c_void {
-    value(Value::Brush(Brush::Blur(BlurStyle::with_radius(radius))))
+pub extern "C" fn hl_blinc_brush_blur(radius: f32, tint_hex: i32, tint_alpha: f32) -> *mut c_void {
+    let mut style = BlurStyle::with_radius(radius);
+    if tint_alpha > 0.0 {
+        style.tint = Some(hex_color(tint_hex, tint_alpha));
+    }
+    value(Value::Brush(Brush::Blur(style)))
 }
 define_prim!(
     hlp_blinc_brush_blur,
     hl_blinc_brush_blur,
-    "Pf_Xblinc_value_"
+    "Pfif_Xblinc_value_"
 );
 
 #[unsafe(no_mangle)]

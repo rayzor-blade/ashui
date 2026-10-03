@@ -23,9 +23,14 @@ import haxe.macro.Type;
 	  `gap-x-`, `gap-y-`;
 	- `auto` margins, sizes and insets (`mx-auto`, `w-auto`), and fractions of
 	  the parent (`w-full`, `w-1/2`, `h-2/3`, `basis-1/4` …);
-	- colours, `ColorToken` by its CSS variable name: `bg-`, `text-`,
-	  `border-`, `outline-` and `ring-` with `primary`, `surface-elevated`,
-	  `text-secondary` …;
+	- colours, `ColorToken` by its CSS variable name, and `white`, `black`
+	  and `transparent`: `bg-`, `text-`, `border-`, `outline-` and `ring-`
+	  with `primary`, `surface-elevated`, `text-secondary` …, each at an
+	  opacity with `/0` … `/100`, `bg-primary/50`, `border-white/40`;
+	- a backdrop blur, `backdrop-blur-xs` … `backdrop-blur-3xl`
+	  (`backdrop-blur` is `-sm`): what is behind the box blurred, under the
+	  box's background colour, so `bg-white/30 backdrop-blur-md` is frosted
+	  glass;
 	- borders, `border`, `border-0` … `border-8`, and one side or two over
 	  it, `border-t`, `border-x-2`, `border-b-0` …, each side in the
 	  border's colour or its own, `border-t-primary`, `border-x-error` …;
@@ -145,6 +150,10 @@ class Tw {
 		var variants = new Map<String, Map<String, {value:Expr, pos:Position}>>();
 		var variant = VARIANT;
 		var sizeClass = ~/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/;
+		// A backdrop blur and the background colour class it is painted under, merged after the loop.
+		var backdrop:Null<{radius:Float, pos:Position}> = null;
+		var background:Null<{name:String, alpha:Float}> = null;
+		var bgColor = ~/^bg-([a-z0-9-]+?)(?:\/(\d{1,3}))?$/;
 		var start = 0;
 		for (word in ~/\s+/g.split(text)) {
 			var offset = text.indexOf(word, start);
@@ -173,6 +182,15 @@ class Tw {
 			}
 			if (gradient.take(word, pos) || motion.take(word, pos))
 				continue;
+			var radius = BACKDROP_BLUR.get(word);
+			if (radius != null) {
+				backdrop = {radius: radius, pos: pos};
+				continue;
+			}
+			if (bgColor.match(word) && (colors.exists(bgColor.matched(1)) || fixedColor(bgColor.matched(1)) != null)) {
+				var percent = bgColor.matched(2);
+				background = {name: bgColor.matched(1), alpha: percent == null ? 1.0 : Std.parseInt(percent) / 100};
+			}
 			if (trackingClass.match(word)) {
 				var name = trackingClass.matched(1);
 				tracking = {token: "Tracking" + name.charAt(0).toUpperCase() + name.substr(1), pos: pos};
@@ -193,6 +211,28 @@ class Tw {
 					Context.error('tw: $word: ${rule.why}', pos);
 			var near = nearest(word, vocabulary);
 			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : ""), pos);
+		}
+		if (backdrop != null) {
+			if (variants.exists("Background"))
+				Context.error("tw: a state variant of the background would replace the backdrop blur; vary something else", backdrop.pos);
+			var set = Lambda.find(out, e -> {
+				var kv = keyValue(e);
+				kv != null && kv.key == "Background";
+			});
+			if (set != null && background == null)
+				Context.error("tw: backdrop-blur paints a background colour over the blur, not a gradient or an image", backdrop.pos);
+			out.remove(set);
+			var r = backdrop.radius;
+			var fixed = background == null ? null : fixedColor(background.name);
+			var brush = if (background == null) {
+				macro ashui.types.Brush.blur($v{r});
+			} else if (fixed != null) {
+				macro ashui.types.Brush.blur($v{r}, $v{fixed.hex}, $v{fixed.alpha * background.alpha});
+			} else {
+				var token = colors.get(background.name);
+				macro ashui.theme.Themed.blur($v{r}, ashui.theme.ColorToken.$token, $v{background.alpha});
+			}
+			out.push({expr: (macro $node.set(ashui.layout.Prop.Background, $brush)).expr, pos: backdrop.pos});
 		}
 		var moved = transform.build(node);
 		if (moved != null) {
@@ -602,7 +642,7 @@ class Tw {
 
 		refused = [
 			{pattern: ~/^-/, why: "only translate, rotate, skew and hue-rotate take a minus sign"},
-			{pattern: ~/^backdrop-/, why: "backdrop filters are not drawn yet"},
+			{pattern: ~/^backdrop-/, why: "of the backdrop filters only backdrop-blur is drawn yet"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},
@@ -611,6 +651,12 @@ class Tw {
 		known = v;
 		return v;
 	}
+
+	/** Tailwind's backdrop blur sizes, in pixels of deviation. **/
+	static final BACKDROP_BLUR:Map<String, Float> = [
+		"backdrop-blur-none" => 0.0, "backdrop-blur-xs" => 4.0, "backdrop-blur-sm" => 8.0, "backdrop-blur" => 8.0, "backdrop-blur-md" => 12.0,
+		"backdrop-blur-lg" => 16.0, "backdrop-blur-xl" => 24.0, "backdrop-blur-2xl" => 40.0, "backdrop-blur-3xl" => 64.0
+	];
 
 	/** What colour classes set: `bg-` a brush, the rest a colour, to each of `props`. **/
 	static final COLOR_TARGETS:Array<{prefix:String, props:Array<String>, brush:Bool}> = [

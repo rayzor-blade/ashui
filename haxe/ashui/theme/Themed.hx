@@ -30,6 +30,16 @@ class Themed {
 		});
 	}
 
+	/** What is behind the box blurred by `radius`, under `token`'s colour at its alpha scaled by `alpha`. **/
+	public static function blur(radius:Float, token:ColorToken, alpha:Float = 1.0):Computed<ashui.types.Brush> {
+		var state = ready();
+		return Computed.make(() -> {
+			state.revision.get();
+			var c = scaled(state.color(token), alpha);
+			ashui.types.Brush.blur(radius, c.rgb(), c.a);
+		});
+	}
+
 	static inline function scaled(c:Rgba, alpha:Float):Rgba
 		return alpha == 1.0 ? c : c.withAlpha(c.a * alpha);
 
