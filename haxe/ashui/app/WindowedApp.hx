@@ -73,6 +73,9 @@ class WindowedApp {
 		path != null && path != "" ? sys.io.File.write(path, false) : null;
 	};
 
+	/** The longest step animations advance by in one tick, in seconds. **/
+	static inline var MAX_STEP = 0.05;
+
 	/** Layout units a wheel scrolls by for each line it reports. **/
 	static inline var WHEEL_LINE = 40.0;
 
@@ -171,7 +174,8 @@ class WindowedApp {
 			if (kinds != null && handled > 0)
 				frameLog.writeString('events\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\tpoll_ms=${Math.round(polling * 10000) / 10}\t${[for (k => n in kinds) '$k=$n'].join(" ")}\n');
 			var now = haxe.Timer.stamp();
-			scheduler.tick(now - last);
+			// Capped, so after a stall an animation carries on from where it was instead of jumping ahead.
+			scheduler.tick(Math.min(now - last, MAX_STEP));
 			last = now;
 			if (theme.tick() || animating)
 				dirty = true;
