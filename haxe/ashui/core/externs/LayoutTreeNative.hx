@@ -46,6 +46,20 @@ extern class LayoutTreeNative {
 	/** Makes `node` draw image `slot`, which the renderer resolves, in its content box; a negative slot stops it. **/
 	static function blinc_tree_set_image(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
 
+	/**
+		Writes the nodes under `(x, y)`, the topmost first and then its
+		ancestors up to `root`, into `out` as 16-byte records: the 64-bit id
+		and the point in that node's coordinates as two F32s. At most
+		`capacity`; returns how many there are.
+	**/
+	static function blinc_tree_hit_test(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int):Int;
+
+	/** Writes the visible nodes under `root` in document order as 64-bit ids, at most `capacity`; returns how many there are. **/
+	static function blinc_tree_order(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
+
+	/** Writes `node` and its ancestors up to `root` as 64-bit ids, at most `capacity`; 0 when `node` is not under `root`. **/
+	static function blinc_tree_path(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, node:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
+
 	/** Writes absolute x, y, width, height as four F32s into `out`. **/
 	static function blinc_tree_get_bounds(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 }

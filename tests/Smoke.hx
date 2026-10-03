@@ -751,6 +751,106 @@ class Smoke {
 		check("svg in hxx: classes size it, the document gives the rest", svgBounds != null && near(svgBounds.width, 24) && near(svgBounds.height, 24),
 			svgBounds);
 
+		// --- Input: hit-testing as drawn, bubbling, focus, keys ---
+		var log:Array<String> = [];
+		function note(name:String)
+			return (e:ashui.input.Events.PointerEvent) -> log.push(name);
+		var inputTree = new LayoutTree();
+		var turned:Div = null, pane:Div = null, inner:Div = null, top:Div = null, off:Div = null, first:Div = null, second:Div = null;
+		var page:Div = Owner.root(inputTree, _ -> hxx('
+			<div width={200} height={200} onClick={note("page")}>
+				${pane = hxx('<div class="absolute" left={10} top={10} width={50} height={50} focusable={true} onClick={note("pane")}>
+					${inner = hxx('<div class="absolute" left={0} top={0} width={20} height={20} onClick={e -> log.push("inner " + e.localX + "," + e.localY)} />')}
+				</div>')}
+				${top = hxx('<div class="absolute" left={40} top={40} width={50} height={50} onClick={e -> { log.push("top"); e.stopPropagation(); }} />')}
+				${turned = hxx('<div class="absolute rotate-45" left={120} top={20} width={40} height={40} onClick={note("turned")} />')}
+				${off = hxx('<div class="absolute" left={10} top={120} width={30} height={30} disabled={true} focusable={true} onClick={note("off")} />')}
+				${first = hxx('<div class="absolute" left={60} top={120} width={20} height={20} focusable={true} onClick={note("first")} />')}
+				${second = hxx('<div class="absolute" left={100} top={120} width={20} height={20} focusable={true} />')}
+			</div>
+		'));
+		inputTree.flush();
+		inputTree.computeLayout(page.node, 200, 200);
+		function click(x:Float, y:Float) {
+			log = [];
+			ashui.input.Pointer.move(inputTree, x, y);
+			ashui.input.Pointer.press(inputTree);
+			ashui.input.Pointer.release(inputTree);
+			return log.join(" ");
+		}
+		check("input: a click bubbles from the topmost node, with local points", click(15, 15) == "inner 5,5 pane page", log);
+		check("input: the node drawn on top takes the click, and can stop it", click(45, 45) == "top", log);
+		check("input: hit-testing goes through transforms", click(140, 40) == "turned page" && click(121, 21) == "page", log);
+		check("input: a disabled node takes no click", click(20, 130) == "", log);
+		log = [];
+		ashui.input.Pointer.move(inputTree, 15, 15);
+		ashui.input.Pointer.press(inputTree);
+		ashui.input.Pointer.move(inputTree, 100, 180);
+		ashui.input.Pointer.release(inputTree);
+		check("input: press and release apart click their nearest common node", log.join(" ") == "page", log);
+		var paneState = ashui.input.Interaction.of(pane.node);
+		click(15, 15);
+		check("input: pressing a focusable node focuses it", paneState.focused.get() && !paneState.focusVisible.get());
+		click(180, 180);
+		check("input: pressing elsewhere takes focus away", !paneState.focused.get());
+		click(20, 130);
+		check("input: a disabled node takes no focus", !ashui.input.Interaction.of(off.node).focused.get());
+		var entered:Array<String> = [];
+		ashui.input.Interaction.of(pane.node).onPointerEnter(_ -> entered.push("pane+")).onPointerLeave(_ -> entered.push("pane-"));
+		ashui.input.Interaction.of(inner.node).onPointerEnter(_ -> entered.push("inner+")).onPointerLeave(_ -> entered.push("inner-"));
+		ashui.input.Pointer.move(inputTree, 180, 180);
+		ashui.input.Pointer.move(inputTree, 15, 15);
+		ashui.input.Pointer.move(inputTree, 30, 30);
+		ashui.input.Pointer.move(inputTree, 180, 180);
+		check("input: enter outermost first, leave innermost first", entered.join(" ") == "pane+ inner+ inner- pane-", entered);
+
+		function key(k:window.Key, code:window.KeyCode, pressed:Bool):window.KeyEvent
+			return Input(Code(code), k, None, Standard, pressed ? Pressed : Released, false, Unavailable);
+		var shifted:window.Modifiers = State(true, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		ashui.input.Focus.clear(inputTree);
+		ashui.input.Keyboard.input(inputTree, key(Named(Tab), Tab, true));
+		var firstFocus = ashui.input.Focus.of(inputTree);
+		ashui.input.Keyboard.input(inputTree, key(Named(Tab), Tab, true));
+		var secondFocus = ashui.input.Focus.of(inputTree);
+		ashui.input.Keyboard.input(inputTree, key(Named(Tab), Tab, true));
+		var wrapped = ashui.input.Focus.of(inputTree);
+		ashui.input.Keyboard.input(inputTree, key(Named(Tab), Tab, true), shifted);
+		var back = ashui.input.Focus.of(inputTree);
+		check("input: Tab walks focusable nodes in document order, skipping disabled ones, and wraps",
+			firstFocus != null && firstFocus.node == pane.node && secondFocus.node == first.node && wrapped.node == second.node
+			&& back.node == first.node && back.focusVisible.get());
+		log = [];
+		ashui.input.Keyboard.input(inputTree, key(Named(Enter), Enter, true));
+		check("input: Enter clicks the focused node, bubbling", log.join(" ") == "first page", log);
+		var typed:Array<String> = [];
+		ashui.input.Interaction.of(page.node).onKeyDown(e -> {
+			typed.push("down");
+			if (e.key.match(Named(Tab)))
+				e.preventDefault();
+		}).onTextInput(e -> typed.push(e.text));
+		ashui.input.Keyboard.input(inputTree, key(Named(Tab), Tab, true));
+		ashui.input.Keyboard.text(inputTree, "é");
+		check("input: keys and text bubble to ancestors, and preventDefault keeps Tab from moving focus",
+			typed.join(" ") == "down é" && ashui.input.Focus.of(inputTree).node == first.node, typed);
+
+		var focusTree = new LayoutTree();
+		var ring:Div = Owner.root(focusTree, _ -> hxx('<div class="w-10 h-10 bg-surface focus-visible:bg-primary disabled:bg-error" focusable={true} />'));
+		focusTree.flush();
+		focusTree.computeLayout(ring.node, 100, 100);
+		var ringList = new ashui.layout.DisplayList();
+		function ringFill() {
+			focusTree.flush();
+			ringList.update(focusTree, ring.node);
+			return ringList.get(0, 8);
+		}
+		var unfocused = ringFill();
+		ashui.input.Keyboard.input(focusTree, key(Named(Tab), Tab, true));
+		var ringed = ringFill();
+		ashui.input.Interaction.of(ring.node).setDisabled(true);
+		var disabledFill = ringFill();
+		check("focus-visible: and disabled: follow focus and the disabled state",
+			unfocused == 1 && Math.abs(ringed - 0x2A / 255) < 0.01 && Math.abs(disabledFill - 0xDC / 255) < 0.01, [unfocused, ringed, disabledFill]);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

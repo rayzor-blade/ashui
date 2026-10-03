@@ -3,6 +3,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 mod display_list;
+mod hit;
 mod hl;
 pub mod layout_router;
 pub mod node;

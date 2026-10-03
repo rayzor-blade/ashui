@@ -1,4 +1,5 @@
 --class-path ../haxe
+--class-path ../../hlwindow/haxe
 --class-path .
 -lib hashlink
 -lib tink_hxx

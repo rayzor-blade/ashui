@@ -16,6 +16,9 @@ import ashui.types.Style.GenericFont;
 class LayoutTree {
 	public var ptr(default, null):hl.Abstract<"blinc_tree">;
 
+	/** The node `computeLayout` last laid out from, which input is hit-tested under. **/
+	public var root(default, null):Null<Node>;
+
 	public function new() {
 		this.ptr = LayoutTreeNative.blinc_tree_new();
 	}
@@ -89,8 +92,61 @@ class LayoutTree {
 	}
 
 	public inline function computeLayout(root:Node, width:Single, height:Single):Void {
+		this.root = root;
 		LayoutTreeNative.blinc_tree_compute_layout(this.ptr, root.id, width, height);
 	}
+
+	/**
+		The nodes under `(x, y)` as they are drawn, through transforms and
+		inside clips: the topmost first, then each of its ancestors up to
+		`root`, each with the point in its own coordinates.
+	**/
+	public function hitTest(x:Float, y:Float):Array<Hit> {
+		if (root == null)
+			return [];
+		var capacity = 32;
+		while (true) {
+			var out = new hl.Bytes(capacity * 16);
+			var n = LayoutTreeNative.blinc_tree_hit_test(this.ptr, root.id, x, y, out, capacity);
+			if (n <= capacity)
+				return [
+					for (i in 0...n)
+						new Hit(haxe.Int64.make(out.getI32(i * 16 + 4), out.getI32(i * 16)), out.getF32(i * 16 + 8), out.getF32(i * 16 + 12))
+				];
+			capacity = n;
+		}
+	}
+
+	/** The visible nodes under `root` in document order, as native ids. **/
+	public function order():Array<haxe.Int64> {
+		if (root == null)
+			return [];
+		var capacity = 64;
+		while (true) {
+			var out = new hl.Bytes(capacity * 8);
+			var n = LayoutTreeNative.blinc_tree_order(this.ptr, root.id, out, capacity);
+			if (n <= capacity)
+				return ids(out, n);
+			capacity = n;
+		}
+	}
+
+	/** `node` and its ancestors up to `root`, as native ids; empty when it is not under `root`. **/
+	public function path(node:Node):Array<haxe.Int64> {
+		if (root == null)
+			return [];
+		var capacity = 64;
+		while (true) {
+			var out = new hl.Bytes(capacity * 8);
+			var n = LayoutTreeNative.blinc_tree_path(this.ptr, root.id, node.id, out, capacity);
+			if (n <= capacity)
+				return ids(out, n);
+			capacity = n;
+		}
+	}
+
+	static function ids(out:hl.Bytes, n:Int):Array<haxe.Int64>
+		return [for (i in 0...n) haxe.Int64.make(out.getI32(i * 8 + 4), out.getI32(i * 8))];
 
 	/** The node's absolute rectangle, or null before it has been laid out. **/
 	public function getBounds(node:Node):Null<Bounds> {
@@ -98,5 +154,18 @@ class LayoutTree {
 		if (!LayoutTreeNative.blinc_tree_get_bounds(this.ptr, node.id, out))
 			return null;
 		return new Bounds(out.getF32(0), out.getF32(4), out.getF32(8), out.getF32(12));
+	}
+}
+
+/** A node under a point, and the point in its own coordinates. **/
+class Hit {
+	public final id:haxe.Int64;
+	public final x:Float;
+	public final y:Float;
+
+	public function new(id:haxe.Int64, x:Float, y:Float) {
+		this.id = id;
+		this.x = x;
+		this.y = y;
 	}
 }

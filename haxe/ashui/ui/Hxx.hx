@@ -409,8 +409,43 @@ class Hxx {
 	}
 
 	/** `el.node.set(Prop.Key, value)` for one attribute. **/
+	/** Handler attributes and the event each takes. **/
+	static final HANDLERS = [
+		"onClick" => "PointerEvent", "onPointerDown" => "PointerEvent", "onPointerUp" => "PointerEvent",
+		"onPointerMove" => "PointerEvent", "onPointerEnter" => "PointerEvent", "onPointerLeave" => "PointerEvent",
+		"onWheel" => "PointerEvent", "onKeyDown" => "KeyEvent", "onKeyUp" => "KeyEvent", "onTextInput" => "TextInputEvent",
+		"onFocus" => "FocusEvent", "onBlur" => "FocusEvent"
+	];
+
+	/**
+		`onClick={e -> ...}` and the other handlers, `focusable={true}` and
+		`disabled={...}`: they go to the node's `ashui.input.Interaction`. A
+		handler may take its event or nothing.
+	**/
+	static function inputSetter(el:String, name:String, value:Expr):Null<Expr> {
+		var interaction = macro ashui.input.Interaction.of($i{el}.node);
+		var event = HANDLERS.get(name);
+		if (event != null) {
+			var eventType = TPath({pack: ['ashui', 'input'], name: 'Events', sub: event});
+			var handler = switch (try Context.follow(Context.typeof(value)) catch (_:Dynamic) null) {
+				case TFun([], _): macro @:pos(value.pos) (_ -> $value() : $eventType->Void);
+				case _: macro @:pos(value.pos) ($value : $eventType->Void);
+			}
+			return macro @:pos(value.pos) $interaction.$name($handler);
+		}
+		return switch name {
+			case 'focusable': macro @:pos(value.pos) $interaction.setFocusable($value);
+			case 'disabled':
+				var bound = bindable(value, Context.getType('Bool'));
+				macro @:pos(value.pos) $interaction.setDisabled($bound);
+			case _: null;
+		}
+	}
+
 	static function setter(el:String, attribute:Attribute, tag:String):Expr {
 		return switch attribute {
+			case Regular(name, value) if (inputSetter(el, name.value, value) != null):
+				inputSetter(el, name.value, value);
 			case Regular(name, value):
 				var key = name.value == 'bg' ? 'Background' : name.value.charAt(0).toUpperCase() + name.value.substr(1);
 				var keyExpr = macro @:pos(name.pos) ashui.layout.Prop.$key;

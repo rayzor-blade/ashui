@@ -48,7 +48,7 @@ import haxe.macro.Type;
 	  (degrees: 0, 1, 2, 3, 6, 12, 45, 90, 180), `scale-`, `scale-x-`,
 	  `scale-y-` (percent: 0, 50, 75, 90, 95, 100, 105, 110, 125, 150),
 	  `skew-x-`, `skew-y-` (degrees: 0, 1, 2, 3, 6, 12), a minus sign before
-	  translate, rotate and skew; and `hover:`/`active:` on any of them;
+	  translate, rotate and skew; and the state variants below on any of them;
 	- Tailwind's looping animations `animate-spin`, `animate-ping`,
 	  `animate-pulse`, `animate-bounce`, which replace the transform as CSS
 	  animations do;
@@ -58,10 +58,13 @@ import haxe.macro.Type;
 	  as `via-30%`. Where Tailwind composes these in the browser through CSS
 	  variables, they are composed here at compile time into one fill.
 
-	`hover:`, `active:` and `dark:` before a class apply it while the
-	pointer is over the element, while it is pressed, or in the dark scheme;
-	the string needs the plain class for the same property too, the value
-	otherwise. With `transition-colors` the change animates.
+	`hover:`, `focus:`, `focus-visible:`, `active:`, `disabled:` and `dark:`
+	before a class apply it while the pointer is over the element, while it
+	has focus, while it has focus the keyboard gave it, while it is pressed,
+	while it is disabled, or in the dark scheme (see `ashui.input`); where
+	several hold, the later in that list wins, as in Tailwind. The string
+	needs the plain class for the same property too, the value otherwise.
+	With `transition-colors` the change animates.
 
 	A class bound to a token follows the theme: a scheme switch or an
 	override updates it, and nothing is rebuilt. Layout keywords with no
@@ -107,7 +110,7 @@ class Tw {
 		var trackingClass = ~/^tracking-(tighter|tight|normal|wide|wider)$/;
 		// hover:, active: and dark: classes, by property, then by variant.
 		var variants = new Map<String, Map<String, {value:Expr, pos:Position}>>();
-		var variant = ~/^(hover|active|dark):(.+)$/;
+		var variant = ~/^(hover|focus|focus-visible|active|disabled|dark):(.+)$/;
 		var sizeClass = ~/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/;
 		var start = 0;
 		for (word in ~/\s+/g.split(text)) {
@@ -203,16 +206,20 @@ class Tw {
 				return reactive.get(name) ? macro $i{name}.get() : macro $i{name};
 			mark("__base", base);
 			var pick = read("__base");
-			for (state in ["dark", "hover", "active"]) {
+			// Later wins, in Tailwind's order: dark, hover, focus, focus-visible, active, disabled.
+			for (state in ["dark", "hover", "focus", "focus-visible", "active", "disabled"]) {
 				var v = states.get(state);
 				if (v == null)
 					continue;
-				var name = '__$state';
+				var name = '__' + StringTools.replace(state, "-", "_");
 				lets.push(macro var $name = ${v.value});
 				mark(name, v.value);
 				var test = switch state {
 					case "dark": macro ashui.style.Variant.dark();
 					case "hover": macro __interaction.hovered.get();
+					case "focus": macro __interaction.focused.get();
+					case "focus-visible": macro __interaction.focusVisible.get();
+					case "disabled": macro __interaction.disabled.get();
 					case _: macro __interaction.pressed.get();
 				}
 				if (state != "dark")
@@ -395,7 +402,7 @@ class Tw {
 			float('opacity-${percent * 5}', "Opacity", percent * 5 / 100);
 
 		refused = [
-			{pattern: ~/^(focus|focus-visible|focus-within|disabled|group-hover|peer-hover):/, why: "this variant needs focus or group state, which there is none of yet"},
+			{pattern: ~/^(focus-within|group-hover|peer-hover):/, why: "this variant needs group or ancestor state, which there is none of yet"},
 			{pattern: ~/^-/, why: "only translate, rotate and skew take a minus sign"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
@@ -511,7 +518,7 @@ private class TransformClasses {
 		}
 		var state = "";
 		var rest = word;
-		var prefixed = ~/^(hover|active):(.+)$/;
+		var prefixed = ~/^(hover|focus|focus-visible|active|disabled):(.+)$/;
 		if (prefixed.match(word)) {
 			state = prefixed.matched(1);
 			rest = prefixed.matched(2);
@@ -573,8 +580,8 @@ private class TransformClasses {
 	/** The plain transform's set, and each state's transform; null if the string has neither. **/
 	public function build(node:Expr):Null<{base:Expr, states:Map<String, {value:Expr, pos:Position}>}> {
 		if (animation != null) {
-			if (parts.exists("hover") || parts.exists("active"))
-				Context.error("tw: an animate- class replaces the transform, so hover: and active: transforms do nothing beside it", animationAt);
+			if ([for (k in parts.keys()) k].filter(k -> k != "").length > 0)
+				Context.error("tw: an animate- class replaces the transform, so state variants of transforms do nothing beside it", animationAt);
 			function set(key:String, value:Expr):Expr
 				return macro $node.set(ashui.layout.Prop.$key, $value);
 			var sets = switch animation {
@@ -600,7 +607,7 @@ private class TransformClasses {
 			return macro ashui.reactive.Computed.make(() -> $made);
 		}
 		var states = new Map<String, {value:Expr, pos:Position}>();
-		for (state in ["hover", "active"])
+		for (state in ["hover", "focus", "focus-visible", "active", "disabled"])
 			if (parts.exists(state))
 				states.set(state, {value: transform(parts.get(state)), pos: at});
 		var value = transform(new Map());

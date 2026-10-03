@@ -87,7 +87,7 @@ pub type Affine = [f32; 6];
 pub const IDENTITY: Affine = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 
 /// `outer` after `inner`: the point goes through `inner` first.
-fn compose(outer: Affine, inner: Affine) -> Affine {
+pub(crate) fn compose(outer: Affine, inner: Affine) -> Affine {
     let [a, b, c, d, e, f] = outer;
     let [a2, b2, c2, d2, e2, f2] = inner;
     [
@@ -100,7 +100,7 @@ fn compose(outer: Affine, inner: Affine) -> Affine {
     ]
 }
 
-fn apply(m: Affine, x: f32, y: f32) -> (f32, f32) {
+pub(crate) fn apply(m: Affine, x: f32, y: f32) -> (f32, f32) {
     (m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5])
 }
 

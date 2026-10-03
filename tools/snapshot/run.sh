@@ -43,7 +43,7 @@ render() {
 	cp "$repo/target/debug/libblinc_abi.$ext" bin/blinc_abi.hdll
 	cp "$(ls -t "$vib"/hlwgpu/target/*/libhlwgpu.$ext | head -1)" bin/xgpu.hdll
 	if ! out=$(haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
-		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/ash/haxelib/ash-future" \
+		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" \
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path "$(dirname "$scene")" -main "$name" -hl "bin/$name.hl" 2>&1); then
 		echo "error $name does not compile: $(echo "$out" | grep -v Warning | head -1)" >> "$events"

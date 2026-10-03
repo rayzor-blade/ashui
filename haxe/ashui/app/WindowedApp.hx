@@ -37,8 +37,9 @@ typedef WindowConfig = {
 	`WindowedApp` does. A frame is drawn only when something changed: the
 	tree on flush, the theme (a scheme transition draws until it settles),
 	the window's size or scale. Between frames the loop waits on the
-	window's events. The scheme follows the window's appearance, and the
-	pointer drives `hover:` and `active:` through `ashui.input.Pointer`.
+	window's events. The scheme follows the window's appearance. The
+	pointer, wheel, keys and typed text go to the UI through
+	`ashui.input.Pointer` and `ashui.input.Keyboard`.
 **/
 class WindowedApp {
 	/** The running app, if any. **/
@@ -57,6 +58,10 @@ class WindowedApp {
 	var root:Element;
 	var dirty = true;
 	var quitting = false;
+	var modifiers:window.Modifiers = ashui.input.Events.InputEvent.NO_MODIFIERS;
+
+	/** Layout units a wheel scrolls by for each line it reports. **/
+	static inline var WHEEL_LINE = 40.0;
 
 	/** Runs `build`'s UI in a window until it closes or `quit` is called. Returns the frames presented. **/
 	public static function run(config:WindowConfig, build:Void->Element):Int {
@@ -138,8 +143,11 @@ class WindowedApp {
 			last = now;
 			if (theme.tick() || animating)
 				dirty = true;
-			if (tree.flush())
+			if (tree.flush()) {
 				dirty = true;
+				// Layout may have moved something under a still pointer.
+				ashui.input.Pointer.refresh(tree);
+			}
 			if (dirty && !quitting) {
 				dirty = false;
 				if (draw()) {
@@ -166,17 +174,43 @@ class WindowedApp {
 				dirty = true;
 			case CursorMoved(x, y, _):
 				var scale = window.scaleFactor();
-				ashui.input.Pointer.move(tree, x / scale, y / scale);
+				ashui.input.Pointer.move(tree, x / scale, y / scale, modifiers);
 			case CursorLeft(_):
 				ashui.input.Pointer.leave(tree);
-			case MouseInput(state, Left, _):
+			case MouseInput(state, button, _):
 				if (state == Pressed)
-					ashui.input.Pointer.press(tree);
+					ashui.input.Pointer.press(tree, button);
 				else
-					ashui.input.Pointer.release(tree);
+					ashui.input.Pointer.release(tree, button);
+			case MouseWheel(delta, _, _):
+				switch delta {
+					case LineDelta(x, y):
+						ashui.input.Pointer.wheel(tree, x * WHEEL_LINE, y * WHEEL_LINE);
+					case PixelDelta(x, y):
+						var scale = window.scaleFactor();
+						ashui.input.Pointer.wheel(tree, x / scale, y / scale);
+				}
+			case ModifiersChanged(m):
+				modifiers = m;
+				ashui.input.Pointer.modifiers(tree, m);
+			case KeyboardInput(_, key, _):
+				ashui.input.Keyboard.input(tree, key, modifiers);
+				// A key's text is typed unless a shortcut modifier is held or it is a control character.
+				switch key {
+					case Input(_, _, Some(text), _, Pressed, _, _) if (!shortcut() && text.charCodeAt(0) >= 0x20 && text.charCodeAt(0) != 0x7f):
+						ashui.input.Keyboard.text(tree, text, modifiers);
+					case _:
+				}
+			case Ime(Commit(text)):
+				ashui.input.Keyboard.text(tree, text, modifiers);
 			case _:
 		}
 	}
+
+	function shortcut():Bool
+		return switch modifiers {
+			case State(_, control, _, superKey, _, _, _, _, _, _, _, _): control || superKey;
+		}
 
 	/** Draws the tree into the window's next frame and presents it; false when the surface had none. **/
 	function draw():Bool {

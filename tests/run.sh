@@ -28,7 +28,7 @@ fi
 runtime="${HL:-$runtime}"
 
 # tink's own sources use deprecated metadata.
-haxe_ui="haxe --class-path ../haxe -lib hashlink -lib tink_hxx -w -WDeprecated"
+haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe -lib hashlink -lib tink_hxx -w -WDeprecated"
 
 # Stock hl finds the hdll through its rpath entry for the current directory;
 # Ash looks beside the program, so programs run from bin by absolute path.
@@ -83,7 +83,7 @@ window)
 	fi
 	cp "$xgpu" bin/xgpu.hdll
 	cp "$xwindow" bin/xwindow.hdll
-	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../hlwindow/haxe --class-path ../../ash/haxelib/ash-future \
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/window -main WindowDemo -hl bin/window.hl
 	mkdir -p ../.ashui/snapshots
