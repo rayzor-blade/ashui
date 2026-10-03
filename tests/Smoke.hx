@@ -8,6 +8,7 @@ import ashui.layout.PropertyId;
 import ashui.reactive.Computed;
 import ashui.reactive.Owner;
 import ashui.reactive.Signal;
+import ashui.reactive.Reactive;
 import ashui.types.Brush;
 import ashui.types.Color;
 import ashui.types.Style;
@@ -1415,6 +1416,18 @@ class Smoke {
 			false;
 		} catch (e:haxe.Exception) e.message == "boom";
 		check("exception rethrown from computed", caught);
+
+		// --- The short spellings: signal, computed, watch ---
+		var count = signal(2);
+		var tint = signal(new Color(0x112233));
+		var doubled = computed(() -> count.get() * 2);
+		var seen:Array<Int> = [];
+		watch(() -> doubled.get(), v -> seen.push(v));
+		count.set(5);
+		ashui.reactive.Watch.runQueued();
+		var countIsInt:Int = count.get();
+		check("signal(2) is an Int signal, signal(colour) a colour one, and computed and watch follow them",
+			countIsInt == 5 && doubled.get() == 10 && tint.get().rgb == 0x112233 && seen.indexOf(10) >= 0, [doubled.get(), seen]);
 
 		// --- A signal or computed can be made while a computed evaluates, as SolidJS allows ---
 		var lazy:Null<ashui.reactive.ISignal<Int>> = null;
