@@ -26,6 +26,11 @@ using haxe.macro.TypeTools;
 	`ui.MyCard`: it is built as `new MyCard({attributes}, [children])` and
 	each attribute is checked against the component's props.
 
+	A `<div>` also takes `class="p-4 bg-surface rounded-lg"`, utility
+	classes over the theme's tokens resolved at compile time (see
+	`ashui.style.Tw`), and `style={s}`, an `ashui.style.Style`. Classes apply
+	first, then the style, then the element's own attributes.
+
 	A value typed as a signal or computed is bound as it is. An attribute or
 	text interpolation that reads a signal, by calling `.get()` or by reading
 	a `@:state` field of the component it is in, becomes a computed of that
@@ -211,7 +216,18 @@ class Hxx {
 	static function lowerDiv(node:Node):Expr {
 		var el = '__div${counter++}';
 		var kids = childArray(elements(node.children));
-		var sets = [for (a in node.attributes) setter(el, a, '<div>')];
+		// Classes first, then a style, then the element's own attributes, each winning over the last.
+		var classes = [], styles = [], own = [];
+		for (a in node.attributes)
+			switch a {
+				case Regular(name, value) if (name.value == 'class'):
+					classes = classes.concat(ashui.style.Tw.setters(value, macro $i{el}.node));
+				case Regular(name, value) if (name.value == 'style'):
+					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
+				case _:
+					own.push(setter(el, a, '<div>'));
+			}
+		var sets = classes.concat(styles).concat(own);
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Div(null, $kids);
 			$b{sets};

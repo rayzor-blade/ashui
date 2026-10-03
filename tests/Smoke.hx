@@ -529,6 +529,33 @@ class Smoke {
 			&& shapeList.get(0, ashui.layout.DisplayList.SHAPE_LOCKED_FIELD) == 1,
 			[beveledN, beveledRadius, shapeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD)]);
 
+		// --- Utility classes resolve to theme tokens at compile time ---
+		ashui.theme.ThemeState.init(ashui.theme.themes.HybridTheme.bundle(), Light);
+		var twTree = new LayoutTree();
+		var card = ashui.style.Tw.tw("flex flex-col p-4 gap-2 bg-surface border border-border rounded-lg shadow-md");
+		var twBox:Div = Owner.root(twTree, _ -> hxx('
+			<div class="w-32 h-16 bg-primary rounded-xl corner-bevel opacity-50" width={100} />
+		'));
+		var styled = Owner.root(twTree, _ -> new Div({style: card, width: 40, height: 30}));
+		twTree.flush();
+		twTree.computeLayout(twBox.node, 200, 200);
+		twTree.computeLayout(styled.node, 200, 200);
+		var twList = new ashui.layout.DisplayList();
+		twList.update(twTree, twBox.node);
+		check("a class sets its token's value, and an attribute wins over a class",
+			twList.get(0, 2) == 100 && twList.get(0, 3) == 64 && twList.get(0, 4) == 18 && Math.abs(twList.get(0, 8) - 0x2A / 255) < 0.01
+			&& twList.get(0, 11) == 0.5 && twList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD) == 0,
+			[for (f in [2, 3, 4, 8, 11, ashui.layout.DisplayList.CORNER_SHAPE_FIELD]) twList.get(0, f)]);
+		twList.update(twTree, styled.node);
+		check("a style from classes applies to a div",
+			twList.count == 3 && twList.get(2, 4) == 14 && twList.get(2, 16) == 1 && twList.get(2, 8) == 1,
+			[twList.count, twList.get(2, 4), twList.get(2, 16), twList.get(2, 8)]);
+		ashui.theme.ThemeState.get().setScheme(Dark);
+		twTree.flush();
+		twList.update(twTree, styled.node);
+		check("a class follows the theme's scheme", Math.abs(twList.get(2, 8) - 0x1A / 255) < 0.01, twList.get(2, 8));
+		ashui.theme.ThemeState.get().setScheme(Light);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

@@ -11,6 +11,8 @@ import ashui.types.CornerRadius;
 import ashui.types.Style;
 
 typedef DivAttributes = {
+	/** Applied before the other attributes, which win over it. **/
+	?style:ashui.style.Style,
 	// --- Tier 1: Visual Properties ---
 	?bg:IntoReactive<Brush>,
 	?borderColor:IntoReactive<Color>,
@@ -66,6 +68,8 @@ class Div extends Element {
 
 		// 2. Automatically bind all attributes dynamically using the unified node setter
 		if (attr != null) {
+			if (attr.style != null)
+				attr.style.apply(node);
 			// Visuals
 			if (attr.bg != null)
 				node.set(Prop.Background, attr.bg);

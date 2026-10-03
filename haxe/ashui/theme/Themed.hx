@@ -50,6 +50,24 @@ class Themed {
 		});
 	}
 
+	/** A weight token's weight, `FontThin` to `FontBlack`. **/
+	public static function fontWeight(token:TypographyToken):Computed<ashui.types.Style.FontWeight> {
+		var state = ready();
+		return Computed.make(() -> {
+			state.revision.get();
+			(Std.int(state.typography().get(token)) : ashui.types.Style.FontWeight);
+		});
+	}
+
+	/** A leading token's line height, as a multiple of the font size. **/
+	public static function leading(token:TypographyToken):Computed<Single> {
+		var state = ready();
+		return Computed.make(() -> {
+			state.revision.get();
+			(state.typography().get(token) : Single);
+		});
+	}
+
 	/** `token`'s whole shadow stack; `None` gives one transparent layer. **/
 	public static function shadow(token:ShadowToken):Computed<ashui.types.Shadow> {
 		var state = ready();
