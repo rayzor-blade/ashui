@@ -38,6 +38,8 @@ import haxe.macro.Type;
 	  … `brightness-200`, `contrast-50` … `contrast-200`, `saturate-0` …
 	  `saturate-200`, `hue-rotate-15` … `hue-rotate-180` and their minus;
 	  and `blur-xs` … `blur-3xl` (`blur` is `blur-sm`), Tailwind 4's scale;
+	  `drop-shadow-xs` … `drop-shadow-2xl`, a shadow cast by what is drawn,
+	  its shape and its children, rather than by the box;
 	  `opacity-` over more than one painted element fades them as a group;
 	- clip paths, Tailwind's arbitrary property `[clip-path:…]` with any
 	  CSS shape, underscores for spaces: `[clip-path:circle()]`,
@@ -576,6 +578,14 @@ class Tw {
 		])
 			float('blur-${entry.name}', "FilterBlur", entry.px);
 		float("blur", "FilterBlur", 8);
+		// Tailwind 4's drop shadows: offset y, blur radius, black's alpha.
+		for (entry in [
+			{name: "xs", y: 1, blur: 1, alpha: 0.05}, {name: "sm", y: 1, blur: 2, alpha: 0.15}, {name: "md", y: 3, blur: 3, alpha: 0.12},
+			{name: "lg", y: 4, blur: 4, alpha: 0.15}, {name: "xl", y: 9, blur: 7, alpha: 0.1}, {name: "2xl", y: 25, blur: 25, alpha: 0.15}
+		])
+			one('drop-shadow-${entry.name}', "DropShadow", macro new ashui.types.Shadow(0, $v{entry.y}, $v{entry.blur}, 0x000000, $v{entry.alpha}));
+		one("drop-shadow", "DropShadow", macro new ashui.types.Shadow(0, 1, 2, 0x000000, 0.15));
+		one("drop-shadow-none", "DropShadow", macro new ashui.types.Shadow(0, 0, 0, 0x000000, 0));
 		for (d in [0, 15, 30, 60, 90, 180]) {
 			float('hue-rotate-$d', "FilterHueRotate", d);
 			float('-hue-rotate-$d', "FilterHueRotate", -d);
@@ -585,7 +595,7 @@ class Tw {
 
 		refused = [
 			{pattern: ~/^-/, why: "only translate, rotate, skew and hue-rotate take a minus sign"},
-			{pattern: ~/^(drop-shadow|backdrop-)/, why: "drop shadows and backdrop filters are not drawn yet"},
+			{pattern: ~/^backdrop-/, why: "backdrop filters are not drawn yet"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},

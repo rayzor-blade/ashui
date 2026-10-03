@@ -182,9 +182,17 @@ class UiFramework extends Extension {
 		return v.kind == Global ? "frame" : null;
 	}
 
-	/** The records alone in group 1: their texture at binding 0, and HXSL's unused sampler for it after. **/
+	/**
+		The records alone in group 1, and a layer's shadow alone in group 2:
+		each texture at binding 0 and HXSL's unused sampler for it after, so
+		bindings made in order match.
+	**/
 	override function group(name:String):Null<Int> {
-		return name == "records" ? 1 : null;
+		return switch name {
+			case "records": 1;
+			case "shadow": 2;
+			case _: null;
+		}
 	}
 }
 #end

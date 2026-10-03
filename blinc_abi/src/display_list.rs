@@ -89,7 +89,9 @@ pub const PRIM_IMAGE: f32 = 32.0;
 pub const PRIM_LAYER_BEGIN: f32 = 40.0;
 /// Draws the layer the last `PRIM_LAYER_BEGIN` began over its bounds, its
 /// alpha times `color.a`, its colour through the colour filter in rows 3 to
-/// 5 (see `filter_matrix`), blurred by a Gaussian of `color.r` pixels.
+/// 5 (see `filter_matrix`), blurred by a Gaussian of `color.r` pixels, over
+/// its drop shadow: offset by `gradient.xy` pixels, of `gradient.z` pixels'
+/// deviation, in the colour `via`.
 pub const PRIM_LAYER: f32 = 41.0;
 
 /// `type_info.y`, as Blinc's `FillType`.
@@ -695,8 +697,8 @@ pub fn append(
         .unwrap_or(color);
     let mut pushed = false;
     let mut shaped = false;
-    // Where its layer's begin record is in `out`, the layer's opacity, its colour filter and its blur.
-    let mut layer: Option<(usize, f32, ColorMatrix, f32)> = None;
+    // Where its layer's begin record is in `out`, the layer's opacity, colour filter, blur and drop shadow.
+    let mut layer: Option<(usize, f32, ColorMatrix, f32, Option<blinc_core::layer::Shadow>)> = None;
     // A border drawn after the children, with the clips its node is drawn under.
     let mut after: Option<(Primitive, Clipping)> = None;
     if let Some(props) = tree.props.get(&node) {
@@ -716,8 +718,9 @@ pub fn append(
         // layer and faded as one; otherwise multiplying the opacity in is exact.
         let filtered = props.filter.as_ref().map(filter_matrix).filter(|m| *m != IDENTITY_MATRIX);
         let blur = props.filter.as_ref().map_or(0.0, |f| f.blur.max(0.0));
-        if filtered.is_some() || blur > 0.0 || (props.opacity < 1.0 && painted_at_least(tree, node, 2)) {
-            layer = Some((out.len(), opacity * props.opacity, filtered.unwrap_or(IDENTITY_MATRIX), blur));
+        let dropped = props.filter.as_ref().and_then(|f| f.drop_shadow).filter(|s| s.color.a > 0.0);
+        if filtered.is_some() || blur > 0.0 || dropped.is_some() || (props.opacity < 1.0 && painted_at_least(tree, node, 2)) {
+            layer = Some((out.len(), opacity * props.opacity, filtered.unwrap_or(IDENTITY_MATRIX), blur, dropped));
             Primitive::new(PRIM_LAYER_BEGIN, [0.0; 4], [0.0; 4]).push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
             opacity = 1.0;
         } else {
@@ -885,13 +888,31 @@ pub fn append(
     if shaped {
         clips.pop();
     }
-    if let Some((begin, alpha, matrix, blur)) = layer {
-        // A blur spreads the layer three of its deviations past what was drawn.
+    if let Some((begin, alpha, matrix, blur, dropped)) = layer {
+        // A blur spreads the layer three of its deviations past what was drawn,
+        // and a drop shadow its offset and three of its own.
         let [bx, by, bw, bh] = records_bounds(&out[begin + RECORD_FLOATS..]);
         let spread = (blur * 3.0).ceil();
-        let mut c = Primitive::new(PRIM_LAYER, [bx - spread, by - spread, bw + 2.0 * spread, bh + 2.0 * spread], [0.0; 4]);
+        let (mut x0, mut y0, mut x1, mut y1) = (bx - spread, by - spread, bx + bw + spread, by + bh + spread);
+        if let Some(s) = &dropped {
+            // CSS's drop-shadow radius is twice the deviation, as a box shadow's is.
+            let reach = (s.blur * 1.5).ceil() + spread;
+            x0 = x0.min(bx + s.offset_x - reach);
+            y0 = y0.min(by + s.offset_y - reach);
+            x1 = x1.max(bx + bw + s.offset_x + reach);
+            y1 = y1.max(by + bh + s.offset_y + reach);
+        }
+        let mut c = Primitive::new(PRIM_LAYER, [x0, y0, x1 - x0, y1 - y0], [0.0; 4]);
+        let px = glyphs.display_scale;
         // The blur's standard deviation in the target's pixels, CSS's `blur()` radius.
-        c.color = [blur * glyphs.display_scale, 1.0, 1.0, alpha];
+        c.color = [blur * px, 1.0, 1.0, alpha];
+        // The drop shadow, in pixels: its offset and deviation, and its colour, in two rows a layer leaves free.
+        if let Some(s) = &dropped {
+            c.gradient = [s.offset_x * px, s.offset_y * px, s.blur * 0.5 * px, 0.0];
+            c.via = rgba(s.color, 1.0);
+        } else {
+            c.gradient = [0.0; 4];
+        }
         // The colour filter's rows in the rows a box's second colour and border take.
         [c.color2, c.border, c.border_color] = matrix;
         c.push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);

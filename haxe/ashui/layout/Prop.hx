@@ -43,6 +43,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var FilterSepia:Prop<Single> = cast PropertyId.FilterSepia;
 	/** CSS's `blur()`: the element and everything inside it blurred, this standard deviation in layout units. **/
 	public static inline var FilterBlur:Prop<Single> = cast PropertyId.FilterBlur;
+	/** CSS's `drop-shadow()`: the first layer of a `Shadow`, cast by what the element and its children draw rather than by its box. **/
+	public static inline var DropShadow:Prop<ashui.types.Shadow> = cast PropertyId.DropShadow;
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;

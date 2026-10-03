@@ -61,9 +61,14 @@ class Renderer {
 	final layerPass:Pass;
 	/** The first pass of a layer's blur, written as it is: blending off. **/
 	final blurPass:Pass;
+	/** The first pass of a layer's drop shadow, its alpha blurred along its rows, blending off. **/
+	final shadowPass:Pass;
 	final format:TextureFormat;
 	/** A composite record's blur, its `color.r`: its deviation in pixels. **/
 	static inline var BLUR_FIELD = 8;
+
+	/** A composite record's drop shadow colour's alpha, `via.a`: none at 0. **/
+	static inline var SHADOW_ALPHA_FIELD = 55;
 
 	/** Layer textures by depth, from 1, the target's size, each with its bind group for `layerPass`. **/
 	final layers:Array<Layer> = [];
@@ -93,6 +98,7 @@ class Renderer {
 		images = pass(ImageShader.WGSL, format, false);
 		layerPass = pass(LayerShader.WGSL, format, false);
 		blurPass = pass(LayerBlurShader.WGSL, format, false, false);
+		shadowPass = pass(LayerShadowShader.WGSL, format, false, false);
 		this.format = format;
 	}
 
@@ -200,6 +206,14 @@ class Renderer {
 					encoder.renderEnd();
 					var inner = layers[depth - 1];
 					var blurred = list.get(start, BLUR_FIELD) > 0;
+					if (list.get(start, SHADOW_ALPHA_FIELD) > 0) {
+						beginPass(encoder, inner.shadowView, true, 0, 0, 0, 0);
+						encoder.renderSetPipeline(shadowPass.pipeline);
+						encoder.renderSetBindGroup(LayerShadowShader.FRAME_GROUP, inner.shadowPassGroup);
+						encoder.renderSetBindGroup(LayerShadowShader.TEXTURE_records_GROUP, shadowPass.records);
+						encoder.renderDrawRange(6, 1, 0, start);
+						encoder.renderEnd();
+					}
 					if (blurred) {
 						beginPass(encoder, inner.rowsView, true, 0, 0, 0, 0);
 						encoder.renderSetPipeline(blurPass.pipeline);
@@ -212,6 +226,7 @@ class Renderer {
 					beginPass(encoder, depth == 0 ? view : layers[depth - 1].view, false, 0, 0, 0, 0);
 					encoder.renderSetPipeline(layerPass.pipeline);
 					encoder.renderSetBindGroup(LayerShader.FRAME_GROUP, blurred ? inner.rowsGroup : inner.group);
+					encoder.renderSetBindGroup(LayerShader.TEXTURE_shadow_GROUP, inner.shadowGroup);
 					encoder.renderSetBindGroup(LayerShader.TEXTURE_records_GROUP, layerPass.records);
 					encoder.renderDrawRange(6, 1, 0, start);
 					start++;
@@ -259,10 +274,11 @@ class Renderer {
 		if (at != null && at.width == width && at.height == height)
 			return at;
 		if (at != null) {
-			for (g in [at.group, at.rowsGroup, at.blurGroup])
+			for (g in [at.group, at.rowsGroup, at.blurGroup, at.shadowPassGroup, at.shadowGroup])
 				g.destroy();
 			at.texture.destroy();
 			at.rows.destroy();
+			at.shadow.destroy();
 		}
 		var size = new GpuExtent3D(width);
 		size.height(height);
@@ -280,6 +296,12 @@ class Renderer {
 		var view = texture.createView(new GpuTextureViewDescriptor());
 		var rows = target();
 		var rowsView = rows.createView(new GpuTextureViewDescriptor());
+		var shadow = target();
+		var shadowView = shadow.createView(new GpuTextureViewDescriptor());
+		var shadowBindings = new GpuBindings();
+		shadowBindings.texture(shadowView);
+		var shadowGroup = device.bindGroup(layerPass.pipeline, LayerShader.TEXTURE_shadow_GROUP, shadowBindings);
+		shadowBindings.destroy();
 		var made:Layer = {
 			texture: texture,
 			view: view,
@@ -288,6 +310,10 @@ class Renderer {
 			rowsView: rowsView,
 			rowsGroup: group(layerPass, LayerShader.FRAME_GROUP, rowsView),
 			blurGroup: group(blurPass, LayerBlurShader.FRAME_GROUP, view),
+			shadow: shadow,
+			shadowView: shadowView,
+			shadowPassGroup: group(shadowPass, LayerShadowShader.FRAME_GROUP, view),
+			shadowGroup: shadowGroup,
 			width: width,
 			height: height
 		};
@@ -335,6 +361,11 @@ private typedef Layer = {
 	/** `layerPass`'s bindings of `rows`, and `blurPass`'s of the layer. **/
 	final rowsGroup:GpuBindGroup;
 	final blurGroup:GpuBindGroup;
+	/** The layer's alpha blurred along its rows for its drop shadow, `shadowPass`'s bindings of the layer, and `layerPass`'s of the shadow. **/
+	final shadow:GpuTexture;
+	final shadowView:GpuTextureView;
+	final shadowPassGroup:GpuBindGroup;
+	final shadowGroup:GpuBindGroup;
 	final width:Int;
 	final height:Int;
 }

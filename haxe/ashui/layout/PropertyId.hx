@@ -115,6 +115,8 @@ enum abstract PropertyId(Int) from Int to Int {
     var FilterSepia = 82;
     // CSS's blur(): the Gaussian's standard deviation, in layout units.
     var FilterBlur = 83;
+    // CSS's drop-shadow(): a Shadow's first layer, cast by the element's shape, not its box.
+    var DropShadow = 84;
 
     /**
      * Determines what data type category this property belongs to,
@@ -129,6 +131,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Transform: TypeTransform;
             case Shadow: TypeShadow;
             case ClipPath: TypeClipPath;
+            case DropShadow: TypeShadow;
 
             // Strings (Typography / Paths / Content)
             case FontFamily | TextContent: TypeString;

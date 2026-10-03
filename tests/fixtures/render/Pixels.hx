@@ -51,6 +51,9 @@ import gpu.TextureUsage;
 	Then a red square blurred by 4: red in its middle, a pink halo past its
 	edges, white away from it.
 
+	Then drop shadows: a red circle's sharp black one offset by 6, cast by
+	the circle rather than its box, and a red square's blurred one.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -279,6 +282,21 @@ class Pixels {
 		probe("spreads past its edge", 21, 32, (r, g, b) -> r > 250 && g > 110 && g < 245);
 		probe("fades out away from it", 8, 32, (r, g, b) -> r > 250 && g > 250 && b > 250);
 		probe("its corner is softer than its edge's middle", 25, 25, (r, g, b) -> g > 100);
+
+		var dropTree = new LayoutTree();
+		var disc = new Div({position: Position.Absolute, left: 8, top: 8, width: 16, height: 16, bg: Brush.solid(0xff0000),
+			cornerRadius: CornerRadius.all(8)}, dropTree);
+		disc.node.set(Prop.DropShadow, new ashui.types.Shadow(6, 6, 0, 0x000000, 1));
+		var soft = new Div({position: Position.Absolute, left: 40, top: 8, width: 16, height: 16, bg: Brush.solid(0xff0000)}, dropTree);
+		soft.node.set(Prop.DropShadow, new ashui.types.Shadow(0, 0, 8, 0x000000, 1));
+		var dropRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [disc, soft], dropTree);
+		pixels = offscreen.renderToRgba8(dropRoot, SIZE, SIZE);
+		label = "drop shadow: ";
+		probe("cast by the circle's shape, past it", 25, 25, near(0x000000));
+		probe("not by its box: the box's empty corner stays clear", 9, 9, near(0xffffff));
+		probe("under the content", 16, 16, near(0xff0000));
+		probe("a blurred one shades just past the edge", 37, 16, (r, g, b) -> r < 230 && r > 60 && Math.abs(r - g) < 3);
+		probe("and the content stays on top", 48, 16, near(0xff0000));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

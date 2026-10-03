@@ -348,6 +348,15 @@ fn own_value_write(raw: i32) -> Option<(PropertyId, Write<Value>)> {
         68 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.right).color = c)?),
         69 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.bottom).color = c)?),
         70 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.left).color = c)?),
+        84 => (
+            PropertyId::Filter,
+            render(|p, v| {
+                filter(p).drop_shadow = match v {
+                    Value::Shadow(layers) => layers.first().copied(),
+                    _ => None,
+                };
+            })?,
+        ),
         75 => (
             PropertyId::Transform,
             render(|p, v| {

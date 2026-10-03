@@ -9,7 +9,8 @@ import ashui.ui.Hxx.hxx;
 	sepia, invert, hue-rotate-90, saturate-200, brightness-125 and
 	contrast-50; and two cards at opacity-50, whose badge overlaps the
 	gradient: faded as one group, the gradient does not show through it;
-	and blur-xs, blur-md and blur-sm with grayscale.
+	blur-xs, blur-md and blur-sm with grayscale; and drop shadows, on a
+	card and on a star clip path, whose shadow follows the star.
 	Rendered at one and two image pixels per layout unit.
 **/
 class Filters {
@@ -46,6 +47,8 @@ class Filters {
 				${labelled(hxx('<div class="blur-xs">${card()}</div>'), "blur-xs")}
 				${labelled(hxx('<div class="blur-md">${card()}</div>'), "blur-md")}
 				${labelled(hxx('<div class="blur-sm grayscale">${card()}</div>'), "blur-sm grayscale")}
+				${labelled(hxx('<div class="drop-shadow-xl">${card()}</div>'), "drop-shadow-xl")}
+				${labelled(hxx('<div class="drop-shadow-2xl"><div class="w-24 h-24 bg-linear-to-br from-primary to-success [clip-path:polygon(50%_0,61%_35%,98%_35%,68%_57%,79%_91%,50%_70%,21%_91%,32%_57%,2%_35%,39%_35%)]" /></div>'), "star, drop-shadow-2xl")}
 			</div>
 		');
 		Snapshot.scene("filters", 700, 460, build, page.rgb(), page.a);
