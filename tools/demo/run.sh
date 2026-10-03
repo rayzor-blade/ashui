@@ -1,7 +1,6 @@
 #!/bin/sh
-# Opens the interactions demo in a window, on Ash.
-# Runs in jit mode: under hybrid, signals stop taking writes partway through
-# a run (Ash 6208fb0). Needs built ../hlwgpu, ../hlwindow and ../ash checkouts.
+# Opens the interactions demo in a window, on Ash, in its default hybrid mode;
+# ASH_MODE picks another. Needs built ../hlwgpu, ../hlwindow and ../ash checkouts.
 #   run.sh [Demo.hx]   defaults to Interactions.hx
 set -e
 cd "$(dirname "$0")"
@@ -25,4 +24,4 @@ haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 	--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" \
 	-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
 	--class-path . -main "$name" -hl "bin/$name.hl"
-cd bin && exec "$vib/ash/target/release/ash" --mode "${ASH_MODE:-jit}" "$PWD/$name.hl"
+cd bin && exec "$vib/ash/target/release/ash" --mode "${ASH_MODE:-hybrid}" "$PWD/$name.hl"
