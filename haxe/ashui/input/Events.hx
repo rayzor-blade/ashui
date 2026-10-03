@@ -90,6 +90,9 @@ class PointerEvent extends InputEvent {
 	/** The button pressed or released; null for movement, enter, leave and wheel. **/
 	public final button:Null<MouseButton>;
 
+	/** Presses in quick succession at about the same place, counting this one: 2 for a double-click. **/
+	public var clickCount(default, null) = 1;
+
 	/** How far a wheel or trackpad scrolled, in layout units; 0 for other events. **/
 	public final deltaX:Float;
 
@@ -111,6 +114,11 @@ class PointerEvent extends InputEvent {
 	function local(x:Float, y:Float):Void {
 		localX = x;
 		localY = y;
+	}
+
+	@:allow(ashui.input)
+	function count(n:Int):Void {
+		clickCount = n;
 	}
 }
 
@@ -164,5 +172,23 @@ class FocusEvent extends InputEvent {
 	function new(target:Node, visible:Bool) {
 		super(target, InputEvent.NO_MODIFIERS);
 		this.visible = visible;
+	}
+}
+
+/**
+	An input method's text being composed, not yet typed: the marked text a
+	Japanese, Chinese or Korean input method shows while a word is chosen,
+	or an accent waiting for its letter. Empty when composing ends. `cursor`
+	is where the input method's own caret is in `text`, or -1 for none.
+**/
+class CompositionEvent extends InputEvent {
+	public final text:String;
+	public final cursor:Int;
+
+	@:allow(ashui.input)
+	function new(target:Node, text:String, cursor:Int) {
+		super(target, InputEvent.NO_MODIFIERS);
+		this.text = text;
+		this.cursor = cursor;
 	}
 }

@@ -56,12 +56,13 @@ class TextArea extends Component<TextAreaProps> {
 		e.onInput = props.onInput;
 		e.onSubmit = props.onSubmit;
 		var value = e.value;
-		var empty = Computed.make(() -> value.get() == "");
+		var shown = Computed.make(() -> e.display());
+		var empty = Computed.make(() -> shown.get() == "");
 		var placeholder = props.placeholder != null ? props.placeholder : "";
 		// Each reads the font size too, so a theme change measures again.
 		var caretStop = Computed.make(() -> {
 			e.fontSize.get();
-			e.stopAt(e.caret.get(), value.get());
+			e.stopAt(e.displayCaret(), shown.get());
 		});
 		var caretLeft = Computed.make(() -> (caretStop.get().x : Single));
 		var caretTop = Computed.make(() -> (caretStop.get().line * e.lineHeight : Single));
@@ -69,23 +70,34 @@ class TextArea extends Component<TextAreaProps> {
 			caretStop.get();
 			(e.lineHeight : Single);
 		});
+		// The selection hides while an input method composes in its place; the composition is underlined.
 		var selection = Computed.make(() -> {
 			e.fontSize.get();
-			selectionRects(e.caret.get(), e.anchor.get(), value.get());
+			e.composing.get() != "" ? [] : selectionRects(e.caret.get(), e.anchor.get(), value.get());
 		});
-		text = new Text(value, {wrap: true, fontSize: e.fontSize.get()});
+		var composed = Computed.make(() -> {
+			var r = e.composedRange();
+			if (r == null)
+				[]
+			else
+				[for (rect in selectionRects(r.from, r.to, shown.get())) {x: rect.x, y: rect.y + rect.h - 1, w: rect.w, h: (1 : Single)}];
+		});
+		text = new Text(shown, {wrap: true, fontSize: e.fontSize.get()});
 		e.text = text;
 		box = hxx('
 			<div class="flex flex-col rounded-lg bg-input-bg focus:bg-input-bg-focus disabled:bg-input-bg-disabled border-2 border-border hover:border-border-hover focus:border-border-focus disabled:border-border transition-colors overflow-y-auto"
 				width={width} height={height} padding={PADDING} focusable={true}
-				onPointerDown={p -> e.press(textX(p.x), textY(p.y), p.shift)} onPointerMove={p -> e.drag(textX(p.x), textY(p.y))}
-				onPointerUp={_ -> e.release()} onKeyDown={e.key} onKeyUp={e.keyUp} onTextInput={e.type}
+				onPointerDown={p -> e.press(textX(p.x), textY(p.y), p.shift, p.clickCount)} onPointerMove={p -> e.drag(textX(p.x), textY(p.y))}
+				onPointerUp={_ -> e.release()} onKeyDown={e.key} onKeyUp={e.keyUp} onTextInput={e.type} onComposition={e.compose}
 				onFocus={_ -> e.focus()} onBlur={_ -> e.blur()}>
 				<div class="relative shrink-0" width={wrapWidth}>
 					<for {r in selection}>
 						<div class="absolute bg-selection" left={r.x} top={r.y} width={r.w} height={r.h} />
 					</for>
 					${text}
+					<for {r in composed}>
+						<div class="absolute bg-text-primary" left={r.x} top={r.y} width={r.w} height={r.h} />
+					</for>
 					<div class="absolute top-0" left={0}>
 						<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
 					</div>
@@ -105,7 +117,12 @@ class TextArea extends Component<TextAreaProps> {
 		// Keeps the caret inside the visible part of the area.
 		new Watch(() -> (caretTop.get() : Float), top -> reveal(top));
 		// The blink stops while the window is in the background or hidden, and starts again on return.
-		new Watch(() -> e.showsCaret(), shown -> shown ? e.restartBlink() : e.stopBlink());
+		new Watch(() -> e.showsCaret(), on -> on ? e.restartBlink() : e.stopBlink());
+		TextCaret.publish(e, () -> {
+			var b = text.tree.getBounds(text.node);
+			var scrollY = scroller != null ? scroller.y.get() : 0;
+			b == null ? null : {x: b.x + caretLeft.get(), y: b.y + caretTop.get() - scrollY, width: 1.5, height: lineHeight.get()};
+		});
 		return box;
 	}
 

@@ -50,6 +50,19 @@ class Keyboard {
 		}
 	}
 
+	/** An input method's composition is now `text`, its caret at `cursor` (-1 for none); empty when it ends. **/
+	public static function composition(tree:LayoutTree, text:String, cursor:Int):Void {
+		var focused = Focus.of(tree);
+		if (focused == null)
+			return;
+		var e = new CompositionEvent(focused.node, text, cursor);
+		for (i in ancestors(tree, focused)) {
+			i.fire("composition", e);
+			if (e.propagationStopped)
+				return;
+		}
+	}
+
 	static function shift(m:Modifiers):Bool
 		return switch m {
 			case State(v, _, _, _, _, _, _, _, _, _, _, _): v;

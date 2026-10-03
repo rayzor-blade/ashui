@@ -14,4 +14,14 @@ class WindowState {
 
 	/** Some of the window can be seen: it is not minimized, hidden or wholly covered. **/
 	public static final visible:Signal<Bool> = Signal.make(true);
+
+	/**
+		Where the focused text's caret is, in the window's layout units, while
+		text has focus; null otherwise. The window turns its input method on
+		while it is set and shows the method's candidates beside it.
+	**/
+	public static final textCaret:Signal<Null<CaretArea>> = Signal.make((null : Null<CaretArea>));
 }
+
+/** A caret's rect in the window, in layout units. **/
+typedef CaretArea = {x:Float, y:Float, width:Float, height:Float};

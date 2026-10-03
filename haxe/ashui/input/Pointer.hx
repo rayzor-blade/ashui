@@ -16,6 +16,10 @@ import ashui.layout.LayoutTree.Hit;
 class Pointer {
 	static final states = new haxe.ds.ObjectMap<LayoutTree, PointerState>();
 
+	/** Seconds and layout units within which presses count as one double- or triple-click. **/
+	static inline var MULTI_CLICK_TIME = 0.5;
+	static inline var MULTI_CLICK_SLOP = 4.0;
+
 	static function state(tree:LayoutTree):PointerState {
 		var s = states.get(tree);
 		if (s == null)
@@ -47,6 +51,12 @@ class Pointer {
 		var s = state(tree);
 		var blocked = disabledIn(tree, s.chain);
 		if (button.match(Left)) {
+			var now = haxe.Timer.stamp();
+			var near = Math.abs(s.x - s.lastX) <= MULTI_CLICK_SLOP && Math.abs(s.y - s.lastY) <= MULTI_CLICK_SLOP;
+			s.clicks = now - s.lastPress <= MULTI_CLICK_TIME && near ? s.clicks + 1 : 1;
+			s.lastPress = now;
+			s.lastX = s.x;
+			s.lastY = s.y;
 			s.pressChain = s.chain.copy();
 			if (!blocked) {
 				for (i in interactions(tree, s.chain))
@@ -152,6 +162,8 @@ class Pointer {
 			if (e == null) {
 				var target = Interaction.byId(tree, chain[from].id);
 				e = new PointerEvent(target != null ? target.node : i.node, s.x, s.y, button, s.modifiers, dx, dy);
+				if (button != null)
+					e.count(s.clicks);
 			}
 			e.local(hit.x, hit.y);
 			i.fire(kind, e);
@@ -191,6 +203,11 @@ private class PointerState {
 	public var chain:Array<Hit> = [];
 	public var pressChain:Array<Hit> = [];
 	public var modifiers:Modifiers = InputEvent.NO_MODIFIERS;
+	/** The last press's time and place, and how many presses in a row it made. **/
+	public var lastPress = -1.0;
+	public var lastX = 0.0;
+	public var lastY = 0.0;
+	public var clicks = 0;
 
 	public function new() {}
 }

@@ -148,6 +148,10 @@ class Interaction {
 	public function onTextInput(handler:TextInputEvent->Void):Interaction
 		return on("textinput", handler);
 
+	/** An input method's composition changed while it has focus; empty text when it ends. **/
+	public function onComposition(handler:CompositionEvent->Void):Interaction
+		return on("composition", handler);
+
 	public function onFocus(handler:FocusEvent->Void):Interaction
 		return on("focus", handler);
 

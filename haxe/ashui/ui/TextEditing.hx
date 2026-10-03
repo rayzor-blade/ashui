@@ -32,6 +32,13 @@ class TextEditing {
 	public final focused = Signal.make(false);
 	/** The caret's opacity: 1 shown, 0 hidden, between while it fades. **/
 	public final caretAlpha = Signal.make(1.0);
+	/** An input method's text being composed at the caret, not yet in the value; empty when none. **/
+	public final composing = Signal.make("");
+	/** Where the input method's caret is in `composing`, or -1 for its end. **/
+	var composeCursor = -1;
+	/** What a press selects as it is dragged: 1 characters, 2 words, 3 paragraphs; and what the press first selected. **/
+	var granularity = 1;
+	var pressRange = {from: 0, to: 0};
 	public final fontSize:Computed<Single>;
 	public final multiline:Bool;
 	/** The width lines wrap at; 0 keeps the text on one line. **/
@@ -222,6 +229,42 @@ class TextEditing {
 		return value.get().substring(r.from, r.to);
 	}
 
+	/** The text as shown: the value, with any composition in place of the selection. **/
+	public function display():String {
+		var c = composing.get();
+		if (c == "")
+			return value.get();
+		var r = selectionRange();
+		var s = value.get();
+		return s.substr(0, r.from) + c + s.substr(r.to);
+	}
+
+	/** Where the caret is shown in `display()`: in the composition while there is one. **/
+	public function displayCaret():Int {
+		var c = composing.get();
+		if (c == "")
+			return caret.get();
+		return selectionRange().from + (composeCursor >= 0 ? composeCursor : c.length);
+	}
+
+	/** The composition's range in `display()`, or null while there is none. **/
+	public function composedRange():Null<{from:Int, to:Int}> {
+		var c = composing.get();
+		if (c == "")
+			return null;
+		var from = selectionRange().from;
+		return {from: from, to: from + c.length};
+	}
+
+	/** An input method's composition changed; empty text when it ends, as it commits or cancels. **/
+	public function compose(e:CompositionEvent):Void {
+		if (disabled())
+			return;
+		composeCursor = e.cursor;
+		composing.set(e.text);
+		restartBlink();
+	}
+
 	/** Replaces the selection with `insert`, leaving the caret after it. **/
 	public function replace(insert:String):Void {
 		var s = value.get();
@@ -249,7 +292,8 @@ class TextEditing {
 	}
 
 	public function key(e:KeyEvent):Void {
-		if (disabled())
+		// The input method handles keys while it composes.
+		if (disabled() || composing.get() != "")
 			return;
 		var mac = Sys.systemName() == "Mac";
 		var byLine = e.superKey || (e.control && !mac);
@@ -328,18 +372,66 @@ class TextEditing {
 			e.preventDefault();
 	}
 
-	/** A press at `(x, y)` from the text's top-left: the caret goes there, Shift extends the selection to it. **/
-	public function press(x:Float, y:Float, shift:Bool):Void {
+	/**
+		A press at `(x, y)` from the text's top-left: the caret goes there, and
+		Shift extends the selection to it. A double-click selects the word
+		there and a triple-click its paragraph; dragging after either extends
+		the selection by words or paragraphs.
+	**/
+	public function press(x:Float, y:Float, shift:Bool, clicks = 1):Void {
 		if (disabled())
 			return;
-		move(indexAt(x, lineAtY(y)), shift);
+		var at = indexAt(x, lineAtY(y));
+		granularity = clicks >= 3 ? 3 : clicks;
+		if (granularity == 1 || shift) {
+			move(at, shift);
+		} else {
+			pressRange = unit(at);
+			anchor.set(pressRange.from);
+			move(pressRange.to, true);
+		}
 		dragging = true;
 	}
 
-	/** The pointer moved to `(x, y)` from the text's top-left: a drag selects to it. **/
+	/** The pointer moved to `(x, y)` from the text's top-left: a drag selects to it, by the unit the press chose. **/
 	public function drag(x:Float, y:Float):Void {
-		if (dragging && interaction != null && interaction.pressed.get())
-			move(indexAt(x, lineAtY(y)), true);
+		if (!dragging || interaction == null || !interaction.pressed.get())
+			return;
+		var at = indexAt(x, lineAtY(y));
+		if (granularity == 1) {
+			move(at, true);
+			return;
+		}
+		// The selection keeps the unit first pressed and reaches the unit under the pointer.
+		var here = unit(at);
+		if (here.from < pressRange.from) {
+			anchor.set(pressRange.to);
+			move(here.from, true);
+		} else {
+			anchor.set(pressRange.from);
+			move(Std.int(Math.max(here.to, pressRange.to)), true);
+		}
+	}
+
+	/** The word, or paragraph, around string index `i`, as the press's granularity takes it. **/
+	function unit(i:Int):{from:Int, to:Int} {
+		var s = value.get();
+		if (granularity >= 3) {
+			var from = s.lastIndexOf("\n", i - 1) + 1;
+			var to = s.indexOf("\n", i);
+			return {from: i > 0 ? from : 0, to: to < 0 ? s.length : to};
+		}
+		inline function isWord(at:Int)
+			return at >= 0 && at < s.length && !StringTools.isSpace(s, at) && "\n.,;:!?()[]{}\"'".indexOf(s.charAt(at)) < 0;
+		var from = i, to = i;
+		while (from > 0 && isWord(from - 1))
+			from--;
+		while (to < s.length && isWord(to))
+			to++;
+		// Between words, the run of spaces or punctuation there.
+		if (from == to && to < s.length)
+			to++;
+		return {from: from, to: to};
 	}
 
 	public function release():Void {
@@ -354,6 +446,7 @@ class TextEditing {
 	public function blur():Void {
 		focused.set(false);
 		dragging = false;
+		composing.set("");
 		anchor.set(caret.get());
 	}
 

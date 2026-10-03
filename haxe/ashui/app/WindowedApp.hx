@@ -59,6 +59,8 @@ class WindowedApp {
 	var dirty = true;
 	var quitting = false;
 	var opened = 0.0;
+	/** Whether the input method is on: while text has focus. **/
+	var imeOn = false;
 	// Pointer moves and wheel deltas waiting to be applied: a batch of events
 	// collapses to the last position and the summed delta, as browsers do.
 	var pendingMove:Null<{x:Float, y:Float}> = null;
@@ -147,6 +149,16 @@ class WindowedApp {
 		ThemeState.setRedrawCallback(() -> dirty = true);
 		WindowTheme.follow(window);
 		ashui.input.WindowState.active.set(window.hasFocus());
+		// The input method is on while text has focus, its candidates by the caret.
+		new ashui.reactive.Watch(() -> ashui.input.WindowState.textCaret.get(), area -> {
+			var on = area != null;
+			if (on != imeOn) {
+				imeOn = on;
+				window.setImeAllowed(on);
+			}
+			if (area != null)
+				window.setImeCursorArea(area.x, area.y, area.width, area.height);
+		}, (a, b) -> a == b || (a != null && b != null && a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height));
 		configure();
 		root = Owner.root(tree, _ -> build());
 		opened = haxe.Timer.stamp();
@@ -301,16 +313,43 @@ class WindowedApp {
 			case KeyboardInput(_, key, _):
 				activeByInput();
 				ashui.input.Keyboard.input(tree, key, modifiers);
-				// A key's text is typed unless a shortcut modifier is held or it is a control character.
+				// A key's text is typed unless a shortcut modifier is held or it is a control
+				// character; with the input method on, text comes from its commits instead.
 				switch key {
-					case Input(_, _, Some(text), _, Pressed, _, _) if (!shortcut() && text.charCodeAt(0) >= 0x20 && text.charCodeAt(0) != 0x7f):
+					case Input(_, _, Some(text), _, Pressed, _, _) if (!imeOn && !shortcut() && text.charCodeAt(0) >= 0x20 && text.charCodeAt(0) != 0x7f):
 						ashui.input.Keyboard.text(tree, text, modifiers);
 					case _:
 				}
+			case Ime(Preedit(text, cursor)):
+				ashui.input.Keyboard.composition(tree, text, switch cursor {
+					case Range(start, _): utf16Index(text, haxe.Int64.toInt(start));
+					case None: -1;
+				});
 			case Ime(Commit(text)):
+				ashui.input.Keyboard.composition(tree, "", -1);
 				ashui.input.Keyboard.text(tree, text, modifiers);
+			case Ime(Disabled):
+				ashui.input.Keyboard.composition(tree, "", -1);
 			case _:
 		}
+	}
+
+	/** The string index of UTF-8 byte offset `byte` in `text`, as the input method reports its caret. **/
+	static function utf16Index(text:String, byte:Int):Int {
+		var bytes = 0;
+		var i = 0;
+		while (i < text.length && bytes < byte) {
+			var c = StringTools.fastCodeAt(text, i);
+			// A surrogate pair is one character of four bytes.
+			if (c >= 0xD800 && c <= 0xDBFF) {
+				bytes += 4;
+				i += 2;
+			} else {
+				bytes += c < 0x80 ? 1 : c < 0x800 ? 2 : 3;
+				i++;
+			}
+		}
+		return i;
 	}
 
 	function activeByInput():Void {

@@ -980,6 +980,37 @@ class Smoke {
 			areaScroll == null ? null : areaScroll.y.get());
 		areaKey(Named(Enter), Enter, cmd);
 		check("text area: Command+Enter submits, Enter alone does not", areaSubmitted == areaValue.get() && areaSubmitted.indexOf("line 5") > 0);
+		areaValue.set("first para here\nsecond para here");
+		ed.caret.set(0);
+		ed.anchor.set(0);
+		areaLayout();
+		var tb = areaTree.getBounds(areaText.node);
+		var scrollY = areaScroll.y.get();
+		var wordX = tb.x + ed.stopAt(8, areaValue.get()).x + 1;
+		var wordY = tb.y - scrollY + ed.lineHeight * 0.5;
+		ashui.input.Pointer.move(areaTree, wordX, wordY);
+		ashui.input.Pointer.press(areaTree);
+		ashui.input.Pointer.release(areaTree);
+		ashui.input.Pointer.press(areaTree);
+		ashui.input.Pointer.release(areaTree);
+		check("text area: a double-click selects the word", ed.selection() == "para", ed.selection());
+		ashui.input.Pointer.press(areaTree);
+		ashui.input.Pointer.release(areaTree);
+		check("text area: a triple-click selects the paragraph", ed.selection() == "first para here", ed.selection());
+		ashui.input.Keyboard.composition(areaTree, "かな", 1);
+		areaTree.flush();
+		check("text area: a composition shows in place of the selection without changing the value",
+			areaValue.get() == "first para here\nsecond para here" && ed.display() == "かな\nsecond para here" && ed.displayCaret() == 1,
+			[ed.display(), ed.displayCaret()]);
+		ashui.input.Keyboard.composition(areaTree, "", -1);
+		ashui.input.Keyboard.text(areaTree, "仮名");
+		check("text area: the committed text replaces the selection", areaValue.get() == "仮名\nsecond para here", areaValue.get());
+		areaTree.flush();
+		var published = ashui.input.WindowState.textCaret.get();
+		ashui.input.Focus.clear(areaTree);
+		areaTree.flush();
+		check("text area: its caret is published for the input method while focused, and not after",
+			published != null && published.height > 0 && ashui.input.WindowState.textCaret.get() == null, published);
 
 		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
 		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");

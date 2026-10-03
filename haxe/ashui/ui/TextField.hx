@@ -52,13 +52,15 @@ class TextField extends Component<TextFieldProps> {
 		e.onSubmit = props.onSubmit;
 		var value = e.value;
 		var width:Single = props.width != null ? props.width : 240;
-		var empty = Computed.make(() -> value.get() == "");
+		var shown = Computed.make(() -> e.display());
+		var empty = Computed.make(() -> shown.get() == "");
 		var placeholder = props.placeholder != null ? props.placeholder : "";
 		// Each reads the font size too, so a theme change measures again.
 		var caretLeft = Computed.make(() -> {
 			e.fontSize.get();
-			(e.stopAt(e.caret.get(), value.get()).x : Single);
+			(e.stopAt(e.displayCaret(), shown.get()).x : Single);
 		});
+		// The selection hides while an input method composes in its place.
 		var selectionLeft = Computed.make(() -> {
 			e.fontSize.get();
 			(e.stopAt(e.selectionRange().from, value.get()).x : Single);
@@ -66,23 +68,33 @@ class TextField extends Component<TextFieldProps> {
 		var selectionWidth = Computed.make(() -> {
 			e.fontSize.get();
 			var r = e.selectionRange();
-			(e.stopAt(r.to, value.get()).x - e.stopAt(r.from, value.get()).x : Single);
+			(e.composing.get() != "" ? 0 : e.stopAt(r.to, value.get()).x - e.stopAt(r.from, value.get()).x : Single);
+		});
+		// The composition is underlined, as input methods mark it.
+		var composedLeft = Computed.make(() -> {
+			var r = e.composedRange();
+			(r == null ? 0 : e.stopAt(r.from, shown.get()).x : Single);
+		});
+		var composedWidth = Computed.make(() -> {
+			var r = e.composedRange();
+			(r == null ? 0 : e.stopAt(r.to, shown.get()).x - e.stopAt(r.from, shown.get()).x : Single);
 		});
 		var stripLeft = Computed.make(() -> (INSET - scroll.get() : Single));
-		text = new Text(value, {wrap: false, fontSize: e.fontSize.get()});
+		text = new Text(shown, {wrap: false, fontSize: e.fontSize.get()});
 		e.text = text;
 		var clip:Div = null;
 		box = hxx('
 			<div class="flex flex-row items-center px-2.5 rounded-lg bg-input-bg focus:bg-input-bg-focus disabled:bg-input-bg-disabled border-2 border-border hover:border-border-hover focus:border-border-focus disabled:border-border transition-colors"
 				width={width} height={38} focusable={true}
-				onPointerDown={p -> e.press(textX(p.x), 0, p.shift)} onPointerMove={p -> e.drag(textX(p.x), 0)} onPointerUp={_ -> e.release()}
-				onKeyDown={e.key} onKeyUp={e.keyUp} onTextInput={e.type}
+				onPointerDown={p -> e.press(textX(p.x), 0, p.shift, p.clickCount)} onPointerMove={p -> e.drag(textX(p.x), 0)} onPointerUp={_ -> e.release()}
+				onKeyDown={e.key} onKeyUp={e.keyUp} onTextInput={e.type} onComposition={e.compose}
 				onFocus={_ -> e.focus()} onBlur={_ -> e.blur()}>
 				${clip = hxx('<div class="relative grow h-full overflow-hidden">
 					<div class="absolute top-0 bottom-0 flex flex-row items-center" left={stripLeft} width={4096}>
 						<div class="relative">
 							<div class="absolute top-0 bottom-0 bg-selection" left={selectionLeft} width={selectionWidth} />
 							${text}
+							<div class="absolute bottom-0 bg-text-primary" left={composedLeft} width={composedWidth} height={1} />
 							<div class="absolute top-0" left={0}>
 								<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
 							</div>
@@ -102,7 +114,11 @@ class TextField extends Component<TextFieldProps> {
 		// Keeps the caret inside the visible part of the field.
 		new Watch(() -> caretLeft.get(), x -> reveal(x));
 		// The blink stops while the window is in the background or hidden, and starts again on return.
-		new Watch(() -> e.showsCaret(), shown -> shown ? e.restartBlink() : e.stopBlink());
+		new Watch(() -> e.showsCaret(), on -> on ? e.restartBlink() : e.stopBlink());
+		TextCaret.publish(e, () -> {
+			var b = text.tree.getBounds(text.node);
+			b == null ? null : {x: b.x + caretLeft.get(), y: b.y, width: 1.5, height: b.height};
+		});
 		return box;
 	}
 

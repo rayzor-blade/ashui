@@ -418,7 +418,7 @@ class Hxx {
 		"onClick" => "PointerEvent", "onPointerDown" => "PointerEvent", "onPointerUp" => "PointerEvent",
 		"onPointerMove" => "PointerEvent", "onPointerEnter" => "PointerEvent", "onPointerLeave" => "PointerEvent",
 		"onWheel" => "PointerEvent", "onKeyDown" => "KeyEvent", "onKeyUp" => "KeyEvent", "onTextInput" => "TextInputEvent",
-		"onFocus" => "FocusEvent", "onBlur" => "FocusEvent"
+		"onFocus" => "FocusEvent", "onBlur" => "FocusEvent", "onComposition" => "CompositionEvent"
 	];
 
 	/**
