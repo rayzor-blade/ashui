@@ -27,11 +27,27 @@ abstract class Component<Props> extends Element {
 	/** The component whose render is running, if any. **/
 	static var rendering:Null<Component<Dynamic>> = null;
 
+	/** Each live component by the owner its render runs under. **/
+	static final hosts = new haxe.ds.ObjectMap<Owner, Component<Dynamic>>();
+
 	/** The props it was built with. **/
 	public final props:Props;
 	final children:Array<Element>;
 	final parentOwner:Null<Owner>;
 	var owner:Owner;
+
+	/**
+		The component this one was built under, if any: the one rendering, or
+		for one built later, as a `<for>` builds a new item, the nearest
+		whose owner is an ancestor of the current one.
+	**/
+	final builder:Null<Component<Dynamic>>;
+
+	/** Components built under this one, in the order they were built. **/
+	var built:Array<Component<Dynamic>> = [];
+
+	/** While rendering again, the components the last render built not yet taken over. **/
+	var previous:Null<Array<Component<Dynamic>>> = null;
 
 	public function new(props:Props, ?children:Array<Element>, ?tree:LayoutTree) {
 		super(tree);
@@ -39,11 +55,60 @@ abstract class Component<Props> extends Element {
 		this.children = children != null ? children : [];
 		parentOwner = Owner.current;
 		owner = new Owner(this.tree, parentOwner);
-		var root = rendering == null;
-		node = build(owner);
-		if (root)
+		hosts.set(owner, cast this);
+		builder = rendering != null ? rendering : hostOf(parentOwner);
+		// Under the owner this was built under, so it leaves the books with it.
+		Owner.onCleanup(forget);
+		if (builder == null) {
+			node = build(owner);
 			roots.push(cast this);
+			return;
+		}
+		builder.built.push(cast this);
+		// Rendering again: take over the state of the component the last
+		// render built in the same place, and match its children to ours.
+		var old = builder.claim(Type.getClass(this));
+		if (old != null) {
+			__takeState(old);
+			previous = old.built;
+		}
+		node = build(owner);
+		previous = null;
 	}
+
+	static function hostOf(owner:Null<Owner>):Null<Component<Dynamic>> {
+		while (owner != null) {
+			var host = hosts.get(owner);
+			if (host != null)
+				return host;
+			owner = owner.parent;
+		}
+		return null;
+	}
+
+	/** Drops this one from the roots, its builder's list and the hosts. **/
+	function forget():Void {
+		roots.remove(cast this);
+		if (builder != null)
+			builder.built.remove(cast this);
+		hosts.remove(owner);
+		node = null;
+	}
+
+	/** Removes and returns the first component the last render built of class `c`, if any. **/
+	function claim(c:Class<Dynamic>):Null<Component<Dynamic>> {
+		if (previous == null)
+			return null;
+		for (i => old in previous)
+			if (Type.getClass(old) == c) {
+				previous.splice(i, 1);
+				return old;
+			}
+		return null;
+	}
+
+	/** Takes `old`'s `@:state` signals for this one's; `ComponentBuilder` generates it for classes that have any. **/
+	@:noCompletion function __takeState(old:Component<Dynamic>):Void {}
 
 	/** Builds the component's element; `props` and `children` are set. **/
 	abstract function render():Element;
@@ -64,24 +129,36 @@ abstract class Component<Props> extends Element {
 	/**
 		Runs `render` again and puts its element where the old one was, then
 		disposes what the old render created. Fields, `@:state` included, keep
-		their values. Components the old render built are built afresh, so
-		their own state starts over.
+		their values. A component the new render builds takes over the
+		`@:state` of the one the old render built of the same class, the
+		first of its class for the first and so on, and so do theirs.
 	**/
 	public function rerender():Void {
 		if (node == null)
 			return;
 		var next = new Owner(tree, parentOwner);
-		var fresh = build(next);
+		hosts.set(next, cast this);
+		var last = built;
+		previous = last.copy();
+		built = [];
+		var fresh = try build(next) catch (e:haxe.Exception) {
+			hosts.remove(next);
+			next.dispose();
+			built = last;
+			previous = null;
+			throw e;
+		}
+		previous = null;
 		tree.replaceNode(node, fresh);
+		hosts.remove(owner);
 		owner.dispose();
 		owner = next;
 		node = fresh;
 	}
 
 	override public function remove():Void {
-		roots.remove(cast this);
 		owner.dispose();
-		node = null;
+		forget();
 	}
 
 	/** Renders every root component again; see `HotReload`. **/

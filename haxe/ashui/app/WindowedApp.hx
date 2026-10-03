@@ -235,6 +235,10 @@ class WindowedApp {
 			}
 			if (kinds != null && handled > 0)
 				frameLog.writeString('events\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\tpoll_ms=${Math.round(polling * 10000) / 10}\t${[for (k => n in kinds) '$k=$n'].join(" ")}\n');
+			#if ashui_hot_reload
+			if (ashui.ui.HotReload.check())
+				dirty = true;
+			#end
 			var now = haxe.Timer.stamp();
 			// Capped, so after a stall an animation carries on from where it was instead of jumping ahead.
 			scheduler.tick(Math.min(now - last, MAX_STEP));

@@ -10,22 +10,50 @@ import haxe.macro.Expr;
 	- `@:state var x:T = init` becomes a property backed by a signal: reading
 	  `x` reads the signal, so a computed, watch or template attribute that
 	  reads it follows it, and assigning `x` sets the signal.
+	  `__takeState` hands the signals to the instance a hot reload builds in
+	  this one's place, so its state carries over.
 	- `function render() '<template>'` becomes `return hxx('<template>')`.
 **/
 class ComponentBuilder {
 	public static function build():Array<Field> {
 		var out:Array<Field> = [];
+		var signals:Array<String> = [];
 		for (field in Context.getBuildFields()) {
 			if (field.meta != null && Lambda.exists(field.meta, m -> m.name == ':state')) {
 				for (f in stateField(field))
 					out.push(f);
+				signals.push('${field.name}__state');
 				continue;
 			}
 			if (field.name == 'render')
 				templateBody(field);
 			out.push(field);
 		}
+		if (signals.length > 0)
+			out.push(takeState(signals));
 		return out;
+	}
+
+	/** `__takeState(old)`: the superclass's signals, then this class's, taken from `old`. **/
+	static function takeState(signals:Array<String>):Field {
+		var self = Context.toComplexType(Context.getLocalType());
+		var pos = Context.currentPos();
+		var copies = [for (s in signals) macro $i{s} = from.$s];
+		return {
+			name: '__takeState',
+			pos: pos,
+			access: [APrivate, AOverride],
+			meta: [{name: ':noCompletion', pos: pos}],
+			kind: FFun({
+				args: [{name: 'old', type: macro :ashui.ui.Component<Dynamic>}],
+				ret: macro :Void,
+				expr: macro {
+					super.__takeState(old);
+					var from:$self = cast old;
+					$b{copies};
+				},
+			}),
+		};
 	}
 
 	static function stateField(field:Field):Array<Field> {
@@ -41,7 +69,7 @@ class ComponentBuilder {
 					{
 						name: signal,
 						pos: pos,
-						access: [APrivate, AFinal],
+						access: [APrivate],
 						kind: FVar(macro :ashui.reactive.Signal<$type>, macro ashui.reactive.Signal.make(($init : $type))),
 					},
 					{

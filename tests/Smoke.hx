@@ -362,6 +362,46 @@ class Smoke {
 		check("a template attribute reading @:state follows it", counted != null && near(counted.width, 10) && recounted != null
 			&& near(recounted.width, 30), '$counted -> $recounted');
 
+		// --- Rendering again keeps the @:state of the components it builds ---
+		var shelf:Shelf = Owner.root(tree, _ -> hxx('<shelf />'));
+		var first = shelf.counters;
+		first[0].count = 4;
+		first[1].count = 7;
+		shelf.inner.counters[0].count = 9;
+		shelf.rerender();
+		var again = shelf.counters;
+		check("a rerender builds its components afresh", again[0] != first[0] && again[1] != first[1]);
+		check("each takes over the state of the one of its class in its place", again[0].count == 4 && again[1].count == 7,
+			'${again[0].count} ${again[1].count}');
+		check("and so do the components they build", shelf.inner.counters[0].count == 9 && shelf.inner.counters[1].count == 1,
+			'${shelf.inner.counters[0].count} ${shelf.inner.counters[1].count}');
+		again[1].count = 8;
+		check("the state taken over is still followed", tree.flush() && first[1].count == 8);
+		shelf.remove();
+
+		// --- So does a component a <for> builds after its first render ---
+		var rack:Rack = Owner.root(tree, _ -> hxx('<rack />'));
+		rack.names.set(["a", "b"]);
+		tree.flush();
+		var later = rack.made[1];
+		@:privateAccess {
+			check("a component a <for> builds later is its component's, not a root",
+				later.builder == rack && !Component.roots.contains(later) && rack.built.length == 2);
+		}
+		rack.made[0].count = 3;
+		later.count = 6;
+		rack.made.resize(0);
+		rack.rerender();
+		check("it keeps its state when its component renders again", rack.made.length == 2 && rack.made[0].count == 3 && rack.made[1].count == 6,
+			[for (c in rack.made) c.count]);
+		rack.names.set(["a"]);
+		tree.flush();
+		@:privateAccess {
+			check("a component its <for> drops leaves the books", rack.built.length == 1 && rack.made[1].node == null && !Component.hosts.exists(rack.made[1].owner));
+		}
+		rack.remove();
+		@:privateAccess check("a removed component leaves the roots", !Component.roots.contains(rack) && rack.built.length == 0);
+
 		// --- A Float signal or computed binds to a Single property ---
 		var floatWidth = Signal.make(100.0);
 		var floaty = new Div({width: floatWidth, height: floatWidth.computed(v -> v / 10), flexShrink: 0}, tree);
@@ -1458,6 +1498,42 @@ class Smoke {
 class Badge extends Component<{label:IntoReactive<String>}> {
 	function render():Element
 		return new Div({width: 50, height: 20}, [new Text(props.label)]);
+}
+
+/** Counters it builds, and another of its kind with its own; for rendering again. **/
+class Shelf extends View {
+	public var counters:Array<CounterView> = [];
+	public var inner:Null<Shelf> = null;
+	final depth:Int;
+
+	public function new(props:{}, ?children:Array<Element>, ?depth = 0) {
+		this.depth = depth;
+		super(props, children);
+	}
+
+	function render():Element {
+		counters = [new CounterView({}), new CounterView({})];
+		var kids:Array<Element> = [for (c in counters) c];
+		if (depth == 0) {
+			inner = new Shelf({}, null, 1);
+			kids.push(inner);
+		}
+		return new Div({}, kids);
+	}
+}
+
+/** Counters a <for> builds, one per name, some after its first render. **/
+class Rack extends View {
+	public final names = Signal.make(["a"]);
+	public final made:Array<CounterView> = [];
+
+	function render() '<div><for {n in names}>{counter()}</for></div>';
+
+	function counter():Element {
+		var c = new CounterView({});
+		made.push(c);
+		return c;
+	}
 }
 
 /** The spec's counter: state read without .get(), and a template body. **/

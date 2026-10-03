@@ -25,7 +25,8 @@ class Owner {
 	/** The tree that elements made under this owner are built in. **/
 	public var tree(default, null):LayoutTree;
 
-	final parent:Null<Owner>;
+	/** The owner this one is disposed with. **/
+	public final parent:Null<Owner>;
 	final children:Array<Owner> = [];
 	final cleanups:Array<Void->Void> = [];
 	var disposed = false;
