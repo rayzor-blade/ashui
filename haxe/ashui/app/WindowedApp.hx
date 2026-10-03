@@ -61,6 +61,10 @@ class WindowedApp {
 	var opened = 0.0;
 	/** Whether the input method is on: while text has focus. **/
 	var imeOn = false;
+	/** Whether the input method is composing, so key events bring no text of their own. **/
+	var composing = false;
+	/** A commit was just typed; the key events of this batch bring nothing more. **/
+	var committed = false;
 	// Pointer moves and wheel deltas waiting to be applied: a batch of events
 	// collapses to the last position and the summed delta, as browsers do.
 	var pendingMove:Null<{x:Float, y:Float}> = null;
@@ -190,6 +194,10 @@ class WindowedApp {
 				polling += haxe.Timer.stamp() - p0;
 			}
 			applyPointer();
+			if (committed) {
+				committed = false;
+				composing = false;
+			}
 			if (kinds != null && handled > 0)
 				frameLog.writeString('events\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\tpoll_ms=${Math.round(polling * 10000) / 10}\t${[for (k => n in kinds) '$k=$n'].join(" ")}\n');
 			var now = haxe.Timer.stamp();
@@ -314,13 +322,15 @@ class WindowedApp {
 				activeByInput();
 				ashui.input.Keyboard.input(tree, key, modifiers);
 				// A key's text is typed unless a shortcut modifier is held or it is a control
-				// character; with the input method on, text comes from its commits instead.
+				// character. While an input method composes, its commit brings the text instead;
+				// plain typing comes on key events even with the input method on.
 				switch key {
-					case Input(_, _, Some(text), _, Pressed, _, _) if (!imeOn && !shortcut() && text.charCodeAt(0) >= 0x20 && text.charCodeAt(0) != 0x7f):
+					case Input(_, _, Some(text), _, Pressed, _, _) if (!composing && !shortcut() && text.charCodeAt(0) >= 0x20 && text.charCodeAt(0) != 0x7f):
 						ashui.input.Keyboard.text(tree, text, modifiers);
 					case _:
 				}
 			case Ime(Preedit(text, cursor)):
+				composing = text != "";
 				ashui.input.Keyboard.composition(tree, text, switch cursor {
 					case Range(start, _): utf16Index(text, haxe.Int64.toInt(start));
 					case None: -1;
@@ -328,7 +338,11 @@ class WindowedApp {
 			case Ime(Commit(text)):
 				ashui.input.Keyboard.composition(tree, "", -1);
 				ashui.input.Keyboard.text(tree, text, modifiers);
+				// The key that commits may also bring its text; it is typed already.
+				composing = true;
+				committed = true;
 			case Ime(Disabled):
+				composing = false;
 				ashui.input.Keyboard.composition(tree, "", -1);
 			case _:
 		}
