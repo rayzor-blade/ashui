@@ -183,8 +183,12 @@ class Hxx {
 			return null;
 		if (Context.unify(type, Context.getType('ashui.layout.Element')))
 			return One(e);
-		if (Context.unify(type, (macro :Array<ashui.layout.Element>).toType()))
-			return Many(e);
+		// Arrays are invariant: an Array<Div> does not unify with Array<Element>, so check what it holds.
+		switch Context.follow(type) {
+			case TInst(_.get() => {pack: [], name: 'Array'}, [item]) if (Context.unify(item, Context.getType('ashui.layout.Element'))):
+				return Many(macro @:pos(e.pos) (cast $e : Array<ashui.layout.Element>));
+			case _:
+		}
 		return null;
 	}
 
