@@ -41,6 +41,9 @@ class Offscreen {
 	**/
 	public var scale = 1.0;
 
+	/** Seconds the last `render` spent flushing, laying out, building the display list and encoding the draw. **/
+	public var timings(default, null) = {flush: 0.0, layout: 0.0, list: 0.0, draw: 0.0};
+
 	/** How many primitives the last frame drew. **/
 	public var primitives(get, never):Int;
 
@@ -67,15 +70,24 @@ class Offscreen {
 		and draws it into `view`, a view of a texture in `format`.
 	**/
 	public function render(root:Element, view:GpuTextureView, width:Int, height:Int):Void {
+		var t0 = haxe.Timer.stamp();
 		root.tree.flush();
+		var t1 = haxe.Timer.stamp();
 		root.tree.computeLayout(root.node, width, height);
+		var t2 = haxe.Timer.stamp();
 		renderTree(root.tree, root.node, view, width, height);
+		timings.flush = t1 - t0;
+		timings.layout = t2 - t1;
 	}
 
 	/** Draws `root` of `tree`, already laid out, into `view`. **/
 	public function renderTree(tree:LayoutTree, root:Node, view:GpuTextureView, width:Int, height:Int):Void {
+		var t0 = haxe.Timer.stamp();
 		list.update(tree, root, scale);
+		var t1 = haxe.Timer.stamp();
+		timings.list = t1 - t0;
 		renderer.draw(list, view, width, height, (clear >> 16 & 0xff) / 255, (clear >> 8 & 0xff) / 255, (clear & 0xff) / 255, clearAlpha);
+		timings.draw = haxe.Timer.stamp() - t1;
 	}
 
 	/**

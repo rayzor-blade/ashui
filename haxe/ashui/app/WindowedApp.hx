@@ -58,7 +58,20 @@ class WindowedApp {
 	var root:Element;
 	var dirty = true;
 	var quitting = false;
+	var opened = 0.0;
+	// Pointer moves and wheel deltas waiting to be applied: a batch of events
+	// collapses to the last position and the summed delta, as browsers do.
+	var pendingMove:Null<{x:Float, y:Float}> = null;
+	var pendingWheelX = 0.0;
+	var pendingWheelY = 0.0;
+	var pendingWheel = false;
 	var modifiers:window.Modifiers = ashui.input.Events.InputEvent.NO_MODIFIERS;
+
+	/** `ASHUI_FRAME_LOG=<file>` writes each frame's phase timings and each wheel delta there; off when unset, safe either way. **/
+	final frameLog:Null<sys.io.FileOutput> = {
+		var path = Sys.getEnv("ASHUI_FRAME_LOG");
+		path != null && path != "" ? sys.io.File.write(path, false) : null;
+	};
 
 	/** Layout units a wheel scrolls by for each line it reports. **/
 	static inline var WHEEL_LINE = 40.0;
@@ -128,41 +141,98 @@ class WindowedApp {
 		WindowTheme.follow(window);
 		configure();
 		root = Owner.root(tree, _ -> build());
-		var opened = haxe.Timer.stamp();
+		opened = haxe.Timer.stamp();
 		var last = opened;
+		var presented = opened;
+		if (frameLog != null)
+			frameLog.writeString("frame\tat_ms\tsince_last_frame\twait\tevents\tn_events\ttick\tflush\tdraw_flush\tlayout\tlist\tgpu\tpresent\tprimitives\n");
 		while (!quitting) {
 			// No wait when a frame is already due, short ones while something
 			// animates; otherwise the loop sleeps on the window.
 			var animating = scheduler.hasActive();
+			var t0 = haxe.Timer.stamp();
 			var event = dirty ? window.poll() : window.wait(animating ? 1 / 120 : 0.1);
+			var t1 = haxe.Timer.stamp();
+			var handled = 0;
+			var polling = 0.0;
+			var kinds = frameLog != null ? new Map<String, Int>() : null;
 			while (event != None) {
+				if (kinds != null) {
+					var k = Type.enumConstructor(event);
+					kinds.set(k, (kinds.exists(k) ? kinds.get(k) : 0) + 1);
+				}
 				handle(event);
+				handled++;
+				var p0 = haxe.Timer.stamp();
 				event = window.poll();
+				polling += haxe.Timer.stamp() - p0;
 			}
+			applyPointer();
+			if (kinds != null && handled > 0)
+				frameLog.writeString('events\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\tpoll_ms=${Math.round(polling * 10000) / 10}\t${[for (k => n in kinds) '$k=$n'].join(" ")}\n');
 			var now = haxe.Timer.stamp();
 			scheduler.tick(now - last);
 			last = now;
 			if (theme.tick() || animating)
 				dirty = true;
+			var t2 = haxe.Timer.stamp();
 			if (tree.flush()) {
 				dirty = true;
 				// Layout may have moved something under a still pointer.
 				ashui.input.Pointer.refresh(tree);
 			}
+			var t3 = haxe.Timer.stamp();
 			if (dirty && !quitting) {
 				dirty = false;
 				if (draw()) {
 					frames++;
+					var t4 = haxe.Timer.stamp();
+					if (frameLog != null) {
+						var o = offscreen.timings;
+						inline function ms(s:Float)
+							return Std.string(Math.round(s * 10000) / 10);
+						frameLog.writeString([
+							Std.string(frames), ms(t4 - opened), ms(t4 - presented), ms(t1 - t0), ms(now - t1), Std.string(handled), ms(t2 - now),
+							ms(t3 - t2), ms(o.flush), ms(o.layout), ms(o.list), ms(o.draw), ms(t4 - t3 - o.flush - o.layout - o.list - o.draw),
+							Std.string(offscreen.primitives)
+						].join("\t") + "\n");
+						frameLog.flush();
+					}
+					presented = t4;
 					if (onFrame != null)
 						onFrame(frames, haxe.Timer.stamp() - opened);
 				}
 			}
 		}
+		if (frameLog != null)
+			frameLog.close();
 		ThemeState.setRedrawCallback(null);
 		theme.setScheduler(null);
 	}
 
+	/** Applies the batch's last pointer position, then its summed wheel delta. **/
+	function applyPointer():Void {
+		if (pendingMove != null) {
+			var at = pendingMove;
+			pendingMove = null;
+			ashui.input.Pointer.move(tree, at.x, at.y, modifiers);
+		}
+		if (pendingWheel) {
+			pendingWheel = false;
+			var dx = pendingWheelX, dy = pendingWheelY;
+			pendingWheelX = pendingWheelY = 0;
+			ashui.input.Pointer.wheel(tree, dx, dy);
+		}
+	}
+
 	function handle(event:window.Event):Void {
+		// Moves and wheel deltas wait for the end of the batch; anything else
+		// sees them applied first, so a press lands where the pointer is.
+		switch event {
+			case CursorMoved(_, _, _) | MouseWheel(_, _, _):
+			case _:
+				applyPointer();
+		}
 		switch event {
 			case Closed | Destroyed:
 				quitting = true;
@@ -175,7 +245,7 @@ class WindowedApp {
 				dirty = true;
 			case CursorMoved(x, y, _):
 				var scale = window.scaleFactor();
-				ashui.input.Pointer.move(tree, x / scale, y / scale, modifiers);
+				pendingMove = {x: x / scale, y: y / scale};
 			case CursorLeft(_):
 				ashui.input.Pointer.leave(tree);
 			case MouseInput(state, button, _):
@@ -183,13 +253,24 @@ class WindowedApp {
 					ashui.input.Pointer.press(tree, button);
 				else
 					ashui.input.Pointer.release(tree, button);
-			case MouseWheel(delta, _, _):
+			case MouseWheel(delta, phase, _):
+				if (frameLog != null) {
+					var d = switch delta {
+						case LineDelta(x, y): '$x\t$y\tlines';
+						case PixelDelta(x, y): '$x\t$y\tpixels';
+					};
+					frameLog.writeString('wheel\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\t$d\t$phase\n');
+				}
+				// Applied after the batch's last move: during a scroll the pointer barely moves.
+				pendingWheel = true;
 				switch delta {
 					case LineDelta(x, y):
-						ashui.input.Pointer.wheel(tree, x * WHEEL_LINE, y * WHEEL_LINE);
+						pendingWheelX += x * WHEEL_LINE;
+						pendingWheelY += y * WHEEL_LINE;
 					case PixelDelta(x, y):
 						var scale = window.scaleFactor();
-						ashui.input.Pointer.wheel(tree, x / scale, y / scale);
+						pendingWheelX += x / scale;
+						pendingWheelY += y / scale;
 				}
 			case ModifiersChanged(m):
 				modifiers = m;
