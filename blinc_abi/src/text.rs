@@ -87,6 +87,34 @@ pub fn prepare(
     )
 }
 
+/// How far below the top of its line box a line's glyphs start, as CSS
+/// places them: half of what the line box has beyond the font's ascender
+/// and descender, at `font_size`. Blinc's layout puts the first baseline at
+/// the ascender, leaving all of that space below the text.
+pub fn half_leading(context: &TextMeasureContext, font_size: f32) -> f32 {
+    let registry = global_font_registry();
+    let Ok(registry) = registry.lock() else {
+        return 0.0;
+    };
+    let generic = match context.generic_font {
+        LayoutGeneric::Monospace => GenericFont::Monospace,
+        LayoutGeneric::Serif => GenericFont::Serif,
+        LayoutGeneric::SansSerif => GenericFont::SansSerif,
+        _ => GenericFont::System,
+    };
+    let Some(font) = registry.get_for_render_with_style(
+        context.font_name.as_deref(),
+        generic,
+        context.font_weight,
+        context.italic,
+    ) else {
+        return 0.0;
+    };
+    let m = font.metrics();
+    let line = m.line_height_px(font_size) * context.line_height;
+    (line - (m.ascender_px(font_size) - m.descender_px(font_size))) / 2.0
+}
+
 // ============================================================================
 // ATLASES
 // ============================================================================

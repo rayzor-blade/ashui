@@ -581,8 +581,11 @@ fn text_records(
     // texels land on pixels instead of being resampled between them.
     let snap = m[1] == 0.0 && m[2] == 0.0;
     let display = glyphs.display_scale;
+    // Glyphs start half the extra leading below the line box's top, as in CSS.
+    let lead = text::half_leading(context, context.font_size * k);
     for g in &prepared.glyphs {
         let [gx, gy, gw, gh] = g.bounds;
+        let gy = gy + lead;
         let mut p = Primitive::new(PRIM_TEXT, [0.0, 0.0, gw / k, gh / k], [0.0; 4]);
         p.color = g.color;
         p.gradient = g.uv_bounds;
