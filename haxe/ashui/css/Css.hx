@@ -139,6 +139,70 @@ class Css {
 		return sheet;
 	}
 
+	/** Files loaded with `loadFile`, by sheet: their path, and the times they and what they import were last changed. **/
+	static final files = new haxe.ds.ObjectMap<Stylesheet, {path:String, times:Map<String, Float>}>();
+
+	/**
+		Reads the CSS file at `path` and puts it in force. Its problems are in
+		the returned sheet's `diagnostics`; `update` reads it again when it
+		changes, in a development build.
+	**/
+	public static function loadFile(path:String):Stylesheet {
+		#if sys
+		var sheet = Stylesheet.parse(sys.io.File.getContent(path), path);
+		files.set(sheet, {path: path, times: times(sheet, path)});
+		add(sheet);
+		return sheet;
+		#else
+		throw "Css.loadFile needs a file system";
+		#end
+	}
+
+	/**
+		Once a frame, from the renderer: puts in force the CSS a theme bundle
+		brought (`ThemeBundle.withCss`), and with `-D ashui_hot_reload`, reads
+		again each loaded file that changed, or that a file it imports did,
+		putting the new sheet in the old one's place and printing its
+		problems. True if a sheet changed.
+	**/
+	public static function update():Bool {
+		var changedAny = false;
+		for (css in ashui.theme.ThemeState.drainPendingStylesheets()) {
+			load(css, "theme");
+			changedAny = true;
+		}
+		#if (sys && ashui_hot_reload)
+		for (sheet => f in files) {
+			var stale = false;
+			for (file => time in f.times)
+				if (!sys.FileSystem.exists(file) || sys.FileSystem.stat(file).mtime.getTime() != time)
+					stale = true;
+			if (!stale)
+				continue;
+			if (!sys.FileSystem.exists(f.path))
+				continue;
+			var next = Stylesheet.parse(sys.io.File.getContent(f.path), f.path);
+			files.remove(sheet);
+			files.set(next, {path: f.path, times: times(next, f.path)});
+			replace(sheet, next);
+			var problems = next.report(f.path);
+			Sys.println('[css] reloaded ${f.path}' + (problems == "" ? "" : "\n" + problems));
+			changedAny = true;
+		}
+		#end
+		return changedAny;
+	}
+
+	static function times(sheet:Stylesheet, path:String):Map<String, Float> {
+		var out = new Map<String, Float>();
+		#if sys
+		for (file in [path].concat(sheet.imports))
+			if (sys.FileSystem.exists(file))
+				out.set(file, sys.FileSystem.stat(file).mtime.getTime());
+		#end
+		return out;
+	}
+
 	/** Puts `sheet` in force, after those already in force; a property it names that this does not apply is a warning in its `diagnostics`. **/
 	public static function add(sheet:Stylesheet):Void {
 		unknown(sheet);

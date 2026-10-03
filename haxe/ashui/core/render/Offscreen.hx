@@ -78,8 +78,9 @@ class Offscreen {
 	**/
 	public function render(root:Element, view:GpuTextureView, width:Int, height:Int):Void {
 		var t0 = haxe.Timer.stamp();
-		// Before the flush, so @media rules for this size apply in this frame.
+		// Before the flush, so @media rules for this size, and CSS just loaded or changed, apply in this frame.
 		ashui.css.Css.setViewport(width, height);
+		ashui.css.Css.update();
 		root.tree.flush();
 		var t1 = haxe.Timer.stamp();
 		root.tree.computeLayout(root.node, width, height);

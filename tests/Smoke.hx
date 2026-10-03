@@ -984,6 +984,21 @@ class Smoke {
 			&& !ashui.css.PointerQueries.trackers.exists(tiltIdentity));
 		ashui.css.Css.remove(pointerSheet);
 
+		// --- CSS files: loaded, and read again when they change ---
+		var cssPath = "live.css";
+		sys.io.File.saveContent(cssPath, ".live { width: 10px; height: 10px; }");
+		var fileSheet = ashui.css.Css.loadFile(cssPath);
+		var fileTree = new LayoutTree();
+		var live = Owner.root(fileTree, _ -> new Div({classes: ["live"]}, fileTree));
+		function liveWidth():Int {
+			fileTree.flush();
+			fileTree.computeLayout(live.node, 100, 100);
+			return Std.int(fileTree.getBounds(live.node).width);
+		}
+		var firstWidth = liveWidth();
+		check("Css.loadFile puts a file in force", firstWidth == 10, firstWidth);
+		ashui.css.Css.remove(fileSheet);
+
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);
 		check("a sheet taken out of force takes its values with it", fillOf(card).length == 0 && after.width == 0, [fillOf(card), after]);
