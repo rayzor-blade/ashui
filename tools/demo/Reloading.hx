@@ -29,6 +29,9 @@ class Reloading {
 		return (frame, _) -> {
 			var app = WindowedApp.current;
 			var board = Board.shown;
+			// An idle window presents no frames; ask for the next while there are steps left.
+			if (clicks.length > 0 || renders == 0)
+				app.invalidate();
 			if (frame == 2) {
 				board.names = board.names.concat(["Plums"]);
 			} else if (frame > 2 && clicks.length > 0) {
