@@ -6,6 +6,8 @@
 #   run.sh memory   resident memory per round of allocations; prints, does not assert
 #   run.sh render   draws a scene offscreen with hlwgpu and checks pixels; Ash only,
 #                   needs a built ../hlwgpu checkout beside this one
+#   run.sh render-caribou   the same pixel test on caribou and its GPU plugin;
+#                   needs a built ../caribou
 #   run.sh window   opens a window with hlwindow and draws into it through a scheme
 #                   switch; Ash only, needs ../hlwgpu and ../hlwindow built, and a
 #                   desktop. Captures go to ../.ashui/snapshots on macOS.
@@ -105,6 +107,20 @@ window)
 	mkdir -p ../.ashui/snapshots
 	run window.hl "$(cd ../.ashui/snapshots && pwd)"
 	;;
+render-caribou)
+	# The pixel test on caribou's runtime and its GPU plugin, needing a built
+	# ../caribou: the plugin is read at compile time to generate the gpu
+	# package, so it sits in plugins/ beside the program.
+	caribou="$(cd ../../caribou && pwd)"
+	[ -x "$caribou/target/release/caribou" ] || { echo "no caribou build: cargo build --release in ../caribou" >&2; exit 1; }
+	mkdir -p bin/caribou/plugins
+	cp "$caribou/target/release/libcaribou_gpu.dylib" bin/caribou/plugins/ 2>/dev/null ||
+		cp "$caribou/target/release/libcaribou_gpu.so" bin/caribou/plugins/
+	cp bin/blinc_abi.hdll bin/caribou/
+	$haxe_ui -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/render -main Pixels -hl bin/caribou/pixels.hl
+	(cd bin/caribou && "$caribou/target/release/caribou" run pixels.hl)
+	;;
 memory)
 	$haxe_ui --class-path fixtures/memory -main Memory -hl bin/memory.hl
 	for kind in tree tree-dispose color signal computed; do
@@ -126,7 +142,7 @@ memory)
 	[ $smoke -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
 	;;
 *)
-	echo "usage: run.sh [memory|render|window]" >&2
+	echo "usage: run.sh [memory|render|render-caribou|window]" >&2
 	exit 2
 	;;
 esac
