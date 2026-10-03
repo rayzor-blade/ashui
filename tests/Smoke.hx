@@ -432,11 +432,22 @@ class Smoke {
 			&& Math.abs(cssEase - 0.8024033877) < 1e-6 && springPeak > 1.05, [easeIn, cssEase, springPeak]);
 
 		// --- Corners take the theme's squircle as Blinc's paint walk resolves them ---
-		var CS = ashui.core.render.CornerShapes;
 		var smooth = ashui.theme.themes.HybridTheme.shape();
-		var n = smooth.effectiveCornerN();
-		function shapeOf(radii:Array<Float>, w:Float, h:Float, ?explicit:Array<Float>, locked = false, ?theme)
-			return CS.resolve(explicit != null ? explicit : CS.ROUND, radii, w, h, theme != null ? theme : smooth, 9999, locked).join(",");
+		var n:Float = (smooth.effectiveCornerN() : Single);
+		var cornerTree = new LayoutTree();
+		var cornerList = new ashui.layout.DisplayList();
+		// A box drawn by the walk under the given smoothing; its record's corner shapes.
+		function shapeOf(radii:Array<Float>, w:Float, h:Float, ?explicit:Array<Float>, locked = false, ?theme) {
+			var e = explicit != null ? explicit : [1.0, 1, 1, 1];
+			var box = new Div({width: w, height: h, bg: Brush.solid(0xffffff),
+				cornerRadius: new ashui.types.CornerRadius(radii[0], radii[1], radii[2], radii[3]),
+				cornerShape: new ashui.types.CornerShape(e[0], e[1], e[2], e[3], locked)}, cornerTree);
+			cornerTree.flush();
+			cornerTree.computeLayout(box.node, w, h);
+			cornerList.shapes = {tokens: theme != null ? theme : smooth, radiusFull: 9999};
+			cornerList.update(cornerTree, box.node);
+			return [for (c in 0...4) (cornerList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD + c) : Float)].join(",");
+		}
 		var round = "1,1,1,1";
 		check("an explicit corner shape wins over the theme", shapeOf([20, 20, 20, 20], 100, 100, [0, 0, 0, 0]) == "0,0,0,0");
 		check("a theme with smoothing off keeps corners round", shapeOf([20, 20, 20, 20], 100, 100, null, false, off) == round);

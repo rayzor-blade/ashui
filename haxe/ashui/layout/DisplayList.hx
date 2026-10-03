@@ -28,6 +28,10 @@ class DisplayList {
 
 	public var bytes(default, null):haxe.io.Bytes;
 	public var count(default, null) = 0;
+
+	/** Corner smoothing to draw with instead of the installed theme's, with its full radius; null for the theme's. **/
+	public var shapes:Null<{tokens:ashui.theme.ShapeTokens, radiusFull:Float}> = null;
+
 	final params = haxe.io.Bytes.alloc(32);
 
 	var capacity = 0;
@@ -68,22 +72,21 @@ class DisplayList {
 	function fillParams(scale:Float):Void {
 		params.setFloat(0, scale);
 		var theme = ashui.theme.ThemeState.tryGet();
-		if (theme == null) {
-			for (i in 1...4)
-				params.setFloat(i * 4, i == 1 ? 0 : Math.POSITIVE_INFINITY);
-			for (i in 4...8)
-				params.setFloat(i * 4, i == 7 ? 1 : 0);
-			return;
+		var shape = shapes != null ? shapes.tokens : theme != null ? theme.shape() : null;
+		if (shape == null || shape.isOff()) {
+			params.setFloat(4, 0);
+			params.setFloat(8, Math.POSITIVE_INFINITY);
+			params.setFloat(12, Math.POSITIVE_INFINITY);
+		} else {
+			params.setFloat(4, shape.effectiveCornerN());
+			params.setFloat(8, shape.smoothingThreshold);
+			params.setFloat(12, shapes != null ? shapes.radiusFull : theme.radii().radiusFull);
 		}
-		var shape = theme.shape();
-		params.setFloat(4, shape.isOff() ? 0 : shape.effectiveCornerN());
-		params.setFloat(8, shape.smoothingThreshold);
-		params.setFloat(12, theme.radii().radiusFull);
-		var c = theme.color(TextPrimary);
-		params.setFloat(16, c.r);
-		params.setFloat(20, c.g);
-		params.setFloat(24, c.b);
-		params.setFloat(28, Math.max(0, Math.min(1, c.a)));
+		var c:Null<ashui.theme.Rgba> = theme != null ? theme.color(TextPrimary) : null;
+		params.setFloat(16, c != null ? c.r : 0);
+		params.setFloat(20, c != null ? c.g : 0);
+		params.setFloat(24, c != null ? c.b : 0);
+		params.setFloat(28, c != null ? Math.max(0, Math.min(1, c.a)) : 1);
 	}
 
 	/** The primitive type of record `record`. **/
