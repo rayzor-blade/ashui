@@ -123,7 +123,17 @@ class AnimationScheduler {
 				springs.remove(id);
 			null;
 		});
-		// Due timers, outside the lock: a callback may set another.
+		// Outside the lock: a ticker may add another.
+		var running = locked(() -> tickers.splice(0, tickers.length));
+		var kept = [for (ticker in running) if (ticker(dt)) ticker];
+		locked(() -> {
+			for (i in 0...kept.length)
+				tickers.insert(i, kept[i]);
+			null;
+		});
+		// Due timers, after the tickers, so one a timer starts begins at the next tick
+		// rather than taking this tick's whole step at once. Outside the lock: a
+		// callback may set another.
 		var now = haxe.Timer.stamp();
 		var due = locked(() -> {
 			var fire = [for (t in timers) if (t.at <= now || t.cancelled) t];
@@ -134,14 +144,6 @@ class AnimationScheduler {
 		for (t in due)
 			if (!t.cancelled)
 				t.callback();
-		// Outside the lock: a ticker may add another.
-		var running = locked(() -> tickers.splice(0, tickers.length));
-		var kept = [for (ticker in running) if (ticker(dt)) ticker];
-		locked(() -> {
-			for (i in 0...kept.length)
-				tickers.insert(i, kept[i]);
-			null;
-		});
 	}
 
 	#if target.threaded

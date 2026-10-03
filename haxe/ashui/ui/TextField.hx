@@ -44,6 +44,8 @@ class TextField extends Component<TextFieldProps> {
 
 	/** Seconds the caret shows, then hides, while the field has focus. **/
 	static inline var BLINK = 0.53;
+	/** Seconds each blink fades over, eased, as macOS softens its caret. **/
+	static inline var FADE = 0.06;
 
 	var value:Signal<String>;
 	final focused = Signal.make(false);
@@ -51,7 +53,11 @@ class TextField extends Component<TextFieldProps> {
 	final caret = Signal.make(0);
 	final anchor = Signal.make(0);
 	final scroll = Signal.make((0 : Single));
-	final caretShown = Signal.make(true);
+	/** The caret's opacity: 1 shown, 0 hidden, between while it fades. **/
+	final caretAlpha = Signal.make(1.0);
+	/** Whether the blink is heading to shown. **/
+	var caretOn = true;
+	var fadeId = 0;
 	var dragging = false;
 	var blinkTimer:Null<ashui.animation.AnimationScheduler.Timer> = null;
 
@@ -105,7 +111,7 @@ class TextField extends Component<TextFieldProps> {
 								<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
 							</div>
 							<div class="absolute top-0 bottom-0 bg-text-primary" left={caretLeft} width={1.5}
-								opacity={Computed.make(() -> (focused.get() && caretShown.get() ? 1 : 0 : Single))} />
+								opacity={Computed.make(() -> (focused.get() ? caretAlpha.get() : 0 : Single))} />
 						</div>
 					</div>
 				</div>')}
@@ -339,19 +345,41 @@ class TextField extends Component<TextFieldProps> {
 	function restartBlink():Void {
 		if (blinkTimer != null)
 			blinkTimer.cancel();
-		caretShown.set(true);
+		// Typing or moving shows the caret at once, with no fade.
+		fadeId++;
+		caretOn = true;
+		caretAlpha.set(1);
 		blinkTimer = ashui.animation.AnimationScheduler.main.after(BLINK, blink);
 	}
 
-	/** Shows or hides the caret, and sets the next blink while the field has focus. **/
+	/** Starts the caret fading out or in, and sets the next blink while the field has focus. **/
 	function blink():Void {
 		blinkTimer = null;
 		if (!focused.get()) {
-			caretShown.set(true);
+			fadeId++;
+			caretOn = true;
+			caretAlpha.set(1);
 			return;
 		}
-		caretShown.set(!caretShown.get());
+		caretOn = !caretOn;
+		fadeTo(caretOn ? 1 : 0);
 		blinkTimer = ashui.animation.AnimationScheduler.main.after(BLINK, blink);
+	}
+
+	/** Eases the caret's opacity to `target` over `FADE`; frames are drawn only while it moves. **/
+	function fadeTo(target:Float):Void {
+		var id = ++fadeId;
+		var from = caretAlpha.get();
+		var t = 0.0;
+		ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+			if (id != fadeId)
+				return false;
+			t = Math.min(1, t + dt / FADE);
+			// Ease in and out: slow at both ends.
+			var eased = t * t * (3 - 2 * t);
+			caretAlpha.set(from + (target - from) * eased);
+			return t < 1;
+		});
 	}
 
 	static inline function isMac():Bool
