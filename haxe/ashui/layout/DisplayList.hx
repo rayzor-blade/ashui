@@ -32,6 +32,8 @@ class DisplayList {
 	public static inline var PRIM_LAYER_BEGIN = 40;
 	/** Composites the layer begun last over its bounds, faded by its colour's alpha. **/
 	public static inline var PRIM_LAYER = 41;
+	/** What is drawn behind its box, blurred and colour-filtered, drawn back over the box before the element. **/
+	public static inline var PRIM_BACKDROP = 42;
 
 	public var bytes(default, null):haxe.io.Bytes;
 	public var count(default, null) = 0;

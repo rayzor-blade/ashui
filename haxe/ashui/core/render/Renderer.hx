@@ -63,6 +63,12 @@ class Renderer {
 	final blurPass:Pass;
 	/** The first pass of a layer's drop shadow, its alpha blurred along its rows, blending off. **/
 	final shadowPass:Pass;
+	/** A backdrop filter's two passes, and the copy of a frame drawn offscreen onto its target. **/
+	final backdropRowsPass:Pass;
+	final backdropPass:Pass;
+	final blitPass:Pass;
+	/** The frame drawn offscreen, when a backdrop filter must read what is drawn under it. **/
+	var frameLayer:Null<Layer> = null;
 	final format:TextureFormat;
 	/** A composite record's blur, its `color.r`: its deviation in pixels. **/
 	static inline var BLUR_FIELD = 8;
@@ -99,6 +105,9 @@ class Renderer {
 		layerPass = pass(LayerShader.WGSL, format, false);
 		blurPass = pass(LayerBlurShader.WGSL, format, false, false);
 		shadowPass = pass(LayerShadowShader.WGSL, format, false, false);
+		backdropRowsPass = pass(BackdropRowsShader.WGSL, format, false, false);
+		backdropPass = pass(BackdropShader.WGSL, format, false);
+		blitPass = pass(BlitShader.WGSL, format, false, false);
 		this.format = format;
 	}
 
@@ -122,7 +131,9 @@ class Renderer {
 			bindings.destroy();
 		}
 		var made:Pass = {pipeline: pipeline, group: group, records: null};
-		passes.push(made);
+		// Only a shader that reads records gets their bind group: the blit reads none.
+		if (wgsl.indexOf("var records") >= 0)
+			passes.push(made);
 		return made;
 	}
 
@@ -186,12 +197,45 @@ class Renderer {
 			queue.writeTexture(records, list.bytes, DisplayList.ROW_TEXELS, rows, DisplayList.ROW_TEXELS * 16);
 		}
 		var encoder = device.encoder();
-		beginPass(encoder, view, true, r, g, b, a);
+		// A backdrop filter reads what is drawn under it, which a window's surface does not allow:
+		// such a frame is drawn into a texture of its own and copied to `view` at the end.
+		var offscreen = false;
+		for (i in 0...list.count)
+			if (list.kind(i) == DisplayList.PRIM_BACKDROP) {
+				offscreen = true;
+				break;
+			}
+		if (offscreen && (frameLayer == null || frameLayer.width != layerWidth || frameLayer.height != layerHeight)) {
+			if (frameLayer != null)
+				destroyLayer(frameLayer);
+			frameLayer = makeLayer(layerWidth, layerHeight);
+		}
+		var base = offscreen ? frameLayer.view : view;
+		beginPass(encoder, base, true, r, g, b, a);
 		if (list.count > 0) {
 			var start = 0;
 			var depth = 0;
 			while (start < list.count) {
 				var kind = list.kind(start);
+				if (kind == DisplayList.PRIM_BACKDROP) {
+					// What is under the box so far, blurred along its rows into the target's second
+					// texture, then down its columns and filtered as it is drawn back over the box.
+					var under = depth == 0 ? frameLayer : layers[depth - 1];
+					encoder.renderEnd();
+					beginPass(encoder, under.rowsView, true, 0, 0, 0, 0);
+					encoder.renderSetPipeline(backdropRowsPass.pipeline);
+					encoder.renderSetBindGroup(BackdropRowsShader.FRAME_GROUP, under.backdropRowsGroup);
+					encoder.renderSetBindGroup(BackdropRowsShader.TEXTURE_records_GROUP, backdropRowsPass.records);
+					encoder.renderDrawRange(6, 1, 0, start);
+					encoder.renderEnd();
+					beginPass(encoder, under.view, false, 0, 0, 0, 0);
+					encoder.renderSetPipeline(backdropPass.pipeline);
+					encoder.renderSetBindGroup(BackdropShader.FRAME_GROUP, under.backdropGroup);
+					encoder.renderSetBindGroup(BackdropShader.TEXTURE_records_GROUP, backdropPass.records);
+					encoder.renderDrawRange(6, 1, 0, start);
+					start++;
+					continue;
+				}
 				if (kind == DisplayList.PRIM_LAYER_BEGIN) {
 					// What follows draws into a cleared layer, until its composite record.
 					encoder.renderEnd();
@@ -223,7 +267,7 @@ class Renderer {
 						encoder.renderEnd();
 					}
 					depth--;
-					beginPass(encoder, depth == 0 ? view : layers[depth - 1].view, false, 0, 0, 0, 0);
+					beginPass(encoder, depth == 0 ? base : layers[depth - 1].view, false, 0, 0, 0, 0);
 					encoder.renderSetPipeline(layerPass.pipeline);
 					encoder.renderSetBindGroup(LayerShader.FRAME_GROUP, blurred ? inner.rowsGroup : inner.group);
 					encoder.renderSetBindGroup(LayerShader.TEXTURE_shadow_GROUP, inner.shadowGroup);
@@ -245,6 +289,13 @@ class Renderer {
 			}
 		}
 		encoder.renderEnd();
+		if (offscreen) {
+			beginPass(encoder, view, true, r, g, b, a);
+			encoder.renderSetPipeline(blitPass.pipeline);
+			encoder.renderSetBindGroup(BlitShader.FRAME_GROUP, frameLayer.blitGroup);
+			encoder.renderDrawRange(6, 1, 0, 0);
+			encoder.renderEnd();
+		}
 		encoder.submit(queue);
 		failOnError("drawing");
 	}
@@ -273,13 +324,25 @@ class Renderer {
 		var at = layers[depth - 1];
 		if (at != null && at.width == width && at.height == height)
 			return at;
-		if (at != null) {
-			for (g in [at.group, at.rowsGroup, at.blurGroup, at.shadowPassGroup, at.shadowGroup])
-				g.destroy();
-			at.texture.destroy();
-			at.rows.destroy();
-			at.shadow.destroy();
-		}
+		if (at != null)
+			destroyLayer(at);
+		var made = makeLayer(width, height);
+		layers[depth - 1] = made;
+		return made;
+	}
+
+	function destroyLayer(at:Layer):Void {
+		for (g in [
+			at.group, at.rowsGroup, at.blurGroup, at.shadowPassGroup, at.shadowGroup, at.backdropRowsGroup, at.backdropGroup, at.blitGroup
+		])
+			g.destroy();
+		at.texture.destroy();
+		at.rows.destroy();
+		at.shadow.destroy();
+	}
+
+	/** A target `width` × `height` pixels in the target's format, with the textures and bindings its passes use. **/
+	function makeLayer(width:Int, height:Int):Layer {
 		var size = new GpuExtent3D(width);
 		size.height(height);
 		function target():GpuTexture
@@ -302,7 +365,7 @@ class Renderer {
 		shadowBindings.texture(shadowView);
 		var shadowGroup = device.bindGroup(layerPass.pipeline, LayerShader.TEXTURE_shadow_GROUP, shadowBindings);
 		shadowBindings.destroy();
-		var made:Layer = {
+		return {
 			texture: texture,
 			view: view,
 			group: group(layerPass, LayerShader.FRAME_GROUP, view),
@@ -314,11 +377,12 @@ class Renderer {
 			shadowView: shadowView,
 			shadowPassGroup: group(shadowPass, LayerShadowShader.FRAME_GROUP, view),
 			shadowGroup: shadowGroup,
+			backdropRowsGroup: group(backdropRowsPass, BackdropRowsShader.FRAME_GROUP, view),
+			backdropGroup: group(backdropPass, BackdropShader.FRAME_GROUP, rowsView),
+			blitGroup: group(blitPass, BlitShader.FRAME_GROUP, view),
 			width: width,
 			height: height
 		};
-		layers[depth - 1] = made;
-		return made;
 	}
 
 	/** Grows the records texture to `rows` rows, and binds each pass to it. **/
@@ -366,6 +430,10 @@ private typedef Layer = {
 	final shadowView:GpuTextureView;
 	final shadowPassGroup:GpuBindGroup;
 	final shadowGroup:GpuBindGroup;
+	/** A backdrop filter's bindings: of the target itself for its rows, and of its rows for the columns; and the blit's. **/
+	final backdropRowsGroup:GpuBindGroup;
+	final backdropGroup:GpuBindGroup;
+	final blitGroup:GpuBindGroup;
 	final width:Int;
 	final height:Int;
 }
