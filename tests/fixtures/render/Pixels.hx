@@ -109,7 +109,7 @@ class Pixels {
 		var device = new GpuInstance().requestAdapter(Power.HighPerformance).await().requestDevice().await();
 		var size = new GpuExtent3D(SIZE);
 		size.height(SIZE);
-		var target = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba8unorm, TextureUsage.RENDER_ATTACHMENT | TextureUsage.COPY_SRC));
+		var target = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba8unorm, ashui.core.render.GpuFlags.TEXTURE_RENDER_ATTACHMENT | ashui.core.render.GpuFlags.TEXTURE_COPY_SRC));
 		var offscreen = new Offscreen(device, TextureFormat.Rgba8unorm);
 		offscreen.render(root, target.createView(new GpuTextureViewDescriptor()), SIZE, SIZE);
 		var shared = offscreen.readRgba8(target, SIZE, SIZE);

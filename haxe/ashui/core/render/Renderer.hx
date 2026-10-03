@@ -108,7 +108,7 @@ class Renderer {
 	public function new(device:GpuDevice, format:TextureFormat) {
 		this.device = device;
 		frameBytes = haxe.io.Bytes.alloc(BoxShader.FRAME_SIZE);
-		frame = device.createBuffer(new GpuBufferDescriptor(BoxShader.FRAME_SIZE, BufferUsage.UNIFORM | BufferUsage.COPY_DST));
+		frame = device.createBuffer(new GpuBufferDescriptor(BoxShader.FRAME_SIZE, GpuFlags.BUFFER_UNIFORM | GpuFlags.BUFFER_COPY_DST));
 		boxes = pass(BoxShader.WGSL, format);
 		shadows = pass(ShadowShader.WGSL, format);
 		atlas = new GlyphAtlas(device, false);
@@ -133,7 +133,7 @@ class Renderer {
 		var shader = device.createShader(wgsl);
 		var builder = device.pipeline();
 		builder.shader(shader, "vertex", "fragment");
-		builder.target(format, ColorWrite.ALL);
+		builder.target(format, GpuFlags.COLOR_WRITE_ALL);
 		if (blend)
 			builder.blend(BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha, BlendOperation.Add, BlendFactor.One, BlendFactor.OneMinusSrcAlpha,
 			BlendOperation.Add);
@@ -364,7 +364,7 @@ class Renderer {
 		var size = new GpuExtent3D(width);
 		size.height(height);
 		function target():GpuTexture
-			return device.texture(new GpuTextureDescriptor(size, format, TextureUsage.RENDER_ATTACHMENT | TextureUsage.TEXTURE_BINDING));
+			return device.texture(new GpuTextureDescriptor(size, format, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
 		// A pass that blurs reads its texture through the linear sampler, two texels a read; the blit only fetches.
 		function group(pass:Pass, frameGroup:Int, of:GpuTextureView, sampled = true):GpuBindGroup {
 			var bindings = new GpuBindings();
@@ -416,7 +416,7 @@ class Renderer {
 		recordRows = rows + (rows >> 1) + 1;
 		var size = new GpuExtent3D(DisplayList.ROW_TEXELS);
 		size.height(recordRows);
-		records = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba32float, TextureUsage.TEXTURE_BINDING | TextureUsage.COPY_DST));
+		records = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
 		var view = records.createView(new GpuTextureViewDescriptor());
 		for (pass in passes) {
 			if (pass.records != null)

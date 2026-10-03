@@ -110,7 +110,7 @@ class ImageAtlas {
 		var extent = new GpuExtent3D(size);
 		extent.height(size);
 		texture = device.texture(new GpuTextureDescriptor(extent, TextureFormat.Rgba8unorm,
-			TextureUsage.TEXTURE_BINDING | TextureUsage.COPY_DST | TextureUsage.COPY_SRC));
+			GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST | GpuFlags.TEXTURE_COPY_SRC));
 		view = texture.createView(new GpuTextureViewDescriptor());
 		revision++;
 	}

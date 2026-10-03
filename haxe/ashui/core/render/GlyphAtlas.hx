@@ -67,7 +67,7 @@ class GlyphAtlas {
 		var size = new GpuExtent3D(width);
 		size.height(height);
 		texture = device.texture(new GpuTextureDescriptor(size, color ? TextureFormat.Rgba8unorm : TextureFormat.R8unorm,
-			TextureUsage.TEXTURE_BINDING | TextureUsage.COPY_DST));
+			GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
 		view = texture.createView(new GpuTextureViewDescriptor());
 		revision++;
 	}

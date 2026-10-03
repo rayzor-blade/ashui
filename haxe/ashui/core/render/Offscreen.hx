@@ -157,7 +157,7 @@ class Offscreen {
 		var size = new GpuExtent3D(width);
 		size.height(height);
 		return device.texture(new GpuTextureDescriptor(size, format,
-			TextureUsage.RENDER_ATTACHMENT | TextureUsage.TEXTURE_BINDING | TextureUsage.COPY_SRC));
+			GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_SRC));
 	}
 
 	/**
@@ -168,7 +168,7 @@ class Offscreen {
 	public function readRgba8(texture:GpuTexture, width:Int, height:Int):haxe.io.Bytes {
 		// Buffer copies take rows a multiple of 256 bytes apart.
 		var stride = (width * 4 + 255) & ~255;
-		var readback = device.createBuffer(new GpuBufferDescriptor(stride * height, BufferUsage.MAP_READ | BufferUsage.COPY_DST));
+		var readback = device.createBuffer(new GpuBufferDescriptor(stride * height, GpuFlags.BUFFER_MAP_READ | GpuFlags.BUFFER_COPY_DST));
 		var encoder = device.encoder();
 		encoder.copyTextureToBuffer(texture, readback, width, height, stride);
 		encoder.submit(device.queue());
