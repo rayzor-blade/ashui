@@ -805,6 +805,19 @@ class Smoke {
 		ashui.input.Pointer.release(fieldTree);
 		ashui.input.Keyboard.text(fieldTree, "-");
 		check("text field: a click places the caret at the nearest character boundary", fieldValue.get() == "g-o", fieldValue.get());
+		fieldKey(Character("a"), KeyA, cmd);
+		fieldKey(Character("c"), KeyC, cmd);
+		fieldKey(Named(End), End);
+		fieldKey(Character("v"), KeyV, cmd);
+		check("text field: Command+C copies the selection and Command+V pastes it", fieldValue.get() == "g-og-o", fieldValue.get());
+		fieldKey(Named(Home), Home);
+		fieldKey(Named(ArrowRight), ArrowRight, shift);
+		fieldKey(Character("x"), KeyX, cmd);
+		check("text field: Command+X cuts the selection", fieldValue.get() == "-og-o" && ashui.input.Clipboard.text() == "g",
+			[fieldValue.get(), ashui.input.Clipboard.text()]);
+		ashui.input.Clipboard.setText("a\nb");
+		fieldKey(Character("v"), KeyV, cmd);
+		check("text field: a pasted line break becomes a space", fieldValue.get() == "a b-og-o", fieldValue.get());
 
 		// --- Scroll containers move their content under the wheel ---
 		var scrollTree = new LayoutTree();

@@ -30,7 +30,8 @@ typedef TextFieldProps = {
 	typing inserts at the caret, Backspace and Delete remove, the arrows,
 	Home and End move the caret, Shift with any of them selects, Alt moves
 	by word and Command (Control elsewhere) to the ends, Command+A selects
-	everything, Escape gives focus up and Enter calls `onSubmit`. Clicking
+	everything, Command+C, X and V copy, cut and paste (see
+	`ashui.input.Clipboard`), Escape gives focus up and Enter calls `onSubmit`. Clicking
 	places the caret and dragging selects. A value longer than the field
 	scrolls to keep the caret in view.
 
@@ -230,6 +231,13 @@ class TextField extends Component<TextFieldProps> {
 		restartBlink();
 	}
 
+	/** The selected text. **/
+	function selection():String {
+		var from = Std.int(Math.min(caret.get(), anchor.get()));
+		var to = Std.int(Math.max(caret.get(), anchor.get()));
+		return value.get().substring(from, to);
+	}
+
 	/** Replaces the selection with `insert`, leaving the caret after it. **/
 	function replace(insert:String):Void {
 		var s = value.get();
@@ -285,6 +293,19 @@ class TextField extends Component<TextFieldProps> {
 			case Character(c) if ((c == "a" || c == "A") && (e.superKey || e.control)):
 				anchor.set(0);
 				move(value.get().length, true);
+			case Character(c) if ((c == "c" || c == "C") && (e.superKey || e.control)):
+				if (selected)
+					ashui.input.Clipboard.setText(selection());
+			case Character(c) if ((c == "x" || c == "X") && (e.superKey || e.control)):
+				if (selected) {
+					ashui.input.Clipboard.setText(selection());
+					replace("");
+				}
+			case Character(c) if ((c == "v" || c == "V") && (e.superKey || e.control)):
+				// One line: pasted line breaks become spaces.
+				var pasted = ~/\r\n|\r|\n/g.replace(ashui.input.Clipboard.text(), " ");
+				if (pasted != "" || selected)
+					replace(pasted);
 			case _:
 				return;
 		}
