@@ -28,6 +28,10 @@ class DisplayList {
 	public static inline var PRIM_TEXT = 7;
 	/** An image in a node's content box, which the renderer looks up in its image atlas. **/
 	public static inline var PRIM_IMAGE = 32;
+	/** The records after it, to its `PRIM_LAYER`, draw into a layer of their own. **/
+	public static inline var PRIM_LAYER_BEGIN = 40;
+	/** Composites the layer begun last over its bounds, faded by its colour's alpha. **/
+	public static inline var PRIM_LAYER = 41;
 
 	public var bytes(default, null):haxe.io.Bytes;
 	public var count(default, null) = 0;

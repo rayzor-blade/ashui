@@ -41,6 +41,10 @@ import gpu.TextureUsage;
 	tall, a blue box inset by 10 pixels with rounded corners, and a green
 	triangle from percentages; then a red square path with a square hole.
 
+	Then group opacity: a blue box at half opacity holding a red one, which
+	shows as half-strength red with no blue through it, as a group
+	composites; and a red box at half opacity holding a green one.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -222,6 +226,22 @@ class Pixels {
 		pixels = offscreen.renderToRgba8(pathRoot, SIZE, SIZE);
 		probe("a path of two rings keeps the frame", 11, 20, near(0xff0000));
 		probe("and leaves the hole, wound the other way, clear", 20, 20, near(0xffffff));
+
+		var groupTree = new LayoutTree();
+		var groupRed = new Div({position: Position.Absolute, left: 8, top: 8, width: 16, height: 16, bg: Brush.solid(0xff0000)}, groupTree);
+		var group = new Div({position: Position.Absolute, left: 8, top: 8, width: 32, height: 32, bg: Brush.solid(0x0000ff)}, [groupRed], groupTree);
+		group.node.set(Prop.Opacity, (0.5 : Single));
+		var nested = new Div({position: Position.Absolute, left: 4, top: 4, width: 8, height: 8, bg: Brush.solid(0x00ff00)}, groupTree);
+		var inner = new Div({position: Position.Absolute, left: 0, top: 0, width: 16, height: 16, bg: Brush.solid(0xff0000)}, [nested], groupTree);
+		inner.node.set(Prop.Opacity, (0.5 : Single));
+		var outer = new Div({position: Position.Absolute, left: 44, top: 8, width: 16, height: 16}, [inner], groupTree);
+		var groupRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [group, outer], groupTree);
+		pixels = offscreen.renderToRgba8(groupRoot, SIZE, SIZE);
+		label = "group opacity: ";
+		probe("the group's own fill at half", 12, 36, (r, g, b) -> Math.abs(r - 128) < 4 && Math.abs(g - 128) < 4 && b > 250);
+		probe("a child over it shows none of the fill through", 24, 24, (r, g, b) -> r > 250 && Math.abs(g - 128) < 4 && Math.abs(b - 128) < 4);
+		probe("outside the group, untouched", 60, 60, near(0xffffff));
+		probe("a child of a faded group over its fill", 52, 16, (r, g, b) -> Math.abs(r - 128) < 4 && g > 250 && Math.abs(b - 128) < 4);
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

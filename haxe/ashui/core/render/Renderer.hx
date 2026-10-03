@@ -11,6 +11,11 @@ import gpu.GpuBindGroup;
 import gpu.GpuBindings;
 import gpu.GpuBuffer;
 import gpu.GpuBufferDescriptor;
+import gpu.GpuColor;
+import gpu.GpuRenderPassColorAttachment;
+import gpu.GpuRenderPassDescriptor;
+import gpu.LoadOp;
+import gpu.StoreOp;
 import gpu.GpuExtent3D;
 import gpu.GpuTexture;
 import gpu.GpuTextureDescriptor;
@@ -31,7 +36,9 @@ import gpu.TextureFormat;
 	run of records of one kind is one draw with that kind's pipeline, so
 	paint order holds across kinds. The records are uploaded as rows of a
 	float texture each shader reads its instance's record from (see
-	`UiFramework`), on every platform alike. Colours are straight alpha, blended over
+	`UiFramework`), on every platform alike. A group with opacity draws
+	into a layer, a texture the target's size, and is composited back over
+	its bounds by `LayerShader`, as CSS composites one. Colours are straight alpha, blended over
 	the target in gamma space as Blinc does on native targets. Glyphs sample
 	the text engine's atlases, uploaded before each frame that changed them;
 	images sample an atlas of their own, rasterized into as they appear.
@@ -51,6 +58,10 @@ class Renderer {
 	final glyphSampler:GpuSampler;
 	final images:Pass;
 	final imageAtlas:ImageAtlas;
+	final layerPass:Pass;
+	final format:TextureFormat;
+	/** Layer textures by depth, from 1, the target's size, each with its bind group for `layerPass`. **/
+	final layers:Array<Layer> = [];
 	var imageRevision = -1;
 	/** The atlas revisions `text`'s bind group holds views of. **/
 	var textRevisions = "";
@@ -75,6 +86,8 @@ class Renderer {
 		text = pass(TextShader.WGSL, format, false);
 		imageAtlas = new ImageAtlas(device);
 		images = pass(ImageShader.WGSL, format, false);
+		layerPass = pass(LayerShader.WGSL, format, false);
+		this.format = format;
 	}
 
 	function pass(wgsl:String, format:TextureFormat, bind = true):Pass {
@@ -152,12 +165,33 @@ class Renderer {
 			queue.writeTexture(records, list.bytes, DisplayList.ROW_TEXELS, rows, DisplayList.ROW_TEXELS * 16);
 		}
 		var encoder = device.encoder();
-		encoder.passColour(view, r, g, b, a);
-		encoder.passBegin();
+		beginPass(encoder, view, true, r, g, b, a);
 		if (list.count > 0) {
 			var start = 0;
+			var depth = 0;
 			while (start < list.count) {
 				var kind = list.kind(start);
+				if (kind == DisplayList.PRIM_LAYER_BEGIN) {
+					// What follows draws into a cleared layer, until its composite record.
+					encoder.renderEnd();
+					depth++;
+					beginPass(encoder, layerAt(depth, width, height).view, true, 0, 0, 0, 0);
+					start++;
+					continue;
+				}
+				if (kind == DisplayList.PRIM_LAYER) {
+					// Back to the layer or target under it, keeping what it holds, to composite this one.
+					encoder.renderEnd();
+					var inner = layers[depth - 1];
+					depth--;
+					beginPass(encoder, depth == 0 ? view : layers[depth - 1].view, false, 0, 0, 0, 0);
+					encoder.renderSetPipeline(layerPass.pipeline);
+					encoder.renderSetBindGroup(LayerShader.FRAME_GROUP, inner.group);
+					encoder.renderSetBindGroup(LayerShader.TEXTURE_records_GROUP, layerPass.records);
+					encoder.renderDrawRange(6, 1, 0, start);
+					start++;
+					continue;
+				}
 				var end = start + 1;
 				while (end < list.count && list.kind(end) == kind)
 					end++;
@@ -181,6 +215,40 @@ class Renderer {
 		encoder.renderSetBindGroup(BoxShader.TEXTURE_records_GROUP, pass.records);
 		// Direct and not indexed: on GLES, instance_index counts from `first` only in a direct draw.
 		encoder.renderDrawRange(6, count, 0, first);
+	}
+
+	/** Begins a render pass on `view`, clearing it to the colour given or keeping what it holds. **/
+	function beginPass(encoder:GpuEncoder, view:GpuTextureView, clear:Bool, r:Float, g:Float, b:Float, a:Float):Void {
+		var attachment = new GpuRenderPassColorAttachment(clear ? LoadOp.Clear : LoadOp.Load, StoreOp.Store);
+		attachment.viewTextureView(view);
+		if (clear)
+			attachment.clearValue(new GpuColor(r, g, b, a));
+		var descriptor = new GpuRenderPassDescriptor();
+		descriptor.addColorAttachments(attachment);
+		encoder.beginRenderPass(descriptor);
+	}
+
+	/** The layer at `depth`, from 1, a texture `width` × `height` of the target's format, made or remade to fit. **/
+	function layerAt(depth:Int, width:Int, height:Int):Layer {
+		var at = layers[depth - 1];
+		if (at != null && at.width == width && at.height == height)
+			return at;
+		if (at != null) {
+			at.group.destroy();
+			at.texture.destroy();
+		}
+		var size = new GpuExtent3D(width);
+		size.height(height);
+		var texture = device.texture(new GpuTextureDescriptor(size, format, TextureUsage.RENDER_ATTACHMENT | TextureUsage.TEXTURE_BINDING));
+		var view = texture.createView(new GpuTextureViewDescriptor());
+		var bindings = new GpuBindings();
+		bindings.buffer(frame);
+		bindings.texture(view);
+		var group = device.bindGroup(layerPass.pipeline, LayerShader.FRAME_GROUP, bindings);
+		bindings.destroy();
+		var made:Layer = {texture: texture, view: view, group: group, width: width, height: height};
+		layers[depth - 1] = made;
+		return made;
 	}
 
 	/** Grows the records texture to `rows` rows, and binds each pass to it. **/
@@ -210,6 +278,14 @@ class Renderer {
 		if (error != null)
 			throw 'gpu error $doing: $error';
 	}
+}
+
+private typedef Layer = {
+	final texture:GpuTexture;
+	final view:GpuTextureView;
+	final group:GpuBindGroup;
+	final width:Int;
+	final height:Int;
 }
 
 private typedef Pass = {

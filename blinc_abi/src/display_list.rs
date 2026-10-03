@@ -84,6 +84,12 @@ pub const PRIM_SHADOW: f32 = 3.0;
 pub const PRIM_TEXT: f32 = 7.0;
 /// ashui's own: Blinc draws images in a pass of their own.
 pub const PRIM_IMAGE: f32 = 32.0;
+/// The records after it, up to its `PRIM_LAYER`, are drawn into a layer of
+/// their own: a group with opacity, as CSS composites one.
+pub const PRIM_LAYER_BEGIN: f32 = 40.0;
+/// Draws the layer the last `PRIM_LAYER_BEGIN` began over its bounds, its
+/// alpha times `color.a`.
+pub const PRIM_LAYER: f32 = 41.0;
 
 /// `type_info.y`, as Blinc's `FillType`.
 const FILL_SOLID: f32 = 0.0;
@@ -688,6 +694,8 @@ pub fn append(
         .unwrap_or(color);
     let mut pushed = false;
     let mut shaped = false;
+    // Where its layer's begin record is in `out`, and the layer's opacity.
+    let mut layer: Option<(usize, f32)> = None;
     // A border drawn after the children, with the clips its node is drawn under.
     let mut after: Option<(Primitive, Clipping)> = None;
     if let Some(props) = tree.props.get(&node) {
@@ -703,7 +711,15 @@ pub fn append(
             );
             m = compose(m, about);
         }
-        opacity *= props.opacity;
+        // A group with opacity over more than one painted node is drawn into a
+        // layer and faded as one; otherwise multiplying the opacity in is exact.
+        if props.opacity < 1.0 && painted_at_least(tree, node, 2) {
+            layer = Some((out.len(), opacity * props.opacity));
+            Primitive::new(PRIM_LAYER_BEGIN, [0.0; 4], [0.0; 4]).push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
+            opacity = 1.0;
+        } else {
+            opacity *= props.opacity;
+        }
         // A clip-path clips the node itself, its shadows and everything inside it.
         if let Some(path) = &props.clip_path {
             clips.push(Clip {
@@ -866,6 +882,71 @@ pub fn append(
     if shaped {
         clips.pop();
     }
+    if let Some((begin, alpha)) = layer {
+        let mut c = Primitive::new(PRIM_LAYER, records_bounds(&out[begin + RECORD_FLOATS..]), [0.0; 4]);
+        c.color = [1.0, 1.0, 1.0, alpha];
+        c.push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
+    }
+}
+
+/// Whether `node`'s subtree paints at least `n` nodes: a fill, a border, a
+/// shadow, an outline, text or an image.
+fn painted_at_least(tree: &Tree, node: LayoutNodeId, n: usize) -> bool {
+    fn count(tree: &Tree, node: LayoutNodeId, found: &mut usize, n: usize) {
+        if *found >= n {
+            return;
+        }
+        if let Some(p) = tree.props.get(&node) {
+            if !p.visible {
+                return;
+            }
+            let paints = p.background.is_some()
+                || (p.border_color.is_some() && p.border_width > 0.0)
+                || !p.shadow.is_empty()
+                || (p.outline_color.is_some() && p.outline_width > 0.0);
+            if paints {
+                *found += 1;
+            }
+        }
+        if tree.layout.text_context(node).is_some() || tree.images.contains_key(&node) {
+            *found += 1;
+        }
+        for child in tree.layout.children(node) {
+            count(tree, child, found, n);
+        }
+    }
+    let mut found = 0;
+    count(tree, node, &mut found, n);
+    found >= n
+}
+
+/// The bounds on screen, x, y, width, height, of the boxes `records` draw:
+/// each turned by its transform, and a shadow grown by its offset, blur and
+/// spread. Layer records inside count by their own bounds.
+fn records_bounds(records: &[f32]) -> [f32; 4] {
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for r in records.chunks_exact(RECORD_FLOATS) {
+        if r[44] == PRIM_LAYER_BEGIN {
+            continue;
+        }
+        let [x, y, w, h] = [r[0], r[1], r[2], r[3]];
+        let [a, b, c, d] = [r[60], r[61], r[62], r[63]];
+        // A shadow reaches past its box by its offset, three blurs and its spread.
+        let grow = if r[44] == PRIM_SHADOW { r[26] * 3.0 + r[27].max(0.0) + r[24].abs().max(r[25].abs()) } else { 0.0 };
+        for (u, v) in [(-grow, -grow), (w + grow, -grow), (-grow, h + grow), (w + grow, h + grow)] {
+            let (px, py) = (x + a * u + c * v, y + b * u + d * v);
+            x0 = x0.min(px);
+            y0 = y0.min(py);
+            x1 = x1.max(px);
+            y1 = y1.max(py);
+        }
+    }
+    if x0 > x1 {
+        return [0.0; 4];
+    }
+    // Whole pixels around it, so its anti-aliased edge is inside.
+    let (x0, y0) = (x0.floor() - 1.0, y0.floor() - 1.0);
+    [x0, y0, x1.ceil() + 1.0 - x0, y1.ceil() + 1.0 - y0]
 }
 
 /// Whether `node` clips its children: its overflow is not visible on some axis.
