@@ -1246,6 +1246,22 @@ class Smoke {
 		} catch (e:haxe.Exception) e.message == "boom";
 		check("exception rethrown from computed", caught);
 
+		// --- Making a signal while a computed evaluates is an error, not a hang ---
+		var lazy:Null<ashui.reactive.ISignal<Int>> = null;
+		var reader = Computed.make(() -> {
+			if (lazy == null)
+				lazy = Signal.make(7);
+			lazy.get();
+		});
+		var refused = try {
+			reader.get();
+			"";
+		} catch (e:haxe.Exception) e.message;
+		check("a signal made inside a computed is refused with a reason", refused.indexOf("while a computed or watch evaluated") >= 0, refused);
+		lazy = Signal.make(7);
+		var afterwards = Signal.make(1);
+		check("signals made after it work", afterwards.get() == 1 && lazy.get() == 7);
+
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

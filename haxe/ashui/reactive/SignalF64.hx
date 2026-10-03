@@ -6,6 +6,7 @@ class SignalF64 implements ISignal<Float> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;
 
 	public function new(initialValue:Float) {
+		Guard.creating("A signal");
 		ptr = BlincNative.blinc_signal_f64(initialValue);
 	}
 

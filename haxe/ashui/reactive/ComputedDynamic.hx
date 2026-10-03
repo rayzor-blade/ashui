@@ -10,6 +10,7 @@ class ComputedDynamic<T> implements IComputed<T> {
 	var version = 0;
 
 	public function new(compute:Void->T) {
+		Guard.creating("A computed");
 		ptr = BlincNative.blinc_computed_i32(Guard.wrap(() -> {
 			last = compute();
 			BlincNative.blinc_return_i32(++version);

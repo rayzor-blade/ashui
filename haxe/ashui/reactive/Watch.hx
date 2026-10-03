@@ -32,6 +32,7 @@ class Watch<T> {
 		this.react = react;
 		this.same = same != null ? same : (a, b) -> a == b;
 		var first = true;
+		Guard.creating("A watch");
 		effect = BlincNative.blinc_effect(Guard.wrap(() -> {
 			latest = read();
 			if (first)
