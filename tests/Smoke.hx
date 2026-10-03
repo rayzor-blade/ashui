@@ -825,7 +825,16 @@ class Smoke {
 		fieldKey(Character("x"), KeyX, cmd);
 		check("text field: Command+X cuts the selection", fieldValue.get() == "-og-o" && ashui.input.Clipboard.text() == "g",
 			[fieldValue.get(), ashui.input.Clipboard.text()]);
+		ashui.input.Clipboard.write([
+			{type: "text/html", data: haxe.io.Bytes.ofString("<b>bold</b>")},
+			{type: "text/plain", data: haxe.io.Bytes.ofString("bold")}
+		]);
+		check("clipboard: one copy holds several types, best first, and text reads text/plain",
+			ashui.input.Clipboard.types().join(",") == "text/html,text/plain" && ashui.input.Clipboard.data("text/html").toString() == "<b>bold</b>"
+			&& ashui.input.Clipboard.text() == "bold" && ashui.input.Clipboard.data("image/png") == null,
+			ashui.input.Clipboard.types());
 		ashui.input.Clipboard.setText("a\nb");
+		check("clipboard: setting text replaces every type", ashui.input.Clipboard.types().join(",") == "text/plain", ashui.input.Clipboard.types());
 		fieldKey(Character("v"), KeyV, cmd);
 		check("text field: a pasted line break becomes a space", fieldValue.get() == "a b-og-o", fieldValue.get());
 		fieldTree.flush();
