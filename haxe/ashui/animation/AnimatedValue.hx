@@ -11,6 +11,7 @@ class AnimatedValue {
 	var current:Float;
 	var target:Float;
 
+	/** A value at `initial`, springing as `config` says, `SpringConfig.stiff` by default. **/
 	public function new(scheduler:AnimationScheduler, initial:Float, ?config:SpringConfig) {
 		this.scheduler = scheduler;
 		this.config = config != null ? config : SpringConfig.stiff();
@@ -18,6 +19,7 @@ class AnimatedValue {
 		target = initial;
 	}
 
+	/** Springs toward `target` from where the value is now, mid-flight or not. **/
 	public function setTarget(target:Float):Void {
 		this.target = target;
 		if (springId != null && scheduler.value(springId) != null) {
@@ -29,6 +31,7 @@ class AnimatedValue {
 		}
 	}
 
+	/** The value now. **/
 	public function get():Float {
 		if (springId == null)
 			return current;
@@ -46,6 +49,7 @@ class AnimatedValue {
 		target = value;
 	}
 
+	/** Whether a spring is still moving it. **/
 	public function isAnimating():Bool {
 		return springId != null && scheduler.isAnimating(springId);
 	}

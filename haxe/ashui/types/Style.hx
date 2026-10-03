@@ -1,10 +1,12 @@
 package ashui.types;
 
 /*
-	Enum-valued style properties. The numbers are the codes `blinc_abi`
-	matches on (layout_router.rs), not Taffy's own discriminants.
+	Enum-valued style properties, named as CSS names their values. The
+	numbers are the codes the native layout tree reads, not the layout
+	engine's own; they match `blinc_abi`'s layout_router.rs.
 */
 
+/** CSS's `display`: how a node lays out its children, or `None` to take it out of layout. **/
 enum abstract Display(Int) to Int {
 	var Block = 0;
 	var Flex = 1;
@@ -12,6 +14,7 @@ enum abstract Display(Int) to Int {
 	var None = 3;
 }
 
+/** CSS's `flex-direction`: the axis a flex container lays its children along. **/
 enum abstract FlexDirection(Int) to Int {
 	var Row = 0;
 	var Column = 1;
@@ -19,6 +22,7 @@ enum abstract FlexDirection(Int) to Int {
 	var ColumnReverse = 3;
 }
 
+/** CSS's `flex-wrap`: whether a flex container's children wrap onto more lines. **/
 enum abstract FlexWrap(Int) to Int {
 	var NoWrap = 0;
 	var Wrap = 1;
@@ -36,6 +40,7 @@ enum abstract Align(Int) to Int {
 	var Stretch = 6;
 }
 
+/** `justify-content`: where children sit along the main axis, and the space between them. **/
 enum abstract Justify(Int) to Int {
 	var Start = 0;
 	var End = 1;
@@ -48,11 +53,13 @@ enum abstract Justify(Int) to Int {
 	var SpaceAround = 8;
 }
 
+/** CSS's `position`: `Absolute` is placed by its insets in its parent, out of the flow. **/
 enum abstract Position(Int) to Int {
 	var Relative = 0;
 	var Absolute = 1;
 }
 
+/** CSS's `overflow`: what happens to children that reach past the box. **/
 enum abstract Overflow(Int) to Int {
 	var Visible = 0;
 	var Clip = 1;
@@ -73,17 +80,20 @@ enum abstract FontWeight(Int) from Int to Int {
 	var Black = 900;
 }
 
+/** Upright or italic text. **/
 enum abstract FontStyle(Int) to Int {
 	var Normal = 0;
 	var Italic = 1;
 }
 
+/** Where lines of text sit across their box. **/
 enum abstract TextAlign(Int) to Int {
 	var Left = 0;
 	var Center = 1;
 	var Right = 2;
 }
 
+/** The generic family of a text's font, used when it names none or the named one is missing. **/
 enum abstract GenericFont(Int) to Int {
 	var System = 0;
 	var Monospace = 1;

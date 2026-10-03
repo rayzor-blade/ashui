@@ -1,5 +1,6 @@
 package ashui.theme;
 
+/** The operating system, or the browser, the program runs on. **/
 enum abstract Platform(Int) {
 	var MacOS;
 	var Windows;

@@ -3,6 +3,11 @@ package ashui.types;
 import ashui.core.Utf8;
 import ashui.core.externs.BlincNative;
 
+/**
+	How an image fills a box of another shape, as CSS's `object-fit`:
+	`Cover` fills the box and crops the image, `Contain` shows all of it
+	inside the box, `Fill` stretches it to the box, `Tile` repeats it.
+**/
 enum abstract ImageFit(Int) from Int to Int {
 	var Cover = 0;
 	var Contain = 1;
@@ -10,6 +15,10 @@ enum abstract ImageFit(Int) from Int to Int {
 	var Tile = 3;
 }
 
+/**
+	What fills a box, as a node's `Prop.Background`: a solid colour, a
+	gradient, an image, or what is behind the box blurred.
+**/
 class Brush implements IValue {
 	public var ptr(default, null):hl.Abstract<"blinc_value">;
 
@@ -21,7 +30,7 @@ class Brush implements IValue {
 		this.ptr = ptr;
 	}
 
-	// 1. Solid Color
+	/** `hex`, `0xRRGGBB`, at `alpha`. **/
 	public static function solid(hex:Int, alpha:Single = 1.0):Brush {
 		var brush = new Brush(BlincNative.blinc_brush_solid(hex, alpha));
 		brush.solidRgb = hex & 0xFFFFFF;
@@ -29,17 +38,22 @@ class Brush implements IValue {
 		return brush;
 	}
 
-	// 2. Glass (iOS/macOS style frosted background)
+	/**
+		Frosted glass, as iOS and macOS draw it: what is behind the box
+		blurred by `blur` and tinted with `tintHex` at `tintAlpha`. `simple`
+		is the plain frosting, without refraction, highlights or a bevel at
+		the edge.
+	**/
 	public static inline function glass(blur:Single, tintHex:Int, tintAlpha:Single = 0.1, simple:Bool = false):Brush {
 		return new Brush(BlincNative.blinc_brush_glass(blur, tintHex, tintAlpha, simple ? 1 : 0));
 	}
 
-	// 3. Pure Blur (Just blurs content behind it)
+	/** What is behind the box blurred by `radius`, untinted. **/
 	public static inline function blur(radius:Single):Brush {
 		return new Brush(BlincNative.blinc_brush_blur(radius));
 	}
 
-	// 4. Image Background
+	/** The image at `url` filling the box, fitted by `fit`. **/
 	public static inline function image(url:String, fit:ImageFit = Cover):Brush {
 		return new Brush(BlincNative.blinc_brush_image(Utf8.encode(url), fit));
 	}
@@ -69,7 +83,7 @@ class Brush implements IValue {
 		return this;
 	}
 
-	// 5. Linear Gradient
+	/** A two-stop linear gradient from `fromHex` at the start point to `toHex` at the end; `linear` takes any stops. **/
 	public static inline function linearGradient(startX:Single, startY:Single, endX:Single, endY:Single, fromHex:Int, fromAlpha:Single = 1.0, toHex:Int,
 			toAlpha:Single = 1.0):Brush {
 		return new Brush(BlincNative.blinc_brush_linear_gradient(startX, startY, endX, endY, fromHex, fromAlpha, toHex, toAlpha));

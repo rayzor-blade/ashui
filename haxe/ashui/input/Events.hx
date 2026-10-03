@@ -25,8 +25,10 @@ class InputEvent {
 	/** The node whose handler is running. **/
 	public var currentTarget(default, null):Node;
 
+	/** The modifier keys held; `shift`, `control`, `alt` and `superKey` read it. **/
 	public final modifiers:Modifiers;
 
+	/** Whether a handler called `stopPropagation`. **/
 	public var propagationStopped(default, null) = false;
 
 	function new(target:Node, modifiers:Modifiers) {
@@ -130,11 +132,13 @@ class KeyEvent extends InputEvent {
 	/** Which key it is on the keyboard, whatever the layout. **/
 	public final physicalKey:PhysicalKey;
 
+	/** Where the key is: left or right, as of the two Shifts, on the keypad, or neither. **/
 	public final location:KeyLocation;
 
 	/** True for the repeats a held key sends after its first press. **/
 	public final repeat:Bool;
 
+	/** Whether a handler called `preventDefault`. **/
 	public var defaultPrevented(default, null) = false;
 
 	@:allow(ashui.input)
@@ -154,6 +158,7 @@ class KeyEvent extends InputEvent {
 
 /** Text was typed, or committed by an input method, while a node had focus. **/
 class TextInputEvent extends InputEvent {
+	/** The text to insert. **/
 	public final text:String;
 
 	@:allow(ashui.input)

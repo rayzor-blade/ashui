@@ -15,11 +15,13 @@ abstract Style(Array<Node->Void>) {
 	@:noCompletion public static inline function of(setters:Array<Node->Void>):Style
 		return new Style(setters);
 
+	/** Sets each property on `node`, in order. **/
 	public function apply(node:Node):Void {
 		for (set in this)
 			set(node);
 	}
 
+	/** This style then `other`, whose properties win. **/
 	public inline function and(other:Style):Style
 		return new Style(this.concat(cast other));
 }

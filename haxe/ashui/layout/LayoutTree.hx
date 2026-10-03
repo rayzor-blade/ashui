@@ -7,13 +7,22 @@ import ashui.reactive.Watch;
 import ashui.types.Style.GenericFont;
 
 /**
-	A layout tree: the nodes an element hierarchy is laid out and drawn from.
-	A program can have any number; they are views onto one tree Blinc keeps
-	for the process, so a node, its bindings and its queued writes belong to
-	exactly one of them. Its nodes are removed when this object is collected,
-	or at once with `dispose`.
+	The tree of nodes a UI is laid out and drawn from. Elements make their
+	nodes in it and place them under one another as they are built. Each
+	frame, `flush` applies what changed, `computeLayout` lays the nodes
+	under a root out at a size, and `DisplayList.update` turns them into
+	what to draw; input is hit-tested against the same nodes.
+
+	The nodes live natively, outside the Haxe heap. Haxe refers to each by
+	its id, a `haxe.Int64`: a `Node` is a handle holding one, and the
+	functions here that take an `Int64` take that id. A program can have any
+	number of trees; each is a view onto one native tree kept for the
+	process, so a node, its bindings and its queued writes belong to exactly
+	one of them. Its nodes are removed when this object is collected, or at
+	once with `dispose`.
 **/
 class LayoutTree {
+	/** The native tree, for the functions in `ashui.core.externs` that take one. **/
 	public var ptr(default, null):hl.Abstract<"blinc_tree">;
 
 	/** The node `computeLayout` last laid out from, which input is hit-tested under. **/
@@ -33,12 +42,18 @@ class LayoutTree {
 		LayoutTreeNative.blinc_tree_dispose(this.ptr);
 	}
 
+	/** A new box node, not yet placed: put it under a parent with `addChild`. **/
 	public function createNode():Node {
 		var node = new Node(LayoutTreeNative.blinc_tree_create_node(this.ptr));
 		@:privateAccess node.tree = this;
 		return node;
 	}
 
+	/**
+		A new node showing `content`, measured with the font given: `fontName`
+		by name, or else the `genericFont` family. `wrap` breaks its lines at
+		the width it is laid out at.
+	**/
 	public function createTextNode(content:String, fontSize:Single = 16.0, lineHeight:Single = 1.2, wrap:Bool = true, ?fontName:String,
 			genericFont:GenericFont = System, fontWeight:Int = 400, italic:Bool = false):TextNode {
 		var flags = (wrap ? 1 : 0) | (italic ? 2 : 0);
@@ -51,11 +66,13 @@ class LayoutTree {
 	// --- Children, and fragments ---
 	//
 	// A fragment is a node that places its items in its parent, where it
-	// stands, instead of laying them out in a box of its own: what `<for>` and
-	// `<if>` build. Blinc's layout has no such node, so the tree keeps each
-	// fragment's items, and the children of each node that holds a fragment,
-	// and writes their flattened list as that node's native children whenever
-	// either changes. A fragment with no parent holds its items itself.
+	// stands, instead of laying them out in a box of its own, so they take
+	// the parent's direction and gap: what `For` and `Show` (`<for>` and
+	// `<if>`) build. The native layout has no such node, so the tree keeps
+	// each fragment's items, and the children of each node that holds a
+	// fragment, and writes their flattened list as that node's native
+	// children whenever either changes. A fragment with no parent holds its
+	// items itself.
 
 	/**
 		Run at the start of each flush and after each round of reactions in
@@ -80,9 +97,11 @@ class LayoutTree {
 		fragments.set(key(node), new Fragment(node));
 	}
 
+	/** Whether `node` was made a fragment. **/
 	public function isFragment(node:haxe.Int64):Bool
 		return fragments.exists(key(node));
 
+	/** Places `child` last under `parent`; under a fragment, it is laid out in the fragment's parent. **/
 	public function addChild(parent:haxe.Int64, child:haxe.Int64):Void {
 		var list = fragmentOrPlaced(parent, isFragment(child));
 		if (list == null) {
@@ -94,11 +113,13 @@ class LayoutTree {
 		layoutChildren(parent);
 	}
 
+	/** Deletes `node` alone; `removeSubtree` deletes what is below it too. **/
 	public function removeNode(node:haxe.Int64):Void {
 		unplace(node);
 		LayoutTreeNative.blinc_tree_remove_node(this.ptr, node);
 	}
 
+	/** Deletes `node` and everything below it, a fragment's items included. **/
 	public function removeSubtree(node:haxe.Int64):Void {
 		var f = fragments.get(key(node));
 		if (f != null) {
@@ -281,8 +302,9 @@ class LayoutTree {
 			hook(this);
 		var relayout = LayoutTreeNative.blinc_tree_flush(this.ptr);
 		Guard.check();
-		// Blinc runs effects inside its flush, so watches it queued there, and
-		// what their reactions write, are applied now rather than a frame later.
+		// The native flush runs watches' `read`s, so watches it queued there,
+		// and what their reactions write, are applied now rather than a frame
+		// later.
 		while (Watch.runQueued()) {
 			reacted = true;
 			for (hook in flushHooks)
@@ -293,6 +315,10 @@ class LayoutTree {
 		return reacted || relayout;
 	}
 
+	/**
+		Lays out the nodes under `root` in `width` by `height` layout units,
+		and makes `root` the node input is hit-tested under.
+	**/
 	public inline function computeLayout(root:Node, width:Single, height:Single):Void {
 		this.root = root;
 		LayoutTreeNative.blinc_tree_compute_layout(this.ptr, root.id, width, height);

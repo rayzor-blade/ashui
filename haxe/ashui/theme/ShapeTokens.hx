@@ -1,10 +1,12 @@
 package ashui.theme;
 
 /**
-	How the theme turns rounded corners into squircles. `cornerSmoothing`
-	(0 to 1) pulls the superellipse exponent from 2, a circle, toward
-	`cornerExponent`; only corners of at least `smoothingThreshold` pixels
-	are smoothed. Off when smoothing is 0 or the threshold is infinite.
+	How the theme turns rounded corners into squircles (see
+	`ashui.types.CornerShape`). `cornerSmoothing` (0 to 1) pulls the
+	superellipse exponent from 2, a circle, toward `cornerExponent`; only
+	corners of at least `smoothingThreshold` pixels are smoothed. Off when
+	smoothing is 0 or the threshold is infinite. A node's own corner shape
+	wins over it, unless it is round and not locked.
 **/
 @:structInit
 final class ShapeTokens {
@@ -20,6 +22,7 @@ final class ShapeTokens {
 		this.smoothingThreshold = smoothingThreshold == Math.POSITIVE_INFINITY ? smoothingThreshold : F32.round(smoothingThreshold);
 	}
 
+	/** `token`'s value. **/
 	public function get(token:ShapeToken):Float {
 		return switch token {
 			case CornerSmoothing: cornerSmoothing;
@@ -28,6 +31,7 @@ final class ShapeTokens {
 		}
 	}
 
+	/** Whether no corner is smoothed. **/
 	public function isOff():Bool {
 		return cornerSmoothing <= 0.001 || !Math.isFinite(smoothingThreshold);
 	}

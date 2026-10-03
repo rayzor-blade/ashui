@@ -15,7 +15,9 @@ private typedef Row<T> = {value:T, owner:Owner, element:Element};
 	When the list changes, an item whose value is still present (by `==`)
 	keeps its element, and an item no longer present is disposed. `each` is
 	tracked like a computed, and the update happens at the next
-	`LayoutTree.flush`. hxx lowers `<for {value in list}>...</for>` to it.
+	`LayoutTree.flush`. It is a fragment, with no box of its own (see
+	`LayoutTree.makeFragment`). hxx lowers `<for {value in list}>...</for>`
+	to it.
 **/
 class For<T> extends Div {
 	public function new(each:Void->Array<T>, item:T->Element, ?attr:DivAttributes, ?tree:LayoutTree) {

@@ -57,6 +57,7 @@ class AnimationScheduler {
 		});
 	}
 
+	/** Points `id`'s spring at `target`, from where it is. **/
 	public function setTarget(id:Int, target:Float):Void {
 		locked(() -> {
 			var spring = springs.get(id);
@@ -66,10 +67,12 @@ class AnimationScheduler {
 		});
 	}
 
+	/** Stops advancing `id`'s spring and forgets it: `value` gives null after. **/
 	public function remove(id:Int):Void {
 		locked(() -> springs.remove(id));
 	}
 
+	/** Whether `id`'s spring is still moving. **/
 	public function isAnimating(id:Int):Bool {
 		return locked(() -> {
 			var spring = springs.get(id);
@@ -98,6 +101,7 @@ class AnimationScheduler {
 		});
 	}
 
+	/** Whether any spring or ticker is running, so the frame loop should keep drawing. **/
 	public function hasActive():Bool {
 		return locked(() -> springs.keys().hasNext() || tickers.length > 0);
 	}
@@ -164,6 +168,7 @@ class AnimationScheduler {
 	}
 	#end
 
+	/** Stops `run`'s thread after its current tick. **/
 	public function stop():Void {
 		running = false;
 	}
@@ -171,6 +176,7 @@ class AnimationScheduler {
 
 /** A callback `AnimationScheduler.after` will call; `cancel` stops it. **/
 class Timer {
+	/** When it is due, in `haxe.Timer.stamp` seconds. **/
 	public final at:Float;
 	public final callback:Void->Void;
 	public var cancelled(default, null) = false;

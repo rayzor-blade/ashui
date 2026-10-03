@@ -1,11 +1,13 @@
 package ashui.core.render;
 
 /**
-	A box shadow: a Gaussian of the box offset and spread, drawn outside the
-	box only, under its clip. Blinc's `sdf_shadow.wgsl` for shadow primitives.
-	An inset one, fill type 1, is drawn inside the box instead, where the box
-	offset and shrunk by the spread does not cover: its box is the padding
-	box, so the border stays over it.
+	A box shadow, as CSS's `box-shadow`: the box offset and grown by the
+	spread, blurred by a Gaussian, drawn outside the box only, under its
+	clip. The blur is worked out per pixel from the box's signed distance
+	with the error function, so it needs no blur pass. An inset one, fill
+	type 1, is drawn inside the box instead, where the box offset and shrunk
+	by the spread does not cover: its box is the padding box, so the border
+	stays over it. Ported from Blinc's `sdf_shadow.wgsl`.
 **/
 class ShadowShader implements UiShader {
 	static var SRC = {

@@ -34,8 +34,10 @@ class ImageAtlas {
 	/** The texture's view; replaced, with `revision` bumped, when the atlas grows. **/
 	public var view(default, null):GpuTextureView;
 
+	/** Counts the views `view` has had, so bind groups holding an old one are rebuilt. **/
 	public var revision(default, null) = 0;
 
+	/** An empty atlas on `device`, `size` pixels square until it grows. **/
 	public function new(device:GpuDevice, size = 1024) {
 		this.device = device;
 		this.size = size;

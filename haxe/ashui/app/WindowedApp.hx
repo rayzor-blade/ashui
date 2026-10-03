@@ -20,6 +20,7 @@ import gpu.TextureFormat;
 import window.Window;
 import window.WindowAttributes;
 
+/** How `WindowedApp.run` opens its window; every field is optional. **/
 typedef WindowConfig = {
 	?title:String,
 	/** The inner size in logical pixels. **/
@@ -33,13 +34,18 @@ typedef WindowConfig = {
 }
 
 /**
-	Opens a window and draws a UI into it until the window closes, as Blinc's
-	`WindowedApp` does. A frame is drawn only when something changed: the
-	tree on flush, the theme (a scheme transition draws until it settles),
-	the window's size or scale. Between frames the loop waits on the
-	window's events. The scheme follows the window's appearance. The
-	pointer, wheel, keys and typed text go to the UI through
-	`ashui.input.Pointer` and `ashui.input.Keyboard`.
+	Opens a window and draws a UI into it until the window closes. `run`
+	takes the window's settings and a function that builds the root
+	element:
+
+	    WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
+
+	A frame is drawn only when something changed: the tree on flush, the
+	theme (a scheme transition draws until it settles), the window's size
+	or scale. Between frames the loop waits on the window's events. The
+	scheme follows the window's appearance. The pointer, wheel, keys and
+	typed text go to the UI through `ashui.input.Pointer` and
+	`ashui.input.Keyboard`. Blinc's `WindowedApp` does the same.
 **/
 class WindowedApp {
 	/** The running app, if any. **/
@@ -47,8 +53,11 @@ class WindowedApp {
 
 	public final window:Window;
 	public final device:GpuDevice;
+	/** What draws the tree into the window's frames. **/
 	public final offscreen:Offscreen;
+	/** The tree the UI `build` made lives in. **/
 	public final tree:LayoutTree;
+	/** Frames presented so far. **/
 	public var frames(default, null) = 0;
 
 	final adapter:GpuAdapter;
@@ -107,7 +116,7 @@ class WindowedApp {
 		if (ThemeState.tryGet() == null)
 			ThemeState.init(config.theme != null ? config.theme : ashui.theme.themes.DefaultTheme.bundle(), Platform.detectSystemColorScheme());
 		var instance = new GpuInstance();
-		// The device comes first: an await does not wake on Ash once a window is open (ash 4855ac5).
+		// The device comes first: an await does not wake on Ash once a window is open.
 		var adapter = instance.requestAdapter(Power.HighPerformance).await();
 		var device = adapter.requestDevice().await();
 		var attributes = new WindowAttributes();
@@ -472,7 +481,7 @@ class WindowedApp {
 		return Fifo;
 	}
 
-	/** A format without sRGB encoding, as Blinc picks: the theme's colours are already in sRGB. **/
+	/** A format without sRGB encoding: the theme's colours are already in sRGB and blend as they are. **/
 	function chooseFormat():TextureFormat {
 		var capabilities = surface.capabilities(adapter);
 		for (wanted in [TextureFormat.Bgra8unorm, TextureFormat.Rgba8unorm])

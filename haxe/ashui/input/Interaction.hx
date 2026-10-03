@@ -10,8 +10,12 @@ import ashui.reactive.Signal;
 /**
 	A node's input state: the signals its `hover:`, `active:`, `focus:`,
 	`focus-visible:` and `disabled:` classes read, whether it takes focus, and
-	the handlers its events call. Made for a node the first time something
-	asks for it; `Pointer`, `Keyboard` and `Focus` keep it up to date.
+	the handlers its events call. Get it with `Interaction.of(node)`, which
+	makes it the first time; in a template, `onClick={...}` and the other
+	handler attributes, `focusable` and `disabled` go to it. `Pointer`,
+	`Keyboard` and `Focus` keep it up to date. Each `on` method adds a
+	handler and returns the interaction, so calls chain:
+	`Interaction.of(node).setFocusable(true).onClick(e -> save())`.
 
 	As with CSS's `:hover`, a node is hovered while the pointer is over it or
 	over anything drawn inside it, and pressed while a press that began there
@@ -23,8 +27,14 @@ class Interaction {
 	static final byTree = new haxe.ds.ObjectMap<LayoutTree, TreeInteractions>();
 
 	public final node:Node;
+
+	/** The pointer is over it or over something inside it. **/
 	public final hovered:Signal<Bool>;
+
+	/** A press that began over it is held. **/
 	public final pressed:Signal<Bool>;
+
+	/** It has focus (see `Focus`). **/
 	public final focused:Signal<Bool>;
 
 	/** Focused, by the keyboard: the focus ring's case. **/
@@ -33,6 +43,7 @@ class Interaction {
 	/** It or something inside it is focused. **/
 	public final focusWithin:Signal<Bool>;
 
+	/** It takes no presses, clicks or focus; set with `setDisabled`. **/
 	public final disabled:Signal<Bool>;
 
 	/** Whether pressing it or tabbing to it gives it focus. **/
@@ -106,17 +117,19 @@ class Interaction {
 		return this;
 	}
 
+	/** Marks it `group`, as the `group` class does. **/
 	public function markGroup():Interaction {
 		isGroup = true;
 		return this;
 	}
 
+	/** Marks it `peer`, as the `peer` class does. **/
 	public function markPeer():Interaction {
 		isPeer = true;
 		return this;
 	}
 
-	/** Disables it while `value` is true. **/
+	/** Disables it while `value`, a constant, signal or computed, is true. **/
 	public function setDisabled(value:IntoReactive<Bool>):Interaction {
 		if (disabledWatch != null) {
 			disabledWatch.stop();
@@ -139,12 +152,15 @@ class Interaction {
 	public function onClick(handler:PointerEvent->Void):Interaction
 		return on("click", handler);
 
+	/** A button went down over it. **/
 	public function onPointerDown(handler:PointerEvent->Void):Interaction
 		return on("pointerdown", handler);
 
+	/** A button came up over it. **/
 	public function onPointerUp(handler:PointerEvent->Void):Interaction
 		return on("pointerup", handler);
 
+	/** The pointer moved over it. **/
 	public function onPointerMove(handler:PointerEvent->Void):Interaction
 		return on("pointermove", handler);
 
@@ -156,15 +172,19 @@ class Interaction {
 	public function onPointerLeave(handler:PointerEvent->Void):Interaction
 		return on("pointerleave", handler);
 
+	/** A wheel or trackpad scrolled over it, by the event's `deltaX` and `deltaY`. **/
 	public function onWheel(handler:PointerEvent->Void):Interaction
 		return on("wheel", handler);
 
+	/** A key went down while it or something inside it had focus. **/
 	public function onKeyDown(handler:KeyEvent->Void):Interaction
 		return on("keydown", handler);
 
+	/** A key came up while it or something inside it had focus. **/
 	public function onKeyUp(handler:KeyEvent->Void):Interaction
 		return on("keyup", handler);
 
+	/** Text was typed while it or something inside it had focus. **/
 	public function onTextInput(handler:TextInputEvent->Void):Interaction
 		return on("textinput", handler);
 
@@ -172,9 +192,11 @@ class Interaction {
 	public function onComposition(handler:CompositionEvent->Void):Interaction
 		return on("composition", handler);
 
+	/** It gained focus. Does not bubble. **/
 	public function onFocus(handler:FocusEvent->Void):Interaction
 		return on("focus", handler);
 
+	/** It lost focus. Does not bubble. **/
 	public function onBlur(handler:FocusEvent->Void):Interaction
 		return on("blur", handler);
 

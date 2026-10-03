@@ -2,6 +2,7 @@ package ashui.reactive;
 
 import ashui.core.externs.BlincNative;
 
+/** A signal of a `Bool`; what `Signal.make` makes for one. **/
 class SignalBool implements ISignal<Bool> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;
 

@@ -1,6 +1,10 @@
 package ashui.core.externs;
 
-/** The glyph atlases of the text engine in `blinc_abi.hdll`. **/
+/**
+	The text engine in the native library, `blinc_abi.hdll`: its glyph
+	atlases, the textures it rasterizes glyphs into, and caret positions in
+	a laid-out string. `GlyphAtlas` and the text input read these.
+**/
 @:hlNative("blinc_abi")
 extern class TextNative {
 	/**

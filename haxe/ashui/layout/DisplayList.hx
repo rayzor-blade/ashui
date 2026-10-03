@@ -3,13 +3,20 @@ package ashui.layout;
 import ashui.core.externs.LayoutTreeNative;
 
 /**
-	The primitives to draw under a node after layout, packed by `blinc_abi`
-	for a GPU vertex buffer: `count` records of `RECORD_FLOATS` F32s in
-	`bytes`, in paint order. A record is a subset of Blinc's `GpuPrimitive`,
-	documented in blinc_abi/src/display_list.rs. `bytes` can be uploaded as
-	it is.
+	What to draw for a laid-out tree, as a flat list of records ready for the
+	GPU. `update` walks the nodes under a root in paint order, back to front,
+	and writes a record for each thing to draw: a box with its fill and
+	border, a shadow, a glyph of text, an image, a backdrop, or the start or
+	end of a layer. A record is `RECORD_FLOATS` 32-bit floats: `kind` says
+	which of the `PRIM_` values it is, and `get` reads a field. The `count`
+	records sit in `bytes`, which a renderer uploads as it is, as rows of a
+	float texture the UI shaders read (see `RecordLayout`).
+
+	Each field is listed in blinc_abi/src/display_list.rs, which packs the
+	records natively. A record is a subset of Blinc's `GpuPrimitive`.
 **/
 class DisplayList {
+	/** The floats in a record. **/
 	public static inline var RECORD_FLOATS = 100;
 	public static inline var RECORD_BYTES = RECORD_FLOATS * 4;
 	public static inline var RECORD_ROWS = RecordLayout.RECORD_ROWS;
@@ -18,11 +25,16 @@ class DisplayList {
 
 	/** Where the primitive type sits in a record, and its values. **/
 	public static inline var KIND_FIELD = 44;
-	/** The corner `n` of the record's rounded clip, so a squircle parent clips to its own curve. **/
+	/**
+		The corner `n` of the record's rounded clip (see `CornerShape`), so a
+		squircle parent clips to its own curve.
+	**/
 	public static inline var CLIP_SHAPE_FIELD = 47;
 	/** The four corners' `n`, top-left first, the theme's smoothing applied. **/
 	public static inline var CORNER_SHAPE_FIELD = 48;
+	/** A box: its fill, flat or a gradient, and its border. **/
 	public static inline var PRIM_RECT = 0;
+	/** A box's shadow, cast outside it or, inset, inside it. **/
 	public static inline var PRIM_SHADOW = 3;
 	/** A glyph of text, sampled from a glyph atlas. **/
 	public static inline var PRIM_TEXT = 7;
@@ -35,7 +47,10 @@ class DisplayList {
 	/** What is drawn behind its box, blurred and colour-filtered, drawn back over the box before the element. **/
 	public static inline var PRIM_BACKDROP = 42;
 
+	/** The records, `RECORD_BYTES` each; null before the first `update`. **/
 	public var bytes(default, null):haxe.io.Bytes;
+
+	/** How many records to draw. **/
 	public var count(default, null) = 0;
 
 	/** Records' room the list takes in `bytes`: `count` records, then the points of polygon clips. **/
@@ -79,10 +94,11 @@ class DisplayList {
 
 	/**
 		What the walk needs from the theme, as eight F32s: `scale`; the
-		corner `n` the theme smooths corners to (0 when it does not), the
-		radius below which corners stay round, and its full radius, as Blinc's
-		paint walk applies the shape tokens; and the theme's primary text
-		colour now, mid-transition included, for text that sets none.
+		corner `n` the theme smooths corners to (0 when it does not; see
+		`CornerShape`), the radius below which corners stay round, and its
+		full radius, with which the walk gives corners the theme's shape; and
+		the theme's primary text colour now, mid-transition included, for text
+		that sets none.
 	**/
 	function fillParams(scale:Float):Void {
 		params.setFloat(0, scale);

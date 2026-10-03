@@ -3,15 +3,19 @@ package ashui.reactive;
 import ashui.core.externs.BlincNative;
 
 /**
-	Reacts to a value read from signals, as a SolidJS effect does.
+	Runs code when a value read from signals changes:
+	`new Watch(() -> count.get(), n -> trace(n))`. Where a `Computed` derives
+	a value, a watch acts on one.
 
-	`read` runs inside a Blinc effect, which tracks the signals and computeds
-	it reads and runs it again only when one of them changes. A watch whose
-	value changed is queued, and the next `LayoutTree.flush` calls `react` once
-	with the latest value. Reacting at the flush, outside Blinc's graph, is
-	what lets `react` build and remove elements; `read` must only read.
-	`react` also runs once at creation. Stops when the owner current at its
-	creation is disposed.
+	`read` is tracked as a computed's closure is: it runs again only when a
+	signal or computed it read changes. A watch whose value changed is
+	queued, and the next `LayoutTree.flush` calls `react` once with the
+	latest value, so several changes before a flush make one reaction.
+	Reacting at the flush, outside the dependency graph, is what lets `react`
+	set signals and build and remove elements; `read` must only read.
+	`react` also runs once at creation. The watch stops when the owner
+	current at its creation is disposed, or on `stop`. Modelled on a SolidJS
+	effect; `read` runs in a Blinc effect.
 **/
 class Watch<T> {
 	static var queue:Array<Watch<Dynamic>> = [];
@@ -25,8 +29,9 @@ class Watch<T> {
 	var stopped = false;
 
 	/**
-		Not to be created inside a computation: Blinc's graph is locked there.
-		`same` decides when a new value needs no reaction; by default `==`.
+		Not to be created inside a computed's closure or another watch's
+		`read`: the dependency graph is locked while they run. `same` decides
+		when a new value needs no reaction; by default `==`.
 	**/
 	public function new(read:Void->T, react:T->Void, ?same:(T, T)->Bool) {
 		this.react = react;
@@ -48,6 +53,7 @@ class Watch<T> {
 		Owner.onCleanup(stop);
 	}
 
+	/** Stops reacting, for good; its owner's disposal does this too. **/
 	public function stop():Void {
 		if (stopped)
 			return;

@@ -3,9 +3,18 @@ package ashui.types;
 import ashui.core.externs.BlincNative;
 
 /**
-	How each corner curves, as a superellipse `n`, top-left first: 1 round,
-	2 squircle, 0 bevel, -1 scoop, 100 square, -100 notch. Set on a node,
-	it wins over the theme's squircle; `lock` keeps a round shape round too.
+	How each corner of a box curves, top-left first, as a number `n`, as
+	CSS's `corner-shape: superellipse(n)`. The corner follows the
+	superellipse `|x|^k + |y|^k = 1` with `k = 2^|n|`, scaled to its
+	`CornerRadius`: 1 is a circular arc, the usual rounded corner; 2 a
+	squircle, squarer, blending into the straight sides with no visible
+	join; 0 a straight bevel; higher values come closer to a square corner,
+	and 100 or more is one. A negative `n` curves the corner inward: -1 is
+	a scoop, and -100 or less a square notch.
+
+	Set on a node, it wins over the theme's corner smoothing (see
+	`ashui.theme.ShapeTokens`), which turns round corners into squircles;
+	`lock` keeps a round shape round too.
 **/
 class CornerShape implements IValue {
 	public var ptr(default, null):hl.Abstract<"blinc_value">;
@@ -24,6 +33,7 @@ class CornerShape implements IValue {
 		ptr = BlincNative.blinc_corner_shape(topLeft, topRight, bottomRight, bottomLeft, locked);
 	}
 
+	/** `n` on every corner. **/
 	public static inline function all(n:Float):CornerShape
 		return new CornerShape(n, n, n, n);
 

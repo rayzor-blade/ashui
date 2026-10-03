@@ -6,14 +6,17 @@ import ashui.animation.SpringConfig;
 import ashui.reactive.Signal;
 
 /**
-	The theme in use: its bundle and scheme, the tokens they give, and
-	overrides of single tokens. Blinc's `ThemeState`.
+	The theme in use, one per program: its bundle and scheme, the tokens
+	they give, and overrides of single tokens. Install one with `init` or
+	`initDefault`, then reach it with `get`.
 
-	A scheme switch with a scheduler set animates the colours on a gentle
-	spring, advanced by `tick` each frame; every other token family switches
-	at once. Every change bumps `revision`, a signal, so a property bound to
-	a token through `Themed` updates and nothing else is rebuilt; the redraw
-	callback is called as Blinc calls it.
+	`revision` is a signal bumped on every change. A computed that reads it,
+	as each of `Themed`'s does, runs again when the theme changes, so a
+	property bound to a token updates and nothing else is rebuilt. The
+	redraw callback is called on every change too, so a window draws the
+	new look. A scheme switch with a scheduler set animates the colours on
+	a gentle spring, advanced by `tick` each frame; every other token
+	family switches at once. Mirrors Blinc's `ThemeState`.
 **/
 class ThemeState {
 	static var instance:Null<ThemeState>;
@@ -90,11 +93,12 @@ class ThemeState {
 		return instance;
 	}
 
+	/** The installed theme, or null when there is none. **/
 	public static function tryGet():Null<ThemeState> {
 		return instance;
 	}
 
-	/** Called on every theme change, as Blinc's runners redraw then. **/
+	/** Calls `callback` on every theme change, so a window loop draws a frame; replaces the last one. **/
 	public static function setRedrawCallback(callback:Void->Void):Void {
 		redrawCallback = callback;
 	}
@@ -109,6 +113,7 @@ class ThemeState {
 		this.scheduler = scheduler;
 	}
 
+	/** The scheme in use. **/
 	public function scheme():ColorScheme {
 		return currentScheme;
 	}
@@ -142,6 +147,7 @@ class ThemeState {
 		changed();
 	}
 
+	/** Switches to the other scheme, as `setScheme` does. **/
 	public function toggleScheme():Void {
 		setScheme(currentScheme.toggle());
 	}
@@ -174,6 +180,7 @@ class ThemeState {
 		return step == 1;
 	}
 
+	/** Whether a scheme's colour transition is running. **/
 	public function isAnimating():Bool {
 		return progress != null && progress.isAnimating();
 	}
@@ -193,12 +200,14 @@ class ThemeState {
 		return currentColors;
 	}
 
+	/** Gives `token` `color` whatever the theme says, until removed or a theme is installed. **/
 	public function setColorOverride(token:ColorToken, color:Rgba):Void {
 		colorOverrides.set(cast token, color);
 		repaint = true;
 		changed();
 	}
 
+	/** Gives `token` the theme's colour again. **/
 	public function removeColorOverride(token:ColorToken):Void {
 		colorOverrides.remove(cast token);
 		repaint = true;
@@ -218,12 +227,14 @@ class ThemeState {
 		return currentSpacing;
 	}
 
+	/** Gives `token` `value` pixels whatever the theme says, until removed or a theme is installed. **/
 	public function setSpacingOverride(token:SpacingToken, value:Float):Void {
 		spacingOverrides.set(cast token, F32.round(value));
 		relayout = true;
 		changed();
 	}
 
+	/** Gives `token` the theme's spacing again. **/
 	public function removeSpacingOverride(token:SpacingToken):Void {
 		spacingOverrides.remove(cast token);
 		relayout = true;
@@ -232,6 +243,7 @@ class ThemeState {
 
 	// --- the rest ---
 
+	/** The theme's type: fonts, sizes, weights, line heights and letter spacing. **/
 	public function typography():TypographyTokens {
 		return currentTypography;
 	}
@@ -247,41 +259,48 @@ class ThemeState {
 		return currentRadii;
 	}
 
-	/** Radii only repaint: they do not change layout. **/
+	/** Gives `token` `value` pixels whatever the theme says; radii only repaint, as they do not change layout. **/
 	public function setRadiusOverride(token:RadiusToken, value:Float):Void {
 		radiusOverrides.set(cast token, F32.round(value));
 		repaint = true;
 		changed();
 	}
 
+	/** The theme's corner smoothing. **/
 	public function shape():ShapeTokens {
 		return currentShape;
 	}
 
+	/** One value of the theme's corner smoothing. **/
 	public function shapeToken(token:ShapeToken):Float {
 		return currentShape.get(token);
 	}
 
+	/** The theme's shadow stacks. **/
 	public function shadows():ShadowTokens {
 		return currentShadows;
 	}
 
+	/** The theme's durations and curves. **/
 	public function animations():AnimationTokens {
 		return currentAnimations;
 	}
 
+	/** Whether a change since `clearRepaint` alters how things look. **/
 	public function needsRepaint():Bool
 		return repaint;
 
 	public function clearRepaint():Void
 		repaint = false;
 
+	/** Whether a change since `clearLayout` alters sizes, so layout must run again. **/
 	public function needsLayout():Bool
 		return relayout;
 
 	public function clearLayout():Void
 		relayout = false;
 
+	/** Drops every override, so each token is the theme's again. **/
 	public function clearOverrides():Void {
 		colorOverrides.clear();
 		spacingOverrides.clear();
@@ -294,9 +313,10 @@ class ThemeState {
 	// --- CSS variables ---
 
 	/**
-		Every token as a CSS custom property, named without `--`, valued as
-		Blinc writes it: colours with overrides as `#rrggbb` or `rgba(…)`,
-		radii and spacing without overrides in `px`, and so on.
+		Every token as a CSS custom property, named without `--`, for style
+		sheets: colours with overrides as `#rrggbb` or `rgba(…)`, radii and
+		spacing without overrides in `px`, and so on. Names and forms are
+		Blinc's, so a sheet written for it reads the same values.
 	**/
 	public function toCssVariableMap():Map<String, String> {
 		var vars = new Map<String, String>();
@@ -447,6 +467,7 @@ class ThemeState {
 		return vars;
 	}
 
+	/** `c` as CSS: `#rrggbb` when opaque, else `rgba(r,g,b,a)`. **/
 	public static function cssColor(c:Rgba):String {
 		if (c.a < 1)
 			return 'rgba(${c.byte(c.r)},${c.byte(c.g)},${c.byte(c.b)},${F32.toString(c.a)})';

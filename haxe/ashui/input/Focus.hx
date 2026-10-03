@@ -4,9 +4,14 @@ import ashui.input.Events;
 import ashui.layout.LayoutTree;
 
 /**
-	The node of each tree that keyboard input goes to. A focusable node gets
-	focus when it is pressed or tabbed to; Tab and Shift+Tab move through the
-	focusable nodes in document order, skipping disabled ones.
+	Which node of each tree keyboard input goes to: keys and typed text are
+	handed to the focused node and bubble up from it (see `Keyboard`). A
+	node is focusable when its `Interaction` says so, by `setFocusable` or
+	`focusable={true}` in a template. A focusable node gets focus when it
+	is pressed or tabbed to; Tab and Shift+Tab move through the focusable
+	nodes in document order, skipping disabled ones. The focused node's
+	`Interaction.focused` signal is true, and its `focus` and `blur`
+	handlers are called as focus comes and goes.
 **/
 class Focus {
 	static final current = new haxe.ds.ObjectMap<LayoutTree, Interaction>();

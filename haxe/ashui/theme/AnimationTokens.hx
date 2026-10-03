@@ -40,10 +40,12 @@ abstract AnimationTokens(AnimationTokensData) from AnimationTokensData to Animat
 		}
 	}
 
+	/** `token`'s duration in seconds. **/
 	public inline function getSeconds(token:AnimationToken):Float {
 		return get(token) / 1000;
 	}
 
+	/** Tailwind-like durations, easing out by default. **/
 	public static function defaults():AnimationTokens {
 		return {
 			durationFastest: 75,

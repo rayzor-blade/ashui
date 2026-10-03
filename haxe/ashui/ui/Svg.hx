@@ -26,6 +26,7 @@ typedef SvgAttributes = {
 	In hxx, write the SVG itself: `<svg class="w-6 h-6 text-primary" viewBox="0 0 24 24"><path d="..."/></svg>`.
 **/
 class Svg extends Element {
+	/** The parsed SVG it draws. **/
 	public final document:SvgDocument;
 
 	public function new(document:SvgDocument, ?attr:SvgAttributes, ?tree:LayoutTree) {

@@ -36,6 +36,7 @@ class UiFramework extends Extension {
 		"fadeBounds", "fade", "shapeFrame", "shapeRest", "shape"
 	];
 
+	/** Applies this extension to every `UiShader`; called from a `--macro`. **/
 	public static function register() {
 		Extensions.register(new UiFramework(), "ashui.core.render.UiShader");
 	}

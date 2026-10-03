@@ -1,5 +1,10 @@
 package ashui.layout;
 
+/**
+	The kind of value a property takes, which decides how `Node` passes it
+	to the native side: a float, an int (enums included), a style value of
+	one of the listed types, or a string.
+**/
 enum abstract PropertyDataType(Int) {
     var TypeF32;
     var TypeI32;
@@ -13,9 +18,12 @@ enum abstract PropertyDataType(Int) {
 }
 
 /**
- * Matches blinc_layout::property::PropertyId exactly.
- * Implicitly cast to Int for the FFI boundary.
- */
+	The number that names a node property where Haxe calls native code.
+	Code sets properties through `Prop`, whose keys carry their value's type;
+	`PropertyId` is the untyped id behind each key, an `Int` as the native
+	functions take it. The ids up to `Compound` must match Blinc's
+	`PropertyId` exactly; ashui's own come after.
+**/
 enum abstract PropertyId(Int) from Int to Int {
     // --- visual-only (Tier 1) ---
     var Background = 0;
@@ -118,10 +126,7 @@ enum abstract PropertyId(Int) from Int to Int {
     // CSS's drop-shadow(): a Shadow's first layer, cast by the element's shape, not its box.
     var DropShadow = 84;
 
-    /**
-     * Determines what data type category this property belongs to,
-     * allowing generic routers to dispatch it correctly without guesswork.
-     */
+    /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
         return switch (this) {
             case Background: TypeBrush;
@@ -155,9 +160,11 @@ enum abstract PropertyId(Int) from Int to Int {
     }
 
     /**
-     * Statically determines whether this property mutates Taffy layout 
-     * or purely visual RenderProps.
-     */
+        Whether this is one of the core layout properties, `Width` to `Left`,
+        which move or resize nodes rather than only change how they are
+        drawn. ashui's own per-side and percentage properties are not
+        counted.
+    **/
     public inline function isLayoutAffecting(): Bool {
         // Everything from Width (10) to Left (33) affects layout geometry
         return this >= 10 && this <= 33;

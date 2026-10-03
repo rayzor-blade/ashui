@@ -2,6 +2,7 @@ package ashui.reactive;
 
 import ashui.core.externs.BlincNative;
 
+/** A signal of a `Single`; what `Signal.make` makes for one. **/
 class SignalF32 implements ISignal<Single> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;
 

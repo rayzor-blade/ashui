@@ -13,6 +13,7 @@ class SystemSchemeWatcher {
 
 	function new() {}
 
+	/** A watcher checking once a second. **/
 	public static function start():SystemSchemeWatcher {
 		return startWithInterval(DEFAULT_POLL_INTERVAL);
 	}
@@ -48,6 +49,7 @@ class SystemSchemeWatcher {
 		stopped = true;
 	}
 
+	/** Whether it is still checking. **/
 	public function isRunning():Bool {
 		return !stopped && !finished;
 	}

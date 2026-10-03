@@ -4,18 +4,25 @@ import ashui.core.externs.BlincNative;
 import ashui.layout.LayoutTree;
 
 /**
-	Owns what is created while it is current: elements, computeds, and
-	cleanups registered with `onCleanup`. Disposing an owner disposes its
-	child owners, then runs its own cleanups, latest first; elements remove
-	their nodes and computeds are released.
+	The scope that cleans up after a piece of UI. What is created while an
+	owner is current belongs to it: elements, computeds, watches, child
+	owners, and functions registered with `onCleanup`. Disposing an owner
+	disposes its child owners, then runs its own cleanups, latest first:
+	elements remove their nodes from the tree, computeds are released and
+	watches stop. Signals are not owned.
 
-	It is also what an element takes its tree from, so components built under
-	an owner pass none. The model is SolidJS's owner.
+	Each component renders under an owner of its own, and each item of a
+	`For` and branch of a `Show` under another, so removing one disposes
+	everything it built. A program starts its UI under `Owner.root`. An
+	owner also carries the `LayoutTree` its elements go in, so elements and
+	components built under one need not be given a tree. The model is
+	SolidJS's owner.
 **/
 class Owner {
 	/** The owner of what is being created now; null outside every owner. **/
 	public static var current(default, null):Null<Owner>;
 
+	/** The tree that elements made under this owner are built in. **/
 	public var tree(default, null):LayoutTree;
 
 	final parent:Null<Owner>;
@@ -51,6 +58,7 @@ class Owner {
 		}
 	}
 
+	/** Disposes what it owns, as above, and leaves its parent; once only. **/
 	public function dispose():Void {
 		if (disposed)
 			return;

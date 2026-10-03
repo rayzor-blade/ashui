@@ -25,10 +25,12 @@ class TextEditing {
 	/** Seconds each blink fades over, eased, as macOS softens its caret. **/
 	static inline var FADE = 0.06;
 
+	/** The text being edited, which edits set. **/
 	public final value:Signal<String>;
 	/** Where the caret is, and where the selection started; equal when nothing is selected. **/
 	public final caret = Signal.make(0);
 	public final anchor = Signal.make(0);
+	/** Whether the view has focus. **/
 	public final focused = Signal.make(false);
 	/** The caret's opacity: 1 shown, 0 hidden, between while it fades. **/
 	public final caretAlpha = Signal.make(1.0);
@@ -39,12 +41,16 @@ class TextEditing {
 	/** What a press selects as it is dragged: 1 characters, 2 words, 3 paragraphs; and what the press first selected. **/
 	var granularity = 1;
 	var pressRange = {from: 0, to: 0};
+	/** The theme's small text size, which the view's text is set in and measured at. **/
 	public final fontSize:Computed<Single>;
+	/** Whether Enter starts a new line and Up and Down move between lines, as in a text area. **/
 	public final multiline:Bool;
 	/** The width lines wrap at; 0 keeps the text on one line. **/
 	public final wrapWidth:Float;
 
+	/** Called with the new value after each edit. **/
 	public var onInput:Null<String->Void>;
+	/** Called with the value on Enter, or Command+Enter when multiline. **/
 	public var onSubmit:Null<String->Void>;
 	/** Takes focus away, as Escape does. **/
 	public var onEscape:Null<Void->Void>;
@@ -53,6 +59,7 @@ class TextEditing {
 
 	/** The text node the stops are measured for; set by the view. **/
 	public var text:Null<Text>;
+	/** The view's input state, whose `disabled` stops editing; set by the view. **/
 	public var interaction:Null<Interaction>;
 
 	var stops:Array<CaretStop> = [{index: 0, x: 0, line: 0}];
@@ -219,6 +226,7 @@ class TextEditing {
 		restartBlink();
 	}
 
+	/** The selection as string indices, `from` before `to`. **/
 	public function selectionRange():{from:Int, to:Int} {
 		return {from: Std.int(Math.min(caret.get(), anchor.get())), to: Std.int(Math.max(caret.get(), anchor.get()))};
 	}
@@ -286,11 +294,13 @@ class TextEditing {
 	function disabled():Bool
 		return interaction != null && interaction.disabled.get();
 
+	/** Inserts typed text in place of the selection; a line break is a space unless multiline. **/
 	public function type(e:TextInputEvent):Void {
 		if (!disabled())
 			replace(multiline ? e.text : ~/\r\n|\r|\n/g.replace(e.text, " "));
 	}
 
+	/** Moves, selects, deletes, copies, pastes or submits for a key going down. **/
 	public function key(e:KeyEvent):Void {
 		// The input method handles keys while it composes.
 		if (disabled() || composing.get() != "")
@@ -367,6 +377,7 @@ class TextEditing {
 		}
 	}
 
+	/** Keeps Space and Enter coming up from clicking the view. **/
 	public function keyUp(e:KeyEvent):Void {
 		if (e.key.match(Named(Space) | Named(Enter)))
 			e.preventDefault();
@@ -434,15 +445,18 @@ class TextEditing {
 		return {from: from, to: to};
 	}
 
+	/** The press ended: dragging selects no further. **/
 	public function release():Void {
 		dragging = false;
 	}
 
+	/** The view gained focus. **/
 	public function focus():Void {
 		focused.set(true);
 		restartBlink();
 	}
 
+	/** The view lost focus: any composition is dropped and the selection collapses to the caret. **/
 	public function blur():Void {
 		focused.set(false);
 		dragging = false;
@@ -456,6 +470,7 @@ class TextEditing {
 	public function showsCaret():Bool
 		return focused.get() && ashui.input.WindowState.active.get() && ashui.input.WindowState.visible.get();
 
+	/** Shows the caret steadily, without blinking. **/
 	public function stopBlink():Void {
 		if (blinkTimer != null)
 			blinkTimer.cancel();
@@ -465,6 +480,7 @@ class TextEditing {
 		caretAlpha.set(1);
 	}
 
+	/** Shows the caret at once and starts its blink afresh. **/
 	public function restartBlink():Void {
 		if (blinkTimer != null)
 			blinkTimer.cancel();

@@ -1,19 +1,23 @@
 package ashui.core.externs;
 
 /**
-	The layout tree in `blinc_abi.hdll`. Node ids are Blinc's 64-bit
-	`LayoutNodeId`s and are only meaningful within their tree.
+	The layout tree in the native library, `blinc_abi.hdll`: the nodes, their
+	styles, flexbox and grid layout, and the display list drawn from them.
+	`ashui.layout.LayoutTree` and `Node` wrap these calls. Node ids are
+	64-bit and only meaningful within their tree.
 **/
 @:hlNative("blinc_abi")
 extern class LayoutTreeNative {
+	/** A new, empty tree. **/
 	static function blinc_tree_new():hl.Abstract<"blinc_tree">;
 
 	/** Frees the tree now and unbinds its nodes; later calls on it do nothing. **/
 	static function blinc_tree_dispose(tree:hl.Abstract<"blinc_tree">):Void;
 
+	/** A new node with no parent and default style; its id. **/
 	static function blinc_tree_create_node(tree:hl.Abstract<"blinc_tree">):haxe.Int64;
 
-	/** `flags`: bit 0 wrap, bit 1 italic. **/
+	/** A new node that draws `content` in the given font; its id. `flags`: bit 0 wrap, bit 1 italic. **/
 	static function blinc_tree_create_text_node(tree:hl.Abstract<"blinc_tree">, content:hl.Bytes, fontName:hl.Bytes, fontSize:Single,
 		lineHeight:Single, fontWeight:Int, genericFont:Int, flags:Int):haxe.Int64;
 
@@ -40,6 +44,7 @@ extern class LayoutTreeNative {
 	/** Applies queued property writes; true if any changed what is drawn, by layout or by look. **/
 	static function blinc_tree_flush(tree:hl.Abstract<"blinc_tree">):Bool;
 
+	/** Lays out the nodes under `root` in a `width` × `height` box. **/
 	static function blinc_tree_compute_layout(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, width:Single, height:Single):Void;
 
 	/**

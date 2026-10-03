@@ -14,6 +14,7 @@ typedef ShadowTokensData = {
 /** The theme's shadow stacks by elevation; a stack is drawn last layer first. **/
 @:forward
 abstract ShadowTokens(ShadowTokensData) from ShadowTokensData to ShadowTokensData {
+	/** `token`'s stack; `Inner`'s layers are always cast inside the box. **/
 	public function get(token:ShadowToken):Array<Shadow> {
 		return switch token {
 			case Sm: this.shadowSm;
@@ -28,11 +29,12 @@ abstract ShadowTokens(ShadowTokensData) from ShadowTokensData to ShadowTokensDat
 		}
 	}
 
+	/** `shadow` as a stack of one. **/
 	public static inline function single(shadow:Shadow):Array<Shadow> {
 		return [shadow];
 	}
 
-	/** Blinc's single-layer black shadows for light surfaces. **/
+	/** One black layer per step, on Tailwind's offsets and blurs, for light surfaces. **/
 	public static function light():ShadowTokens {
 		return ladder([0.05, 0.1, 0.1, 0.1, 0.1, 0.25, 0.05]);
 	}
@@ -72,6 +74,7 @@ abstract ShadowTokens(ShadowTokensData) from ShadowTokensData to ShadowTokensDat
 		};
 	}
 
+	/** The light surfaces' shadows. **/
 	public static inline function defaults():ShadowTokens {
 		return light();
 	}

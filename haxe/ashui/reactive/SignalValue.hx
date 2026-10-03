@@ -4,8 +4,10 @@ import ashui.core.externs.BlincNative;
 import ashui.types.IValue;
 
 /**
-	A signal of a style value. Blinc holds the native value for bindings; the
-	wrapper object last set is kept here and returned by `get`.
+	A signal of a style value (`ashui.types.IValue`): a `Brush`, `Color`,
+	`CornerRadius`, `Transform`, `Shadow` and the like. The native value is
+	held for property bindings to read; the Haxe object last set is kept
+	here and returned by `get`.
 **/
 class SignalValue<T:IValue> implements ISignal<T> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;

@@ -1,9 +1,10 @@
 package ashui.theme;
 
 /**
-	A colour of the theme: red, green, blue and alpha from 0 to 1, in sRGB,
-	as Blinc's `Color` keeps them. Components are f32, so values and their
-	CSS forms match Blinc's.
+	A colour of the theme: red, green, blue and alpha from 0 to 1, in sRGB.
+	Each component is rounded to single precision (see `F32`), as the
+	native library keeps colours, so values and their CSS forms match what
+	it gives. Mirrors Blinc's `Color`.
 **/
 @:structInit
 final class Rgba {
@@ -43,7 +44,7 @@ final class Rgba {
 		return new Rgba(from.r + (to.r - from.r) * t, from.g + (to.g - from.g) * t, from.b + (to.b - from.b) * t, from.a + (to.a - from.a) * t);
 	}
 
-	/** Each channel as a byte, truncated as Blinc's CSS export does. **/
+	/** `channel` as a byte, 0 to 255, truncated rather than rounded as the native library's CSS is. **/
 	public inline function byte(channel:Float):Int {
 		return Std.int(F32.round(channel * 255));
 	}
@@ -57,10 +58,12 @@ final class Rgba {
 		return r == other.r && g == other.g && b == other.b && a == other.a;
 	}
 
+	/** This colour as a style value for a node. **/
 	public function toColor():ashui.types.Color {
 		return new ashui.types.Color(rgb(), a);
 	}
 
+	/** This colour as a solid fill for a node. **/
 	public function toBrush():ashui.types.Brush {
 		return ashui.types.Brush.solid(rgb(), a);
 	}

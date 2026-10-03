@@ -24,7 +24,9 @@ class Scroll {
 	static inline var THUMB_STAYS = 0.8;
 	static inline var THUMB_FADES = 0.25;
 
+	/** The scroll container. **/
 	public final node:Node;
+
 	/** How far the content is scrolled right and down, in layout units. **/
 	public final x:Signal<Float>;
 	public final y:Signal<Float>;

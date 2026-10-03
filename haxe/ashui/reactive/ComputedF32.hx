@@ -2,6 +2,7 @@ package ashui.reactive;
 
 import ashui.core.externs.BlincNative;
 
+/** A computed `Single`; what `Computed.make` makes for one. **/
 class ComputedF32 implements IComputed<Single> {
 	public var ptr(default, null):hl.Abstract<"blinc_computed">;
 

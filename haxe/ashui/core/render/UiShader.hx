@@ -1,8 +1,10 @@
 package ashui.core.render;
 
 /**
-	A shader of ashui's renderer. `UiFramework` gives each one the display-list
-	primitive it draws, as instance input, and the frame it draws into.
+	A shader of ashui's renderer: a class whose HXSL source is its `static
+	var SRC`, compiled to WGSL with the build. `UiFramework` gives each one
+	`primitive`, the display-list record of the instance it draws, and
+	`viewport`, the size of the frame it draws into.
 **/
 #if ashui_caribou
 interface UiShader extends caribou.hxsl.Shader {}

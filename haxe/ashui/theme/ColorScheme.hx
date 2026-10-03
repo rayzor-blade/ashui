@@ -1,5 +1,6 @@
 package ashui.theme;
 
+/** Light or dark: which of a bundle's two themes is in use. **/
 enum abstract ColorScheme(Int) to Int {
 	var Light = 0;
 	var Dark = 1;

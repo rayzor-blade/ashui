@@ -4,6 +4,12 @@ import ashui.layout.LayoutTree;
 import ashui.layout.Node;
 import ashui.reactive.Owner;
 
+/**
+	Something placed in the UI: the base of `Div`, `Text`, `Image`, `Svg`
+	and every `Component`. An element owns one `node` of its `tree`, which a
+	subclass makes in its constructor, and places its children's nodes under
+	it. `node` is null after `remove`.
+**/
 class Element {
 	public var node(default, null):Node;
 	public var tree(default, null):LayoutTree;
@@ -20,6 +26,7 @@ class Element {
 		Owner.onCleanup(remove);
 	}
 
+	/** Places `child`'s node last among this element's children. **/
 	public inline function appendChild(child:Element):Void {
 		if (this.node != null && child.node != null) {
 			tree.addChild(this.node.id, child.node.id);

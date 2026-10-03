@@ -2,6 +2,7 @@ package ashui.reactive;
 
 import ashui.core.externs.BlincNative;
 
+/** A computed `Bool`; what `Computed.make` makes for one. **/
 class ComputedBool implements IComputed<Bool> {
 	public var ptr(default, null):hl.Abstract<"blinc_computed">;
 

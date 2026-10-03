@@ -1,4 +1,4 @@
 package ashui.theme.themes;
 
-/** Blinc's default theme, Universal HID · Hybrid. **/
+/** Universal HID · Hybrid under the name Blinc's apps know it by: the same as `DefaultTheme`. **/
 typedef BlincTheme = HybridTheme;

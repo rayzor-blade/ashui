@@ -1,9 +1,11 @@
 package ashui.core.render;
 
 /**
-	A box: its fill, solid or a gradient of up to three stops, with its border drawn
-	inside its edge, its corners shaped as its record says, under its clip.
-	Blinc's `sdf_core.wgsl` for rect primitives, without transforms.
+	A box: its fill, solid or a gradient of up to three stops, with its
+	border drawn inside its edge, its corners shaped as its record says,
+	under its clip. Edge, corners and border all come from the box's signed
+	distance (see `Sdf`), so they stay smooth under any transform. Ported
+	from the rect branch of Blinc's `sdf_core.wgsl`.
 **/
 class BoxShader implements UiShader {
 	static var SRC = {

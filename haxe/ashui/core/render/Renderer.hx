@@ -31,20 +31,35 @@ import gpu.PrimitiveTopology;
 import gpu.TextureFormat;
 
 /**
-	Draws a `DisplayList` with the GPU, the way Blinc's renderer draws its
-	primitives: each record is an instanced quad of six vertices, and each
-	run of records of one kind is one draw with that kind's pipeline, so
-	paint order holds across kinds. The records are uploaded as rows of a
-	float texture each shader reads its instance's record from (see
-	`UiFramework`), on every platform alike. A group with opacity draws
-	into a layer, a texture the target's size, and is composited back over
-	its bounds by `LayerShader`, as CSS composites one. Colours are straight alpha, blended over
-	the target in gamma space as Blinc does on native targets. Glyphs sample
-	the text engine's atlases, uploaded before each frame that changed them;
-	images sample an atlas of their own, rasterized into as they appear.
+	Draws a `DisplayList` with the GPU. `Offscreen` drives it, and
+	`WindowedApp` through that; an app rarely makes one itself.
+
+	A display list is the laid-out UI flattened into what to paint, in paint
+	order: one record per primitive (a box, a shadow, a glyph, an image, or
+	the start or end of a layer), each a fixed number of rows of four floats
+	(see `ashui.layout.RecordLayout`). The records are uploaded as rows of a
+	float texture, which each shader reads its instance's record from (see
+	`UiFramework`), on every platform alike. Each record is an instanced
+	quad of six vertices, and each run of records of one kind is one draw
+	with that kind's pipeline, so paint order holds across kinds.
+
+	Shapes are drawn from signed distances (see `Sdf`): for each pixel the
+	shader works out how far it is from the shape's edge and turns that
+	into coverage, so edges are anti-aliased at any size, rotation or
+	corner shape without building meshes.
+
+	A group with opacity, a filter or a drop shadow draws into a layer: a
+	cleared offscreen texture the target's size, composited back over the
+	group's bounds by `LayerShader`, as CSS composites one, so overlapping
+	children fade or blur as one image. Layers nest, a texture per depth.
+
+	Colours are straight alpha, blended over the target in gamma space, so
+	targets should be formats without sRGB encoding. Glyphs sample the text
+	engine's atlases, uploaded before each frame that changed them; images
+	sample an atlas of their own, rasterized into as they appear.
 
 	Written against hlwgpu's `gpu` package; the shaders are HXSL, so
-	caribou-gpu takes the same ones.
+	caribou-gpu takes the same ones. Draws as Blinc's renderer does.
 **/
 class Renderer {
 	final device:GpuDevice;
@@ -86,7 +101,10 @@ class Renderer {
 	var recordRows = 0;
 	final passes:Array<Pass> = [];
 
-	/** A renderer drawing into targets of `format`; pick a non-sRGB one, as Blinc does. **/
+	/**
+		A renderer drawing into targets of `format`. Pick one without sRGB
+		encoding: colours are already sRGB and blend as they are.
+	**/
 	public function new(device:GpuDevice, format:TextureFormat) {
 		this.device = device;
 		frameBytes = haxe.io.Bytes.alloc(BoxShader.FRAME_SIZE);

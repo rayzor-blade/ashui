@@ -9,6 +9,7 @@ enum Easing {
 	CubicBezier(x1:Float, y1:Float, x2:Float, y2:Float);
 }
 
+/** Reads an `Easing`: its progress at a time, and its control points. **/
 class EasingTools {
 	/**
 		Progress at `t`, which is clamped to 0..1: the curve's y where its x is

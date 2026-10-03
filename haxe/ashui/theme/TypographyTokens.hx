@@ -76,7 +76,7 @@ abstract TypographyTokens(TypographyTokensData) from TypographyTokensData to Typ
 		}
 	}
 
-	/** Blinc's defaults: system font stacks on a Tailwind-like size scale. **/
+	/** System font stacks on a Tailwind-like size scale: what a theme starts from. **/
 	public static function defaults():TypographyTokens {
 		return {
 			fontSans: FontFamily.systemSans(),

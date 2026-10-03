@@ -3,9 +3,11 @@ package ashui.reactive;
 import ashui.core.externs.BlincNative;
 
 /**
-	A signal of any Haxe value. The value stays on the Haxe heap, out of reach
-	of Rust; Blinc holds a version number that changes on every `set`, and
-	that is what readers depend on.
+	A signal of any Haxe value without a native kind: an array, a structure,
+	an object. The value stays on the Haxe heap; natively there is only a
+	version number, which changes on every `set`, and that is what readers
+	depend on. So every `set` notifies them, even of an equal value, and a
+	change made inside the value notifies no one.
 **/
 class SignalDynamic<T> implements ISignal<T> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;

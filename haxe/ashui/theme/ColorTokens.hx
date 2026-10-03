@@ -44,6 +44,7 @@ typedef ColorTokensData = {
 /** The theme's colours, one per `ColorToken`. **/
 @:forward
 abstract ColorTokens(ColorTokensData) from ColorTokensData to ColorTokensData {
+	/** `token`'s colour. **/
 	public inline function get(token:ColorToken):Rgba {
 		return token.of(this);
 	}

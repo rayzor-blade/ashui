@@ -1,8 +1,9 @@
 package ashui.core.render;
 
 /**
-	A layer composited back: its quad covers the bounds of what was drawn
-	into the layer, and each fragment reads the layer's texel under it. The
+	A layer, a group drawn offscreen (see `Renderer`), composited back: its
+	quad covers the bounds of what was drawn into the layer, and each
+	fragment reads the layer's texel under it. The
 	layer holds colour premultiplied by alpha, as drawing into a cleared
 	target with the UI blend leaves it, so the colour is divided out again
 	and the alpha multiplied by the group's opacity, `color.a`; the usual

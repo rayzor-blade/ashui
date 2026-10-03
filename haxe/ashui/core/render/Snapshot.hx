@@ -21,6 +21,7 @@ import gpu.GpuTextureViewDescriptor;
 class Snapshot {
 	static var offscreen:Null<Offscreen>;
 
+	/** Where snapshots go: `$ASHUI_SNAPSHOT_DIR`, or `snapshots` under the working directory. **/
 	public static function dir():String {
 		var dir = Sys.getEnv("ASHUI_SNAPSHOT_DIR");
 		return dir != null && dir != "" ? dir : "snapshots";

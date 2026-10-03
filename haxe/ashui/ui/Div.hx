@@ -10,6 +10,7 @@ import ashui.types.Color;
 import ashui.types.CornerRadius;
 import ashui.types.Style;
 
+/** A `Div`'s attributes: each optional, each one property of its node (see `Prop`). **/
 typedef DivAttributes = {
 	/** Applied before the other attributes, which win over it. **/
 	?style:ashui.style.Style,
@@ -60,15 +61,23 @@ typedef DivAttributes = {
 	?textAlign:IntoReactive<TextAlign>
 }
 
+/**
+	A box: the basic element, laid out with flexbox, holding other elements
+	as its children. Each attribute sets one property of its node and takes
+	a constant, a signal or a computed (see `IntoReactive`), so
+	`new Div({width: 120, bg: background}, [child])` makes a box whose
+	background follows the signal `background`. In a template it is
+	`<div>`, which also takes classes and event handlers.
+**/
 class Div extends Element {
 	public function new(?attr:DivAttributes, ?children:Array<Element>, ?tree:LayoutTree) {
 		super(tree);
 
-		// 1. Mint the native node arena in Rust
+		// Its node, made in the tree.
 		var node = this.tree.createNode();
 		this.node = node;
 
-		// 2. Automatically bind all attributes dynamically using the unified node setter
+		// Each attribute given binds its property; the style first, so the others win.
 		if (attr != null) {
 			if (attr.style != null)
 				attr.style.apply(node);
@@ -157,7 +166,7 @@ class Div extends Element {
 				node.set(Prop.TextAlign, attr.textAlign);
 		}
 
-		// 3. Mount children structure
+		// The children, placed in order.
 		if (children != null) {
 			for (child in children) {
 				this.tree.addChild(node.id, child.node.id);

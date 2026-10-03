@@ -1,9 +1,14 @@
 package ashui.core.render;
 
 /**
-	Signed distances and coverage for UI primitives, imported by the UI
-	shaders. Ports of Blinc's `sdf_core.wgsl` helpers; distances are in
-	pixels, negative inside.
+	Signed distance functions for UI shapes, and the coverage helpers built
+	on them, imported by every UI shader. A signed distance function gives
+	a point's distance to a shape's edge, in pixels: negative inside,
+	positive outside, 0 on the edge. A shader turns it into how much of a
+	pixel the shape covers with a `smoothstep` across about a pixel either
+	side of 0, which anti-aliases the edge at any size or rotation; a
+	border is the band between two distances, and a shadow a blur of one.
+	Ported from Blinc's `sdf_core.wgsl`.
 **/
 class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
@@ -48,11 +53,12 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 		}
 
 		/**
-			Distance to a box whose corners each follow a superellipse of
-			`shape`'s `n`: 1 round, 2 squircle, 0 bevel, -1 scoop, 100 or more
-			square, -100 or less notch. Blinc's `sd_shaped_rect`, with a scoop
-			centred on the corner's tip as CSS draws it and distances that are
-			continuous and a pixel per pixel, for even edges and borders.
+			Distance to a box whose corners each follow a superellipse, its
+			corner shape `n` from `shape` (see `ashui.types.CornerShape`): 1
+			round, 2 squircle, 0 bevel, -1 scoop, 100 or more square, -100 or
+			less notch. A scoop is centred on the corner's tip as CSS draws
+			it, and distances are continuous and move a pixel per pixel, so
+			edges and borders are even. Ported from Blinc's `sd_shaped_rect`.
 		**/
 		function sdShapedRect(p : Vec2, origin : Vec2, size : Vec2, radius : Vec4, shape : Vec4) : Float {
 			var halfSize = size * 0.5;

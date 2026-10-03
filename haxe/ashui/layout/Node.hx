@@ -7,13 +7,23 @@ import ashui.layout.PropertyId;
 import ashui.reactive.Guard;
 import ashui.types.IValue;
 
+/**
+	A handle to one node of a `LayoutTree`: a box laid out with flexbox, or
+	a run of text (`TextNode`). The node itself lives in the tree, natively;
+	this object holds its `id`, and is how its properties are set. Every
+	element owns one, as `Element.node`; make one directly with
+	`LayoutTree.createNode`.
+
+	Set a property with `set(Prop.X, value)`, the value a constant, a signal
+	or a computed (see `IntoReactive`).
+**/
 class Node {
 	// How a router reads its arguments: the constant, the signal or the computed.
 	static inline var KIND_CONST = 0;
 	static inline var KIND_SIGNAL = 1;
 	static inline var KIND_COMPUTED = 2;
 
-	// 64-bit LayoutNodeId minted by Blinc
+	/** The node's id in its tree, made natively; what the tree's functions take. **/
 	public var id(default, null):haxe.Int64;
 
 	/** The tree that made this node. **/
@@ -81,6 +91,7 @@ class Node {
 		}
 	}
 
+	/** Binds a `Single` property. `set` calls this, and the others below, by the property's type. **/
 	public function applyF32(prop:PropertyId, reactive:IntoReactive<Single>):Void {
 		switch (reactive) {
 			case Const(v):
@@ -93,6 +104,7 @@ class Node {
 		Guard.check();
 	}
 
+	/** Binds an `Int` property, enums included. **/
 	public function applyI32(prop:PropertyId, reactive:IntoReactive<Int>):Void {
 		switch (reactive) {
 			case Const(v):
@@ -105,7 +117,7 @@ class Node {
 		Guard.check();
 	}
 
-	/** Brushes, colors, radii, transforms and shadows. **/
+	/** Binds a style-value property: brushes, colours, radii, transforms, shadows and clip paths. **/
 	public function applyValue(prop:PropertyId, reactive:IntoReactive<IValue>):Void {
 		switch (reactive) {
 			case Const(v):
@@ -118,6 +130,7 @@ class Node {
 		Guard.check();
 	}
 
+	/** Binds a `String` property. **/
 	public function applyString(prop:PropertyId, reactive:IntoReactive<String>):Void {
 		switch (reactive) {
 			case Const(v):

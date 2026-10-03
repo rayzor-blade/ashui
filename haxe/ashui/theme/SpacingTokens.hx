@@ -29,6 +29,7 @@ typedef SpacingTokensData = {
 /** The theme's spacing scale in pixels, one value per `SpacingToken`. **/
 @:forward
 abstract SpacingTokens(SpacingTokensData) from SpacingTokensData to SpacingTokensData {
+	/** `token`'s spacing in pixels. **/
 	public inline function get(token:SpacingToken):Float {
 		return token.of(this);
 	}

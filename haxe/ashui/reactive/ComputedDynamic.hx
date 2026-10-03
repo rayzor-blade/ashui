@@ -2,7 +2,11 @@ package ashui.reactive;
 
 import ashui.core.externs.BlincNative;
 
-/** As `SignalDynamic`: the value stays in Haxe, Blinc tracks a version number. **/
+/**
+	A computed of any Haxe value without a native kind, as `SignalDynamic`
+	is a signal of one: the value stays in Haxe, and natively only a version
+	number changes, each time the closure runs again.
+**/
 class ComputedDynamic<T> implements IComputed<T> {
 	public var ptr(default, null):hl.Abstract<"blinc_computed">;
 

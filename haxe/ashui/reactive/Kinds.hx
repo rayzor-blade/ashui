@@ -5,7 +5,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 
-/** Picks the native signal or computed class for a value type. **/
+/** Picks the signal or computed class for a value type, for `Signal.make` and `Computed.make`. **/
 class Kinds {
 	/**
 		The class-name suffix for values of `type`: `I32`, `F32`, `F64`, `Bool`,

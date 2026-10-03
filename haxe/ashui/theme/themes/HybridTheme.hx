@@ -2,7 +2,7 @@ package ashui.theme.themes;
 
 import ashui.theme.*;
 
-/** Universal HID · Hybrid: between Restrained's Apple-leaning calm and Expressive's Material-leaning colour. Blinc's and ashui's default theme. **/
+/** Universal HID · Hybrid: between Restrained's Apple-leaning calm and Expressive's Material-leaning colour. ashui's default theme, and Blinc's. **/
 class HybridTheme {
 	public static inline var NAME = "Universal · Hybrid";
 

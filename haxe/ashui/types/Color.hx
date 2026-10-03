@@ -2,6 +2,7 @@ package ashui.types;
 
 import ashui.core.externs.BlincNative;
 
+/** A colour as a style value: `0xRRGGBB` and an alpha from 0 to 1, in sRGB. **/
 class Color implements IValue {
 	public var ptr(default, null):hl.Abstract<"blinc_value">;
 	public final rgb:Int;

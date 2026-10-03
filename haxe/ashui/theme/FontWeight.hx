@@ -1,5 +1,6 @@
 package ashui.theme;
 
+/** A font weight of the theme's type, as CSS numbers weights. **/
 enum abstract FontWeight(Int) to Int {
 	var Thin = 100;
 	var ExtraLight = 200;

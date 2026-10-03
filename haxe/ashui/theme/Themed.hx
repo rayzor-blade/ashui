@@ -3,12 +3,16 @@ package ashui.theme;
 import ashui.reactive.Computed;
 
 /**
-	Token values as computeds for binding to properties: each reads
-	`ThemeState.revision`, so the property follows scheme switches, their
-	colour transition and overrides, and nothing else is rebuilt. Installs
-	the default theme if none is.
+	Token values as computeds for binding to a node's properties:
+
+	    node.set(Prop.Background, Themed.brush(Surface));
+
+	Each reads `ThemeState.revision`, so the property follows scheme
+	switches, their colour transition and overrides, and nothing else is
+	rebuilt. Installs the default theme if none is.
 **/
 class Themed {
+	/** `token`'s colour. **/
 	public static function color(token:ColorToken):Computed<ashui.types.Color> {
 		var state = ready();
 		return Computed.make(() -> {
@@ -26,6 +30,7 @@ class Themed {
 		});
 	}
 
+	/** `token`'s spacing in pixels. **/
 	public static function spacing(token:SpacingToken):Computed<Single> {
 		var state = ready();
 		return Computed.make(() -> {
@@ -34,6 +39,7 @@ class Themed {
 		});
 	}
 
+	/** `token`'s radius on every corner. **/
 	public static function radius(token:RadiusToken):Computed<ashui.types.CornerRadius> {
 		var state = ready();
 		return Computed.make(() -> {
@@ -42,6 +48,7 @@ class Themed {
 		});
 	}
 
+	/** A `Text…` token's font size in pixels. **/
 	public static function fontSize(token:TypographyToken):Computed<Single> {
 		var state = ready();
 		return Computed.make(() -> {

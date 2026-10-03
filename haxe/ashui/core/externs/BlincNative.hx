@@ -1,14 +1,22 @@
 package ashui.core.externs;
 
 /**
-	Signals, computeds, property routers and style values in `blinc_abi.hdll`.
+	The reactive graph and style values of the native library,
+	`blinc_abi.hdll`. A signal holds a value and notifies whatever read it
+	when it is set; a computed derives a value from signals and is
+	recomputed when they change; its `compute` callback hands its result
+	back through the matching `blinc_return_*`. An effect is a callback
+	re-run the same way. A property router binds a layout node's property
+	to a constant, a signal or a computed. Style values (brushes, colours, radii, transforms,
+	shadows, clip paths) are immutable handles a node's properties take.
+	`ashui.reactive` and `ashui.types` wrap all of this; app code uses those.
 
 	Handles are GC blocks the library allocates with a finalizer, so nothing
 	here is freed by hand. Flags cross as `Int` rather than `Bool`.
 **/
 @:hlNative("blinc_abi")
 extern class BlincNative {
-	// --- Render loop ---
+	// --- Render loop: whether any signal changed since the last clear ---
 	static function blinc_is_dirty():Bool;
 	static function blinc_clear_dirty():Void;
 
@@ -58,14 +66,15 @@ extern class BlincNative {
 	static function blinc_computed_value(compute:Void->Void):hl.Abstract<"blinc_computed">;
 	static function blinc_return_value(v:hl.Abstract<"blinc_value">):Void;
 
-	// --- Any type ---
+	// --- Any type: `touch` reads it, so the computed or effect running depends on it ---
 	static function blinc_signal_touch(sig:hl.Abstract<"blinc_signal">):Void;
 	static function blinc_computed_touch(comp:hl.Abstract<"blinc_computed">):Void;
 	/** Queues the computed for release at the next flush, before its handle is collected. **/
 	static function blinc_computed_release(comp:hl.Abstract<"blinc_computed">):Void;
 
-	// --- Effects: `run` re-runs inside Blinc's graph when what it read changes ---
+	// --- Effects: `run` runs now and again whenever a signal or computed it read changes ---
 	static function blinc_effect(run:Void->Void):hl.Abstract<"blinc_effect">;
+	/** Stops the effect; it is removed at the next flush. **/
 	static function blinc_effect_release(effect:hl.Abstract<"blinc_effect">):Void;
 
 	// --- Property routers: kind 0 applies `constant`, 1 binds `sig`, 2 binds `comp` ---
@@ -95,7 +104,12 @@ extern class BlincNative {
 	static function blinc_corner_shape(topLeft:Single, topRight:Single, bottomRight:Single, bottomLeft:Single, locked:Bool):hl.Abstract<"blinc_value">;
 	static function blinc_shadow(offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single, inset:Bool):hl.Abstract<"blinc_value">;
 
-	/** A clip-path shape; see `blinc_abi::types::hl_blinc_clip_path`. **/
+	/**
+		A clip-path shape: `kind` 0 circle, 1 ellipse, 2 inset, 3 rect, 4
+		xywh, -1 none. `values` holds its lengths as F32s, each a percentage
+		where its bit in `percent` is set and left out where its bit in
+		`none` is; `round` is the corner radius, or -1. See `ClipPath`.
+	**/
 	static function blinc_clip_path(kind:Int, values:hl.Bytes, percent:Int, none:Int, round:Single):hl.Abstract<"blinc_value">;
 
 	/** A polygon clip path, `count` points of x and y in `values`, each a percentage where its byte in `percent` is 1; a path's are pixels, rings apart by a 1e30 point. **/

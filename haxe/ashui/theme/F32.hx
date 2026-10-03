@@ -3,16 +3,21 @@ package ashui.theme;
 import haxe.io.FPHelper;
 
 /**
-	Single-precision arithmetic for values the theme shares with Blinc, which
-	keeps them as f32: rounding a Float to the nearest f32, and printing one
-	as Rust prints an f32, with the fewest digits that read back the same.
+	Single-precision arithmetic for theme values the native library keeps as
+	32-bit floats: rounding a Float to the nearest f32, so values compare
+	equal on both sides, and printing one with the fewest digits that read
+	back the same, as the library prints them in CSS.
 **/
 class F32 {
+	/** `x` rounded to the nearest 32-bit float. **/
 	public static inline function round(x:Float):Float {
 		return FPHelper.i32ToFloat(FPHelper.floatToI32(x));
 	}
 
-	/** `x` as Rust's `Display` for f32 prints it: `1`, `0.35`, `-0.025`, `2.5`. **/
+	/**
+		`x` in the fewest digits that read back as the same f32, a whole
+		number without a point: `1`, `0.35`, `-0.025`, `2.5`.
+	**/
 	public static function toString(x:Float):String {
 		var target = round(x);
 		if (target == Math.ffloor(target) && Math.abs(target) < 1e15)

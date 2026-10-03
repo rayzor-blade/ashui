@@ -8,6 +8,7 @@ package ashui.theme;
 	`SystemSchemeWatcher`, which polls, wherever there is a window.
 **/
 class WindowTheme {
+	/** The scheme of a window's appearance. **/
 	public static function schemeOf(theme:window.Theme):ColorScheme {
 		return theme == window.Theme.Dark ? Dark : Light;
 	}

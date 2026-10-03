@@ -461,7 +461,6 @@ class Hxx {
 		}
 	}
 
-	/** `el.node.set(Prop.Key, value)` for one attribute. **/
 	/** Handler attributes and the event each takes. **/
 	static final HANDLERS = [
 		"onClick" => "PointerEvent", "onPointerDown" => "PointerEvent", "onPointerUp" => "PointerEvent",
@@ -495,6 +494,7 @@ class Hxx {
 		}
 	}
 
+	/** `el.node.set(Prop.Key, value)` for one attribute, or its input setter. **/
 	static function setter(el:String, attribute:Attribute, tag:String):Expr {
 		return switch attribute {
 			case Regular(name, value) if (inputSetter(el, name.value, value) != null):

@@ -30,6 +30,7 @@ class SvgParser {
 	static final SHAPES = ["path" => true, "rect" => true, "circle" => true, "ellipse" => true, "line" => true, "polyline" => true,
 		"polygon" => true];
 
+	/** Reads `xml`, an `<svg>` element or a document holding one; throws `SvgError` at the first mistake. **/
 	public static function parse(xml:Xml):Parsed {
 		var root = xml.nodeType == Document ? xml.firstElement() : xml;
 		if (root == null || local(root.nodeName) != "svg")

@@ -17,6 +17,7 @@ final class ThemeBundle {
 		this.dark = dark;
 	}
 
+	/** The light or the dark theme. **/
 	public function forScheme(scheme:ColorScheme):Theme {
 		return scheme == Dark ? dark : light;
 	}

@@ -18,13 +18,15 @@ import gpu.TextureFormat;
 import gpu.TextureUsage;
 
 /**
-	Draws a UI into GPU textures without a window, as Blinc's `BlincApp`
-	does: into a view the caller owns, into a fresh texture the caller can
-	sample or copy in its own passes, or back to RGBA bytes.
+	Draws a UI into GPU textures without a window: into a view the caller
+	owns, into a fresh texture the caller can sample or copy in its own
+	passes, or back to RGBA bytes. Tests, snapshots and a UI inside a host
+	engine's frame all draw this way.
 
 	It renders on the caller's device when given one, so a host engine can
 	put the UI in its own textures; `create` makes a device of its own.
-	Textures are in `format`; pick a non-sRGB one, as Blinc does.
+	Textures are in `format`; pick one without sRGB encoding, as colours
+	are already sRGB. Blinc's `BlincApp` does the same.
 **/
 class Offscreen {
 	public final device:GpuDevice;
@@ -57,6 +59,7 @@ class Offscreen {
 	inline function get_primitives():Int
 		return list.count;
 
+	/** An offscreen renderer on `device`, drawing into textures in `format`. **/
 	public function new(device:GpuDevice, format:TextureFormat = Rgba8unorm) {
 		this.device = device;
 		this.format = format;

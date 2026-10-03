@@ -22,6 +22,7 @@ typedef ImageAttributes = {
 	(`Contain`) or cropped to cover the box (`Cover`), centred.
 **/
 class Image extends Element {
+	/** The image it draws. **/
 	public final bitmap:Bitmap;
 
 	public function new(bitmap:Bitmap, ?attr:ImageAttributes, ?tree:LayoutTree) {

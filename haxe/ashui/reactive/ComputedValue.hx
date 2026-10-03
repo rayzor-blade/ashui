@@ -3,7 +3,11 @@ package ashui.reactive;
 import ashui.core.externs.BlincNative;
 import ashui.types.IValue;
 
-/** As `SignalValue`: Blinc holds the native value, this the last wrapper computed. **/
+/**
+	A computed style value, as `SignalValue` is a signal of one: the native
+	value is held for property bindings, and the Haxe object last computed
+	is returned by `get`.
+**/
 class ComputedValue<T:IValue> implements IComputed<T> {
 	public var ptr(default, null):hl.Abstract<"blinc_computed">;
 

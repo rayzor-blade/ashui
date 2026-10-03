@@ -27,6 +27,7 @@ abstract class Component<Props> extends Element {
 	/** The component whose render is running, if any. **/
 	static var rendering:Null<Component<Dynamic>> = null;
 
+	/** The props it was built with. **/
 	public final props:Props;
 	final children:Array<Element>;
 	final parentOwner:Null<Owner>;

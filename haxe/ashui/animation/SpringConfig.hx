@@ -1,6 +1,9 @@
 package ashui.animation;
 
-/** A spring's stiffness, damping and mass. **/
+/**
+	A spring's stiffness, damping and mass. Stiffer springs move faster;
+	less damping overshoots and oscillates more before settling.
+**/
 @:structInit
 final class SpringConfig {
 	public final stiffness:Float;
@@ -17,6 +20,7 @@ final class SpringConfig {
 	public static function gentle():SpringConfig
 		return new SpringConfig(120, 14, 1);
 
+	/** Bouncy: overshoots and swings back. **/
 	public static function wobbly():SpringConfig
 		return new SpringConfig(180, 12, 1);
 
@@ -24,12 +28,15 @@ final class SpringConfig {
 	public static function stiff():SpringConfig
 		return new SpringConfig(400, 30, 1);
 
+	/** Quick, with no visible overshoot. **/
 	public static function snappy():SpringConfig
 		return new SpringConfig(600, 40, 1);
 
+	/** Slow and heavy. **/
 	public static function molasses():SpringConfig
 		return new SpringConfig(100, 20, 1);
 
+	/** The damping at which it settles fastest without overshooting. **/
 	public function criticalDamping():Float
 		return 2 * Math.sqrt(stiffness * mass);
 

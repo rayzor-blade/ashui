@@ -6,8 +6,19 @@ import haxe.macro.Expr;
 #end
 
 /**
-	A reactive value held in Blinc's graph. Reading one inside a computed
-	records it as a dependency of that computed.
+	A value that changes, and that what reads it follows: make one with
+	`Signal.make(initial)`, read it with `get()` and change it with `set(v)`.
+
+	Reading a signal inside a `Computed`, a `Watch`'s `read`, or a template
+	attribute records it as a dependency, so that runs again when the signal
+	is set; read anywhere else, it is a plain read. Given to a node property
+	(see `IntoReactive`), the property follows it. A signal is not owned:
+	disposing an `Owner` does not release it.
+
+	`make` picks the class for the value's type. `Int`, `Single`, `Float`,
+	`Bool`, `String` and style values (`ashui.types.IValue`) are held
+	natively, where property bindings read them; any other value stays in
+	Haxe (see `SignalDynamic`). The dependency graph is Blinc's.
 **/
 // The macros below load this module in the macro context too, where `hl`
 // types do not exist, so there it is a plain stand-in.

@@ -19,10 +19,12 @@ typedef RadiusTokensData = {
 **/
 @:forward
 abstract RadiusTokens(RadiusTokensData) from RadiusTokensData to RadiusTokensData {
+	/** `token`'s radius in pixels. **/
 	public inline function get(token:RadiusToken):Float {
 		return token.of(this);
 	}
 
+	/** Tailwind's radius scale. **/
 	public static function defaults():RadiusTokens {
 		return {
 			radiusNone: 0,

@@ -22,10 +22,12 @@ class Spring {
 		target = initial;
 	}
 
+	/** Whether it is at rest at its target, or paused. **/
 	public function isSettled():Bool {
 		return paused || (Math.abs(value - target) < EPSILON && Math.abs(velocity) < VELOCITY_EPSILON);
 	}
 
+	/** Holds the value where it is until `resume`. **/
 	public function pause():Void
 		paused = true;
 

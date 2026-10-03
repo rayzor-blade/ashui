@@ -1,6 +1,6 @@
 package ashui.core.externs;
 
-/** SVG rasterization in `blinc_abi.hdll`. **/
+/** Turns SVG markup into pixels, in the native library `blinc_abi.hdll`. `ashui.core.render.Images` calls it to fill the image atlas. **/
 @:hlNative("blinc_abi")
 extern class SvgNative {
 	/**
