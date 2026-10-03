@@ -6,7 +6,6 @@ class ComputedF32 implements IComputed<Single> {
 	public var ptr(default, null):hl.Abstract<"blinc_computed">;
 
 	public function new(compute:Void->Single) {
-		Guard.creating("A computed");
 		ptr = BlincNative.blinc_computed_f32(Guard.wrap(() -> BlincNative.blinc_return_f32(compute())));
 		Owner.adoptComputed(ptr);
 	}

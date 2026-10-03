@@ -8,7 +8,6 @@ class SignalString implements ISignal<String> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;
 
 	public function new(initialValue:String) {
-		Guard.creating("A signal");
 		ptr = BlincNative.blinc_signal_string(Utf8.encode(initialValue));
 	}
 

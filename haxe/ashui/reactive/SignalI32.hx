@@ -6,7 +6,6 @@ class SignalI32 implements ISignal<Int> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;
 
 	public function new(initialValue:Int) {
-		Guard.creating("A signal");
 		ptr = BlincNative.blinc_signal_i32(initialValue);
 	}
 

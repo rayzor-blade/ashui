@@ -6,7 +6,6 @@ class SignalBool implements ISignal<Bool> {
 	public var ptr(default, null):hl.Abstract<"blinc_signal">;
 
 	public function new(initialValue:Bool) {
-		Guard.creating("A signal");
 		ptr = BlincNative.blinc_signal_bool(initialValue ? 1 : 0);
 	}
 

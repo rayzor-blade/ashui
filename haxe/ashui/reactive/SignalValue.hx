@@ -14,7 +14,6 @@ class SignalValue<T:IValue> implements ISignal<T> {
 
 	public function new(initialValue:T) {
 		current = initialValue;
-		Guard.creating("A signal");
 		ptr = BlincNative.blinc_signal_value(initialValue == null ? null : initialValue.ptr);
 	}
 

@@ -8,7 +8,6 @@ class ComputedString implements IComputed<String> {
 	public var ptr(default, null):hl.Abstract<"blinc_computed">;
 
 	public function new(compute:Void->String) {
-		Guard.creating("A computed");
 		ptr = BlincNative.blinc_computed_string(Guard.wrap(() -> BlincNative.blinc_return_string(Utf8.encode(compute()))));
 		Owner.adoptComputed(ptr);
 	}

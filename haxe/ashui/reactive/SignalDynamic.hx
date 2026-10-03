@@ -15,7 +15,6 @@ class SignalDynamic<T> implements ISignal<T> {
 
 	public function new(initialValue:T) {
 		current = initialValue;
-		Guard.creating("A signal");
 		ptr = BlincNative.blinc_signal_i32(version);
 	}
 

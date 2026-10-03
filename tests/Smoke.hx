@@ -1399,21 +1399,25 @@ class Smoke {
 		} catch (e:haxe.Exception) e.message == "boom";
 		check("exception rethrown from computed", caught);
 
-		// --- Making a signal while a computed evaluates is an error, not a hang ---
+		// --- A signal or computed can be made while a computed evaluates, as SolidJS allows ---
 		var lazy:Null<ashui.reactive.ISignal<Int>> = null;
 		var reader = Computed.make(() -> {
 			if (lazy == null)
 				lazy = Signal.make(7);
-			lazy.get();
+			var doubled = Computed.make(() -> lazy.get() * 2);
+			doubled.get();
 		});
+		check("a signal and a computed made inside a computed are read there", reader.get() == 14, reader.get());
+		lazy.set(10);
+		check("and the computed follows the signal made inside it", reader.get() == 20, reader.get());
 		var refused = try {
-			reader.get();
+			Computed.make(() -> {
+				new ashui.reactive.Watch(() -> 1, _ -> {});
+				0;
+			}).get();
 			"";
 		} catch (e:haxe.Exception) e.message;
-		check("a signal made inside a computed is refused with a reason", refused.indexOf("while a computed or watch evaluated") >= 0, refused);
-		lazy = Signal.make(7);
-		var afterwards = Signal.make(1);
-		check("signals made after it work", afterwards.get() == 1 && lazy.get() == 7);
+		check("a watch made inside a computed is still refused with a reason", refused.indexOf("while a computed or watch evaluated") >= 0, refused);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

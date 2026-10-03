@@ -3,8 +3,8 @@ package ashui.reactive;
 /**
 	Computed closures run inside Rust while Blinc's graph lock is held, so an
 	exception must not unwind out of one. `wrap` catches it, the computed keeps
-	its type's default, and the next `check` rethrows it. Nothing may be
-	added to the graph meanwhile; `creating` says so instead of hanging.
+	its type's default, and the next `check` rethrows it. A watch may not
+	be made meanwhile; `creating` says so instead of hanging.
 **/
 class Guard {
 	static var pending:Null<haxe.Exception>;
@@ -27,9 +27,10 @@ class Guard {
 
 	/**
 		Throws when `what` is being made while a computed or a watch
-		evaluates: Blinc holds its graph's lock then, and adding to the graph
-		would wait on it forever. Thrown there, it is rethrown after the
-		evaluation, as any exception inside one is.
+		evaluates, where Blinc cannot add it to its graph: a watch, whose
+		effect would wait on the graph's lock forever. Signals and computeds
+		can be made then. Thrown there, it is rethrown after the evaluation,
+		as any exception inside one is.
 	**/
 	public static inline function creating(what:String):Void {
 		if (evaluating > 0)
