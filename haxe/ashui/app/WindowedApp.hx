@@ -92,6 +92,8 @@ class WindowedApp {
 		attributes.width(config.width != null ? config.width : 800);
 		attributes.height(config.height != null ? config.height : 600);
 		attributes.resizable(config.resizable != false);
+		// Raw device motion is not used, and a moving mouse sends a lot of it.
+		Window.listenDeviceEvents(Never);
 		var window = Window.open(attributes);
 		if (!window.valid())
 			throw "the window could not be opened";
