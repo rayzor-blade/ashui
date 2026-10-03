@@ -199,7 +199,13 @@ class Hxx {
 		return switch tag {
 			case 'div': lowerDiv(node);
 			case t if (TEXT_TAGS.indexOf(t) >= 0): lowerDiv(node, t);
-			case 'button' | 'hr' | 'legend': lowerDiv(node, tag);
+			case t if (BOX_TAGS.indexOf(t) >= 0): lowerDiv(node, t);
+			case 'pre':
+				// Its text keeps its lines as written, wrapping nowhere.
+				preformatted++;
+				var e = lowerDiv(node, 'pre');
+				preformatted--;
+				e;
 			case 'text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
 			case 'svg': lowerSvg(node);
 			case 'img': lowerImg(node);
@@ -248,8 +254,17 @@ class Hxx {
 	**/
 	static final TEXT_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u", "output"];
 
+	/** HTML's elements built in as boxes of their type, with no behaviour of their own. **/
+	static final BOX_TAGS = [
+		"button", "hr", "legend", "blockquote", "caption", "thead", "tbody", "tfoot", "tr", "dl", "dt", "dd", "figure", "figcaption"
+	];
+
+	/** Inside a `<pre>`, whose text does not wrap. **/
+	static var preformatted = 0;
+
 	/** Built-in elements whose class is not named after their tag. **/
-	static final BUILT_IN_CLASSES = ["a" => "Anchor", "textarea" => "TextArea"];
+	static final BUILT_IN_CLASSES = ["a" => "Anchor", "textarea" => "TextArea", "ul" => "Lists.Ul", "ol" => "Lists.Ol", "colgroup" => "Table.Colgroup",
+		"col" => "Table.Col", "td" => "Table.Td", "th" => "Table.Th"];
 
 	static function lowerDiv(node:Node, ?tag:String):Expr {
 		var el = '__div${counter++}';
@@ -419,6 +434,8 @@ class Hxx {
 			content = macro ashui.reactive.Computed.make(() -> ($content : String));
 
 		var options = [];
+		if (preformatted > 0 && !Lambda.exists(attributes, a -> a.match(Regular({value: 'wrap'}, _))))
+			options.push({field: 'wrap', expr: macro false});
 		var classes = [], styles = [], own = [];
 		for (a in attributes)
 			switch a {

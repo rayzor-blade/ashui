@@ -55,13 +55,9 @@ class Fieldset extends Component<FieldsetProps> {
 			identity.setAttribute("disabled", on ? "" : null);
 			mark();
 		});
-		var hook = (t:LayoutTree, parent:haxe.Int64) -> if (t == tree && disabled.get() && (parent == box.node.id || tree.ancestors(parent).indexOf(box.node.id) >= 0)) mark();
-		LayoutTree.childrenHooks.push(hook);
-		Owner.onCleanup(() -> {
-			LayoutTree.childrenHooks.remove(hook);
-			for (i in marked)
-				i.disableFrom(this, false);
-		});
+		ashui.layout.AfterChildren.watch(tree, "fieldset " + haxe.Int64.toStr(box.node.id),
+			parent -> disabled.get() && (parent == box.node.id || tree.ancestors(parent).indexOf(box.node.id) >= 0), mark);
+		Owner.onCleanup(() -> for (i in marked) i.disableFrom(this, false));
 		return box;
 	}
 

@@ -1038,6 +1038,90 @@ class Smoke {
 		check("an hr is a rule across what holds it", hrBounds.height == 1 && hrBounds.width == 400, [hrBounds.width, hrBounds.height]);
 		check("<textarea> is the built-in text area", ashui.css.Identity.of(formsTree, formKids[9]).types.indexOf("textarea") >= 0);
 
+		// --- Built-in lists, tables and pre; CSS grid ---
+		var listTree = new LayoutTree();
+		var shoppingItems = Signal.make(["Milk", "Eggs"]);
+		var listPage:Div = Owner.root(listTree, _ -> hxx('
+			<div width={480} height={600} flexDirection={Column} alignItems={Start}>
+				<ul><li>Fruit<ul><li>Apples<ul><li>Cox</li></ul></li></ul></li></ul>
+				<ol start={3} type="a"><li>c</li><li value={10}>j</li><li>k</li></ol>
+				<ol reversed={true} type="I"><for {item in shoppingItems}><li>{item}</li></for></ol>
+				<table>
+					<colgroup><col width="100" /></colgroup>
+					<thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>
+					<tbody><tr><td>1</td><td colspan={2}>wide</td></tr></tbody>
+				</table>
+				<pre>{"line one is long enough to wrap if it could\n    two"}</pre>
+			</div>
+		'));
+		function listSettle() {
+			listTree.flush();
+			listTree.computeLayout(listPage.node, 480, 600);
+			listTree.flush();
+		}
+		listSettle();
+		var listKids = listTree.children(listPage.node.id);
+		function liAt(path:Array<Int>):ashui.ui.Li {
+			var at = listKids[path[0]];
+			for (i in 1...path.length)
+				at = listTree.children(at)[path[i]];
+			return ashui.ui.Li.at(at);
+		}
+		// ul > li > .content (its text, then a ul) > li > .content > ul > li
+		var outer = liAt([0, 0]), middle = liAt([0, 0, 1, 1, 0]), inner = liAt([0, 0, 1, 1, 0, 1, 1, 0]);
+		check("a ul marks its items with a disc, a circle inside one, a square deeper",
+			outer.bullet.get() == "disc" && middle.bullet.get() == "circle" && inner.bullet.get() == "square",
+			[outer.bullet.get(), middle.bullet.get(), inner.bullet.get()]);
+		var lettered = [for (i in 0...3) liAt([1, i]).marker.get()];
+		check("an ol counts from start in its type, an item's value setting the count", lettered.join(" ") == "c. j. k.", lettered);
+		shoppingItems.set(["Milk", "Eggs", "Flour"]);
+		listSettle();
+		var reversed = [for (i in 0...3) liAt([2, i]).marker.get()];
+		check("a reversed ol counts down from its items, numbering again as items come", reversed.join(" ") == "III. II. I.", reversed);
+
+		var tableKids = listTree.children(listKids[3]);
+		var headRow = listTree.children(tableKids[1])[0], bodyRow = listTree.children(tableKids[2])[0];
+		var heads = [for (c in listTree.children(headRow)) listTree.getBounds(new ashui.layout.Node(c))];
+		var cells = [for (c in listTree.children(bodyRow)) listTree.getBounds(new ashui.layout.Node(c))];
+		check("table columns line up down the table, a col setting a width and a colspan spanning",
+			Math.abs(heads[0].width - 100) < 0.5 && Math.abs(cells[0].width - heads[0].width) < 0.5
+			&& Math.abs(cells[1].x - heads[1].x) < 0.5 && Math.abs(cells[1].x + cells[1].width - heads[2].x - heads[2].width) < 0.5,
+			[heads[0].width, cells[0].width, cells[1].x, heads[1].x, cells[1].width]);
+		var preText = listTree.children(listKids[4])[0];
+		var preBounds = listTree.getBounds(new ashui.layout.Node(preText));
+		check("a pre keeps its lines, wrapping none", preBounds.width > 300 && preBounds.height < 80, [preBounds.width, preBounds.height]);
+
+		var gridTree = new LayoutTree();
+		ashui.css.Css.load('
+			.grid { display: grid; width: 300px; grid-template-columns: 50px repeat(2, 1fr); grid-template-rows: 20px 30px; }
+			.grid > .spanned { grid-column: 2 / span 2; grid-row: 2; }
+		');
+		var gridBox:Div = Owner.root(gridTree, _ -> new Div({classes: ["grid"]}, [new Div({}), new Div({classes: ["spanned"]})], gridTree));
+		gridTree.flush();
+		gridTree.computeLayout(gridBox.node, 400, 400);
+		gridTree.flush();
+		var spanned = gridTree.getBounds(new ashui.layout.Node(gridTree.children(gridBox.node.id)[1]));
+		check("CSS grid: tracks, repeat, and an item placed by line and span", spanned.x == 50 && spanned.width == 250 && spanned.y == 20
+			&& spanned.height == 30, [spanned.x, spanned.width, spanned.y, spanned.height]);
+
+		ashui.css.Css.load('.opened > .leaf { width: 30px; height: 10px } .opened + .after { width: 40px; height: 10px }');
+		var openedClasses = Signal.make(["closed"]);
+		var leaf = new Div({classes: ["leaf"]}, gridTree);
+		var after = new Div({classes: ["after"]}, gridTree);
+		var combinatorRoot:Div = Owner.root(gridTree, _ -> new Div({flexDirection: Column, alignItems: Start},
+			[new Div({classes: openedClasses, alignItems: Start}, [leaf], gridTree), after], gridTree));
+		function combinatorWidths() {
+			gridTree.flush();
+			gridTree.computeLayout(combinatorRoot.node, 400, 400);
+			gridTree.flush();
+			return [gridTree.getBounds(leaf.node).width, gridTree.getBounds(after.node).width];
+		}
+		var before = combinatorWidths();
+		openedClasses.set(["opened"]);
+		var afterOpen = combinatorWidths();
+		check("a class change matches again what combinators reach: children and later siblings", before[0] == 0 && before[1] == 0
+			&& afterOpen[0] == 30 && afterOpen[1] == 40, [before, afterOpen]);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('

@@ -31,6 +31,48 @@ class UserAgent {
 		mark { background: rgba(250, 204, 21, 0.4); }
 		output { flex-direction: row; flex-wrap: wrap; align-items: baseline; color: var(--text-primary); }
 
+		/* Preformatted text and quotations. */
+		pre {
+			flex-direction: column; margin: 1em 0; padding: 10px 12px; border-radius: 8px;
+			font-family: var(--font-mono); font-size: 0.9em; line-height: 1.5;
+			background: var(--surface-elevated); color: var(--text-primary); overflow: auto;
+		}
+		pre > code { padding: 0; background: transparent; font-size: 1em; }
+		blockquote {
+			flex-direction: column; margin: 1em 0; padding: 2px 0 2px 14px;
+			border-left: 3px solid var(--border); color: var(--text-secondary);
+		}
+		blockquote > p { margin: 0.25em 0; color: var(--text-secondary); }
+		figure { flex-direction: column; gap: 6px; margin: 1em 0; }
+		figcaption { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: 0.9em; color: var(--text-secondary); }
+
+		/* Lists: each item its marker, then its content; a list inside an item sits under the text of the item. */
+		ul, ol { flex-direction: column; gap: 2px; margin: 1em 0; color: var(--text-primary); }
+		li ul, li ol { margin: 2px 0 0 0; }
+		li { flex-direction: row; align-items: baseline; }
+		li > .marker { flex-shrink: 0; width: 32px; padding-right: 8px; align-items: center; justify-content: flex-end; color: var(--text-secondary); }
+		li > .marker > .bullet { display: none; flex-shrink: 0; width: 6px; height: 6px; }
+		li > .marker.disc > .bullet { display: flex; border-radius: 9999px; background: var(--text-secondary); }
+		li > .marker.circle > .bullet { display: flex; border-radius: 9999px; border: 1.5px solid var(--text-secondary); }
+		li > .marker.square > .bullet { display: flex; width: 5px; height: 5px; background: var(--text-secondary); }
+		li > .content { flex-grow: 1; min-width: 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+		li > .content > ul, li > .content > ol { width: 100%; }
+		dl { flex-direction: column; margin: 1em 0; color: var(--text-primary); }
+		dt { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-weight: 600; }
+		dd { flex-direction: row; flex-wrap: wrap; align-items: baseline; margin: 0 0 6px 24px; color: var(--text-secondary); }
+
+		/* Tables: every row a grid of the columns of the table, so cells line up. */
+		table { flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; color: var(--text-primary); }
+		caption { flex-direction: row; padding: 8px 12px; font-weight: 600; border-bottom: 1px solid var(--border); }
+		thead, tbody, tfoot { flex-direction: column; }
+		thead { background: var(--surface-elevated); }
+		tfoot { background: var(--surface-elevated); }
+		tr { display: grid; }
+		tr + tr, thead + tbody, tbody + tbody, tbody + tfoot, thead + tfoot { border-top: 1px solid var(--border); }
+		th, td { flex-direction: row; flex-wrap: wrap; align-items: baseline; min-width: 0; padding: 8px 12px; }
+		th { font-weight: 600; }
+		col, colgroup { display: none; }
+
 		/* Links. */
 		a { flex-direction: row; flex-wrap: wrap; align-items: baseline; color: var(--text-link); }
 		a:hover { opacity: 0.8; }
