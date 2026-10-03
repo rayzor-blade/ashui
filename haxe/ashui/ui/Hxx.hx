@@ -200,6 +200,7 @@ class Hxx {
 			case 'div': lowerDiv(node);
 			case 'text': textElement(node.children == null ? [] : node.children.value, node.attributes, node.name.pos);
 			case 'svg': lowerSvg(node);
+			case 'img': lowerImg(node);
 			case _: lowerComponent(node);
 		}
 	}
@@ -238,6 +239,52 @@ class Hxx {
 		var sets = classes.concat(styles).concat(own);
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Div(null, $kids);
+			$b{sets};
+			$i{el};
+		};
+	}
+
+	/**
+		An `Image` of the bitmap in `src`. `fit`, or one of Tailwind's
+		`object-cover`, `object-contain` and `object-fill` classes, says how
+		it fills a box of another shape, `fill` by default as an `<img>`'s;
+		other classes, `style` and attributes set the element as they do any.
+	**/
+	static function lowerImg(node:Node):Expr {
+		var el = '__img${counter++}';
+		var src:Null<Expr> = null;
+		var fit:Expr = macro ashui.types.Brush.ImageFit.Fill;
+		var classes = [], styles = [], own = [];
+		for (a in node.attributes)
+			switch a {
+				case Regular(name, value) if (name.value == 'src'):
+					src = value;
+				case Regular(name, value) if (name.value == 'fit'):
+					fit = value;
+				case Regular(name, value) if (name.value == 'class'):
+					var text = switch value.expr {
+						case EConst(CString(s, _)): s;
+						case _: Context.error("hxx: <img>'s class must be a string literal", value.pos);
+					}
+					var rest = [];
+					for (word in ~/\s+/g.split(text))
+						switch word {
+							case "object-cover": fit = macro ashui.types.Brush.ImageFit.Cover;
+							case "object-contain": fit = macro ashui.types.Brush.ImageFit.Contain;
+							case "object-fill": fit = macro ashui.types.Brush.ImageFit.Fill;
+							case _: rest.push(word);
+						}
+					classes = classes.concat(ashui.style.Tw.setters({expr: EConst(CString(rest.join(" "))), pos: value.pos}, macro $i{el}.node));
+				case Regular(name, value) if (name.value == 'style'):
+					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
+				case _:
+					own.push(setter(el, a, '<img>'));
+			}
+		if (src == null)
+			Context.error("hxx: <img> needs src={bitmap}", node.name.pos);
+		var sets = classes.concat(styles).concat(own);
+		return macro @:pos(node.name.pos) {
+			var $el = new ashui.ui.Image($src, {fit: $fit});
 			$b{sets};
 			$i{el};
 		};

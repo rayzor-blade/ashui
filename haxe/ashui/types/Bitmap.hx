@@ -1,0 +1,97 @@
+package ashui.types;
+
+#if !macro
+import ashui.core.externs.BitmapNative;
+#end
+#if macro
+import haxe.macro.Context;
+import haxe.macro.Expr;
+#end
+
+/**
+	A raster image, PNG or JPEG, decoded once and drawn by `ashui.ui.Image`
+	or as a background with `Brush.bitmap`. Each place it is drawn resamples
+	it to the size it covers on screen, so a large photo costs no more than
+	the pixels it fills, and a zoom keeps it sharp up to its own resolution.
+
+	```haxe
+	var photo = Bitmap.embed("assets/photo.jpg");   // read at compile time
+	var icon = Bitmap.load("icons/app.png");        // read when called
+	```
+**/
+class Bitmap {
+	/**
+		Slots of image records from this up are bitmaps, `BASE + slot * 4 +
+		fit`; records are 32-bit floats, exact to 2^24, which bounds them.
+	**/
+	@:noCompletion public static inline var BASE = 1 << 20;
+
+	/** The image file at `path`, relative to the build's working directory, put in the program at compile time. **/
+	public static macro function embed(path:String):Expr {
+		var bytes = try sys.io.File.getBytes(path) catch (e:Dynamic) Context.error('bitmap: cannot read $path', Context.currentPos());
+		var name = "ashui.bitmap:" + path;
+		Context.addResource(name, bytes);
+		return macro ashui.types.Bitmap.fromResource($v{name});
+	}
+
+	// What follows runs in the program, not in the compiler.
+	#if !macro
+
+	static final loaded = new Map<String, Bitmap>();
+
+	/** Names the decoded image to the renderer. **/
+	public final slot:Int;
+
+	/** Its size in pixels. **/
+	public final width:Int;
+
+	public final height:Int;
+
+	function new(slot:Int) {
+		this.slot = slot;
+		width = BitmapNative.blinc_bitmap_size(slot, false);
+		height = BitmapNative.blinc_bitmap_size(slot, true);
+	}
+
+	/** `bytes` of PNG or JPEG decoded; throws when they are not one. **/
+	public static function fromBytes(bytes:haxe.io.Bytes):Bitmap {
+		var slot = BitmapNative.blinc_bitmap_decode(bytes, bytes.length);
+		if (slot < 0)
+			throw "not a PNG or JPEG image";
+		return new Bitmap(slot);
+	}
+
+	#if sys
+	/** The image file at `path`, read once: loading the same path again gives the same bitmap. **/
+	public static function load(path:String):Bitmap {
+		var known = loaded.get(path);
+		if (known != null)
+			return known;
+		var made = fromBytes(sys.io.File.getBytes(path));
+		loaded.set(path, made);
+		return made;
+	}
+	#end
+
+	@:noCompletion public static function fromResource(name:String):Bitmap {
+		var known = loaded.get(name);
+		if (known != null)
+			return known;
+		var made = fromBytes(haxe.Resource.getBytes(name));
+		loaded.set(name, made);
+		return made;
+	}
+
+	/** Frees its pixels; it must not be drawn after. **/
+	public function dispose():Void {
+		BitmapNative.blinc_bitmap_release(slot);
+		for (k => v in loaded)
+			if (v == this)
+				loaded.remove(k);
+	}
+
+	/** The image record slot that draws it fitted by `fit`. **/
+	@:noCompletion public function slotFor(fit:Brush.ImageFit):Int
+		return BASE + slot * 4 + (fit : Int);
+	#end
+}

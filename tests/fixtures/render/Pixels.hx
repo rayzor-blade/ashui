@@ -57,6 +57,10 @@ import gpu.TextureUsage;
 	Then inset shadows on grey: a white box with a sharp black one 4 wide,
 	and a narrow white box with one offset down and right and blurred.
 
+	Then bitmaps, from a PNG of a red pixel and a blue one: stretched,
+	letterboxed in a square, cropped to cover a tall box, and as the
+	background of a round box.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -314,6 +318,25 @@ class Pixels {
 		probe("nothing outside the box", 6, 24, near(0xc0c0c0));
 		probe("an offset one shades the top-left inner edge", 45, 9, (r, g, b) -> r < 80);
 		probe("and fades toward the far side", 58, 38, (r, g, b) -> r > 200);
+
+		var bitmapTree = new LayoutTree();
+		// Two pixels: red, then blue.
+		var pair = ashui.types.Bitmap.fromBytes(haxe.crypto.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg=="));
+		var stretched = new ashui.ui.Image(pair, {width: 24, height: 8}, bitmapTree);
+		var letterboxed = new ashui.ui.Image(pair, {width: 16, height: 16, fit: Contain}, bitmapTree);
+		var cropped = new ashui.ui.Image(pair, {width: 8, height: 16, fit: Cover}, bitmapTree);
+		var backed = new Div({width: 24, height: 24, bg: Brush.bitmap(pair, Fill), cornerRadius: CornerRadius.all(12)}, bitmapTree);
+		var bitmapRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), gap: 4, padding: 4, flexDirection: Row, flexWrap: Wrap},
+			[stretched, letterboxed, cropped, backed], bitmapTree);
+		pixels = offscreen.renderToRgba8(bitmapRoot, SIZE, SIZE);
+		label = "bitmap: ";
+		probe("stretched, red on the left", 5, 8, (r, g, b) -> r > 200 && b < 60);
+		probe("and blue on the right", 26, 8, (r, g, b) -> b > 200 && r < 60);
+		probe("letterboxed, clear above", 40, 6, near(0xffffff));
+		probe("and drawn in its band", 34, 12, (r, g, b) -> r > 200 && b < 60);
+		probe("cropped to cover, its middle where red meets blue", 52, 12, (r, g, b) -> r > 60 && b > 60);
+		probe("as a background, clipped to its rounded corner", 5, 29, near(0xffffff));
+		probe("and filling its middle", 10, 40, (r, g, b) -> r > 150 && b < 120);
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

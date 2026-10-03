@@ -44,6 +44,11 @@ class Brush implements IValue {
 		return new Brush(BlincNative.blinc_brush_image(Utf8.encode(url), fit));
 	}
 
+	/** `bitmap` filling the box, fitted by `fit`, under its border and clipped to its corners, as CSS's `background-image`. **/
+	public static function bitmap(bitmap:Bitmap, fit:ImageFit = Cover):Brush {
+		return new Brush(BlincNative.blinc_brush_image(Utf8.encode("ashui:bitmap:" + bitmap.slotFor(fit)), fit));
+	}
+
 	/**
 		A linear gradient from `(x1, y1)` to `(x2, y2)` with no stops yet; add
 		them with `stop`, in order. With `boundingBox` the points are fractions

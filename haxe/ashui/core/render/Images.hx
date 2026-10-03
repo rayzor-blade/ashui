@@ -36,10 +36,12 @@ class Images {
 				continue;
 			var slot = Std.int(list.get(r, GRADIENT));
 			var onScreen = list.get(r, GRADIENT + 1);
-			var doc = SvgDocument.get(slot);
-			var rect = doc == null ? null : rasterized(doc, list, r, onScreen, atlas);
+			var bitmap = slot >= ashui.types.Bitmap.BASE;
+			var doc = bitmap ? null : SvgDocument.get(slot);
+			var rect = bitmap ? resampled(slot - ashui.types.Bitmap.BASE, list, r, onScreen, atlas) : doc == null ? null : rasterized(doc, list, r,
+				onScreen, atlas);
 			if (rect == null) {
-				if (doc != null)
+				if (doc != null || bitmap)
 					fitted = false;
 				// Nothing to draw: no colour, no opacity.
 				list.set(r, COLOR + 3, 0);
@@ -50,7 +52,7 @@ class Images {
 			list.set(r, GRADIENT + 1, rect.y);
 			list.set(r, GRADIENT + 2, rect.x + rect.width);
 			list.set(r, GRADIENT + 3, rect.y + rect.height);
-			list.set(r, FILL, doc.mask ? 0 : 1);
+			list.set(r, FILL, doc != null && doc.mask ? 0 : 1);
 		}
 		return fitted;
 	}
@@ -71,6 +73,16 @@ class Images {
 			var source = doc.withColor(color);
 			SvgNative.blinc_svg_rasterize(ashui.core.Utf8.encode(source), width, height, pixels.getData());
 		});
+	}
+
+	/** A bitmap, `code` its slot times 4 plus its fit, resampled into the atlas at the size its record covers on screen. **/
+	static function resampled(code:Int, list:DisplayList, r:Int, onScreen:Float, atlas:ImageAtlas):Null<ImageAtlas.Rect> {
+		var scale = bucket(onScreen);
+		var width = side(list.get(r, BOUNDS + 2) * scale);
+		var height = side(list.get(r, BOUNDS + 3) * scale);
+		var slot = code >> 2, fit = code & 3;
+		return atlas.get('bitmap$code:${width}x$height', width, height,
+			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, width, height, fit, pixels.getData()));
 	}
 
 	static function bucket(onScreen:Float):Float {

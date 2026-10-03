@@ -1337,6 +1337,23 @@ class Smoke {
 		// Each click bubbles on to the page.
 		check("clip-path: a press outside the shape misses it, inside hits it", hitLog.join(" ") == "page circle page page frame page", hitLog);
 
+		// --- A bitmap in a template: <img>, its fit from a class, clipped to its corners ---
+		var pairBitmap = ashui.types.Bitmap.fromBytes(haxe.crypto.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg=="));
+		check("bitmap: decoded with its size", pairBitmap.width == 2 && pairBitmap.height == 1, [pairBitmap.width, pairBitmap.height]);
+		var imgTree = new LayoutTree();
+		var avatar:Div = Owner.root(imgTree, _ -> hxx('<div><img src={pairBitmap} class="w-10 h-10 rounded-full object-cover" /></div>'));
+		imgTree.flush();
+		imgTree.computeLayout(avatar.node, 100, 100);
+		var imgList = new ashui.layout.DisplayList();
+		imgList.update(imgTree, avatar.node);
+		var imageRecord = -1;
+		for (r in 0...imgList.count)
+			if (imgList.kind(r) == ashui.layout.DisplayList.PRIM_IMAGE)
+				imageRecord = r;
+		check("<img> with object-cover draws its bitmap covering, clipped to its round corners", imageRecord >= 0
+			&& Std.int(imgList.get(imageRecord, 40)) == pairBitmap.slotFor(Cover) && imgList.get(imageRecord, 36) > 0,
+			imageRecord < 0 ? null : [imgList.get(imageRecord, 40), imgList.get(imageRecord, 36)]);
+
 		// --- focus-within:, group- and peer- follow another element's state ---
 		var relTree = new LayoutTree();
 		var field:Div = null;

@@ -2,6 +2,7 @@
 // runtime, and its contract is the matching Haxe extern declaration.
 #![allow(clippy::missing_safety_doc)]
 
+pub mod bitmap;
 mod display_list;
 mod hit;
 mod hl;

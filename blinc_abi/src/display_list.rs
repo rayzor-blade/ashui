@@ -763,7 +763,24 @@ pub fn append(
         let border = (0..4).any(|i| sides[i] > 0.0 && side_colors[i].is_some());
         // A border with no background draws over a transparent fill.
         let transparent = Brush::Solid(Color::TRANSPARENT);
-        let brush = props.background.as_ref().or(border.then_some(&transparent));
+        // An image background, a bitmap ashui names by its slot, is drawn over the box under the border.
+        let image = match &props.background {
+            Some(Brush::Image(i)) => i.source.strip_prefix("ashui:bitmap:").and_then(|s| s.parse::<i32>().ok()).map(|slot| (slot, i.opacity)),
+            _ => None,
+        };
+        if let Some((slot, alpha)) = image {
+            let mut ring_clips = clips.to_vec();
+            ring_clips.push(own_box(props, [x, y, w, h], m, &glyphs.shapes));
+            let mut rec = Primitive::new(PRIM_IMAGE, [0.0, 0.0, w, h], [0.0; 4]);
+            rec.color = [1.0, 1.0, 1.0, opacity * alpha];
+            rec.color2 = [1.0, 1.0, 1.0, opacity * alpha];
+            let on_screen = glyphs.display_scale * (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
+            rec.gradient = [slot as f32, on_screen, 0.0, 0.0];
+            rec.place(m, x, y);
+            rec.push(&clipping(&ring_clips, m, (x, y), true), out);
+        }
+        let background = if image.is_some() { None } else { props.background.as_ref() };
+        let brush = background.or(border.then_some(&transparent));
         let mut p = Primitive::new(PRIM_RECT, local, radii);
         p.shape_from(props, &glyphs.shapes);
         if brush.is_some_and(|b| fill(&mut p, b, opacity)) {
@@ -830,7 +847,19 @@ pub fn append(
     }
 
     if let Some(&slot) = tree.images.get(&node) {
-        image_record(tree, node, slot, (x, y), opacity, color, m, clips, glyphs.display_scale, out);
+        // An image is clipped to its own rounded corners, as an `<img>` is.
+        let rounded = tree.props.get(&node).filter(|p| {
+            let r = p.border_radius;
+            r.top_left > 0.0 || r.top_right > 0.0 || r.bottom_right > 0.0 || r.bottom_left > 0.0
+        });
+        match rounded {
+            Some(p) => {
+                let mut own = clips.clone();
+                own.push(own_box(p, [x, y, w, h], m, &glyphs.shapes));
+                image_record(tree, node, slot, (x, y), opacity, color, m, &own, glyphs.display_scale, out);
+            }
+            None => image_record(tree, node, slot, (x, y), opacity, color, m, clips, glyphs.display_scale, out),
+        }
     }
     if let Some(context) = tree.layout.text_context(node) {
         text_records(tree, node, context, (x, y, w), opacity, color, m, clips, glyphs, out);
@@ -1217,6 +1246,22 @@ fn image_record(
         rec.bounds[1] = (rec.bounds[1] * display_scale).round() / display_scale;
     }
     rec.push(&clipping(clips, m, (x + left, y + top), true), out);
+}
+
+/// A clip to a node's own rounded box, `rect` in layout coordinates under `m`.
+fn own_box(props: &RenderProps, rect: [f32; 4], m: Affine, shapes: &Shapes) -> Clip {
+    let r = props.border_radius;
+    let radii = [r.top_left, r.top_right, r.bottom_right, r.bottom_left];
+    Clip {
+        rect: if m == IDENTITY { rect } else { bounding(m, rect) },
+        radii: if m == IDENTITY { radii } else { [0.0; 4] },
+        layout: rect,
+        layout_radii: radii,
+        frame: m,
+        n: shapes.resolve(props.corner_shape.to_array(), radii, rect[2], rect[3], props.corner_shape_locked)[0],
+        fade: [0.0; 4],
+        shape: None,
+    }
 }
 
 /// A node's border widths, top, right, bottom, left: each side's own where
