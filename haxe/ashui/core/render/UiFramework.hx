@@ -62,11 +62,19 @@ class UiFramework extends Extension {
 			function __field(row : Int) : Vec4 {
 				return __texel(recordIndex * $v{ashui.layout.RecordLayout.RECORD_ROWS} + row);
 			}
-			// The signed distance from `q` to the polygon of `count` points from texel `first`, two to a texel:
-			// negative inside, even-odd. A point at 1e30 or past it parts two rings.
-			function __polygonDistance(q : Vec2, first : Int, count : Int) : Float {
+			// How much of the point `q` the polygon of `count` points from texel `first`, two to a texel, covers,
+			// by the nonzero rule, CSS's default; `aa` is half a pixel. A point at 1e30 or past it parts two rings.
+			// The winding is also taken at four points around `q`: all four inside is covered whatever edge is
+			// near, so the crossings inside a self-crossing polygon leave no seam, and only where they differ, at
+			// the outline, does the distance to the nearest edge smooth it.
+			function __polygonCoverage(q : Vec2, first : Int, count : Int, aa : Float) : Float {
 				var d = 1e20;
-				var inside = false;
+				var s = aa * 0.7;
+				var w0 = 0;
+				var w1 = 0;
+				var w2 = 0;
+				var w3 = 0;
+				var w4 = 0;
 				var prev = vec2(0., 0.);
 				var i = 0;
 				while (i < count) {
@@ -79,19 +87,45 @@ class UiFramework extends Extension {
 						var w = q - v;
 						var b = w - e * clamp(dot(w, e) / max(dot(e, e), 1e-12), 0., 1.);
 						d = min(d, dot(b, b));
-						var c1 = q.y >= v.y;
-						var c2 = q.y < prev.y;
-						var c3 = e.x * w.y > e.y * w.x;
-						if ((c1 && c2 && c3) || (!c1 && !c2 && !c3))
-							inside = !inside;
+						w0 += __crossing(prev, v, q);
+						w1 += __crossing(prev, v, q + vec2(s, s));
+						w2 += __crossing(prev, v, q + vec2(-s, s));
+						w3 += __crossing(prev, v, q + vec2(s, -s));
+						w4 += __crossing(prev, v, q + vec2(-s, -s));
 					}
 					prev = v;
 					i++;
 				}
+				var inside = 0;
+				if (w1 != 0)
+					inside++;
+				if (w2 != 0)
+					inside++;
+				if (w3 != 0)
+					inside++;
+				if (w4 != 0)
+					inside++;
 				var dist = sqrt(d);
-				if (inside)
+				if (w0 != 0)
 					dist = -dist;
-				return dist;
+				var cover = 1. - smoothstep(-aa, aa, dist);
+				if (inside == 4)
+					cover = 1.;
+				if (inside == 0)
+					cover = 0.;
+				return cover;
+			}
+			// What the edge from `a` to `b` adds to the winding around `q`: 1 crossing `q`'s row upward with `q`
+			// to its left, -1 downward with `q` to its right.
+			function __crossing(a : Vec2, b : Vec2, q : Vec2) : Int {
+				var side = (b.x - a.x) * (q.y - a.y) - (q.x - a.x) * (b.y - a.y);
+				var w = 0;
+				if (a.y <= q.y) {
+					if (b.y > q.y && side > 0.)
+						w = 1;
+				} else if (b.y <= q.y && side < 0.)
+					w = -1;
+				return w;
 			}
 			/**
 				How much of the point `p`, on screen, the record's `clip-path`
@@ -107,7 +141,7 @@ class UiFramework extends Extension {
 				var aa = halfPixel(q);
 				var alpha = 1.;
 				if (rest.z > 2.5) {
-					alpha = 1. - smoothstep(-aa, aa, __polygonDistance(q, int(shape.x), int(shape.y)));
+					alpha = __polygonCoverage(q, int(shape.x), int(shape.y), aa);
 				} else if (rest.z > 1.5) {
 					alpha = 1. - smoothstep(-aa, aa, sdShapedRect(q, shape.xy, shape.zw, vec4(rest.w, rest.w, rest.w, rest.w), vec4(1., 1., 1., 1.)));
 				} else if (rest.z > 0.5) {

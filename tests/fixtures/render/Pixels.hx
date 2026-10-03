@@ -217,11 +217,11 @@ class Pixels {
 
 		var pathTree = new LayoutTree();
 		var framed = new Div({position: Position.Absolute, left: 8, top: 8, width: 24, height: 24, bg: Brush.solid(0xff0000)}, pathTree);
-		framed.node.set(Prop.ClipPath, ashui.types.ClipPath.path("M0 0H24V24H0Z M8 8H16V16H8Z"));
+		framed.node.set(Prop.ClipPath, ashui.types.ClipPath.path("M0 0H24V24H0Z M8 8V16H16V8Z"));
 		var pathRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [framed], pathTree);
 		pixels = offscreen.renderToRgba8(pathRoot, SIZE, SIZE);
 		probe("a path of two rings keeps the frame", 11, 20, near(0xff0000));
-		probe("and leaves the hole clear, even-odd", 20, 20, near(0xffffff));
+		probe("and leaves the hole, wound the other way, clear", 20, 20, near(0xffffff));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

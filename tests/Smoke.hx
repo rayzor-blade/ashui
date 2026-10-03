@@ -1272,13 +1272,40 @@ class Smoke {
 		check("clipPath={ClipPath.circle()} clips the child to the largest centred circle", Std.int(shapeList.get(shapeList.count - 1, 94)) == 1
 			&& shapeRow.join(",") == "20,20,20,20", [shapeList.get(shapeList.count - 1, 94), shapeRow]);
 
+		// --- CSS clip-path values, read at run time and in classes ---
+		function shapeOf(css:String):String
+			return Std.string(ashui.types.ClipPathCss.parse(css));
+		check("clip-path css: a circle at keywords", shapeOf("circle(40% at left top)") == "Circle(Percent(40),Percent(0),Percent(0))",
+			shapeOf("circle(40% at left top)"));
+		check("clip-path css: inset's shorthand and round", shapeOf("inset(8px 12px round 16px)") == "Inset(Px(8),Px(12),Px(8),Px(12),16)",
+			shapeOf("inset(8px 12px round 16px)"));
+		check("clip-path css: polygon points and a bare zero", shapeOf("polygon(nonzero, 50% 0, 100% 100%, 0 100%)").indexOf("{x : Percent(50), y : Px(0)}") >= 0,
+			shapeOf("polygon(nonzero, 50% 0, 100% 100%, 0 100%)"));
+		var unitless = try {
+			ashui.types.ClipPathCss.parse("circle(10)");
+			"";
+		} catch (e:String) e;
+		check("clip-path css: a length without a unit is refused", unitless.indexOf("needs a unit") >= 0, unitless);
+		var classTree = new LayoutTree();
+		var classed:Div = Owner.root(classTree, _ -> hxx('<div class="w-10 h-10 [clip-path:polygon(50%_0,100%_100%,0_100%)] hover:[clip-path:none]"><div class="w-10 h-10 bg-surface" /></div>'));
+		classTree.flush();
+		classTree.computeLayout(classed.node, 100, 100);
+		var classList = new ashui.layout.DisplayList();
+		classList.update(classTree, classed.node);
+		var shapeKind = classList.get(classList.count - 1, 94);
+		ashui.input.Pointer.move(classTree, 20, 30);
+		classTree.flush();
+		classList.update(classTree, classed.node);
+		check("[clip-path:…] in a class clips, and hover:[clip-path:none] takes it away", shapeKind == 3 && classList.get(classList.count - 1, 94) == 0,
+			[shapeKind, classList.get(classList.count - 1, 94)]);
+
 		// --- A clip-path's shape is what a press hits ---
 		var hitTree = new LayoutTree();
 		var hitLog:Array<String> = [];
 		var round:Div = Owner.root(hitTree, _ -> hxx('
 			<div class="w-32 h-32" onClick={() -> hitLog.push("page")}>
 				<div class="w-10 h-10" clipPath={ashui.types.ClipPath.circle()} onClick={() -> hitLog.push("circle")} />
-				<div class="w-10 h-10" clipPath={ashui.types.ClipPath.path("M0 0H40V40H0Z M10 10H30V30H10Z")} onClick={() -> hitLog.push("frame")} />
+				<div class="w-10 h-10" clipPath={ashui.types.ClipPath.path("M0 0H40V40H0Z M10 10V30H30V10Z")} onClick={() -> hitLog.push("frame")} />
 			</div>
 		'));
 		hitTree.flush();

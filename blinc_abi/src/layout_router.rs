@@ -337,9 +337,10 @@ fn own_value_write(raw: i32) -> Option<(PropertyId, Write<Value>)> {
         75 => (
             PropertyId::Transform,
             render(|p, v| {
-                if let Value::ClipPath(c) = v {
-                    p.clip_path = Some(c);
-                }
+                p.clip_path = match v {
+                    Value::ClipPath(c) => Some(c),
+                    _ => None,
+                };
             })?,
         ),
         _ => return None,

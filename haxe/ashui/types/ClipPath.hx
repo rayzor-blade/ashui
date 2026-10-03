@@ -1,12 +1,8 @@
 package ashui.types;
 
 import ashui.core.externs.BlincNative;
-
-/** A length in a clip path: pixels, or a percentage of the element's box. **/
-enum ClipLength {
-	Px(value:Float);
-	Percent(value:Float);
-}
+import ashui.types.ClipLength;
+import ashui.types.ClipPathCss;
 
 /**
 	A shape an element and everything inside it are clipped to, as CSS's
@@ -20,6 +16,10 @@ enum ClipLength {
 	node.set(Prop.ClipPath, ClipPath.inset(Px(8), Px(8), Px(8), Px(8), 12));
 	node.set(Prop.ClipPath, ClipPath.polygon([{x: Percent(50), y: Px(0)}, {x: Percent(100), y: Percent(100)}, {x: Px(0), y: Percent(100)}]));
 	```
+
+	In a class string, Tailwind's arbitrary property:
+	`[clip-path:circle(40%_at_left_top)]`, underscores for spaces, read and
+	checked at compile time; `ClipPath.parse` reads CSS at run time.
 
 	When clip paths are nested, the innermost one clips.
 **/
@@ -63,7 +63,7 @@ class ClipPath implements IValue {
 	public static function xywh(x:ClipLength, y:ClipLength, width:ClipLength, height:ClipLength, round:Float = -1):ClipPath
 		return new ClipPath(4, [x, y, width, height], round);
 
-	/** `polygon(x1 y1, x2 y2, …)`: the points in order, joined back to the first; even-odd inside. **/
+	/** `polygon(x1 y1, x2 y2, …)`: the points in order, joined back to the first; inside by the nonzero rule, CSS's default. **/
 	public static function polygon(points:Array<{x:ClipLength, y:ClipLength}>):ClipPath {
 		var values = new hl.Bytes(points.length * 8 + 8);
 		var percent = new hl.Bytes(points.length * 2 + 2);
@@ -85,8 +85,9 @@ class ClipPath implements IValue {
 
 	/**
 		`path("M 0 0 L …")`: SVG path data in the element's pixels, curves
-		and arcs cut into short straight steps; each subpath closes, and a
-		point is inside when an odd number of them surround it.
+		and arcs cut into short straight steps; each subpath closes. Inside is
+		by the nonzero rule, CSS's default: a hole is a subpath that runs the
+		other way round from the one around it.
 	**/
 	public static function path(d:String):ClipPath {
 		var rings = ashui.svg.PathData.flatten(ashui.svg.PathData.parse(d));
@@ -112,6 +113,28 @@ class ClipPath implements IValue {
 		var made:ClipPath = Type.createEmptyInstance(ClipPath);
 		made.ptr = ptr;
 		return made;
+	}
+
+	/** No clip: what `none` is, for a state variant that takes a clip away. **/
+	public static function none():ClipPath
+		return new ClipPath(-1, [], -1);
+
+	/** CSS's `clip-path` value, as `ClipPathCss.parse` reads it; throws a `String` when it is not one. **/
+	public static function parse(css:String):ClipPath
+		return of(ClipPathCss.parse(css));
+
+	/** The clip path `shape` describes. **/
+	public static function of(shape:ClipShape):ClipPath {
+		return switch shape {
+			case NoClip: none();
+			case Circle(r, x, y): circle(r, x, y);
+			case Ellipse(rx, ry, x, y): ellipse(rx, ry, x, y);
+			case Inset(t, r, b, l, round): inset(t, r, b, l, round);
+			case Rect(t, r, b, l, round): rect(t, r, b, l, round);
+			case Xywh(x, y, w, h, round): xywh(x, y, w, h, round);
+			case Polygon(points): polygon(points);
+			case Path(d): path(d);
+		}
 	}
 
 	static inline function center(v:Null<ClipLength>):ClipLength

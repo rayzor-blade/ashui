@@ -42,7 +42,8 @@ fn value(v: Value) -> *mut c_void {
 /// bottom, left, from the top-left), 4 xywh (x, y, w, h). `values` holds
 /// the lengths in that order; bit `i` of `percent` makes length `i` a
 /// percentage, and bit `i` of `none` leaves it unset (a radius then reaches
-/// the closest side). A negative `round` is no rounding.
+/// the closest side). A negative `round` is no rounding; a negative `kind`
+/// is no clip at all.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_clip_path(kind: i32, values: *const vbyte, percent: i32, none: i32, round: f32) -> *mut c_void {
     use blinc_core::{ClipLength, ClipPath};
@@ -62,6 +63,10 @@ pub unsafe extern "C" fn hl_blinc_clip_path(kind: i32, values: *const vbyte, per
     };
     let opt = |i: usize| -> Option<ClipLength> { (none & (1 << i) == 0).then(|| len(i)) };
     let round = (round >= 0.0).then_some(round);
+    // `none`: no clip, for a state that takes one away.
+    if kind < 0 {
+        return value(Value::None);
+    }
     let path = match kind {
         0 => ClipPath::Circle { radius: opt(0), center: (len(1), len(2)) },
         1 => ClipPath::Ellipse { rx: opt(0), ry: opt(1), center: (len(2), len(3)) },

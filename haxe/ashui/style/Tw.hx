@@ -33,6 +33,11 @@ import haxe.macro.Type;
 	  (`overflow-hidden`, `overflow-y-auto` …), `fade-4` fades them out
 	  over the spacing step in from every edge, `fade-y-8` from the top and
 	  bottom, `fade-t-2` from one side;
+	- clip paths, Tailwind's arbitrary property `[clip-path:…]` with any
+	  CSS shape, underscores for spaces: `[clip-path:circle()]`,
+	  `[clip-path:inset(8px_round_16px)]`,
+	  `[clip-path:polygon(50%_0,100%_100%,0_100%)]`, `[clip-path:none]`;
+	  checked at compile time (see `ashui.types.ClipPath`);
 	- outlines, a ring outside the border box that follows its corners:
 	  `outline`, `outline-2`, `outline-offset-2`, `outline-none`, and
 	  Tailwind's rings drawn the same way, `ring` (3), `ring-2`,
@@ -145,7 +150,7 @@ class Tw {
 				var state = variant.matched(1), rest = variant.matched(2);
 				if (variant.match(rest))
 					Context.error('tw: $word: one variant per class', pos);
-				var make = vocabulary.get(rest);
+				var make = lookup(vocabulary, rest, pos);
 				if (make == null)
 					Context.error('tw: $word: $rest is not a class a variant can take', pos);
 				for (set in make(node))
@@ -169,7 +174,7 @@ class Tw {
 				var step = sizeClass.matched(1);
 				size = "Text" + (~/^\d/.match(step) ? step : step.charAt(0).toUpperCase() + step.substr(1));
 			}
-			var make = vocabulary.get(word);
+			var make = lookup(vocabulary, word, pos);
 			if (make != null) {
 				for (set in make(node))
 					out.push({expr: set.expr, pos: pos});
@@ -283,6 +288,50 @@ class Tw {
 	}
 
 	/** The property and value of a `node.set(Prop.Key, value)`, or null for anything else. **/
+	/**
+		The class `word` names: a vocabulary entry, or Tailwind's arbitrary
+		property `[clip-path:…]`, its underscores spaces, read now so a
+		malformed one is a compile error at `pos`; null if neither.
+	**/
+	static function lookup(vocabulary:Map<String, Expr->Array<Expr>>, word:String, pos:Position):Null<Expr->Array<Expr>> {
+		var known = vocabulary.get(word);
+		if (known != null)
+			return known;
+		var arbitrary = ~/^\[clip-path:(.+)\]$/;
+		if (!arbitrary.match(word))
+			return null;
+		var css = StringTools.replace(arbitrary.matched(1), "_", " ");
+		var shape = try ashui.types.ClipPathCss.parse(css) catch (e:String) Context.error('tw: $word: $e', pos);
+		var made = clipExpr(shape, pos);
+		return node -> [macro $node.set(ashui.layout.Prop.ClipPath, $made)];
+	}
+
+	/** The expression making the clip path `shape` describes. **/
+	static function clipExpr(shape:ashui.types.ClipPathCss.ClipShape, pos:Position):Expr {
+		function len(l:Null<ashui.types.ClipLength>):Expr {
+			return switch l {
+				case null: macro null;
+				case Px(v): macro ashui.types.ClipLength.Px($v{v});
+				case Percent(v): macro ashui.types.ClipLength.Percent($v{v});
+			}
+		}
+		return switch shape {
+			case NoClip: macro ashui.types.ClipPath.none();
+			case Circle(r, x, y): macro ashui.types.ClipPath.circle(${len(r)}, ${len(x)}, ${len(y)});
+			case Ellipse(rx, ry, x, y): macro ashui.types.ClipPath.ellipse(${len(rx)}, ${len(ry)}, ${len(x)}, ${len(y)});
+			case Inset(t, r, b, l, round): macro ashui.types.ClipPath.inset(${len(t)}, ${len(r)}, ${len(b)}, ${len(l)}, $v{round});
+			case Rect(t, r, b, l, round): macro ashui.types.ClipPath.rect(${len(t)}, ${len(r)}, ${len(b)}, ${len(l)}, $v{round});
+			case Xywh(x, y, w, h, round): macro ashui.types.ClipPath.xywh(${len(x)}, ${len(y)}, ${len(w)}, ${len(h)}, $v{round});
+			case Polygon(points):
+				var items = [for (p in points) macro {x: ${len(p.x)}, y: ${len(p.y)}}];
+				macro ashui.types.ClipPath.polygon([$a{items}]);
+			case Path(d):
+				// Checked now, so a mistake in the path data is a compile error too.
+				try ashui.svg.PathData.parse(d) catch (e:haxe.Exception) Context.error('tw: path data: ${e.message}', pos);
+				macro ashui.types.ClipPath.path($v{d});
+		}
+	}
+
 	/** The state variants, in Tailwind's order: a later one wins over an earlier. **/
 	static final OWN = ["hover", "focus", "focus-visible", "active", "disabled"];
 
@@ -509,7 +558,7 @@ class Tw {
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},
-			{pattern: ~/\[.*\]/, why: "arbitrary values are not supported; use a token or an attribute"}
+			{pattern: ~/\[.*\]/, why: "arbitrary values are not supported but for [clip-path:…]; use a token or an attribute"}
 		];
 		known = v;
 		return v;

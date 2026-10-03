@@ -247,18 +247,24 @@ pub(crate) fn shape_contains(path: &blinc_core::ClipPath, w: f32, h: f32, lx: f3
         k if k == SHAPE_POLYGON => {
             let (first, count) = (a as usize * 2, b as usize);
             let at = |i: usize| (points[first + 2 * i], points[first + 2 * i + 1]);
-            let mut inside = false;
+            // The nonzero rule, as CSS's default and the shaders'.
+            let mut winding = 0;
             for i in 1..count {
                 let ((x0, y0), (x1, y1)) = (at(i - 1), at(i));
                 // A point at 1e30 parts two rings of a path.
                 if x0 >= 1e29 || x1 >= 1e29 {
                     continue;
                 }
-                if (y1 > ly) != (y0 > ly) && lx < (x0 - x1) * (ly - y1) / (y0 - y1) + x1 {
-                    inside = !inside;
+                let side = (x1 - x0) * (ly - y0) - (lx - x0) * (y1 - y0);
+                if y0 <= ly {
+                    if y1 > ly && side > 0.0 {
+                        winding += 1;
+                    }
+                } else if y1 <= ly && side < 0.0 {
+                    winding -= 1;
                 }
             }
-            inside
+            winding != 0
         }
         _ => true,
     }
