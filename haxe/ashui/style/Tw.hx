@@ -24,7 +24,14 @@ import haxe.macro.Type;
 	- `auto` margins, sizes and insets (`mx-auto`, `w-auto`), and fractions of
 	  the parent (`w-full`, `w-1/2`, `h-2/3`, `basis-1/4` …);
 	- colours, `ColorToken` by its CSS variable name: `bg-`, `text-`,
-	  `border-` with `primary`, `surface-elevated`, `text-secondary` …;
+	  `border-`, `outline-` and `ring-` with `primary`, `surface-elevated`,
+	  `text-secondary` …;
+	- borders, `border`, `border-0` … `border-8`, and one side or two over
+	  it, `border-t`, `border-x-2`, `border-b-0` …, in the border's colour;
+	- outlines, a ring outside the border box that follows its corners:
+	  `outline`, `outline-2`, `outline-offset-2`, `outline-none`, and
+	  Tailwind's rings drawn the same way, `ring` (3), `ring-2`,
+	  `ring-offset-2`; the gap of an offset is left clear;
 	- corners, `RadiusToken`: `rounded`, `rounded-sm` … `rounded-3xl`,
 	  `rounded-full`, and the shapes `corner-squircle`, `corner-bevel`,
 	  `corner-scoop`, `corner-notch`, `corner-square`, `corner-round`;
@@ -367,6 +374,8 @@ class Tw {
 			one('bg-$name', "Background", macro ashui.theme.Themed.brush(ashui.theme.ColorToken.$token));
 			one('text-$name', "Color", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
 			one('border-$name', "BorderColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
+			one('outline-$name', "OutlineColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
+			one('ring-$name', "OutlineColor", macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token));
 		}
 
 		// Corners, from RadiusToken: Default is bare `rounded`.
@@ -454,6 +463,26 @@ class Tw {
 		float("border", "BorderWidth", 1);
 		for (width in [0, 2, 4, 8])
 			float('border-$width', "BorderWidth", width);
+		// One side, or two: a side's width over the border's.
+		var sideKeys = [
+			"t" => ["BorderTopWidth"], "r" => ["BorderRightWidth"], "b" => ["BorderBottomWidth"], "l" => ["BorderLeftWidth"],
+			"x" => ["BorderLeftWidth", "BorderRightWidth"], "y" => ["BorderTopWidth", "BorderBottomWidth"]
+		];
+		for (side => keys in sideKeys)
+			for (width in [null, 0, 2, 4, 8]) {
+				var w:Float = width == null ? 1 : width;
+				v.set(width == null ? 'border-$side' : 'border-$side-$width', node -> [for (k in keys) set(node, k, macro($v{w} : Single))]);
+			}
+		// Outlines, and Tailwind's rings, drawn as an outline: a ring outside the border box.
+		float("outline", "OutlineWidth", 1);
+		float("outline-none", "OutlineWidth", 0);
+		for (width in [0, 1, 2, 4, 8]) {
+			float('outline-$width', "OutlineWidth", width);
+			float('outline-offset-$width', "OutlineOffset", width);
+			float('ring-$width', "OutlineWidth", width);
+			float('ring-offset-$width', "OutlineOffset", width);
+		}
+		float("ring", "OutlineWidth", 3);
 		for (percent in 0...21)
 			float('opacity-${percent * 5}', "Opacity", percent * 5 / 100);
 

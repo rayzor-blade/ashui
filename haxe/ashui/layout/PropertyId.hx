@@ -83,6 +83,15 @@ enum abstract PropertyId(Int) from Int to Int {
     var MinHeightPercent = 57;
     var MaxHeightPercent = 58;
     var FlexBasisPercent = 59;
+    // One side's border width over BorderWidth; the colour is BorderColor's.
+    var BorderTopWidth = 60;
+    var BorderRightWidth = 61;
+    var BorderBottomWidth = 62;
+    var BorderLeftWidth = 63;
+    // An outline outside the border box: its width, its distance from the box, its colour.
+    var OutlineWidth = 64;
+    var OutlineOffset = 65;
+    var OutlineColor = 66;
 
     /**
      * Determines what data type category this property belongs to,
@@ -91,7 +100,7 @@ enum abstract PropertyId(Int) from Int to Int {
     public inline function getDataType(): PropertyDataType {
         return switch (this) {
             case Background: TypeBrush;
-            case BorderColor | Color | AccentColor: TypeColor;
+            case BorderColor | Color | AccentColor | OutlineColor: TypeColor;
             case CornerRadius: TypeCornerRadius;
 
             case Transform: TypeTransform;
@@ -104,7 +113,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
                  Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
-                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent:
+                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset:
                 TypeF32;
 
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)

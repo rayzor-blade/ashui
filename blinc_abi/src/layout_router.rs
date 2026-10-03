@@ -21,7 +21,7 @@ use blinc_layout::binding::{
     register_typed, register_typed_computed, register_typed_layout, register_typed_layout_computed,
 };
 use blinc_layout::div::{FontWeight, TextAlign};
-use blinc_layout::element::RenderProps;
+use blinc_layout::element::{BorderSide, RenderProps};
 use blinc_layout::element_style::FontStyle;
 use blinc_layout::property::PropertyId;
 use blinc_layout::stateful::{queue_layout_update_partial, queue_prop_update_partial};
@@ -239,8 +239,9 @@ fn length_auto(v: f32) -> LengthPercentageAuto {
 }
 
 /// ashui's own number properties, numbered after Blinc's: one side of a
-/// box's padding, margin or gap, or a size as a fraction of the parent's.
-/// Each is updated under the Blinc property it is part of.
+/// box's padding, margin, gap or border, a size as a fraction of the
+/// parent's, or an outline's width or offset. Each is updated under the
+/// Blinc property it is part of.
 const SIDES_BASE: i32 = 43;
 
 fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
@@ -286,9 +287,26 @@ fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
             P::FlexBasis,
             layout(|s, v| s.flex_basis = Dimension::Percent(v))?,
         ),
+        // A side's width over the border's; its colour stays the border's.
+        17 => (P::BorderWidth, render(|p, v| p.border_sides.top = Some(side(v)))?),
+        18 => (P::BorderWidth, render(|p, v| p.border_sides.right = Some(side(v)))?),
+        19 => (P::BorderWidth, render(|p, v| p.border_sides.bottom = Some(side(v)))?),
+        20 => (P::BorderWidth, render(|p, v| p.border_sides.left = Some(side(v)))?),
+        21 => (P::BorderWidth, render(|p, v| p.outline_width = v)?),
+        22 => (P::BorderWidth, render(|p, v| p.outline_offset = v)?),
         _ => return None,
     })
 }
+
+fn side(width: f32) -> BorderSide {
+    BorderSide {
+        width,
+        color: blinc_core::Color::TRANSPARENT,
+    }
+}
+
+/// ashui's own value properties: the outline's colour.
+const OUTLINE_COLOR: i32 = 66;
 
 fn f32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<f32>> {
     use PropertyId as P;
@@ -590,9 +608,21 @@ pub unsafe extern "C" fn hl_blinc_apply_value(
     sig: *mut c_void,
     comp: *mut c_void,
 ) {
-    let Some(prop) = property(prop) else { return };
-    let Some(write) = value_write(prop) else {
-        return;
+    let (prop, write) = if prop == OUTLINE_COLOR {
+        let Some(write) = render(|p, v| {
+            if let Value::Color(c) = v {
+                p.outline_color = Some(c);
+            }
+        }) else {
+            return;
+        };
+        (PropertyId::AccentColor, write)
+    } else {
+        let Some(prop) = property(prop) else { return };
+        let Some(write) = value_write(prop) else {
+            return;
+        };
+        (prop, write)
     };
     let constant = unsafe { handle_ref::<Value>(constant) }
         .cloned()

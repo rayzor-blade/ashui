@@ -10,7 +10,7 @@
 //! | 1  | corner radii: top-left, top-right, bottom-right, bottom-left   |
 //! | 2  | fill colour, or gradient start; straight alpha, opacity applied |
 //! | 3  | gradient end colour                                            |
-//! | 4  | border widths: top, right, bottom, left                        |
+//! | 4  | border widths: top, right, bottom, left, each its own           |
 //! | 5  | border colour, opacity applied                                 |
 //! | 6  | shadow offset x, offset y, blur, spread; or a local clip rect   |
 //! | 7  | shadow colour, opacity applied; or the local clip's radii       |
@@ -37,8 +37,9 @@
 //! them with the image's rect in its atlas.
 //!
 //! The walk follows Blinc's `paint/basic.rs`: a node's shadows, last first,
-//! then its fill merged with its border, then its children under the clip it
-//! pushes when its overflow is not visible, which follows its corner shape.
+//! then its fill merged with its border, then its outline, then its
+//! children under the clip it pushes when its overflow is not visible,
+//! which follows its corner shape.
 //! A node that clips draws its border after its children instead, so they
 //! cannot cover it where the curves differ. Glass, blur and image brushes
 //! draw nothing yet. A node's 2D transform applies about its centre, after
@@ -536,8 +537,10 @@ pub fn append(
             }
         }
 
-        let bw = props.border_width;
-        let border = props.border_color.filter(|_| bw > 0.0);
+        let sides = border_sides(props);
+        let border = props
+            .border_color
+            .filter(|_| sides.iter().any(|&w| w > 0.0));
         // A border with no background draws over a transparent fill.
         let transparent = Brush::Solid(Color::TRANSPARENT);
         let brush = props.background.as_ref().or(border.map(|_| &transparent));
@@ -545,7 +548,7 @@ pub fn append(
         p.shape_from(props, &glyphs.shapes);
         if brush.is_some_and(|b| fill(&mut p, b, opacity)) {
             if let Some(bc) = border {
-                p.border = [bw; 4];
+                p.border = sides;
                 p.border_color = rgba(bc, opacity);
             }
             p.place(m, x, y);
@@ -569,6 +572,22 @@ pub fn append(
                 after = Some((ring, clip));
             }
         }
+
+        // An outline: a ring outside the box, `offset` away from it, its
+        // corners following the box's, as CSS draws one and Tailwind a ring.
+        if let Some(oc) = props.outline_color.filter(|_| props.outline_width > 0.0) {
+            let grow = props.outline_offset + props.outline_width;
+            let ring_radii = radii.map(|r| if r > 0.0 { r + grow } else { 0.0 });
+            let mut o = Primitive::new(PRIM_RECT, [0.0, 0.0, w + 2.0 * grow, h + 2.0 * grow], ring_radii);
+            o.shape_from(props, &glyphs.shapes);
+            o.fill_type = FILL_SOLID;
+            o.border = [props.outline_width; 4];
+            o.border_color = rgba(oc, opacity);
+            o.place(m, x - grow, y - grow);
+            if o.border_color[3] > 0.0 {
+                o.push(&clipping(clips, m, (x - grow, y - grow), true), out);
+            }
+        }
     }
 
     if let Some(&slot) = tree.images.get(&node) {
@@ -579,23 +598,25 @@ pub fn append(
     }
 
     // Children are clipped to the padding box, rounded by what is left of a
-    // uniform radius after the border.
+    // uniform radius after a uniform border.
     if clips_children(tree, node) {
-        let (bw, r) = tree
+        let (sides, r) = tree
             .props
             .get(&node)
-            .map(|p| (p.border_width, p.border_radius))
+            .map(|p| (border_sides(p), p.border_radius))
             .unwrap_or_default();
-        let inset_radius = if r.is_uniform() && r.top_left > bw {
-            r.top_left - bw
+        let [top, right, bottom, left] = sides;
+        let uniform = sides.iter().all(|&s| s == top);
+        let inset_radius = if uniform && r.is_uniform() && r.top_left > top {
+            r.top_left - top
         } else {
             0.0
         };
         let inner = [
-            x + bw,
-            y + bw,
-            (w - 2.0 * bw).max(0.0),
-            (h - 2.0 * bw).max(0.0),
+            x + left,
+            y + top,
+            (w - left - right).max(0.0),
+            (h - top - bottom).max(0.0),
         ];
         let (rect, radii) = if m == IDENTITY {
             (inner, [inset_radius; 4])
@@ -791,4 +812,13 @@ fn image_record(
         rec.bounds[1] = (rec.bounds[1] * display_scale).round() / display_scale;
     }
     rec.push(&clipping(clips, m, (x + left, y + top), true), out);
+}
+
+/// A node's border widths, top, right, bottom, left: each side's own where
+/// one is set, else the border's.
+fn border_sides(props: &RenderProps) -> [f32; 4] {
+    let s = &props.border_sides;
+    let bw = props.border_width;
+    let of = |side: &Option<blinc_layout::element::BorderSide>| side.as_ref().map_or(bw, |b| b.width);
+    [of(&s.top), of(&s.right), of(&s.bottom), of(&s.left)]
 }

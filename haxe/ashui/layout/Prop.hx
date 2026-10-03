@@ -12,6 +12,15 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var Background:Prop<ashui.types.Brush> = cast PropertyId.Background;
 	public static inline var BorderColor:Prop<ashui.types.Color> = cast PropertyId.BorderColor;
 	public static inline var BorderWidth:Prop<Single> = cast PropertyId.BorderWidth;
+	/** One side's border width, over `BorderWidth`; the colour stays `BorderColor`. **/
+	public static inline var BorderTopWidth:Prop<Single> = cast PropertyId.BorderTopWidth;
+	public static inline var BorderRightWidth:Prop<Single> = cast PropertyId.BorderRightWidth;
+	public static inline var BorderBottomWidth:Prop<Single> = cast PropertyId.BorderBottomWidth;
+	public static inline var BorderLeftWidth:Prop<Single> = cast PropertyId.BorderLeftWidth;
+	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
+	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
+	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;
+	public static inline var OutlineColor:Prop<ashui.types.Color> = cast PropertyId.OutlineColor;
 	public static inline var CornerRadius:Prop<ashui.types.CornerRadius> = cast PropertyId.CornerRadius;
 	/** Shares its id with `CornerRadius`; the two are told apart by value. **/
 	public static inline var CornerShape:Prop<ashui.types.CornerShape> = cast PropertyId.CornerRadius;

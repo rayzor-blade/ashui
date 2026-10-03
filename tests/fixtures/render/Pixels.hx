@@ -29,6 +29,9 @@ import gpu.TextureUsage;
 	that covers its bounding box: the child shows inside the turned box and
 	not in its bounding box's corners.
 
+	Then a white box with a red top border alone, and a green box with a
+	blue 2-pixel outline 2 pixels out.
+
 	Then SVG, on white: a 24×24 mask square in currentColor, drawn red by
 	the element's colour, and a colour square that is blue whatever the
 	element's colour, each with a transparent margin.
@@ -135,6 +138,24 @@ class Pixels {
 		probe("child inside the turned box", 32, 32, near(0x00ff00));
 		probe("child inside, near the turned box's tip", 32, 13, near(0x00ff00));
 		probe("nothing in the bounding box's corner", 14, 14, near(0xffffff));
+
+		var edgeTree = new LayoutTree();
+		var topOnly = new Div({position: Position.Absolute, left: 4, top: 4, width: 24, height: 24, bg: Brush.solid(0xffffff)}, edgeTree);
+		topOnly.node.set(Prop.BorderColor, new Color(0xff0000));
+		topOnly.node.set(Prop.BorderTopWidth, (4 : Single));
+		var outlined = new Div({position: Position.Absolute, left: 40, top: 20, width: 16, height: 16, bg: Brush.solid(0x00ff00)}, edgeTree);
+		outlined.node.set(Prop.OutlineColor, new Color(0x0000ff));
+		outlined.node.set(Prop.OutlineWidth, (2 : Single));
+		outlined.node.set(Prop.OutlineOffset, (2 : Single));
+		var edgeRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [topOnly, outlined], edgeTree);
+		pixels = offscreen.renderToRgba8(edgeRoot, SIZE, SIZE);
+		label = "borders and outlines: ";
+		probe("a top border alone is drawn on top", 16, 5, near(0xff0000));
+		probe("and not on the left", 5, 16, near(0xffffff));
+		probe("nor at the bottom", 16, 26, near(0xffffff));
+		probe("an outline outside its box, past its offset", 37, 28, near(0x0000ff));
+		probe("the offset's gap is left clear", 39, 28, near(0xffffff));
+		probe("the box itself is untouched", 48, 28, near(0x00ff00));
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');

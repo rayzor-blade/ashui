@@ -56,15 +56,11 @@ class BoxShader implements UiShader {
 				border : Vec4, borderColor : Vec4, aa : Float) : Vec4 {
 			var result = fill;
 			if (max(max(border.x, border.y), max(border.z, border.w)) > 0.) {
+				// Each side its own: ashui writes all four, a uniform border as four equal widths.
 				var top = border.x;
-				var right = border.x;
-				var bottom = border.x;
-				var left = border.x;
-				if (border.y > 0. || border.z > 0. || border.w > 0.) {
-					right = border.y;
-					bottom = border.z;
-					left = border.w;
-				}
+				var right = border.y;
+				var bottom = border.z;
+				var left = border.w;
 				var halfSize = size * 0.5;
 				var rel = p - (origin + halfSize);
 				var r = radii.w;
