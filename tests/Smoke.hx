@@ -257,6 +257,46 @@ class Smoke {
 		l = tree.getBounds(listed.node);
 		check("<for> builds only new items", l != null && near(l.width, 80) && built == 4, '$l built=$built');
 
+		// --- <for> and <if> lay their items out in the element they are in ---
+		var rows = Signal.make([1, 2, 3]);
+		var outer = Signal.make([1, 2]);
+		var showExtra = Signal.make(true);
+		var header:Div = null, footer:Div = null;
+		var column:Div = Owner.root(tree, _ -> hxx('
+			<div class="flex flex-col" gap={4} width={100} flexShrink={0}>
+				${header = new Div({width: 100, height: 10})}
+				<for {n in rows}><div width={20} height={10} /></for>
+				<if {showExtra}><div width={30} height={6} /></if>
+				<for {o in outer}><for {n in [o * 10, o * 10 + 1]}><div width={5} height={2} /></for></for>
+				${footer = new Div({width: 100, height: 10})}
+			</div>
+		'));
+		root.appendChild(column);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		function columnHeight()
+			return tree.getBounds(column.node).height;
+		function footerTop()
+			return tree.getBounds(footer.node).y - tree.getBounds(column.node).y;
+		// header 10, three rows of 10, the extra 6, four nested rows of 2, footer 10, and 9 gaps of 4.
+		check("<for> and <if> items are the column's own children: stacked, with its gap", near(columnHeight(), 10 + 30 + 6 + 8 + 10 + 9 * 4)
+			&& near(footerTop(), 10 + 30 + 6 + 8 + 9 * 4), [columnHeight(), footerTop()]);
+		rows.set([1]);
+		showExtra.set(false);
+		outer.set([2]);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		check("removed items leave the column, in place", near(columnHeight(), 10 + 10 + 4 + 10 + 4 * 4) && near(footerTop(), 10 + 10 + 4 + 4 * 4),
+			[columnHeight(), footerTop()]);
+		rows.set([1, 2]);
+		showExtra.set(true);
+		tree.flush();
+		tree.computeLayout(root.node, 800, 600);
+		var order = [for (id in tree.order()) id];
+		var headerAt = order.indexOf(header.node.id), footerAt = order.indexOf(footer.node.id);
+		check("added items take their place between their siblings", near(columnHeight(), 10 + 20 + 6 + 4 + 10 + 6 * 4) && headerAt >= 0
+			&& footerAt == headerAt + 6, [columnHeight(), headerAt, footerAt]);
+
 		// --- A watch reacts only to what it read ---
 		var flagA = Signal.make(true);
 		var flagB = Signal.make(true);

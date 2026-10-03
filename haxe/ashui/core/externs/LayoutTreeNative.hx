@@ -28,6 +28,12 @@ extern class LayoutTreeNative {
 	/** `children` holds `len` consecutive 64-bit ids. **/
 	static function blinc_tree_replace_children(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64, children:hl.Bytes, len:Int):Void;
 
+	/** Writes `node`'s children as 64-bit ids, at most `capacity`; returns how many there are. **/
+	static function blinc_tree_children(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
+
+	/** Makes the `len` ids in `children` `parent`'s children, detaching, not deleting, the rest. **/
+	static function blinc_tree_set_children(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64, children:hl.Bytes, len:Int):Void;
+
 	/** Applies queued property writes; true if any changed what is drawn, by layout or by look. **/
 	static function blinc_tree_flush(tree:hl.Abstract<"blinc_tree">):Bool;
 

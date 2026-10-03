@@ -9,16 +9,18 @@ import ashui.ui.Div.DivAttributes;
 private typedef Row<T> = {value:T, owner:Owner, element:Element};
 
 /**
-	A box holding one `item(value)` per value of `each()`, in order. Each item
-	is built under its own owner. When the list changes, an item whose value
-	is still present (by `==`) keeps its element, and an item no longer present
-	is disposed. `each` is tracked like a computed, and the update happens at
-	the next `LayoutTree.flush`. hxx lowers
-	`<for {value in list}>...</for>` to it.
+	One `item(value)` per value of `each()`, in order, laid out in the
+	element it is placed in as that element's own children: its direction,
+	gap and alignment apply to them. Each item is built under its own owner.
+	When the list changes, an item whose value is still present (by `==`)
+	keeps its element, and an item no longer present is disposed. `each` is
+	tracked like a computed, and the update happens at the next
+	`LayoutTree.flush`. hxx lowers `<for {value in list}>...</for>` to it.
 **/
 class For<T> extends Div {
 	public function new(each:Void->Array<T>, item:T->Element, ?attr:DivAttributes, ?tree:LayoutTree) {
 		super(attr, null, tree);
+		this.tree.makeFragment(node.id);
 		var owner = Owner.current;
 		var rows:Array<Row<T>> = [];
 		// Every change to what `each` read reconciles, even when it returns

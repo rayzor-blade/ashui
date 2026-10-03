@@ -48,35 +48,200 @@ class LayoutTree {
 		return node;
 	}
 
-	public inline function addChild(parent:haxe.Int64, child:haxe.Int64):Void {
-		LayoutTreeNative.blinc_tree_add_child(this.ptr, parent, child);
+	// --- Children, and fragments ---
+	//
+	// A fragment is a node that places its items in its parent, where it
+	// stands, instead of laying them out in a box of its own: what `<for>` and
+	// `<if>` build. Blinc's layout has no such node, so the tree keeps each
+	// fragment's items, and the children of each node that holds a fragment,
+	// and writes their flattened list as that node's native children whenever
+	// either changes. A fragment with no parent holds its items itself.
+
+	final fragments = new Map<String, Fragment>();
+
+	/** The children of nodes that hold a fragment, fragments included. **/
+	final placed = new Map<String, Array<haxe.Int64>>();
+
+	/** Where each item of a fragment, and each child of a node in `placed`, is placed. **/
+	final placedIn = new Map<String, haxe.Int64>();
+
+	static inline function key(id:haxe.Int64):String
+		return '${id.high}:${id.low}';
+
+	/** Makes `node` a fragment: what is added to it is laid out in its parent, in its place. Call before it has children. **/
+	public function makeFragment(node:haxe.Int64):Void {
+		fragments.set(key(node), new Fragment(node));
 	}
 
-	public inline function removeNode(node:haxe.Int64):Void {
+	public function isFragment(node:haxe.Int64):Bool
+		return fragments.exists(key(node));
+
+	public function addChild(parent:haxe.Int64, child:haxe.Int64):Void {
+		var list = fragmentOrPlaced(parent, isFragment(child));
+		if (list == null) {
+			LayoutTreeNative.blinc_tree_add_child(this.ptr, parent, child);
+			return;
+		}
+		list.push(child);
+		place(child, parent);
+		layoutChildren(parent);
+	}
+
+	public function removeNode(node:haxe.Int64):Void {
+		unplace(node);
 		LayoutTreeNative.blinc_tree_remove_node(this.ptr, node);
 	}
 
-	public inline function removeSubtree(node:haxe.Int64):Void {
+	public function removeSubtree(node:haxe.Int64):Void {
+		var f = fragments.get(key(node));
+		if (f != null) {
+			for (item in f.items.copy())
+				removeSubtree(item);
+			fragments.remove(key(node));
+		}
+		placed.remove(key(node));
+		unplace(node);
 		LayoutTreeNative.blinc_tree_remove_subtree(this.ptr, node);
 	}
 
 	/** Puts `next` where `old` is in its parent; `old` is detached, not deleted. **/
-	public inline function replaceNode(old:Node, next:Node):Void {
-		LayoutTreeNative.blinc_tree_replace_node(this.ptr, old.id, next.id);
+	public function replaceNode(old:Node, next:Node):Void {
+		var parent = placedIn.get(key(old.id));
+		if (parent == null) {
+			LayoutTreeNative.blinc_tree_replace_node(this.ptr, old.id, next.id);
+			return;
+		}
+		var list = listOf(parent);
+		list[list.indexOf(old.id)] = next.id;
+		placedIn.remove(key(old.id));
+		place(next.id, parent);
+		layoutChildren(parent);
 	}
 
+	/** Makes `children` `parent`'s children, in order; with none, deletes what it had. **/
 	public function replaceChildren(parent:haxe.Int64, children:Array<haxe.Int64>):Void {
+		var holdsFragment = Lambda.exists(children, isFragment);
+		var list = fragmentOrPlaced(parent, holdsFragment);
+		if (list == null) {
+			setNative(parent, children, false);
+			return;
+		}
 		if (children.length == 0) {
+			for (child in list.copy())
+				removeSubtree(child);
+			return;
+		}
+		for (child in list)
+			if (children.indexOf(child) < 0)
+				placedIn.remove(key(child));
+		list.resize(0);
+		for (child in children) {
+			list.push(child);
+			place(child, parent);
+		}
+		layoutChildren(parent);
+	}
+
+	/**
+		`parent`'s list of children kept here: a fragment's items, or the
+		children of a node holding a fragment. When `adding` a fragment to a
+		node that has none yet, its list starts from its native children.
+		Null when it is kept natively alone.
+	**/
+	function fragmentOrPlaced(parent:haxe.Int64, adding:Bool):Null<Array<haxe.Int64>> {
+		var f = fragments.get(key(parent));
+		if (f != null)
+			return f.items;
+		var list = placed.get(key(parent));
+		if (list == null && adding) {
+			list = nativeChildren(parent);
+			placed.set(key(parent), list);
+			for (child in list)
+				placedIn.set(key(child), parent);
+		}
+		return list;
+	}
+
+	function listOf(parent:haxe.Int64):Array<haxe.Int64> {
+		var f = fragments.get(key(parent));
+		return f != null ? f.items : placed.get(key(parent));
+	}
+
+	function place(child:haxe.Int64, parent:haxe.Int64):Void {
+		placedIn.set(key(child), parent);
+		var f = fragments.get(key(child));
+		if (f != null && f.parent == null) {
+			// Its items move from its own node into the parent's.
+			f.parent = parent;
+			setNative(child, [], true);
+		}
+	}
+
+	/** Takes `node` out of the list it is placed in, if any; what is native follows by itself. **/
+	function unplace(node:haxe.Int64):Void {
+		var parent = placedIn.get(key(node));
+		if (parent == null)
+			return;
+		placedIn.remove(key(node));
+		var list = listOf(parent);
+		if (list != null)
+			list.remove(node);
+	}
+
+	/**
+		Writes the flattened children of the node that lays out `parent`'s
+		list: the nearest one up that is not a fragment, or the topmost
+		fragment while it has no parent.
+	**/
+	function layoutChildren(parent:haxe.Int64):Void {
+		var host = parent;
+		var f = fragments.get(key(host));
+		while (f != null && f.parent != null) {
+			host = f.parent;
+			f = fragments.get(key(host));
+		}
+		var flat = [];
+		flatten(listOf(host), flat);
+		setNative(host, flat, true);
+	}
+
+	function flatten(list:Array<haxe.Int64>, out:Array<haxe.Int64>):Void {
+		for (id in list) {
+			var f = fragments.get(key(id));
+			if (f != null)
+				flatten(f.items, out);
+			else
+				out.push(id);
+		}
+	}
+
+	/** Sets `parent`'s native children; with none, deletes those it had unless `detach`. **/
+	function setNative(parent:haxe.Int64, children:Array<haxe.Int64>, detach:Bool):Void {
+		if (children.length == 0 && !detach) {
 			LayoutTreeNative.blinc_tree_clear_children(this.ptr, parent);
 			return;
 		}
 		// Little-endian 64-bit ids, as the native side reads them.
-		var ids = new hl.Bytes(children.length * 8);
+		var ids = new hl.Bytes(children.length * 8 + 8);
 		for (i in 0...children.length) {
 			ids.setI32(i * 8, children[i].low);
 			ids.setI32(i * 8 + 4, children[i].high);
 		}
-		LayoutTreeNative.blinc_tree_replace_children(this.ptr, parent, ids, children.length);
+		if (detach)
+			LayoutTreeNative.blinc_tree_set_children(this.ptr, parent, ids, children.length);
+		else
+			LayoutTreeNative.blinc_tree_replace_children(this.ptr, parent, ids, children.length);
+	}
+
+	function nativeChildren(node:haxe.Int64):Array<haxe.Int64> {
+		var capacity = 16;
+		while (true) {
+			var out = new hl.Bytes(capacity * 8);
+			var n = LayoutTreeNative.blinc_tree_children(this.ptr, node, out, capacity);
+			if (n <= capacity)
+				return ids(out, n);
+			capacity = n;
+		}
 	}
 
 	/**
@@ -176,4 +341,14 @@ class Hit {
 		this.x = x;
 		this.y = y;
 	}
+}
+
+/** A fragment's items, in order, and the node it is placed in once it is. **/
+private class Fragment {
+	public final id:haxe.Int64;
+	public final items:Array<haxe.Int64> = [];
+	public var parent:Null<haxe.Int64> = null;
+
+	public function new(id:haxe.Int64)
+		this.id = id;
 }

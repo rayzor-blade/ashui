@@ -339,6 +339,78 @@ define_prim!(
     "PXblinc_tree_lBi_v"
 );
 
+/// Writes `node`'s children as 64-bit ids into `out`, at most `capacity`.
+/// Returns how many there are; 0 for a node that is gone.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_children(
+    h: *mut c_void,
+    node: u64,
+    out: *mut vbyte,
+    capacity: i32,
+) -> i32 {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return 0;
+    };
+    if !tree.owners.contains_key(&id(node)) {
+        return 0;
+    }
+    let ids: Vec<u64> = tree.layout.children(id(node)).iter().map(|c| c.to_raw()).collect();
+    if !out.is_null() {
+        let n = ids.len().min(capacity.max(0) as usize);
+        unsafe { std::ptr::copy_nonoverlapping(ids.as_ptr(), out as *mut u64, n) };
+    }
+    ids.len() as i32
+}
+define_prim!(
+    hlp_blinc_tree_children,
+    hl_blinc_tree_children,
+    "PXblinc_tree_lBi_i"
+);
+
+/// Makes `children`, `len` consecutive 64-bit ids, `parent`'s children in
+/// that order. Children it had before and does not keep are detached, not
+/// deleted, as are `children` from any other parent. A `parent` that is gone
+/// is left alone, and ids of nodes that are gone are skipped: a parent's
+/// removal can come before the update of what was placed in it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_set_children(
+    h: *mut c_void,
+    parent: u64,
+    children: *const vbyte,
+    len: i32,
+) {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return;
+    };
+    let parent = id(parent);
+    if !tree.owners.contains_key(&parent) {
+        return;
+    }
+    let ids: Vec<LayoutNodeId> = if children.is_null() || len <= 0 {
+        Vec::new()
+    } else {
+        (0..len as usize)
+            .map(|i| id(unsafe { (children as *const u64).add(i).read_unaligned() }))
+            .filter(|c| tree.owners.contains_key(c))
+            .collect()
+    };
+    // A child still listed under another parent is taken from it first.
+    for &child in &ids {
+        if let Some(&old) = tree.layout.ancestors(child).first() {
+            if old != parent {
+                let kept = tree.layout.children(old).into_iter().filter(|&c| c != child).collect();
+                tree.layout.replace_children(old, kept);
+            }
+        }
+    }
+    tree.layout.replace_children(parent, ids);
+}
+define_prim!(
+    hlp_blinc_tree_set_children,
+    hl_blinc_tree_set_children,
+    "PXblinc_tree_lBi_v"
+);
+
 fn drain_released_handles() -> Vec<u64> {
     std::mem::take(&mut *RELEASED_HANDLES.lock().unwrap_or_else(|e| e.into_inner()))
 }

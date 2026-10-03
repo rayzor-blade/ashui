@@ -7,8 +7,8 @@ import ashui.reactive.Watch;
 import ashui.ui.Div.DivAttributes;
 
 /**
-	A box holding `then()` while `when()` is true and `otherwise()`, if any,
-	while it is false. Each branch is built under its own owner and disposed
+	`then()` while `when()` is true and `otherwise()`, if any, while it is
+	false, laid out in the element it is placed in, as `For`'s items are. Each branch is built under its own owner and disposed
 	when the condition flips, taking what it created with it. `when` is
 	tracked like a computed, and the switch happens at the next
 	`LayoutTree.flush`. hxx lowers
@@ -17,6 +17,7 @@ import ashui.ui.Div.DivAttributes;
 class Show extends Div {
 	public function new(when:Void->Bool, then:Void->Element, ?otherwise:Void->Element, ?attr:DivAttributes, ?tree:LayoutTree) {
 		super(attr, null, tree);
+		this.tree.makeFragment(node.id);
 		var owner = Owner.current;
 		var branch:Null<Owner> = null;
 		new Watch(when, shown -> {
