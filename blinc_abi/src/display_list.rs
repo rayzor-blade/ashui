@@ -17,8 +17,8 @@
 //! | 8  | clip bounds x, y, width, height                                |
 //! | 9  | clip corner radii                                              |
 //! | 10 | gradient: linear x1, y1, x2, y2 or radial cx, cy, r, 0, in pixels from the box's top-left |
-//! | 11 | primitive type, fill type, clips, corner shape locked (1/0)     |
-//! | 12 | corner shape `n`: top-left, top-right, bottom-right, bottom-left |
+//! | 11 | primitive type, fill type, clips, the clips' corner `n`         |
+//! | 12 | corner shape `n`, theme applied: top-left, top-right, bottom-right, bottom-left |
 //! | 13 | gradient middle stop colour, opacity applied                   |
 //! | 14 | gradient stop offsets: first, middle, last; 1 if there is a middle |
 //! | 15 | a, b, c, d: a point `(x, y)` from the box's top-left is at       |
@@ -129,6 +129,48 @@ pub struct Glyphs<'a> {
     pub renderer: &'a mut TextRenderer,
     pub display_scale: f32,
     pub atlas_full: bool,
+    pub shapes: Shapes,
+}
+
+/// The installed theme's corner smoothing, as ashui's theme decides it: the
+/// squircle `n` (0 when smoothing is off), the radius below which corners
+/// stay round, and the theme's full radius.
+#[derive(Clone, Copy)]
+pub struct Shapes {
+    pub n: f32,
+    pub threshold: f32,
+    pub radius_full: f32,
+}
+
+impl Shapes {
+    /// The corner shape to draw a box with, as Blinc's paint walk decides it.
+    /// An explicit shape, or a locked one, wins. Otherwise smoothing gives
+    /// each corner the theme's `n`, except corners under the threshold,
+    /// corners near a full circle (at least 99% of the full radius or 90% of
+    /// half the shorter side) and pills, which stay round so they do not
+    /// wobble.
+    fn resolve(&self, explicit: [f32; 4], radii: [f32; 4], w: f32, h: f32, locked: bool) -> [f32; 4] {
+        let round = explicit.iter().all(|n| (n - 1.0).abs() < 0.001);
+        if locked || !round {
+            return explicit;
+        }
+        if self.n <= 0.0 {
+            return [1.0; 4];
+        }
+        let half_short = w.min(h) * 0.5;
+        if half_short > 0.0 && radii.iter().all(|&r| r >= half_short - 0.5) {
+            return [1.0; 4];
+        }
+        let full = self.radius_full * 0.99;
+        let near = half_short * 0.90;
+        radii.map(|r| {
+            if r >= full || r >= near || r < self.threshold {
+                1.0
+            } else {
+                self.n
+            }
+        })
+    }
 }
 
 /// A clip a node pushes for its children: on screen, `rect` rounded by
@@ -141,12 +183,17 @@ pub struct Clip {
     layout: [f32; 4],
     layout_radii: [f32; 4],
     frame: Affine,
+    /// The corner `n` of the node that pushed it, so a squircle parent clips
+    /// its children to the same curve it is drawn with.
+    n: f32,
 }
 
-/// The clips of one record: on screen, and in its own coordinates.
+/// The clips of one record: on screen, and in its own coordinates, and the
+/// corner `n` of the innermost rounded one.
 struct Clipping {
     screen: ([f32; 4], [f32; 4], f32),
     local: Option<([f32; 4], [f32; 4])>,
+    n: f32,
 }
 
 /// The clips under `clips` for a record placed at `origin` in layout
@@ -170,9 +217,17 @@ fn clipping(clips: &[Clip], m: Affine, origin: (f32, f32), local: bool) -> Clipp
         let (r, radii, _) = clip_data(&in_frame);
         Some(([r[0] - origin.0, r[1] - origin.1, r[2], r[3]], radii))
     };
+    // One corner shape per record: the innermost rounded clip's, which a
+    // single squircle parent clipping its children makes exact.
+    let n = clips
+        .iter()
+        .rev()
+        .find(|c| c.layout_radii.iter().any(|&r| r > 0.0))
+        .map_or(1.0, |c| c.n);
     Clipping {
         screen: clip_data(&on_screen),
         local,
+        n,
     }
 }
 
@@ -334,7 +389,6 @@ struct Primitive {
     kind: f32,
     fill_type: f32,
     corner_shape: [f32; 4],
-    shape_locked: f32,
     via: [f32; 4],
     offsets: [f32; 4],
     affine: [f32; 4],
@@ -355,7 +409,6 @@ impl Primitive {
             kind,
             fill_type: FILL_SOLID,
             corner_shape: [1.0; 4],
-            shape_locked: 0.0,
             via: [0.0; 4],
             offsets: [0.0, 0.0, 1.0, 0.0],
             affine: [1.0, 0.0, 0.0, 1.0],
@@ -371,9 +424,14 @@ impl Primitive {
     }
 
     /// The node's own corner shape, which the theme may yet smooth unless locked.
-    fn shape_from(&mut self, props: &RenderProps) {
-        self.corner_shape = props.corner_shape.to_array();
-        self.shape_locked = if props.corner_shape_locked { 1.0 } else { 0.0 };
+    fn shape_from(&mut self, props: &RenderProps, shapes: &Shapes) {
+        self.corner_shape = shapes.resolve(
+            props.corner_shape.to_array(),
+            self.radii,
+            self.bounds[2],
+            self.bounds[3],
+            props.corner_shape_locked,
+        );
     }
 
     fn push(&self, clipping: &Clipping, out: &mut Vec<f32>) {
@@ -398,7 +456,7 @@ impl Primitive {
             out.extend_from_slice(row);
         }
         let clips = clip.2 + if clipping.local.is_some() { 2.0 } else { 0.0 };
-        out.extend_from_slice(&[self.kind, self.fill_type, clips, self.shape_locked]);
+        out.extend_from_slice(&[self.kind, self.fill_type, clips, clipping.n]);
         out.extend_from_slice(&self.corner_shape);
         out.extend_from_slice(&self.via);
         out.extend_from_slice(&self.offsets);
@@ -463,7 +521,7 @@ pub fn append(
 
         for s in props.shadow.iter().rev() {
             let mut p = Primitive::new(PRIM_SHADOW, local, radii);
-            p.shape_from(props);
+            p.shape_from(props, &glyphs.shapes);
             p.shadow = [s.offset_x, s.offset_y, s.blur, s.spread];
             p.shadow_color = rgba(s.color, opacity);
             p.place(m, x, y);
@@ -478,7 +536,7 @@ pub fn append(
         let transparent = Brush::Solid(Color::TRANSPARENT);
         let brush = props.background.as_ref().or(border.map(|_| &transparent));
         let mut p = Primitive::new(PRIM_RECT, local, radii);
-        p.shape_from(props);
+        p.shape_from(props, &glyphs.shapes);
         if brush.is_some_and(|b| fill(&mut p, b, opacity)) {
             if let Some(bc) = border {
                 p.border = [bw; 4];
@@ -523,12 +581,23 @@ pub fn append(
         } else {
             (bounding(m, inner), [0.0; 4])
         };
+        let n = tree.props.get(&node).map_or(1.0, |p| {
+            let r = p.border_radius;
+            glyphs.shapes.resolve(
+                p.corner_shape.to_array(),
+                [r.top_left, r.top_right, r.bottom_right, r.bottom_left],
+                w,
+                h,
+                p.corner_shape_locked,
+            )[0]
+        });
         clips.push(Clip {
             rect,
             radii,
             layout: inner,
             layout_radii: [inset_radius; 4],
             frame: m,
+            n,
         });
         pushed = true;
     }

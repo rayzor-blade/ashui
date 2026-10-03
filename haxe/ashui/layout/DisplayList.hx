@@ -15,9 +15,9 @@ class DisplayList {
 
 	/** Where the primitive type sits in a record, and its values. **/
 	public static inline var KIND_FIELD = 44;
-	/** 1 when the node keeps its corner shape whatever the theme. **/
-	public static inline var SHAPE_LOCKED_FIELD = 47;
-	/** The four corners' `n`, top-left first. **/
+	/** The corner `n` of the record's rounded clip, so a squircle parent clips to its own curve. **/
+	public static inline var CLIP_SHAPE_FIELD = 47;
+	/** The four corners' `n`, top-left first, the theme's smoothing applied. **/
 	public static inline var CORNER_SHAPE_FIELD = 48;
 	public static inline var PRIM_RECT = 0;
 	public static inline var PRIM_SHADOW = 3;
@@ -28,6 +28,7 @@ class DisplayList {
 
 	public var bytes(default, null):haxe.io.Bytes;
 	public var count(default, null) = 0;
+	final params = haxe.io.Bytes.alloc(32);
 
 	var capacity = 0;
 
@@ -47,43 +48,42 @@ class DisplayList {
 		its ancestors have then.
 	**/
 	public function update(tree:LayoutTree, root:Node, scale = 1.0):Void {
-		var textColor = defaultTextColor();
-		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, scale, textColor, bytes == null ? null : bytes.getData(), capacity);
+		fillParams(scale);
+		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes == null ? null : bytes.getData(), capacity);
 		if (needed > capacity) {
 			capacity = needed + (needed >> 1) + 16;
 			bytes = haxe.io.Bytes.alloc(capacity * RECORD_BYTES);
-			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, scale, textColor, bytes.getData(), capacity);
+			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes.getData(), capacity);
 		}
 		count = needed;
-		smoothCorners();
 	}
 
-	/** The theme's primary text colour now, mid-transition included, as `0xAARRGGBB`. **/
-	static function defaultTextColor():Int {
+	/**
+		What the walk needs from the theme, as eight F32s: `scale`; the
+		corner `n` the theme smooths corners to (0 when it does not), the
+		radius below which corners stay round, and its full radius, as Blinc's
+		paint walk applies the shape tokens; and the theme's primary text
+		colour now, mid-transition included, for text that sets none.
+	**/
+	function fillParams(scale:Float):Void {
+		params.setFloat(0, scale);
 		var theme = ashui.theme.ThemeState.tryGet();
-		if (theme == null)
-			return 0xff000000;
-		var c = theme.color(TextPrimary);
-		return Math.round(Math.max(0, Math.min(1, c.a)) * 255) << 24 | c.rgb();
-	}
-
-	/** Gives each record the installed theme's squircle, as Blinc's paint walk does; nothing without a theme. **/
-	function smoothCorners():Void {
-		var theme = ashui.theme.ThemeState.tryGet();
-		if (theme == null)
+		if (theme == null) {
+			for (i in 1...4)
+				params.setFloat(i * 4, i == 1 ? 0 : Math.POSITIVE_INFINITY);
+			for (i in 4...8)
+				params.setFloat(i * 4, i == 7 ? 1 : 0);
 			return;
-		var shape = theme.shape();
-		var radiusFull = theme.radii().radiusFull;
-		for (r in 0...count) {
-			if (kind(r) == PRIM_TEXT || kind(r) == PRIM_IMAGE)
-				continue;
-			var explicit:Array<Float> = [for (c in 0...4) get(r, CORNER_SHAPE_FIELD + c)];
-			var radii:Array<Float> = [for (c in 4...8) get(r, c)];
-			var resolved = ashui.core.render.CornerShapes.resolve(explicit, radii, get(r, 2), get(r, 3), shape,
-				radiusFull, get(r, SHAPE_LOCKED_FIELD) == 1);
-			for (c in 0...4)
-				set(r, CORNER_SHAPE_FIELD + c, resolved[c]);
 		}
+		var shape = theme.shape();
+		params.setFloat(4, shape.isOff() ? 0 : shape.effectiveCornerN());
+		params.setFloat(8, shape.smoothingThreshold);
+		params.setFloat(12, theme.radii().radiusFull);
+		var c = theme.color(TextPrimary);
+		params.setFloat(16, c.r);
+		params.setFloat(20, c.g);
+		params.setFloat(24, c.b);
+		params.setFloat(28, Math.max(0, Math.min(1, c.a)));
 	}
 
 	/** The primitive type of record `record`. **/

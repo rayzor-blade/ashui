@@ -533,8 +533,7 @@ class Smoke {
 		var beveledRadius = shapeList.get(0, 4);
 		shapeList.update(shapeTree, lockedRound.node);
 		check("an explicit corner shape wins over the theme's squircle, and keeps the radius",
-			beveledN == 0 && beveledRadius == 14 && shapeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD) == 1
-			&& shapeList.get(0, ashui.layout.DisplayList.SHAPE_LOCKED_FIELD) == 1,
+			beveledN == 0 && beveledRadius == 14 && shapeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD) == 1,
 			[beveledN, beveledRadius, shapeList.get(0, ashui.layout.DisplayList.CORNER_SHAPE_FIELD)]);
 
 		// --- Utility classes resolve to theme tokens at compile time ---

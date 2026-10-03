@@ -34,8 +34,8 @@ class TextShader implements UiShader {
 		function fragment() {
 			var local = uv * primitive.bounds.zw;
 			var aa = halfPixel(local);
-			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z)
-				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, aa);
+			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
+				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa);
 			if (clip < 0.001)
 				discard;
 			var rect = primitive.gradient;

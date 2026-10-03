@@ -432,24 +432,36 @@ define_prim!(
 );
 
 /// Pack the primitives to draw under `root` into `out` (see `display_list`), at
-/// most `capacity` records, with text rasterized for `display_scale` device
-/// pixels per layout unit. `text_color`, `0xAARRGGBB`, is the colour of text
-/// that neither it nor an ancestor sets. Returns how many there are, which
-/// may be more than were written: the caller grows its buffer and asks again.
+/// most `capacity` records. `params` is eight f32s: the device pixels per
+/// layout unit text is rasterized for; the theme's corner `n` (0 for no
+/// smoothing), smoothing threshold and full radius; and the colour, straight
+/// RGBA, of text that neither it nor an ancestor sets. Returns how many
+/// records there are, which may be more than were written: the caller grows
+/// its buffer and asks again.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_display_list(
     h: *mut c_void,
     root: u64,
-    display_scale: f32,
-    text_color: i32,
+    params: *const vbyte,
     out: *mut vbyte,
     capacity: i32,
 ) -> i32 {
-    let channel = |shift: i32| ((text_color >> shift) & 0xff) as f32 / 255.0;
-    let text_color = [channel(16), channel(8), channel(0), channel(24)];
     let Some(tree) = (unsafe { tree(h) }) else {
         return 0;
     };
+    let p = |i: usize| -> f32 {
+        if params.is_null() {
+            return 0.0;
+        }
+        unsafe { (params as *const f32).add(i).read_unaligned() }
+    };
+    let display_scale = p(0);
+    let shapes = crate::display_list::Shapes {
+        n: p(1),
+        threshold: p(2),
+        radius_full: p(3),
+    };
+    let text_color = [p(4), p(5), p(6), p(7)];
     let mut renderer = crate::text::renderer();
     let mut records = Vec::new();
     // A frame whose glyphs overflow the atlases starts them afresh, once.
@@ -458,6 +470,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
             renderer: &mut renderer,
             display_scale: if display_scale > 0.0 { display_scale } else { 1.0 },
             atlas_full: false,
+            shapes,
         };
         records.clear();
         crate::display_list::append(
@@ -486,7 +499,7 @@ pub unsafe extern "C" fn hl_blinc_tree_display_list(
 define_prim!(
     hlp_blinc_tree_display_list,
     hl_blinc_tree_display_list,
-    "PXblinc_tree_lfiBi_i"
+    "PXblinc_tree_lBBi_i"
 );
 
 /// Makes `node` draw the image the caller knows as `slot` in its content

@@ -16,7 +16,7 @@ class BoxShader implements UiShader {
 			Values passed between stages are few, so pairs share a vec4.
 		**/
 		var place : Vec4;
-		/** The box's size, then its fill type and clips from `typeInfo`. **/
+		/** The box's size; its fill type plus four times its clips; its clips' corner `n`. **/
 		var box : Vec4;
 
 		/**
@@ -139,7 +139,7 @@ class BoxShader implements UiShader {
 			var local = quadCorner(vertexID) * (b.zw + grow * 2.) - grow;
 			var pixel = placed(b.xy, primitive.affine, local);
 			place = vec4(local, pixel);
-			box = vec4(b.zw, primitive.typeInfo.y, primitive.typeInfo.z);
+			box = vec4(b.zw, primitive.typeInfo.y + 4. * primitive.typeInfo.z, primitive.typeInfo.w);
 			output.position = pixelToClip(pixel, viewport);
 		}
 
@@ -148,8 +148,10 @@ class BoxShader implements UiShader {
 			// taken before the discard, as derivatives need every fragment of the quad.
 			var local = place.xy;
 			var aa = halfPixel(local);
-			var clip = clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, box.w)
-				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, box.w, aa);
+			var clips = floor(box.z * 0.25);
+			var fillType = box.z - 4. * clips;
+			var clip = clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, clips, box.w)
+				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, clips, box.w, aa);
 			if (clip < 0.001)
 				discard;
 			var p = local;
@@ -159,7 +161,7 @@ class BoxShader implements UiShader {
 			var coverage = 1. - smoothstep(-aa, aa, d);
 			if (coverage < 0.001)
 				discard;
-			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, box.z);
+			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, fillType);
 			fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
 				primitive.borderColor, aa);
 			output.color = vec4(fill.rgb, fill.a * clip * coverage);
