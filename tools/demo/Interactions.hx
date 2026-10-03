@@ -4,6 +4,7 @@ import ashui.reactive.Signal;
 import ashui.theme.ThemeState;
 import ashui.ui.Div;
 import ashui.ui.Hxx.hxx;
+import ashui.ui.TextArea;
 import ashui.ui.TextField;
 
 /**
@@ -15,6 +16,7 @@ import ashui.ui.TextField;
 	- Tab and Shift+Tab moving focus, Enter, or Space on release, clicking;
 	- a text field: typing, selection with Shift, the mouse or Command+A,
 	  word and line moves with Alt and Command, Enter submitting;
+	- a text area of wrapped lines that scrolls, with line-by-line selection;
 	- a turned card whose button is hit where it is drawn, clipped to the card;
 	- a scroll list whose rows scroll under the wheel or trackpad, with a thumb;
 	- icons in currentColor, which follow their button's text colour;
@@ -24,6 +26,7 @@ class Interactions {
 	static final clicks = Signal.make(0);
 	static final locked = Signal.make(false);
 	static final typed = Signal.make("");
+	static final notes = Signal.make("");
 	static final latest = Signal.make("Events show here.");
 
 	static function main() {
@@ -83,6 +86,9 @@ class Interactions {
 						<text class="text-xs text-text-tertiary">Text field: click it, or Tab to it; Enter submits</text>
 						<text-field value={typed} placeholder="Type here" width={280}
 							onInput={v -> log("input: " + v.length + " characters")} onSubmit={v -> log("submitted: " + v)} />
+						<text class="text-xs text-text-tertiary">Text area: Enter for a new line, Command+Enter submits</text>
+						<text-area value={notes} placeholder="Write a few lines" width={280} height={110}
+							onSubmit={v -> log("submitted " + v.split("\n").length + " lines")} />
 					</div>
 					<div class="flex flex-col gap-2">
 						<text class="text-xs text-text-tertiary">Turned card, hit where drawn</text>

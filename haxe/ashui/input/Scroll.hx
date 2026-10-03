@@ -97,6 +97,21 @@ class Scroll {
 		return true;
 	}
 
+	/**
+		Scrolls to `(toX, toY)` as given, kept only from going below 0: for a
+		caller that knows how far the content reaches before layout does,
+		such as a text area that has just grown a line.
+	**/
+	public function jumpTo(toX:Float, toY:Float):Void {
+		var nx = alongX ? Math.max(0, toX) : 0;
+		var ny = alongY ? Math.max(0, toY) : 0;
+		if (nx == x.get() && ny == y.get())
+			return;
+		x.set(nx);
+		y.set(ny);
+		showThumb();
+	}
+
 	function wheel(e:PointerEvent):Void {
 		// A vertical wheel scrolls a container that only scrolls sideways.
 		var dx = e.deltaX, dy = e.deltaY;

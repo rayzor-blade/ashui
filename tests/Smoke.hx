@@ -805,11 +805,11 @@ class Smoke {
 		check("text field: Enter submits the value and does not click", submitted == "go", submitted);
 		fieldTree.flush();
 		fieldTree.computeLayout(field.node, 300, 60);
-		var stops = @:privateAccess field.stopsFor("abc");
+		var stops = field.editing.stopsFor("abc");
 		check("text field: the text engine gives a caret stop per character and the end", stops.length == 4 && stops[0].x == 0
 			&& stops[1].x > 0 && stops[3].x > stops[2].x, stops);
 		var fieldBounds = fieldTree.getBounds(@:privateAccess field.text.node);
-		var goStops = @:privateAccess field.stopsFor("go");
+		var goStops = field.editing.stopsFor("go");
 		ashui.input.Pointer.move(fieldTree, fieldBounds.x + goStops[1].x + 0.5, fieldBounds.y + 5);
 		ashui.input.Pointer.press(fieldTree);
 		ashui.input.Pointer.release(fieldTree);
@@ -829,18 +829,18 @@ class Smoke {
 		fieldKey(Character("v"), KeyV, cmd);
 		check("text field: a pasted line break becomes a space", fieldValue.get() == "a b-og-o", fieldValue.get());
 		fieldTree.flush();
-		var blinkingFocused = @:privateAccess field.blinkTimer != null;
+		var blinkingFocused = field.editing.blinking();
 		ashui.input.WindowState.active.set(false);
 		fieldTree.flush();
-		var stoppedInBackground = @:privateAccess field.blinkTimer == null;
+		var stoppedInBackground = !field.editing.blinking();
 		ashui.input.WindowState.active.set(true);
 		ashui.input.WindowState.visible.set(false);
 		fieldTree.flush();
-		var stoppedHidden = @:privateAccess field.blinkTimer == null;
+		var stoppedHidden = !field.editing.blinking();
 		ashui.input.WindowState.visible.set(true);
 		fieldTree.flush();
 		check("text field: the caret stops blinking while the window is in the background or hidden, and starts again",
-			blinkingFocused && stoppedInBackground && stoppedHidden && @:privateAccess field.blinkTimer != null,
+			blinkingFocused && stoppedInBackground && stoppedHidden && field.editing.blinking(),
 			[blinkingFocused, stoppedInBackground, stoppedHidden]);
 
 		// --- Scroll containers move their content under the wheel ---
@@ -919,6 +919,67 @@ class Smoke {
 		check("timers: due at their time, not before, cancelled ones never, and not counted as animation",
 			waitFor != null && waitFor > 0.01 && waitFor <= 0.02 && idle && early == 0 && rang == 1 && timerClock.untilNextTimer() == null,
 			[waitFor, idle, early, rang]);
+
+		// --- A text area edits lines: wrapping, Up and Down, per-line selection, scrolling ---
+		var areaTree = new LayoutTree();
+		var areaValue = Signal.make("");
+		var areaSubmitted = "";
+		var area:ashui.ui.TextArea = Owner.root(areaTree, _ -> new ashui.ui.TextArea({value: areaValue, width: 200, height: 80,
+			onSubmit: v -> areaSubmitted = v}));
+		function areaLayout() {
+			areaTree.flush();
+			areaTree.computeLayout(area.node, 300, 200);
+			areaTree.flush();
+		}
+		areaLayout();
+		function areaKey(k:window.Key, code:window.KeyCode, ?mods:window.Modifiers)
+			ashui.input.Keyboard.input(areaTree, Input(Code(code), k, None, Standard, Pressed, false, Unavailable), mods);
+		ashui.input.Focus.set(ashui.input.Interaction.of(area.node), true);
+		var ed = area.editing;
+		ashui.input.Keyboard.text(areaTree, "abcdef");
+		areaKey(Named(Enter), Enter);
+		ashui.input.Keyboard.text(areaTree, "xy");
+		check("text area: Enter starts a new line", areaValue.get() == "abcdef\nxy", areaValue.get());
+		areaKey(Named(ArrowUp), ArrowUp);
+		var upAt = ed.caret.get();
+		areaKey(Named(ArrowDown), ArrowDown);
+		check("text area: Up and Down move between lines keeping to the same x", upAt == 2 && ed.caret.get() == 9, [upAt, ed.caret.get()]);
+		areaKey(Named(ArrowUp), ArrowUp);
+		areaKey(Named(End), End);
+		check("text area: End goes to the end of the line", ed.caret.get() == 6, ed.caret.get());
+		areaKey(Named(ArrowDown), ArrowDown);
+		areaKey(Named(Home), Home);
+		check("text area: Home goes to the start of the line", ed.caret.get() == 7, ed.caret.get());
+		areaKey(Named(ArrowUp), ArrowUp, shift);
+		areaKey(Named(Home), Home, shift);
+		var rects = @:privateAccess area.selectionRects(ed.caret.get(), ed.anchor.get(), areaValue.get());
+		check("text area: a selection over two lines is drawn as two rects", rects.length == 2 && rects[1].y > rects[0].y, rects);
+		areaValue.set("");
+		ed.caret.set(0);
+		ed.anchor.set(0);
+		ashui.input.Keyboard.text(areaTree, "the quick brown fox jumps over the lazy dog and keeps running far away");
+		areaLayout();
+		var wrapped = ed.stopsFor(areaValue.get());
+		var lastLine = wrapped[wrapped.length - 1].line;
+		check("text area: long text wraps at the area's width", lastLine >= 2 && ed.lines == lastLine + 1, [lastLine, ed.lines]);
+		var areaText = @:privateAccess area.text;
+		var textBounds = areaTree.getBounds(areaText.node);
+		ashui.input.Pointer.move(areaTree, textBounds.x + 2, textBounds.y + ed.lineHeight * 1.5);
+		ashui.input.Pointer.press(areaTree);
+		ashui.input.Pointer.release(areaTree);
+		check("text area: a click on the second line puts the caret there", ed.stopAt(ed.caret.get(), areaValue.get()).line == 1,
+			ed.stopAt(ed.caret.get(), areaValue.get()));
+		areaKey(Named(End), End, cmd);
+		for (i in 0...6) {
+			areaKey(Named(Enter), Enter);
+			ashui.input.Keyboard.text(areaTree, "line " + i);
+		}
+		areaLayout();
+		var areaScroll = ashui.input.Scroll.of(area.node);
+		check("text area: typing past the bottom scrolls the caret into view", areaScroll != null && areaScroll.y.get() > 0,
+			areaScroll == null ? null : areaScroll.y.get());
+		areaKey(Named(Enter), Enter, cmd);
+		check("text area: Command+Enter submits, Enter alone does not", areaSubmitted == areaValue.get() && areaSubmitted.indexOf("line 5") > 0);
 
 		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
 		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");

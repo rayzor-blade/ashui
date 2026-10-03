@@ -179,20 +179,25 @@ define_prim!(
 // CARETS
 // ============================================================================
 
-/// Where a caret can stand in `text` set in text node `node`'s font and
-/// letter spacing at `font_size` (the node's own when 0), on one line: for each character boundary, its index in
-/// the string as UTF-16 (Haxe's indexing), its x from the text's left and
-/// its line, as three f32s, at most `capacity` of them. The last is the end
-/// of the text. Returns how many there are; 0 when the node is not text or
-/// its font is not loaded yet.
+/// Where a caret can stand in `text`, set in text node `node`'s font and
+/// letter spacing at `font_size` (the node's own when 0): for each character
+/// boundary, its index in the string as UTF-16 (Haxe's indexing), its x and
+/// its line, as three f32s in `out`, at most `capacity` of them. With
+/// `wrap_width` above 0, lines wrap at that width, the width the node is laid
+/// out at, with the allowance the renderer gives it.
+/// A line break ends a line; a blank line still has a stop. Writes the line
+/// height and the number of lines as two f32s to `info`. Returns how many
+/// stops there are; 0 when the node is not text or its font is not loaded.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_text_carets(
     h: *mut std::ffi::c_void,
     node: u64,
     text: *const vbyte,
     font_size: f32,
+    wrap_width: f32,
     out: *mut vbyte,
     capacity: i32,
+    info: *mut vbyte,
 ) -> i32 {
     let Some(tree) = (unsafe { crate::node::tree(h) }) else {
         return 0;
@@ -207,6 +212,8 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
         .get(&id)
         .and_then(|p| p.letter_spacing)
         .unwrap_or(0.0);
+    // The renderer wraps at the laid-out width plus its allowance for rounding.
+    let max_width = (wrap_width > 0.0).then_some(wrap_width + 1.0);
     let generic = match context.generic_font {
         LayoutGeneric::Monospace => GenericFont::Monospace,
         LayoutGeneric::Serif => GenericFont::Serif,
@@ -231,16 +238,20 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
             },
         }
     };
+    let size = if font_size > 0.0 { font_size } else { context.font_size };
     let options = LayoutOptions {
-        max_width: None,
+        max_width,
         alignment: TextAlignment::Left,
         anchor: TextAnchor::Top,
-        line_break: LineBreakMode::None,
+        line_break: if max_width.is_some() {
+            LineBreakMode::Word
+        } else {
+            LineBreakMode::None
+        },
         line_height: context.line_height,
         letter_spacing,
     };
-    let size = if font_size > 0.0 { font_size } else { context.font_size };
-    let layout = blinc_text::TextLayoutEngine::new().layout(&text, &font, size, &options);
+    let line_height = font.metrics().line_height_px(size) * context.line_height;
     // UTF-16 index of every byte offset that starts a character.
     let mut utf16 = vec![0u32; text.len() + 1];
     let mut units = 0u32;
@@ -249,18 +260,43 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
         units += ch.len_utf16() as u32;
     }
     utf16[text.len()] = units;
+    // Each paragraph between line breaks is laid out on its own, as the
+    // renderer breaks lines at them; an empty one is still a line.
+    let engine = blinc_text::TextLayoutEngine::new();
     let mut carets: Vec<[f32; 3]> = Vec::new();
-    for (line, l) in layout.lines.iter().enumerate() {
-        for g in &l.glyphs {
-            let index = utf16[g.byte_offset.min(text.len())] as f32;
-            if carets.last().is_none_or(|c| c[0] != index) {
-                carets.push([index, g.x, line as f32]);
+    let mut line = 0usize;
+    let mut base = 0usize;
+    for paragraph in text.split('\n') {
+        let layout = engine.layout(paragraph, &font, size, &options);
+        if layout.lines.is_empty() {
+            carets.push([utf16[base] as f32, 0.0, line as f32]);
+            line += 1;
+        }
+        for (i, l) in layout.lines.iter().enumerate() {
+            for g in &l.glyphs {
+                let index = utf16[(base + g.byte_offset).min(text.len())] as f32;
+                if carets.last().is_none_or(|c| c[0] != index) {
+                    carets.push([index, g.x, line as f32]);
+                }
             }
+            // The paragraph's end: before its line break, or the text's end.
+            if i + 1 == layout.lines.len() {
+                let end = utf16[base + paragraph.len()] as f32;
+                if carets.last().is_none_or(|c| c[0] != end) {
+                    carets.push([end, l.width, line as f32]);
+                }
+            }
+            line += 1;
+        }
+        base += paragraph.len() + 1;
+    }
+    if !info.is_null() {
+        let info = info as *mut f32;
+        unsafe {
+            info.write_unaligned(line_height);
+            info.add(1).write_unaligned(line.max(1) as f32);
         }
     }
-    let last_line = layout.lines.len().saturating_sub(1);
-    let end_x = layout.lines.last().map_or(0.0, |l| l.width);
-    carets.push([units as f32, end_x, last_line as f32]);
     if !out.is_null() {
         let out = out as *mut f32;
         for (i, c) in carets.iter().take(capacity.max(0) as usize).enumerate() {
@@ -274,5 +310,5 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
 define_prim!(
     hlp_blinc_text_carets,
     hl_blinc_text_carets,
-    "PXblinc_tree_lBfBi_i"
+    "PXblinc_tree_lBffBiB_i"
 );
