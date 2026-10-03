@@ -200,6 +200,7 @@ class Css {
 			return;
 		hooked = true;
 		Identity.hooks.push(identity -> if (sheets.length > 0 || applied.exists(identity)) mark(identity));
+		Identity.forgetHooks.push(release);
 		LayoutTree.childrenHooks.push((tree, parent) -> if (sheets.length > 0) markSubtree(tree, parent));
 		LayoutTree.flushHooks.push(flush);
 	}
@@ -572,6 +573,28 @@ class Css {
 	/** Watches on element states, by node and state, and the identities matched again when one changes. **/
 	static final stateWatches = new Map<String, Array<Identity>>();
 
+	static final stateWatchers = new Map<String, ashui.reactive.Watch<Bool>>();
+
+	/** Lets go of everything kept for a removed element: what was applied, what it depends on, its tracker and animations. **/
+	static function release(identity:Identity):Void {
+		applied.remove(identity);
+		themeDependents.remove(identity);
+		var prefix = haxe.Int64.toStr(identity.node.id) + ":";
+		for (key => deps in stateWatches) {
+			deps.remove(identity);
+			// The node's own states, or states no one depends on any more.
+			if (deps.length == 0 || StringTools.startsWith(key, prefix)) {
+				var w = stateWatchers.get(key);
+				if (w != null)
+					w.stop();
+				stateWatchers.remove(key);
+				stateWatches.remove(key);
+			}
+		}
+		PointerQueries.track(identity, null, [], null, []);
+		Animations.release(identity);
+	}
+
 	/** `subject` depends on `signal`, a state of the node `node`: it is matched again when the state changes. **/
 	@:allow(ashui.css.TreeWalk)
 	static function dependOn(node:haxe.Int64, state:String, signal:ashui.reactive.Signal<Bool>, subject:Identity):Void {
@@ -581,7 +604,7 @@ class Css {
 			var list:Array<Identity> = [];
 			deps = list;
 			stateWatches.set(key, deps);
-			new ashui.reactive.Watch(() -> signal.get(), _ -> for (d in list) mark(d));
+			stateWatchers.set(key, new ashui.reactive.Watch(() -> signal.get(), _ -> for (d in list) mark(d)));
 		}
 		if (deps.indexOf(subject) < 0)
 			deps.push(subject);

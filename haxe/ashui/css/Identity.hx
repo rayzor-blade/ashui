@@ -47,6 +47,9 @@ class Identity {
 	/** Called with each identity made, and with one whose classes change. **/
 	public static final hooks:Array<Identity->Void> = [];
 
+	/** Called with each identity forgotten, its node removed. **/
+	public static final forgetHooks:Array<Identity->Void> = [];
+
 	/** Registers `node` of `tree` as being of `type`, adding the type if it has an identity already. **/
 	public static function register(tree:LayoutTree, node:ashui.layout.Node, type:String):Identity {
 		var nodes = trees.get(tree);
@@ -68,8 +71,14 @@ class Identity {
 	/** Drops the node's identity, when the node is removed. **/
 	public static function forget(tree:LayoutTree, node:haxe.Int64):Void {
 		var nodes = trees.get(tree);
-		if (nodes != null)
+		if (nodes == null)
+			return;
+		var identity = nodes.get(key(node));
+		if (identity != null) {
 			nodes.remove(key(node));
+			for (hook in forgetHooks)
+				hook(identity);
+		}
 	}
 
 	/** Drops the identities of `node` and everything below it, when they are removed together. **/
@@ -80,7 +89,12 @@ class Identity {
 		var stack = [node];
 		while (stack.length > 0) {
 			var at = stack.pop();
-			nodes.remove(key(at));
+			var identity = nodes.get(key(at));
+			if (identity != null) {
+				nodes.remove(key(at));
+				for (hook in forgetHooks)
+					hook(identity);
+			}
 			for (child in tree.children(at))
 				stack.push(child);
 		}

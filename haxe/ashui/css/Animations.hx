@@ -79,6 +79,16 @@ class Animations {
 		return out;
 	}
 
+	/** Stops `identity`'s animations, its element removed. **/
+	public static function release(identity:Identity):Void {
+		var list = running.get(identity);
+		if (list == null)
+			return;
+		for (r in list)
+			r.stop();
+		running.remove(identity);
+	}
+
 	/** Whether `identity` has an animation running. **/
 	public static function active(identity:Identity):Bool
 		return running.exists(identity);

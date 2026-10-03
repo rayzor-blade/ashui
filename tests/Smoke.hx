@@ -977,6 +977,11 @@ class Smoke {
 		ashui.input.Pointer.move(pointerTree, 50, 50);
 		var middle = tiltAlpha();
 		check("a declaration reading env(pointer-x) follows the pointer", leftEdge == 0.25 && rightEdge == 0.75 && middle == 0.5, [leftEdge, middle, rightEdge]);
+		var tiltIdentity = ashui.css.Identity.of(pointerTree, tilt.node.id);
+		@:privateAccess var tracked = ashui.css.Css.applied.exists(tiltIdentity) && ashui.css.PointerQueries.trackers.exists(tiltIdentity);
+		tilt.remove();
+		@:privateAccess check("a removed element leaves the stylesheet engine", tracked && !ashui.css.Css.applied.exists(tiltIdentity)
+			&& !ashui.css.PointerQueries.trackers.exists(tiltIdentity));
 		ashui.css.Css.remove(pointerSheet);
 
 		ashui.css.Css.remove(sheet);
