@@ -363,7 +363,8 @@ define_prim!(
 // ============================================================================
 
 /// Apply every property write queued since the last flush, and report whether
-/// any of them needs a relayout. Signals and computeds whose handles were
+/// any changed what is drawn: a relayout, or a visual property such as an
+/// opacity or a colour, which needs a frame but no layout. Signals and computeds whose handles were
 /// collected since the last flush are removed from Blinc's graph first. The
 /// writes are the whole process's, applied to the one tree every handle shares.
 #[unsafe(no_mangle)]
@@ -386,6 +387,7 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
             .retain(|node, _| layout.get_style(*node).is_some());
     }
     let mut needs_layout = false;
+    let mut painted = false;
     for update in take_pending_partial_prop_updates() {
         let Some(mut style) = tree.layout.get_style(update.node_id) else {
             continue;
@@ -397,13 +399,14 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
         }
         if let Some(write) = update.render_write {
             write(tree.props.entry(update.node_id).or_default());
+            painted = true;
         }
     }
     // Recorded by the render writes above, so applied after them.
     for (node, write) in take_pending_text() {
         needs_layout |= tree.layout.update_text(node, write);
     }
-    needs_layout
+    needs_layout || painted
 }
 define_prim!(hlp_blinc_tree_flush, hl_blinc_tree_flush, "PXblinc_tree__b");
 

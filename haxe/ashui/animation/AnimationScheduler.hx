@@ -4,6 +4,10 @@ package ashui.animation;
 	Advances every registered spring together and drops each one as it
 	settles. Driven by `tick`, from a frame loop or from `run` on a thread
 	of its own.
+
+	It also keeps timers: a callback due at a wall-clock time, such as a
+	caret's next blink. A timer is not animation, so a window waiting on
+	one sleeps until it is due (`untilNextTimer`) instead of drawing frames.
 **/
 class AnimationScheduler {
 	/** The scheduler transitions run on; a window's loop ticks it. **/
@@ -14,6 +18,7 @@ class AnimationScheduler {
 	final tickers:Array<Float->Bool> = [];
 	var nextId = 1;
 	var running = false;
+	final timers:Array<Timer> = [];
 	#if target.threaded
 	final lock = new sys.thread.Mutex();
 	#end
@@ -72,6 +77,27 @@ class AnimationScheduler {
 		});
 	}
 
+	/** Calls `callback` once `seconds` from now, at the first tick after. **/
+	public function after(seconds:Float, callback:Void->Void):Timer {
+		var timer = new Timer(haxe.Timer.stamp() + seconds, callback);
+		locked(() -> {
+			timers.push(timer);
+			null;
+		});
+		return timer;
+	}
+
+	/** Seconds until the next timer is due, at least 0; null with none waiting. **/
+	public function untilNextTimer():Null<Float> {
+		return locked(() -> {
+			var soonest:Null<Float> = null;
+			for (t in timers)
+				if (!t.cancelled && (soonest == null || t.at < soonest))
+					soonest = t.at;
+			soonest == null ? null : Math.max(0, soonest - haxe.Timer.stamp());
+		});
+	}
+
 	public function hasActive():Bool {
 		return locked(() -> springs.keys().hasNext() || tickers.length > 0);
 	}
@@ -97,6 +123,17 @@ class AnimationScheduler {
 				springs.remove(id);
 			null;
 		});
+		// Due timers, outside the lock: a callback may set another.
+		var now = haxe.Timer.stamp();
+		var due = locked(() -> {
+			var fire = [for (t in timers) if (t.at <= now || t.cancelled) t];
+			for (t in fire)
+				timers.remove(t);
+			fire;
+		});
+		for (t in due)
+			if (!t.cancelled)
+				t.callback();
 		// Outside the lock: a ticker may add another.
 		var running = locked(() -> tickers.splice(0, tickers.length));
 		var kept = [for (ticker in running) if (ticker(dt)) ticker];
@@ -127,5 +164,22 @@ class AnimationScheduler {
 
 	public function stop():Void {
 		running = false;
+	}
+}
+
+/** A callback `AnimationScheduler.after` will call; `cancel` stops it. **/
+class Timer {
+	public final at:Float;
+	public final callback:Void->Void;
+	public var cancelled(default, null) = false;
+
+	@:allow(ashui.animation.AnimationScheduler)
+	function new(at:Float, callback:Void->Void) {
+		this.at = at;
+		this.callback = callback;
+	}
+
+	public function cancel():Void {
+		cancelled = true;
 	}
 }

@@ -153,10 +153,11 @@ class WindowedApp {
 			frameLog.writeString("frame\tat_ms\tsince_last_frame\twait\tevents\tn_events\ttick\tflush\tdraw_flush\tlayout\tlist\tgpu\tpresent\tprimitives\n");
 		while (!quitting) {
 			// No wait when a frame is already due, short ones while something
-			// animates; otherwise the loop sleeps on the window.
+			// animates; otherwise the loop sleeps on the window, until the next timer at most.
 			var animating = scheduler.hasActive();
+			var timer = scheduler.untilNextTimer();
 			var t0 = haxe.Timer.stamp();
-			var event = dirty ? window.poll() : window.wait(animating ? 1 / 120 : 0.1);
+			var event = dirty ? window.poll() : window.wait(animating ? 1 / 120 : timer != null ? Math.min(0.1, timer) : 0.1);
 			var t1 = haxe.Timer.stamp();
 			var handled = 0;
 			var polling = 0.0;

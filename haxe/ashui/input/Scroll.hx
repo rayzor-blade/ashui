@@ -32,8 +32,8 @@ class Scroll {
 	final alongX:Bool;
 	final alongY:Bool;
 	final thumb = Signal.make(0.0);
-	var sinceScroll = 0.0;
 	var fading = false;
+	var stay:Null<ashui.animation.AnimationScheduler.Timer> = null;
 	final extent = new hl.Bytes(16);
 
 	function new(node:Node, alongX:Bool, alongY:Bool) {
@@ -110,18 +110,25 @@ class Scroll {
 	}
 
 	function showThumb():Void {
-		sinceScroll = 0;
 		if (thumb.get() != 1)
 			thumb.set(1);
-		if (fading)
-			return;
+		fading = false;
+		if (stay != null)
+			stay.cancel();
+		// The thumb stays without drawing frames, then fades over a few.
+		stay = ashui.animation.AnimationScheduler.main.after(THUMB_STAYS, fade);
+	}
+
+	function fade():Void {
+		stay = null;
 		fading = true;
+		var faded = 0.0;
 		ashui.animation.AnimationScheduler.main.addTicker(dt -> {
-			sinceScroll += dt;
-			var t = (sinceScroll - THUMB_STAYS) / THUMB_FADES;
-			var alpha = t <= 0 ? 1 : Math.max(0, 1 - t);
-			if (alpha != thumb.get())
-				thumb.set(alpha);
+			if (!fading)
+				return false;
+			faded += dt;
+			var alpha = Math.max(0, 1 - faded / THUMB_FADES);
+			thumb.set(alpha);
 			if (alpha <= 0) {
 				fading = false;
 				return false;

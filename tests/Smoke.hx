@@ -880,6 +880,22 @@ class Smoke {
 		check("scroll: an inner container takes the wheel until its edge, then it goes on",
 			innerFirst == 30 && innerScroll.y.get() == 40 && outerScroll.y.get() == 230, [innerFirst, innerScroll.y.get(), outerScroll.y.get()]);
 
+		// --- Timers wake the loop when due, and are not animation ---
+		var timerClock = new ashui.animation.AnimationScheduler();
+		var rang = 0;
+		timerClock.after(0.02, () -> rang++);
+		var cancelled = timerClock.after(0.02, () -> rang += 10);
+		cancelled.cancel();
+		var waitFor = timerClock.untilNextTimer();
+		var idle = !timerClock.hasActive();
+		timerClock.tick(0.001);
+		var early = rang;
+		Sys.sleep(0.03);
+		timerClock.tick(0.001);
+		check("timers: due at their time, not before, cancelled ones never, and not counted as animation",
+			waitFor != null && waitFor > 0.01 && waitFor <= 0.02 && idle && early == 0 && rang == 1 && timerClock.untilNextTimer() == null,
+			[waitFor, idle, early, rang]);
+
 		// --- SVG is read in Haxe: compact path data, shapes, paint, transforms ---
 		var compact = ashui.svg.PathData.parse("M.5-1.5.5.5l1 1h2V4c1 1 2 2 3 3s4 4 5 5q1 0 2 2t3 3a1 1 0 01 1 1z");
 		check("path data: compact numbers and implicit lines", compact[0].equals(MoveTo(0.5, -1.5)) && compact[1].equals(LineTo(0.5, 0.5)),

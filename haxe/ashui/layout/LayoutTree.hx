@@ -81,8 +81,9 @@ class LayoutTree {
 
 	/**
 		Runs the reactions of watches whose values changed, then applies the
-		property writes queued since the last flush. True if anything needs a
-		relayout.
+		property writes queued since the last flush. True if anything changed
+		what is drawn: a watch reacted, or a write moved, resized or restyled
+		something, so a window draws a frame.
 	**/
 	public function flush():Bool {
 		var reacted = Watch.runQueued();

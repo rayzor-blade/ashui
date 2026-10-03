@@ -53,8 +53,7 @@ class TextField extends Component<TextFieldProps> {
 	final scroll = Signal.make((0 : Single));
 	final caretShown = Signal.make(true);
 	var dragging = false;
-	var blinkTime = 0.0;
-	var blinking = false;
+	var blinkTimer:Null<ashui.animation.AnimationScheduler.Timer> = null;
 
 	var box:Div;
 	/** The part of the field the text shows through. **/
@@ -338,23 +337,21 @@ class TextField extends Component<TextFieldProps> {
 	// --- caret blink ---
 
 	function restartBlink():Void {
-		blinkTime = 0;
+		if (blinkTimer != null)
+			blinkTimer.cancel();
 		caretShown.set(true);
-		if (blinking)
+		blinkTimer = ashui.animation.AnimationScheduler.main.after(BLINK, blink);
+	}
+
+	/** Shows or hides the caret, and sets the next blink while the field has focus. **/
+	function blink():Void {
+		blinkTimer = null;
+		if (!focused.get()) {
+			caretShown.set(true);
 			return;
-		blinking = true;
-		ashui.animation.AnimationScheduler.main.addTicker(dt -> {
-			if (!focused.get()) {
-				blinking = false;
-				caretShown.set(true);
-				return false;
-			}
-			blinkTime += dt;
-			var on = Std.int(blinkTime / BLINK) % 2 == 0;
-			if (on != caretShown.get())
-				caretShown.set(on);
-			return true;
-		});
+		}
+		caretShown.set(!caretShown.get());
+		blinkTimer = ashui.animation.AnimationScheduler.main.after(BLINK, blink);
 	}
 
 	static inline function isMac():Bool
