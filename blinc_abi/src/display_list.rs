@@ -54,9 +54,9 @@
 //! children under the clip it pushes when its overflow is not visible,
 //! which follows its corner shape.
 //! A node that clips draws its border after its children instead, so they
-//! cannot cover it where the curves differ. Glass, blur and image brushes
-//! draw nothing yet. A node's 2D transform applies about its centre, after
-//! its ancestors'.
+//! cannot cover it where the curves differ. Glass and blur brushes draw a
+//! backdrop record: what is behind the box, blurred and colour-filtered.
+//! A node's 2D transform applies about its centre, after its ancestors'.
 //!
 //! A record has up to two clips, each rounded: one in screen space, rows 8
 //! and 9, and one in the record's own coordinates, rows 6 and 7, which only
@@ -93,6 +93,11 @@ pub const PRIM_LAYER_BEGIN: f32 = 40.0;
 /// its drop shadow: offset by `gradient.xy` pixels, of `gradient.z` pixels'
 /// deviation, in the colour `via`.
 pub const PRIM_LAYER: f32 = 41.0;
+/// What is drawn behind its box, blurred by `color.x` target pixels of
+/// deviation and filtered by the matrix in `color2`, `border` and
+/// `border_color`, drawn back over the box before the rest of its node;
+/// `color.y` is how far past the box the blur reads, in layout units.
+pub const PRIM_BACKDROP: f32 = 42.0;
 
 /// `type_info.y`, as Blinc's `FillType`.
 const FILL_SOLID: f32 = 0.0;
@@ -779,7 +784,22 @@ pub fn append(
             rec.place(m, x, y);
             rec.push(&clipping(&ring_clips, m, (x, y), true), out);
         }
-        let background = if image.is_some() { None } else { props.background.as_ref() };
+        // A glass or blur brush draws what is behind the box, blurred and
+        // filtered, in place of a fill; the border still draws, over nothing.
+        let behind = props.background.as_ref().and_then(backdrop_of);
+        if let Some((blur, matrix)) = behind {
+            let scale = (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
+            let mut b = Primitive::new(PRIM_BACKDROP, local, radii);
+            b.shape_from(props, &glyphs.shapes);
+            // Deviation in target pixels; how far the row pass reaches past the box, in layout units.
+            b.color = [blur * scale * glyphs.display_scale, 3.0 * blur * scale, 0.0, 0.0];
+            b.color2 = matrix[0];
+            b.border = matrix[1];
+            b.border_color = matrix[2];
+            b.place(m, x, y);
+            b.push(&clip, out);
+        }
+        let background = if image.is_some() || behind.is_some() { None } else { props.background.as_ref() };
         let brush = background.or(border.then_some(&transparent));
         let mut p = Primitive::new(PRIM_RECT, local, radii);
         p.shape_from(props, &glyphs.shapes);
@@ -967,6 +987,39 @@ pub fn append(
 
 /// A colour filter as an affine map of straight RGB: each row's first three
 /// are its weights of r, g and b, its fourth the offset.
+/// A glass or blur brush's blur, in layout units, and the colour filter it
+/// puts what is behind the box through: Blinc's frosted glass saturates,
+/// brightens and adds half its tint; a blur brush mixes its tint over.
+fn backdrop_of(brush: &Brush) -> Option<(f32, ColorMatrix)> {
+    match brush {
+        Brush::Glass(g) => {
+            let mut m = saturation(g.saturation);
+            m = then(m, [[g.brightness, 0.0, 0.0, 0.0], [0.0, g.brightness, 0.0, 0.0], [0.0, 0.0, g.brightness, 0.0]]);
+            let t = g.tint;
+            let k = t.a * 0.5;
+            for (row, c) in m.iter_mut().zip([t.r, t.g, t.b]) {
+                row[3] += c * k;
+            }
+            Some((g.blur.max(0.0), m))
+        }
+        Brush::Blur(b) => {
+            let mut m = IDENTITY_MATRIX;
+            if let Some(t) = b.tint.filter(|t| t.a > 0.0) {
+                let keep = 1.0 - t.a;
+                m = [[keep, 0.0, 0.0, t.r * t.a], [0.0, keep, 0.0, t.g * t.a], [0.0, 0.0, keep, t.b * t.a]];
+            }
+            Some((b.radius.max(0.0), m))
+        }
+        _ => None,
+    }
+}
+
+/// Mixes each colour toward its luminance by `1 - s`, with the weights Blinc's glass uses.
+fn saturation(s: f32) -> ColorMatrix {
+    let (lr, lg, lb) = (0.299 * (1.0 - s), 0.587 * (1.0 - s), 0.114 * (1.0 - s));
+    [[lr + s, lg, lb, 0.0], [lr, lg + s, lb, 0.0], [lr, lg, lb + s, 0.0]]
+}
+
 type ColorMatrix = [[f32; 4]; 3];
 
 const IDENTITY_MATRIX: ColorMatrix = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]];
