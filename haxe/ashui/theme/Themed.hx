@@ -70,6 +70,19 @@ class Themed {
 		});
 	}
 
+	/**
+		A letter spacing in pixels: `tracking`, a `Tracking…` token in ems,
+		times `size`, a `Text…` token's font size.
+	**/
+	public static function tracking(tracking:TypographyToken, size:TypographyToken):Computed<Single> {
+		var state = ready();
+		return Computed.make(() -> {
+			state.revision.get();
+			var t = state.typography();
+			(t.get(tracking) * t.get(size) : Single);
+		});
+	}
+
 	/** A weight token's weight, `FontThin` to `FontBlack`. **/
 	public static function fontWeight(token:TypographyToken):Computed<ashui.types.Style.FontWeight> {
 		var state = ready();

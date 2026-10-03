@@ -595,6 +595,19 @@ class Smoke {
 		var second = sideTree.getBounds(cells[1].node), third = sideTree.getBounds(cells[2].node);
 		check("gap-x spaces columns and gap-y rows", second.x == 28 && third.x == 0 && third.y == 36, [second.x, third.x, third.y]);
 
+		// --- Classes on text: sizes, and letter spacing in ems of that size ---
+		var textTree = new LayoutTree();
+		var small:Text = Owner.root(textTree, _ -> hxx('<text class="text-xs">Spacing</text>'));
+		var large:Text = Owner.root(textTree, _ -> hxx('<text class="text-2xl tracking-normal">Spacing</text>'));
+		var spaced:Text = Owner.root(textTree, _ -> hxx('<text class="text-2xl tracking-wider">Spacing</text>'));
+		textTree.flush();
+		for (t in [small, large, spaced])
+			textTree.computeLayout(t.node, 400, 100);
+		var sb = textTree.getBounds(small.node), lb = textTree.getBounds(large.node), wb = textTree.getBounds(spaced.node);
+		check("a text size class sets the font size", lb.height > sb.height && lb.width > sb.width, [sb.width, sb.height, lb.width, lb.height]);
+		var wider = ashui.theme.Themed.tracking(TrackingWider, Text2xl).get();
+		check("tracking is ems of the font size", Math.abs(wider - 0.05 * 24) < 1e-6, wider);
+
 		// --- Transitions move a property to its new value over time ---
 		ashui.theme.ThemeState.get().setScheduler(null);
 		var moveTree = new LayoutTree();

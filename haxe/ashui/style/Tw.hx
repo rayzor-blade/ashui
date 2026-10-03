@@ -31,7 +31,9 @@ import haxe.macro.Type;
 	- shadows, `ShadowToken`: `shadow`, `shadow-sm` … `shadow-2xl`,
 	  `shadow-inner`, `shadow-none`;
 	- type, `TypographyToken`: `text-xs` … `text-5xl`, `font-thin` …
-	  `font-black`, `leading-none` … `leading-loose`;
+	  `font-black`, `leading-none` … `leading-loose`, `tracking-tighter` …
+	  `tracking-wider` (in ems of the string's `text-` size, else the theme's
+	  base size);
 	- transitions, composed into one `ashui.animation.Transition`:
 	  `transition` (colours, opacity, shadow, transform), `transition-colors`,
 	  `-opacity`, `-shadow`, `-transform`, `-all`, `-none`; `duration-fastest`
@@ -84,6 +86,11 @@ class Tw {
 		var out = [];
 		var gradient = new Gradient();
 		var motion = new Motion();
+		// Letter spacing is in ems of the font size this string sets, else the theme's base size.
+		var tracking:Null<{token:String, pos:Position}> = null;
+		var size = "TextBase";
+		var trackingClass = ~/^tracking-(tighter|tight|normal|wide|wider)$/;
+		var sizeClass = ~/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/;
 		var start = 0;
 		for (word in ~/\s+/g.split(text)) {
 			var offset = text.indexOf(word, start);
@@ -93,6 +100,15 @@ class Tw {
 			var pos = within(classes.pos, offset, word.length);
 			if (gradient.take(word, pos) || motion.take(word, pos))
 				continue;
+			if (trackingClass.match(word)) {
+				var name = trackingClass.matched(1);
+				tracking = {token: "Tracking" + name.charAt(0).toUpperCase() + name.substr(1), pos: pos};
+				continue;
+			}
+			if (sizeClass.match(word)) {
+				var step = sizeClass.matched(1);
+				size = "Text" + (~/^\d/.match(step) ? step : step.charAt(0).toUpperCase() + step.substr(1));
+			}
 			var make = vocabulary.get(word);
 			if (make != null) {
 				for (set in make(node))
@@ -104,6 +120,11 @@ class Tw {
 					Context.error('tw: $word: ${rule.why}', pos);
 			var near = nearest(word, vocabulary);
 			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : ""), pos);
+		}
+		if (tracking != null) {
+			var t = tracking.token;
+			var value = macro ashui.theme.Themed.tracking(ashui.theme.TypographyToken.$t, ashui.theme.TypographyToken.$size);
+			out.push({expr: (macro $node.set(ashui.layout.Prop.LetterSpacing, $value)).expr, pos: tracking.pos});
 		}
 		var background = gradient.build(node);
 		if (background != null)
@@ -263,7 +284,6 @@ class Tw {
 			{pattern: ~/^(hover|focus|active|disabled|dark|group-hover|focus-visible):/, why: "state variants need input events (e532fc0)"},
 			{pattern: ~/^-/, why: "negative values have no token"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
-			{pattern: ~/^tracking-/, why: "letter spacing in ems needs the font size, which is not bound yet"},
 			{pattern: ~/^animate-/, why: "keyframe animations need transforms, which are not drawn yet"},
 			{pattern: ~/\[.*\]/, why: "arbitrary values are not supported; use a token or an attribute"}
 		];
