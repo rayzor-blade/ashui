@@ -367,6 +367,35 @@ define_prim!(
     "PXblinc_tree_lBi_i"
 );
 
+/// Writes `node`'s ancestors as 64-bit ids into `out`, the parent first, at
+/// most `capacity`. Returns how many there are; 0 for a node that is gone or
+/// has no parent.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_ancestors(
+    h: *mut c_void,
+    node: u64,
+    out: *mut vbyte,
+    capacity: i32,
+) -> i32 {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return 0;
+    };
+    if !tree.owners.contains_key(&id(node)) {
+        return 0;
+    }
+    let ids: Vec<u64> = tree.layout.ancestors(id(node)).iter().map(|a| a.to_raw()).collect();
+    if !out.is_null() {
+        let n = ids.len().min(capacity.max(0) as usize);
+        unsafe { std::ptr::copy_nonoverlapping(ids.as_ptr(), out as *mut u64, n) };
+    }
+    ids.len() as i32
+}
+define_prim!(
+    hlp_blinc_tree_ancestors,
+    hl_blinc_tree_ancestors,
+    "PXblinc_tree_lBi_i"
+);
+
 /// Makes `children`, `len` consecutive 64-bit ids, `parent`'s children in
 /// that order. Children it had before and does not keep are detached, not
 /// deleted, as are `children` from any other parent. A `parent` that is gone

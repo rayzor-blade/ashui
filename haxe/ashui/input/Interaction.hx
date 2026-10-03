@@ -30,10 +30,19 @@ class Interaction {
 	/** Focused, by the keyboard: the focus ring's case. **/
 	public final focusVisible:Signal<Bool>;
 
+	/** It or something inside it is focused. **/
+	public final focusWithin:Signal<Bool>;
+
 	public final disabled:Signal<Bool>;
 
 	/** Whether pressing it or tabbing to it gives it focus. **/
 	public var focusable(default, null) = false;
+
+	/** Marked `group`: what is inside it can follow its state with `group-` classes. **/
+	public var isGroup(default, null) = false;
+
+	/** Marked `peer`: its later siblings can follow its state with `peer-` classes. **/
+	public var isPeer(default, null) = false;
 
 	final handlers = new Map<String, Array<Dynamic->Void>>();
 	var disabledWatch:Null<ashui.reactive.Watch<Bool>>;
@@ -44,6 +53,7 @@ class Interaction {
 		pressed = Signal.make(false);
 		focused = Signal.make(false);
 		focusVisible = Signal.make(false);
+		focusWithin = Signal.make(false);
 		disabled = Signal.make(false);
 	}
 
@@ -93,6 +103,16 @@ class Interaction {
 		focusable = value;
 		if (!value && focused.get())
 			Focus.clear(node.tree);
+		return this;
+	}
+
+	public function markGroup():Interaction {
+		isGroup = true;
+		return this;
+	}
+
+	public function markPeer():Interaction {
+		isPeer = true;
 		return this;
 	}
 

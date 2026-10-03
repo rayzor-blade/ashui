@@ -11,6 +11,9 @@ import ashui.layout.LayoutTree;
 class Focus {
 	static final current = new haxe.ds.ObjectMap<LayoutTree, Interaction>();
 
+	/** By tree, the interactions whose `focusWithin` is set. **/
+	static final within = new haxe.ds.ObjectMap<LayoutTree, Array<Interaction>>();
+
 	/** The focused node's interaction in `tree`, if any. **/
 	public static function of(tree:LayoutTree):Null<Interaction>
 		return current.get(tree);
@@ -31,6 +34,7 @@ class Focus {
 		current.set(tree, target);
 		target.focused.set(true);
 		target.focusVisible.set(visible);
+		updateWithin(tree, target);
 		target.fire("focus", new FocusEvent(target.node, visible));
 	}
 
@@ -42,7 +46,30 @@ class Focus {
 		if (before != null) {
 			current.remove(tree);
 			blur(before);
+			updateWithin(tree, null);
 		}
+	}
+
+	/** Sets `focusWithin` on `target` and the interactions of its ancestors, and clears it elsewhere. **/
+	static function updateWithin(tree:LayoutTree, target:Null<Interaction>):Void {
+		var next = [];
+		if (target != null) {
+			next.push(target);
+			for (id in tree.ancestors(target.node.id)) {
+				var i = Interaction.byId(tree, id);
+				if (i != null)
+					next.push(i);
+			}
+		}
+		var before = within.get(tree);
+		if (before != null)
+			for (i in before)
+				if (next.indexOf(i) < 0)
+					i.focusWithin.set(false);
+		for (i in next)
+			if (!i.focusWithin.get())
+				i.focusWithin.set(true);
+		within.set(tree, next);
 	}
 
 	/** Moves focus to the next focusable node after the focused one, or the previous with `backward`, wrapping. **/
@@ -71,5 +98,8 @@ class Focus {
 		var tree = i.node.tree;
 		if (tree != null && current.get(tree) == i)
 			current.remove(tree);
+		var flagged = tree != null ? within.get(tree) : null;
+		if (flagged != null)
+			flagged.remove(i);
 	}
 }

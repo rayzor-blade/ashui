@@ -57,6 +57,13 @@ class LayoutTree {
 	// and writes their flattened list as that node's native children whenever
 	// either changes. A fragment with no parent holds its items itself.
 
+	/**
+		Run at the start of each flush and after each round of reactions in
+		it, so what they set is applied in the same flush: how input resolves
+		relations, such as an element's group, once the element is placed.
+	**/
+	public static final flushHooks:Array<LayoutTree->Void> = [];
+
 	final fragments = new Map<String, Fragment>();
 
 	/** The children of nodes that hold a fragment, fragments included. **/
@@ -233,11 +240,27 @@ class LayoutTree {
 			LayoutTreeNative.blinc_tree_replace_children(this.ptr, parent, ids, children.length);
 	}
 
-	function nativeChildren(node:haxe.Int64):Array<haxe.Int64> {
+	function nativeChildren(node:haxe.Int64):Array<haxe.Int64>
+		return children(node);
+
+	/** `node`'s children as laid out, a fragment's items in its place, as native ids. **/
+	public function children(node:haxe.Int64):Array<haxe.Int64> {
 		var capacity = 16;
 		while (true) {
 			var out = new hl.Bytes(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_children(this.ptr, node, out, capacity);
+			if (n <= capacity)
+				return ids(out, n);
+			capacity = n;
+		}
+	}
+
+	/** `node`'s ancestors as laid out, the parent first, as native ids; fragments are not among them. **/
+	public function ancestors(node:haxe.Int64):Array<haxe.Int64> {
+		var capacity = 16;
+		while (true) {
+			var out = new hl.Bytes(capacity * 8);
+			var n = LayoutTreeNative.blinc_tree_ancestors(this.ptr, node, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
 			capacity = n;
@@ -251,13 +274,19 @@ class LayoutTree {
 		something, so a window draws a frame.
 	**/
 	public function flush():Bool {
+		for (hook in flushHooks)
+			hook(this);
 		var reacted = Watch.runQueued();
+		for (hook in flushHooks)
+			hook(this);
 		var relayout = LayoutTreeNative.blinc_tree_flush(this.ptr);
 		Guard.check();
 		// Blinc runs effects inside its flush, so watches it queued there, and
 		// what their reactions write, are applied now rather than a frame later.
 		while (Watch.runQueued()) {
 			reacted = true;
+			for (hook in flushHooks)
+				hook(this);
 			relayout = LayoutTreeNative.blinc_tree_flush(this.ptr) || relayout;
 			Guard.check();
 		}

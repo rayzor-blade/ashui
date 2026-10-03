@@ -1224,6 +1224,46 @@ class Smoke {
 		check("focus-visible: and disabled: follow focus and the disabled state",
 			unfocused == 1 && Math.abs(ringed - 0x2A / 255) < 0.01 && Math.abs(disabledFill - 0xDC / 255) < 0.01, [unfocused, ringed, disabledFill]);
 
+		// --- focus-within:, group- and peer- follow another element's state ---
+		var relTree = new LayoutTree();
+		var field:Div = null;
+		var shell:Div = Owner.root(relTree, _ -> hxx('
+			<div class="w-32 h-32 bg-surface focus-within:bg-primary">
+				<div class="group w-20 h-10 bg-surface">
+					<div class="w-5 h-5 bg-surface group-hover:bg-error" />
+					${field = hxx('<div class="w-5 h-5 bg-surface" focusable={true} />')}
+				</div>
+				<div class="peer w-5 h-5 bg-surface" />
+				<div class="w-5 h-5 bg-surface peer-hover:bg-error" />
+			</div>
+		'));
+		relTree.flush();
+		relTree.computeLayout(shell.node, 200, 200);
+		var relList = new ashui.layout.DisplayList();
+		// Records in tree order: the shell, the group, its label, the field, the peer, the one after it.
+		function reds():Array<Float> {
+			relTree.flush();
+			relList.update(relTree, shell.node);
+			return [for (r in 0...6) Math.round(relList.get(r, 8) * 255) / 255];
+		}
+		var resting = reds();
+		ashui.input.Pointer.move(relTree, 2, 2);
+		var overLabel = reds();
+		ashui.input.Pointer.move(relTree, 82, 2);
+		var overPeer = reds();
+		ashui.input.Pointer.leave(relTree);
+		ashui.input.Focus.set(ashui.input.Interaction.of(field.node), false);
+		var focusedInside = reds();
+		ashui.input.Focus.clear(relTree);
+		var cleared = reds();
+		var error = Math.round(0xDC / 255 * 255) / 255;
+		check("group-hover: follows the nearest group ancestor", overLabel[2] == error && resting[2] != error && overPeer[2] != error,
+			[resting[2], overLabel[2], overPeer[2]]);
+		check("peer-hover: follows the nearest earlier peer", overPeer[5] == error && resting[5] != error && overLabel[5] != error,
+			[resting[5], overPeer[5], overLabel[5]]);
+		check("focus-within: follows focus anywhere inside", focusedInside[0] != resting[0] && cleared[0] == resting[0],
+			[resting[0], focusedInside[0], cleared[0]]);
+
 		// --- Handles are released by the collector ---
 		for (i in 0...20000) {
 			Signal.make(i);

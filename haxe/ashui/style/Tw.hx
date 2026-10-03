@@ -61,10 +61,16 @@ import haxe.macro.Type;
 	`hover:`, `focus:`, `focus-visible:`, `active:`, `disabled:` and `dark:`
 	before a class apply it while the pointer is over the element, while it
 	has focus, while it has focus the keyboard gave it, while it is pressed,
-	while it is disabled, or in the dark scheme (see `ashui.input`); where
-	several hold, the later in that list wins, as in Tailwind. The string
-	needs the plain class for the same property too, the value otherwise.
-	With `transition-colors` the change animates.
+	while it is disabled, or in the dark scheme (see `ashui.input`).
+	`focus-within:` applies it while the element or anything inside it has
+	focus. `group-hover:` applies it while the nearest ancestor with the
+	class `group` is hovered, and `peer-hover:` while the nearest earlier
+	sibling with the class `peer` is; both take `focus`, `focus-visible`,
+	`focus-within`, `active` and `disabled` too. Where several hold, the
+	later wins, in Tailwind's order: `dark`, `group-`, `peer-`,
+	`focus-within`, `hover`, `focus`, `focus-visible`, `active`,
+	`disabled`. The string needs the plain class for the same property
+	too, the value otherwise. With `transition-colors` the change animates.
 
 	A class bound to a token follows the theme: a scheme switch or an
 	override updates it, and nothing is rebuilt. Layout keywords with no
@@ -112,7 +118,7 @@ class Tw {
 		var trackingClass = ~/^tracking-(tighter|tight|normal|wide|wider)$/;
 		// hover:, active: and dark: classes, by property, then by variant.
 		var variants = new Map<String, Map<String, {value:Expr, pos:Position}>>();
-		var variant = ~/^(hover|focus|focus-visible|active|disabled|dark):(.+)$/;
+		var variant = VARIANT;
 		var sizeClass = ~/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/;
 		var start = 0;
 		for (word in ~/\s+/g.split(text)) {
@@ -175,7 +181,7 @@ class Tw {
 
 		// Each property a variant sets becomes one value that follows the pointer and the scheme:
 		// active over hover over dark over the base class of the same property.
-		var interaction = false;
+		var interaction = false, grouped = false, peered = false;
 		for (key => states in variants) {
 			var base:Null<Expr> = null;
 			var at:Null<Position> = null;
@@ -208,24 +214,33 @@ class Tw {
 				return reactive.get(name) ? macro $i{name}.get() : macro $i{name};
 			mark("__base", base);
 			var pick = read("__base");
-			// Later wins, in Tailwind's order: dark, hover, focus, focus-visible, active, disabled.
-			for (state in ["dark", "hover", "focus", "focus-visible", "active", "disabled"]) {
+			// Later wins, in Tailwind's order.
+			for (state in STATES) {
 				var v = states.get(state);
 				if (v == null)
 					continue;
 				var name = '__' + StringTools.replace(state, "-", "_");
 				lets.push(macro var $name = ${v.value});
 				mark(name, v.value);
-				var test = switch state {
-					case "dark": macro ashui.style.Variant.dark();
-					case "hover": macro __interaction.hovered.get();
-					case "focus": macro __interaction.focused.get();
-					case "focus-visible": macro __interaction.focusVisible.get();
-					case "disabled": macro __interaction.disabled.get();
-					case _: macro __interaction.pressed.get();
-				}
-				if (state != "dark")
+				var test = if (state == "dark") {
+					macro ashui.style.Variant.dark();
+				} else if (StringTools.startsWith(state, "group-") || StringTools.startsWith(state, "peer-")) {
+					var group = StringTools.startsWith(state, "group-");
+					var other = group ? "__group" : "__peer";
+					if (group)
+						grouped = true;
+					else
+						peered = true;
+					var field = signalOf(state.substr(group ? 6 : 5));
+					macro {
+						var __other = $i{other}.get();
+						__other != null && __other.$field.get();
+					}
+				} else {
 					interaction = true;
+					var field = signalOf(state);
+					macro __interaction.$field.get();
+				}
 				pick = macro $test ? ${read(name)} : $pick;
 			}
 			// One block: the values are made before the computed that reads them, not inside it.
@@ -236,6 +251,10 @@ class Tw {
 		}
 		if (interaction)
 			out.unshift(macro var __interaction = ashui.input.Interaction.of($node));
+		if (grouped)
+			out.unshift(macro var __group = ashui.input.Relations.groupOf($node));
+		if (peered)
+			out.unshift(macro var __peer = ashui.input.Relations.peerOf($node));
 		if (tracking != null) {
 			var t = tracking.token;
 			var value = macro ashui.theme.Themed.tracking(ashui.theme.TypographyToken.$t, ashui.theme.TypographyToken.$size);
@@ -252,6 +271,27 @@ class Tw {
 	}
 
 	/** The property and value of a `node.set(Prop.Key, value)`, or null for anything else. **/
+	/** The state variants, in Tailwind's order: a later one wins over an earlier. **/
+	static final OWN = ["hover", "focus", "focus-visible", "active", "disabled"];
+
+	static final RELATED = ["hover", "focus", "focus-visible", "focus-within", "active", "disabled"];
+
+	@:noCompletion public static final STATES = ["dark"].concat([for (s in RELATED) 'group-$s']).concat([for (s in RELATED) 'peer-$s']).concat(["focus-within"]).concat(OWN);
+
+	@:noCompletion public static final VARIANT = new EReg('^(' + [for (s in STATES) StringTools.replace(s, "-", "\\-")].join("|") + '):(.+)$$', "");
+
+	/** The `Interaction` signal a state reads. **/
+	static function signalOf(state:String):String {
+		return switch state {
+			case "hover": "hovered";
+			case "focus": "focused";
+			case "focus-visible": "focusVisible";
+			case "focus-within": "focusWithin";
+			case "disabled": "disabled";
+			case _: "pressed";
+		}
+	}
+
 	static function keyValue(e:Expr):Null<{key:String, value:Expr}> {
 		return switch e.expr {
 			case ECall({expr: EField(_, "set", _)}, [{expr: EField(_, key, _)}, value]): {key: key, value: value};
@@ -406,6 +446,9 @@ class Tw {
 			set(node, "FlexShrink", macro(1 : Single)),
 			set(node, "FlexBasis", macro(0 : Single))
 		]);
+		// An element whose state what is inside it, or its later siblings, can follow.
+		v.set("group", node -> [macro ashui.input.Interaction.of($node).markGroup()]);
+		v.set("peer", node -> [macro ashui.input.Interaction.of($node).markPeer()]);
 		v.set("flex-auto", node -> [set(node, "FlexGrow", macro(1 : Single)), set(node, "FlexShrink", macro(1 : Single))]);
 		v.set("flex-none", node -> [set(node, "FlexGrow", macro(0 : Single)), set(node, "FlexShrink", macro(0 : Single))]);
 		float("border", "BorderWidth", 1);
@@ -415,7 +458,6 @@ class Tw {
 			float('opacity-${percent * 5}', "Opacity", percent * 5 / 100);
 
 		refused = [
-			{pattern: ~/^(focus-within|group-hover|peer-hover):/, why: "this variant needs group or ancestor state, which there is none of yet"},
 			{pattern: ~/^-/, why: "only translate, rotate and skew take a minus sign"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
@@ -531,7 +573,7 @@ private class TransformClasses {
 		}
 		var state = "";
 		var rest = word;
-		var prefixed = ~/^(hover|focus|focus-visible|active|disabled):(.+)$/;
+		var prefixed = Tw.VARIANT;
 		if (prefixed.match(word)) {
 			state = prefixed.matched(1);
 			rest = prefixed.matched(2);
@@ -620,7 +662,7 @@ private class TransformClasses {
 			return macro ashui.reactive.Computed.make(() -> $made);
 		}
 		var states = new Map<String, {value:Expr, pos:Position}>();
-		for (state in ["hover", "focus", "focus-visible", "active", "disabled"])
+		for (state in Tw.STATES)
 			if (parts.exists(state))
 				states.set(state, {value: transform(parts.get(state)), pos: at});
 		var value = transform(new Map());
