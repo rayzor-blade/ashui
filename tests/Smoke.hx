@@ -955,6 +955,30 @@ class Smoke {
 			&& done.join(",") == "10,110", [start, half, done]);
 		ashui.css.Css.remove(motionSheet);
 
+		// --- CSS pointer queries: a property reads env(pointer-x) ---
+		var pointerSheet = ashui.css.Css.load('
+			.tilt { width: 100px; height: 100px; background: #ff0000; pointer-origin: top-left; pointer-range: 0 1;
+				opacity: calc(0.25 + env(pointer-x) * 0.5); }
+		');
+		var pointerTree = new LayoutTree();
+		var tilt = Owner.root(pointerTree, _ -> new Div({classes: ["tilt"]}, pointerTree));
+		var pointerList = new ashui.layout.DisplayList();
+		function tiltAlpha():Float {
+			pointerTree.flush();
+			pointerTree.computeLayout(tilt.node, 200, 200);
+			pointerList.update(pointerTree, tilt.node);
+			return pointerList.count == 0 ? -1 : Math.round(pointerList.get(0, 11) * 100) / 100;
+		}
+		tiltAlpha();
+		ashui.input.Pointer.move(pointerTree, 0, 50);
+		var leftEdge = tiltAlpha();
+		ashui.input.Pointer.move(pointerTree, 100, 50);
+		var rightEdge = tiltAlpha();
+		ashui.input.Pointer.move(pointerTree, 50, 50);
+		var middle = tiltAlpha();
+		check("a declaration reading env(pointer-x) follows the pointer", leftEdge == 0.25 && rightEdge == 0.75 && middle == 0.5, [leftEdge, middle, rightEdge]);
+		ashui.css.Css.remove(pointerSheet);
+
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);
 		check("a sheet taken out of force takes its values with it", fillOf(card).length == 0 && after.width == 0, [fillOf(card), after]);

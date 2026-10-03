@@ -20,6 +20,19 @@ class Pointer {
 	static inline var MULTI_CLICK_TIME = 0.5;
 	static inline var MULTI_CLICK_SLOP = 4.0;
 
+	/** Called after each move, press, release and leave in a tree, as pointer queries need. **/
+	public static final hooks:Array<LayoutTree->Void> = [];
+
+	/** Where the pointer is over `tree`, whether it is over the window, and whether a button is down. **/
+	public static function at(tree:LayoutTree):{x:Float, y:Float, inside:Bool, pressed:Bool} {
+		var s = states.get(tree);
+		return s == null ? {x: 0, y: 0, inside: false, pressed: false} : {x: s.x, y: s.y, inside: s.inside, pressed: s.pressed};
+	}
+
+	static inline function moved(tree:LayoutTree):Void
+		for (hook in hooks)
+			hook(tree);
+
 	static function state(tree:LayoutTree):PointerState {
 		var s = states.get(tree);
 		if (s == null)
@@ -37,6 +50,7 @@ class Pointer {
 			s.modifiers = modifiers;
 		retarget(tree, s, tree.hitTest(x, y));
 		bubble(tree, s, s.chain, 0, "pointermove", null);
+		moved(tree);
 	}
 
 	/** The pointer left the window: nothing is hovered. **/
@@ -44,11 +58,14 @@ class Pointer {
 		var s = state(tree);
 		s.inside = false;
 		retarget(tree, s, []);
+		moved(tree);
 	}
 
 	/** `button` went down where the pointer is. **/
 	public static function press(tree:LayoutTree, button:MouseButton = Left):Void {
 		var s = state(tree);
+		s.pressed = true;
+		moved(tree);
 		var blocked = disabledIn(tree, s.chain);
 		if (button.match(Left)) {
 			var now = haxe.Timer.stamp();
@@ -86,6 +103,8 @@ class Pointer {
 	**/
 	public static function release(tree:LayoutTree, button:MouseButton = Left):Void {
 		var s = state(tree);
+		s.pressed = false;
+		moved(tree);
 		var blocked = disabledIn(tree, s.chain);
 		if (!blocked)
 			bubble(tree, s, s.chain, 0, "pointerup", button);
@@ -200,6 +219,7 @@ private class PointerState {
 	public var x = 0.0;
 	public var y = 0.0;
 	public var inside = false;
+	public var pressed = false;
 	public var chain:Array<Hit> = [];
 	public var pressChain:Array<Hit> = [];
 	public var modifiers:Modifiers = InputEvent.NO_MODIFIERS;

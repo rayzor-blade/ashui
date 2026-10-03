@@ -36,6 +36,10 @@ enum CalcExpr {
 	Clamp(lo:CalcExpr, v:CalcExpr, hi:CalcExpr);
 	/** An `env(name)`, a value the environment supplies when evaluated, as pointer queries do. **/
 	Env(name:String);
+	/** An angle, in radians. **/
+	Ang(v:Float);
+	/** A time, in seconds. **/
+	Sec(v:Float);
 }
 
 /** What `CssLength` and `CalcExpr` resolve against; everything in pixels. **/
@@ -277,6 +281,7 @@ class CssValue {
 			case Min(args) | Max(args): [for (x in args) for (y in leaves(x)) y];
 			case Clamp(a, b, c): leaves(a).concat(leaves(b)).concat(leaves(c));
 			case Env(_): [false];
+			case Ang(_) | Sec(_): [true];
 		}
 
 	// --- calc() ---
@@ -303,6 +308,7 @@ class CssValue {
 			case Env(name):
 				var v = ctx.env == null ? null : ctx.env(name);
 				v == null ? 0 : v;
+			case Ang(v) | Sec(v): v;
 		}
 	}
 
@@ -310,13 +316,74 @@ class CssValue {
 	public static function isDynamic(e:CalcExpr):Bool
 		return switch e {
 			case Env(_): true;
-			case Num(_): false;
+			case Num(_) | Ang(_) | Sec(_): false;
 			case Len(Calc(inner)): isDynamic(inner);
 			case Len(_): false;
 			case Add(a, b) | Sub(a, b) | Mul(a, b) | Div(a, b): isDynamic(a) || isDynamic(b);
 			case Min(args) | Max(args): Lambda.exists(args, isDynamic);
 			case Clamp(a, b, c): isDynamic(a) || isDynamic(b) || isDynamic(c);
 		}
+
+	/** What a `calc()` comes to: a length in px, an angle in radians, a time in seconds, or a number. **/
+	public static function kind(e:CalcExpr):String {
+		return switch e {
+			case Len(_): "px";
+			case Ang(_): "rad";
+			case Sec(_): "s";
+			case Num(_) | Env(_): "";
+			case Add(a, b) | Sub(a, b) | Mul(a, b) | Div(a, b):
+				var k = kind(a);
+				k != "" ? k : kind(b);
+			case Min(args) | Max(args):
+				var k = "";
+				for (x in args)
+					if (k == "")
+						k = kind(x);
+				k;
+			case Clamp(a, b, c):
+				var k = kind(a);
+				if (k == "")
+					k = kind(b);
+				k != "" ? k : kind(c);
+		}
+	}
+
+	/**
+		`text` with each `env(name, fallback)` replaced by `env`'s value for
+		it (or its fallback, or 0), then each `calc()` replaced by what it
+		comes to, with its unit: so a value that reads the environment is
+		plain CSS again, for any property to read.
+	**/
+	public static function settle(text:String, env:String->Null<Float>, ctx:LengthContext):String {
+		var out = text;
+		var envCall = ~/env\(\s*([a-zA-Z0-9_-]+)\s*(?:,\s*([^)]*))?\)/;
+		var guard = 0;
+		while (envCall.match(out) && guard++ < 64) {
+			var v = env(envCall.matched(1));
+			var fallback = envCall.matched(2);
+			var text = v != null ? Std.string(v) : fallback != null ? StringTools.trim(fallback) : "0";
+			out = envCall.matchedLeft() + text + envCall.matchedRight();
+		}
+		guard = 0;
+		var at = out.indexOf("calc(");
+		while (at >= 0 && guard++ < 64) {
+			var depth = 0, end = at + 4;
+			while (end < out.length) {
+				var c = out.charAt(end);
+				if (c == "(")
+					depth++;
+				else if (c == ")" && --depth == 0)
+					break;
+				end++;
+			}
+			var e = calc(out.substring(at, end + 1));
+			var value = evaluate(e, ctx);
+			var literal = '${Math.round(value * 100000) / 100000}${kind(e)}';
+			out = out.substr(0, at) + literal + out.substr(end + 1);
+			at = out.indexOf("calc(");
+		}
+		return out;
+	}
 
 	// --- Colours ---
 
@@ -802,13 +869,16 @@ private class CalcReader {
 			}
 		}
 		var d = CssValue.dimension(word);
+		// A bare name is the environment's, as pointer queries write pointer-x.
+		if (d == null && ~/^[a-zA-Z][a-zA-Z0-9-]*$/.match(word))
+			return Env(word);
 		if (d == null)
 			throw 'unexpected "$word" in calc()';
 		// Angles count in radians and times in seconds, so a calc() of either is a number.
 		return switch d.unit {
 			case "": Num(d.value);
-			case "deg" | "rad" | "grad" | "turn": Num(CssValue.angle(word));
-			case "s" | "ms": Num(CssValue.time(word));
+			case "deg" | "rad" | "grad" | "turn": Ang(CssValue.angle(word));
+			case "s" | "ms": Sec(CssValue.time(word));
 			case _: Len(CssValue.length(word));
 		}
 	}

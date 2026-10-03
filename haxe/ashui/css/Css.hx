@@ -57,6 +57,9 @@ private typedef Applied = {
 	reads a token is matched again when the theme changes, a switch between
 	light and dark included.
 
+	A declaration that reads `env(pointer-x)` and the rest is applied again
+	as the pointer moves: a pointer query (see `PointerQueries`).
+
 	A rule inside `@media` applies while its queries hold: of the viewport
 	`setViewport` gives, and `prefers-color-scheme` of the theme's scheme.
 
@@ -338,7 +341,12 @@ class Css {
 		// Animations: started, kept running or stopped as the element's animation values change.
 		var held = Animations.update(identity, resolved, values, ctx, from);
 		// font-size first: em in the rest is the element's own font size.
-		var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !held.exists(name)) name];
+		// Declarations that read the pointer are the pointer query's, applied as it moves.
+		var live = new Map<String, String>();
+		for (name => v in resolved)
+			if (!POINTER.exists(name) && !MOTION.exists(name) && (v.indexOf("env(") >= 0 || v.indexOf("pointer-") >= 0))
+				live.set(name, v);
+		var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name];
 		names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Reflect.compare(a, b));
 		for (name in names) {
 			var v = resolved.get(name);
@@ -361,6 +369,14 @@ class Css {
 					currentColor: ctx.currentColor
 				};
 		}
+		var pointer = try PointerQueries.config(resolved) catch (e:String) {
+			report(from.get("pointer-range"), e);
+			null;
+		}
+		PointerQueries.track(identity, pointer, live, ctx, from);
+		for (f in PointerQueries.fields(identity))
+			if (fields.indexOf(f) < 0)
+				fields.push(f);
 		// What an animation writes stays its own until it ends.
 		for (f in Animations.fields(identity))
 			if (fields.indexOf(f) < 0)
@@ -387,6 +403,9 @@ class Css {
 			"animation-fill-mode", "animation-play-state"])
 			name => true
 	];
+
+	/** A pointer query's settings, read by the tracker rather than applied. **/
+	static final POINTER = ["pointer-space" => true, "pointer-origin" => true, "pointer-range" => true, "pointer-smoothing" => true];
 
 	static function hasTransition(values:Map<String, String>):Bool
 		return values.exists("transition") || values.exists("transition-property");
