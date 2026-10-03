@@ -25,7 +25,7 @@ class UserAgent {
 		small { font-size: 0.83em; }
 		code, kbd {
 			font-family: var(--font-mono); font-size: 0.9em;
-			padding: 1px 4px; border-radius: 4px; background: var(--surface-elevated);
+			padding: 1px 4px; border-radius: var(--radius-sm); background: var(--surface-elevated);
 		}
 		kbd { border: 1px solid var(--border); }
 		mark { background: rgba(250, 204, 21, 0.4); }
@@ -33,7 +33,7 @@ class UserAgent {
 
 		/* Preformatted text and quotations. */
 		pre {
-			flex-direction: column; margin: 1em 0; padding: 10px 12px; border-radius: 8px;
+			flex-direction: column; margin: 1em 0; padding: 10px 12px; border-radius: var(--radius-default);
 			font-family: var(--font-mono); font-size: 0.9em; line-height: 1.5;
 			background: var(--surface-elevated); color: var(--text-primary); overflow: auto;
 		}
@@ -52,8 +52,8 @@ class UserAgent {
 		li { flex-direction: row; align-items: baseline; }
 		li > .marker { flex-shrink: 0; width: 32px; padding-right: 8px; align-items: center; justify-content: flex-end; color: var(--text-secondary); }
 		li > .marker > .bullet { display: none; flex-shrink: 0; width: 6px; height: 6px; }
-		li > .marker.disc > .bullet { display: flex; border-radius: 9999px; background: var(--text-secondary); }
-		li > .marker.circle > .bullet { display: flex; border-radius: 9999px; border: 1.5px solid var(--text-secondary); }
+		li > .marker.disc > .bullet { display: flex; border-radius: var(--radius-full); background: var(--text-secondary); }
+		li > .marker.circle > .bullet { display: flex; border-radius: var(--radius-full); border: 1.5px solid var(--text-secondary); }
 		li > .marker.square > .bullet { display: flex; width: 5px; height: 5px; background: var(--text-secondary); }
 		li > .content { flex-grow: 1; min-width: 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; }
 		li > .content > ul, li > .content > ol { width: 100%; }
@@ -62,7 +62,7 @@ class UserAgent {
 		dd { flex-direction: row; flex-wrap: wrap; align-items: baseline; margin: 0 0 6px 24px; color: var(--text-secondary); }
 
 		/* Tables: every row a grid of the columns of the table, so cells line up. */
-		table { flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; color: var(--text-primary); }
+		table { flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-default); overflow: hidden; color: var(--text-primary); }
 		caption { flex-direction: row; padding: 8px 12px; font-weight: 600; border-bottom: 1px solid var(--border); }
 		thead, tbody, tfoot { flex-direction: column; }
 		thead { background: var(--surface-elevated); }
@@ -84,7 +84,7 @@ class UserAgent {
 		/* Buttons. */
 		button {
 			flex-direction: row; align-items: center; justify-content: center; gap: 6px;
-			padding: 6px 14px; border-radius: 8px; background: var(--primary); color: var(--text-inverse);
+			padding: 6px 14px; border-radius: var(--radius-default); background: var(--primary); color: var(--text-inverse);
 			font-weight: 500; transition: background 120ms ease-out;
 		}
 		button:hover { background: var(--primary-hover); }
@@ -98,20 +98,20 @@ class UserAgent {
 			border: 2px solid var(--border); background: var(--input-bg);
 			transition: background 120ms ease-out, border-color 120ms ease-out;
 		}
-		input[type="checkbox"] { border-radius: 4px; color: var(--text-inverse); }
-		input[type="radio"] { border-radius: 9999px; }
+		input[type="checkbox"] { border-radius: var(--radius-sm); color: var(--text-inverse); }
+		input[type="radio"] { border-radius: var(--radius-full); }
 		input[type="checkbox"]:hover, input[type="radio"]:hover { border-color: var(--border-hover); }
 		input[type="checkbox"]:checked, input[type="checkbox"]:indeterminate { background: var(--primary); border-color: var(--primary); }
 		input[type="radio"]:checked { border-color: var(--primary); }
 		input[type="checkbox"] > svg, input[type="radio"] > .dot { display: none; }
 		input[type="checkbox"]:checked:not(:indeterminate) > .check, input[type="checkbox"]:indeterminate > .dash { display: flex; }
-		input[type="radio"]:checked > .dot { display: flex; width: 8px; height: 8px; border-radius: 9999px; background: var(--primary); }
+		input[type="radio"]:checked > .dot { display: flex; width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--primary); }
 		input:is([type="checkbox"], [type="radio"], [type="range"]):focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 		input:is([type="checkbox"], [type="radio"], [type="range"]):disabled { opacity: 0.5; }
 
 		/* Text fields, numbers and text areas: a bordered box the text is edited in. */
 		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]), textarea {
-			border: 2px solid var(--border); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);
+			border: 2px solid var(--border); border-radius: var(--radius-default); background: var(--input-bg); color: var(--text-primary);
 			transition: background 150ms ease-out, border-color 150ms ease-out;
 		}
 		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]) {
@@ -140,15 +140,15 @@ class UserAgent {
 		input[type="range"] > .fill { border-radius: 2px 0 0 2px; background: var(--primary); }
 		input[type="range"] > .rest { border-radius: 0 2px 2px 0; background: var(--border); }
 		input[type="range"] > .thumb {
-			width: 16px; height: 16px; flex-shrink: 0; border-radius: 9999px;
+			width: 16px; height: 16px; flex-shrink: 0; border-radius: var(--radius-full);
 			background: var(--surface-elevated); border: 2px solid var(--primary); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 			transition: transform 120ms ease-out;
 		}
 		input[type="range"]:hover > .thumb { transform: scale(1.1); }
 
 		/* Progress and meters: a track, filled to the value. */
-		progress, meter { flex-direction: row; width: 160px; height: 8px; border-radius: 9999px; background: var(--border); overflow: hidden; }
-		progress > .bar, meter > .bar { height: 100%; border-radius: 9999px; }
+		progress, meter { flex-direction: row; width: 160px; height: 8px; border-radius: var(--radius-full); background: var(--border); overflow: hidden; }
+		progress > .bar, meter > .bar { height: 100%; border-radius: var(--radius-full); }
 		progress > .bar { background: var(--primary); }
 		progress:indeterminate > .bar { width: 30%; animation: ashui-progress-pulse 1.2s ease-in-out infinite alternate; }
 		@keyframes ashui-progress-pulse { from { opacity: 0.35; } to { opacity: 1; } }
@@ -159,7 +159,7 @@ class UserAgent {
 		/* Fieldsets: a bordered group of controls, its legend first. */
 		fieldset {
 			flex-direction: column; gap: 8px; padding: 12px 14px; margin: 0;
-			border: 1px solid var(--border); border-radius: 8px;
+			border: 1px solid var(--border); border-radius: var(--radius-default);
 		}
 		legend { flex-direction: row; align-items: baseline; padding: 0 2px; font-weight: 600; color: var(--text-primary); }
 
@@ -169,17 +169,17 @@ class UserAgent {
 		/* Selects: the control, its list of options in the top layer, the options and their group headings. */
 		select {
 			flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; min-width: 120px;
-			padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);
+			padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-default); background: var(--input-bg); color: var(--text-primary);
 		}
 		select:hover { border-color: var(--border-hover); }
 		select:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 		select:disabled { opacity: 0.5; }
 		select > .chevron { color: var(--text-secondary); }
 		listbox {
-			flex-direction: column; padding: 4px; border: 1px solid var(--border); border-radius: 8px;
+			flex-direction: column; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-default);
 			background: var(--surface-elevated); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 		}
-		option { flex-direction: row; align-items: center; padding: 6px 10px; border-radius: 6px; color: var(--text-primary); }
+		option { flex-direction: row; align-items: center; padding: 6px 10px; border-radius: var(--radius-md); color: var(--text-primary); }
 		option:hover, option:focus { background: var(--accent-subtle); }
 		option:checked { font-weight: 600; }
 		option:disabled { opacity: 0.5; }
@@ -187,7 +187,7 @@ class UserAgent {
 
 		/* Dialogs: a panel, centred over a dimmed backdrop when modal. */
 		dialog {
-			flex-direction: column; gap: 12px; padding: 20px; min-width: 280px; border-radius: 12px;
+			flex-direction: column; gap: 12px; padding: 20px; min-width: 280px; border-radius: var(--radius-xl);
 			background: var(--surface-elevated); color: var(--text-primary); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
 		}
 		dialog:not([open]) { display: none; }
