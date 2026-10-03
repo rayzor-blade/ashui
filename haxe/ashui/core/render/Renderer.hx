@@ -11,6 +11,11 @@ import gpu.GpuBindGroup;
 import gpu.GpuBindings;
 import gpu.GpuBuffer;
 import gpu.GpuBufferDescriptor;
+import gpu.GpuExtent3D;
+import gpu.GpuTexture;
+import gpu.GpuTextureDescriptor;
+import gpu.GpuTextureViewDescriptor;
+import gpu.TextureUsage;
 import gpu.GpuDevice;
 import gpu.GpuEncoder;
 import gpu.GpuPipeline;
@@ -19,14 +24,14 @@ import gpu.GpuSamplerDescriptor;
 import gpu.GpuTextureView;
 import gpu.PrimitiveTopology;
 import gpu.TextureFormat;
-import gpu.VertexFormat;
-import gpu.VertexStepMode;
 
 /**
 	Draws a `DisplayList` with the GPU, the way Blinc's renderer draws its
 	primitives: each record is an instanced quad of six vertices, and each
 	run of records of one kind is one draw with that kind's pipeline, so
-	paint order holds across kinds. Colours are straight alpha, blended over
+	paint order holds across kinds. The records are uploaded as rows of a
+	float texture each shader reads its instance's record from (see
+	`UiFramework`), on every platform alike. Colours are straight alpha, blended over
 	the target in gamma space as Blinc does on native targets. Glyphs sample
 	the text engine's atlases, uploaded before each frame that changed them;
 	images sample an atlas of their own, rasterized into as they appear.
@@ -49,34 +54,33 @@ class Renderer {
 	var imageRevision = -1;
 	/** The atlas revisions `text`'s bind group holds views of. **/
 	var textRevisions = "";
-	var instances:Null<GpuBuffer> = null;
-	var instanceCapacity = 0;
+	var records:Null<GpuTexture> = null;
+	/** Rows of the records texture, `DisplayList.RECORDS_PER_ROW` records each. **/
+	var recordRows = 0;
+	final passes:Array<Pass> = [];
 
 	/** A renderer drawing into targets of `format`; pick a non-sRGB one, as Blinc does. **/
 	public function new(device:GpuDevice, format:TextureFormat) {
 		this.device = device;
 		frameBytes = haxe.io.Bytes.alloc(BoxShader.FRAME_SIZE);
 		frame = device.createBuffer(new GpuBufferDescriptor(BoxShader.FRAME_SIZE, BufferUsage.UNIFORM | BufferUsage.COPY_DST));
-		boxes = pass(BoxShader.WGSL, Inputs.of(ashui.core.render.BoxShader), format);
-		shadows = pass(ShadowShader.WGSL, Inputs.of(ashui.core.render.ShadowShader), format);
+		boxes = pass(BoxShader.WGSL, format);
+		shadows = pass(ShadowShader.WGSL, format);
 		atlas = new GlyphAtlas(device, false);
 		colorAtlas = new GlyphAtlas(device, true);
 		var sampler = new GpuSamplerDescriptor();
 		sampler.magFilter(Linear);
 		sampler.minFilter(Linear);
 		glyphSampler = device.sampler(sampler);
-		text = pass(TextShader.WGSL, Inputs.of(ashui.core.render.TextShader), format, false);
+		text = pass(TextShader.WGSL, format, false);
 		imageAtlas = new ImageAtlas(device);
-		images = pass(ImageShader.WGSL, Inputs.of(ashui.core.render.ImageShader), format, false);
+		images = pass(ImageShader.WGSL, format, false);
 	}
 
-	function pass(wgsl:String, inputs:Array<{offset:Int, location:Int}>, format:TextureFormat, bind = true):Pass {
+	function pass(wgsl:String, format:TextureFormat, bind = true):Pass {
 		var shader = device.createShader(wgsl);
 		var builder = device.pipeline();
 		builder.shader(shader, "vertex", "fragment");
-		builder.vertexBuffer(DisplayList.RECORD_BYTES, VertexStepMode.Instance);
-		for (input in inputs)
-			builder.attribute(VertexFormat.Float32x4, input.offset, input.location);
 		builder.target(format, ColorWrite.ALL);
 		builder.blend(BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha, BlendOperation.Add, BlendFactor.One, BlendFactor.OneMinusSrcAlpha,
 			BlendOperation.Add);
@@ -91,7 +95,9 @@ class Renderer {
 			group = device.bindGroup(pipeline, BoxShader.FRAME_GROUP, bindings);
 			bindings.destroy();
 		}
-		return {pipeline: pipeline, group: group};
+		var made:Pass = {pipeline: pipeline, group: group, records: null};
+		passes.push(made);
+		return made;
 	}
 
 	/** Uploads changed atlases, and binds the text pass to their current views. **/
@@ -140,14 +146,15 @@ class Renderer {
 		syncText();
 		syncImages(list);
 		if (list.count > 0) {
-			reserve(list.count);
-			queue.writeBuffer(instances, 0, list.bytes, list.count * DisplayList.RECORD_BYTES);
+			// Whole rows: the list's bytes hold whole rows of records, so the last is complete.
+			var rows = Math.ceil(list.count / DisplayList.RECORDS_PER_ROW);
+			reserve(rows);
+			queue.writeTexture(records, list.bytes, DisplayList.ROW_TEXELS, rows, DisplayList.ROW_TEXELS * 16);
 		}
 		var encoder = device.encoder();
 		encoder.passColour(view, r, g, b, a);
 		encoder.passBegin();
 		if (list.count > 0) {
-			encoder.renderSetVertexBuffer(0, instances);
 			var start = 0;
 			while (start < list.count) {
 				var kind = list.kind(start);
@@ -171,17 +178,29 @@ class Renderer {
 	function drawRun(encoder:GpuEncoder, pass:Pass, first:Int, count:Int):Void {
 		encoder.renderSetPipeline(pass.pipeline);
 		encoder.renderSetBindGroup(BoxShader.FRAME_GROUP, pass.group);
+		encoder.renderSetBindGroup(BoxShader.TEXTURE_records_GROUP, pass.records);
 		encoder.renderDrawRange(6, count, 0, first);
 	}
 
-	/** Grows the instance buffer to hold `records`. **/
-	function reserve(records:Int):Void {
-		if (records <= instanceCapacity)
+	/** Grows the records texture to `rows` rows, and binds each pass to it. **/
+	function reserve(rows:Int):Void {
+		if (rows <= recordRows)
 			return;
-		if (instances != null)
-			instances.destroy();
-		instanceCapacity = records + (records >> 1) + 16;
-		instances = device.createBuffer(new GpuBufferDescriptor(instanceCapacity * DisplayList.RECORD_BYTES, BufferUsage.VERTEX | BufferUsage.COPY_DST));
+		if (records != null)
+			records.destroy();
+		recordRows = rows + (rows >> 1) + 1;
+		var size = new GpuExtent3D(DisplayList.ROW_TEXELS);
+		size.height(recordRows);
+		records = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba32float, TextureUsage.TEXTURE_BINDING | TextureUsage.COPY_DST));
+		var view = records.createView(new GpuTextureViewDescriptor());
+		for (pass in passes) {
+			if (pass.records != null)
+				pass.records.destroy();
+			var bindings = new GpuBindings();
+			bindings.texture(view);
+			pass.records = device.bindGroup(pass.pipeline, BoxShader.TEXTURE_records_GROUP, bindings);
+			bindings.destroy();
+		}
 	}
 
 	/** wgpu reports validation errors on the device, not by throwing. **/
@@ -195,4 +214,6 @@ class Renderer {
 private typedef Pass = {
 	final pipeline:GpuPipeline;
 	var group:Null<GpuBindGroup>;
+	/** The pass's own bind group of the records texture: an inferred layout is one pipeline's. **/
+	var records:Null<GpuBindGroup>;
 }

@@ -12,6 +12,9 @@ import ashui.core.externs.LayoutTreeNative;
 class DisplayList {
 	public static inline var RECORD_FLOATS = 64;
 	public static inline var RECORD_BYTES = RECORD_FLOATS * 4;
+	public static inline var RECORD_ROWS = RecordLayout.RECORD_ROWS;
+	public static inline var ROW_TEXELS = RecordLayout.ROW_TEXELS;
+	public static inline var RECORDS_PER_ROW = RecordLayout.RECORDS_PER_ROW;
 
 	/** Where the primitive type sits in a record, and its values. **/
 	public static inline var KIND_FIELD = 44;
@@ -55,7 +58,8 @@ class DisplayList {
 		fillParams(scale);
 		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes == null ? null : bytes.getData(), capacity);
 		if (needed > capacity) {
-			capacity = needed + (needed >> 1) + 16;
+			// Whole rows of the records texture, so they upload as they are.
+			capacity = Math.ceil((needed + (needed >> 1) + 16) / RECORDS_PER_ROW) * RECORDS_PER_ROW;
 			bytes = haxe.io.Bytes.alloc(capacity * RECORD_BYTES);
 			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes.getData(), capacity);
 		}
