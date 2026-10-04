@@ -248,6 +248,7 @@ class UserAgent {
 		select[open] { border-color: var(--border-focus); }
 		select:disabled { opacity: 0.5; transform: none; }
 		select > .chevron { color: var(--text-secondary); transition: transform var(--duration-normal) var(--ease-state); }
+		select[data-placeholder] { color: var(--text-tertiary); }
 		select[open] > .chevron { transform: rotate(180deg); }
 		listbox {
 			flex-direction: column; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-default);

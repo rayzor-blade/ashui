@@ -21,6 +21,14 @@ typedef SelectProps = {
 
 	?name:String,
 
+	/**
+		Shown while the value is none of its options', which it may then
+		stay rather than choosing the first: "Choose a fruit…". The select
+		is marked `[data-placeholder]` while it shows. Not HTML's, which has
+		none for a select.
+	**/
+	?placeholder:String,
+
 	/** Called with the new value after the user chooses an option. **/
 	?onChange:String->Void
 }
@@ -85,18 +93,25 @@ class Select extends Component<SelectProps> {
 				new Watch(() -> c.get(), v -> s.set(v));
 				s;
 		}
-		// As HTML's, a select whose value is none of its options' chooses the first that is enabled.
-		if (!Lambda.exists(choices, c -> c.option.valueText() == value.get())) {
+		// As HTML's, a select whose value is none of its options' chooses the first that is enabled; one with a placeholder shows that instead.
+		if (props.placeholder == null && !Lambda.exists(choices, c -> c.option.valueText() == value.get())) {
 			var first = Lambda.find(choices, c -> !c.disabled);
 			if (first != null)
 				value.set(first.option.valueText());
 		}
-		var label = Computed.make(() -> labelOf(value.get()));
+		var placeholder = props.placeholder;
+		var label = Computed.make(() -> {
+			var l = labelOf(value.get());
+			(l == "" && placeholder != null ? placeholder : l);
+		});
 		var chevron = new Svg(ashui.svg.SvgDocument.parse(CHEVRON), {width: 14, height: 14});
 		ashui.css.Identity.of(chevron.tree, chevron.node.id).setClasses(["chevron"]);
 		button = new Div({tag: "select", id: props.id}, [new Text(label), chevron]);
 		if (props.name != null)
 			ashui.css.Identity.of(button.tree, button.node.id).setAttribute("name", props.name);
+		if (placeholder != null)
+			ashui.css.Identity.of(button.tree, button.node.id)
+				.bindAttribute("data-placeholder", Computed.make(() -> (labelOf(value.get()) == "" ? "" : null : Null<String>)));
 		interaction = Interaction.of(button.node).setFocusable(true);
 		if (props.disabled != null)
 			interaction.setDisabled(props.disabled);
@@ -161,6 +176,10 @@ class Select extends Component<SelectProps> {
 					items.push(new Div({tag: "optgroup"}, [new Text(c.group)]));
 				}
 				var row = new Div({tag: "option"}, [new Text(c.option.labelText())]);
+				// The option's classes, so a stylesheet styles its row in the list as it styles the option.
+				var own = ashui.css.Identity.of(tree, c.option.node.id);
+				if (own != null && own.classes().length > 0)
+					ashui.css.Identity.of(tree, row.node.id).addClasses(own.classes());
 				var ri = Interaction.of(row.node).setFocusable(true);
 				if (c.disabled)
 					ri.setDisabled(true);
@@ -214,14 +233,15 @@ class Select extends Component<SelectProps> {
 			identity.setAttribute("open", null);
 			open = null;
 			owner.dispose();
-			Focus.set(interaction, true);
+			Focus.set(interaction, Focus.byKeyboard);
 		});
+		// Its focus ring only after keyboard use, as :focus-visible's.
 		var chosen = Lambda.find(rows, r -> r.choice.option.valueText() == value.get() && !r.choice.disabled);
 		var first = enabled()[0];
 		if (chosen != null)
-			Focus.set(chosen.interaction, true);
+			Focus.set(chosen.interaction, Focus.byKeyboard);
 		else if (first != null)
-			Focus.set(first.interaction, true);
+			Focus.set(first.interaction, Focus.byKeyboard);
 	}
 
 	/** Whether its list of options is open. **/
