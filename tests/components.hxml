@@ -1,5 +1,6 @@
 --class-path ../haxe
 --class-path ../components/haxe
+--class-path ../canvaskit/haxe
 --class-path ../../hlwindow/haxe
 --class-path .
 -lib hashlink

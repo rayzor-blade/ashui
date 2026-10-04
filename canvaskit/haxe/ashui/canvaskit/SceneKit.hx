@@ -1,0 +1,81 @@
+package ashui.canvaskit;
+
+import ashui.draw.DrawContext;
+import ashui.draw3d.Light;
+import ashui.draw3d.Scene3D;
+import ashui.layout.Element;
+import ashui.layout.IntoReactive;
+import ashui.ui.Canvas;
+import ashui.ui.Component;
+
+typedef SceneKitProps = {
+	/** Draws the scene's meshes, then any shapes over them; the scene is set before it is called. **/
+	?draw:DrawContext->Void,
+
+	/** The camera, moved by dragging and scrolling; a new one, looking at the origin, by default. **/
+	?camera:OrbitCamera,
+
+	?lights:IntoReactive<Array<Light>>,
+
+	/** The light that reaches everywhere, `0xRRGGBB`, and how strong. **/
+	?ambient:IntoReactive<Int>,
+
+	?ambientStrength:IntoReactive<Float>,
+
+	/** What lit colours are multiplied by before tone mapping. **/
+	?exposure:IntoReactive<Float>,
+
+	/** What is behind the scene, and how opaque; by default nothing, so the page shows through. **/
+	?background:IntoReactive<Int>,
+
+	?backgroundAlpha:IntoReactive<Float>,
+
+	/** Whether dragging and scrolling move the camera; true by default. **/
+	?controls:Bool,
+
+	?id:String
+}
+
+/**
+	A 3D viewport, `<scene-kit>`: a canvas that draws a scene through an
+	`OrbitCamera`, lit by `lights`, moved by `OrbitInput` as it is
+	dragged and scrolled. Size it as any element:
+
+	```haxe
+	var camera = new OrbitCamera(0.4, 0.3, 3);
+	<scene-kit camera={camera} lights={rig} width={960} height={720}
+		draw={ctx -> ctx.drawMesh(helmet)} />;
+	```
+
+	Each prop given as a signal is followed: the canvas draws again when
+	the camera or a prop it reads changes, and only then. The camera is
+	the caller's to keep, so other code can move it (`camera.frame(...)`,
+	`camera.reset()`).
+**/
+class SceneKit extends Component<SceneKitProps> {
+	function render():Element {
+		var camera = props.camera != null ? props.camera : new OrbitCamera();
+		var base = Scene3D.DEFAULT;
+		var canvas = new Canvas({
+			id: props.id,
+			draw: ctx -> {
+				ctx.setScene(new Scene3D(camera.camera(), read(props.lights, base.lights), read(props.ambient, base.ambient),
+					read(props.ambientStrength, base.ambientStrength), read(props.exposure, base.exposure), read(props.background, base.background),
+					read(props.backgroundAlpha, base.backgroundAlpha)));
+				if (props.draw != null)
+					props.draw(ctx);
+			}
+		});
+		if (props.controls != false)
+			new OrbitInput(camera).attach(canvas.node);
+		return canvas;
+	}
+
+	/** A prop's value now, followed when it is a signal or computed; `fallback` when it is not given. **/
+	static function read<T>(prop:Null<IntoReactive<T>>, fallback:T):T
+		return prop == null ? fallback : switch (prop : ashui.layout.IntoReactive.ReactiveType<T>) {
+			case Const(v): v;
+			case Bound(s): s.get();
+			case Derived(c): c.get();
+		}
+}

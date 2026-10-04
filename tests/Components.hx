@@ -1,3 +1,4 @@
+import ashui.canvaskit.SceneKit;
 import ashui.components.Accordion;
 import ashui.components.Alert;
 import ashui.components.Badge;
@@ -63,6 +64,69 @@ class Components {
 
 	static function key(k:window.Key, code:window.KeyCode, pressed = true):window.KeyEvent
 		return Input(Code(code), k, None, Standard, pressed ? Pressed : Released, false, Unavailable);
+
+	/** ashui-canvaskit: the orbit camera's moves, and that each shape's triangles face out. **/
+	static function canvasKit() {
+		var cam = new ashui.canvaskit.OrbitCamera(0, 0, 5, ashui.math.Vec3.ZERO);
+		check("an orbit camera at azimuth and elevation 0 sits on +Z", cam.eye().distance(new ashui.math.Vec3(0, 0, 5)) < 1e-9, cam.eye());
+		cam.orbit(Math.PI / 2, 0);
+		check("a quarter turn round takes it to +X", cam.eye().distance(new ashui.math.Vec3(5, 0, 0)) < 1e-9, cam.eye());
+		cam.orbit(0, 10);
+		check("it rises no further than its limit, short of straight up", cam.elevation.get() == cam.maxElevation);
+		cam.zoom(1e-6);
+		check("and comes no nearer than its least distance", cam.distance.get() == cam.minDistance);
+		cam.reset();
+		cam.pan(0.5, 0);
+		var t = cam.target.get();
+		check("a pan moves the target across the view, not toward it", Math.abs(t.z) < 1e-9 && t.x > 0, t);
+		cam.reset();
+		cam.frame(new ashui.math.Vec3(-1, -1, -1), new ashui.math.Vec3(3, 1, 1));
+		check("framing a box aims at its middle", cam.target.get().distance(new ashui.math.Vec3(1, 0, 0)) < 1e-9);
+		function outward(name:String, mesh:ashui.draw3d.MeshData, ?centre:ashui.math.Vec3->ashui.math.Vec3) {
+			var v = mesh.vertices, ix = mesh.indices, bad = 0;
+			inline function at(i:Int)
+				return new ashui.math.Vec3(v.getFloat(i * 48), v.getFloat(i * 48 + 4), v.getFloat(i * 48 + 8));
+			var k = 0;
+			while (k < mesh.indexCount) {
+				var a = at(ix.getInt32(k * 4)), b = at(ix.getInt32(k * 4 + 4)), c = at(ix.getInt32(k * 4 + 8));
+				var face = b.sub(a).cross(c.sub(a));
+				var mid = a.add(b).add(c).scale(1 / 3);
+				var from = centre != null ? centre(mid) : ashui.math.Vec3.ZERO;
+				if (face.length() > 1e-12 && face.dot(mid.sub(from)) <= 0)
+					bad++;
+				k += 3;
+			}
+			check('$name: every triangle faces out, counter-clockwise seen from outside', bad == 0 && mesh.indexCount > 0, '$bad of ${Std.int(mesh.indexCount / 3)}');
+		}
+		outward("box", ashui.canvaskit.Geometry.box(1, 2, 3));
+		outward("sphere", ashui.canvaskit.Geometry.sphere());
+		outward("cylinder", ashui.canvaskit.Geometry.cylinder());
+		// A torus's triangles face away from the middle of its tube, on the ring round its centre.
+		outward("torus", ashui.canvaskit.Geometry.torus(1, 0.25), p -> new ashui.math.Vec3(p.x, 0, p.z).normalize());
+		outward("plane", ashui.canvaskit.Geometry.plane(2, 2, 4), p -> p.sub(new ashui.math.Vec3(0, 1, 0)));
+
+		// <scene-kit>: a drag turns its camera, a shift-drag pans it, the wheel zooms it.
+		var orbit = new ashui.canvaskit.OrbitCamera(0, 0.2, 5);
+		var kitTree = new LayoutTree();
+		var kitRoot:Div = Owner.root(kitTree, _ -> <div width={400} height={300}><scene-kit camera={orbit} width={400} height={300} /></div>);
+		kitTree.flush();
+		kitTree.computeLayout(kitRoot.node, 400, 300);
+		ashui.input.Pointer.move(kitTree, 200, 150);
+		ashui.input.Pointer.press(kitTree);
+		ashui.input.Pointer.move(kitTree, 260, 120);
+		ashui.input.Pointer.release(kitTree);
+		check("<scene-kit>: dragging right turns the camera the other way round, so the scene turns with the drag", orbit.azimuth.get() < 0, orbit.azimuth.get());
+		check("and dragging up lowers it", orbit.elevation.get() < 0.2, orbit.elevation.get());
+		ashui.input.Pointer.move(kitTree, 200, 150);
+		ashui.input.Pointer.wheel(kitTree, 0, 200);
+		check("scrolling down moves it further away", orbit.distance.get() > 5, orbit.distance.get());
+		var before = orbit.target.get();
+		ashui.input.Pointer.modifiers(kitTree, State(true, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown));
+		ashui.input.Pointer.press(kitTree);
+		ashui.input.Pointer.move(kitTree, 240, 150);
+		ashui.input.Pointer.release(kitTree);
+		check("a shift-drag moves the target, not the turn", orbit.target.get().distance(before) > 0, orbit.target.get());
+	}
 
 	static function main() {
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Light);
@@ -1114,6 +1178,8 @@ class Components {
 		check("Lead, Large and Muted step the text size: larger, a little larger, smaller",
 			tyBox("tyLead").height > tyBox("tyLarge").height && tyBox("tyLarge").height > tyBox("tyMuted").height,
 			[tyBox("tyLead").height, tyBox("tyLarge").height, tyBox("tyMuted").height]);
+
+		canvasKit();
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

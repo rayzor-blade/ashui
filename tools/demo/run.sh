@@ -26,7 +26,7 @@ rm -f bin/xgpu.hdll
 cp "$(first "$vib"/hlwgpu/target/release/libhlwgpu.$ext "$vib"/hlwgpu/target/debug/libhlwgpu.$ext)" bin/xgpu.hdll
 rm -f bin/xwindow.hdll
 cp "$(first "$vib"/hlwindow/target/release/libhlwindow.$ext "$vib"/hlwindow/target/debug/libhlwindow.$ext)" bin/xwindow.hdll
-haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
+haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 	--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" \
 	-D ashui_window --macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' \
 	--class-path . -main "$name" -hl "bin/$name.hl"

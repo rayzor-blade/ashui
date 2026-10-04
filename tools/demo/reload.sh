@@ -30,7 +30,7 @@ cp "$(first "$vib"/hlwindow/target/release/libhlwindow.$ext "$vib"/hlwindow/targ
 
 # Compiles beside the running .hl and moves it into place, so Ash never reads a half-written file.
 build() {
-	haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
+	haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" \
 		-D ashui_window -D ashui_hot_reload --macro 'ashui.core.render.UiFramework.register()' \
 		--class-path . -main "$name" -hl "bin/$name.next.hl" && mv "bin/$name.next.hl" "bin/$name.hl"
