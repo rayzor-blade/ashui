@@ -99,8 +99,11 @@ class TopLayer {
 	/**
 		Opens `content` in `tree`'s top layer, placed by `placement`.
 		`backdrop` dims what is beneath; `onClose` runs however it closes.
+		Not `dismissible`, a press on the backdrop or Escape leaves it open:
+		only its own controls close it, as an alert dialog's.
 	**/
-	public static function open(tree:LayoutTree, content:Element, placement:Placement, ?backdrop:Brush, ?onClose:Void->Void, passThrough = false):TopEntry {
+	public static function open(tree:LayoutTree, content:Element, placement:Placement, ?backdrop:Brush, ?onClose:Void->Void, passThrough = false,
+			dismissible = true):TopEntry {
 		var root = tree.root;
 		if (root == null)
 			throw "TopLayer.open needs a tree that has been laid out";
@@ -165,13 +168,13 @@ class TopLayer {
 		var entry:Null<TopEntry> = null;
 		Interaction.of(shade.node).onPointerDown(e -> {
 			// A press on the backdrop itself, not on what it holds.
-			if (e.target == shade.node && entry != null)
+			if (e.target == shade.node && entry != null && dismissible)
 				entry.close();
 		});
 		Interaction.of(shade.node).onKeyDown(e -> switch e.key {
 			case Named(Escape):
 				e.preventDefault();
-				if (entry != null)
+				if (entry != null && dismissible)
 					entry.close();
 			case _:
 		});

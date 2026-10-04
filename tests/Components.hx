@@ -3,6 +3,7 @@ import ashui.components.Alert;
 import ashui.components.Badge;
 import ashui.components.Button;
 import ashui.components.Card;
+import ashui.components.Dialog;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -171,6 +172,69 @@ class Components {
 		ashui.input.Pointer.release(accTree);
 		accSettle();
 		check("one open at a time: opening the second closes the first", openItems.get().join(",") == "b", openItems.get());
+
+		// --- Dialog and AlertDialog: open from a trigger, close from a close button, Escape only for a dialog ---
+		var dlgTree = new LayoutTree();
+		var dlgOpen = Signal.make(false), alertOpen = Signal.make(false);
+		var dlgRoot:Div = Owner.root(dlgTree, _ -> hxx('
+			<div width={600} height={400} flexDirection={Column} gap={8}>
+				<dialog open={dlgOpen}>
+					<dialog-trigger id="open">Open</dialog-trigger>
+					<dialog-content><dialog-header><dialog-title>Title</dialog-title></dialog-header>
+						<dialog-footer><dialog-close id="close">Cancel</dialog-close></dialog-footer></dialog-content>
+				</dialog>
+				<alert-dialog open={alertOpen}>
+					<dialog-trigger id="ask">Delete</dialog-trigger>
+					<alert-dialog-content><dialog-footer><dialog-close id="no">Cancel</dialog-close></dialog-footer></alert-dialog-content>
+				</alert-dialog>
+			</div>
+		'));
+		function dlgSettle() {
+			dlgTree.flush();
+			dlgTree.computeLayout(dlgRoot.node, 600, 400);
+			dlgTree.flush();
+			dlgTree.computeLayout(dlgRoot.node, 600, 400);
+		}
+		function find(at:haxe.Int64, id:String):Null<haxe.Int64> {
+			var identity = identity2(dlgTree, at);
+			if (identity != null && identity.id == id)
+				return at;
+			for (c in dlgTree.children(at)) {
+				var f = find(c, id);
+				if (f != null)
+					return f;
+			}
+			return null;
+		}
+		function press(id:String) {
+			// Past any opening animation: a panel growing from nothing is not yet where a press lands.
+			ashui.animation.AnimationScheduler.main.tick(0.5);
+			dlgSettle();
+			var b = dlgTree.getBounds(new ashui.layout.Node(find(dlgRoot.node.id, id)));
+			ashui.input.Pointer.move(dlgTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(dlgTree);
+			ashui.input.Pointer.release(dlgTree);
+			dlgSettle();
+		}
+		dlgSettle();
+		var rootShown = dlgTree.getBounds(new ashui.layout.Node(dlgTree.children(dlgRoot.node.id)[0])).height > 0;
+		check("a Dialog's root is not HTML's closed dialog: its trigger shows", rootShown);
+		press("open");
+		var opened = dlgOpen.get() && ashui.ui.TopLayer.openEntries().length == 1;
+		var focusRing = ashui.input.Focus.of(dlgTree) != null && ashui.input.Focus.of(dlgTree).focusVisible.get();
+		press("close");
+		check("a DialogTrigger opens it, a DialogClose closes it; opened by a press, its first control takes focus without a ring",
+			opened && !focusRing && !dlgOpen.get(), [opened, focusRing, dlgOpen.get()]);
+		press("open");
+		ashui.input.Keyboard.input(dlgTree, key(Named(Escape), Escape));
+		dlgSettle();
+		check("Escape closes a dialog", !dlgOpen.get());
+		press("ask");
+		ashui.input.Keyboard.input(dlgTree, key(Named(Escape), Escape));
+		dlgSettle();
+		var stayed = alertOpen.get();
+		press("no");
+		check("an AlertDialog stays open on Escape; its own action closes it", stayed && !alertOpen.get(), [stayed, alertOpen.get()]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

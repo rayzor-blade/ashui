@@ -284,3 +284,22 @@
 	flex-direction: column; gap: 8px; padding: var(--ui-accordion-content-padding, 24px 20px);
 	font-size: 14px; line-height: var(--leading-normal); color: var(--text-secondary);
 }
+
+/* ---------------------------------------------------------------- Dialog */
+
+/* The panel: elevated, a hairline round it, on --shadow-xl; it grows in and shrinks away as the user-agent dialog does. */
+.ui-dialog-root { flex-direction: row; align-self: flex-start; }
+.ui-dialog {
+	flex-direction: column; gap: var(--ui-dialog-gap, 16px); padding: var(--ui-dialog-padding, 24px);
+	min-width: 300px; max-width: var(--ui-dialog-width, 500px);
+	border: 1px solid var(--ui-dialog-border, var(--border)); border-radius: var(--ui-dialog-radius, var(--radius-xl));
+	background: var(--ui-dialog-bg, var(--surface-elevated)); color: var(--text-primary);
+	box-shadow: var(--ui-dialog-shadow, var(--shadow-xl));
+}
+.ui-dialog[data-size="sm"] { max-width: var(--ui-dialog-width, 400px); }
+.ui-dialog[data-size="lg"] { max-width: var(--ui-dialog-width, 600px); }
+.ui-dialog[data-size="full"] { max-width: var(--ui-dialog-width, 800px); }
+.ui-dialog-header { flex-direction: column; gap: 8px; }
+.ui-dialog-title { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: var(--text-xl); font-weight: 600; line-height: 1.2; }
+.ui-dialog-description { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
+.ui-dialog-footer { flex-direction: row; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }

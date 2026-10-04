@@ -19,6 +19,15 @@ typedef DialogProps = {
 
 	?id:String,
 
+	/** Classes of the dialog itself, for a component library that styles it. **/
+	?classes:Array<String>,
+
+	/** What dims the page behind a modal one; black at 40% by default. **/
+	?backdrop:ashui.types.Brush,
+
+	/** Whether Escape and a press on the backdrop close it; true by default, as HTML's. False for one only its own controls close. **/
+	?dismissible:Bool,
+
 	/** Called when it closes, however it closes. **/
 	?onClose:Void->Void
 }
@@ -34,6 +43,9 @@ typedef DialogProps = {
 class Dialog extends Component<DialogProps> {
 	/** Whether it is open; the caller's signal when `open` was one. **/
 	public var opened(default, null):Signal<Bool>;
+
+	/** The dialog element itself: in place when not modal, in the top layer while a modal one is open. **/
+	public var panel(default, null):Div;
 
 	var entry:Null<TopEntry> = null;
 	var release:Null<Void->Void> = null;
@@ -51,13 +63,20 @@ class Dialog extends Component<DialogProps> {
 		}
 		var modal = props.modal != false;
 		var box = new Div({tag: "dialog", id: modal ? null : props.id}, modal ? [] : children);
+		// Given only when there are some: a null wrapped as a constant would be read as classes.
+		if (!modal && props.classes != null)
+			ashui.css.Identity.of(box.tree, box.node.id).addClasses(props.classes);
 		if (!modal) {
 			var identity = ashui.css.Identity.of(box.tree, box.node.id);
 			new Watch(() -> opened.get(), v -> identity.setAttribute("open", v ? "" : null));
+			panel = box;
 			return box;
 		}
 		// Modal: a placeholder in place, and the dialog itself in the top layer while open.
 		var dialog = new Div({tag: "dialog", id: props.id}, children);
+		if (props.classes != null)
+			ashui.css.Identity.of(dialog.tree, dialog.node.id).addClasses(props.classes);
+		panel = dialog;
 		box.node.set(ashui.layout.Prop.Display, ashui.types.Style.Display.None);
 		new Watch(() -> opened.get(), v -> if (v) show(dialog) else hide());
 		Owner.onCleanup(hide);
@@ -83,7 +102,7 @@ class Dialog extends Component<DialogProps> {
 		// Marked open as it is shown, so its opening animation starts then.
 		var identity = ashui.css.Identity.of(tree, dialog.node.id);
 		identity.setAttribute("open", "");
-		entry = TopLayer.open(tree, dialog, Centered, ashui.types.Brush.solid(0x000000, 0.4), () -> {
+		entry = TopLayer.open(tree, dialog, Centered, props.backdrop != null ? props.backdrop : ashui.types.Brush.solid(0x000000, 0.4), () -> {
 			identity.setAttribute("open", null);
 			entry = null;
 			if (release != null)
@@ -95,14 +114,14 @@ class Dialog extends Component<DialogProps> {
 				Focus.set(before, false);
 			if (props.onClose != null)
 				props.onClose();
-		});
+		}, false, props.dismissible != false);
 		release = Focus.trap(dialog.node);
 		// The first focusable element inside takes focus.
 		for (id in tree.order())
 			if (id == dialog.node.id || tree.ancestors(id).indexOf(dialog.node.id) >= 0) {
 				var i = Interaction.byId(tree, id);
 				if (i != null && i.focusable && !i.disabled.get()) {
-					Focus.set(i, true);
+					Focus.set(i, Focus.byKeyboard);
 					break;
 				}
 			}
