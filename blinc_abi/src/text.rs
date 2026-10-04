@@ -37,9 +37,12 @@ pub fn ensure_face(context: &TextMeasureContext) {
     }
 }
 
-/// The faces `system-ui` names, by platform, as browsers resolve it.
+/// The faces `system-ui` names, by platform, as browsers resolve it. On
+/// macOS that is SF Pro, a variable font whose weights the text renderer
+/// cannot set yet, so Helvetica Neue, whose static weights and metrics
+/// centre capitals as SF Pro's do, stands in for it.
 #[cfg(target_os = "macos")]
-const SYSTEM_UI: &[&str] = &[".SF NS", "SF Pro", "SF Pro Text"];
+const SYSTEM_UI: &[&str] = &["Helvetica Neue"];
 #[cfg(target_os = "windows")]
 const SYSTEM_UI: &[&str] = &["Segoe UI Variable", "Segoe UI"];
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
