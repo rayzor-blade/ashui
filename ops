@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791131612,"nonce":"0a1vg6Gg1t8WcKujsERYVSZ2gnA=","message":"Fixed by the Blinc bump in 6865a5b (c6531f4a). tests/run.sh exits 0 with all six suites passing; the inline code check is back on the baseline.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1791131612,"nonce":"3mdx3yehpIZydiPhHeRMZ0e/i6Q=","status":2}]}
