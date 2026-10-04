@@ -355,8 +355,25 @@ class LayoutTree {
 			relayout = LayoutTreeNative.blinc_tree_flush(this.ptr) || relayout;
 			Guard.check();
 		}
-		return reacted || relayout;
+		var drawn = drawnChanged;
+		drawnChanged = false;
+		return reacted || relayout || drawn;
 	}
+
+	/** Set by what changes the drawing outside the queued writes, as a scroll or a layout animation's visual does. **/
+	var drawnChanged = false;
+
+	/** Something drawn changed outside the queued property writes: the next `flush` reports a change, so a frame is drawn. **/
+	public function markDrawn():Void
+		drawnChanged = true;
+
+	/**
+		Whether any of `node`'s box is on screen: inside the root, and inside
+		every box that clips it, scrolled as they are. A node under a transform
+		counts as in view.
+	**/
+	public function inView(node:haxe.Int64):Bool
+		return LayoutTreeNative.blinc_tree_in_view(this.ptr, node);
 
 	/**
 		Lays out the nodes under `root` in `width` by `height` layout units,
@@ -399,15 +416,20 @@ class LayoutTree {
 		not negative, as a layout animation does; its children move with it,
 		and `hitTest` finds it there. Layout is not touched.
 	**/
-	public function setVisual(node:haxe.Int64, dx:Float, dy:Float, width:Float = -1, height:Float = -1):Void
+	public function setVisual(node:haxe.Int64, dx:Float, dy:Float, width:Float = -1, height:Float = -1):Void {
 		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, dx, dy, width, height, false);
+		drawnChanged = true;
+	}
 
 	/** Draws `node` where layout puts it again. **/
-	public function clearVisual(node:haxe.Int64):Void
+	public function clearVisual(node:haxe.Int64):Void {
 		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, 0, 0, -1, -1, true);
+		drawnChanged = true;
+	}
 
 	/** Draws `node` as `notch`, or as its box again with null. **/
 	public function setNotch(node:haxe.Int64, notch:Null<ashui.types.Notch>):Void {
+		drawnChanged = true;
 		if (notch == null) {
 			LayoutTreeNative.blinc_tree_set_notch(this.ptr, node, null);
 			return;

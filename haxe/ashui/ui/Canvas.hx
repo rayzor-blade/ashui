@@ -124,7 +124,8 @@ class Canvas extends Component<CanvasProps> {
 			AnimationScheduler.main.addTicker(dt -> {
 				if (!alive)
 					return false;
-				if (setUp && w.get() > 0 && h.get() > 0)
+				// Out of view, a sketch is not drawn; its clock waits with it.
+				if (setUp && w.get() > 0 && h.get() > 0 && tree.inView(id))
 					step(dt);
 				return true;
 			});
@@ -151,7 +152,7 @@ class Canvas extends Component<CanvasProps> {
 				var alive = true;
 				Owner.onCleanup(() -> alive = false);
 				AnimationScheduler.main.addTicker(_ -> {
-					if (alive && running.get())
+					if (alive && running.get() && tree.inView(id))
 						repaint();
 					return alive;
 				});

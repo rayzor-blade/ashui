@@ -1841,6 +1841,25 @@ class Smoke {
 		var done = widths();
 		check("@keyframes animates, then hands back to the cascade, or holds with forwards", start.join(",") == "10,10" && half.join(",") == "60,60"
 			&& done.join(",") == "10,110", [start, half, done]);
+		// Out of view, inside a box that clips it, an animation writes nothing, so it draws no frames; scrolled back, it writes where it is.
+		var clipTree = new LayoutTree();
+		var seen:Div = null, unseen:Div = null;
+		var clipRoot = Owner.root(clipTree, _ -> new Div({width: 200, height: 30, overflow: ashui.types.Style.Overflow.Hidden, flexDirection: ashui.types.Style.FlexDirection.Column}, [
+			seen = new Div({classes: ["grow"], flexShrink: 0}, clipTree),
+			new Div({height: 40, flexShrink: 0}, clipTree),
+			unseen = new Div({classes: ["grow"], flexShrink: 0}, clipTree)
+		], clipTree));
+		function clipWidths() {
+			clipTree.flush();
+			clipTree.computeLayout(clipRoot.node, 200, 30);
+			return [Std.int(clipTree.getBounds(seen.node).width), Std.int(clipTree.getBounds(unseen.node).width)];
+		}
+		clipWidths();
+		var inView = [clipTree.inView(seen.node.id), clipTree.inView(unseen.node.id)];
+		scheduler.tick(0.5);
+		var clipped = clipWidths();
+		check("an animation out of view writes nothing while one in view does", inView.join(",") == "true,false" && clipped.join(",") == "60,10",
+			[inView, clipped]);
 		check("keyframe values interpolate: none as the identity, colours by channel, unlike shapes switch halfway",
 			ashui.css.CssMotion.interpolate("none", "rotate(360deg)", 0.25) == "rotate(90deg)"
 			&& ashui.css.CssMotion.interpolate("red", "blue", 0.5) == "rgba(127.5, 0, 127.5, 1)"

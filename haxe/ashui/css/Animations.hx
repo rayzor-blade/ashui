@@ -277,6 +277,9 @@ private class Run {
 		}
 		if (motion != null && !finished)
 			motion.sample(progress, progress);
+		// Out of view it changes nothing drawn: its clock runs on, and it writes where it is once it is seen again.
+		if (!finished && !identity.tree.inView(identity.node.id))
+			return;
 		write(progress);
 	}
 

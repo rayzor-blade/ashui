@@ -95,6 +95,12 @@ class WindowedApp {
 	/** How long a frame waits for the redraw after the last before drawing anyway, in seconds: a compositor sends none to a window it does not show. **/
 	static inline var FRAME_WAIT_LIMIT = 1.0;
 
+	/** Whether the last turn's animation ticks changed nothing drawn. **/
+	var idleTicks = false;
+
+	/** How long the loop waits between animation ticks that change nothing drawn, in seconds. **/
+	static inline var IDLE_STEP = 0.05;
+
 	/** The longest step animations advance by in one tick, in seconds. **/
 	static inline var MAX_STEP = 0.05;
 
@@ -201,7 +207,8 @@ class WindowedApp {
 				awaitingFrame = false;
 			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame;
 			// While a frame is awaited the wait ends with its redraw; animation steps when it comes.
-			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? 1 / 120 : 0.1;
+			// Animations that changed nothing drawn last turn, as those out of view, step slower, until one does or input comes.
+			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : 1 / 120) : 0.1;
 			if (timer != null)
 				timeout = Math.min(timeout, timer);
 			var event = due ? window.poll() : window.wait(timeout);
@@ -241,12 +248,16 @@ class WindowedApp {
 			} else
 				scheduler.tick(step, now - last);
 			last = now;
-			if (theme.tick() || animating)
+			// A frame is drawn for what changed: the theme, the motion overlay, or what the tree's flush reports below.
+			// A ticker that changed nothing drawn, an animation out of view, draws nothing.
+			if (theme.tick() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0)))
 				dirty = true;
 			if (awaitingFrame && dirty)
 				continue;
 			var t2 = haxe.Timer.stamp();
-			if (tree.flush()) {
+			var changed = tree.flush();
+			idleTicks = animating && !changed && !dirty;
+			if (changed) {
 				dirty = true;
 				// Layout may have moved something under a still pointer.
 				ashui.input.Pointer.refresh(tree);
