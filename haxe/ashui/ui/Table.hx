@@ -151,6 +151,7 @@ abstract class Cell extends Component<CellProps> {
 
 	function cell(tag:String):Element {
 		var box = new Div({tag: tag, id: props.id}, children);
+		ashui.text.InlineFlow.attach(box);
 		if (span() > 1)
 			box.node.set(Prop.GridColumn, 'span ${span()}');
 		var key = haxe.Int64.toStr(box.node.id);

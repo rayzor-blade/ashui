@@ -26,6 +26,12 @@ class Text extends Element {
 	/** What it shows: a string, or a signal or computed of one. **/
 	public final content:IntoReactive<String>;
 
+	static final byNode = new Map<String, Text>();
+
+	/** The text element at node `id`, null if it is none. **/
+	public static function at(id:haxe.Int64):Null<Text>
+		return byNode.get(haxe.Int64.toStr(id));
+
 	/** Its text now. **/
 	public function text():String {
 		return switch (content : ReactiveType<String>) {
@@ -52,6 +58,9 @@ class Text extends Element {
 				node.set(Prop.TextContent, content);
 		}
 		ashui.css.Identity.register(this.tree, node, "text");
+		var key = haxe.Int64.toStr(node.id);
+		byNode.set(key, this);
+		ashui.reactive.Owner.onCleanup(() -> byNode.remove(key));
 
 		// Without a colour of its own, text inherits one (see DisplayList.update).
 		if (attr != null && attr.color != null)

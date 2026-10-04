@@ -678,6 +678,39 @@ define_prim!(
     "PXblinc_tree_lB_b"
 );
 
+/// `node`'s padding as laid out, top, right, bottom, left, then 1 if it
+/// paints a box of its own (a background, a border or a shadow) and 0 if not,
+/// as five f32s in `out`. False when it has no layout.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_box_edges(h: *mut c_void, node: u64, out: *mut vbyte) -> bool {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return false;
+    };
+    let Some(layout) = tree.layout.get_layout(id(node)) else {
+        return false;
+    };
+    if out.is_null() {
+        return false;
+    }
+    let p = layout.padding;
+    let painted = tree.props.get(&id(node)).is_some_and(|r| {
+        let visible_bg = match &r.background {
+            Some(blinc_core::Brush::Solid(c)) => c.a > 0.0,
+            Some(_) => true,
+            None => false,
+        };
+        let sides = &r.border_sides;
+        let border = r.border_width > 0.0 || [&sides.top, &sides.right, &sides.bottom, &sides.left].iter().any(|s| s.as_ref().is_some_and(|s| s.width > 0.0));
+        visible_bg || border || !r.shadow.is_empty()
+    });
+    let out = out as *mut f32;
+    for (i, v) in [p.top, p.right, p.bottom, p.left, if painted { 1.0 } else { 0.0 }].into_iter().enumerate() {
+        unsafe { out.add(i).write_unaligned(v) };
+    }
+    true
+}
+define_prim!(hlp_blinc_tree_box_edges, hl_blinc_tree_box_edges, "PXblinc_tree_lB_b");
+
 /// Makes the hit test pass through `node` and everything inside it, or not.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_set_pass_through(h: *mut c_void, node: u64, through: bool) {

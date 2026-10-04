@@ -31,13 +31,16 @@ class Li extends Component<LiProps> {
 	public final bullet = Signal.make("");
 
 	function render():Element {
+		var content = new Div({classes: ["content"]}, children);
 		var box = new Div({tag: "li", id: props.id}, [
 			new Div({classes: Computed.make(() -> bullet.get() == "" ? ["marker"] : ["marker", bullet.get()])}, [
 				new Text(marker, {wrap: false}),
 				new Div({classes: ["bullet"]})
 			]),
-			new Div({classes: ["content"]}, children)
+			content
 		]);
+		// Its text and inline elements flow as one paragraph; a list in it takes a line of its own.
+		ashui.text.InlineFlow.attach(content);
 		var key = haxe.Int64.toStr(box.node.id);
 		byNode.set(key, this);
 		Owner.onCleanup(() -> byNode.remove(key));

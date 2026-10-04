@@ -362,14 +362,39 @@ class LayoutTree {
 		Lays out the nodes under `root` in `width` by `height` layout units,
 		and makes `root` the node input is hit-tested under.
 	**/
-	public inline function computeLayout(root:Node, width:Single, height:Single):Void {
+	public function computeLayout(root:Node, width:Single, height:Single):Void {
 		this.root = root;
 		LayoutTreeNative.blinc_tree_compute_layout(this.ptr, root.id, width, height);
+		// What sizes itself from the layout, as text flow from its width, lays out again until nothing does.
+		for (_ in 0...LAYOUT_PASSES) {
+			var changed = false;
+			for (hook in layoutHooks)
+				if (hook(this))
+					changed = true;
+			if (!changed)
+				break;
+			flush();
+			LayoutTreeNative.blinc_tree_compute_layout(this.ptr, root.id, width, height);
+		}
 	}
+
+	/** Passes after the first that `layoutHooks` may ask for; text flow needs one when a width changes. **/
+	static inline var LAYOUT_PASSES = 3;
+
+	/** Called after each layout pass; true when it changed what is laid out, for another pass. **/
+	public static final layoutHooks:Array<LayoutTree->Bool> = [];
 
 	/** Makes `hitTest` pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
 	public function setPassThrough(node:haxe.Int64, through:Bool):Void
 		LayoutTreeNative.blinc_tree_set_pass_through(this.ptr, node, through);
+
+	/** `node`'s padding as laid out, and whether it paints a box of its own: a background, a border or a shadow. **/
+	public function boxEdges(node:haxe.Int64):Null<{top:Float, right:Float, bottom:Float, left:Float, painted:Bool}> {
+		var out = new hl.Bytes(20);
+		if (!LayoutTreeNative.blinc_tree_box_edges(this.ptr, node, out))
+			return null;
+		return {top: out.getF32(0), right: out.getF32(4), bottom: out.getF32(8), left: out.getF32(12), painted: out.getF32(16) != 0};
+	}
 
 	/**
 		The nodes under `(x, y)` as they are drawn, through transforms and

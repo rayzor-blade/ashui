@@ -247,7 +247,8 @@ define_prim!(
 /// `wrap_width` above 0, lines wrap at that width, the width the node is laid
 /// out at, with the allowance the renderer gives it.
 /// A line break ends a line; a blank line still has a stop. Writes the line
-/// height and the number of lines as two f32s to `info`. Returns how many
+/// height, the number of lines, and the font's ascender and descender (below
+/// the baseline, so negative) at that size as four f32s to `info`. Returns how many
 /// stops there are; 0 when the node is not text or its font is not loaded.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_text_carets(
@@ -353,9 +354,12 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
     }
     if !info.is_null() {
         let info = info as *mut f32;
+        let m = font.metrics();
         unsafe {
             info.write_unaligned(line_height);
             info.add(1).write_unaligned(line.max(1) as f32);
+            info.add(2).write_unaligned(m.ascender_px(size));
+            info.add(3).write_unaligned(m.descender_px(size));
         }
     }
     if !out.is_null() {

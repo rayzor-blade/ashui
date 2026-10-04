@@ -278,6 +278,9 @@ class Css {
 				mark(identity);
 	}
 
+	/** Called with each element whose styles were applied anew, as text flow measures again when a font changes. **/
+	public static final restyled:Array<Identity->Void> = [];
+
 	static function hook():Void {
 		if (hooked)
 			return;
@@ -498,6 +501,8 @@ class Css {
 				if (fields.indexOf(f) < 0)
 					@:privateAccess identity.node.unstyle(f);
 		applied.set(identity, {values: values, signature: sig, fields: fields});
+		for (hook in restyled)
+			hook(identity);
 
 		// Inherited values changed: the children inherit again.
 		if (last == null || inheritedSignature(last.values) != inheritedSignature(values))

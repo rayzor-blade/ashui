@@ -783,7 +783,12 @@ class Smoke {
 		textTree.flush();
 		textTree.computeLayout(article.node, 400, 400);
 		var blocks = textTree.children(article.node.id);
-		var heights = [for (b in blocks) textTree.getBounds(new ashui.layout.Node(textTree.children(b)[0])).height];
+		// h1 and p hold a flow, as tall as its line; strong is a box around its text.
+		var heights = [
+			textTree.getBounds(new ashui.layout.Node(blocks[0])).height,
+			textTree.getBounds(new ashui.layout.Node(blocks[1])).height,
+			textTree.getBounds(new ashui.layout.Node(textTree.children(blocks[2])[0])).height
+		];
 		var types = [for (b in blocks) ashui.css.Identity.of(textTree, b).types.join(",")];
 		check("text elements are built in, typed for CSS", types.join("|") == "h1|p|strong", types);
 		// strong keeps the default line height, as h1 does; p's is 1.5.
@@ -1061,14 +1066,21 @@ class Smoke {
 		}
 		listSettle();
 		var listKids = listTree.children(listPage.node.id);
-		function liAt(path:Array<Int>):ashui.ui.Li {
-			var at = listKids[path[0]];
-			for (i in 1...path.length)
-				at = listTree.children(at)[path[i]];
-			return ashui.ui.Li.at(at);
+		// The items under a list, nested ones included, in document order.
+		function itemsUnder(node:haxe.Int64):Array<ashui.ui.Li> {
+			var out = [];
+			for (c in listTree.children(node)) {
+				var li = ashui.ui.Li.at(c);
+				if (li != null)
+					out.push(li);
+				out = out.concat(itemsUnder(c));
+			}
+			return out;
 		}
-		// ul > li > .content (its text, then a ul) > li > .content > ul > li
-		var outer = liAt([0, 0]), middle = liAt([0, 0, 1, 1, 0]), inner = liAt([0, 0, 1, 1, 0, 1, 1, 0]);
+		function liAt(path:Array<Int>):ashui.ui.Li
+			return itemsUnder(listKids[path[0]])[path[1]];
+		var nested = itemsUnder(listKids[0]);
+		var outer = nested[0], middle = nested[1], inner = nested[2];
 		check("a ul marks its items with a disc, a circle inside one, a square deeper",
 			outer.bullet.get() == "disc" && middle.bullet.get() == "circle" && inner.bullet.get() == "square",
 			[outer.bullet.get(), middle.bullet.get(), inner.bullet.get()]);
@@ -1121,6 +1133,67 @@ class Smoke {
 		var afterOpen = combinatorWidths();
 		check("a class change matches again what combinators reach: children and later siblings", before[0] == 0 && before[1] == 0
 			&& afterOpen[0] == 30 && afterOpen[1] == 40, [before, afterOpen]);
+
+		// --- Inline flow: a paragraph's text and inline elements wrap as one, on one baseline ---
+		var flowTree = new LayoutTree();
+		var flowWidth = Signal.make((400 : Single));
+		var linkClicks = 0;
+		var said = Signal.make("short");
+		var flowPage:Div = Owner.root(flowTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Start} width={flowWidth}>
+				<p>with <strong>strong</strong> and</p>
+				<p>Read the <a onClick={_ -> linkClicks++}>manual pages that go on and on</a> first, then <code>run</code> it.</p>
+				<p>{said}</p>
+			</div>
+		'));
+		function flowSettle() {
+			flowTree.flush();
+			flowTree.computeLayout(flowPage.node, 400, 600);
+			flowTree.flush();
+		}
+		flowSettle();
+		var flowList:Array<ashui.text.InlineFlow> = @:privateAccess ashui.text.InlineFlow.flows.get(flowTree);
+		function piecesOf(flow:ashui.text.InlineFlow):Array<{text:String, x:Float, y:Float, w:Float, node:haxe.Int64}> {
+			var out = [];
+			for (run in @:privateAccess flow.runs)
+				for (piece in @:privateAccess run.pieces)
+					if (piece.shown.get() == ashui.types.Style.Display.Flex) {
+						var b = flowTree.getBounds(piece.text.node);
+						out.push({text: piece.content.get(), x: (b.x : Float), y: (b.y : Float), w: (b.width : Float), node: piece.text.node.id});
+					}
+			out.sort((a, b) -> a.y == b.y ? Std.int(a.x - b.x) : Std.int(a.y - b.y));
+			return out;
+		}
+		var first = piecesOf(flowList[0]);
+		check("inline flow keeps the space after an inline element", first.length == 3 && first[2].text == " and"
+			&& first[2].x >= first[1].x + first[1].w - 0.5, [for (p in first) p.text]);
+
+		flowWidth.set(160);
+		flowSettle();
+		var wrapped = piecesOf(flowList[1]);
+		var linkPieces = wrapped.filter(p -> flowTree.ancestors(p.node)[0] != @:privateAccess flowList[1].root.node.id
+			&& ashui.css.Identity.of(flowTree, flowTree.ancestors(p.node)[0]).types.indexOf("a") >= 0);
+		var lineTops = [for (p in linkPieces) p.y];
+		check("an inline element's text wraps across lines with the text around it", linkPieces.length >= 2 && lineTops[0] < lineTops[lineTops.length - 1],
+			[for (p in wrapped) p.text]);
+		var lastLink = linkPieces[linkPieces.length - 1];
+		ashui.input.Pointer.move(flowTree, lastLink.x + 2, lastLink.y + 4);
+		ashui.input.Pointer.press(flowTree);
+		ashui.input.Pointer.release(flowTree);
+		check("a click on a wrapped link's second line is a click on the link", linkClicks == 1, linkClicks);
+
+		var codeAtom = @:privateAccess flowList[1].atoms[0];
+		var codeBounds = flowTree.getBounds(codeAtom.node);
+		var beside = wrapped.filter(p -> Math.abs(p.y - codeBounds.y) < 20 && p.text.indexOf("then") >= 0 || p.text.indexOf("it.") >= 0)[0];
+		var besideRun = Lambda.find(@:privateAccess flowList[1].runs, r -> Lambda.exists(@:privateAccess r.pieces, q -> q.text.node.id == beside.node));
+		var codeBaseline = codeBounds.y + codeAtom.above, textBaseline = beside.y + @:privateAccess besideRun.above;
+		check("a box in the flow, as code is, sits on the line's baseline", Math.abs(codeBaseline - textBaseline) < 0.5, [codeBaseline, textBaseline]);
+
+		var shortHeight = flowTree.getBounds(@:privateAccess flowList[2].root.node).height;
+		said.set("a much longer sentence that now needs more than one line here");
+		flowSettle();
+		var longHeight = flowTree.getBounds(@:privateAccess flowList[2].root.node).height;
+		check("a flow measures again when its text changes, and grows a line", longHeight > shortHeight * 1.5, [shortHeight, longHeight]);
 
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();

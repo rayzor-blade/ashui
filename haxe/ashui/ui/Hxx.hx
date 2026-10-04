@@ -259,6 +259,9 @@ class Hxx {
 		"button", "hr", "legend", "blockquote", "caption", "thead", "tbody", "tfoot", "tr", "dl", "dt", "dd", "figure", "figcaption"
 	];
 
+	/** Elements whose text and inline elements are laid out as one flow (see `ashui.text.InlineFlow`). **/
+	static final FLOW_TAGS = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "dt", "dd", "caption", "legend", "figcaption"];
+
 	/** Inside a `<pre>`, whose text does not wrap. **/
 	static var preformatted = 0;
 
@@ -291,6 +294,9 @@ class Hxx {
 		}))
 			own.unshift(macro ashui.input.Interaction.of($i{el}.node).setFocusable(true));
 		var sets = classes.concat(styles).concat(own);
+		// Its text and inline elements flow as one paragraph.
+		if (tag != null && FLOW_TAGS.indexOf(tag) >= 0)
+			sets.push(macro ashui.text.InlineFlow.attach($i{el}));
 		var attr = tag == null ? macro null : macro {tag: $v{tag}};
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Div($attr, $kids);
