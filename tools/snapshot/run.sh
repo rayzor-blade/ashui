@@ -6,6 +6,8 @@
 #   run.sh Scene.hx           render once
 #   run.sh --watch Scene.hx   render again whenever the scene, ashui's Haxe
 #                             or blinc_abi's Rust changes
+#   ASH=path run.sh ...       run on that ash binary rather than ../ash's
+#                             release build
 #   run.sh --window Scene.hx  open the scene in a window instead, live; a
 #                             motion scene plays its scripted input first.
 #                             ASHUI_MOTION=overlay draws the motion overlay.
@@ -35,6 +37,7 @@ name="$(basename "$scene" .hx)"
 cd "$(dirname "$0")"
 repo="$(cd ../.. && pwd)"
 vib="$(cd "$repo/.." && pwd)"
+ash="${ASH:-$vib/ash/target/release/ash}"
 
 ASHUI_SNAPSHOT_DIR="${ASHUI_SNAPSHOT_DIR:-$repo/.ashui/snapshots}"
 export ASHUI_SNAPSHOT_DIR
@@ -76,11 +79,11 @@ render() {
 	fi
 	# A window stays open until it is closed.
 	if [ $window -eq 1 ]; then
-		(cd bin && ASHUI_WINDOW=1 "$vib/ash/target/release/ash" "$PWD/$name.hl")
+		(cd bin && ASHUI_WINDOW=1 "$ash" "$PWD/$name.hl")
 		return
 	fi
 	# Snapshot logs its own errors; this catches a crash or hang.
-	(cd bin && perl -e 'alarm 120; exec @ARGV' "$vib/ash/target/release/ash" "$PWD/$name.hl") ||
+	(cd bin && perl -e 'alarm 120; exec @ARGV' "$ash" "$PWD/$name.hl") ||
 		{ status=$?; grep -q "^error $name " "$events" 2>/dev/null || echo "error $name exited with status $status" >> "$events"; return 1; }
 }
 
