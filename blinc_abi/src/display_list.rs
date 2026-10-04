@@ -73,7 +73,7 @@ use crate::text;
 use blinc_core::{Brush, Color, CornerRadius, Gradient, GradientSpace, Transform};
 use blinc_layout::element::RenderProps;
 use blinc_layout::tree::LayoutNodeId;
-use blinc_text::{TextError, TextRenderer};
+use blinc_text::{SubpixelX, TextError, TextRenderer};
 use taffy::Overflow;
 
 pub const RECORD_FLOATS: usize = 112;
@@ -1349,6 +1349,15 @@ fn text_records(
     }
     let on_screen = glyphs.display_scale * (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
     let k = text::raster_scale(context.font_size, on_screen);
+    // Without rotation or skew, glyphs start on whole device pixels, so their
+    // texels land on pixels instead of being resampled between them.
+    let snap = m[1] == 0.0 && m[2] == 0.0;
+    let display = glyphs.display_scale;
+    // Where a raster pixel is a device pixel, each glyph keeps its fraction of a pixel, rasterized in,
+    // so spacing stays even and a run is where layout put it; elsewhere each glyph rounds to a pixel.
+    let origin = apply(m, x, y).0 * display;
+    let subpixel = (snap && (k - on_screen).abs() < 1e-4 && origin.is_finite())
+        .then(|| SubpixelX::new(text::SUBPIXEL_PHASES, origin));
     let prepared = match text::prepare(
         glyphs.renderer,
         context,
@@ -1357,6 +1366,7 @@ fn text_records(
         props.and_then(|p| p.letter_spacing).unwrap_or(0.0),
         color,
         k,
+        subpixel,
     ) {
         Ok(prepared) => prepared,
         Err(TextError::AtlasFull) => {
@@ -1365,10 +1375,6 @@ fn text_records(
         }
         Err(_) => return,
     };
-    // Without rotation or skew, glyphs start on whole device pixels, so their
-    // texels land on pixels instead of being resampled between them.
-    let snap = m[1] == 0.0 && m[2] == 0.0;
-    let display = glyphs.display_scale;
     // Glyphs start half the extra leading below the line box's top, as in CSS.
     let lead = text::half_leading(context, context.font_size * k);
     for g in &prepared.glyphs {
@@ -1380,7 +1386,11 @@ fn text_records(
         p.fill_type = if g.is_color { 1.0 } else { 0.0 };
         let at = (x + gx / k, y + gy / k);
         p.place(m, at.0, at.1);
-        if snap {
+        if let Some(s) = subpixel {
+            // On the pixel chosen for it, from the origin snapped down.
+            p.bounds[0] = (s.origin_x.floor() + gx) / display;
+            p.bounds[1] = (p.bounds[1] * display).round() / display;
+        } else if snap {
             p.bounds[0] = (p.bounds[0] * display).round() / display;
             p.bounds[1] = (p.bounds[1] * display).round() / display;
         }

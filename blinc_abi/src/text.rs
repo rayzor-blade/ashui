@@ -9,8 +9,8 @@
 use blinc_layout::div::{GenericFont as LayoutGeneric, TextAlign};
 use blinc_layout::tree::TextMeasureContext;
 use blinc_text::{
-    GenericFont, LayoutOptions, LineBreakMode, PreparedText, TextAlignment, TextAnchor,
-    TextError, TextRenderer, global_font_registry,
+    GenericFont, LayoutOptions, LineBreakMode, PreparedText, SubpixelX, TextAlignment,
+    TextAnchor, TextError, TextRenderer, global_font_registry,
 };
 use hl_abi::{define_prim, vbyte};
 use std::sync::{LazyLock, Mutex, MutexGuard};
@@ -122,6 +122,9 @@ fn generic(g: LayoutGeneric) -> GenericFont {
     }
 }
 
+/// The offsets within a pixel a glyph may be rasterized at: thirds.
+pub const SUBPIXEL_PHASES: std::num::NonZeroU8 = std::num::NonZeroU8::new(3).unwrap();
+
 /// Steps per doubling of scale that glyphs are rasterized at.
 const STEPS_PER_OCTAVE: f32 = 12.0;
 
@@ -139,8 +142,11 @@ pub fn raster_scale(font_size: f32, on_screen: f32) -> f32 {
 }
 
 /// `context`'s text laid out in a box `width` wide, at `scale` times its size:
-/// glyph bounds and atlas rects in raster pixels. `Err(AtlasFull)` when the
-/// atlases cannot take its glyphs.
+/// glyph bounds and atlas rects in raster pixels. With `subpixel`, each glyph
+/// is on the whole pixel Blinc chose for it, from the run's origin snapped down,
+/// its fraction rasterized into it. `Err(AtlasFull)` when the atlases cannot
+/// take its glyphs.
+#[allow(clippy::too_many_arguments)]
 pub fn prepare(
     renderer: &mut TextRenderer,
     context: &TextMeasureContext,
@@ -149,6 +155,7 @@ pub fn prepare(
     letter_spacing: f32,
     color: [f32; 4],
     scale: f32,
+    subpixel: Option<SubpixelX>,
 ) -> Result<PreparedText, TextError> {
     let options = LayoutOptions {
         // Layout rounds sizes to whole pixels, which can leave the box up to
@@ -170,7 +177,7 @@ pub fn prepare(
         letter_spacing: letter_spacing * scale,
     };
     let generic = generic(context.generic_font);
-    renderer.prepare_text_with_style(
+    renderer.prepare_text_subpixel(
         &context.content,
         context.font_size * scale,
         color,
@@ -179,6 +186,7 @@ pub fn prepare(
         generic,
         context.font_weight,
         context.italic,
+        subpixel,
     )
 }
 
