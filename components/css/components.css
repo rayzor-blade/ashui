@@ -28,7 +28,7 @@
 	height: var(--ui-button-height, auto); padding: var(--ui-button-padding, 8px 16px);
 	border: 1px solid var(--ui-button-border, transparent); border-radius: var(--ui-button-radius, var(--radius-default));
 	background: var(--ui-button-bg, var(--primary)); color: var(--ui-button-fg, var(--text-inverse));
-	font-weight: 400; font-size: var(--ui-button-font-size, 14px); line-height: 1.2; letter-spacing: var(--tracking-tight);
+	font-weight: 400; font-size: var(--ui-button-font-size, 14px); line-height: 1.2;
 	box-shadow: var(--ui-button-shadow, var(--shadow-md));
 	outline: 0 solid var(--focus-ring); outline-offset: 2px;
 	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state),
@@ -215,7 +215,7 @@
 .ui-tabs-trigger {
 	flex-direction: row; align-items: center; justify-content: center; gap: 8px; padding: 6px 16px;
 	border-radius: var(--ui-tabs-trigger-radius, var(--radius-default)); color: var(--text-secondary);
-	font-size: 14px; font-weight: 400; line-height: 1.2; letter-spacing: var(--tracking-tight);
+	font-size: 14px; font-weight: 400; line-height: 1.2;
 	outline: 0 solid var(--focus-ring); outline-offset: 2px;
 	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state),
 		box-shadow var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
@@ -479,7 +479,7 @@ progress.ui-progress > .bar { background: var(--ui-progress-bar, var(--primary))
 /* A button that stays pressed: clear when off, a faint wash of the text colour when on; the outline variant keeps a hairline either way. */
 .ui-toggle {
 	flex-direction: row; align-items: center; justify-content: center; gap: 6px;
-	height: 36px; min-width: 36px; padding: 0 12px; font-size: var(--text-sm); font-weight: 500; letter-spacing: var(--tracking-tight);
+	height: 36px; min-width: 36px; padding: 0 12px; font-size: var(--text-sm); font-weight: 500;
 	border: 1px solid transparent; border-radius: var(--ui-toggle-radius, var(--radius-default));
 	background: transparent; color: var(--text-primary); box-shadow: none;
 	outline: 0 solid var(--focus-ring); outline-offset: 2px;
