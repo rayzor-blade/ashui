@@ -21,6 +21,7 @@ import ashui.components.Table;
 import ashui.components.Kbd;
 import ashui.components.Menubar;
 import ashui.components.NavigationMenu;
+import ashui.components.ScrollArea;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -604,6 +605,31 @@ class Components {
 		mbFrames(40);
 		check("a NavigationMenu opens an item resting on it, one at a time, and closes once the pointer leaves",
 			oneOpen == 1 && stillOne == 1 && ashui.ui.TopLayer.openEntries().length == 0, [oneOpen, stillOne]);
+
+		// --- ScrollArea: its scrollbar mode from CSS, the wheel scrolling it ---
+		var saTree = new LayoutTree();
+		var saRoot:Div = Owner.root(saTree, _ -> hxx('
+			<div width={600} height={300} flexDirection={Row} gap={10}>
+				<scroll-area height={100} width={120}><div height={400} /></scroll-area>
+				<scroll-area height={100} width={120} scrollbars="always"><div height={400} /></scroll-area>
+				<scroll-area height={100} width={120} scrollbars="hidden"><div height={400} /></scroll-area>
+			</div>
+		'));
+		saTree.flush();
+		saTree.computeLayout(saRoot.node, 600, 300);
+		saTree.flush();
+		saTree.computeLayout(saRoot.node, 600, 300);
+		var areas = saTree.children(saRoot.node.id);
+		var modes = [for (a in areas) {
+			var sc = ashui.input.Scroll.at(a);
+			sc == null ? "none" : sc.visibility;
+		}];
+		var first = ashui.input.Scroll.at(areas[0]);
+		var ab = saTree.getBounds(new ashui.layout.Node(areas[0]));
+		ashui.input.Pointer.move(saTree, ab.x + 10, ab.y + 10);
+		@:privateAccess ashui.input.Pointer.wheel(saTree, 0, -60);
+		check("a ScrollArea scrolls under the wheel; its scrollbars mode comes from the library's CSS", modes.join(",") == "auto,always,hidden"
+			&& first != null && first.y.get() > 0, [modes, first == null ? -1 : first.y.get()]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

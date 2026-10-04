@@ -650,3 +650,15 @@ a.ui-nav-link:hover, .ui-nav-trigger:hover, .ui-nav-trigger[data-state="open"], 
 .ui-nav-content[data-state="open"] { animation: ui-rise-in var(--duration-fast) var(--ease-state); }
 .ui-nav-content[closing] { animation: ui-rise-out var(--duration-faster) var(--ease-in) forwards; }
 .ui-nav-content a.ui-nav-link:hover { background: var(--accent-subtle); }
+
+/* ----------------------------------------------------------- Scroll area */
+
+.ui-scroll-area { flex-direction: column; flex-shrink: 0; border-radius: var(--radius-sm); }
+/* What it holds keeps its size, to scroll, rather than shrinking into the box. */
+.ui-scroll-area > * { flex-shrink: 0; }
+.ui-scroll-area[data-orientation="vertical"] { overflow-y: auto; }
+.ui-scroll-area[data-orientation="horizontal"] { overflow-x: auto; flex-direction: row; }
+.ui-scroll-area[data-orientation="both"] { overflow: auto; }
+.ui-scroll-area[data-scrollbars="always"] { scrollbar-visibility: always; }
+.ui-scroll-area[data-scrollbars="hover"] { scrollbar-visibility: hover; }
+.ui-scroll-area[data-scrollbars="hidden"] { scrollbar-visibility: hidden; }
