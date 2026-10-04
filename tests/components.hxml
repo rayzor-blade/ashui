@@ -10,3 +10,5 @@
 
 -main Components
 -hl bin/components.hl
+# Templates as inline markup, with no hxx(...) around them
+--macro ashui.ui.Markup.enable()

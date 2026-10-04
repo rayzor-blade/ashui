@@ -9,3 +9,5 @@
 -D ashui_css=fixtures/css/smoke.css
 -main Smoke
 -hl bin/smoke.hl
+# Templates as inline markup, with no hxx(...) around them
+--macro ashui.ui.Markup.enable()

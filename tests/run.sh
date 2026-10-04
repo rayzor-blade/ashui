@@ -37,7 +37,7 @@ fi
 runtime="${HL:-$runtime}"
 
 # tink's own sources use deprecated metadata.
-haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe -lib hashlink -lib tink_hxx -w -WDeprecated"
+haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe -lib hashlink -lib tink_hxx -w -WDeprecated --macro ashui.ui.Markup.enable()"
 
 # The sibling libraries' release builds are used when there are any, the debug ones otherwise.
 # A library copied over an older copy in place keeps a stale code signature

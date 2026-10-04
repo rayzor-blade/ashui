@@ -968,6 +968,23 @@ class Smoke {
 		refTree.flush();
 		check("ref= holds the element a template built, is cleared when it goes and set when it comes back, and is followed",
 			boundFirst && clearedAfter && boxRef.get() != null && seen.join(",") == "true,false,true", [boundFirst, clearedAfter, seen]);
+		// Inline markup: a template written as Haxe's own markup, no hxx() around it.
+		var mkTree = new LayoutTree();
+		var mkCount = Signal.make(2);
+		var mkItems = ["a", "b", "c"];
+		var mkRoot:Div = Owner.root(mkTree, _ -> <div flexDirection={Column} width={120}>
+			<text>{'count ' + mkCount.get()}</text>
+			<for {item in mkItems}><div height={10}><text>{item}</text></div></for>
+		</div>);
+		mkTree.flush();
+		mkTree.computeLayout(mkRoot.node, 120, 200);
+		var mkKids = mkTree.children(mkRoot.node.id).length;
+		mkCount.set(3);
+		mkTree.flush();
+		var mkText = ashui.ui.Text.at(mkTree.children(mkRoot.node.id)[0]);
+		check("inline markup is a template as hxx makes it: typed as its element, following what it reads", mkKids == 4 && mkText != null && mkText.text() == "count 3",
+			[mkKids, mkText == null ? null : mkText.text()]);
+
 		// query: one handle on an element, a ref, or what a selector matches.
 		var qTree = new LayoutTree();
 		var qShown = Signal.make(false);
