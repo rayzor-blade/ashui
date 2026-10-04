@@ -214,7 +214,7 @@ class Css {
 	static function unknown(sheet:Stylesheet):Void {
 		for (rule in sheet.rules)
 			for (d in rule.declarations)
-				if (!StringTools.startsWith(d.name, "--") && !Properties.known(d.name))
+				if (!StringTools.startsWith(d.name, "--") && !Properties.known(d.name) && !MOTION.exists(d.name) && !POINTER.exists(d.name))
 					sheet.diagnostics.push({
 						severity: Warning,
 						message: '${d.name} is not a property this supports',
@@ -240,9 +240,34 @@ class Css {
 		changed();
 	}
 
-	/** Takes every sheet out of force but the user-agent sheet. **/
+	/** Sheets libraries put in force (see `useLibrary`), by name. **/
+	static final libraries = new Map<String, Stylesheet>();
+
+	/**
+		Puts a component library's sheet in force once, under the name
+		`name`: after the user-agent sheet and libraries before it, before
+		every sheet the page loads, so a page's CSS restyles a library's
+		components as it does built-in elements. Returns the sheet.
+	**/
+	public static function useLibrary(name:String, css:String):Stylesheet {
+		var known = libraries.get(name);
+		if (known != null)
+			return known;
+		var sheet = Stylesheet.parse(css, name + ".css");
+		unknown(sheet);
+		libraries.set(name, sheet);
+		var at = 0;
+		for (i => s in sheets)
+			if (s == userAgent || Lambda.has(libraries, s))
+				at = i + 1;
+		sheets.insert(at, sheet);
+		changed();
+		return sheet;
+	}
+
+	/** Takes every sheet out of force but the user-agent sheet and libraries'. **/
 	public static function clear():Void {
-		var keep = sheets.filter(s -> s == userAgent);
+		var keep = sheets.filter(s -> s == userAgent || Lambda.has(libraries, s));
 		if (sheets.length == keep.length)
 			return;
 		sheets.resize(0);
@@ -596,40 +621,52 @@ class Css {
 
 	/** `var(--name, fallback)` replaced by the element's custom property, then `:root`'s, then the theme's, then the fallback. **/
 	static function substitute(value:String, values:Map<String, String>, ?reader:Identity):String {
-		var pass = 0;
-		while (value.indexOf("var(") >= 0 && pass++ < 10) {
-			var at = value.indexOf("var(");
-			var depth = 0, end = at + 4;
-			while (end < value.length) {
-				var c = value.charAt(end);
-				if (c == "(")
-					depth++;
-				else if (c == ")") {
-					if (depth == 0)
-						break;
-					depth--;
+		// Each pass replaces every var() in the value; passes go on while what replaced them holds more, ten deep at most, so a
+		// variable that names itself ends rather than loops.
+		var depth = 0;
+		while (value.indexOf("var(") >= 0 && depth++ < 10) {
+			var out = new StringBuf();
+			var from = 0;
+			while (true) {
+				var at = value.indexOf("var(", from);
+				if (at < 0)
+					break;
+				var nesting = 0, end = at + 4;
+				while (end < value.length) {
+					var c = value.charAt(end);
+					if (c == "(")
+						nesting++;
+					else if (c == ")") {
+						if (nesting == 0)
+							break;
+						nesting--;
+					}
+					end++;
 				}
-				end++;
-			}
-			var args = value.substring(at + 4, end);
-			var comma = args.indexOf(",");
-			var name = StringTools.trim(comma < 0 ? args : args.substr(0, comma));
-			var fallback = comma < 0 ? null : StringTools.trim(args.substr(comma + 1));
-			var found = values.get(name);
-			if (found == null)
-				for (sheet in sheets) {
-					var v = sheet.variables.get(name.substr(2));
-					if (v != null)
-						found = v;
+				var args = value.substring(at + 4, end);
+				var comma = args.indexOf(",");
+				var name = StringTools.trim(comma < 0 ? args : args.substr(0, comma));
+				var fallback = comma < 0 ? null : StringTools.trim(args.substr(comma + 1));
+				var found = values.get(name);
+				if (found == null)
+					for (sheet in sheets) {
+						var v = sheet.variables.get(name.substr(2));
+						if (v != null)
+							found = v;
+					}
+				if (found == null) {
+					found = theme().get(name.substr(2));
+					if (found != null && reader != null)
+						themeDependents.set(reader, true);
 				}
-			if (found == null) {
-				found = theme().get(name.substr(2));
-				if (found != null && reader != null)
-					themeDependents.set(reader, true);
+				if (found == null)
+					found = fallback == null ? "" : fallback;
+				out.add(value.substring(from, at));
+				out.add(found);
+				from = end + 1;
 			}
-			if (found == null)
-				found = fallback == null ? "" : fallback;
-			value = value.substr(0, at) + found + value.substr(end + 1);
+			out.add(value.substr(from));
+			value = out.toString();
 		}
 		return value;
 	}

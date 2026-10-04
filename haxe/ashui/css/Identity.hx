@@ -57,6 +57,21 @@ class Identity {
 		return this;
 	}
 
+	/** Sets attribute `name` from a constant, or follows a signal or computed of its value, null taking it away. **/
+	public function bindAttribute(name:String, value:IntoReactive<Null<String>>):Identity {
+		switch (value : ashui.layout.IntoReactive.ReactiveType<Null<String>>) {
+			case Const(v):
+				setAttribute(name, v);
+			case Bound(s):
+				setAttribute(name, s.get());
+				new ashui.reactive.Watch(() -> s.get(), v -> setAttribute(name, v));
+			case Derived(c):
+				setAttribute(name, c.get());
+				new ashui.reactive.Watch(() -> c.get(), v -> setAttribute(name, v));
+		}
+		return this;
+	}
+
 	/** Attribute `name`'s value, null when it has none. **/
 	public function attribute(name:String):Null<String>
 		return attributes == null ? null : attributes.get(name);
@@ -169,9 +184,22 @@ class Identity {
 		});
 	}
 
-	/** The classes now; read inside a computed, it follows them. **/
-	public function classes():Array<String>
-		return classSignal == null ? fixed : classSignal.get();
+	/** Classes added beside its own (see `addClasses`), as an author's on a component. **/
+	var added:Array<String> = NONE;
+
+	/** Adds `list` to its classes, beside those it sets itself, as `class=` on a component adds the author's to the component's own. **/
+	public function addClasses(list:Array<String>):Identity {
+		added = added.concat([for (c in list) if (added.indexOf(c) < 0) c]);
+		for (hook in hooks)
+			hook(this);
+		return this;
+	}
+
+	/** The classes now, its own and those added; read inside a computed, it follows them. **/
+	public function classes():Array<String> {
+		var own = classSignal == null ? fixed : classSignal.get();
+		return added.length == 0 ? own : own.concat(added);
+	}
 
 	/** Whether it has class `name` now. **/
 	public inline function hasClass(name:String):Bool
