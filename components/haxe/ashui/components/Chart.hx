@@ -244,6 +244,255 @@ class ComparisonChart extends Component<ComparisonChartProps> {
 	}
 }
 
+/** One slice of a pie: its label, its value, and its colour, any CSS colour; the palette's next when unset. **/
+typedef PieSlice = {label:String, value:Float, ?color:String};
+
+typedef PieChartProps = {
+	/** The slices, each as large as its share of the total. A signal or computed is followed, its changes animated. **/
+	slices:IntoReactive<Array<PieSlice>>,
+	/** A hole in the middle, as a share of the radius from 0 to 0.9: a donut. None by default. **/
+	?donut:Float,
+	/** In the donut's hole, the total and this word under it: "Visitors". Only with `donut`. **/
+	?total:String,
+	/** 220 by default; the pie is as wide as it is high. **/
+	?height:Float,
+	/** Each slice's colour and label beside the pie; true by default. **/
+	?legend:Bool,
+	/** The slice under the pointer pulled out, its label, value and share in a box; true by default. **/
+	?tooltip:Bool,
+	?format:Float->String,
+	?id:String
+}
+
+/**
+	A whole in slices, each as large as its share, from the top clockwise;
+	a donut with `donut`, its total in the middle with `total`. Hovering
+	pulls the slice out and shows its value and share. The slices sweep in
+	when first drawn and move to new values. CSS: those of `LineChart`, and
+	`.ui-chart-pie-total` and `.ui-chart-pie-caption` in the hole.
+**/
+class PieChart extends Component<PieChartProps> {
+	/** How long a change of values takes to show, in seconds. **/
+	static inline var TRANSITION = 0.7;
+
+	/** How far the slice under the pointer is pulled out, in layout units. **/
+	static inline var PULL = 6.0;
+
+	function render():Element {
+		var slicesIn = props.slices;
+		var slices = Computed.make(() -> (ChartPlot.read(slicesIn) : Array<PieSlice>));
+		var format = props.format != null ? props.format : ChartPlot.compact;
+		var size = props.height != null ? props.height : 220.0;
+		var hole = props.donut != null ? Math.max(0, Math.min(0.9, props.donut)) : 0.0;
+		var hover = Signal.make(-1);
+
+		// Shares move from the ones shown to the new ones; the first time, from nothing, so the pie sweeps in.
+		var from:Array<Float> = [], to:Array<Float> = [];
+		var progress = Signal.make(1.0);
+		var alive = true, running = false;
+		Owner.onCleanup(() -> alive = false);
+		function shares(list:Array<PieSlice>):Array<Float> {
+			var total = 0.0;
+			for (s in list)
+				total += Math.max(0, s.value);
+			return [for (s in list) total > 0 ? Math.max(0, s.value) / total : 0];
+		}
+		function shown(p:Float):Array<Float> {
+			var t = 1 - Math.pow(1 - p, 3);
+			return [for (i in 0...to.length) (i < from.length ? from[i] : 0.0) + (to[i] - (i < from.length ? from[i] : 0.0)) * t];
+		}
+		new Watch(() -> slices.get(), list -> {
+			from = to.length == 0 ? [] : shown(progress.get());
+			to = shares(list);
+			progress.set(0);
+			if (running)
+				return;
+			running = true;
+			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+				if (!alive) {
+					running = false;
+					return false;
+				}
+				var p = Math.min(1, progress.get() + dt / TRANSITION);
+				progress.set(p);
+				if (p >= 1)
+					running = false;
+				return p < 1;
+			});
+		});
+
+		// Colours, read back from each legend swatch, palette class or its own colour, again when it is restyled.
+		var swatches:Array<Null<ashui.css.Identity>> = [];
+		var inks = Signal.make(0);
+		function ink(i:Int):{rgb:Int, alpha:Float} {
+			var s = slices.get()[i];
+			var identity = i < swatches.length ? swatches[i] : null;
+			var text = s != null && s.color != null ? (identity != null ? Css.resolve(identity, s.color) : s.color) : identity == null ? null : Css.resolved(identity,
+				"color");
+			if (text == null || text == "")
+				return {rgb: 0x888888, alpha: 1.0};
+			return switch (try CssValue.color(text) catch (_:Dynamic) CurrentColor) {
+				case Rgba(rgb, a): {rgb: rgb, alpha: a};
+				case CurrentColor: {rgb: 0x888888, alpha: 1.0};
+			}
+		}
+		var surface = Library.part("ui-chart-surface");
+		var surfaceIdentity = Identity.of(surface.tree, surface.node.id);
+		var restyled:Identity->Void = identity -> if (identity == surfaceIdentity || swatches.indexOf(identity) >= 0)
+			inks.set(inks.get() + 1);
+		Css.restyled.push(restyled);
+		Owner.onCleanup(() -> Css.restyled.remove(restyled));
+		function swatch(i:Int):Div {
+			var s = slices.get()[i];
+			var own = s == null ? null : s.color;
+			if (own == null)
+				return Library.part("ui-chart-swatch", null, null, null, null, ['ui-chart-c${i % 5 + 1}']);
+			var box:Null<Div> = null;
+			box = new Div({classes: ["ui-chart-swatch"], bg: Computed.make(() -> {
+				inks.get();
+				var c = box == null ? {rgb: 0x888888, alpha: 1.0} : ink(i);
+				Brush.solid(c.rgb, c.alpha);
+			})});
+			return box;
+		}
+
+		/** Where slice `i` starts and ends, in radians clockwise from the top. **/
+		function angles(list:Array<Float>):Array<{start:Float, end:Float}> {
+			var at = -Math.PI / 2, out = [];
+			for (share in list) {
+				out.push({start: at, end: at + share * Math.PI * 2});
+				at += share * Math.PI * 2;
+			}
+			return out;
+		}
+
+		var canvas:Null<Canvas> = null;
+		function draw(ctx:DrawContext) {
+			inks.get();
+			var w = ctx.width, h = ctx.height;
+			var cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - PULL - 2;
+			if (r <= 0)
+				return;
+			var at = hover.get();
+			var sweep = angles(shown(progress.get()));
+			var gap = switch (try CssValue.color(Css.resolved(surfaceIdentity, "color")) catch (_:Dynamic) CurrentColor) {
+				case Rgba(rgb, a): {rgb: rgb, alpha: a};
+				case CurrentColor: {rgb: 0xffffff, alpha: 1.0};
+			};
+			for (i => a in sweep) {
+				if (a.end - a.start <= 0)
+					continue;
+				var c = ink(i);
+				var mid = (a.start + a.end) / 2, pull = i == at ? PULL : 0.0;
+				var ox = cx + Math.cos(mid) * pull, oy = cy + Math.sin(mid) * pull;
+				var path = new Path();
+				if (hole > 0) {
+					path.arc(ox, oy, r, a.start, a.end);
+					path.arc(ox, oy, r * hole, a.end, a.start, true);
+				} else {
+					path.moveTo(ox, oy);
+					path.arc(ox, oy, r, a.start, a.end);
+				}
+				path.close();
+				ctx.fillPath(path, Brush.solid(c.rgb, c.alpha));
+				// Drawn apart by the surface's colour along their edges.
+				if (sweep.length > 1)
+					ctx.strokePath(path, new Stroke(2, null, Round), Brush.solid(gap.rgb, gap.alpha));
+			}
+		}
+		canvas = new Canvas({draw: draw});
+		canvas.node.set(ashui.layout.Prop.Width, (size : Single));
+		canvas.node.set(ashui.layout.Prop.Height, (size : Single));
+
+		// The slice under the pointer: inside the ring, by its angle.
+		var holder = Library.part("ui-chart-plot", null, null, [canvas, surface]);
+		holder.node.set(ashui.layout.Prop.Width, (size : Single));
+		holder.node.set(ashui.layout.Prop.Height, (size : Single));
+		if (props.tooltip != false) {
+			var interaction = Interaction.of(holder.node);
+			interaction.onPointerMove(e -> {
+				var dx = e.localX - size / 2, dy = e.localY - size / 2, d = Math.sqrt(dx * dx + dy * dy);
+				var r = size / 2 - PULL - 2;
+				var i = -1;
+				if (d <= r + PULL && d >= r * hole) {
+					var angle = Math.atan2(dy, dx);
+					if (angle < -Math.PI / 2)
+						angle += Math.PI * 2;
+					for (k => a in angles(to))
+						if (angle >= a.start && angle < a.end)
+							i = k;
+				}
+				if (hover.get() != i)
+					hover.set(i);
+			});
+			interaction.onPointerLeave(_ -> hover.set(-1));
+		}
+		var overlays:Array<Element> = [];
+		if (hole > 0 && props.total != null) {
+			var label = props.total;
+			var middle = new Div({
+				position: Position.Absolute,
+				left: 0,
+				top: 0,
+				width: size,
+				height: size,
+				flexDirection: FlexDirection.Column,
+				alignItems: Align.Center,
+				justifyContent: Justify.Center
+			}, [
+				Library.part("ui-chart-pie-total", null, null, [new Text(Computed.make(() -> {
+					var total = 0.0;
+					for (s in slices.get())
+						total += Math.max(0, s.value);
+					format(total);
+				}))]),
+				Library.part("ui-chart-pie-caption", null, null, [new Text(label)])
+			]);
+			holder.tree.setPassThrough(middle.node.id, true);
+			holder.appendChild(middle);
+		}
+		if (props.tooltip != false) {
+			var tip = Library.part("ui-chart-tooltip", null, null, [
+				Library.part("ui-chart-tooltip-row", null, null, [
+					Library.part("ui-chart-tooltip-name", null, null, [new Text(Computed.make(() -> {
+						var s = slices.get()[hover.get()];
+						s == null ? "" : s.label;
+					}))]),
+					Library.part("ui-chart-tooltip-value", null, null, [new Text(Computed.make(() -> {
+						var s = slices.get()[hover.get()];
+						var share = hover.get() >= 0 && hover.get() < to.length ? to[hover.get()] : 0.0;
+						s == null ? "" : format(s.value) + " · " + Math.round(share * 100) + "%";
+					}))])
+				])
+			]);
+			var place = new Div({
+				position: Position.Absolute,
+				left: Computed.make(() -> {
+					var a = angles(to)[hover.get()];
+					a == null ? (0 : Single) : ((size / 2 + Math.cos((a.start + a.end) / 2) * size * 0.32 - 40 : Float) : Single);
+				}),
+				top: Computed.make(() -> {
+					var a = angles(to)[hover.get()];
+					a == null ? (0 : Single) : ((size / 2 + Math.sin((a.start + a.end) / 2) * size * 0.32 - 16 : Float) : Single);
+				}),
+				display: Computed.make(() -> hover.get() >= 0 ? Display.Flex : Display.None)
+			}, [tip]);
+			holder.tree.setPassThrough(place.node.id, true);
+			holder.appendChild(place);
+		}
+		var legend = Library.part("ui-chart-legend", null, ["hidden" => (props.legend == false ? "" : null : Null<String>)], [
+			new For(() -> [for (i in 0...slices.get().length) i], i -> {
+				var box = swatch(i);
+				swatches[i] = Identity.of(box.tree, box.node.id);
+				Owner.onCleanup(() -> if (swatches[i] == Identity.of(box.tree, box.node.id)) swatches[i] = null);
+				inks.set(inks.get() + 1);
+				Library.part("ui-chart-legend-item", null, null, [box, new Text(Computed.make(() -> slices.get()[i] == null ? "" : slices.get()[i].label))]);
+			})
+		]);
+		return Library.part("ui-chart", null, ["kind" => "pie"], [holder, legend], props.id);
+	}
+}
+
 /** What a chart draws for its series. **/
 enum ChartMark {
 	/** Lines, filled to the axis when `area`. **/

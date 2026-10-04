@@ -9,7 +9,7 @@ import ashui.ui.Hxx.hxx;
 /**
 	Every chart, each in a card, after shadcn's chart pages: an area chart
 	of two stacked series, a line chart with dots, grouped and horizontal
-	bars, sparklines in a row of figures, frame times over their budgets, a
+	bars, a pie and a donut, sparklines in a row of figures, frame times over their budgets, a
 	histogram with a noise floor, and baseline against current timings.
 	Writes `.ashui/snapshots/charts.png` (`charts-light` with
 	`SCHEME=light`).
@@ -31,6 +31,10 @@ class ChartsGallery {
 		];
 		var frames = [12.5, 13.2, 14.8, 15.1, 14.5, 16.2, 15.8, 17.4, 18.2, 19.5, 18.8, 20.1, 22.5, 24.8, 28.2, 25.5];
 		var diffs = [for (i in 0...500) i < 350 ? Math.abs(Math.sin(i * 0.01)) * 3 : i < 450 ? 3 + Math.abs(Math.cos(i * 0.05)) * 8 : 10 + Math.abs(Math.sin(i * 0.1)) * 20];
+		var browsers:Array<PieSlice> = [
+			{label: "Chrome", value: 275}, {label: "Safari", value: 200}, {label: "Firefox", value: 187}, {label: "Edge", value: 173},
+			{label: "Other", value: 90}
+		];
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
 		var ms = (v:Float) -> Std.string(Math.round(v * 10) / 10) + "ms";
 		var build = () -> hxx('
@@ -53,6 +57,16 @@ class ChartsGallery {
 					<card width={454}>
 						<card-header><card-title>Bar chart, horizontal</card-title><card-description>Framework popularity</card-description></card-header>
 						<card-content><bar-chart series={[{name: "Votes", values: [85, 65, 45, 40]}]} labels={["React", "Vue", "Svelte", "Angular"]} horizontal={true} height={180} /></card-content>
+					</card>
+				</div>
+				<div flexDirection={Row} gap={24}>
+					<card width={454}>
+						<card-header><card-title>Pie chart</card-title><card-description>Browser share</card-description></card-header>
+						<card-content><pie-chart slices={browsers} height={200} /></card-content>
+					</card>
+					<card width={454}>
+						<card-header><card-title>Donut chart</card-title><card-description>Visitors by browser, the total in the middle</card-description></card-header>
+						<card-content><pie-chart slices={browsers} donut={0.6} total="Visitors" height={200} /></card-content>
 					</card>
 				</div>
 				<card>
@@ -81,6 +95,6 @@ class ChartsGallery {
 				</div>
 			</div>
 		');
-		Snapshot.scene(light ? "charts-light" : "charts", 980, 1580, build, page.rgb(), page.a, 2.0, 1.0);
+		Snapshot.scene(light ? "charts-light" : "charts", 980, 1940, build, page.rgb(), page.a, 2.0, 1.0);
 	}
 }

@@ -775,6 +775,27 @@ class Components {
 		var legend = [for (id in chFind("ui-chart-legend-item")) chText(id)].join(",");
 		check("a chart of more than one series has a legend of their names", legend == "Desktop,Mobile", legend);
 
+		// --- Pie chart: the slice under the pointer, by its angle, its label, value and share in the tooltip ---
+		var pieTree = new LayoutTree();
+		var pieRoot:Div = Owner.root(pieTree, _ -> hxx('<div width={300} height={300}><pie-chart slices={[{label: "A", value: 3.0}, {label: "B", value: 1.0}]} height={200} legend={false} /></div>'));
+		for (_ in 0...60) {
+			ashui.animation.AnimationScheduler.main.tick(1 / 60);
+			pieTree.flush();
+			pieTree.computeLayout(pieRoot.node, 300, 300);
+			pieTree.flush();
+		}
+		var piePlot = Lambda.find(pieTree.order(), n -> identity2(pieTree, n) != null && identity2(pieTree, n).hasClass("ui-chart-plot"));
+		var pb = pieTree.getBounds(new ashui.layout.Node(piePlot));
+		// A, three quarters from the top clockwise, holds the right side; B, the last quarter, the upper left.
+		ashui.input.Pointer.move(pieTree, pb.x + pb.width * 0.8, pb.y + pb.height * 0.5);
+		pieTree.flush();
+		var pieTip = Lambda.find(pieTree.order(), n -> identity2(pieTree, n) != null && identity2(pieTree, n).hasClass("ui-chart-tooltip-value"));
+		var tipA = ashui.ui.Text.at(pieTree.children(pieTip)[0]).text();
+		ashui.input.Pointer.move(pieTree, pb.x + pb.width * 0.3, pb.y + pb.height * 0.3);
+		pieTree.flush();
+		var tipB = ashui.ui.Text.at(pieTree.children(pieTip)[0]).text();
+		check("a pie chart's tooltip names the slice under the pointer, its value and share", tipA == "3 · 75%" && tipB == "1 · 25%", [tipA, tipB]);
+
 		// --- ref= on a component holds the component itself, typed as its class ---
 		var cardRef = new ashui.ui.Ref<Card>();
 		var refTree = new LayoutTree();
