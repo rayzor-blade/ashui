@@ -34,6 +34,9 @@ pub struct Tree {
     /// Nodes that draw an image in their content box: an SVG or a bitmap,
     /// named by a slot the caller resolves after the walk.
     pub(crate) images: HashMap<LayoutNodeId, i32>,
+    /// Nodes that paint with the GPU themselves in their content box, named
+    /// by a slot the caller resolves while the frame is drawn.
+    pub(crate) canvases: HashMap<LayoutNodeId, i32>,
     /// Scroll containers: how far their content is scrolled, and their thumb.
     pub(crate) scrolls: HashMap<LayoutNodeId, Scroll>,
     /// Nodes the hit test passes through, with everything inside them, as CSS's `pointer-events: none`.
@@ -82,6 +85,7 @@ fn shared() -> &'static mut Tree {
             pruned: false,
             owners: HashMap::new(),
             images: HashMap::new(),
+            canvases: HashMap::new(),
             scrolls: HashMap::new(),
             pass_through: std::collections::HashSet::new(),
             notches: HashMap::new(),
@@ -135,6 +139,7 @@ fn release_handle(tree: &mut Tree, handle: u64) {
         tree.layout.remove_node(node);
         tree.props.remove(&node);
         tree.images.remove(&node);
+        tree.canvases.remove(&node);
         tree.scrolls.remove(&node);
     }
 }
@@ -504,6 +509,8 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
             .retain(|node, _| layout.get_style(*node).is_some());
         tree.images
             .retain(|node, _| layout.get_style(*node).is_some());
+        tree.canvases
+            .retain(|node, _| layout.get_style(*node).is_some());
         tree.scrolls
             .retain(|node, _| layout.get_style(*node).is_some());
     }
@@ -671,6 +678,24 @@ pub unsafe extern "C" fn hl_blinc_tree_set_image(h: *mut c_void, node: u64, slot
 define_prim!(
     hlp_blinc_tree_set_image,
     hl_blinc_tree_set_image,
+    "PXblinc_tree_li_v"
+);
+
+/// Makes `node` paint itself in its content box, as the canvas the caller
+/// knows as `slot`; a negative `slot` stops it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_set_canvas(h: *mut c_void, node: u64, slot: i32) {
+    if let Some(tree) = unsafe { tree(h) } {
+        if slot < 0 {
+            tree.canvases.remove(&id(node));
+        } else {
+            tree.canvases.insert(id(node), slot);
+        }
+    }
+}
+define_prim!(
+    hlp_blinc_tree_set_canvas,
+    hl_blinc_tree_set_canvas,
     "PXblinc_tree_li_v"
 );
 

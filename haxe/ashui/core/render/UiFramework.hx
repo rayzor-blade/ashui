@@ -36,8 +36,13 @@ class UiFramework extends Extension {
 		"fadeBounds", "fade", "shapeFrame", "shapeRest", "shape", "notchCorners", "notchTop", "notchBottom"
 	];
 
-	/** Applies this extension to every `UiShader`; called from a `--macro`. **/
+	/**
+		Applies this extension to every `UiShader`; called from a `--macro`.
+		Defines `ashui_gpu`, which marks a build that draws: code outside the
+		renderer, a canvas's paint, types its GPU parts by it.
+	**/
 	public static function register() {
+		haxe.macro.Compiler.define("ashui_gpu");
 		Extensions.register(new UiFramework(), "ashui.core.render.UiShader");
 	}
 
@@ -133,6 +138,25 @@ class UiFramework extends Extension {
 				leaves. Its frame takes `p` into the element's coordinates; its
 				shape is an ellipse, a rounded rect or a polygon.
 			**/
+			/**
+				For a shader a canvas paints with, drawn with the canvas's
+				record as its instance: the canvas's clips, edge fades,
+				clip-path and opacity at `p`, a screen position, as boxes and
+				images are clipped.
+			**/
+			function canvasClip(p : Vec2) : Float {
+				var b = primitive.bounds;
+				var m = primitive.affine;
+				var d = p - b.xy;
+				var local = vec2(m.w * d.x - m.z * d.y, m.x * d.y - m.y * d.x) / (m.x * m.w - m.z * m.y);
+				var aa = halfPixel(local);
+				return clipCoverage(p, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
+					* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa)
+					* fadeCoverage(p, primitive.fadeBounds, primitive.fade)
+					* shapeCoverage(p)
+					* primitive.color2.a;
+			}
+
 			function shapeCoverage(p : Vec2) : Float {
 				var frame = primitive.shapeFrame;
 				var rest = primitive.shapeRest;

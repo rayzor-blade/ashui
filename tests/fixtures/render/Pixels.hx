@@ -336,6 +336,35 @@ class Pixels {
 		probe("fades out away from it", 8, 32, (r, g, b) -> r > 250 && g > 250 && b > 250);
 		probe("its corner is softer than its edge's middle", 25, 25, (r, g, b) -> g > 100);
 
+		// A canvas painting with its own shader over more than its box: the scissor and canvasClip keep it to its box and its parent's rounded clip.
+		var canvasTree = new LayoutTree();
+		var painted = 0;
+		var canvasRoot:Div = ashui.reactive.Owner.root(canvasTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				paint: pass -> {
+					painted++;
+					pass.draw(pass.pass(CanvasProbeShader.WGSL), 6);
+				}
+			});
+			canvas.node.set(Prop.Width, (40 : Single));
+			canvas.node.set(Prop.Height, (40 : Single));
+			var rounded = new Div({
+				position: Position.Absolute, left: 8, top: 8, width: 48, height: 32, cornerRadius: CornerRadius.all(12), overflow: Overflow.Clip
+			}, [canvas]);
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [rounded]);
+		});
+		pixels = offscreen.renderToRgba8(canvasRoot, SIZE, SIZE);
+		label = "canvas: ";
+		probe("its own shader paints its box", 28, 24, near(0xff0000));
+		probe("its quad, larger than its box, is cut at the box's right edge", 52, 24, near(0xffffff));
+		probe("and at its parent's bottom edge", 28, 44, near(0xffffff));
+		probe("and its parent's rounded corner", 9, 9, near(0xffffff));
+		probe("but not inside the corner's curve", 14, 14, near(0xff0000));
+		probe("outside, the page", 4, 60, near(0xffffff));
+		Sys.println('${painted > 0 ? "ok  " : "FAIL"} canvas: its paint ran: $painted');
+		if (painted == 0)
+			failures++;
+
 		// CSS backdrop-filter: a black stripe under a frosted box blurs; outside it, the stripe stays sharp.
 		var frostSheet = ashui.css.Css.load('.frost { backdrop-filter: blur(4px); background: rgba(255, 255, 255, 0); }');
 		var frostTree = new LayoutTree();

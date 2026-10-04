@@ -104,6 +104,19 @@ class Smoke {
 		check("a line is font-size times line-height: 1.2 by default, 1.5 when set", Math.abs(plainH - 24) < 0.5 && Math.abs(tallH - 30) < 0.5,
 			[plainH, tallH]);
 
+		// --- A canvas asks for a frame when it repaints, and is 300 by 150 unless sized ---
+		var canvasTree = new LayoutTree();
+		var canvasEl:Null<ashui.ui.Canvas> = null;
+		var canvasRoot:Div = Owner.root(canvasTree, _ -> new Div({flexDirection: Column, alignItems: Start}, [canvasEl = new ashui.ui.Canvas({})], canvasTree));
+		canvasTree.flush();
+		canvasTree.computeLayout(canvasRoot.node, 800, 600);
+		var idle = canvasTree.flush();
+		canvasEl.repaint();
+		var asked = canvasTree.flush();
+		var cb = canvasTree.getBounds(canvasEl.node);
+		check("a canvas's repaint makes the next flush report a change, and it is 300 by 150 unless sized",
+			!idle && asked && cb.width == 300 && cb.height == 150, [idle, asked, cb.width, cb.height]);
+
 		// --- Text bound to a computed string is measured again when it changes ---
 		var clicks = Signal.make(1);
 		var counter = new Text(clicks.computed(c -> 'Value: $c'), tree);

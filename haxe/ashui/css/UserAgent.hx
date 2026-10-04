@@ -125,6 +125,9 @@ class UserAgent {
 		/* A thematic break: a rule across what holds it. */
 		hr { height: 1px; flex-shrink: 0; align-self: stretch; margin: 8px 0; background: var(--border); }
 
+		/* A canvas, 300 by 150 unless sized, as HTML has it. */
+		canvas { width: 300px; height: 150px; flex-shrink: 0; }
+
 		/* Buttons: a press shrinks them a little. */
 		button {
 			flex-direction: row; align-items: center; justify-content: center; gap: 6px;

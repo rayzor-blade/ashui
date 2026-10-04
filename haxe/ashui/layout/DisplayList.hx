@@ -40,6 +40,9 @@ class DisplayList {
 	public static inline var PRIM_TEXT = 7;
 	/** An image in a node's content box, which the renderer looks up in its image atlas. **/
 	public static inline var PRIM_IMAGE = 32;
+
+	/** Where a canvas paints with the GPU itself: its content box, with its clips; `gradient.x` is its slot, `gradient.y` its scale on screen. **/
+	public static inline var PRIM_CANVAS = 33;
 	/** The records after it, to its `PRIM_LAYER`, draw into a layer of their own. **/
 	public static inline var PRIM_LAYER_BEGIN = 40;
 	/** Composites the layer begun last over its bounds, faded by its colour's alpha. **/

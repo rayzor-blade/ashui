@@ -84,6 +84,10 @@ pub const PRIM_SHADOW: f32 = 3.0;
 pub const PRIM_TEXT: f32 = 7.0;
 /// ashui's own: Blinc draws images in a pass of their own.
 pub const PRIM_IMAGE: f32 = 32.0;
+/// ashui's own: where a canvas paints with the GPU itself, over its content
+/// box, with its clips; `gradient.x` is its slot, `gradient.y` the scale it
+/// is drawn at on screen.
+pub const PRIM_CANVAS: f32 = 33.0;
 /// The records after it, up to its `PRIM_LAYER`, are drawn into a layer of
 /// their own: a group with opacity, as CSS composites one.
 pub const PRIM_LAYER_BEGIN: f32 = 40.0;
@@ -908,8 +912,12 @@ pub fn append(
         }
     }
 
-    if let Some(&slot) = tree.images.get(&node) {
-        // An image is clipped to its own rounded corners, as an `<img>` is.
+    // An image or a canvas is clipped to its own rounded corners, as an `<img>` is.
+    let content = [(tree.images.get(&node), PRIM_IMAGE), (tree.canvases.get(&node), PRIM_CANVAS)];
+    for (found, kind) in content {
+        let Some(&slot) = found else {
+            continue;
+        };
         let rounded = tree.props.get(&node).filter(|p| {
             let r = p.border_radius;
             r.top_left > 0.0 || r.top_right > 0.0 || r.bottom_right > 0.0 || r.bottom_left > 0.0
@@ -918,9 +926,9 @@ pub fn append(
             Some(p) => {
                 let mut own = clips.clone();
                 own.push(own_box(p, [x, y, w, h], m, &glyphs.shapes));
-                image_record(tree, node, slot, (x, y), opacity, color, m, &own, glyphs.display_scale, out);
+                image_record(tree, node, kind, slot, (x, y), opacity, color, m, &own, glyphs.display_scale, out);
             }
-            None => image_record(tree, node, slot, (x, y), opacity, color, m, clips, glyphs.display_scale, out),
+            None => image_record(tree, node, kind, slot, (x, y), opacity, color, m, clips, glyphs.display_scale, out),
         }
     }
     if let Some(context) = tree.layout.text_context(node) {
@@ -1225,7 +1233,7 @@ fn painted_at_least(tree: &Tree, node: LayoutNodeId, n: usize) -> bool {
                 *found += 1;
             }
         }
-        if tree.layout.text_context(node).is_some() || tree.images.contains_key(&node) {
+        if tree.layout.text_context(node).is_some() || tree.images.contains_key(&node) || tree.canvases.contains_key(&node) {
             *found += 1;
         }
         for child in tree.layout.children(node) {
@@ -1380,12 +1388,14 @@ fn text_records(
     }
 }
 
-/// The record of an image drawn in the content box of a node laid out at
-/// `(x, y)`; an SVG's `currentColor` is `tint`, the node's text colour.
+/// The record, of `kind`, of an image or a canvas drawn in the content box
+/// of a node laid out at `(x, y)`; an SVG's `currentColor` is `tint`, the
+/// node's text colour.
 #[allow(clippy::too_many_arguments)]
 fn image_record(
     tree: &Tree,
     node: LayoutNodeId,
+    kind: f32,
     slot: i32,
     (x, y): (f32, f32),
     opacity: f32,
@@ -1406,7 +1416,7 @@ fn image_record(
     if w <= 0.0 || h <= 0.0 || opacity <= 0.0 {
         return;
     }
-    let mut rec = Primitive::new(PRIM_IMAGE, [0.0, 0.0, w, h], [0.0; 4]);
+    let mut rec = Primitive::new(kind, [0.0, 0.0, w, h], [0.0; 4]);
     rec.color = [tint[0], tint[1], tint[2], tint[3] * opacity];
     rec.color2 = [1.0, 1.0, 1.0, opacity];
     let on_screen = display_scale * (m[0] * m[3] - m[1] * m[2]).abs().sqrt();

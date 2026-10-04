@@ -59,6 +59,7 @@ extern class LayoutTreeNative {
 
 	/** Makes `node` draw image `slot`, which the renderer resolves, in its content box; a negative slot stops it. **/
 	static function blinc_tree_set_image(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
+	static function blinc_tree_set_canvas(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
 
 	/**
 		Writes the nodes under `(x, y)`, the topmost first and then its

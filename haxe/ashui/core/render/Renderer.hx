@@ -91,12 +91,16 @@ class Renderer {
 	/** A composite record's drop shadow colour's alpha, `via.a`: none at 0. **/
 	static inline var SHADOW_ALPHA_FIELD = 55;
 
+	/** An image's or a canvas's slot, `gradient.x`. **/
+	static inline var GRADIENT_FIELD = 40;
+
 	/** Layer textures by depth, from 1, the target's size, each with its bind group for `layerPass`. **/
 	final layers:Array<Layer> = [];
 	var imageRevision = -1;
 	/** The atlas revisions `text`'s bind group holds views of. **/
 	var textRevisions = "";
 	var records:Null<GpuTexture> = null;
+	var recordsView:Null<GpuTextureView> = null;
 	/** Rows of the records texture, `DisplayList.RECORDS_PER_ROW` records each. **/
 	var recordRows = 0;
 	final passes:Array<Pass> = [];
@@ -152,6 +156,21 @@ class Renderer {
 		// Only a shader that reads records gets their bind group: the blit reads none.
 		if (wgsl.indexOf("var records") >= 0)
 			passes.push(made);
+		return made;
+	}
+
+	/** Pipelines made for canvases' shaders, by their WGSL. **/
+	final canvasPasses = new Map<String, Pass>();
+
+	/** A pipeline for a canvas's `UiShader`: alpha-blended into the frame's targets, the frame uniforms and records bound; made once. **/
+	public function uiPass(wgsl:String):Pass {
+		var made = canvasPasses.get(wgsl);
+		if (made == null) {
+			canvasPasses.set(wgsl, made = pass(wgsl, format));
+			// Its records bind group, made now for a texture already there; `reserve` remakes it with the texture.
+			if (records != null)
+				bindRecords(made);
+		}
 		return made;
 	}
 
@@ -297,6 +316,11 @@ class Renderer {
 					start++;
 					continue;
 				}
+				if (kind == DisplayList.PRIM_CANVAS) {
+					paintCanvas(encoder, list, start, width, height, layerWidth, layerHeight);
+					start++;
+					continue;
+				}
 				var end = start + 1;
 				while (end < list.count && list.kind(end) == kind)
 					end++;
@@ -320,6 +344,49 @@ class Renderer {
 		encoder.submit(queue);
 		failOnError("drawing");
 	}
+
+	/**
+		Hands the pass to the canvas of the record at `at`, scissored to its
+		clipped box, then sets the scissor back to the whole target. Nothing
+		else needs restoring: each run sets its own pipeline and bindings.
+	**/
+	function paintCanvas(encoder:GpuEncoder, list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int):Void {
+		var canvas = ashui.ui.Canvas.at(Std.int(list.get(at, GRADIENT_FIELD)));
+		if (canvas == null)
+			return;
+		inline function f(row:Int, i:Int)
+			return list.get(at, row * 4 + i);
+		var w = f(0, 2), h = f(0, 3);
+		var transform = new ashui.draw.Affine(f(15, 0), f(15, 1), f(15, 2), f(15, 3), f(0, 0), f(0, 1));
+		// The box on screen, cut by the screen clip and the local one, bit 1 and bit 2 of the clips.
+		var box = bounding(transform, 0, 0, w, h);
+		var clips = Std.int(f(11, 2));
+		if (clips & 1 != 0)
+			box = intersect(box, [f(8, 0), f(8, 1), f(8, 0) + f(8, 2), f(8, 1) + f(8, 3)]);
+		if (clips & 2 != 0)
+			box = intersect(box, bounding(transform, f(6, 0), f(6, 1), f(6, 2), f(6, 3)));
+		var ratio = targetWidth / width;
+		var x0 = Std.int(Math.max(0, Math.floor(box[0] * ratio))), y0 = Std.int(Math.max(0, Math.floor(box[1] * ratio)));
+		var x1 = Std.int(Math.min(targetWidth, Math.ceil(box[2] * ratio))), y1 = Std.int(Math.min(targetHeight, Math.ceil(box[3] * ratio)));
+		if (x1 <= x0 || y1 <= y0)
+			return;
+		encoder.renderSetScissorRect(x0, y0, x1 - x0, y1 - y0);
+		canvas.paintWith(new CanvasPass(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0]));
+		encoder.renderSetScissorRect(0, 0, targetWidth, targetHeight);
+	}
+
+	/** The box `[left, top, right, bottom]` around the rect `x, y, w, h` through `m`. **/
+	static function bounding(m:ashui.draw.Affine, x:Float, y:Float, w:Float, h:Float):Array<Float> {
+		var xs = [m.x(x, y), m.x(x + w, y), m.x(x, y + h), m.x(x + w, y + h)];
+		var ys = [m.y(x, y), m.y(x + w, y), m.y(x, y + h), m.y(x + w, y + h)];
+		return [
+			Math.min(Math.min(xs[0], xs[1]), Math.min(xs[2], xs[3])), Math.min(Math.min(ys[0], ys[1]), Math.min(ys[2], ys[3])),
+			Math.max(Math.max(xs[0], xs[1]), Math.max(xs[2], xs[3])), Math.max(Math.max(ys[0], ys[1]), Math.max(ys[2], ys[3]))
+		];
+	}
+
+	static function intersect(a:Array<Float>, b:Array<Float>):Array<Float>
+		return [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])];
 
 	function drawRun(encoder:GpuEncoder, pass:Pass, first:Int, count:Int):Void {
 		encoder.renderSetPipeline(pass.pipeline);
@@ -420,15 +487,19 @@ class Renderer {
 		var size = new GpuExtent3D(DisplayList.ROW_TEXELS);
 		size.height(recordRows);
 		records = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
-		var view = records.createView(new GpuTextureViewDescriptor());
-		for (pass in passes) {
-			if (pass.records != null)
-				pass.records.destroy();
-			var bindings = new GpuBindings();
-			bindings.texture(view);
-			pass.records = device.bindGroup(pass.pipeline, BoxShader.TEXTURE_records_GROUP, bindings);
-			bindings.destroy();
-		}
+		recordsView = records.createView(new GpuTextureViewDescriptor());
+		for (pass in passes)
+			bindRecords(pass);
+	}
+
+	/** Binds `pass` to the records texture as it is now. **/
+	function bindRecords(pass:Pass):Void {
+		if (pass.records != null)
+			pass.records.destroy();
+		var bindings = new GpuBindings();
+		bindings.texture(recordsView);
+		pass.records = device.bindGroup(pass.pipeline, BoxShader.TEXTURE_records_GROUP, bindings);
+		bindings.destroy();
 	}
 
 	/** wgpu reports validation errors on the device, not by throwing. **/
@@ -463,7 +534,8 @@ private typedef Layer = {
 	final height:Int;
 }
 
-private typedef Pass = {
+/** A pipeline and its bind groups: the frame uniforms, and the records texture for a shader that reads records. **/
+typedef Pass = {
 	final pipeline:GpuPipeline;
 	var group:Null<GpuBindGroup>;
 	/** The pass's own bind group of the records texture: an inferred layout is one pipeline's. **/
