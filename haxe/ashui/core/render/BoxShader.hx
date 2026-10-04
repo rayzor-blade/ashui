@@ -174,13 +174,22 @@ class BoxShader implements UiShader {
 			var p = local;
 			var origin = vec2(0., 0.);
 			var size = box.xy;
-			var d = sdShapedRect(p, origin, size, primitive.cornerRadius, primitive.cornerShape);
+			var d = boxDistance(p, size, primitive.cornerRadius, primitive.cornerShape, primitive.notchCorners, primitive.notchTop, primitive.notchBottom);
+			var notched = isNotch(primitive.notchCorners, primitive.notchTop, primitive.notchBottom);
 			var coverage = 1. - smoothstep(-aa, aa, d);
 			if (coverage < 0.001)
 				discard;
 			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, fillType);
-			fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
-				primitive.borderTop, primitive.borderRight, primitive.borderBottom, primitive.borderLeft, aa);
+			if (notched) {
+				// A notch's border follows its outline at one width, the top side's, in the top side's colour.
+				var width = primitive.border.x;
+				if (width > 0.) {
+					var ring = smoothstep(-aa, aa, d + width);
+					fill = mix(fill, vec4(primitive.borderTop.rgb, primitive.borderTop.a), ring * primitive.borderTop.a);
+				}
+			} else
+				fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
+					primitive.borderTop, primitive.borderRight, primitive.borderBottom, primitive.borderLeft, aa);
 			output.color = vec4(fill.rgb, fill.a * clip * coverage);
 		}
 	};

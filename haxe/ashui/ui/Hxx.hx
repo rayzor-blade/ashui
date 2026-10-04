@@ -571,6 +571,8 @@ class Hxx {
 		return switch attribute {
 			case Regular(name, value) if (inputSetter(el, name.value, value) != null):
 				inputSetter(el, name.value, value);
+			case Regular(name, value) if (name.value == 'notch' && tag == '<div>'):
+				macro @:pos(value.pos) ashui.ui.Div.bindNotch($i{el}, $value);
 			case Regular(name, value):
 				var key = name.value == 'bg' ? 'Background' : name.value.charAt(0).toUpperCase() + name.value.substr(1);
 				var keyExpr = macro @:pos(name.pos) ashui.layout.Prop.$key;

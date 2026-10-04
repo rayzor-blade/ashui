@@ -223,6 +223,18 @@ class Pixels {
 		probe("almost gone at the end", 55, 30, (r, g, b) -> r > 240 && g > 230);
 		probe("and what it holds masked with it", 46, 12, (r, g, b) -> b > 240 && r > 150 && r < 240);
 
+		// A notch: concave top corners of 10, so its body starts 10 down, flaring out to the box's edge there.
+		var notchTree = new LayoutTree();
+		var notched = new Div({position: Position.Absolute, left: 8, top: 8, width: 48, height: 40, bg: Brush.solid(0xff0000),
+			notch: ashui.types.Notch.concaveTop(10)}, notchTree);
+		var notchRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [notched], notchTree);
+		pixels = offscreen.renderToRgba8(notchRoot, SIZE, SIZE);
+		label = "notch: ";
+		probe("nothing above the body, where the corners' radius insets it", 30, 12, near(0xffffff));
+		probe("the flare, out at the box's edge just below the body's top", 14, 19, near(0xff0000));
+		probe("the concave bite under the flare", 9, 27, near(0xffffff));
+		probe("the body", 30, 34, near(0xff0000));
+
 		var shapeTree = new LayoutTree();
 		var inCircle = new Div({width: 24, height: 24, bg: Brush.solid(0xff0000)}, shapeTree);
 		var circled = new Div({position: Position.Absolute, left: 4, top: 4, width: 24, height: 24}, [inCircle], shapeTree);

@@ -17,7 +17,7 @@ import ashui.core.externs.LayoutTreeNative;
 **/
 class DisplayList {
 	/** The floats in a record. **/
-	public static inline var RECORD_FLOATS = 100;
+	public static inline var RECORD_FLOATS = 112;
 	public static inline var RECORD_BYTES = RECORD_FLOATS * 4;
 	public static inline var RECORD_ROWS = RecordLayout.RECORD_ROWS;
 	public static inline var ROW_TEXELS = RecordLayout.ROW_TEXELS;

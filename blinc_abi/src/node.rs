@@ -38,6 +38,8 @@ pub struct Tree {
     pub(crate) scrolls: HashMap<LayoutNodeId, Scroll>,
     /// Nodes the hit test passes through, with everything inside them, as CSS's `pointer-events: none`.
     pub(crate) pass_through: std::collections::HashSet<LayoutNodeId>,
+    /// Nodes drawn as a notch: signed corner radii, then the top and bottom edges' modifiers.
+    pub(crate) notches: HashMap<LayoutNodeId, [[f32; 4]; 3]>,
 }
 
 /// A scroll container's state, which the paint walk and the hit test read.
@@ -75,6 +77,7 @@ fn shared() -> &'static mut Tree {
             images: HashMap::new(),
             scrolls: HashMap::new(),
             pass_through: std::collections::HashSet::new(),
+            notches: HashMap::new(),
         })
     }
 }
@@ -725,6 +728,31 @@ pub unsafe extern "C" fn hl_blinc_tree_text_align(h: *mut c_void, node: u64) -> 
     }
 }
 define_prim!(hlp_blinc_tree_text_align, hl_blinc_tree_text_align, "PXblinc_tree_l_i");
+
+/// Draws `node` as a notch, from twelve f32s in `data`: its corner radii,
+/// top-left, top-right, bottom-right, bottom-left, each negative for a
+/// concave corner, then its top and bottom edges, each (kind, width, height,
+/// corner radius) with kind 0 none, 1 scoop, 2 bulge, 3 cut, 4 peak. A null
+/// `data` draws it as a box again.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_set_notch(h: *mut c_void, node: u64, data: *const vbyte) {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return;
+    };
+    if data.is_null() {
+        tree.notches.remove(&id(node));
+        return;
+    }
+    let f = data as *const f32;
+    let mut rows = [[0.0f32; 4]; 3];
+    for (i, row) in rows.iter_mut().enumerate() {
+        for (j, v) in row.iter_mut().enumerate() {
+            *v = unsafe { f.add(i * 4 + j).read_unaligned() };
+        }
+    }
+    tree.notches.insert(id(node), rows);
+}
+define_prim!(hlp_blinc_tree_set_notch, hl_blinc_tree_set_notch, "PXblinc_tree_lB_v");
 
 /// Makes the hit test pass through `node` and everything inside it, or not.
 #[unsafe(no_mangle)]

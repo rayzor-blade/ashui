@@ -33,7 +33,7 @@ class UiFramework extends Extension {
 	public static final FIELDS = [
 		"bounds", "cornerRadius", "color", "color2", "border", "borderColor", "shadow", "shadowColor", "clipBounds", "clipRadius", "gradient",
 		"typeInfo", "cornerShape", "via", "stops", "affine", "borderTop", "borderRight", "borderBottom", "borderLeft",
-		"fadeBounds", "fade", "shapeFrame", "shapeRest", "shape"
+		"fadeBounds", "fade", "shapeFrame", "shapeRest", "shape", "notchCorners", "notchTop", "notchBottom"
 	];
 
 	/** Applies this extension to every `UiShader`; called from a `--macro`. **/

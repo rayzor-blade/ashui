@@ -56,7 +56,12 @@ class BackdropShader implements UiShader {
 			var clips = primitive.typeInfo.z;
 			var n = primitive.typeInfo.w;
 			var box = primitive.bounds.zw;
-			var d = sdShapedRect(local, vec2(0., 0.), box, primitive.cornerRadius, primitive.cornerShape);
+			var radius = primitive.cornerRadius;
+			var shape = primitive.cornerShape;
+			var nc = primitive.notchCorners;
+			var nt = primitive.notchTop;
+			var nb = primitive.notchBottom;
+			var d = boxDistance(local, box, radius, shape, nc, nt, nb);
 			var cover = (1. - smoothstep(-aa, aa, d))
 				* clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, clips, n)
 				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, clips, n, aa)
@@ -72,10 +77,8 @@ class BackdropShader implements UiShader {
 			var offset = vec2(0., 0.);
 			if (liquid) {
 				var e = 0.5;
-				var gx = sdShapedRect(local + vec2(e, 0.), vec2(0., 0.), box, primitive.cornerRadius, primitive.cornerShape)
-					- sdShapedRect(local - vec2(e, 0.), vec2(0., 0.), box, primitive.cornerRadius, primitive.cornerShape);
-				var gy = sdShapedRect(local + vec2(0., e), vec2(0., 0.), box, primitive.cornerRadius, primitive.cornerShape)
-					- sdShapedRect(local - vec2(0., e), vec2(0., 0.), box, primitive.cornerRadius, primitive.cornerShape);
+				var gx = boxDistance(local + vec2(e, 0.), box, radius, shape, nc, nt, nb) - boxDistance(local - vec2(e, 0.), box, radius, shape, nc, nt, nb);
+				var gy = boxDistance(local + vec2(0., e), box, radius, shape, nc, nt, nb) - boxDistance(local - vec2(0., e), box, radius, shape, nc, nt, nb);
 				var m = primitive.affine;
 				var g = vec2(m.x * gx + m.z * gy, m.y * gx + m.w * gy);
 				normal = g / max(length(g), 0.0001);

@@ -103,6 +103,172 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			return d;
 		}
 
+		/** Distance to a record's box of `size` from the origin: its notch when it has one (see `sdNotch`), else its shaped, rounded box. **/
+		function boxDistance(p : Vec2, size : Vec2, radius : Vec4, shape : Vec4, corners : Vec4, top : Vec4, bottom : Vec4) : Float {
+			var d = 0.;
+			if (isNotch(corners, top, bottom))
+				d = sdNotch(p, size, corners, top, bottom);
+			else
+				d = sdShapedRect(p, vec2(0., 0.), size, radius, shape);
+			return d;
+		}
+
+		/** Distance to the ellipse about `c` of radii `radii`, scaled by its smaller radius. **/
+		function sdEllipseAt(p : Vec2, c : Vec2, radii : Vec2) : Float {
+			return (length((p - c) / max(radii, vec2(0.001, 0.001))) - 1.) * min(radii.x, radii.y);
+		}
+
+		/** Distance to triangle `abc`. **/
+		function sdTriangle(p : Vec2, a : Vec2, b : Vec2, c : Vec2) : Float {
+			var e0 = b - a;
+			var e1 = c - b;
+			var e2 = a - c;
+			var v0 = p - a;
+			var v1 = p - b;
+			var v2 = p - c;
+			var pq0 = v0 - e0 * clamp(dot(v0, e0) / max(dot(e0, e0), 0.000001), 0., 1.);
+			var pq1 = v1 - e1 * clamp(dot(v1, e1) / max(dot(e1, e1), 0.000001), 0., 1.);
+			var pq2 = v2 - e2 * clamp(dot(v2, e2) / max(dot(e2, e2), 0.000001), 0., 1.);
+			var s = sign(e0.x * e2.y - e0.y * e2.x);
+			var d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)), vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+				vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+			return -sqrt(d.x) * sign(d.y);
+		}
+
+		/** The union of two distances, blended over `k`. **/
+		function smin(a : Float, b : Float, k : Float) : Float {
+			var h = clamp(0.5 + 0.5 * (b - a) / k, 0., 1.);
+			return mix(b, a, h) - k * h * (1. - h);
+		}
+
+		/** The intersection of two distances, blended over `k`. **/
+		function smax(a : Float, b : Float, k : Float) : Float {
+			return -smin(-a, -b, k);
+		}
+
+		/**
+			Whether a record is a notch: any of its notch rows set. Its box is
+			drawn by `sdNotch` instead of `sdShapedRect`.
+		**/
+		function isNotch(corners : Vec4, top : Vec4, bottom : Vec4) : Bool {
+			return dot(abs(corners), vec4(1., 1., 1., 1.)) + top.x + bottom.x > 0.;
+		}
+
+		/**
+			Distance to a notch filling `size` from the origin: a rounded box
+			whose corners with a negative radius are concave, flaring out to
+			the box's edge as a macOS menu-bar dropdown meets its bar, and whose
+			top and bottom edges may carry a modifier at their centre, each
+			(kind, width, height, corner radius): 1 a scoop, 2 a bulge, 3 a cut,
+			4 a peak. Ported from Blinc's `sd_notch`.
+		**/
+		function sdNotch(p : Vec2, size : Vec2, corners : Vec4, top : Vec4, bottom : Vec4) : Float {
+			var r = abs(corners);
+			var tlC = corners.x < 0.;
+			var trC = corners.y < 0.;
+			var brC = corners.z < 0.;
+			var blC = corners.w < 0.;
+			// Bulges and peaks protrude past their edge, so the body is inset by their height.
+			var topH = 0.;
+			if ((top.x > 1.5 && top.x < 2.5) || (top.x > 3.5 && top.x < 4.5))
+				topH = top.z;
+			var botH = 0.;
+			if ((bottom.x > 1.5 && bottom.x < 2.5) || (bottom.x > 3.5 && bottom.x < 4.5))
+				botH = bottom.z;
+			var tl = 0.;
+			if (tlC) tl = r.x;
+			var tr = 0.;
+			if (trC) tr = r.y;
+			var br = 0.;
+			if (brC) br = r.z;
+			var bl = 0.;
+			if (blC) bl = r.w;
+			var left = max(tl, bl);
+			var right = max(tr, br);
+			var topOffset = max(max(tl, tr), topH);
+			var bottomOffset = max(max(bl, br), botH);
+			var innerOrigin = vec2(left, topOffset);
+			var innerSize = vec2(max(size.x - left - right, 0.001), max(size.y - topOffset - bottomOffset, 0.001));
+			// Concave corners are square on the body; their curve is the flare.
+			var innerRadii = r;
+			if (tlC) innerRadii.x = 0.;
+			if (trC) innerRadii.y = 0.;
+			if (brC) innerRadii.z = 0.;
+			if (blC) innerRadii.w = 0.;
+			var d = sdShapedRect(p, innerOrigin, innerSize, innerRadii, vec4(1., 1., 1., 1.));
+			var innerRight = innerOrigin.x + innerSize.x;
+			var innerBottom = innerOrigin.y + innerSize.y;
+			var k = 1.5;
+			// A flare too tall for the box squashes into an ellipse rather than overflowing.
+			var room = max(size.y - topOffset - bottomOffset, 0.);
+			var sharp = vec4(0., 0., 0., 0.);
+			var round = vec4(1., 1., 1., 1.);
+			if (tlC) {
+				var ry = min(r.x, room);
+				var flare = max(sdShapedRect(p, vec2(0., innerOrigin.y), vec2(left, ry), sharp, round),
+					-sdEllipseAt(p, vec2(0., innerOrigin.y + ry), vec2(left, ry)));
+				d = smin(d, flare, k);
+			}
+			if (trC) {
+				var ry = min(r.y, room);
+				var w = size.x - innerRight;
+				var flare = max(sdShapedRect(p, vec2(innerRight, innerOrigin.y), vec2(w, ry), sharp, round),
+					-sdEllipseAt(p, vec2(size.x, innerOrigin.y + ry), vec2(w, ry)));
+				d = smin(d, flare, k);
+			}
+			if (brC) {
+				var ry = min(r.z, room);
+				var w = size.x - innerRight;
+				var flare = max(sdShapedRect(p, vec2(innerRight, innerBottom - ry), vec2(w, ry), sharp, round),
+					-sdEllipseAt(p, vec2(size.x, innerBottom - ry), vec2(w, ry)));
+				d = smin(d, flare, k);
+			}
+			if (blC) {
+				var ry = min(r.w, room);
+				var flare = max(sdShapedRect(p, vec2(0., innerBottom - ry), vec2(left, ry), sharp, round),
+					-sdEllipseAt(p, vec2(0., innerBottom - ry), vec2(left, ry)));
+				d = smin(d, flare, k);
+			}
+			d = notchEdge(p, d, size.x * 0.5, innerOrigin.y, top, 1.);
+			d = notchEdge(p, d, size.x * 0.5, innerBottom, bottom, -1.);
+			return d;
+		}
+
+		/**
+			`d` with an edge modifier `m` at the centre `cx` of the edge at `baseY`,
+			`dir` 1 on the top edge and -1 on the bottom, so the body lies the way
+			`dir` points: a scoop carved in with rounded ears, a bulge's arc
+			added, a V cut in, or a V peak added.
+		**/
+		function notchEdge(p : Vec2, d : Float, cx : Float, baseY : Float, m : Vec4, dir : Float) : Float {
+			var result = d;
+			var w = m.y;
+			var h = m.z;
+			if (m.x > 0.5 && w > 0.001 && h > 0.001) {
+				var halfW = w * 0.5;
+				// In the edge's frame: y grows into the body from the baseline.
+				var q = vec2(p.x, (p.y - baseY) * dir);
+				if (m.x < 1.5) {
+					// Scoop: a rect from the baseline to a half-disk's centre, and the half-disk below it.
+					var diskR = min(halfW, h);
+					var diskY = h - diskR;
+					var disk = max(length(q - vec2(cx, diskY)) - diskR, diskY - q.y);
+					var rect = sdShapedRect(q, vec2(cx - halfW, 0.), vec2(w, max(diskY, 0.001)), vec4(0., 0., 0., 0.), vec4(1., 1., 1., 1.));
+					result = smax(d, -min(rect, disk), max(m.w, 0.001));
+				} else if (m.x < 2.5) {
+					// Bulge: the cap of a disk through the edge's ends and its apex, out from the baseline.
+					var rb = (halfW * halfW + h * h) / max(2. * h, 0.001);
+					var cap = max(length(q - vec2(cx, rb - h)) - rb, q.y);
+					result = smin(d, cap, max(m.w, 0.001));
+				} else if (m.x < 3.5) {
+					result = smax(d, -sdTriangle(q, vec2(cx - halfW, 0.), vec2(cx, h), vec2(cx + halfW, 0.)), 1.5);
+				} else {
+					result = smin(d, sdTriangle(q, vec2(cx - halfW, 0.), vec2(cx, -h), vec2(cx + halfW, 0.)), 1.5);
+				}
+			}
+			return result;
+		}
+
 		/**
 			Signed distance from `v`, at least 0 in both axes, to a quarter
 			superellipse of radius `r` and exponent `2^|n|` about the origin. The

@@ -38,12 +38,18 @@ class ShadowShader implements UiShader {
 			var s = primitive.shadow;
 			var result = vec4(0., 0., 0., 0.);
 			// Outside the box for an outer shadow, inside it for an inset one.
-			var where = smoothstep(-0.75, 0.75, sdShapedRect(p, origin, size, primitive.cornerRadius, primitive.cornerShape));
+			var where = smoothstep(-0.75, 0.75, boxDistance(p, size, primitive.cornerRadius, primitive.cornerShape, primitive.notchCorners, primitive.notchTop, primitive.notchBottom));
+			var notched = isNotch(primitive.notchCorners, primitive.notchTop, primitive.notchBottom);
 			if (primitive.typeInfo.y > 0.5) {
 				// Where the box offset and shrunk by the spread leaves off, its edge blurred.
 				var spread = vec2(s.w, s.w);
-				var inner = sdShapedRect(p, origin + s.xy + spread, max(size - spread * 2., vec2(0., 0.)),
-					max(primitive.cornerRadius - vec4(s.w, s.w, s.w, s.w), vec4(0., 0., 0., 0.)), primitive.cornerShape);
+				var inner = 0.;
+				// A notch's outline moved by the offset and drawn in by the spread.
+				if (notched)
+					inner = sdNotch(p - s.xy, size, primitive.notchCorners, primitive.notchTop, primitive.notchBottom) + s.w;
+				else
+					inner = sdShapedRect(p, origin + s.xy + spread, max(size - spread * 2., vec2(0., 0.)),
+						max(primitive.cornerRadius - vec4(s.w, s.w, s.w, s.w), vec4(0., 0., 0., 0.)), primitive.cornerShape);
 				var shade = 0.;
 				if (s.z < 0.001) {
 					if (inner > 0.)
@@ -55,8 +61,12 @@ class ShadowShader implements UiShader {
 				where = 1. - where;
 			} else if (s.z > 0. || s.w != 0.) {
 				var spread = vec2(s.w, s.w);
-				var d = sdShapedRect(p, origin + s.xy - spread, size + spread * 2., primitive.cornerRadius + vec4(s.w, s.w, s.w, s.w),
-					primitive.cornerShape);
+				var d = 0.;
+				if (notched)
+					d = sdNotch(p - s.xy, size, primitive.notchCorners, primitive.notchTop, primitive.notchBottom) - s.w;
+				else
+					d = sdShapedRect(p, origin + s.xy - spread, size + spread * 2., primitive.cornerRadius + vec4(s.w, s.w, s.w, s.w),
+						primitive.cornerShape);
 				var alpha = 0.;
 				if (s.z < 0.001) {
 					if (d < 0.)

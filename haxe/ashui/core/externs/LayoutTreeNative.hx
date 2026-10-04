@@ -86,6 +86,9 @@ extern class LayoutTreeNative {
 	/** `node`'s own text alignment, as `ashui.types.Style.TextAlign`'s codes; -1 when it has none. **/
 	static function blinc_tree_text_align(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Int;
 
+	/** Draws `node` as a notch from twelve F32s, or as a box again with null (see `ashui.types.Notch.encode`). **/
+	static function blinc_tree_set_notch(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, data:hl.Bytes):Void;
+
 	/** Makes the hit test pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
 	static function blinc_tree_set_pass_through(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, through:Bool):Void;
 

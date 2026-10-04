@@ -388,6 +388,19 @@ class LayoutTree {
 	public function textAlign(node:haxe.Int64):Int
 		return LayoutTreeNative.blinc_tree_text_align(this.ptr, node);
 
+	/** Draws `node` as `notch`, or as its box again with null. **/
+	public function setNotch(node:haxe.Int64, notch:Null<ashui.types.Notch>):Void {
+		if (notch == null) {
+			LayoutTreeNative.blinc_tree_set_notch(this.ptr, node, null);
+			return;
+		}
+		var values = notch.encode();
+		var bytes = new hl.Bytes(values.length * 4);
+		for (i => v in values)
+			bytes.setF32(i * 4, v);
+		LayoutTreeNative.blinc_tree_set_notch(this.ptr, node, bytes);
+	}
+
 	/** Makes `hitTest` pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
 	public function setPassThrough(node:haxe.Int64, through:Bool):Void
 		LayoutTreeNative.blinc_tree_set_pass_through(this.ptr, node, through);

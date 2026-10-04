@@ -53,6 +53,8 @@ typedef DivAttributes = {
 	/** CSS grid, written as CSS writes it: the tracks of a `display: Grid` box, `repeat(3, 1fr) 120px`, and the lines a child takes, `span 2`, `1 / -1`. **/
 	/** CSS's `mask-image`: a gradient brush (`Brush.linear(..., true)`), whose alpha it and what it holds are drawn through, as a fade at an edge. **/
 	?maskImage:IntoReactive<ashui.types.Brush>,
+	/** Drawn as this notch instead of its rounded box: concave corners, steps and edge modifiers (see `ashui.types.Notch`); a signal of one animates it. **/
+	?notch:IntoReactive<ashui.types.Notch>,
 	?gridTemplateColumns:IntoReactive<String>,
 	?gridTemplateRows:IntoReactive<String>,
 	?gridColumn:IntoReactive<String>,
@@ -83,6 +85,22 @@ typedef DivAttributes = {
 	`<div>`, which also takes classes and event handlers.
 **/
 class Div extends Element {
+	/** Draws `div` as `notch`, following it when it is a signal or computed, until the current owner is cleaned up. **/
+	public static function bindNotch(div:Div, notch:IntoReactive<ashui.types.Notch>):Void {
+		var tree = div.tree, id = div.node.id;
+		switch (notch : ashui.layout.IntoReactive.ReactiveType<ashui.types.Notch>) {
+			case Const(n):
+				tree.setNotch(id, n);
+			case Bound(s):
+				tree.setNotch(id, s.get());
+				new ashui.reactive.Watch(() -> s.get(), n -> tree.setNotch(id, n));
+			case Derived(c):
+				tree.setNotch(id, c.get());
+				new ashui.reactive.Watch(() -> c.get(), n -> tree.setNotch(id, n));
+		}
+		ashui.reactive.Owner.onCleanup(() -> tree.setNotch(id, null));
+	}
+
 	public function new(?attr:DivAttributes, ?children:Array<Element>, ?tree:LayoutTree) {
 		super(tree);
 
@@ -162,6 +180,8 @@ class Div extends Element {
 				node.set(Prop.FlexBasis, attr.flexBasis);
 			if (attr.maskImage != null)
 				node.set(Prop.MaskImage, attr.maskImage);
+			if (attr.notch != null)
+				bindNotch(this, attr.notch);
 			if (attr.gridTemplateColumns != null)
 				node.set(Prop.GridTemplateColumns, attr.gridTemplateColumns);
 			if (attr.gridTemplateRows != null)

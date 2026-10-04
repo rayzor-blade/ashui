@@ -76,7 +76,7 @@ use blinc_layout::tree::LayoutNodeId;
 use blinc_text::{TextError, TextRenderer};
 use taffy::Overflow;
 
-pub const RECORD_FLOATS: usize = 100;
+pub const RECORD_FLOATS: usize = 112;
 
 /// `type_info.x`, as Blinc's `PrimitiveType`.
 pub const PRIM_RECT: f32 = 0.0;
@@ -580,6 +580,8 @@ struct Primitive {
     affine: [f32; 4],
     /// Each side's border colour, top, right, bottom, left.
     side_colors: [[f32; 4]; 4],
+    /// A notch's shape (see `Notch`): its signed corner radii, then its top and bottom edges; zeros for none.
+    notch: [[f32; 4]; 3],
 }
 
 impl Primitive {
@@ -598,6 +600,7 @@ impl Primitive {
             fill_type: FILL_SOLID,
             corner_shape: [1.0; 4],
             via: [0.0; 4],
+            notch: [[0.0; 4]; 3],
             offsets: [0.0, 0.0, 1.0, 0.0],
             affine: [1.0, 0.0, 0.0, 1.0],
             side_colors: [[0.0; 4]; 4],
@@ -662,6 +665,9 @@ impl Primitive {
                 out.extend_from_slice(&c.params);
             }
             None => out.extend_from_slice(&[0.0; 12]),
+        }
+        for row in &self.notch {
+            out.extend_from_slice(row);
         }
     }
 }
@@ -755,6 +761,7 @@ pub fn append(
         }
         let r: CornerRadius = props.border_radius;
         let radii = [r.top_left, r.top_right, r.bottom_right, r.bottom_left];
+        let notch = tree.notches.get(&node).copied().unwrap_or([[0.0; 4]; 3]);
         // A shadow's local-clip rows hold the shadow itself.
         let shadow_clip = clipping(clips, m, (x, y), false);
         let clip = clipping(clips, m, (x, y), true);
@@ -763,6 +770,7 @@ pub fn append(
         for s in props.shadow.iter().rev().filter(|s| !s.inset) {
             let mut p = Primitive::new(PRIM_SHADOW, local, radii);
             p.shape_from(props, &glyphs.shapes);
+            p.notch = notch;
             p.shadow = [s.offset_x, s.offset_y, s.blur, s.spread];
             p.shadow_color = rgba(s.color, opacity);
             p.place(m, x, y);
@@ -800,6 +808,7 @@ pub fn append(
             let scale = (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
             let mut b = Primitive::new(PRIM_BACKDROP, local, radii);
             b.shape_from(props, &glyphs.shapes);
+            b.notch = notch;
             // Deviation in target pixels; how far the row pass reaches past the box, in layout units,
             // further for liquid glass, whose rim samples up to LIQUID_REACH outside it.
             let reach = 3.0 * blur * scale + if liquid.is_some() { LIQUID_REACH * scale } else { 0.0 };
@@ -824,6 +833,7 @@ pub fn append(
         let background = if image.is_some() || behind.is_some() { None } else { props.background.as_ref() };
         let brush = background.or(border.then_some(&transparent));
         let mut p = Primitive::new(PRIM_RECT, local, radii);
+        p.notch = notch;
         p.shape_from(props, &glyphs.shapes);
         if brush.is_some_and(|b| fill(&mut p, b, opacity)) {
             if border {
