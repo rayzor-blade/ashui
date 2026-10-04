@@ -72,6 +72,9 @@ class Canvas extends Component<CanvasProps> {
 	#end
 
 	function render():Element {
+		#if ashui_gpu
+		painter.repaint = () -> repaint();
+		#end
 		var box = new Div({tag: "canvas", id: props.id});
 		var slot = nextSlot++;
 		bySlot.set(slot, this);

@@ -202,7 +202,89 @@ class Draw {
 		var sky = ashui.draw3d.Environment.gradient(0x3366ff, 0xffffff, 0x222222, 1, 8);
 		check("an environment has every mip level down to a texel a face", sky.levels == 4 && sky.faces[3].length == 6 * 8 && sky.faces[0].length == 6 * 64 * 8);
 
+		// --- Block compression ---
+		var Bc = ashui.draw3d.BcEncoder;
+		// A smooth, varied 64×64 image: colour ramps one way, a darker band the other, alpha a ramp.
+		var iw = 64, ih = 64;
+		var img = haxe.io.Bytes.alloc(iw * ih * 4);
+		for (y in 0...ih)
+			for (x in 0...iw) {
+				var p = (y * iw + x) * 4;
+				img.set(p, x * 4);
+				img.set(p + 1, 255 - y * 3);
+				img.set(p + 2, Std.int(128 + 100 * Math.sin((x + y) * 0.1)));
+				img.set(p + 3, 255 - x);
+			}
+		var bc1 = Bc.bc1(img, iw, ih), bc4 = Bc.bc4(img, iw, ih, 2), bc5 = Bc.bc5(img, iw, ih), bc3 = Bc.bc3(img, iw, ih);
+		check("block sizes: BC1 and BC4 8 bytes a block, BC3 and BC5 16", bc1.length == 256 * 8 && bc4.length == 256 * 8 && bc5.length == 256 * 16
+			&& bc3.length == 256 * 16);
+		check("BC1 keeps a smooth image within about 35dB", BcCheck.psnr1(img, iw, ih, bc1, 0, 8) > 34, BcCheck.psnr1(img, iw, ih, bc1, 0, 8));
+		check("BC4 keeps a channel within about 43dB", BcCheck.psnr4(img, iw, ih, bc4, 0, 8, 2) > 42, BcCheck.psnr4(img, iw, ih, bc4, 0, 8, 2));
+		check("BC5 is red then green, each as BC4", BcCheck.psnr4(img, iw, ih, bc5, 0, 16, 0) > 42 && BcCheck.psnr4(img, iw, ih, bc5, 8, 16, 1) > 42);
+		check("BC3 is alpha as BC4, then colour as BC1", BcCheck.psnr4(img, iw, ih, bc3, 0, 16, 3) > 42 && BcCheck.psnr1(img, iw, ih, bc3, 8, 16) > 34);
+		check("an image with any alpha short of full is not opaque, one without is", !Bc.opaque(img) && Bc.opaque(haxe.io.Bytes.ofHex("ff0000ff00ff00ff")));
+		// Eight levels exactly between two values come back exactly.
+		var steps = haxe.io.Bytes.alloc(16 * 4);
+		for (i in 0...16)
+			steps.set(i * 4, 100 + [0, 10, 20, 30, 40, 50, 60, 70][i % 8]);
+		check("BC4 gives back each of eight even steps exactly", BcCheck.psnr4(steps, 4, 4, Bc.bc4(steps, 4, 4), 0, 8, 0) == Math.POSITIVE_INFINITY);
+		var odd = Bc.bc1(img.sub(0, 6 * 5 * 4), 6, 5);
+		check("sides not a multiple of 4 fill their blocks", odd.length == 4 * 8);
+
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
+	}
+}
+
+/** Decodes BC blocks as the format describes, to measure how close an encoder kept an image. **/
+class BcCheck {
+	/** PSNR of a BC1 colour block at `offset` in each `stride`-byte block of `bc`, against `img`'s red, green and blue. **/
+	public static function psnr1(img:haxe.io.Bytes, w:Int, h:Int, bc:haxe.io.Bytes, offset:Int, stride:Int):Float {
+		var err = 0.0, n = 0, o = offset;
+		for (by in 0...(h + 3) >> 2)
+			for (bx in 0...(w + 3) >> 2) {
+				var c0 = bc.getUInt16(o), c1 = bc.getUInt16(o + 2), idx = bc.getInt32(o + 4);
+				var e0 = [(c0 >> 11) << 3 | (c0 >> 13), ((c0 >> 5) & 63) << 2 | ((c0 >> 9) & 3), (c0 & 31) << 3 | ((c0 & 31) >> 2)];
+				var e1 = [(c1 >> 11) << 3 | (c1 >> 13), ((c1 >> 5) & 63) << 2 | ((c1 >> 9) & 3), (c1 & 31) << 3 | ((c1 & 31) >> 2)];
+				var pal = [e0, e1, [for (c in 0...3) Std.int((2 * e0[c] + e1[c]) / 3)], [for (c in 0...3) Std.int((e0[c] + 2 * e1[c]) / 3)]];
+				if (c0 <= c1)
+					pal = [e0, e1, [for (c in 0...3) (e0[c] + e1[c]) >> 1], [0, 0, 0]];
+				for (i in 0...16) {
+					var x = (bx << 2) + (i & 3), y = (by << 2) + (i >> 2);
+					if (x >= w || y >= h)
+						continue;
+					var q = pal[(idx >>> (i * 2)) & 3];
+					for (c in 0...3) {
+						var d = img.get((y * w + x) * 4 + c) - q[c];
+						err += d * d;
+						n++;
+					}
+				}
+				o += stride;
+			}
+		return err == 0 ? Math.POSITIVE_INFINITY : 10 * Math.log(255 * 255 / (err / n)) / Math.log(10);
+	}
+
+	/** PSNR of a BC4 block at `offset` in each `stride`-byte block of `bc`, against `img`'s channel `channel`. **/
+	public static function psnr4(img:haxe.io.Bytes, w:Int, h:Int, bc:haxe.io.Bytes, offset:Int, stride:Int, channel:Int):Float {
+		var err = 0.0, n = 0, o = offset;
+		for (by in 0...(h + 3) >> 2)
+			for (bx in 0...(w + 3) >> 2) {
+				var a0 = bc.get(o), a1 = bc.get(o + 1);
+				var pal = a0 > a1 ? [a0, a1].concat([for (k in 1...7) Std.int(((7 - k) * a0 + k * a1) / 7)]) : [a0, a1].concat([for (k in 1...5) Std.int(((5 - k) * a0 + k * a1) / 5)]).concat([0, 255]);
+				var bits0 = bc.get(o + 2) | (bc.get(o + 3) << 8) | (bc.get(o + 4) << 16);
+				var bits1 = bc.get(o + 5) | (bc.get(o + 6) << 8) | (bc.get(o + 7) << 16);
+				for (i in 0...16) {
+					var x = (bx << 2) + (i & 3), y = (by << 2) + (i >> 2);
+					if (x >= w || y >= h)
+						continue;
+					var q = i < 8 ? (bits0 >> (i * 3)) & 7 : (bits1 >> ((i - 8) * 3)) & 7;
+					var d = img.get((y * w + x) * 4 + channel) - pal[q];
+					err += d * d;
+					n++;
+				}
+				o += stride;
+			}
+		return err == 0 ? Math.POSITIVE_INFINITY : 10 * Math.log(255 * 255 / (err / n)) / Math.log(10);
 	}
 }

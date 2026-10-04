@@ -1,5 +1,8 @@
 --class-path ../haxe
 --class-path ../../hlwindow/haxe
+# ash-simd for bulk byte work, on Ash
+--class-path ../../ash/haxelib/ash-simd
+-D ash_simd
 --class-path .
 -lib hashlink
 -lib tink_hxx

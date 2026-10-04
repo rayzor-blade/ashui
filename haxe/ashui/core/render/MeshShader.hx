@@ -66,8 +66,9 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 				if (!frontFacing)
 					n = -n;
 				if (flags.x > 0.5) {
-					var tn = texture(normalMap, texcoord).xyz * 2. - vec3(1., 1., 1.);
-					tn = vec3(tn.xy * surface.z, tn.z);
+					// x and y from the texture; z worked out from them, as a two-channel (BC5) normal map stores none.
+					var nxy = texture(normalMap, texcoord).xy * 2. - vec2(1., 1.);
+					var tn = vec3(nxy * surface.z, sqrt(max(1. - dot(nxy, nxy), 0.)));
 					var t = worldTangent.xyz - n * dot(n, worldTangent.xyz);
 					if (dot(t, t) > 0.00000001) {
 						t = normalize(t);

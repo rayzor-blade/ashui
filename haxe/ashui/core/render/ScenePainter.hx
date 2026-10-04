@@ -45,6 +45,9 @@ private class SceneLayer {
 	public var height = 0;
 	public var madeFor:Null<Array<SceneDraw>> = null;
 
+	/** `MeshTextures.revision` when it was rendered. **/
+	public var textures = -1;
+
 	public function new() {}
 
 	public function destroy():Void {
@@ -89,7 +92,7 @@ class ScenePainter {
 
 	final layers:Array<SceneLayer> = [];
 	final meshes = new haxe.ds.ObjectMap<MeshData, {vertices:GpuBuffer, indices:GpuBuffer, used:Int}>();
-	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, environment:Null<ashui.draw3d.Environment>}>();
+	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, environment:Null<ashui.draw3d.Environment>, textures:Int}>();
 	/** Environments' cubemaps, shared by every canvas, kept while the environment is. **/
 	static final environments = new haxe.ds.ObjectMap<ashui.draw3d.Environment, Uploaded>();
 
@@ -102,13 +105,6 @@ class ScenePainter {
 	var skyGroup:Null<GpuBindGroup> = null;
 	var skyGroupFor:Null<{environment:Null<ashui.draw3d.Environment>, buffers:Int}> = null;
 
-	/** Textures, by bitmap slot and colour space, shared by every canvas on the one device. **/
-	static final textures = new Map<String, Uploaded>();
-
-	static var watchingDisposal = false;
-
-	/** Pixels resampled for an upload, reused from level to level and texture to texture in a frame. **/
-	var scratch:Null<haxe.io.Bytes> = null;
 	final pipelines = new Map<Int, GpuPipeline>();
 	var defaults:Null<{white:Uploaded, flat:Uploaded}> = null;
 	var sampler:Null<GpuSampler> = null;
@@ -122,7 +118,13 @@ class ScenePainter {
 
 	var frameCount = 0;
 
-	public function new() {}
+	final repaint:Void->Void;
+
+	/** `repaint` asks for the canvas to be drawn again, as textures are replaced by their compressed versions. **/
+	public function new(repaint:Void->Void) {
+		this.repaint = repaint;
+		MeshTextures.repaints.push(repaint);
+	}
 
 	/** Called once a canvas frame, before its runs: what was drawn last frame and not since is freed. **/
 	public function beginFrame():Void
@@ -141,10 +143,7 @@ class ScenePainter {
 				g.group.destroy();
 				materials.remove(m);
 			}
-		scratch = null;
-		for (b in pendingRelease)
-			@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_release(b.slot);
-		pendingRelease.resize(0);
+		MeshTextures.endFrame();
 	}
 
 	/** Draws run `index` of the canvas's 3D runs, `draws` seen as `scene` says, over the canvas's box. **/
@@ -163,15 +162,17 @@ class ScenePainter {
 		// Resources are marked used whether or not the layer is rendered again, so they outlive a frame that only composites.
 		for (d in draws)
 			markUsed(frame, d.mesh);
-		if (resized || layer.madeFor != draws) {
+		if (resized || layer.madeFor != draws || layer.textures != MeshTextures.revision) {
 			render(frame, layer, draws, scene);
 			layer.madeFor = draws;
+			layer.textures = MeshTextures.revision;
 		}
 		composite(frame, layer);
 	}
 
 	/** Frees every layer and upload. **/
 	public function dispose():Void {
+		MeshTextures.repaints.remove(repaint);
 		for (l in layers)
 			l.destroy();
 		layers.resize(0);
@@ -203,12 +204,11 @@ class ScenePainter {
 		var group = materials.get(m);
 		if (group != null)
 			group.used = frameCount;
-		for (t in [m.baseColorTexture, m.emissiveTexture])
-			if (t != null)
-				texture(frame, t, true);
-		for (t in [m.normalTexture, m.metallicRoughnessTexture, m.occlusionTexture])
-			if (t != null)
-				texture(frame, t, false);
+		if (m.baseColorTexture != null) MeshTextures.get(frame.device, m.baseColorTexture, Color);
+		if (m.emissiveTexture != null) MeshTextures.get(frame.device, m.emissiveTexture, Color);
+		if (m.metallicRoughnessTexture != null) MeshTextures.get(frame.device, m.metallicRoughnessTexture, Data);
+		if (m.occlusionTexture != null) MeshTextures.get(frame.device, m.occlusionTexture, Occlusion);
+		if (m.normalTexture != null) MeshTextures.get(frame.device, m.normalTexture, Normal);
 	}
 
 	function render(frame:CanvasFrame, layer:SceneLayer, draws:Array<SceneDraw>, scene:Scene3D):Void {
@@ -328,22 +328,22 @@ class ScenePainter {
 	/** Its textures, the environment, the scene and the draws: a material's bind group, made for its pipeline. **/
 	function materialGroup(frame:CanvasFrame, material:Material, environment:Null<ashui.draw3d.Environment>):GpuBindGroup {
 		var known = materials.get(material);
-		if (known != null && known.buffers == buffers && known.environment == environment) {
+		if (known != null && known.buffers == buffers && known.environment == environment && known.textures == MeshTextures.revision) {
 			known.used = frameCount;
 			return known.group;
 		}
 		if (known != null)
 			known.group.destroy();
 		var d = ensureDefaults(frame);
-		inline function tex(b:Null<Bitmap>, srgb:Bool, fallback:Uploaded):GpuTextureView
-			return b != null ? texture(frame, b, srgb).view : fallback.view;
+		inline function tex(b:Null<Bitmap>, role:MeshTextures.TextureRole, fallback:Uploaded):GpuTextureView
+			return b != null ? MeshTextures.get(frame.device, b, role).view : fallback.view;
 		var bindings = new GpuBindings();
 		for (view in [
-			tex(material.baseColorTexture, true, d.white),
-			tex(material.normalTexture, false, d.flat),
-			tex(material.metallicRoughnessTexture, false, d.white),
-			tex(material.emissiveTexture, true, d.white),
-			tex(material.occlusionTexture, false, d.white)
+			tex(material.baseColorTexture, Color, d.white),
+			tex(material.normalTexture, Normal, d.flat),
+			tex(material.metallicRoughnessTexture, Data, d.white),
+			tex(material.emissiveTexture, Color, d.white),
+			tex(material.occlusionTexture, Occlusion, d.white)
 		]) {
 			bindings.texture(view);
 			bindings.sampler(sampler);
@@ -354,7 +354,7 @@ class ScenePainter {
 		bindings.buffer(drawBuffer);
 		var group = frame.device.bindGroup(pipeline(frame, material, 1), 0, bindings);
 		bindings.destroy();
-		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: environment});
+		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: environment, textures: MeshTextures.revision});
 		return group;
 	}
 
@@ -498,66 +498,6 @@ class ScenePainter {
 		meshes.set(mesh, made);
 		return made;
 	}
-
-	/**
-		`bitmap` on the GPU with every mip level, each resampled from the
-		whole image; `srgb` for colour, which the GPU turns linear as it is
-		sampled.
-	**/
-	function texture(frame:CanvasFrame, bitmap:Bitmap, srgb:Bool):Uploaded {
-		var key = '${bitmap.slot}/${srgb ? 1 : 0}';
-		var known = textures.get(key);
-		if (known != null)
-			return known;
-		if (!watchingDisposal) {
-			watchingDisposal = true;
-			Bitmap.disposing.push(b -> for (k in ['${b.slot}/0', '${b.slot}/1']) {
-				var t = textures.get(k);
-				if (t != null) {
-					t.view.destroy();
-					t.texture.destroy();
-					textures.remove(k);
-				}
-			});
-		}
-		var w = bitmap.width, h = bitmap.height;
-		var levels = 1;
-		while ((w >> levels) > 0 || (h >> levels) > 0)
-			levels++;
-		var size = new GpuExtent3D(w);
-		size.height(h);
-		var descriptor = new GpuTextureDescriptor(size, srgb ? TextureFormat.Rgba8unormSrgb : TextureFormat.Rgba8unorm,
-			GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
-		descriptor.mipLevelCount(levels);
-		var t = frame.device.texture(descriptor);
-		if (scratch == null || scratch.length < w * h * 4)
-			scratch = haxe.io.Bytes.alloc(w * h * 4);
-		var px = scratch;
-		for (level in 0...levels) {
-			var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
-			@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_resample(bitmap.slot, lw, lh, (Fill : ashui.types.Brush.ImageFit), px);
-			var destination = new GpuTexelCopyTextureInfo(t);
-			destination.mipLevel(level);
-			var layout = new GpuTexelCopyBufferLayout();
-			layout.bytesPerRow(lw * 4);
-			layout.rowsPerImage(lh);
-			var extent = new GpuExtent3D(lw);
-			extent.height(lh);
-			frame.device.queue().writeTextureWith(destination, px, layout, extent);
-		}
-		var made = {texture: t, view: t.createView(new GpuTextureViewDescriptor())};
-		textures.set(key, made);
-		// Its other colour space may still be wanted; its pixels go once both a material asks for are made.
-		if (bitmap.gpuOnly)
-			releaseWhenMade(bitmap);
-		return made;
-	}
-
-	/** Frees `bitmap`'s pixels at the end of the frame, after every texture its materials take from it is made. **/
-	function releaseWhenMade(bitmap:Bitmap):Void
-		pendingRelease.push(bitmap);
-
-	final pendingRelease:Array<Bitmap> = [];
 
 	static function linear(c:Int):Float {
 		var v = c / 255;

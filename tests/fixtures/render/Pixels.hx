@@ -109,7 +109,7 @@ class Pixels {
 		}, [at(0, 0, 32, 32, Brush.solid(0x00ff00))], tree);
 		var root = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [square, circle, bar, clipper], tree);
 		// As a host would: its own device and texture, the UI drawn into them.
-		var device = new GpuInstance().requestAdapter(Power.HighPerformance).await().requestDevice().await();
+		var device = ashui.core.render.Renderer.requestDevice(new GpuInstance().requestAdapter(Power.HighPerformance).await());
 		var size = new GpuExtent3D(SIZE);
 		size.height(SIZE);
 		var target = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba8unorm, ashui.core.render.GpuFlags.TEXTURE_RENDER_ATTACHMENT | ashui.core.render.GpuFlags.TEXTURE_COPY_SRC));
@@ -583,6 +583,48 @@ class Pixels {
 		probe("and the ground at the bottom", 32, 54, (r, g, b) -> g > 120 && g > b && r < 120);
 		probe("a polished sphere reflects the sky near its top", 32, 26, (r, g, b) -> b > g && b > 100);
 		probe("and the ground near its bottom", 32, 38, (r, g, b) -> g > b && g > 80);
+
+		// A mesh's texture, compressed on a thread of its own, takes the uncompressed one's place and draws the same.
+		var halves = haxe.io.Bytes.alloc(8 * 8 * 4);
+		for (i in 0...64) {
+			var right = i % 8 >= 4;
+			halves.set(i * 4, right ? 0 : 255);
+			halves.set(i * 4 + 2, right ? 255 : 0);
+			halves.set(i * 4 + 3, 255);
+		}
+		var halvesBitmap = ashui.types.Bitmap.fromBytes(ashui.core.render.Png.encode(8, 8, halves));
+		var texturedQuad = ashui.draw3d.MeshData.build([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], [0, 1, 2, 0, 2, 3], null, [0, 1, 1, 1, 1, 0, 0, 0], null,
+			new ashui.draw3d.Material({baseColorTexture: halvesBitmap, unlit: true}));
+		var bcTree = new LayoutTree();
+		var bcRoot:Div = ashui.reactive.Owner.root(bcTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 2.4), ashui.math.Vec3.ZERO, null, 0.8));
+					ctx.drawMesh(texturedQuad);
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		var before = ashui.core.render.MeshTextures.revision;
+		pixels = offscreen.renderToRgba8(bcRoot, SIZE, SIZE);
+		label = "compressed texture: ";
+		probe("drawn at once, uncompressed: red on its left", 22, 32, (r, g, b) -> r > 200 && b < 60);
+		// The compression finishes on its thread, then the scheduler puts it in place.
+		var waited = 0;
+		while (ashui.core.render.MeshTextures.revision == before && waited < 200) {
+			Sys.sleep(0.01);
+			ashui.animation.AnimationScheduler.main.tick(0);
+			waited++;
+		}
+		var swapped = ashui.core.render.MeshTextures.revision > before;
+		Sys.println('${swapped ? "ok  " : "FAIL"} compressed texture: its compression is put in place, after ${waited * 10}ms');
+		if (!swapped)
+			failures++;
+		pixels = offscreen.renderToRgba8(bcRoot, SIZE, SIZE);
+		probe("then compressed: red on its left", 22, 32, (r, g, b) -> r > 200 && b < 60);
+		probe("and blue on its right", 42, 32, (r, g, b) -> b > 200 && r < 60);
 
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();

@@ -161,8 +161,9 @@ class Renderer {
 
 	/**
 		A device from `adapter` whose memory is allocated in small blocks
-		rather than large ones kept for speed: the large blocks are mostly
-		empty for a UI and its few textures.
+		rather than large ones kept for speed, the large blocks mostly empty
+		for a UI and its few textures; able to sample block-compressed
+		textures where the GPU can.
 	**/
 	public static function requestDevice(adapter:gpu.GpuAdapter):gpu.GpuDevice {
 		#if ashui_caribou
@@ -170,6 +171,9 @@ class Renderer {
 		#else
 		var descriptor = new gpu.GpuDeviceDescriptor();
 		descriptor.memoryHints(MemoryUsage);
+		// Block-compressed textures where the GPU samples them: meshes' textures take a quarter of the memory.
+		if (adapter.supports(TextureCompressionBc))
+			descriptor.addRequiredFeatures(TextureCompressionBc);
 		return adapter.requestDeviceWith(descriptor).await();
 		#end
 	}

@@ -1017,6 +1017,17 @@ class Smoke {
 		check("a RefList holds each <for> item's element, and query binds each, one added later too", rlBefore == 2 && rlClicks == 3 && rlRows.length() == 1,
 			[rlBefore, rlClicks, rlRows.length()]);
 
+		// BC4 through ash-simd gives the same blocks as through plain Haxe: BC3's alpha half is the plain one.
+		var bcImage = haxe.io.Bytes.alloc(32 * 16 * 4);
+		for (i in 0...32 * 16)
+			bcImage.set(i * 4 + 3, Std.int(128 + 120 * Math.sin(i * 0.37)));
+		var viaSimd = ashui.draw3d.BcEncoder.bc4(bcImage, 32, 16, 3), viaHaxe = ashui.draw3d.BcEncoder.bc3(bcImage, 32, 16);
+		var same = true;
+		for (b in 0...32)
+			if (viaSimd.sub(b * 8, 8).compare(viaHaxe.sub(b * 16, 8)) != 0)
+				same = false;
+		check("BC4 blocks are the same whether ash-simd or plain Haxe searches them", same);
+
 		// Text on a canvas: its glyphs' outlines, set by the text engine, placed by its alignment.
 		var regular = ashui.draw.GlyphOutlines.of("Canvas", {size: 20}), bold = ashui.draw.GlyphOutlines.of("Canvas", {size: 20, weight: 700});
 		var textCtx = new ashui.draw.DrawContext(200, 100);
