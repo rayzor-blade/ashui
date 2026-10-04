@@ -46,10 +46,6 @@ pub struct Tree {
     /// Nodes drawn away from their layout while a layout animation runs:
     /// moved by (dx, dy), and at size (w, h) when w is not negative.
     pub(crate) visuals: HashMap<LayoutNodeId, [f32; 4]>,
-    /// Each text node's CSS line-height, a multiple of its font size. Its
-    /// measure context holds that over the face's own line height instead,
-    /// which is how Blinc reads it.
-    line_heights: HashMap<LayoutNodeId, f32>,
 }
 
 /// A scroll container's state, which the paint walk and the hit test read.
@@ -90,7 +86,6 @@ fn shared() -> &'static mut Tree {
             pass_through: std::collections::HashSet::new(),
             notches: HashMap::new(),
             visuals: HashMap::new(),
-            line_heights: HashMap::new(),
         })
     }
 }
@@ -165,7 +160,6 @@ fn forget(tree: &mut Tree, nodes: &[LayoutNodeId]) {
     for node in nodes {
         unregister_node(*node);
         tree.owners.remove(node);
-        tree.line_heights.remove(node);
     }
 }
 
@@ -231,7 +225,7 @@ pub unsafe extern "C" fn hl_blinc_tree_create_text_node(
     let Some(tree) = (unsafe { tree(h) }) else {
         return 0;
     };
-    let mut context = TextMeasureContext {
+    let context = TextMeasureContext {
         content: unsafe { string_from(content) },
         font_size,
         line_height,
@@ -249,9 +243,7 @@ pub unsafe extern "C" fn hl_blinc_tree_create_text_node(
         italic: flags & 2 != 0,
     };
     crate::text::ensure_face(&context);
-    context.line_height = crate::text::face_line_height(&context, line_height);
     let node = tree.layout.create_text_node(Style::default(), context);
-    tree.line_heights.insert(node, line_height);
     tree.owners.insert(node, unsafe { owner(h) });
     node.to_raw()
 }
@@ -533,20 +525,11 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
     }
     // Recorded by the render writes above, so applied after them.
     for (node, write) in take_pending_text() {
-        // A line-height written is CSS's; one left alone is the one recorded.
-        let css = tree.line_heights.get(&node).copied().unwrap_or(1.2);
-        let mut written = css;
         needs_layout |= tree.layout.update_text(node, |c| {
-            let before = c.line_height;
             write(c);
-            if c.line_height != before {
-                written = c.line_height;
-            }
             // A new weight, style or font is loaded before layout measures with it.
             crate::text::ensure_face(c);
-            c.line_height = crate::text::face_line_height(c, written);
         });
-        tree.line_heights.insert(node, written);
     }
     needs_layout || painted
 }

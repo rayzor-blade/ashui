@@ -37,12 +37,11 @@ pub fn ensure_face(context: &TextMeasureContext) {
     }
 }
 
-/// The faces `system-ui` names, by platform, as browsers resolve it. On
-/// macOS that is SF Pro, a variable font whose weights the text renderer
-/// cannot set yet, so Helvetica Neue, whose static weights and metrics
-/// centre capitals as SF Pro's do, stands in for it.
+/// The faces `system-ui` names, by platform, as browsers resolve it: on
+/// macOS SF Pro, a variable face Blinc sets each weight of on its `wght`
+/// axis, then Helvetica Neue where it is missing.
 #[cfg(target_os = "macos")]
-const SYSTEM_UI: &[&str] = &["Helvetica Neue"];
+const SYSTEM_UI: &[&str] = &[".SF NS", "Helvetica Neue"];
 #[cfg(target_os = "windows")]
 const SYSTEM_UI: &[&str] = &["Segoe UI Variable", "Segoe UI"];
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -194,27 +193,6 @@ pub fn prepare(
 /// places them: half of what the line box has beyond the font's ascender
 /// and descender, at `font_size`. Blinc's layout puts the first baseline at
 /// the ascender, leaving all of that space below the text.
-/// CSS's `line-height`, a multiple of the font size, as a multiple of the
-/// face's own line height (ascent, descent and gap), which is how Blinc's
-/// measure and renderer read a context's: so a line is `font_size * css`
-/// tall whatever the face, as in CSS.
-pub fn face_line_height(context: &TextMeasureContext, css: f32) -> f32 {
-    let registry = global_font_registry();
-    let Ok(registry) = registry.lock() else {
-        return css;
-    };
-    let Some(font) = registry.get_for_render_with_style(
-        context.font_name.as_deref(),
-        generic(context.generic_font),
-        context.font_weight,
-        context.italic,
-    ) else {
-        return css;
-    };
-    let natural = font.metrics().line_height_px(1.0);
-    if natural > 0.0 { css / natural } else { css }
-}
-
 pub fn half_leading(context: &TextMeasureContext, font_size: f32) -> f32 {
     let registry = global_font_registry();
     let Ok(registry) = registry.lock() else {
@@ -235,7 +213,7 @@ pub fn half_leading(context: &TextMeasureContext, font_size: f32) -> f32 {
         return 0.0;
     };
     let m = font.metrics();
-    let line = m.line_height_px(font_size) * context.line_height;
+    let line = font_size * context.line_height;
     (line - (m.ascender_px(font_size) - m.descender_px(font_size))) / 2.0
 }
 
@@ -413,7 +391,7 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
         line_height: context.line_height,
         letter_spacing,
     };
-    let line_height = font.metrics().line_height_px(size) * context.line_height;
+    let line_height = size * context.line_height;
     // UTF-16 index of every byte offset that starts a character.
     let mut utf16 = vec![0u32; text.len() + 1];
     let mut units = 0u32;
@@ -529,28 +507,25 @@ mod tests {
 /// 3 cubic (c1x, c1y, c2x, c2y, x, y), 4 close.
 struct Outline {
     out: Vec<f32>,
-    scale: f32,
     x: f32,
     y: f32,
 }
 
-impl ttf_parser::OutlineBuilder for Outline {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.out.extend([0.0, self.x + x * self.scale, self.y - y * self.scale]);
-    }
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.out.extend([1.0, self.x + x * self.scale, self.y - y * self.scale]);
-    }
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let s = self.scale;
-        self.out.extend([2.0, self.x + x1 * s, self.y - y1 * s, self.x + x * s, self.y - y * s]);
-    }
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        let s = self.scale;
-        self.out.extend([3.0, self.x + x1 * s, self.y - y1 * s, self.x + x2 * s, self.y - y2 * s, self.x + x * s, self.y - y * s]);
-    }
-    fn close(&mut self) {
-        self.out.push(4.0);
+impl Outline {
+    /// A glyph's outline, in pixels with y up, placed with its origin at
+    /// `(x, y)` in the canvas's coordinates, y down.
+    fn add(&mut self, path: &swash::scale::outline::Outline) {
+        use swash::zeno::{Command, PathData};
+        let (x, y) = (self.x, self.y);
+        for command in path.path().commands() {
+            match command {
+                Command::MoveTo(p) => self.out.extend([0.0, x + p.x, y - p.y]),
+                Command::LineTo(p) => self.out.extend([1.0, x + p.x, y - p.y]),
+                Command::QuadTo(c, p) => self.out.extend([2.0, x + c.x, y - c.y, x + p.x, y - p.y]),
+                Command::CurveTo(c1, c2, p) => self.out.extend([3.0, x + c1.x, y - c1.y, x + c2.x, y - c2.y, x + p.x, y - p.y]),
+                Command::Close => self.out.push(4.0),
+            }
+        }
     }
 }
 
@@ -558,8 +533,9 @@ impl ttf_parser::OutlineBuilder for Outline {
 /// `style` sets it, six f32s: generic family (0 system, 1 monospace, 2
 /// serif, 3 sans-serif), weight, italic (0 or 1), size in pixels, letter
 /// spacing and line height; as path commands (see `Outline`) of every
-/// glyph: the first line's baseline at y 0, each line after it `line_height`
-/// times the face's line below. Writes the widest line's width, the face's
+/// glyph: the first line's baseline at y 0, each line after it
+/// `line_height` times the font size below, or the face's own line where it
+/// is 0. Writes the widest line's width, the face's
 /// ascent and descent (positive, below the baseline) and its line height,
 /// in pixels, as four f32s to `info`. Returns the number of f32s, copying
 /// them to `out` when they fit in `capacity`; 0 when no face is found.
@@ -601,10 +577,16 @@ pub unsafe extern "C" fn hl_blinc_text_outline(
             },
         }
     };
-    let Ok(face) = ttf_parser::Face::parse(font.data(), font.face_index()) else {
+    // Scaled by swash, as Blinc rasterizes text, at the variable face's weight Blinc shapes it at.
+    let Some(swash_font) = swash::FontRef::from_index(font.data(), font.face_index() as usize) else {
         return 0;
     };
-    let scale = size / face.units_per_em() as f32;
+    let mut context = swash::scale::ScaleContext::new();
+    let mut builder = context.builder(swash_font).size(size).hint(false);
+    if let Some(w) = font.variation_weight() {
+        builder = builder.variations([swash::Setting::from(("wght", w))]);
+    }
+    let mut scaler = builder.build();
     let metrics = font.metrics();
     let ascent = metrics.ascender_px(size);
     let descent = -metrics.descender_px(size);
@@ -618,12 +600,12 @@ pub unsafe extern "C" fn hl_blinc_text_outline(
         letter_spacing,
     };
     let engine = blinc_text::TextLayoutEngine::new();
-    let mut outline = Outline { out: Vec::new(), scale, x: 0.0, y: 0.0 };
+    let mut outline = Outline { out: Vec::new(), x: 0.0, y: 0.0 };
     let mut widest = 0.0f32;
     for (row, paragraph) in text.split('\n').enumerate() {
         let layout = engine.layout(paragraph, &font, size, &options);
         widest = widest.max(layout.width);
-        let down = row as f32 * natural * line_height;
+        let down = row as f32 * if line_height > 0.0 { size * line_height } else { natural };
         for line in &layout.lines {
             for g in &line.glyphs {
                 // A glyph the face lacks draws nothing rather than its missing-glyph box.
@@ -632,7 +614,9 @@ pub unsafe extern "C" fn hl_blinc_text_outline(
                 }
                 outline.x = g.x;
                 outline.y = down + (g.y - line.baseline_y);
-                face.outline_glyph(ttf_parser::GlyphId(g.glyph_id), &mut outline);
+                if let Some(path) = scaler.scale_outline(g.glyph_id as u16) {
+                    outline.add(&path);
+                }
             }
         }
     }
@@ -653,3 +637,4 @@ define_prim!(
     hl_blinc_text_outline,
     "PBBBBiB_i"
 );
+

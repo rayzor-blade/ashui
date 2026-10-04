@@ -13,7 +13,7 @@ typedef TextStyle = {
 	?italic:Bool,
 	/** Added after each character, in layout units. **/
 	?letterSpacing:Float,
-	/** Between lines, a multiple of the face's own line; 1 by default. **/
+	/** Between lines, a multiple of the font size, as CSS's `line-height`; the face's own line by default. **/
 	?lineHeight:Float,
 	/** Which of its ends or its middle the point is; its start by default. **/
 	?align:TextAlignment,
@@ -69,7 +69,7 @@ class GlyphOutlines {
 		var font = style.family == null ? null : ashui.core.Utf8.encode(style.family);
 		var bytes = ashui.core.Utf8.encode(text);
 		var weight:Int = style.weight != null ? style.weight : 400, italic = style.italic == true, generic:Int = style.generic != null ? style.generic : 0;
-		var spacing:Float = style.letterSpacing != null ? style.letterSpacing : 0.0, leading:Float = style.lineHeight != null ? style.lineHeight : 1.0;
+		var spacing:Float = style.letterSpacing != null ? style.letterSpacing : 0.0, leading:Float = style.lineHeight != null ? style.lineHeight : 0.0;
 		var capacity = 4096;
 		var out = new hl.Bytes(capacity * 4);
 		var set = new hl.Bytes(24);
