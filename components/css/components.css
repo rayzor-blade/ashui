@@ -373,3 +373,97 @@
 .ui-toast-close:hover { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
 @keyframes ui-toast-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 @keyframes ui-toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
+
+/* ----------------------------------------------------------------- Forms */
+
+/* The built-in elements' classes are written with their element, to tie the user-agent sheet's specificity, which this sheet, coming later, then wins. */
+
+/* Fields: the input's fill, a hairline that deepens under the pointer, and on focus the focus colour with a ring growing out 2 beyond it. */
+input.ui-input, textarea.ui-textarea {
+	border: 1px solid var(--ui-input-border, var(--border)); border-radius: var(--ui-input-radius, var(--radius-default));
+	background: var(--ui-input-bg, var(--input-bg)); color: var(--text-primary); font-size: 14px; letter-spacing: var(--tracking-tight);
+	outline: 0 solid var(--focus-ring); outline-offset: 2px;
+	transition: background var(--duration-fast) var(--ease-state), border-color var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
+}
+input.ui-input { width: var(--ui-input-width, 300px); height: var(--ui-input-height, 40px); padding: 0 var(--ui-input-padding, 12px); }
+textarea.ui-textarea { width: var(--ui-input-width, 300px); min-height: 96px; padding: 10px var(--ui-input-padding, 12px); }
+input.ui-input:hover, textarea.ui-textarea:hover { border-color: var(--border-hover); background: var(--input-bg-hover); }
+input.ui-input:focus, textarea.ui-textarea:focus { border-color: var(--border-focus); background: var(--input-bg-focus); outline-width: 2px; }
+input.ui-input:user-invalid, textarea.ui-textarea:user-invalid { border-color: var(--border-error); outline-color: var(--focus-ring-error); }
+input.ui-input:disabled, textarea.ui-textarea:disabled { background: var(--input-bg-disabled); border-color: var(--border); color: var(--text-tertiary); }
+
+.ui-label { gap: 4px; font-size: 14px; font-weight: 500; color: var(--ui-label-color, var(--text-primary)); }
+.ui-label-text { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+.ui-label-required { color: var(--error); }
+
+/* A number between a − and a +, one bordered piece, the field's own steppers hidden. */
+.ui-number-input {
+	flex-direction: row; align-items: stretch; align-self: flex-start; height: var(--ui-input-height, 40px); overflow: hidden;
+	border: 1px solid var(--ui-input-border, var(--border)); border-radius: var(--ui-input-radius, var(--radius-default));
+	background: var(--ui-input-bg, var(--input-bg));
+}
+.ui-number-step {
+	width: 36px; padding: 0; align-items: center; justify-content: center; border-radius: 0; border: 0;
+	background: transparent; color: var(--text-secondary); font-size: 16px; box-shadow: none;
+	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state);
+}
+.ui-number-step:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-primary); }
+.ui-number-step:active { background: color-mix(in srgb, var(--text-primary) 10%, transparent); transform: none; }
+.ui-number-step[data-step="down"] { border-right: 1px solid var(--border); }
+.ui-number-step[data-step="up"] { border-left: 1px solid var(--border); }
+input.ui-number-field { width: 52px; height: auto; padding: 0 8px; border: 0; border-radius: 0; background: transparent; justify-content: center; font-size: 14px; }
+input.ui-number-field:hover, input.ui-number-field:focus { background: transparent; outline-width: 0; }
+input.ui-number-field > .steppers { display: none; }
+
+/* Checkboxes and radios: 18 across, a hairline of the secondary border; checked, the primary colour. */
+.ui-checkbox-field, .ui-radio-field { flex-direction: row; align-items: center; gap: 12px; font-size: 14px; color: var(--text-primary); }
+.ui-checkbox-field[data-disabled], .ui-radio-field:has(> input.ui-radio:disabled) { color: var(--text-tertiary); }
+.ui-checkbox-text, .ui-radio-text { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+input.ui-checkbox { width: 18px; height: 18px; border: 1.5px solid var(--border-secondary); border-radius: var(--radius-sm); background: transparent; }
+input.ui-checkbox:hover { border-color: var(--primary); }
+input.ui-checkbox:checked, input.ui-checkbox:indeterminate { background: var(--ui-checkbox-checked-bg, var(--primary)); border-color: var(--ui-checkbox-checked-bg, var(--primary)); }
+input.ui-radio { width: 18px; height: 18px; border: 2px solid var(--border-secondary); background: transparent; transition: border-color var(--duration-fast) var(--ease-state), transform var(--duration-fastest) var(--ease-state), outline-width var(--duration-fast) var(--ease-out); }
+input.ui-radio:hover { border-color: var(--primary); transform: scale(1.05); }
+input.ui-radio:checked { border-color: var(--primary); }
+input.ui-radio:active > .dot { transform: scale(0.8); }
+.ui-radio-group { gap: 16px; }
+.ui-radio-group[data-orientation="vertical"] { flex-direction: column; align-items: flex-start; }
+.ui-radio-group[data-orientation="horizontal"] { flex-direction: row; align-items: center; gap: 24px; }
+
+/* Sliders: a label and value over a thin track, filled to a dark-centred thumb ringed in the primary colour. */
+.ui-slider-field { flex-direction: column; gap: 10px; width: var(--ui-slider-width, 300px); }
+.ui-slider-header { flex-direction: row; justify-content: space-between; align-items: baseline; font-size: 14px; }
+.ui-slider-label { color: var(--text-primary); }
+.ui-slider-value { color: var(--text-secondary); }
+.ui-slider-field[data-disabled] .ui-slider-label, .ui-slider-field[data-disabled] .ui-slider-value { color: var(--text-tertiary); }
+input.ui-slider { align-self: stretch; width: auto; }
+.ui-slider-field > input.ui-slider { width: 100%; }
+input.ui-slider > .rest { background: var(--ui-slider-track, var(--border)); }
+input.ui-slider > .fill { background: var(--ui-slider-fill, var(--primary)); }
+input.ui-slider > .thumb { width: 16px; height: 16px; background: var(--text-inverse); border: 2px solid var(--primary); box-shadow: var(--shadow-sm); }
+input.ui-slider:disabled { opacity: 1; }
+input.ui-slider:disabled > .rest { background: var(--input-bg-disabled); }
+input.ui-slider:disabled > .fill { background: var(--border-secondary); }
+input.ui-slider:disabled > .thumb { background: var(--input-bg-disabled); border: 1px solid var(--border-secondary); box-shadow: none; }
+
+/* Selects: a field's shape and fill with a chevron; its list a menu's. */
+select.ui-select {
+	width: var(--ui-select-width, 200px); height: var(--ui-input-height, 40px); padding: 0 12px; font-size: 14px; letter-spacing: var(--tracking-tight);
+	border: 1px solid var(--ui-input-border, var(--border)); border-radius: var(--ui-input-radius, var(--radius-default));
+	background: var(--ui-input-bg, var(--input-bg));
+}
+select.ui-select:hover { border-color: var(--border-hover); }
+select.ui-select:active { transform: none; }
+select.ui-select[open] { border-color: var(--border-focus); }
+select.ui-select:disabled { opacity: 1; background: var(--input-bg-disabled); color: var(--text-tertiary); }
+select.ui-select > .chevron { color: var(--text-tertiary); }
+listbox:has(> option.ui-select-item) { padding: 0; overflow: hidden; box-shadow: var(--shadow-md); }
+option.ui-select-item { padding: 8px 12px; border-radius: 0; font-size: 14px; }
+option.ui-select-item:hover, option.ui-select-item:focus { background: var(--accent-subtle); }
+option.ui-select-item:checked { background: var(--selection); color: var(--accent); font-weight: 400; }
+
+/* Progress: a rounded track, its bar easing to each value on the navigation curve. */
+progress.ui-progress { width: var(--ui-progress-width, 300px); height: 8px; background: var(--ui-progress-track, var(--border)); }
+progress.ui-progress[data-size="sm"] { height: 4px; }
+progress.ui-progress[data-size="lg"] { height: 12px; }
+progress.ui-progress > .bar { background: var(--ui-progress-bar, var(--primary)); transition: width var(--duration-slow) var(--ease-nav); }

@@ -7,6 +7,10 @@ import ashui.components.Dialog;
 import ashui.components.DropdownMenu;
 import ashui.components.Popover;
 import ashui.components.Toast;
+import ashui.components.Checkbox;
+import ashui.components.RadioGroup;
+import ashui.components.Select;
+import ashui.components.NumberInput;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -333,6 +337,57 @@ class Components {
 		toastFrames(30);
 		check("a toast goes after its time and when dismissed; one with no time stays until then", both && afterTime == 1 && count() == 0,
 			[both, afterTime, count()]);
+
+		// --- Forms: a checkbox's text checks it, a radio group's arrows choose, a select's placeholder, steppers that stop at the bounds ---
+		var formTree = new LayoutTree();
+		var agree = Signal.make(false), pick = Signal.make("a"), fruitPick = Signal.make(""), qty = Signal.make(1.0);
+		var formRoot:Div = Owner.root(formTree, _ -> hxx('
+			<div width={600} height={400} flexDirection={Column} gap={12} padding={10}>
+				<checkbox id="agree" checked={agree}>I agree</checkbox>
+				<radio-group value={pick}><radio-group-item id="ra" value="a">A</radio-group-item><radio-group-item value="b">B</radio-group-item></radio-group>
+				<select id="fr" value={fruitPick} placeholder="Choose"><select-item value="apple">Apple</select-item></select>
+				<number-input value={qty} min={0} max={2} />
+			</div>
+		'));
+		function formSettle() {
+			formTree.flush();
+			formTree.computeLayout(formRoot.node, 600, 400);
+			formTree.flush();
+			formTree.computeLayout(formRoot.node, 600, 400);
+		}
+		function formFind(at:haxe.Int64, pred:ashui.css.Identity->Bool):Array<haxe.Int64> {
+			var out = [];
+			var identity = identity2(formTree, at);
+			if (identity != null && pred(identity))
+				out.push(at);
+			for (c in formTree.children(at))
+				out = out.concat(formFind(c, pred));
+			return out;
+		}
+		function formClick(id:haxe.Int64) {
+			var b = formTree.getBounds(new ashui.layout.Node(id));
+			ashui.input.Pointer.move(formTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(formTree);
+			ashui.input.Pointer.release(formTree);
+			formSettle();
+		}
+		formSettle();
+		formClick(formFind(formRoot.node.id, i -> i.hasClass("ui-checkbox-text"))[0]);
+		check("a press on a Checkbox's text checks it", agree.get());
+		var dialA = formFind(formRoot.node.id, i -> i.id == "ra")[0];
+		ashui.input.Focus.set(ashui.input.Interaction.byId(formTree, dialA), true);
+		ashui.input.Keyboard.input(formTree, key(Named(ArrowDown), ArrowDown));
+		formSettle();
+		check("a RadioGroup's arrows move to the next item and choose it", pick.get() == "b", pick.get());
+		var fr = formFind(formRoot.node.id, i -> i.id == "fr")[0];
+		check("a Select with a placeholder keeps no value and says so", fruitPick.get() == "" && identity2(formTree, fr).attribute("data-placeholder") != null);
+		var steps = formFind(formRoot.node.id, i -> i.hasClass("ui-number-step"));
+		formClick(steps[1]);
+		formClick(steps[1]);
+		var top = qty.get();
+		for (_ in 0...3)
+			formClick(steps[0]);
+		check("a NumberInput's buttons step it and stop at its bounds", top == 2 && qty.get() == 0, [top, qty.get()]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
