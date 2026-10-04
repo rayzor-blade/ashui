@@ -78,11 +78,11 @@ class Ul extends Component<UlProps> {
 		var box = new Div({tag: "ul", id: props.id}, children);
 		var tree = box.tree;
 		Marking.watch(box, () -> {
-			var bullet = BULLETS[Std.int(Math.min(Marking.depth(tree, box.node.id), BULLETS.length - 1))];
+			var depth = Std.int(Math.min(Marking.depth(tree, box.node.id), BULLETS.length - 1));
 			var items = Marking.items(tree, box.node.id);
 			for (li in items) {
 				li.marker.set(" ");
-				li.bullet.set(bullet);
+				li.bullet.set(BULLETS[depth]);
 			}
 			Marking.markNested(tree, [for (li in items) li.node.id]);
 		});

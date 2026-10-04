@@ -17,9 +17,9 @@ typedef LiProps = {
 	HTML's `<li>`, built in: an item of a `<ul>` or `<ol>`, its `.marker`
 	beside its `.content`. The list it is in sets the marker: a number, or a
 	`.bullet` drawn as a shape, the marker classed `.disc`, `.circle` or
-	`.square`, so it is the same size in any font. The marker holds text
-	either way, so it is as tall as a line of the item's text and the
-	bullet is centred on that line.
+	`.square`. The marker holds text either way, so it is a line of the
+	item's text tall, and the bullet is set on that line at the middle of
+	its lowercase letters.
 **/
 class Li extends Component<LiProps> {
 	static final byNode = new Map<String, Li>();

@@ -938,7 +938,8 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-prose > blockquote { padding: 0 0 0 24px; border-left: 2px solid var(--border); color: var(--text-primary); }
 .ui-prose > blockquote > p { margin: 0; font-style: italic; line-height: 1.75; color: var(--text-primary); }
 .ui-prose > ul, .ui-prose > ol { gap: 8px; }
-.ui-prose > ul > li > .content, .ui-prose > ol > li > .content { line-height: 1.75; }
+/* On the item, so its marker and its text share a line. */
+.ui-prose > ul > li, .ui-prose > ol > li { line-height: 1.75; }
 .ui-prose code { padding: 2px 5px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--text-primary) 8%, transparent); font-size: var(--text-sm); font-weight: 600; }
 .ui-prose pre > code { padding: 0; background: transparent; font-weight: 400; }
 .ui-prose > table { align-self: stretch; }
