@@ -123,6 +123,8 @@ class MotionRecorder {
 			if (overlay != null)
 				offscreen.overlays.remove(overlay);
 			trace.stop();
+			// Where it was thrown, which a rethrow from here would hide.
+			Snapshot.event('error motion $name ${e.message} ${e.stack.toString().split("\n").join(" | ")}');
 			throw e;
 		}
 		if (overlay != null)
