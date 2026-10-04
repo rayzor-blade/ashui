@@ -1035,6 +1035,35 @@ class Smoke {
 			regular != null && bold != null && regular.commands.length > 0 && bold.width > regular.width && Math.abs((minX + maxX) / 2 - 100) < 2,
 			[regular == null ? null : regular.width, bold == null ? null : bold.width, minX, maxX]);
 
+		// A canvas out of view does not draw what changes; it draws once when it comes into view.
+		var cvTree = new LayoutTree();
+		var cvValue = Signal.make(0), cvTall = Signal.make(30.0), cvDraws = 0;
+		var cvRoot:Div = Owner.root(cvTree, _ -> <div flexDirection={Column} width={100} height={cvTall.get()} overflow={ashui.types.Style.Overflow.Hidden}>
+			<div height={60} flexShrink={0} />
+			<canvas width={40} height={20} draw={ctx -> {
+				cvDraws++;
+				ctx.fillRect(0, 0, cvValue.get(), 10, ashui.types.Brush.solid(0));
+			}} />
+		</div>);
+		function cvSettle() {
+			cvTree.flush();
+			cvTree.computeLayout(cvRoot.node, 100, 300);
+			cvTree.flush();
+		}
+		cvSettle();
+		cvSettle();
+		var cvFirst = cvDraws;
+		cvValue.set(5);
+		cvSettle();
+		cvValue.set(6);
+		cvSettle();
+		var cvHidden = cvDraws - cvFirst;
+		cvTall.set(200);
+		cvSettle();
+		cvSettle();
+		var cvShown = cvDraws - cvFirst - cvHidden;
+		check("a canvas out of view draws nothing new, and draws once as it comes into view", cvHidden == 0 && cvShown == 1, [cvFirst, cvHidden, cvShown]);
+
 		// Inline markup: a template written as Haxe's own markup, no hxx() around it.
 		var mkTree = new LayoutTree();
 		var mkCount = Signal.make(2);

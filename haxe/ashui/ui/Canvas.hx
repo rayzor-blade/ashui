@@ -132,14 +132,30 @@ class Canvas extends Component<CanvasProps> {
 		}
 		if (props.draw != null) {
 			var draw = props.draw;
+			// Out of view, a change is not drawn: the canvas keeps what it drew, and draws once more as it comes into view.
+			var seen = Signal.make(0);
+			var behind = false;
 			// Recorded as the watch reads, which a change of what it read runs at once; the reaction asks for the frame.
 			new Watch(() -> {
-				var ctx = new ashui.draw.DrawContext(w.get(), h.get());
+				seen.get();
+				var width = w.get(), height = h.get();
+				if (recorded != null && !tree.inView(id)) {
+					behind = true;
+					return recorded;
+				}
+				behind = false;
+				var ctx = new ashui.draw.DrawContext(width, height);
 				if (ctx.width > 0 && ctx.height > 0)
 					draw(ctx);
 				recorded = ctx;
 				ctx;
 			}, _ -> repaint(), (a, b) -> a == b);
+			var returned:LayoutTree->Void = t -> if (t == tree && behind && tree.inView(id)) {
+				behind = false;
+				seen.set(seen.get() + 1);
+			};
+			LayoutTree.flushHooks.push(returned);
+			Owner.onCleanup(() -> LayoutTree.flushHooks.remove(returned));
 		}
 		switch props.animate {
 			case null:
