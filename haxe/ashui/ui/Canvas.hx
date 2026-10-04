@@ -32,6 +32,9 @@ typedef CanvasProps = {
 	**/
 	?draw:ashui.draw.DrawContext->Void,
 
+	/** Runs a sketch: drawn again every frame, on the animation scheduler's clock. **/
+	?sketch:ashui.draw.Sketch,
+
 	/** While true, a frame is drawn every tick of the animation scheduler, so `paint` animates. **/
 	?animate:IntoReactive<Bool>,
 
@@ -94,6 +97,38 @@ class Canvas extends Component<CanvasProps> {
 		}
 		LayoutTree.settledHooks.push(sized);
 		Owner.onCleanup(() -> LayoutTree.settledHooks.remove(sized));
+		if (props.sketch != null) {
+			var sketch = props.sketch;
+			var frames = 0, t = 0.0, setUp = false;
+			var alive = true;
+			Owner.onCleanup(() -> alive = false);
+			// A frame at the canvas's size; time runs from the first, drawn as soon as it is laid out.
+			function step(dt:Float) {
+				var ctx = new ashui.draw.Sketch.SketchContext(w.get(), h.get(), frames);
+				if (!setUp) {
+					sketch.setup(ctx);
+					setUp = true;
+					dt = 0;
+				} else
+					t += dt;
+				sketch.draw(ctx, t, dt);
+				frames++;
+				recorded = ctx;
+				repaint();
+			}
+			var first:LayoutTree->Void = null;
+			first = laid -> if (laid == tree && !setUp && w.get() > 0 && h.get() > 0)
+				step(0);
+			LayoutTree.settledHooks.push(first);
+			Owner.onCleanup(() -> LayoutTree.settledHooks.remove(first));
+			AnimationScheduler.main.addTicker(dt -> {
+				if (!alive)
+					return false;
+				if (setUp && w.get() > 0 && h.get() > 0)
+					step(dt);
+				return true;
+			});
+		}
 		if (props.draw != null) {
 			var draw = props.draw;
 			// Recorded as the watch reads, which a change of what it read runs at once; the reaction asks for the frame.

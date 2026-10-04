@@ -117,6 +117,31 @@ class Smoke {
 		check("a canvas's repaint makes the next flush report a change, and it is 300 by 150 unless sized",
 			!idle && asked && cb.width == 300 && cb.height == 150, [idle, asked, cb.width, cb.height]);
 
+		// --- A painter fills, then strokes, with what is set; pop undoes transforms and paint together ---
+		var pctx = new ashui.draw.DrawContext(100, 100);
+		var painter = new ashui.draw.Painter(pctx);
+		painter.fill(ashui.types.Brush.solid(0xff0000)).stroke(ashui.types.Brush.solid(0x0000ff), 2).rect(0, 0, 10, 10);
+		var both = pctx.ops.length;
+		painter.push().translate(5, 5).rotate(1).noFill().circle(0, 0, 3);
+		var turned = !pctx.currentTransform().isIdentity();
+		painter.pop().circle(0, 0, 3);
+		var kinds = [for (op in pctx.ops) op.getName()].join(" ");
+		check("a painter fills then strokes with what is set, and pop undoes its transforms and paint",
+			both == 2 && turned && pctx.currentTransform().isIdentity() && kinds == "Fill Stroke Stroke Fill Stroke", [both, turned, kinds]);
+
+		// --- A sketch draws a frame once it is laid out, then a frame a tick, on the scheduler's clock ---
+		var sketchTree = new LayoutTree();
+		var seen:Array<Float> = [];
+		var sketchCanvas:Null<ashui.ui.Canvas> = null;
+		var sketchRoot:Div = Owner.root(sketchTree, _ -> new Div({flexDirection: Column, alignItems: Start}, [sketchCanvas = new ashui.ui.Canvas({sketch: new SmokeSketch(seen)})], sketchTree));
+		sketchTree.flush();
+		sketchTree.computeLayout(sketchRoot.node, 400, 400);
+		var afterLayout = seen.length;
+		for (_ in 0...2)
+			ashui.animation.AnimationScheduler.main.tick(0.25);
+		check("a sketch draws its first frame once laid out, at no time, then one a tick, its clock the scheduler's",
+			afterLayout == 1 && seen.length == 3 && seen[0] == 0 && seen[2] == 0.5, seen);
+
 		// --- Text bound to a computed string is measured again when it changes ---
 		var clicks = Signal.make(1);
 		var counter = new Text(clicks.computed(c -> 'Value: $c'), tree);
@@ -2613,4 +2638,17 @@ enum SmokeEvent {
 	Done;
 	Hide;
 	Gone;
+}
+
+/** A sketch that notes the time of each frame it draws. **/
+class SmokeSketch implements ashui.draw.Sketch {
+	final seen:Array<Float>;
+
+	public function new(seen:Array<Float>)
+		this.seen = seen;
+
+	public function setup(ctx:ashui.draw.Sketch.SketchContext):Void {}
+
+	public function draw(ctx:ashui.draw.Sketch.SketchContext, t:Float, dt:Float):Void
+		seen.push(t);
 }
