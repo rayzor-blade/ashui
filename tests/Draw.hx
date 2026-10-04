@@ -4,6 +4,9 @@ import ashui.draw.Mesh;
 import ashui.draw.Path;
 import ashui.draw.Stroke;
 import ashui.draw.Tessellate;
+import ashui.math.Mat4;
+import ashui.math.Quat;
+import ashui.math.Vec3;
 
 /** ashui.draw's vector core, without a GPU: flattening, and the triangles fills and strokes make. **/
 class Draw {
@@ -145,6 +148,34 @@ class Draw {
 		check("a point with round caps is a dot", Math.abs(painted(dot) - Math.PI * 9) < 2, painted(dot));
 		var curve = stroke(new Path().moveTo(0, 0).cubicTo(30, -40, 70, 40, 100, 0), new Stroke(3, Butt, Round));
 		check("a curve's band has nothing undefined", finite(curve) && painted(curve) > 3 * 100, painted(curve));
+
+		// --- 3D math ---
+		inline function near(a:Vec3, b:Vec3)
+			return a.distance(b) < 1e-9;
+		var quarter = Quat.axisAngle(Vec3.UP, Math.PI / 2);
+		check("a quarter turn about Y takes +X to -Z", near(quarter.rotate(new Vec3(1, 0, 0)), new Vec3(0, 0, -1)), quarter.rotate(new Vec3(1, 0, 0)));
+		check("its matrix turns points as it does", near(Mat4.rotation(quarter).transformPoint(new Vec3(1, 2, 3)), quarter.rotate(new Vec3(1, 2, 3))));
+		var node = Mat4.compose(new Vec3(1, 2, 3), Quat.euler(0.3, -0.7, 1.1), new Vec3(2, 0.5, 3));
+		var undone = node.inverse();
+		check("a node's transform and its inverse undo each other", undone != null && near(undone.transformPoint(node.transformPoint(new Vec3(4, -5, 6))), new Vec3(4, -5, 6)));
+		check("compose scales, then turns, then moves", near(node.transformPoint(Vec3.ZERO), new Vec3(1, 2, 3))
+			&& near(node.transformDirection(new Vec3(1, 0, 0)), Quat.euler(0.3, -0.7, 1.1).rotate(new Vec3(2, 0, 0))));
+		var a = Mat4.translation(new Vec3(5, 0, 0)), b = Mat4.scaling(new Vec3(2, 2, 2));
+		check("a.mul(b) applies b first", near(a.mul(b).transformPoint(new Vec3(1, 1, 1)), new Vec3(7, 2, 2)));
+		var view = Mat4.lookAt(new Vec3(0, 0, 5), Vec3.ZERO, Vec3.UP);
+		check("a camera at +Z looking at the origin sees it 5 ahead, down -Z", near(view.transformPoint(Vec3.ZERO), new Vec3(0, 0, -5)));
+		check("and keeps +Y up", near(view.transformDirection(Vec3.UP), Vec3.UP));
+		var proj = Mat4.perspective(Math.PI / 2, 2, 0.1, 100);
+		check("the near plane projects to depth 0, the far to 1", Math.abs(proj.transformPoint(new Vec3(0, 0, -0.1)).z) < 1e-9
+			&& Math.abs(proj.transformPoint(new Vec3(0, 0, -100)).z - 1) < 1e-9);
+		check("a 90° view reaches the top edge at 45°, the side at 45° times the aspect", Math.abs(proj.transformPoint(new Vec3(0, 1, -1)).y - 1) < 1e-9
+			&& Math.abs(proj.transformPoint(new Vec3(2, 0, -1)).x - 1) < 1e-9);
+		var squash = Mat4.scaling(new Vec3(1, 4, 1));
+		var n = squash.normalMatrix().transformDirection(new Vec3(1, 1, 0).normalize()).normalize();
+		var surface = squash.transformDirection(new Vec3(1, -1, 0));
+		check("normals stay perpendicular to a surface squashed unevenly", Math.abs(n.dot(surface)) < 1e-9, n);
+		var halfway = Quat.IDENTITY.slerp(quarter, 0.5);
+		check("slerp halfway through a quarter turn is an eighth", near(halfway.rotate(new Vec3(1, 0, 0)), new Vec3(Math.cos(Math.PI / 4), 0, -Math.sin(Math.PI / 4))));
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
