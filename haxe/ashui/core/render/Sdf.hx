@@ -199,38 +199,41 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			var innerRight = innerOrigin.x + innerSize.x;
 			var innerBottom = innerOrigin.y + innerSize.y;
 			var k = 1.5;
+			// Each piece added to the body reaches this far into it, hidden there, so no point near where they meet
+			// is near an edge of both: the union's distance inside is to the outline, and a border follows only that.
+			var into = min(8., min(innerSize.x, innerSize.y) * 0.5);
 			// A flare too tall for the box squashes into an ellipse rather than overflowing.
 			var room = max(size.y - topOffset - bottomOffset, 0.);
 			var sharp = vec4(0., 0., 0., 0.);
 			var round = vec4(1., 1., 1., 1.);
 			if (tlC) {
 				var ry = min(r.x, room);
-				var flare = max(sdShapedRect(p, vec2(0., innerOrigin.y), vec2(left, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(0., innerOrigin.y), vec2(left + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(0., innerOrigin.y + ry), vec2(left, ry)));
 				d = smin(d, flare, k);
 			}
 			if (trC) {
 				var ry = min(r.y, room);
 				var w = size.x - innerRight;
-				var flare = max(sdShapedRect(p, vec2(innerRight, innerOrigin.y), vec2(w, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(innerRight - into, innerOrigin.y), vec2(w + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(size.x, innerOrigin.y + ry), vec2(w, ry)));
 				d = smin(d, flare, k);
 			}
 			if (brC) {
 				var ry = min(r.z, room);
 				var w = size.x - innerRight;
-				var flare = max(sdShapedRect(p, vec2(innerRight, innerBottom - ry), vec2(w, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(innerRight - into, innerBottom - ry), vec2(w + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(size.x, innerBottom - ry), vec2(w, ry)));
 				d = smin(d, flare, k);
 			}
 			if (blC) {
 				var ry = min(r.w, room);
-				var flare = max(sdShapedRect(p, vec2(0., innerBottom - ry), vec2(left, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(0., innerBottom - ry), vec2(left + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(0., innerBottom - ry), vec2(left, ry)));
 				d = smin(d, flare, k);
 			}
-			d = notchEdge(p, d, size.x * 0.5, innerOrigin.y, top, 1.);
-			d = notchEdge(p, d, size.x * 0.5, innerBottom, bottom, -1.);
+			d = notchEdge(p, d, size.x * 0.5, innerOrigin.y, top, 1., into);
+			d = notchEdge(p, d, size.x * 0.5, innerBottom, bottom, -1., into);
 			return d;
 		}
 
@@ -238,9 +241,10 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			`d` with an edge modifier `m` at the centre `cx` of the edge at `baseY`,
 			`dir` 1 on the top edge and -1 on the bottom, so the body lies the way
 			`dir` points: a scoop carved in with rounded ears, a bulge's arc
-			added, a V cut in, or a V peak added.
+			added, a V cut in, or a V peak added. What is added reaches `into`
+			past the edge into the body, so no seam shows inside.
 		**/
-		function notchEdge(p : Vec2, d : Float, cx : Float, baseY : Float, m : Vec4, dir : Float) : Float {
+		function notchEdge(p : Vec2, d : Float, cx : Float, baseY : Float, m : Vec4, dir : Float, into : Float) : Float {
 			var result = d;
 			var w = m.y;
 			var h = m.z;
@@ -253,17 +257,22 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 					var diskR = min(halfW, h);
 					var diskY = h - diskR;
 					var disk = max(length(q - vec2(cx, diskY)) - diskR, diskY - q.y);
-					var rect = sdShapedRect(q, vec2(cx - halfW, 0.), vec2(w, max(diskY, 0.001)), vec4(0., 0., 0., 0.), vec4(1., 1., 1., 1.));
-					result = smax(d, -min(rect, disk), max(m.w, 0.001));
+					// The rect only when the scoop is deeper than half its width; a flat one would pull the edge down beside the bowl.
+					var hollow = disk;
+					if (diskY > 0.001)
+						hollow = min(sdShapedRect(q, vec2(cx - halfW, 0.), vec2(w, diskY), vec4(0., 0., 0., 0.), vec4(1., 1., 1., 1.)), disk);
+					result = smax(d, -hollow, max(m.w, 0.001));
 				} else if (m.x < 2.5) {
 					// Bulge: the cap of a disk through the edge's ends and its apex, out from the baseline.
 					var rb = (halfW * halfW + h * h) / max(2. * h, 0.001);
-					var cap = max(length(q - vec2(cx, rb - h)) - rb, q.y);
+					var cap = max(length(q - vec2(cx, rb - h)) - rb, q.y - into);
 					result = smin(d, cap, max(m.w, 0.001));
 				} else if (m.x < 3.5) {
 					result = smax(d, -sdTriangle(q, vec2(cx - halfW, 0.), vec2(cx, h), vec2(cx + halfW, 0.)), 1.5);
 				} else {
-					result = smin(d, sdTriangle(q, vec2(cx - halfW, 0.), vec2(cx, -h), vec2(cx + halfW, 0.)), 1.5);
+					// Its sides carried on past the edge, so the V reaches into the body.
+					var spread = halfW * (h + into) / h;
+					result = smin(d, sdTriangle(q, vec2(cx - spread, into), vec2(cx, -h), vec2(cx + spread, into)), 1.5);
 				}
 			}
 			return result;

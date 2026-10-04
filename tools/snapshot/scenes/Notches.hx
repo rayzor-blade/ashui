@@ -32,12 +32,12 @@ class Notches {
 					</div>
 				</div>
 				<div flexDirection={Row} gap={20} alignItems={Start}>
-					<div notch={tooltip} width={120} height={70} bg={Brush.solid(0x2563eb)} padding={16} paddingTop={20}>
+					<div notch={tooltip} width={120} height={70} bg={Brush.solid(0x2563eb)} padding={16} paddingTop={20} class="border-2 border-white">
 						<text class="text-white text-sm">A tooltip</text>
 					</div>
-					<div notch={island} width={150} height={90} bg={Brush.solid(0x0f172a)} />
-					<div notch={bulge} width={120} height={90} bg={Brush.solid(0x16a34a)} />
-					<div notch={cut} width={80} height={90} bg={Brush.solid(0xdb2777)} />
+					<div notch={island} width={150} height={90} bg={Brush.solid(0x0f172a)} class="border-2 border-primary" />
+					<div notch={bulge} width={120} height={90} bg={Brush.solid(0x16a34a)} class="border-2 border-white" />
+					<div notch={cut} width={80} height={90} bg={Brush.solid(0xdb2777)} class="border-2 border-white" />
 				</div>
 			</div>
 		');
