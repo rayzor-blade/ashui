@@ -32,14 +32,24 @@ class Tweened<T> {
 	var running = false;
 	var stopped = false;
 	var source:Null<Watch<T>> = null;
+	final node:Node;
+	final prop:PropertyId;
+	/** The move being recorded, while a motion trace records. **/
+	var track:Null<ashui.debug.MotionTrack> = null;
 
 	function new(node:Node, prop:PropertyId, transition:Transition, output:Signal<T>, lerp:(T, T, Float) -> Null<T>) {
+		this.node = node;
+		this.prop = prop;
 		this.transition = transition;
 		this.lerp = lerp;
 		this.output = output;
 		current = from = to = output.get();
 		node.bind(prop, Bound(cast output));
-		Owner.onCleanup(() -> stopped = true);
+		Owner.onCleanup(() -> {
+			stopped = true;
+			if (track != null)
+				track.finish(Interrupted);
+		});
 	}
 
 	/** A tweened binding of `prop` on `node` following `value`, or null if `prop`'s values cannot move. **/
@@ -103,9 +113,13 @@ class Tweened<T> {
 		to = value;
 		elapsed = -transition.delay();
 		if (lerp(from, to, 0) == null) {
+			traceJump(value);
 			jump(value);
 			return;
 		}
+		if (ashui.debug.MotionTrace.current != null)
+			track = ashui.debug.MotionTrace.begin(Transition, node.tree, node.id, ashui.debug.PropertyNames.name(prop), text(from), text(to),
+				transition.delay(), transition.seconds(), transition.curve());
 		if (!running) {
 			running = true;
 			AnimationScheduler.main.addTicker(tick);
@@ -115,6 +129,52 @@ class Tweened<T> {
 	/** Moves by `next` from the next change on, as when a stylesheet gives the property other timing. **/
 	public function retime(next:Transition):Void
 		transition = next;
+
+	/** A change with no way between its values, recorded as a track that snapped: a transition declared that did not animate. **/
+	function traceJump(value:T):Void {
+		if (ashui.debug.MotionTrace.current == null)
+			return;
+		var t = ashui.debug.MotionTrace.begin(Transition, node.tree, node.id, ashui.debug.PropertyNames.name(prop), text(from), text(value),
+			transition.delay(), transition.seconds(), transition.curve());
+		if (t != null)
+			t.finish(Snapped);
+		track = null;
+	}
+
+	/** A value as the motion report writes it, read by the property's type. **/
+	function text(v:T):String {
+		if (v == null)
+			return "none";
+		var d:Dynamic = v;
+		return switch prop.getDataType() {
+			case TypeF32:
+				Std.string(Math.round((d : Single) * 1000) / 1000);
+			case TypeColor:
+				var c:Color = d;
+				'#${StringTools.hex(c.rgb, 6).toLowerCase()}' + (c.alpha < 1 ? '/${Math.round(c.alpha * 100) / 100}' : "");
+			case TypeBrush:
+				var b:Brush = d;
+				b.solidRgb >= 0 ? '#${StringTools.hex(b.solidRgb, 6).toLowerCase()}' + (b.solidAlpha < 1 ? '/${Math.round(b.solidAlpha * 100) / 100}' : "") : "gradient";
+			case TypeTransform:
+				var t:ashui.types.Transform = d;
+				var parts = [];
+				if (t.translateX != 0 || t.translateY != 0)
+					parts.push('translate(${Math.round(t.translateX * 10) / 10}, ${Math.round(t.translateY * 10) / 10})');
+				if (t.rotate != 0)
+					parts.push('rotate(${Math.round(t.rotate * 10) / 10}deg)');
+				if (t.scaleX != 1 || t.scaleY != 1)
+					parts.push('scale(${Math.round(t.scaleX * 1000) / 1000}, ${Math.round(t.scaleY * 1000) / 1000})');
+				parts.length == 0 ? "none" : parts.join(" ");
+			case TypeShadow:
+				var sh:Shadow = d;
+				[
+					for (l in sh.layers)
+						'${l[6] > 0.5 ? "inset " : ""}${l[0]} ${l[1]} ${l[2]} ${l[3]} #${StringTools.hex(Std.int(l[4]), 6).toLowerCase()}/${Math.round(l[5] * 100) / 100}'
+				].join(", ");
+			case _:
+				Std.string(d);
+		}
+	}
 
 	function jump(value:T):Void {
 		current = from = to = value;
@@ -132,9 +192,15 @@ class Tweened<T> {
 			return true;
 		var duration = transition.seconds();
 		var t = duration <= 0 ? 1.0 : Math.min(1, elapsed / duration);
-		var value = t >= 1 ? to : lerp(from, to, EasingTools.evaluate(transition.curve(), t));
+		var eased = t >= 1 ? 1.0 : EasingTools.evaluate(transition.curve(), t);
+		var value = t >= 1 ? to : lerp(from, to, eased);
 		current = value;
 		output.set(value);
+		if (track != null) {
+			track.sample(eased, t, text(value));
+			if (t >= 1)
+				track.finish(Completed);
+		}
 		if (t >= 1) {
 			running = false;
 			return false;

@@ -137,13 +137,17 @@ memory)
 	haxe components.hxml
 	components=0
 	run components.hl || components=$?
+	# Motion tracing: what each animation records and what the checks find.
+	haxe motion.hxml
+	motion=0
+	run motion.hl || motion=$?
 	# Pure Haxe, so the interpreter runs it.
 	css=0
 	haxe --class-path ../haxe --class-path . -main CssParse --interp || css=$?
 	haxe --class-path ../haxe --class-path . -main CssValues --interp || css=$?
 	compile=0
 	compile_fixtures || compile=$?
-	[ $smoke -eq 0 ] && [ $components -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
+	[ $smoke -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

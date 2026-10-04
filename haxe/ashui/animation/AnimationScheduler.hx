@@ -14,6 +14,8 @@ class AnimationScheduler {
 	public static final main = new AnimationScheduler();
 
 	final springs = new Map<Int, Spring>();
+	/** Each spring's move being recorded, while a motion trace records. **/
+	final springTracks = new Map<Int, {track:ashui.debug.MotionTrack, start:Float, target:Float}>();
 	/** Called each tick with the seconds passed; dropped once they return false. **/
 	final tickers:Array<Float->Bool> = [];
 	var nextId = 1;
@@ -45,6 +47,7 @@ class AnimationScheduler {
 		return locked(() -> {
 			var id = nextId++;
 			springs.set(id, spring);
+			traceSpring(id, spring);
 			id;
 		});
 	}
@@ -61,15 +64,41 @@ class AnimationScheduler {
 	public function setTarget(id:Int, target:Float):Void {
 		locked(() -> {
 			var spring = springs.get(id);
-			if (spring != null)
+			if (spring != null) {
 				spring.target = target;
+				traceSpring(id, spring);
+			}
 			null;
 		});
 	}
 
 	/** Stops advancing `id`'s spring and forgets it: `value` gives null after. **/
 	public function remove(id:Int):Void {
-		locked(() -> springs.remove(id));
+		locked(() -> {
+			var traced = springTracks.get(id);
+			if (traced != null) {
+				traced.track.finish(Interrupted);
+				springTracks.remove(id);
+			}
+			springs.remove(id);
+		});
+	}
+
+	/** Starts recording `spring`'s move toward its target, while a motion trace records; a move already recorded ends, interrupted. **/
+	function traceSpring(id:Int, spring:Spring):Void {
+		if (ashui.debug.MotionTrace.current == null)
+			return;
+		var was = springTracks.get(id);
+		if (was != null)
+			was.track.finish(Interrupted);
+		var span = spring.target - spring.value;
+		var track = ashui.debug.MotionTrace.begin(Spring, null, null, "value", Std.string(Math.round(spring.value * 1000) / 1000),
+			Std.string(Math.round(spring.target * 1000) / 1000), 0, 0, null, spring.config, 'spring #$id');
+		if (track == null)
+			return;
+		// Its speed at release, in moves per second, for the closed form it is checked against.
+		track.v0 = span == 0 ? 0 : spring.velocity / span;
+		springTracks.set(id, {track: track, start: spring.value, target: spring.target});
 	}
 
 	/** Whether `id`'s spring is still moving. **/
@@ -134,11 +163,22 @@ class AnimationScheduler {
 			var settled = [];
 			for (id => spring in springs) {
 				spring.step(dt);
+				var traced = springTracks.get(id);
+				if (traced != null) {
+					var span = traced.target - traced.start;
+					traced.track.sample(span == 0 ? 1 : (spring.value - traced.start) / span, 0, Std.string(Math.round(spring.value * 1000) / 1000));
+				}
 				if (spring.isSettled())
 					settled.push(id);
 			}
-			for (id in settled)
+			for (id in settled) {
 				springs.remove(id);
+				var traced = springTracks.get(id);
+				if (traced != null) {
+					traced.track.finish(Completed);
+					springTracks.remove(id);
+				}
+			}
 			null;
 		});
 		// Outside the lock: a ticker may add another.

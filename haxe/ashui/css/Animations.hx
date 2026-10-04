@@ -121,6 +121,8 @@ private class Run {
 	var finished = false;
 	var elapsed = 0.0;
 	final reported = new Map<String, Bool>();
+	/** The run being recorded, while a motion trace records. **/
+	var motion:Null<ashui.debug.MotionTrack> = null;
 
 	public function new(identity:Identity, spec:AnimationSpec, key:String, frames:Keyframes, base:Map<String, String>, values:Map<String, String>,
 			ctx:ApplyContext) {
@@ -170,13 +172,27 @@ private class Run {
 	}
 
 	public function start():Void {
+		if (ashui.debug.MotionTrace.current != null) {
+			var names = [for (name in tracks.keys()) name];
+			names.sort(Reflect.compare);
+			var first = names.length == 0 ? null : tracks.get(names[0]);
+			motion = ashui.debug.MotionTrace.begin(Keyframes, identity.tree, identity.node.id, '@keyframes ${spec.name} (${names.join(", ")})',
+				first == null ? "" : first[0].value, first == null ? "" : first[first.length - 1].value, spec.delay, spec.duration, spec.easing);
+			if (motion != null) {
+				motion.iterations = spec.iterations;
+				motion.direction = spec.direction;
+			}
+		}
 		frame();
 		if (!finished)
 			ashui.animation.AnimationScheduler.main.addTicker(tick);
 	}
 
-	public function stop():Void
+	public function stop():Void {
 		stopped = true;
+		if (motion != null)
+			motion.finish(Interrupted);
+	}
 
 	function tick(dt:Float):Bool {
 		if (stopped)
@@ -204,6 +220,10 @@ private class Run {
 				var at = partial > 0 ? partial : 1.0;
 				progress = reversed(Std.int(last)) ? 1 - at : at;
 				finished = true;
+				if (motion != null) {
+					motion.sample(progress, progress);
+					motion.finish(Completed);
+				}
 				if (!holds()) {
 					Animations.ended(this);
 					return;
@@ -214,6 +234,8 @@ private class Run {
 				progress = reversed(Std.int(iteration)) ? 1 - local : local;
 			}
 		}
+		if (motion != null && !finished)
+			motion.sample(progress, progress);
 		write(progress);
 	}
 

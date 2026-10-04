@@ -46,6 +46,8 @@ class LayoutAnimation {
 	var running = false;
 	/** Where it is drawn now, relative to its layout, and at what size. **/
 	var shown = {dx: 0.0, dy: 0.0, w: -1.0, h: -1.0};
+	/** The move being recorded, while a motion trace records. **/
+	var track:Null<ashui.debug.MotionTrack> = null;
 
 	/** Animates `node`'s layout changes from now until the current owner is cleaned up. **/
 	public static function attach(node:Node, ?options:LayoutAnimationOptions):LayoutAnimation {
@@ -61,6 +63,8 @@ class LayoutAnimation {
 			Owner.onCleanup(() -> {
 				list.remove(key);
 				a.running = false;
+				if (a.track != null)
+					a.track.finish(Interrupted);
 			});
 		return a;
 	}
@@ -115,6 +119,12 @@ class LayoutAnimation {
 		};
 		to = {w: now.w, h: now.h};
 		elapsed = 0;
+		if (ashui.debug.MotionTrace.current != null) {
+			inline function r(v:Float)
+				return Math.round(v * 10) / 10;
+			track = ashui.debug.MotionTrace.begin(Layout, tree, node.id, "layout",
+				'${r(was.x)},${r(was.y)} ${r(was.w)}x${r(was.h)}', '${r(now.x)},${r(now.y)} ${r(now.w)}x${r(now.h)}', 0, duration(), curve());
+		}
 		apply(0);
 		if (!running) {
 			running = true;
@@ -128,6 +138,8 @@ class LayoutAnimation {
 					running = false;
 					shown = {dx: 0, dy: 0, w: -1, h: -1};
 					tree.clearVisual(node.id);
+					if (track != null)
+						track.finish(Completed);
 				}
 				return running;
 			});
@@ -141,13 +153,15 @@ class LayoutAnimation {
 		return theme == null ? 0.2 : theme.animations().durationNormal / 1000;
 	}
 
+	function curve():Easing {
+		if (options.easing != null)
+			return options.easing;
+		var theme = ashui.theme.ThemeState.tryGet();
+		return theme == null ? EaseOut : theme.animations().easeOut;
+	}
+
 	function apply(t:Float):Void {
-		var easing = options.easing;
-		if (easing == null) {
-			var theme = ashui.theme.ThemeState.tryGet();
-			easing = theme == null ? EaseOut : theme.animations().easeOut;
-		}
-		var e = EasingTools.evaluate(easing, t);
+		var e = EasingTools.evaluate(curve(), t);
 		var left = 1 - e;
 		var sized = from.w != to.w || from.h != to.h;
 		shown = {
@@ -157,5 +171,7 @@ class LayoutAnimation {
 			h: sized ? from.h + (to.h - from.h) * e : -1.0
 		};
 		tree.setVisual(node.id, shown.dx, shown.dy, shown.w, shown.h);
+		if (track != null)
+			track.sample(e, t, null, shown);
 	}
 }
