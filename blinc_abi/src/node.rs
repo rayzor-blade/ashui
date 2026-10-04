@@ -235,6 +235,7 @@ pub unsafe extern "C" fn hl_blinc_tree_create_text_node(
         content: unsafe { string_from(content) },
         font_size,
         line_height,
+        letter_spacing: 0.0,
         wrap: flags & 1 != 0,
         // No family of its own is the system face: the platform's UI face where it is installed.
         font_name: unsafe { opt_string_from(font_name) }.or_else(|| if generic_font == 0 { crate::text::system_ui() } else { None }),
@@ -751,7 +752,7 @@ pub unsafe extern "C" fn hl_blinc_tree_box_edges(h: *mut c_void, node: u64, out:
         };
         let sides = &r.border_sides;
         let border = r.border_width > 0.0 || [&sides.top, &sides.right, &sides.bottom, &sides.left].iter().any(|s| s.as_ref().is_some_and(|s| s.width > 0.0));
-        visible_bg || border || !r.shadow.is_empty()
+        visible_bg || border || !r.shadow.is_empty() || !r.inner_shadow.is_empty()
     });
     let out = out as *mut f32;
     for (i, v) in [p.top, p.right, p.bottom, p.left, if painted { 1.0 } else { 0.0 }].into_iter().enumerate() {

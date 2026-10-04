@@ -92,7 +92,7 @@ dependencies = [
 [[package]]
 name = "blinc_animation"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "blinc_core",
  "slotmap",
@@ -106,7 +106,7 @@ dependencies = [
 [[package]]
 name = "blinc_core"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "rustc-hash",
  "slotmap",
@@ -118,7 +118,7 @@ dependencies = [
 [[package]]
 name = "blinc_css"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "blinc_animation",
  "blinc_core",
@@ -131,7 +131,7 @@ dependencies = [
 [[package]]
 name = "blinc_image"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "base64",
  "image",
@@ -142,7 +142,7 @@ dependencies = [
 [[package]]
 name = "blinc_layout"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "arboard",
  "blinc_animation",
@@ -167,7 +167,7 @@ dependencies = [
 [[package]]
 name = "blinc_svg"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "blinc_core",
  "resvg",
@@ -179,7 +179,7 @@ dependencies = [
 [[package]]
 name = "blinc_text"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "blinc_core",
  "fontdb",
@@ -198,7 +198,7 @@ dependencies = [
 [[package]]
 name = "blinc_theme"
 version = "0.5.1"
-source = "git+https://github.com/project-blinc/blinc?branch=main#6accf69b8ed54ae84d397b9749d32db6d79074d6"
+source = "git+https://github.com/project-blinc/blinc?branch=main#deeeec981e32da6a0331c9853b51f51bff32e5f9"
 dependencies = [
  "blinc_animation",
  "blinc_core",

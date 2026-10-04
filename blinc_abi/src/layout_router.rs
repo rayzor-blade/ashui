@@ -366,7 +366,7 @@ fn own_value_write(raw: i32) -> Option<(PropertyId, Write<Value>)> {
             PropertyId::Filter,
             render(|p, v| {
                 filter(p).drop_shadow = match v {
-                    Value::Shadow(layers) => layers.first().copied(),
+                    Value::Shadow(outer, _) => outer.first().copied(),
                     _ => None,
                 };
             })?,
@@ -431,7 +431,10 @@ fn f32_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<f32>> {
             p.font_size = Some(v);
             record_text(node, move |c| c.font_size = v);
         }),
-        P::LetterSpacing => render(|p, v| p.letter_spacing = Some(v)),
+        P::LetterSpacing => render(move |p, v| {
+            p.letter_spacing = Some(v);
+            record_text(node, move |c| c.letter_spacing = v);
+        }),
         P::LineHeight => render(move |p, v| {
             p.line_height = Some(v);
             record_text(node, move |c| c.line_height = v);
@@ -667,8 +670,9 @@ fn value_write(prop: PropertyId) -> Option<Write<Value>> {
             }
         }),
         P::Shadow => render(|p, v| {
-            if let Value::Shadow(s) = v {
-                p.shadow = s;
+            if let Value::Shadow(outer, inner) = v {
+                p.shadow = outer;
+                p.inner_shadow = inner;
             }
         }),
         _ => None,
@@ -829,7 +833,10 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
         })),
         4 => ren(P::Opacity, Box::new(|p| p.opacity = 1.0)),
         5 => ren(P::Transform, Box::new(|p| p.transform = None)),
-        6 => ren(P::Shadow, Box::new(|p| p.shadow = Default::default())),
+        6 => ren(P::Shadow, Box::new(|p| {
+            p.shadow = Default::default();
+            p.inner_shadow = Default::default();
+        })),
         7 => ren(P::Color, Box::new(|p| p.text_color = None)),
         8 => ren(P::Filter, Box::new(|p| p.filter = None)),
         9 | 66 => ren(P::AccentColor, Box::new(|p| p.outline_color = None)),
@@ -875,7 +882,10 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
             p.font_style = None;
             record_text(node, |c| c.italic = false);
         })),
-        38 => ren(P::LetterSpacing, Box::new(|p| p.letter_spacing = None)),
+        38 => ren(P::LetterSpacing, Box::new(move |p| {
+            p.letter_spacing = None;
+            record_text(node, |c| c.letter_spacing = 0.0);
+        })),
         39 => ren(P::LineHeight, Box::new(move |p| {
             p.line_height = None;
             record_text(node, |c| c.line_height = 1.2);

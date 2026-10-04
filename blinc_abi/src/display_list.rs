@@ -781,7 +781,7 @@ pub fn append(
         let clip = clipping(clips, m, (x, y), true);
 
         // Outer shadows under the fill; inset ones go over it, after.
-        for s in props.shadow.iter().rev().filter(|s| !s.inset) {
+        for s in props.shadow.iter().rev() {
             let mut p = Primitive::new(PRIM_SHADOW, local, radii);
             p.shape_from(props, &glyphs.shapes);
             p.notch = notch;
@@ -882,7 +882,7 @@ pub fn append(
         let [top, right, bottom, left] = sides;
         let inner = [0.0, 0.0, (w - left - right).max(0.0), (h - top - bottom).max(0.0)];
         let inner_radii = radii.map(|r| (r - top.max(right).max(bottom).max(left)).max(0.0));
-        for s in props.shadow.iter().rev().filter(|s| s.inset) {
+        for s in props.inner_shadow.iter().rev() {
             let mut p = Primitive::new(PRIM_SHADOW, inner, inner_radii);
             p.shape_from(props, &glyphs.shapes);
             p.fill_type = 1.0;

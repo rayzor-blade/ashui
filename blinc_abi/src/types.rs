@@ -21,7 +21,8 @@ pub enum Value {
     Color(Color),
     Radius(CornerRadius),
     Transform(Transform),
-    Shadow(Vec<Shadow>),
+    /// A box shadow's layers: those cast outside the box, and the inset ones, each in CSS order.
+    Shadow(Vec<Shadow>, Vec<Shadow>),
     /// A corner shape's `n` per corner, and whether the theme may not smooth it.
     CornerShape([f32; 4], bool),
     /// A CSS `clip-path` shape.
@@ -361,7 +362,6 @@ fn shadow_layer(
     spread: f32,
     hex: i32,
     alpha: f32,
-    inset: bool,
 ) -> Shadow {
     Shadow {
         offset_x,
@@ -369,7 +369,6 @@ fn shadow_layer(
         blur,
         spread,
         color: hex_color(hex, alpha),
-        inset,
     }
 }
 
@@ -385,9 +384,8 @@ pub extern "C" fn hl_blinc_shadow(
     alpha: f32,
     inset: bool,
 ) -> *mut c_void {
-    value(Value::Shadow(vec![shadow_layer(
-        offset_x, offset_y, blur, spread, hex, alpha, inset,
-    )]))
+    let layer = shadow_layer(offset_x, offset_y, blur, spread, hex, alpha);
+    value(if inset { Value::Shadow(vec![], vec![layer]) } else { Value::Shadow(vec![layer], vec![]) })
 }
 define_prim!(hlp_blinc_shadow, hl_blinc_shadow, "Pffffifb_Xblinc_value_");
 
@@ -404,8 +402,9 @@ pub unsafe extern "C" fn hl_blinc_shadow_push(
     alpha: f32,
     inset: bool,
 ) {
-    if let Some(Value::Shadow(layers)) = unsafe { handle_mut::<Value>(shadow) } {
-        layers.push(shadow_layer(offset_x, offset_y, blur, spread, hex, alpha, inset));
+    if let Some(Value::Shadow(outer, inner)) = unsafe { handle_mut::<Value>(shadow) } {
+        let layer = shadow_layer(offset_x, offset_y, blur, spread, hex, alpha);
+        if inset { inner.push(layer) } else { outer.push(layer) }
     }
 }
 define_prim!(

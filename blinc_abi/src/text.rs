@@ -456,6 +456,7 @@ mod tests {
                 content: "Card".into(),
                 font_size: 12.0,
                 line_height: 1.2,
+                letter_spacing: 0.0,
                 wrap: false,
                 font_name: None,
                 generic_font: LayoutGeneric::System,
