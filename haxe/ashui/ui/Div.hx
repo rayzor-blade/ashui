@@ -51,6 +51,8 @@ typedef DivAttributes = {
 	?flexWrap:IntoReactive<FlexWrap>,
 	?flexBasis:IntoReactive<Single>,
 	/** CSS grid, written as CSS writes it: the tracks of a `display: Grid` box, `repeat(3, 1fr) 120px`, and the lines a child takes, `span 2`, `1 / -1`. **/
+	/** CSS's `mask-image`: a gradient brush (`Brush.linear(..., true)`), whose alpha it and what it holds are drawn through, as a fade at an edge. **/
+	?maskImage:IntoReactive<ashui.types.Brush>,
 	?gridTemplateColumns:IntoReactive<String>,
 	?gridTemplateRows:IntoReactive<String>,
 	?gridColumn:IntoReactive<String>,
@@ -158,6 +160,8 @@ class Div extends Element {
 				node.set(Prop.FlexWrap, attr.flexWrap);
 			if (attr.flexBasis != null)
 				node.set(Prop.FlexBasis, attr.flexBasis);
+			if (attr.maskImage != null)
+				node.set(Prop.MaskImage, attr.maskImage);
 			if (attr.gridTemplateColumns != null)
 				node.set(Prop.GridTemplateColumns, attr.gridTemplateColumns);
 			if (attr.gridTemplateRows != null)

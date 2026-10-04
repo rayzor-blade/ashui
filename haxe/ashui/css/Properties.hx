@@ -193,6 +193,19 @@ class Properties {
 			});
 		}
 
+		// --- Masks: a gradient the element and what it holds are drawn through; none for none ---
+		for (name in ["mask-image", "-webkit-mask-image"])
+			h.set(name, (n, v, _) -> {
+				var t = StringTools.trim(v).toLowerCase();
+				if (t == "none")
+					return [];
+				var call = CssValue.call(t);
+				if (call == null || call.name.indexOf("gradient") < 0)
+					throw 'expected a gradient or none, not "$v"';
+				write(n, Prop.MaskImage, image(v));
+				[Node.field(Prop.MaskImage)];
+			});
+
 		// --- Grid: tracks and lines, passed on as CSS text with lengths in px ---
 		h.set("grid-template-columns", (n, v, c) -> {
 			write(n, Prop.GridTemplateColumns, gridTemplate(v, c));

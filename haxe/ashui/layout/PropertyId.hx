@@ -130,11 +130,13 @@ enum abstract PropertyId(Int) from Int to Int {
     var GridTemplateRows = 86;
     var GridColumn = 87;
     var GridRow = 88;
+    // CSS's mask-image: a gradient whose alpha the element and what it holds are drawn through.
+    var MaskImage = 89;
 
     /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
         return switch (this) {
-            case Background: TypeBrush;
+            case Background | MaskImage: TypeBrush;
             case BorderColor | Color | AccentColor | OutlineColor | BorderTopColor | BorderRightColor | BorderBottomColor | BorderLeftColor: TypeColor;
             case CornerRadius: TypeCornerRadius;
 

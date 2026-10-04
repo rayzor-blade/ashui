@@ -42,10 +42,10 @@ class Brush implements IValue {
 		Frosted glass, as iOS and macOS draw it: what is behind the box
 		blurred by `blur` and tinted with `tintHex` at `tintAlpha`. `simple`
 		is the plain frosting, without refraction, highlights or a bevel at
-		the edge.
+		the edge. `noise`, 0 to about 0.1, adds a frosted grain.
 	**/
-	public static inline function glass(blur:Single, tintHex:Int, tintAlpha:Single = 0.1, simple:Bool = false):Brush {
-		return new Brush(BlincNative.blinc_brush_glass(blur, tintHex, tintAlpha, simple ? 1 : 0));
+	public static inline function glass(blur:Single, tintHex:Int, tintAlpha:Single = 0.1, simple:Bool = false, noise:Single = 0):Brush {
+		return new Brush(BlincNative.blinc_brush_glass(blur, tintHex, tintAlpha, simple ? 1 : 0, noise));
 	}
 
 	/**

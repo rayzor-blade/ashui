@@ -107,6 +107,9 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var MaxHeightPercent:Prop<Single> = cast PropertyId.MaxHeightPercent;
 	public static inline var FlexBasisPercent:Prop<Single> = cast PropertyId.FlexBasisPercent;
 
+	/** CSS's `mask-image`: a gradient brush, its points fractions of the box, whose alpha the element and its subtree are drawn through. **/
+	public static inline var MaskImage:Prop<ashui.types.Brush> = cast PropertyId.MaskImage;
+
 	// --- grid, as CSS writes it: `repeat(3, 1fr) 120px`, `span 2`, `1 / -1` ---
 	public static inline var GridTemplateColumns:Prop<String> = cast PropertyId.GridTemplateColumns;
 	public static inline var GridTemplateRows:Prop<String> = cast PropertyId.GridTemplateRows;

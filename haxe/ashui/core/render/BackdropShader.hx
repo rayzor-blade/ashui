@@ -14,6 +14,9 @@ package ashui.core.render;
 	edge (`gradient.z` wide) catches light from the angle `gradient.w`, or is
 	drawn in the top side's colour when that has any alpha; a faint shadow
 	lies inside it; and a little of the tint in `via` is mixed over.
+
+	A glass's grain, `color.z`, adds Blinc's smooth value noise over the
+	result, finer on liquid glass than on frosted.
 **/
 class BackdropShader implements UiShader {
 	static var SRC = {
@@ -22,6 +25,19 @@ class BackdropShader implements UiShader {
 		@param var layer : Sampler2D;
 
 		var output : { position : Vec4, color : Vec4 };
+
+		/** A pseudo-random value in [0, 1) for each cell of the plane. **/
+		function hash(p : Vec2) : Float {
+			return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+		}
+
+		/** Value noise: the cells' hashes, smoothly interpolated. **/
+		function noise(p : Vec2) : Float {
+			var i = floor(p);
+			var f = fract(p);
+			var u = f * f * (3. - 2. * f);
+			return mix(mix(hash(i), hash(i + vec2(1., 0.)), u.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), u.x), u.y);
+		}
 		var place : Vec4;
 
 		function vertex() {
@@ -105,6 +121,10 @@ class BackdropShader implements UiShader {
 				var shade = smoothstep(s0, s1, inner) * (1. - smoothstep(s1, s1 * 3., inner)) * 0.04;
 				rgb = rgb - vec3(shade, shade, shade);
 				rgb = clamp(mix(rgb, primitive.via.rgb, primitive.via.a * 0.08), vec3(0., 0., 0.), vec3(1., 1., 1.));
+			}
+			if (primitive.color.z > 0.) {
+				var grain = (noise(place.zw * 0.3) - 0.5) * primitive.color.z * (liquid ? 0.005 : 0.02);
+				rgb = clamp(rgb + vec3(grain, grain, grain), vec3(0., 0., 0.), vec3(1., 1., 1.));
 			}
 			output.color = vec4(rgb, texel.a * cover);
 		}

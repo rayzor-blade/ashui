@@ -208,6 +208,21 @@ class Pixels {
 		probe("half way through the fade", 28, 18, (r, g, b) -> r > 240 && g > 110 && g < 150);
 		probe("whole past it", 28, 40, near(0xff0000));
 
+		// A mask-image: a red box, opaque at its left, transparent at its right, over white; its child is masked with it.
+		var maskTree = new LayoutTree();
+		var maskBrush = Brush.linear(0, 0, 1, 0, true);
+		maskBrush.stop(0, 0x000000, 1).stop(1, 0x000000, 0);
+		var maskChild = new Div({width: 40, height: 10, bg: Brush.solid(0x0000ff)}, maskTree);
+		var masked = new Div({position: Position.Absolute, left: 8, top: 8, width: 48, height: 40, bg: Brush.solid(0xff0000), maskImage: maskBrush},
+			[maskChild], maskTree);
+		var maskRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [masked], maskTree);
+		pixels = offscreen.renderToRgba8(maskRoot, SIZE, SIZE);
+		label = "mask-image: ";
+		probe("whole at the start", 9, 30, (r, g, b) -> r > 240 && g < 20);
+		probe("about half way across", 32, 30, (r, g, b) -> r > 240 && g > 100 && g < 160);
+		probe("almost gone at the end", 55, 30, (r, g, b) -> r > 240 && g > 230);
+		probe("and what it holds masked with it", 46, 12, (r, g, b) -> b > 240 && r > 150 && r < 240);
+
 		var shapeTree = new LayoutTree();
 		var inCircle = new Div({width: 24, height: 24, bg: Brush.solid(0xff0000)}, shapeTree);
 		var circled = new Div({position: Position.Absolute, left: 4, top: 4, width: 24, height: 24}, [inCircle], shapeTree);

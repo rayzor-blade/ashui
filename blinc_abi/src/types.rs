@@ -126,17 +126,19 @@ pub extern "C" fn hl_blinc_brush_glass(
     tint_hex: i32,
     tint_alpha: f32,
     simple: i32,
+    noise: f32,
 ) -> *mut c_void {
     let glass = GlassStyle::new()
         .blur(blur)
         .tint(hex_color(tint_hex, tint_alpha))
-        .with_simple(simple != 0);
+        .with_simple(simple != 0)
+        .noise(noise);
     value(Value::Brush(Brush::Glass(glass)))
 }
 define_prim!(
     hlp_blinc_brush_glass,
     hl_blinc_brush_glass,
-    "Pfifi_Xblinc_value_"
+    "Pfififf_Xblinc_value_"
 );
 
 #[unsafe(no_mangle)]

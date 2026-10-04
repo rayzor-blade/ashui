@@ -706,8 +706,8 @@ pub fn append(
         .unwrap_or(color);
     let mut pushed = false;
     let mut shaped = false;
-    // Where its layer's begin record is in `out`, the layer's opacity, colour filter, blur and drop shadow.
-    let mut layer: Option<(usize, f32, ColorMatrix, f32, Option<blinc_core::layer::Shadow>)> = None;
+    // Where its layer's begin record is in `out`, the layer's opacity, colour filter, blur, drop shadow and mask.
+    let mut layer: Option<(usize, f32, ColorMatrix, f32, Option<blinc_core::layer::Shadow>, Option<Mask>)> = None;
     // A border drawn after the children, with the clips its node is drawn under.
     let mut after: Option<(Primitive, Clipping)> = None;
     if let Some(props) = tree.props.get(&node) {
@@ -728,8 +728,12 @@ pub fn append(
         let filtered = props.filter.as_ref().map(filter_matrix).filter(|m| *m != IDENTITY_MATRIX);
         let blur = props.filter.as_ref().map_or(0.0, |f| f.blur.max(0.0));
         let dropped = props.filter.as_ref().and_then(|f| f.drop_shadow).filter(|s| s.color.a > 0.0);
-        if filtered.is_some() || blur > 0.0 || dropped.is_some() || (props.opacity < 1.0 && painted_at_least(tree, node, 2)) {
-            layer = Some((out.len(), opacity * props.opacity, filtered.unwrap_or(IDENTITY_MATRIX), blur, dropped));
+        let mask = match &props.mask_image {
+            Some(blinc_core::MaskImage::Gradient(g)) => Mask::of(g, [x, y, w, h], m, glyphs.display_scale),
+            _ => None,
+        };
+        if filtered.is_some() || blur > 0.0 || dropped.is_some() || mask.is_some() || (props.opacity < 1.0 && painted_at_least(tree, node, 2)) {
+            layer = Some((out.len(), opacity * props.opacity, filtered.unwrap_or(IDENTITY_MATRIX), blur, dropped, mask));
             Primitive::new(PRIM_LAYER_BEGIN, [0.0; 4], [0.0; 4]).push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
             opacity = 1.0;
         } else {
@@ -799,7 +803,12 @@ pub fn append(
             // Deviation in target pixels; how far the row pass reaches past the box, in layout units,
             // further for liquid glass, whose rim samples up to LIQUID_REACH outside it.
             let reach = 3.0 * blur * scale + if liquid.is_some() { LIQUID_REACH * scale } else { 0.0 };
-            b.color = [blur * scale * glyphs.display_scale, reach, 0.0, 0.0];
+            // The third: a glass's grain, as Blinc's frosted noise.
+            let noise = match &props.background {
+                Some(Brush::Glass(g)) => g.noise.max(0.0),
+                _ => 0.0,
+            };
+            b.color = [blur * scale * glyphs.display_scale, reach, noise, 0.0];
             b.color2 = matrix[0];
             b.border = matrix[1];
             b.border_color = matrix[2];
@@ -967,7 +976,7 @@ pub fn append(
     if shaped {
         clips.pop();
     }
-    if let Some((begin, alpha, matrix, blur, dropped)) = layer {
+    if let Some((begin, alpha, matrix, blur, dropped, mask)) = layer {
         // A blur spreads the layer three of its deviations past what was drawn,
         // and a drop shadow its offset and three of its own.
         let [bx, by, bw, bh] = records_bounds(&out[begin + RECORD_FLOATS..]);
@@ -994,12 +1003,73 @@ pub fn append(
         }
         // The colour filter's rows in the rows a box's second colour and border take.
         [c.color2, c.border, c.border_color] = matrix;
+        // A mask in rows a layer leaves free: its kind and stops, its geometry, and how to reach the element's box from a pixel.
+        if let Some(mask) = mask {
+            c.side_colors = [mask.kind, mask.geometry, mask.frame, mask.matrix];
+            c.radii = mask.translate;
+            c.offsets = mask.offsets;
+        }
         c.push(&clipping(&[], IDENTITY, (0.0, 0.0), false), out);
     }
 }
 
 /// A colour filter as an affine map of straight RGB: each row's first three
 /// are its weights of r, g and b, its fourth the offset.
+/// A mask-image gradient as a layer's composite reads it: the gradient in the
+/// element's box, as fractions of it, and the map from a target pixel back
+/// into that box.
+struct Mask {
+    /// 1 linear, 2 radial; then the alpha at the first, middle and last stops.
+    kind: [f32; 4],
+    /// Linear: from `(x, y)` to `(z, w)`; radial: centre `(x, y)`, radius `z`. In fractions of the box.
+    geometry: [f32; 4],
+    /// The element's box in layout units, in the frame its transform maps.
+    frame: [f32; 4],
+    /// The transform's 2 × 2 part, then its translation and the display's scale.
+    matrix: [f32; 4],
+    translate: [f32; 4],
+    /// The first, middle and last stops' offsets, and 1 when there is a middle one.
+    offsets: [f32; 4],
+}
+
+impl Mask {
+    fn of(g: &blinc_core::layer::Gradient, frame: [f32; 4], m: Affine, scale: f32) -> Option<Mask> {
+        use blinc_core::layer::{Gradient, GradientSpace};
+        let (kind, geometry, stops, space) = match g {
+            Gradient::Linear { start, end, stops, space, .. } => (1.0, [start.x, start.y, end.x, end.y], stops, space),
+            Gradient::Radial { center, radius, stops, space, .. } => (2.0, [center.x, center.y, *radius, 0.0], stops, space),
+            _ => return None,
+        };
+        if stops.is_empty() {
+            return None;
+        }
+        // Points given in the element's own units become fractions of its box.
+        let geometry = match space {
+            GradientSpace::ObjectBoundingBox => geometry,
+            GradientSpace::UserSpace => {
+                let (w, h) = (frame[2].max(0.001), frame[3].max(0.001));
+                if kind == 1.0 {
+                    [geometry[0] / w, geometry[1] / h, geometry[2] / w, geometry[3] / h]
+                } else {
+                    [geometry[0] / w, geometry[1] / h, geometry[2] / w.max(h), 0.0]
+                }
+            }
+        };
+        let first = &stops[0];
+        let last = &stops[stops.len() - 1];
+        let middle = (stops.len() >= 3).then(|| &stops[stops.len() / 2]);
+        let mid = middle.unwrap_or(first);
+        Some(Mask {
+            kind: [kind, first.color.a, mid.color.a, last.color.a],
+            geometry,
+            frame,
+            matrix: [m[0], m[1], m[2], m[3]],
+            translate: [m[4], m[5], scale, 0.0],
+            offsets: [first.offset, mid.offset, last.offset, if middle.is_some() { 1.0 } else { 0.0 }],
+        })
+    }
+}
+
 /// How far liquid glass's rim samples outside the box, in layout units: Blinc's 60 pixels at the edge.
 const LIQUID_REACH: f32 = 60.0;
 

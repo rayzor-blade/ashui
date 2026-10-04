@@ -1380,6 +1380,19 @@ class Smoke {
 		check("a reset button puts each control's first value back", email.get() == "" && nick.get() == "start" && !agreed2.get(),
 			[email.get(), nick.get(), agreed2.get()]);
 
+		// --- CSS mask-image ---
+		var maskSheet = ashui.css.Css.load('.faded { mask-image: linear-gradient(to right, black, transparent) } .plain { mask-image: none } .wrong { mask-image: url(x.png) }');
+		check("mask-image takes a gradient or none, and reports anything else", maskSheet.diagnostics.length == 0
+			&& ashui.css.Css.problems.filter(p -> p.indexOf("mask-image") >= 0).length == 0, maskSheet.report());
+		var maskTree2 = new LayoutTree();
+		var maskedDiv = Owner.root(maskTree2, _ -> new Div({classes: ["faded"]}, maskTree2));
+		maskTree2.flush();
+		var plainDiv = Owner.root(maskTree2, _ -> new Div({classes: ["wrong"]}, maskTree2));
+		maskTree2.flush();
+		check("a mask-image gradient is set on the element; a url is a problem, not a crash", @:privateAccess maskedDiv.node.styled != null
+			&& @:privateAccess maskedDiv.node.styled.exists(ashui.layout.Node.field(ashui.layout.Prop.MaskImage))
+			&& ashui.css.Css.problems.filter(p -> p.indexOf("mask-image") >= 0).length == 1, ashui.css.Css.problems);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('

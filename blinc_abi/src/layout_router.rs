@@ -348,6 +348,16 @@ fn own_value_write(raw: i32) -> Option<(PropertyId, Write<Value>)> {
         68 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.right).color = c)?),
         69 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.bottom).color = c)?),
         70 => (PropertyId::BorderColor, color(|p, c| side(&mut p.border_sides.left).color = c)?),
+        // CSS's mask-image: a gradient whose alpha the element and what it holds are drawn through.
+        89 => (
+            PropertyId::Filter,
+            render(|p, v| {
+                p.mask_image = match v {
+                    Value::Brush(blinc_core::Brush::Gradient(g)) => Some(blinc_core::MaskImage::Gradient(g)),
+                    _ => None,
+                };
+            })?,
+        ),
         84 => (
             PropertyId::Filter,
             render(|p, v| {
@@ -915,6 +925,7 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
         86 => lay(P::Display, Box::new(move |s| s.grid_template_rows = Vec::new())),
         87 => lay(P::Display, Box::new(move |s| s.grid_column = Line { start: GridPlacement::Auto, end: GridPlacement::Auto })),
         88 => lay(P::Display, Box::new(move |s| s.grid_row = Line { start: GridPlacement::Auto, end: GridPlacement::Auto })),
+        89 => ren(P::Filter, Box::new(|p| p.mask_image = None)),
         _ => {}
     }
 }
