@@ -500,47 +500,54 @@ progress.ui-progress > .bar { background: var(--ui-progress-bar, var(--primary))
 
 /* ----------------------------------------------------------------- Sheet */
 
-/* A dialog along an edge: it slides in from that edge over the sheet curve, its inner corners rounded. */
+/* A dialog floating just inside an edge, every corner rounded: it slides in from beyond that edge over the sheet curve. */
 dialog.ui-sheet {
-	flex-direction: column; gap: 16px; padding: 0 0 16px; min-width: 0; max-width: none; position: relative;
-	border: 1px solid var(--border); background: var(--surface-elevated); color: var(--text-primary); box-shadow: var(--shadow-xl);
-	border-radius: 0;
+	flex-direction: column; padding: 0; margin: 8px; min-width: 0; max-width: none; position: relative; overflow: hidden;
+	border: 1px solid var(--border); border-radius: var(--radius-2xl); background: var(--surface-elevated); color: var(--text-primary);
+	box-shadow: var(--shadow-2xl);
 }
-dialog.ui-sheet[data-side="right"] { width: var(--ui-sheet-width, 400px); border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
-dialog.ui-sheet[data-side="left"] { width: var(--ui-sheet-width, 400px); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
-dialog.ui-sheet[data-side="bottom"] { height: var(--ui-sheet-height, 300px); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-dialog.ui-sheet[data-side="top"] { height: var(--ui-sheet-height, 300px); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+dialog.ui-sheet[data-side="right"], dialog.ui-sheet[data-side="left"] { width: var(--ui-sheet-width, 400px); }
+dialog.ui-sheet[data-side="bottom"], dialog.ui-sheet[data-side="top"] { height: var(--ui-sheet-height, 300px); }
 dialog.ui-sheet[data-size="sm"] { --ui-sheet-width: 320px; --ui-sheet-height: 200px; }
 dialog.ui-sheet[data-size="lg"] { --ui-sheet-width: 540px; --ui-sheet-height: 400px; }
-/* Where it slides from: its own reach beyond its edge (set --ui-sheet-from with a width of your own). */
-dialog.ui-sheet[data-side="right"] { --ui-sheet-from: translateX(400px); }
-dialog.ui-sheet[data-side="right"][data-size="sm"] { --ui-sheet-from: translateX(320px); }
-dialog.ui-sheet[data-side="right"][data-size="lg"] { --ui-sheet-from: translateX(540px); }
-dialog.ui-sheet[data-side="left"] { --ui-sheet-from: translateX(-400px); }
-dialog.ui-sheet[data-side="left"][data-size="sm"] { --ui-sheet-from: translateX(-320px); }
-dialog.ui-sheet[data-side="left"][data-size="lg"] { --ui-sheet-from: translateX(-540px); }
-dialog.ui-sheet[data-side="bottom"] { --ui-sheet-from: translateY(300px); }
-dialog.ui-sheet[data-side="bottom"][data-size="sm"] { --ui-sheet-from: translateY(200px); }
-dialog.ui-sheet[data-side="bottom"][data-size="lg"] { --ui-sheet-from: translateY(400px); }
-dialog.ui-sheet[data-side="top"] { --ui-sheet-from: translateY(-300px); }
-dialog.ui-sheet[data-side="top"][data-size="sm"] { --ui-sheet-from: translateY(-200px); }
-dialog.ui-sheet[data-side="top"][data-size="lg"] { --ui-sheet-from: translateY(-400px); }
+/* Where it slides from: its own reach, its inset and its shadow beyond its edge (set --ui-sheet-from with a width of your own). */
+dialog.ui-sheet[data-side="right"] { --ui-sheet-from: translateX(440px); }
+dialog.ui-sheet[data-side="right"][data-size="sm"] { --ui-sheet-from: translateX(360px); }
+dialog.ui-sheet[data-side="right"][data-size="lg"] { --ui-sheet-from: translateX(580px); }
+dialog.ui-sheet[data-side="left"] { --ui-sheet-from: translateX(-440px); }
+dialog.ui-sheet[data-side="left"][data-size="sm"] { --ui-sheet-from: translateX(-360px); }
+dialog.ui-sheet[data-side="left"][data-size="lg"] { --ui-sheet-from: translateX(-580px); }
+dialog.ui-sheet[data-side="bottom"] { --ui-sheet-from: translateY(340px); }
+dialog.ui-sheet[data-side="bottom"][data-size="sm"] { --ui-sheet-from: translateY(240px); }
+dialog.ui-sheet[data-side="bottom"][data-size="lg"] { --ui-sheet-from: translateY(440px); }
+dialog.ui-sheet[data-side="top"] { --ui-sheet-from: translateY(-340px); }
+dialog.ui-sheet[data-side="top"][data-size="sm"] { --ui-sheet-from: translateY(-240px); }
+dialog.ui-sheet[data-side="top"][data-size="lg"] { --ui-sheet-from: translateY(-440px); }
 dialog.ui-sheet[open] { animation: ui-sheet-in var(--duration-slow) var(--ease-sheet); }
 dialog.ui-sheet[closing] { animation: ui-sheet-out var(--duration-normal) var(--ease-sheet) forwards; }
 @keyframes ui-sheet-in { from { transform: var(--ui-sheet-from); } to { transform: none; } }
 @keyframes ui-sheet-out { from { transform: none; } to { transform: var(--ui-sheet-from); } }
-/* Its header across the top under a hairline; what follows inset from its sides. */
-.ui-sheet > * { margin-left: 16px; margin-right: 16px; }
-.ui-sheet > .ui-dialog-header { margin: 0; padding: 16px 52px 16px 16px; gap: 4px; border-bottom: 1px solid var(--border); }
+/* What it holds inset from its sides; its footer a band along the bottom, set off by a hairline. */
+/* Spaced by margins rather than gap, which would leave room around the close button though it is placed apart. */
+.ui-sheet > * { margin-left: 24px; margin-right: 24px; }
+.ui-sheet > * + * { margin-top: 16px; }
+.ui-sheet > :last-child { margin-bottom: 24px; }
+.ui-sheet > .ui-dialog-header { margin: 0; padding: 24px 56px 0 24px; gap: 6px; }
 .ui-sheet > .ui-sheet-close { margin: 0; }
 .ui-sheet .ui-dialog-title { font-size: var(--text-lg); }
-.ui-sheet .ui-dialog-footer { margin-top: auto; }
+.ui-sheet > .ui-dialog-footer {
+	margin: 0; margin-top: auto; padding: 16px 24px; border-top: 1px solid var(--border);
+	background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
 .ui-sheet-close {
-	position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center;
-	border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); box-shadow: none;
-	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state);
+	position: absolute; top: 18px; right: 18px; width: 30px; height: 30px; padding: 0; align-items: center; justify-content: center;
+	border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); box-shadow: none;
+	outline: 0 solid var(--focus-ring); outline-offset: 2px;
+	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
 }
 .ui-sheet-close:hover { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
+.ui-sheet-close:active { transform: none; }
+.ui-sheet-close:focus-visible { outline-width: 3px; }
 
 /* ----------------------------------------------------------- Hover card */
 
@@ -833,3 +840,55 @@ input.ui-input-otp-field { position: absolute; top: 0; right: 0; bottom: 0; left
 .ui-resizable[data-direction="vertical"] .ui-resizable-grip { width: 24px; height: 10px; }
 .ui-resizable-handle:hover .ui-resizable-grip, .ui-resizable-handle[data-dragging] .ui-resizable-grip,
 .ui-resizable-handle:focus-visible .ui-resizable-grip { border-color: var(--primary); }
+
+/* ---------------------------------------------------------------- Drawer */
+
+/*
+	From the bottom or top, as tall as what it holds up to most of the window, flush to its edge with its inner corners
+	rounded and a bar to pull it by; from the left or right, a floating panel. It follows a drag at once, and slides
+	in and away over the sheet curve.
+*/
+dialog.ui-drawer {
+	flex-direction: column; padding: 0; min-width: 0; max-width: none; position: relative; overflow: hidden;
+	border: 1px solid var(--border); background: var(--surface-elevated); color: var(--text-primary); box-shadow: var(--shadow-2xl);
+}
+dialog.ui-drawer[data-side="bottom"] { max-height: 85vh; border-bottom: 0; border-radius: var(--radius-3xl) var(--radius-3xl) 0 0; --ui-drawer-from: translateY(100vh); }
+dialog.ui-drawer[data-side="top"] { max-height: 85vh; border-top: 0; border-radius: 0 0 var(--radius-3xl) var(--radius-3xl); --ui-drawer-from: translateY(-100vh); }
+dialog.ui-drawer[data-side="left"], dialog.ui-drawer[data-side="right"] { width: var(--ui-drawer-width, 320px); margin: 8px; border-radius: var(--radius-2xl); }
+dialog.ui-drawer[data-side="left"] { --ui-drawer-from: translateX(-360px); }
+dialog.ui-drawer[data-side="right"] { --ui-drawer-from: translateX(360px); }
+dialog.ui-drawer[data-size="sm"] { --ui-drawer-width: 260px; }
+dialog.ui-drawer[data-size="lg"] { --ui-drawer-width: 400px; }
+dialog.ui-drawer[data-side="left"][data-size="lg"] { --ui-drawer-from: translateX(-440px); }
+dialog.ui-drawer[data-side="right"][data-size="lg"] { --ui-drawer-from: translateX(440px); }
+dialog.ui-drawer[open] { animation: ui-drawer-in var(--duration-slow) var(--ease-sheet); }
+dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(--ease-sheet) forwards; }
+@keyframes ui-drawer-in { from { transform: var(--ui-drawer-from); } to { transform: none; } }
+@keyframes ui-drawer-out { from { transform: none; } to { transform: var(--ui-drawer-from); } }
+.ui-drawer > * { margin-left: 24px; margin-right: 24px; }
+.ui-drawer > * + * { margin-top: 16px; }
+.ui-drawer > :last-child { margin-bottom: 24px; }
+.ui-drawer > .ui-dialog-header { gap: 6px; }
+.ui-drawer[data-side="bottom"] > .ui-dialog-header, .ui-drawer[data-side="top"] > .ui-dialog-header { align-items: center; }
+.ui-drawer .ui-dialog-title { font-size: var(--text-lg); }
+.ui-drawer > .ui-dialog-footer {
+	margin: 0; margin-top: auto; padding: 16px 24px; border-top: 1px solid var(--border);
+	background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+/* From the bottom or top what it holds keeps to a readable width down its middle, its footer's buttons stacked. */
+.ui-drawer[data-side="bottom"] > *, .ui-drawer[data-side="top"] > * { align-self: center; width: 100%; max-width: 440px; }
+.ui-drawer[data-side="bottom"] > .ui-drawer-handle, .ui-drawer[data-side="top"] > .ui-drawer-handle { max-width: none; }
+.ui-drawer[data-side="bottom"] > .ui-dialog-footer, .ui-drawer[data-side="top"] > .ui-dialog-footer {
+	flex-direction: column; align-items: stretch; padding: 0 0 24px; border-top: 0; background: transparent;
+}
+.ui-drawer[data-side="left"] > .ui-dialog-header, .ui-drawer[data-side="right"] > .ui-dialog-header { padding-top: 24px; }
+/* The bar to pull it by, centred in a strip across its inner edge. */
+.ui-drawer-handle { flex-shrink: 0; height: 22px; margin: 0; align-items: center; justify-content: center; }
+/* From the left or right a drag anywhere on it moves it, and a bar there would read as a scrollbar. */
+.ui-drawer[data-side="left"] > .ui-drawer-handle, .ui-drawer[data-side="right"] > .ui-drawer-handle { display: none; }
+.ui-drawer-handle-bar {
+	width: 44px; height: 5px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--text-primary) 18%, transparent);
+	transition: background var(--duration-fast) var(--ease-state), width var(--duration-fast) var(--ease-out), height var(--duration-fast) var(--ease-out);
+}
+.ui-drawer:hover .ui-drawer-handle-bar { background: color-mix(in srgb, var(--text-primary) 30%, transparent); }
+.ui-drawer[data-dragging] .ui-drawer-handle-bar { background: color-mix(in srgb, var(--text-primary) 45%, transparent); width: 56px; }

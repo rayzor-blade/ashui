@@ -6,12 +6,13 @@ import ashui.input.Interaction;
 import ashui.layout.Element;
 
 /**
-	A sheet: a dialog that slides in from an edge of the window, its inner
-	corners rounded, for settings or details beside the page. Its parts are
-	the dialog's: a `SheetTrigger`, a `SheetContent` holding a
-	`SheetHeader` (`SheetTitle`, `SheetDescription`), what it shows and a
-	`SheetFooter`; a close button sits in its corner, and `SheetClose`
-	closes it too. Escape or a press on the page behind closes it. CSS:
+	A sheet: a dialog that slides in from an edge of the window, floating
+	just inside it over the page frosted behind, for settings or details
+	beside the page. Its parts are the dialog's: a `SheetTrigger`, a
+	`SheetContent` holding a `SheetHeader` (`SheetTitle`,
+	`SheetDescription`), what it shows and a `SheetFooter`, a band along its
+	bottom; a close button sits in its corner, and `SheetClose` closes it
+	too. Escape or a press on the page behind closes it. CSS:
 	`.ui-sheet` (`[data-side]`, `[data-size]`, `[open]`, `[closing]`),
 	`.ui-sheet-close`, and the dialog's header, title, description and
 	footer classes inside it; `--ui-sheet-width`, `-height`. Its sizes are
@@ -44,6 +45,9 @@ class SheetContent extends DialogContent {
 
 	override function placement():ashui.ui.TopLayer.Placement
 		return Edge(side());
+
+	override function backdrop():ashui.types.Brush
+		return ashui.types.Brush.blur(6, 0x000000, 0.4);
 
 	override function contents():Array<Element> {
 		if (cross == null)

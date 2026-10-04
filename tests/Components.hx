@@ -31,6 +31,7 @@ import ashui.components.Avatar;
 import ashui.components.AvatarGroup;
 import ashui.components.InputOtp;
 import ashui.components.Resizable;
+import ashui.components.Drawer;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -461,14 +462,14 @@ class Components {
 		pnClick("sh");
 		var entry = ashui.ui.TopLayer.openEntries()[0];
 		var sb2 = entry == null ? null : pnTree.getBounds(entry.content.node);
-		var atLeft = sb2 != null && sb2.x < 1 && sb2.height > 450;
+		var atLeft = sb2 != null && sb2.x > 0 && sb2.x <= 8.5 && sb2.height > 450;
 		var closeBox = Lambda.find(pnTree.order(), id -> identity2(pnTree, id) != null && identity2(pnTree, id).hasClass("ui-sheet-close"));
 		var cb = pnTree.getBounds(new ashui.layout.Node(closeBox));
 		ashui.input.Pointer.move(pnTree, cb.x + cb.width / 2, cb.y + cb.height / 2);
 		ashui.input.Pointer.press(pnTree);
 		ashui.input.Pointer.release(pnTree);
 		pnFrames(30);
-		check("a Sheet opens along its edge, full height, and its corner button closes it", sheetOpen.get() == false && atLeft, [atLeft, sheetOpen.get()]);
+		check("a Sheet opens floating just inside its edge, its full height less the inset, and its corner button closes it", sheetOpen.get() == false && atLeft, [atLeft, sheetOpen.get()]);
 
 		var hp = pnAt("hc");
 		ashui.input.Pointer.move(pnTree, hp.x, hp.y);
@@ -872,6 +873,93 @@ class Components {
 		var midAfter = rzBounds(mid).width, endAfter = rzBounds(end).width;
 		check("a Resizable handle gives a panel's space to the one beyond it, down to the panel's min, the last still filling the group",
 			midAfter == 60 && Math.abs(endAfter - (endBefore + midBefore - 60)) <= 1, [midBefore, endBefore, midAfter, endAfter]);
+
+
+		// --- Drawer: a short pull springs back, a long one or a flick closes it; its controls keep their presses ---
+		var drTree = new LayoutTree();
+		// A window sets the viewport its drawer's height is kept within.
+		ashui.css.Css.setViewport(800, 600);
+		var drOpen = Signal.make(false), drPressed = Signal.make(0);
+		var drRoot:Div = Owner.root(drTree, _ -> hxx('
+			<div width={800} height={600} flexDirection={Column}>
+				<drawer open={drOpen}>
+					<drawer-trigger id="drOpen">Open</drawer-trigger>
+					<drawer-content>
+						<drawer-header><drawer-title>Goal</drawer-title></drawer-header>
+						<button id="drButton" onClick={_ -> drPressed.set(drPressed.get() + 1)}>Go</button>
+					</drawer-content>
+				</drawer>
+			</div>
+		'));
+		function drFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				drTree.flush();
+				drTree.computeLayout(drRoot.node, 800, 600);
+				drTree.flush();
+			}
+		function drFind(pred:ashui.css.Identity->Bool):Null<haxe.Int64>
+			return Lambda.find(drTree.order(), id -> identity2(drTree, id) != null && pred(identity2(drTree, id)) && drTree.getBounds(new ashui.layout.Node(id)) != null);
+		function drCentre(id:haxe.Int64) {
+			var b = drTree.getBounds(new ashui.layout.Node(id));
+			return {x: b.x + b.width / 2, y: b.y + b.height / 2};
+		}
+		// Pulls the handle down by `by` over `steps` frames and lets go.
+		function drPull(by:Float, steps:Int) {
+			var c = drCentre(drFind(i -> i.hasClass("ui-drawer-handle")));
+			ashui.input.Pointer.move(drTree, c.x, c.y);
+			ashui.input.Pointer.press(drTree);
+			for (k in 1...steps + 1) {
+				drFrames(1);
+				ashui.input.Pointer.move(drTree, c.x, c.y + by * k / steps);
+			}
+			drFrames(1);
+			ashui.input.Pointer.release(drTree);
+		}
+		function drPanelTop():Float
+			return drTree.getBounds(new ashui.layout.Node(drFind(i -> i.hasClass("ui-drawer")))).y;
+		drFrames(2);
+		var dc = drCentre(drFind(i -> i.id == "drOpen"));
+		ashui.input.Pointer.move(drTree, dc.x, dc.y);
+		ashui.input.Pointer.press(drTree);
+		ashui.input.Pointer.release(drTree);
+		drFrames(40);
+		var restTop = drPanelTop();
+		var drTrace = ashui.debug.MotionTrace.start();
+		var c0 = drCentre(drFind(i -> i.hasClass("ui-drawer-handle")));
+		ashui.input.Pointer.move(drTree, c0.x, c0.y);
+		ashui.input.Pointer.press(drTree);
+		ashui.input.Pointer.move(drTree, c0.x, c0.y + 30);
+		drFrames(1);
+		var whileDragging = identity2(drTree, drFind(i -> i.hasClass("ui-drawer"))).attribute("data-dragging") != null;
+		ashui.input.Pointer.release(drTree);
+		drFrames(60);
+		drTrace.stop();
+		var springs = [for (t in drTrace.tracks) if (t.kind == Spring) t];
+		check("a Drawer pulled a little is marked dragging, and let go it springs back from where it was", drOpen.get() && whileDragging
+			&& springs.length == 1 && springs[0].from == "30" && springs[0].to == "0" && springs[0].end == Completed,
+			[for (t in springs) '${t.from}->${t.to} ${t.end}']);
+		var bc = drCentre(drFind(i -> i.id == "drButton"));
+		ashui.input.Pointer.move(drTree, bc.x, bc.y);
+		ashui.input.Pointer.press(drTree);
+		ashui.input.Pointer.move(drTree, bc.x, bc.y + 200);
+		drFrames(1);
+		var heldTop = drPanelTop();
+		ashui.input.Pointer.move(drTree, bc.x, bc.y);
+		ashui.input.Pointer.release(drTree);
+		drFrames(2);
+		check("a press on a Drawer's control does not drag it, and the control is clicked", heldTop == restTop && drPressed.get() == 1 && drOpen.get(),
+			[heldTop, restTop, drPressed.get()]);
+		drPull(400, 20);
+		drFrames(40);
+		check("a Drawer pulled past a third of its height closes", !drOpen.get(), drOpen.get());
+		ashui.input.Pointer.move(drTree, dc.x, dc.y);
+		ashui.input.Pointer.press(drTree);
+		ashui.input.Pointer.release(drTree);
+		drFrames(40);
+		drPull(36, 2);
+		drFrames(40);
+		check("a Drawer flicked toward its edge closes, though it went only a little way", !drOpen.get(), drOpen.get());
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

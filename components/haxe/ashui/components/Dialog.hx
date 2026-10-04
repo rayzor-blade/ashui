@@ -149,6 +149,10 @@ class DialogContent extends Component<DialogContentProps> {
 	function placement():ashui.ui.TopLayer.Placement
 		return Centered;
 
+	/** What dims the page behind it. **/
+	function backdrop():ashui.types.Brush
+		return ashui.types.Brush.solid(0x000000, 0.5);
+
 	/** What the panel holds: its children, and for a subclass anything it adds. **/
 	function contents():Array<Element>
 		return children;
@@ -162,7 +166,7 @@ class DialogContent extends Component<DialogContentProps> {
 			open: open,
 			classes: [panelClass()],
 			id: props.id,
-			backdrop: ashui.types.Brush.solid(0x000000, 0.5),
+			backdrop: backdrop(),
 			dismissible: dismissible(),
 			placement: placement()
 		}, contents());
