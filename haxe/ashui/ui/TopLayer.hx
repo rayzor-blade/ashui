@@ -29,14 +29,75 @@ class TopEntry {
 	final layer:Div;
 	final holder:Div;
 	final onClose:Null<Void->Void>;
+	final placement:Placement;
 	var closed = false;
+	/** Where the holder was last put, so placing it again only moves it when the content's size moved it. **/
+	var placed:Null<{left:Float, top:Float}> = null;
 
 	@:allow(ashui.ui.TopLayer)
-	function new(content:Element, layer:Div, holder:Div, onClose:Null<Void->Void>) {
+	function new(content:Element, layer:Div, holder:Div, onClose:Null<Void->Void>, placement:Placement) {
 		this.content = content;
 		this.layer = layer;
 		this.holder = holder;
 		this.onClose = onClose;
+		this.placement = placement;
+	}
+
+	/**
+		Puts an anchored entry where its placement says for the content's
+		size now: under or beside its box, flipped to the other side when
+		there is no room, never past the root's edges. True when that moved
+		it, for another layout pass. A centred entry is placed by layout.
+	**/
+	@:allow(ashui.ui.TopLayer)
+	function place():Bool {
+		if (closed || content.node == null || holder.node == null)
+			return false;
+		var tree = layer.tree;
+		var root = tree.root;
+		var rb = root == null ? null : tree.getBounds(root);
+		var w = rb == null ? 0.0 : rb.width, h = rb == null ? 0.0 : rb.height;
+		var c = tree.getBounds(content.node);
+		var cw = c == null ? 0.0 : c.width, ch = c == null ? 0.0 : c.height;
+		var spot:Null<{left:Float, top:Float}> = switch placement {
+			case Centered:
+				null;
+			case Below(x, y, bw, bh):
+				// Below its box when it fits, else above it.
+				var top = y + bh + ch <= h || y - ch < 0 ? y + bh : y - ch;
+				{left: Math.max(0, Math.min(x, w - cw)), top: top};
+			case Beside(x, y, bw, bh, side, gap):
+				var s = side;
+				// The opposite side when this one has no room.
+				if (s == "top" && y - gap - ch < 0)
+					s = "bottom";
+				else if (s == "bottom" && y + bh + gap + ch > h)
+					s = "top";
+				else if (s == "left" && x - gap - cw < 0)
+					s = "right";
+				else if (s == "right" && x + bw + gap + cw > w)
+					s = "left";
+				var left = switch s {
+					case "left": x - gap - cw;
+					case "right": x + bw + gap;
+					case _: x + (bw - cw) / 2;
+				}
+				var top = switch s {
+					case "top": y - gap - ch;
+					case "bottom": y + bh + gap;
+					case _: y + (bh - ch) / 2;
+				}
+				var identity = Identity.of(tree, content.node.id);
+				if (identity != null && identity.attribute("data-side") != s)
+					identity.setAttribute("data-side", s);
+				{left: Math.max(0, Math.min(left, w - cw)), top: Math.max(0, Math.min(top, h - ch))};
+		}
+		if (spot == null || (placed != null && Math.abs(placed.left - spot.left) < 0.5 && Math.abs(placed.top - spot.top) < 0.5))
+			return false;
+		placed = spot;
+		holder.node.set(ashui.layout.Prop.Left, spot.left);
+		holder.node.set(ashui.layout.Prop.Top, spot.top);
+		return true;
 	}
 
 	public function close():Void {
@@ -95,6 +156,21 @@ class TopEntry {
 **/
 class TopLayer {
 	static final entries:Array<TopEntry> = [];
+	static var hooked = false;
+
+	/** Anchored entries are placed again after each layout pass that changed their content's size, before the frame is drawn. **/
+	static function hook():Void {
+		if (hooked)
+			return;
+		hooked = true;
+		LayoutTree.layoutHooks.push(tree -> {
+			var moved = false;
+			for (e in entries)
+				if (@:privateAccess e.layer.tree == tree && @:privateAccess e.place())
+					moved = true;
+			moved;
+		});
+	}
 
 	/**
 		Opens `content` in `tree`'s top layer, placed by `placement`.
@@ -123,46 +199,11 @@ class TopLayer {
 		var holder = switch placement {
 			case Centered:
 				new Div({}, [content], tree);
-			case Below(x, y, bw, bh):
-				// Below its box when it fits, else above it; never past the root's edges.
-				var c = tree.getBounds(content.node);
-				var ch = c == null ? 0.0 : c.height;
-				var top = y + bh + ch <= h || y - ch < 0 ? y + bh : y - ch;
+			case Below(_, _, bw, _):
 				// At least as wide as its box, the content stretched to it, as a select's list matches the select.
-				new Div({
-					position: Absolute,
-					left: Math.max(0, Math.min(x, w - (c == null ? 0 : c.width))),
-					top: top,
-					minWidth: bw,
-					flexDirection: FlexDirection.Column,
-					alignItems: Align.Stretch
-				}, [content], tree);
-			case Beside(x, y, bw, bh, side, gap):
-				var c = tree.getBounds(content.node);
-				var cw = c == null ? 0.0 : c.width, ch = c == null ? 0.0 : c.height;
-				var s = side;
-				// The opposite side when this one has no room.
-				if (s == "top" && y - gap - ch < 0)
-					s = "bottom";
-				else if (s == "bottom" && y + bh + gap + ch > h)
-					s = "top";
-				else if (s == "left" && x - gap - cw < 0)
-					s = "right";
-				else if (s == "right" && x + bw + gap + cw > w)
-					s = "left";
-				var left = switch s {
-					case "left": x - gap - cw;
-					case "right": x + bw + gap;
-					case _: x + (bw - cw) / 2;
-				}
-				var top = switch s {
-					case "top": y - gap - ch;
-					case "bottom": y + bh + gap;
-					case _: y + (bh - ch) / 2;
-				}
-				var holder = new Div({position: Absolute, left: Math.max(0, Math.min(left, w - cw)), top: Math.max(0, Math.min(top, h - ch))}, [content], tree);
-				ashui.css.Identity.of(tree, content.node.id).setAttribute("data-side", s);
-				holder;
+				new Div({position: Absolute, minWidth: bw, flexDirection: FlexDirection.Column, alignItems: Align.Stretch}, [content], tree);
+			case Beside(_, _, _, _, _, _):
+				new Div({position: Absolute}, [content], tree);
 		}
 		shade.appendChild(holder);
 		var entry:Null<TopEntry> = null;
@@ -182,8 +223,11 @@ class TopLayer {
 		// What only shows, as a tooltip, takes no presses: they reach what is beneath.
 		if (passThrough)
 			tree.setPassThrough(shade.node.id, true);
-		entry = new TopEntry(content, shade, holder, onClose);
+		entry = new TopEntry(content, shade, holder, onClose, placement);
 		entries.push(entry);
+		// Placed now for what size the content has, and again once layout gives it one.
+		hook();
+		entry.place();
 		return entry;
 	}
 
