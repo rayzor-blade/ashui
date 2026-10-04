@@ -15,6 +15,28 @@ enum abstract ImageFit(Int) from Int to Int {
 	var Tile = 3;
 }
 
+/** One colour of a gradient, at `offset` along it, 0 to 1. **/
+typedef BrushStop = {
+	final offset:Float;
+	final rgb:Int;
+	final alpha:Float;
+}
+
+/**
+	A gradient as it was made, for code that paints it itself, as a canvas
+	does: linear from `(x1, y1)` to `(x2, y2)`, or radial about `(x1, y1)`
+	out to `x2`; in fractions of the box it fills when `boundingBox`.
+**/
+typedef BrushGradient = {
+	final radial:Bool;
+	final x1:Float;
+	final y1:Float;
+	final x2:Float;
+	final y2:Float;
+	final boundingBox:Bool;
+	final stops:Array<BrushStop>;
+}
+
 /**
 	What fills a box, as a node's `Prop.Background`: a solid colour, a
 	gradient, an image, or what is behind the box blurred.
@@ -25,6 +47,9 @@ class Brush implements IValue {
 	/** A solid brush's colour, `0xRRGGBB`, and alpha; -1 for any other brush. **/
 	public var solidRgb(default, null) = -1;
 	public var solidAlpha(default, null) = 1.0;
+
+	/** A gradient's description; null for any other brush. **/
+	public var gradient(default, null):Null<BrushGradient> = null;
 
 	private function new(ptr:hl.Abstract<"blinc_value">) {
 		this.ptr = ptr;
@@ -73,23 +98,34 @@ class Brush implements IValue {
 		of the box it fills, else pixels from the box's corner.
 	**/
 	public static function linear(x1:Single, y1:Single, x2:Single, y2:Single, boundingBox = false):Brush {
-		return new Brush(BlincNative.blinc_brush_gradient(false, x1, y1, x2, y2, boundingBox));
+		var brush = new Brush(BlincNative.blinc_brush_gradient(false, x1, y1, x2, y2, boundingBox));
+		brush.gradient = {radial: false, x1: x1, y1: y1, x2: x2, y2: y2, boundingBox: boundingBox, stops: []};
+		return brush;
 	}
 
 	/** A radial gradient about `(cx, cy)` of `radius`, with no stops yet; `boundingBox` as for `linear`. **/
 	public static function radial(cx:Single, cy:Single, radius:Single, boundingBox = false):Brush {
-		return new Brush(BlincNative.blinc_brush_gradient(true, cx, cy, radius, 0, boundingBox));
+		var brush = new Brush(BlincNative.blinc_brush_gradient(true, cx, cy, radius, 0, boundingBox));
+		brush.gradient = {radial: true, x1: cx, y1: cy, x2: radius, y2: 0, boundingBox: boundingBox, stops: []};
+		return brush;
 	}
 
 	/** Adds a stop at `offset`, 0 to 1, to this gradient; returns it. Set it on a node after its last stop. **/
 	public function stop(offset:Single, hex:Int, alpha:Single = 1.0):Brush {
 		BlincNative.blinc_brush_gradient_stop(ptr, offset, hex, alpha);
+		if (gradient != null)
+			gradient.stops.push({offset: offset, rgb: hex & 0xFFFFFF, alpha: alpha});
 		return this;
 	}
 
 	/** A two-stop linear gradient from `fromHex` at the start point to `toHex` at the end; `linear` takes any stops. **/
-	public static inline function linearGradient(startX:Single, startY:Single, endX:Single, endY:Single, fromHex:Int, fromAlpha:Single = 1.0, toHex:Int,
+	public static function linearGradient(startX:Single, startY:Single, endX:Single, endY:Single, fromHex:Int, fromAlpha:Single = 1.0, toHex:Int,
 			toAlpha:Single = 1.0):Brush {
-		return new Brush(BlincNative.blinc_brush_linear_gradient(startX, startY, endX, endY, fromHex, fromAlpha, toHex, toAlpha));
+		var brush = new Brush(BlincNative.blinc_brush_linear_gradient(startX, startY, endX, endY, fromHex, fromAlpha, toHex, toAlpha));
+		brush.gradient = {
+			radial: false, x1: startX, y1: startY, x2: endX, y2: endY, boundingBox: false,
+			stops: [{offset: 0, rgb: fromHex & 0xFFFFFF, alpha: fromAlpha}, {offset: 1, rgb: toHex & 0xFFFFFF, alpha: toAlpha}]
+		};
+		return brush;
 	}
 }

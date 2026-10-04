@@ -4,6 +4,7 @@ import ashui.animation.AnimationScheduler;
 import ashui.core.externs.LayoutTreeNative;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
+import ashui.layout.LayoutTree;
 import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 import ashui.reactive.Watch;
@@ -23,6 +24,14 @@ typedef CanvasProps = {
 	**/
 	?paint:CanvasPaint,
 
+	/**
+		Draws the canvas with a `DrawContext` of its size: shapes and paths
+		filled and stroked, in its own coordinates. Run as a computed is, it
+		draws again when a signal it read changes, its size included, and
+		only then.
+	**/
+	?draw:ashui.draw.DrawContext->Void,
+
 	/** While true, a frame is drawn every tick of the animation scheduler, so `paint` animates. **/
 	?animate:IntoReactive<Bool>,
 
@@ -34,7 +43,8 @@ typedef CanvasProps = {
 	`paint` runs whenever a frame is drawn, at the canvas's place in paint
 	order, under its transform, clips and opacity; `repaint` asks for a
 	frame when what it paints changes, and `animate` asks for every frame.
-	It is 300 by 150 unless sized, as HTML's is.
+	It is 300 by 150 unless sized, as HTML's is. Its `draw`, when it has
+	one, is recorded and played by the GPU after `paint`.
 **/
 class Canvas extends Component<CanvasProps> {
 	static final bySlot = new Map<Int, Canvas>();
@@ -45,6 +55,18 @@ class Canvas extends Component<CanvasProps> {
 		return bySlot.get(slot);
 
 	final ticks = Signal.make(0);
+
+	/** Its size as last laid out, which `draw` reads. **/
+	final width = Signal.make(0.0);
+
+	final height = Signal.make(0.0);
+
+	/** What `draw` drew, last time it ran. **/
+	var recorded:Null<ashui.draw.DrawContext> = null;
+
+	#if ashui_gpu
+	final painter = new ashui.core.render.CanvasPainter();
+	#end
 
 	function render():Element {
 		var box = new Div({tag: "canvas", id: props.id});
@@ -59,6 +81,30 @@ class Canvas extends Component<CanvasProps> {
 		// A tick read by a watch: changing it makes the next flush report a change, so a frame is drawn.
 		var t = ticks;
 		new Watch(() -> t.get(), _ -> {});
+		// Its size after each layout, so `draw` draws again when it changes, before the frame is drawn.
+		var w = width, h = height;
+		var sized:LayoutTree->Void = laid -> if (laid == tree) {
+			var b = tree.getBounds(box.node);
+			if (b != null) {
+				if (w.get() != b.width)
+					w.set(b.width);
+				if (h.get() != b.height)
+					h.set(b.height);
+			}
+		}
+		LayoutTree.settledHooks.push(sized);
+		Owner.onCleanup(() -> LayoutTree.settledHooks.remove(sized));
+		if (props.draw != null) {
+			var draw = props.draw;
+			// Recorded as the watch reads, which a change of what it read runs at once; the reaction asks for the frame.
+			new Watch(() -> {
+				var ctx = new ashui.draw.DrawContext(w.get(), h.get());
+				if (ctx.width > 0 && ctx.height > 0)
+					draw(ctx);
+				recorded = ctx;
+				ctx;
+			}, _ -> repaint(), (a, b) -> a == b);
+		}
 		switch props.animate {
 			case null:
 			case animate:
@@ -83,7 +129,12 @@ class Canvas extends Component<CanvasProps> {
 		ticks.set(ticks.get() + 1);
 
 	@:allow(ashui.core.render.Renderer)
-	function paintWith(frame:Dynamic):Void
+	function paintWith(frame:Dynamic):Void {
 		if (props.paint != null)
 			props.paint(frame);
+		#if ashui_gpu
+		if (recorded != null && recorded.ops.length > 0)
+			painter.play(frame, recorded);
+		#end
+	}
 }

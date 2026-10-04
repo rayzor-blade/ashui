@@ -365,6 +365,32 @@ class Pixels {
 		if (painted == 0)
 			failures++;
 
+		// A canvas's draw: shapes filled and stroked through a DrawContext, played on the GPU in the frame it is first laid out in.
+		var drawTree = new LayoutTree();
+		var drawRoot:Div = ashui.reactive.Owner.root(drawTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.fillRect(0, 0, 24, 24, Brush.solid(0xff0000), 4);
+					ctx.fillCircle(36, 36, 10, Brush.solid(0x0000ff));
+					ctx.strokeRect(26, 2, 20, 20, new ashui.draw.Stroke(4), Brush.solid(0x00ff00));
+					ctx.fillCircle(46, 10, 0, Brush.solid(0x000000));
+					ctx.fillCircle(-4, 40, 8, Brush.solid(0xff00ff));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(drawRoot, SIZE, SIZE);
+		label = "canvas draw: ";
+		probe("a filled rect", 18, 18, near(0xff0000));
+		probe("its rounded corner left out", 8, 8, near(0xffffff));
+		probe("a filled circle", 44, 44, near(0x0000ff));
+		probe("a stroked rect's edge", 34, 20, near(0x00ff00));
+		probe("and not its inside", 44, 20, near(0xffffff));
+		probe("a shape past the canvas's edge, cut there", 6, 48, near(0xffffff));
+		probe("and inside it, drawn", 9, 48, (r, g, b) -> r > 200 && g < 60 && b > 200);
+
 		// CSS backdrop-filter: a black stripe under a frosted box blurs; outside it, the stripe stays sharp.
 		var frostSheet = ashui.css.Css.load('.frost { backdrop-filter: blur(4px); background: rgba(255, 255, 255, 0); }');
 		var frostTree = new LayoutTree();
