@@ -1,3 +1,4 @@
+import ashui.components.Accordion;
 import ashui.components.Alert;
 import ashui.components.Badge;
 import ashui.components.Button;
@@ -24,6 +25,9 @@ class Components {
 		} else
 			Sys.println('ok   $what');
 	}
+
+	static function identity2(tree:LayoutTree, id:haxe.Int64)
+		return ashui.css.Identity.of(tree, id);
 
 	static function key(k:window.Key, code:window.KeyCode):window.KeyEvent
 		return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
@@ -125,6 +129,48 @@ class Components {
 		check("a Tooltip waits, opens after its delay, fades as the pointer leaves, then closes, each its data-state",
 			waiting == "waiting" && before == 0 && open == "open" && shown == 1 && closing == "closing" && stillDrawn && tipState() == "closed"
 			&& tree.children(page.node.id).length == rootKids - 1, [waiting, open, closing, tipState(), stillDrawn]);
+
+		// --- Accordion: one item open at a time, opening by layout animation ---
+		var accTree = new LayoutTree();
+		var openItems = Signal.make(([] : Array<String>));
+		var accRoot:Div = Owner.root(accTree, _ -> hxx('
+			<div width={400} height={400} flexDirection={Column}>
+				<accordion value={openItems}>
+					<accordion-item value="a"><accordion-trigger>First</accordion-trigger><accordion-content><div height={60} /></accordion-content></accordion-item>
+					<accordion-item value="b"><accordion-trigger>Second</accordion-trigger><accordion-content><div height={60} /></accordion-content></accordion-item>
+				</accordion>
+			</div>
+		'));
+		function accSettle() {
+			accTree.flush();
+			accTree.computeLayout(accRoot.node, 400, 400);
+			accTree.flush();
+		}
+		accSettle();
+		var accordion = accTree.children(accRoot.node.id)[0];
+		var accItems = accTree.children(accordion);
+		var firstTrigger = accTree.children(accItems[0])[0], firstContent = accTree.children(accItems[0])[1];
+		var closedHeight = accTree.getBounds(new ashui.layout.Node(firstContent)).height;
+		var tb2 = accTree.getBounds(new ashui.layout.Node(firstTrigger));
+		ashui.input.Pointer.move(accTree, tb2.x + 10, tb2.y + 5);
+		ashui.input.Pointer.press(accTree);
+		ashui.input.Pointer.release(accTree);
+		accSettle();
+		var openHeight = accTree.getBounds(new ashui.layout.Node(firstContent)).height;
+		var anims:Map<String, ashui.animation.LayoutAnimation> = @:privateAccess ashui.animation.LayoutAnimation.animated.get(accTree);
+		var growing = @:privateAccess anims.get(haxe.Int64.toStr(firstContent)).running;
+		var secondSliding = @:privateAccess anims.get(haxe.Int64.toStr(accItems[1])).shown.dy < 0;
+		ashui.animation.AnimationScheduler.main.tick(1);
+		check("an accordion item opens on its trigger, growing by layout animation as the next makes room", closedHeight == 0 && openHeight >= 60
+			&& openItems.get().join(",") == "a" && growing && secondSliding && identity2(accTree, firstContent).attribute("data-state") == "open",
+			[closedHeight, openHeight, growing, secondSliding]);
+		var secondTrigger = accTree.children(accItems[1])[0];
+		var sb = accTree.getBounds(new ashui.layout.Node(secondTrigger));
+		ashui.input.Pointer.move(accTree, sb.x + 10, sb.y + 5);
+		ashui.input.Pointer.press(accTree);
+		ashui.input.Pointer.release(accTree);
+		accSettle();
+		check("one open at a time: opening the second closes the first", openItems.get().join(",") == "b", openItems.get());
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

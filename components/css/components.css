@@ -206,3 +206,37 @@
 @keyframes ui-tooltip-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.96); } }
 
 @keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ----------------------------------------------------------- Collapsible */
+
+.ui-collapsible { flex-direction: column; gap: 4px; }
+.ui-collapsible-trigger {
+	flex-direction: row; align-items: center; gap: 6px; align-self: flex-start; padding: 0; background: transparent;
+	color: var(--text-primary); font-weight: 500; border-radius: var(--radius-sm); outline: 0 solid var(--focus-ring); outline-offset: 2px;
+	transition: outline-width var(--duration-fast) var(--ease-out);
+}
+.ui-collapsible-trigger:hover, .ui-collapsible-trigger:active { background: transparent; transform: none; }
+.ui-collapsible-trigger:focus-visible { outline-width: 3px; }
+.ui-collapsible-content { flex-direction: column; overflow: hidden; }
+/* Closed, laid out at no height: opening and closing are a change of size, which layout animation eases. */
+.ui-collapsible-content[data-state="closed"] { height: 0; }
+
+/* ------------------------------------------------------------- Accordion */
+
+.ui-accordion { flex-direction: column; align-self: stretch; }
+.ui-accordion-item { flex-direction: column; border-bottom: 1px solid var(--ui-accordion-border, var(--border)); }
+.ui-accordion-trigger {
+	flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: var(--ui-accordion-padding, 14px) 0;
+	background: transparent; color: var(--text-primary); font-weight: 500; font-size: var(--text-sm); border-radius: var(--radius-sm);
+	outline: 0 solid var(--focus-ring); outline-offset: 2px; transition: outline-width var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-state);
+}
+.ui-accordion-trigger:hover { background: transparent; opacity: 0.8; }
+.ui-accordion-trigger:active { background: transparent; transform: none; }
+.ui-accordion-trigger:focus-visible { outline-width: 3px; }
+.ui-accordion-trigger:disabled { opacity: 0.5; }
+.ui-accordion-label { flex-grow: 1; flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+.ui-accordion-chevron { flex-shrink: 0; color: var(--text-secondary); transition: transform var(--duration-normal) var(--ease-state); }
+.ui-accordion-trigger[data-state="open"] > .ui-accordion-chevron { transform: rotate(180deg); }
+.ui-accordion-content { flex-direction: column; overflow: hidden; }
+.ui-accordion-content[data-state="closed"] { height: 0; }
+.ui-accordion-content-inner { flex-direction: column; gap: 8px; padding-bottom: var(--ui-accordion-padding, 14px); font-size: var(--text-sm); color: var(--text-secondary); }
