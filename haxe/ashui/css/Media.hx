@@ -131,7 +131,7 @@ class Media {
 
 	static function parseFeature(f:String):MediaFeature {
 		// Range syntax: "width >= 600px", "400px <= width <= 800px".
-		var range = ~/^(.+?)\s*(<=|>=|<|>|=)\s*(.+?)(?:\s*(<=|>=|<|>|=)\s*(.+))?$/;
+		var range = Patterns.RE0;
 		if (f.indexOf(":") < 0 && range.match(f)) {
 			var a = StringTools.trim(range.matched(1)), op1 = range.matched(2), b = StringTools.trim(range.matched(3));
 			if (range.matched(4) != null) {
@@ -241,4 +241,9 @@ class Media {
 			case Both(a, b): feature(a, env) && feature(b, env);
 		}
 	}
+}
+
+/** The patterns above, each made once: a `~/…/` written in a function is compiled again every time it runs. **/
+private class Patterns {
+	public static final RE0 = ~/^(.+?)\s*(<=|>=|<|>|=)\s*(.+?)(?:\s*(<=|>=|<|>|=)\s*(.+))?$/;
 }

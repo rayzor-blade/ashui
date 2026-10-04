@@ -241,15 +241,29 @@ class CssMotion {
 		shape; otherwise `a` before halfway and `b` after, as CSS animates
 		what it cannot interpolate.
 	**/
-	public static function interpolate(a:String, b:String, t:Float):String {
+	public static function interpolate(a:String, b:String, t:Float):String
+		return at(prepare(a, b), t);
+
+	/**
+		Two values readied to be mixed: their text cut into numbers once, so
+		an animation mixes them every frame without reading them again.
+	**/
+	public static function prepare(a:String, b:String):PreparedPair {
 		// `none` against a transform list is that list's identity: rotate(0deg) to rotate(360deg).
 		if (StringTools.trim(a).toLowerCase() == "none" && b.indexOf("(") > 0)
 			a = identity(b);
 		else if (StringTools.trim(b).toLowerCase() == "none" && a.indexOf("(") > 0)
 			b = identity(a);
 		var na = numbers(normalize(a)), nb = numbers(normalize(b));
-		if (na.skeleton != nb.skeleton || na.values.length != nb.values.length)
-			return t < 0.5 ? a : b;
+		var mixes = na.skeleton == nb.skeleton && na.values.length == nb.values.length;
+		return {a: a, b: b, from: na, to: nb, mixes: mixes};
+	}
+
+	/** A prepared pair mixed `t` of the way from its first to its second; one or the other, at the halfway point, where they cannot mix. **/
+	public static function at(p:PreparedPair, t:Float):String {
+		if (!p.mixes)
+			return t < 0.5 ? p.a : p.b;
+		var na = p.from, nb = p.to;
 		var out = new StringBuf();
 		for (i in 0...na.values.length) {
 			out.add(na.parts[i]);
@@ -270,11 +284,11 @@ class CssMotion {
 
 	/** A transform list with each function's identity arguments, its numbers 0 or, for scale, 1. **/
 	static function identity(list:String):String {
-		return ~/([a-zA-Z]+)\(([^)]*)\)/g.map(list, r -> {
+		return Patterns.RE0.map(list, r -> {
 			var name = r.matched(1);
 			var args = r.matched(2);
 			var one = name.toLowerCase().indexOf("scale") == 0;
-			var zero = ~/[+-]?(?:\d+\.?\d*|\.\d+)/g.map(args, _ -> one ? "1" : "0");
+			var zero = Patterns.RE1.map(args, _ -> one ? "1" : "0");
 			'$name($zero)';
 		});
 	}
@@ -288,11 +302,11 @@ class CssMotion {
 			} catch (_:String) null;
 		}
 		// Colour functions and hex colours, then names.
-		var out = ~/(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?)\([^)]*\))/g.map(text, r -> {
+		var out = Patterns.RE2.map(text, r -> {
 			var c = color(r.matched(1));
 			c == null ? r.matched(1) : c;
 		});
-		return ~/\b([a-zA-Z]+)\b(?![(-])/g.map(out, r -> {
+		return Patterns.RE3.map(out, r -> {
 			var w = r.matched(1);
 			if (!CssValue.isNamedColor(w))
 				return w;
@@ -304,7 +318,7 @@ class CssMotion {
 	/** `text` as the text around its numbers, the numbers and their units; units count as part of the shape only when both have one. **/
 	static function numbers(text:String):{skeleton:String, parts:Array<String>, values:Array<Float>, units:Array<String>} {
 		var parts = [], values = [], units = [];
-		var r = ~/([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-zA-Z%]*)/;
+		var r = Patterns.RE4;
 		var rest = text;
 		while (r.match(rest)) {
 			parts.push(r.matchedLeft());
@@ -317,4 +331,19 @@ class CssMotion {
 		var skeleton = [for (i in 0...values.length) parts[i] + "#"].join("") + rest;
 		return {skeleton: skeleton, parts: parts, values: values, units: units};
 	}
+}
+
+/** A value's text cut into the text around its numbers, the numbers and their units. **/
+typedef CutValue = {skeleton:String, parts:Array<String>, values:Array<Float>, units:Array<String>};
+
+/** Two values readied to be mixed (see `CssMotion.prepare`). **/
+typedef PreparedPair = {a:String, b:String, from:CutValue, to:CutValue, mixes:Bool};
+
+/** The patterns above, each made once: a `~/…/` written in a function is compiled again every time it runs. **/
+private class Patterns {
+	public static final RE0 = ~/([a-zA-Z]+)\(([^)]*)\)/g;
+	public static final RE1 = ~/[+-]?(?:\d+\.?\d*|\.\d+)/g;
+	public static final RE2 = ~/(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?)\([^)]*\))/g;
+	public static final RE3 = ~/\b([a-zA-Z]+)\b(?![(-])/g;
+	public static final RE4 = ~/([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-zA-Z%]*)/;
 }

@@ -151,7 +151,7 @@ class CssValue {
 
 	/** `name(args)` as its lower-case name and the text of its arguments; null if `text` is not one call. **/
 	public static function call(text:String):Null<{name:String, args:String}> {
-		var r = ~/^([a-zA-Z-]+)\((.*)\)$/s;
+		var r = Patterns.RE0;
 		if (!r.match(StringTools.trim(text)))
 			return null;
 		// The closing parenthesis must close the opening one.
@@ -169,7 +169,7 @@ class CssValue {
 
 	/** A number and its unit, lower case, `""` for none; null if `text` is not one. **/
 	public static function dimension(text:String):Null<{value:Float, unit:String}> {
-		var r = ~/^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)([a-zA-Z%]*)$/;
+		var r = Patterns.RE1;
 		if (!r.match(StringTools.trim(text)))
 			return null;
 		return {value: Std.parseFloat(r.matched(1)), unit: r.matched(2).toLowerCase()};
@@ -356,7 +356,7 @@ class CssValue {
 	**/
 	public static function settle(text:String, env:String->Null<Float>, ctx:LengthContext):String {
 		var out = text;
-		var envCall = ~/env\(\s*([a-zA-Z0-9_-]+)\s*(?:,\s*([^)]*))?\)/;
+		var envCall = Patterns.RE2;
 		var guard = 0;
 		while (envCall.match(out) && guard++ < 64) {
 			var v = env(envCall.matched(1));
@@ -483,7 +483,7 @@ class CssValue {
 
 	static function hex(t:String):CssColor {
 		var h = t.substr(1);
-		if (!~/^[0-9a-f]+$/.match(h))
+		if (!Patterns.RE3.match(h))
 			throw '"$t" is not a hex colour';
 		inline function nibble(i:Int):Int
 			return Std.parseInt("0x" + h.charAt(i) + h.charAt(i));
@@ -883,8 +883,8 @@ private class CalcReader {
 			return inner;
 		}
 		var start = at;
-		while (at < text.length && ~/[a-zA-Z0-9.%_+-]/.match(text.charAt(at)) && !(at > start && (peek() == "+".code || peek() == "-".code)
-				&& !~/[eE]/.match(text.charAt(at - 1))))
+		while (at < text.length && Patterns.RE4.match(text.charAt(at)) && !(at > start && (peek() == "+".code || peek() == "-".code)
+				&& !Patterns.RE5.match(text.charAt(at - 1))))
 			at++;
 		var word = text.substring(start, at);
 		if (at < text.length && peek() == "(".code) {
@@ -914,7 +914,7 @@ private class CalcReader {
 		}
 		var d = CssValue.dimension(word);
 		// A bare name is the environment's, as pointer queries write pointer-x.
-		if (d == null && ~/^[a-zA-Z][a-zA-Z0-9-]*$/.match(word))
+		if (d == null && Patterns.RE6.match(word))
 			return Env(word);
 		if (d == null)
 			throw 'unexpected "$word" in calc()';
@@ -942,4 +942,15 @@ private class CalcReader {
 
 	inline function peek():Int
 		return StringTools.fastCodeAt(text, at);
+}
+
+/** The patterns above, each made once: a `~/…/` written in a function is compiled again every time it runs. **/
+private class Patterns {
+	public static final RE0 = ~/^([a-zA-Z-]+)\((.*)\)$/s;
+	public static final RE1 = ~/^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)([a-zA-Z%]*)$/;
+	public static final RE2 = ~/env\(\s*([a-zA-Z0-9_-]+)\s*(?:,\s*([^)]*))?\)/;
+	public static final RE3 = ~/^[0-9a-f]+$/;
+	public static final RE4 = ~/[a-zA-Z0-9.%_+-]/;
+	public static final RE5 = ~/[eE]/;
+	public static final RE6 = ~/^[a-zA-Z][a-zA-Z0-9-]*$/;
 }

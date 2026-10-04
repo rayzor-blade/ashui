@@ -114,6 +114,9 @@ private class Run {
 	public final key:String;
 	final spec:AnimationSpec;
 	public final tracks = new Map<String, Track>();
+
+	/** Each track's pairs of keyframes, read once, as they are first mixed. **/
+	final pairs = new Map<String, Array<Null<CssMotion.PreparedPair>>>();
 	public final fields:Array<Int> = [];
 	public var paused:Bool;
 	public var ctx:ApplyContext;
@@ -258,7 +261,13 @@ private class Run {
 			var span = b.offset - a.offset;
 			var local = span <= 0 ? 1.0 : (progress - a.offset) / span;
 			var eased = ashui.theme.Easing.EasingTools.evaluate(a.easing != null ? a.easing : spec.easing, local);
-			var value = CssMotion.interpolate(a.value, b.value, eased);
+			var ready = pairs.get(name);
+			if (ready == null)
+				pairs.set(name, ready = []);
+			var pair = ready[k];
+			if (pair == null)
+				ready[k] = pair = CssMotion.prepare(a.value, b.value);
+			var value = CssMotion.at(pair, eased);
 			try {
 				for (f in Properties.apply(identity.node, name, value, ctx))
 					if (fields.indexOf(f) < 0)

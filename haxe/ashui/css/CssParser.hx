@@ -161,7 +161,7 @@ class CssParser {
 		var out = [];
 		for (p in parents) {
 			// A parent with combinators keeps its meaning where it is put through :is().
-			var wrapped = ~/[\s>+~]/.match(p) ? ':is($p)' : p;
+			var wrapped = Patterns.RE0.match(p) ? ':is($p)' : p;
 			for (n in own) {
 				if (n.indexOf("&") >= 0)
 					out.push(StringTools.replace(n, "&", wrapped));
@@ -257,7 +257,7 @@ class CssParser {
 
 	/** `@import "a.css"` or `url(a.css)`, with an optional media list: its rules here, under that media. **/
 	function importFile(prelude:String, scope:Scope, start:Int):Void {
-		var r = ~/^(?:url\(\s*)?(["']?)([^"')\s]+)\1\s*\)?\s*(.*)$/;
+		var r = Patterns.RE1;
 		if (!r.match(prelude)) {
 			report(Error, '@import takes a file, "a.css" or url(a.css), not "$prelude"', start);
 			return;
@@ -342,7 +342,7 @@ class CssParser {
 		var values = new Map<String, String>();
 		var positional = 0;
 		for (a in args) {
-			var named = ~/^\$([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*(.+)$/s;
+			var named = Patterns.RE2;
 			if (named.match(a))
 				values.set(named.matched(1), StringTools.trim(named.matched(2)));
 			else if (positional < mixin.params.length)
@@ -475,12 +475,12 @@ class CssParser {
 			var valueAt = at;
 			var value = StringTools.trim(until([";".code, "}".code]));
 			var important = false;
-			var bang = ~/!\s*important$/i;
+			var bang = Patterns.RE3;
 			if (bang.match(value)) {
 				important = true;
 				value = StringTools.trim(bang.matchedLeft());
 			}
-			if (name == "" || !~/^(--)?[a-zA-Z_-][a-zA-Z0-9_-]*$/.match(name)) {
+			if (name == "" || !Patterns.RE4.match(name)) {
 				report(Error, '"$name" is not a property name', start);
 				continue;
 			}
@@ -864,7 +864,7 @@ private class SelectorReader {
 			return {a: 2, b: 1};
 		if (t == "even")
 			return {a: 2, b: 0};
-		var r = ~/^([+-]?\d*)n([+-]\d+)?$/;
+		var r = Patterns.RE5;
 		if (r.match(t)) {
 			var a = r.matched(1);
 			var b = r.matched(2);
@@ -873,7 +873,7 @@ private class SelectorReader {
 				b: b == null ? 0 : Std.parseInt(b)
 			};
 		}
-		if (~/^[+-]?\d+$/.match(t))
+		if (Patterns.RE6.match(t))
 			return {a: 0, b: Std.parseInt(t)};
 		return fail('"$s" is not an an+b pattern, such as 2n+1, odd or 3');
 	}
@@ -931,4 +931,15 @@ private class SelectorReader {
 
 	function failAt<T>(message:String, index:Int):T
 		throw new Failure(message, base + index);
+}
+
+/** The patterns above, each made once: a `~/…/` written in a function is compiled again every time it runs. **/
+private class Patterns {
+	public static final RE0 = ~/[\s>+~]/;
+	public static final RE1 = ~/^(?:url\(\s*)?(["']?)([^"')\s]+)\1\s*\)?\s*(.*)$/;
+	public static final RE2 = ~/^\$([a-zA-Z_-][a-zA-Z0-9_-]*)\s*:\s*(.+)$/s;
+	public static final RE3 = ~/!\s*important$/i;
+	public static final RE4 = ~/^(--)?[a-zA-Z_-][a-zA-Z0-9_-]*$/;
+	public static final RE5 = ~/^([+-]?\d*)n([+-]\d+)?$/;
+	public static final RE6 = ~/^[+-]?\d+$/;
 }

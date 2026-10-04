@@ -637,14 +637,14 @@ class Properties {
 		if (value == "none")
 			return value;
 		function size(t:String, flexible:Bool):String {
-			if (t == "auto" || t == "min-content" || t == "max-content" || (flexible && ~/^[0-9]*\.?[0-9]+fr$/.match(t)))
+			if (t == "auto" || t == "min-content" || t == "max-content" || (flexible && Patterns.RE0.match(t)))
 				return t;
 			if (StringTools.endsWith(t, "%") && CssValue.number(t.substr(0, t.length - 1)) >= 0)
 				return t;
 			return pixels(CssValue.length(t), c) + "px";
 		}
 		function track(t:String):String {
-			var inner = ~/^(minmax|fit-content)\((.*)\)$/;
+			var inner = Patterns.RE1;
 			if (!inner.match(t))
 				return size(t, true);
 			var args = topLevel(inner.matched(2), ",");
@@ -656,11 +656,11 @@ class Properties {
 		}
 		return [
 			for (part in topLevel(value, " ")) {
-				var repeat = ~/^repeat\((.*)\)$/;
+				var repeat = Patterns.RE2;
 				if (repeat.match(part)) {
 					var args = topLevel(repeat.matched(1), ",");
 					var count = args.shift();
-					if (args.length != 1 || (count != "auto-fill" && count != "auto-fit" && !~/^[1-9][0-9]*$/.match(count)))
+					if (args.length != 1 || (count != "auto-fill" && count != "auto-fit" && !Patterns.RE3.match(count)))
 						throw 'expected repeat(count, tracks), not "$part"';
 					'repeat($count, ${[for (t in topLevel(args[0], " ")) track(t)].join(" ")})';
 				} else
@@ -675,7 +675,7 @@ class Properties {
 		if (parts.length > 2)
 			throw 'expected start / end, not "$v"';
 		for (p in parts)
-			if (p != "auto" && !~/^span [1-9][0-9]*$/.match(p) && !~/^-?[1-9][0-9]*$/.match(p))
+			if (p != "auto" && !Patterns.RE4.match(p) && !Patterns.RE5.match(p))
 				throw 'expected a line, span n or auto, not "$p"';
 		return parts.join(" / ");
 	}
@@ -823,4 +823,14 @@ class Properties {
 		var kx = sy == 0 ? 0 : (m[2] * cos + m[3] * sin) / sy;
 		return new Transform(m[4], m[5], rotation * 180 / Math.PI, sx, sy, Math.atan(kx) * 180 / Math.PI, 0);
 	}
+}
+
+/** The patterns above, each made once: a `~/…/` written in a function is compiled again every time it runs. **/
+private class Patterns {
+	public static final RE0 = ~/^[0-9]*\.?[0-9]+fr$/;
+	public static final RE1 = ~/^(minmax|fit-content)\((.*)\)$/;
+	public static final RE2 = ~/^repeat\((.*)\)$/;
+	public static final RE3 = ~/^[1-9][0-9]*$/;
+	public static final RE4 = ~/^span [1-9][0-9]*$/;
+	public static final RE5 = ~/^-?[1-9][0-9]*$/;
 }
