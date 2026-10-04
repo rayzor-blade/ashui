@@ -826,12 +826,12 @@ pub fn append(
             // Deviation in target pixels; how far the row pass reaches past the box, in layout units,
             // further for liquid glass, whose rim samples up to LIQUID_REACH outside it.
             let reach = 3.0 * blur * scale + if liquid.is_some() { LIQUID_REACH * scale } else { 0.0 };
-            // The third: a glass's grain, as Blinc's frosted noise.
+            // The third: a glass's grain, as Blinc's frosted noise; the fourth, the opacity it is drawn at.
             let noise = match &props.background {
                 Some(Brush::Glass(g)) => g.noise.max(0.0),
                 _ => 0.0,
             };
-            b.color = [blur * scale * glyphs.display_scale, reach, noise, 0.0];
+            b.color = [blur * scale * glyphs.display_scale, reach, noise, opacity];
             b.color2 = matrix[0];
             b.border = matrix[1];
             b.border_color = matrix[2];

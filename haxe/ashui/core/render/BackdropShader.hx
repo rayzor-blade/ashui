@@ -15,6 +15,8 @@ package ashui.core.render;
 	drawn in the top side's colour when that has any alpha; a faint shadow
 	lies inside it; and a little of the tint in `via` is mixed over.
 
+	The result is faded by the element's opacity, `color.w`.
+
 	A glass's grain, `color.z`, adds Blinc's smooth value noise over the
 	result, finer on liquid glass than on frosted.
 **/
@@ -129,7 +131,7 @@ class BackdropShader implements UiShader {
 				var grain = (noise(place.zw * 0.3) - 0.5) * primitive.color.z * (liquid ? 0.005 : 0.02);
 				rgb = clamp(rgb + vec3(grain, grain, grain), vec3(0., 0., 0.), vec3(1., 1., 1.));
 			}
-			output.color = vec4(rgb, texel.a * cover);
+			output.color = vec4(rgb, texel.a * cover * primitive.color.w);
 		}
 	};
 }
