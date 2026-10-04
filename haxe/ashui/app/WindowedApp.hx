@@ -95,6 +95,12 @@ class WindowedApp {
 	/** How long a frame waits for the redraw after the last before drawing anyway, in seconds: a compositor sends none to a window it does not show. **/
 	static inline var FRAME_WAIT_LIMIT = 1.0;
 
+	/** When the surface last gave no frame to draw into. **/
+	var refusedAt = Math.NEGATIVE_INFINITY;
+
+	/** How long after the surface gives no frame the next is asked for, in seconds. **/
+	static inline var RETRY_FRAME = 0.016;
+
 	/** Whether the last turn's animation ticks changed nothing drawn. **/
 	var idleTicks = false;
 
@@ -205,10 +211,13 @@ class WindowedApp {
 			var t0 = haxe.Timer.stamp();
 			if (awaitingFrame && t0 - awaitingSince > FRAME_WAIT_LIMIT)
 				awaitingFrame = false;
-			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame;
+			// After the surface gave no frame, the next try waits a little, rather than spinning while it has none to give.
+			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame && t0 - refusedAt >= RETRY_FRAME;
 			// While a frame is awaited the wait ends with its redraw; animation steps when it comes.
 			// Animations that changed nothing drawn last turn, as those out of view, step slower, until one does or input comes.
 			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : 1 / 120) : 0.1;
+			if (dirty && t0 - refusedAt < RETRY_FRAME)
+				timeout = Math.min(timeout, RETRY_FRAME - (t0 - refusedAt));
 			if (timer != null)
 				timeout = Math.min(timeout, timer);
 			var event = due ? window.poll() : window.wait(timeout);
@@ -264,7 +273,7 @@ class WindowedApp {
 			}
 			var t3 = haxe.Timer.stamp();
 			// A hidden window draws nothing; what changes waits for it to show again.
-			if (dirty && !quitting && ashui.input.WindowState.visible.get()) {
+			if (dirty && !quitting && ashui.input.WindowState.visible.get() && haxe.Timer.stamp() - refusedAt >= RETRY_FRAME) {
 				dirty = false;
 				if (draw()) {
 					frames++;
@@ -440,6 +449,7 @@ class WindowedApp {
 				frameLog.writeString('noframe\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\twindow=${window.width()}x${window.height()}\n');
 			configure();
 			dirty = true;
+			refusedAt = haxe.Timer.stamp();
 			return false;
 		}
 		var background = ThemeState.get().color(Background);

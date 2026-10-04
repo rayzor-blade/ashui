@@ -731,10 +731,12 @@ define_prim!(
 
 /// Whether any of `node`'s box is on screen: inside the root and inside
 /// every ancestor that clips, each scrolled and moved by its layout
-/// animation as the paint walk places it. A transform on the way, which
-/// can put it anywhere, counts as in view, as does a node not laid out yet;
-/// a hidden or `display: none` ancestor, as not. A box of no size counts where it stands, so
-/// one growing from nothing is seen.
+/// animation as the paint walk places it. Transforms are left out: they
+/// turn, scale or nudge a box about where layout put it, and an animated
+/// one would otherwise keep its own node in view. A fragment on the way,
+/// which has no box, is passed through; a node not laid out yet counts as
+/// in view, and a hidden or `display: none` ancestor as not. A box of no
+/// size counts where it stands, so one growing from nothing is seen.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_in_view(h: *mut c_void, node: u64) -> bool {
     let Some(tree) = (unsafe { tree(h) }) else {
@@ -752,8 +754,12 @@ pub unsafe extern "C" fn hl_blinc_tree_in_view(h: *mut c_void, node: u64) -> boo
         if tree.layout.get_style(n).is_some_and(|s| s.display == taffy::Display::None) {
             return false;
         }
+        // A fragment, as <for> and <if> make, has no box: its children are placed as its parent places them.
         let Some(layout) = tree.layout.get_layout(n) else {
-            return true;
+            if i == path.len() - 1 {
+                return true;
+            }
+            continue;
         };
         let mut x = origin.0 + layout.location.x;
         let mut y = origin.1 + layout.location.y;
@@ -765,13 +771,8 @@ pub unsafe extern "C" fn hl_blinc_tree_in_view(h: *mut c_void, node: u64) -> boo
                 (w, h) = (v[2], v[3].max(0.0));
             }
         }
-        if let Some(p) = tree.props.get(&n) {
-            if !p.visible {
-                return false;
-            }
-            if p.transform.is_some() {
-                return true;
-            }
+        if tree.props.get(&n).is_some_and(|p| !p.visible) {
+            return false;
         }
         let clips = i == 0 || tree.layout.get_style(n).is_some_and(|s| s.overflow.x != taffy::Overflow::Visible || s.overflow.y != taffy::Overflow::Visible);
         if clips {
