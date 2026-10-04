@@ -53,8 +53,11 @@ class Tweened<T> {
 	}
 
 	/** A tweened binding of `prop` on `node` following `value`, or null if `prop`'s values cannot move. **/
-	public static function bind(node:Node, prop:PropertyId, transition:Transition, value:IntoReactive<Dynamic>):Null<Tweened<Dynamic>> {
-		// Each signal is made at its value's own type: the node binds it natively by that type.
+	public static function bind(node:Node, prop:PropertyId, transition:Transition, value:IntoReactive<Dynamic>, ?from:Dynamic):Null<Tweened<Dynamic>> {
+		// Each signal is made at its value's own type: the node binds it natively by that type. From
+		// `from` when given, moving to the value; at the value otherwise.
+		inline function read(value:IntoReactive<Dynamic>):Dynamic
+			return from != null ? from : Tweened.read(value);
 		var tween:Tweened<Dynamic> = switch prop.getDataType() {
 			case TypeF32:
 				cast new Tweened<Single>(node, prop, transition, Signal.make((read(value) : Single)), (a, b, t) -> (a + (b - a) * t : Single));
@@ -88,6 +91,25 @@ class Tweened<T> {
 				retarget(v);
 			case Bound(_) | Derived(_):
 				source = new Watch(() -> read(value), v -> retarget(v), (a, b) -> a == b);
+		}
+	}
+
+	/**
+		Where `prop` is on an element no stylesheet has set it on, as CSS's
+		initial values: no transform, opaque, transparent colours, no outline.
+		A property first given a value by a later restyle moves from here,
+		and one whose rule stops applying moves back. Null where the initial
+		value is not a value to move from (auto sizes, inherited colour).
+	**/
+	public static function initial(prop:PropertyId):Null<Dynamic> {
+		var raw:Int = prop;
+		return switch raw {
+			case 0: Brush.solid(0x000000, 0);
+			case 1 | 67 | 68 | 69 | 70: new Color(0x000000, 0);
+			case 4: (1.0 : Single);
+			case 5: ashui.types.Transform.identity();
+			case 64: (0.0 : Single);
+			case _: null;
 		}
 	}
 
@@ -259,16 +281,35 @@ class Tweened<T> {
 		return channel(16) | channel(8) | channel(0);
 	}
 
+	/**
+		Two colours mixed as CSS mixes them, with premultiplied alpha: a fade
+		to or from a transparent colour keeps the other's hue rather than
+		passing through the transparent one's (transparent black would grey
+		it on the way). The colour and alpha, clamped.
+	**/
+	static function mixPremultiplied(a:Int, aa:Float, b:Int, ba:Float, t:Float):{rgb:Int, alpha:Float} {
+		var alpha = Math.max(0, Math.min(1, mix(aa, ba, t)));
+		if (alpha <= 0)
+			return {rgb: t < 0.5 ? a : b, alpha: 0};
+		inline function channel(shift:Int):Int {
+			var v = mix(((a >> shift) & 0xFF) * aa, ((b >> shift) & 0xFF) * ba, t) / alpha;
+			return Std.int(Math.max(0, Math.min(255, Math.round(v)))) << shift;
+		}
+		return {rgb: channel(16) | channel(8) | channel(0), alpha: alpha};
+	}
+
 	static function lerpColor(a:Color, b:Color, t:Float):Null<Color> {
 		if (a == null || b == null)
 			return null;
-		return new Color(mixRgb(a.rgb, b.rgb, t), Math.max(0, Math.min(1, mix(a.alpha, b.alpha, t))));
+		var m = mixPremultiplied(a.rgb, a.alpha, b.rgb, b.alpha, t);
+		return new Color(m.rgb, m.alpha);
 	}
 
 	static function lerpBrush(a:Brush, b:Brush, t:Float):Null<Brush> {
 		if (a == null || b == null || a.solidRgb < 0 || b.solidRgb < 0)
 			return null;
-		return Brush.solid(mixRgb(a.solidRgb, b.solidRgb, t), Math.max(0, Math.min(1, mix(a.solidAlpha, b.solidAlpha, t))));
+		var m = mixPremultiplied(a.solidRgb, a.solidAlpha, b.solidRgb, b.solidAlpha, t);
+		return Brush.solid(m.rgb, m.alpha);
 	}
 
 	static function lerpRadius(a:IValue, b:IValue, t:Float):Null<IValue> {

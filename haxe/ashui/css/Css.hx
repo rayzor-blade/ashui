@@ -491,6 +491,7 @@ class Css {
 		for (name => v in resolved)
 			if (!POINTER.exists(name) && !MOTION.exists(name) && (v.indexOf("env(") >= 0 || v.indexOf("pointer-") >= 0))
 				live.set(name, v);
+		@:privateAccess ashui.layout.Node.restyling = last != null;
 		@:privateAccess identity.node.styleAll(() -> {
 			// font-size first: em in the rest is the element's own font size.
 			var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name];
@@ -517,6 +518,7 @@ class Css {
 					};
 			}
 		});
+		@:privateAccess ashui.layout.Node.restyling = false;
 		var pointer = try PointerQueries.config(resolved) catch (e:String) {
 			report(from.get("pointer-range"), e);
 			null;

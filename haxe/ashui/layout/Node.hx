@@ -77,8 +77,13 @@ class Node {
 		apply(prop, reactive);
 	}
 
-	/** `set` without claiming the property: how transitions and stylesheets write. **/
-	function apply<T>(prop:Prop<T>, reactive:IntoReactive<T>):Void {
+	/**
+		`set` without claiming the property: how transitions and stylesheets
+		write. `fresh` is a stylesheet's first value for the field: on a
+		restyle after the first, a tween made for it starts from the
+		property's initial value, as a CSS transition does.
+	**/
+	function apply<T>(prop:Prop<T>, reactive:IntoReactive<T>, fresh = false):Void {
 		var key:PropertyId = prop;
 		if (transition != null && transition.covers(key) && !isCornerShape(reactive)) {
 			if (tweens == null)
@@ -90,7 +95,8 @@ class Node {
 				tween.follow(cast reactive);
 				return;
 			}
-			tween = ashui.animation.Tweened.bind(this, key, timing, cast reactive);
+			var from = fresh && restyling ? ashui.animation.Tweened.initial(key) : null;
+			tween = ashui.animation.Tweened.bind(this, key, timing, cast reactive, from);
 			if (tween != null) {
 				tweens.set(key, tween);
 				return;
@@ -155,11 +161,12 @@ class Node {
 			return false;
 		if (styled == null)
 			styled = new Map();
+		var fresh = !styled.exists(key);
 		styled.set(key, true);
 		// Within a restyle, the last write to each field is the one made, so a
 		// shorthand then a longhand for the same field moves once, not twice.
 		if (batch != null && !immediate) {
-			batch.set(key, () -> apply(prop, Const(value)));
+			batch.set(key, () -> apply(prop, Const(value), fresh));
 			return true;
 		}
 		// An animation's frames are each where the property is, not somewhere to move to.
@@ -171,7 +178,7 @@ class Node {
 			else
 				bind(prop, Const(value));
 		} else
-			apply(prop, Const(value));
+			apply(prop, Const(value), fresh);
 		return true;
 	}
 
@@ -195,6 +202,10 @@ class Node {
 			write();
 	}
 
+	/** While true, the cascade restyles an element it styled before: a field it gives a value for the first time moves from its initial value. **/
+	@:allow(ashui.css)
+	static var restyling = false;
+
 	/** While true, a stylesheet's writes take effect at once, past any transition: an animation's frames. **/
 	@:allow(ashui.css)
 	static var immediate = false;
@@ -211,8 +222,20 @@ class Node {
 			}
 			return;
 		}
-		if (!owns(key))
-			BlincNative.blinc_unset(id, key);
+		if (owns(key))
+			return;
+		// Under a transition that covers it, it moves back to its initial value rather than jumping there.
+		var prop:PropertyId = key;
+		var tween = tweens == null ? null : tweens.get(prop);
+		var initial = ashui.animation.Tweened.initial(prop);
+		if (tween != null && initial != null && transition != null && transition.covers(prop)) {
+			tween.follow(Const(initial));
+			return;
+		}
+		// Forgotten, so a later value starts a tween from where the property is, not from where this one left it.
+		if (tween != null)
+			tweens.remove(prop);
+		BlincNative.blinc_unset(id, key);
 	}
 
 	/** A corner shape shares the radius's property but switches at once. **/
