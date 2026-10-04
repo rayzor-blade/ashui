@@ -1,3 +1,4 @@
+import ashui.components.Accordion;
 import ashui.components.Alert;
 import ashui.components.Avatar;
 import ashui.components.Badge;
@@ -16,69 +17,138 @@ import ashui.types.Style;
 import ashui.ui.Hxx.hxx;
 
 /**
-	The ashui.components library in its own looks: buttons of each variant
-	and size, badges, a card with its parts, alerts, a separator, avatars,
-	skeletons, a spinner, switches and tabs.
+	The ashui.components library, section by section: buttons, badges in
+	each appearance, cards, alerts, switches, tabs, accordions, and loading
+	states. Dark by default; `SCHEME=light` renders the light scheme.
 **/
 class ComponentsGallery {
 	static function main() {
-		ThemeState.init(DefaultTheme.bundle(), Light);
+		var light = Sys.getEnv("SCHEME") == "light";
+		ThemeState.init(DefaultTheme.bundle(), light ? Light : Dark);
 		var page = ThemeState.get().color(Background);
 		var on = Signal.make(true);
 		var off = Signal.make(false);
+		var off2 = Signal.make(false);
+		var faq = Signal.make(["faq-1"]);
+		ashui.css.Css.load('
+			h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0 }
+			label { font-size: 14px; font-weight: 500; color: var(--text-primary) }
+			p { font-size: 13px; line-height: 1.4; color: var(--text-secondary); margin: 0 }
+		');
 		var build = () -> hxx('
-			<div flexDirection={Column} padding={24} gap={18} width={720} height={640}>
-				<div flexDirection={Row} gap={8} alignItems={Center}>
-					<button>Primary</button>
-					<button variant={Secondary}>Secondary</button>
-					<button variant={Destructive}>Delete</button>
-					<button variant={Outline}>Outline</button>
-					<button variant={Ghost}>Ghost</button>
-					<button variant={Link}>Link</button>
-				</div>
-				<div flexDirection={Row} gap={8} alignItems={Center}>
-					<button size={Sm}>Small</button>
-					<button size={Lg}>Large</button>
-					<button disabled={true}>Disabled</button>
-					<badge>New</badge><badge variant={Secondary}>Draft</badge><badge variant={Success}>Paid</badge>
-					<badge variant={Warning}>Due</badge><badge variant={Destructive}>Late</badge><badge variant={Outline}>Archived</badge>
-				</div>
-				<div flexDirection={Row} gap={18} alignItems={Start}>
-					<card width={300}>
-						<card-header>
-							<card-title>Create project</card-title>
-							<card-description>Deploy your new project in one click.</card-description>
-						</card-header>
-						<card-content><div height={36} /></card-content>
-						<card-footer><button variant={Outline}>Cancel</button><button>Deploy</button></card-footer>
-					</card>
-					<div flexDirection={Column} gap={10} width={360}>
-						<alert><alert-title>Heads up</alert-title><alert-description>You can add components to your app.</alert-description></alert>
-						<alert variant={Destructive}><alert-title>Error</alert-title><alert-description>Your session has expired.</alert-description></alert>
-						<separator />
-						<div flexDirection={Row} gap={10} alignItems={Center} height={40}>
-							<avatar size="sm"><avatar-fallback>AL</avatar-fallback></avatar>
-							<avatar><avatar-fallback>CN</avatar-fallback></avatar>
-							<avatar size="lg"><avatar-fallback>GH</avatar-fallback></avatar>
-							<separator orientation="vertical" />
-							<spinner />
-							<toggle-switch checked={on} />
-							<toggle-switch checked={off} />
-						</div>
-						<div flexDirection={Row} gap={10} alignItems={Center}>
-							<skeleton width={40} height={40} />
-							<div flexDirection={Column} gap={6}><skeleton width={180} height={12} /><skeleton width={120} height={12} /></div>
-						</div>
+			<div flexDirection={Column} padding={48} gap={48} width={1400} height={3600}>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Buttons</h2>
+					<div flexDirection={Row} gap={48} alignItems={Center}>
+						<button>Primary</button>
+						<button variant={Secondary}>Secondary</button>
+						<button variant={Destructive}>Destructive</button>
+						<button variant={Outline}>Outline</button>
+						<button variant={Ghost}>Ghost</button>
+						<button variant={Link}>Link</button>
+					</div>
+					<div flexDirection={Row} gap={48} alignItems={Center}>
+						<button size={Sm}>Small</button>
+						<button size={Md}>Medium</button>
+						<button size={Lg}>Large</button>
+						<button disabled={true}>Disabled</button>
 					</div>
 				</div>
-				<tabs>
-					<tabs-list><tabs-trigger value="account">Account</tabs-trigger><tabs-trigger value="password">Password</tabs-trigger><tabs-trigger value="team">Team</tabs-trigger></tabs-list>
-					<tabs-content value="account"><p>Make changes to your account here.</p></tabs-content>
-					<tabs-content value="password"><p>Change your password here.</p></tabs-content>
-				</tabs>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Badges</h2>
+					<div flexDirection={Row} gap={48} alignItems={Center}>
+						<badge>In review</badge><badge variant={Warning}>Pending</badge><badge variant={Success}>Shipped</badge>
+						<badge variant={Destructive}>Blocked</badge><badge variant={Secondary}>Draft</badge>
+					</div>
+					<div flexDirection={Row} gap={48} alignItems={Center}>
+						<badge appearance={Solid}>Default</badge><badge appearance={Solid} variant={Secondary}>Secondary</badge><badge appearance={Solid} variant={Success}>Success</badge>
+						<badge appearance={Solid} variant={Warning}>Warning</badge><badge appearance={Solid} variant={Destructive}>Destructive</badge>
+					</div>
+					<div flexDirection={Row} gap={48} alignItems={Center}>
+						<badge appearance={Outline}>Default</badge><badge appearance={Outline} variant={Secondary}>Secondary</badge><badge appearance={Outline} variant={Success}>Success</badge>
+						<badge appearance={Outline} variant={Warning}>Warning</badge><badge appearance={Outline} variant={Destructive}>Destructive</badge>
+					</div>
+				</div>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Cards</h2>
+					<div flexDirection={Row} gap={64}>
+						<card width={300}>
+							<card-header><card-title>Card Title</card-title><card-description>Card description</card-description></card-header>
+							<card-content><p>This is the card content. Cards are great for grouping related information.</p></card-content>
+							<card-footer><button>Action</button></card-footer>
+						</card>
+						<card width={300}>
+							<card-header><card-title>Simple Card</card-title></card-header>
+							<card-content><p>A simpler card without footer.</p></card-content>
+						</card>
+					</div>
+				</div>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Alerts</h2>
+					<div flexDirection={Column} gap={48}>
+						<alert><alert-description>This is a default informational alert.</alert-description></alert>
+						<alert variant={Success}><alert-description>Operation completed successfully!</alert-description></alert>
+						<alert variant={Warning}><alert-description>Please review before proceeding.</alert-description></alert>
+						<alert variant={Destructive}><alert-description>An error occurred. Please try again.</alert-description></alert>
+						<alert variant={Warning}><alert-title>Heads up!</alert-title><alert-description>This is an alert box with both title and description.</alert-description></alert>
+					</div>
+				</div>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Toggles</h2>
+					<div flexDirection={Column} gap={24}>
+						<div flexDirection={Row} gap={16} alignItems={Center}><toggle-switch checked={off} /><label>Notifications</label></div>
+						<div flexDirection={Row} gap={12} alignItems={Center}><toggle-switch checked={on} /><label>Dark mode</label></div>
+						<div flexDirection={Row} gap={12} alignItems={Center}><toggle-switch checked={off2} disabled={true} /><label>Disabled</label></div>
+					</div>
+				</div>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Tabs</h2>
+					<div flexDirection={Column} gap={8} width={500} height={300}>
+						<label>Simple Tabs</label>
+						<tabs flexGrow={1}>
+							<tabs-list><tabs-trigger value="account">Account</tabs-trigger><tabs-trigger value="password">Password</tabs-trigger><tabs-trigger value="notifications">Notifications</tabs-trigger></tabs-list>
+							<tabs-content value="account"><div class="bg-surface-elevated px-2.5" flexGrow={1} flexDirection={Row} alignItems={Center}><p>Manage your account settings and preferences.</p></div></tabs-content>
+							<tabs-content value="password"><p>Change your password and security settings.</p></tabs-content>
+						</tabs>
+					</div>
+					<div flexDirection={Row} gap={96}>
+						<div flexDirection={Column} gap={8}><label>Small Tabs</label>
+							<tabs size={Sm}><tabs-list><tabs-trigger value="a">First</tabs-trigger><tabs-trigger value="b">Second</tabs-trigger></tabs-list></tabs></div>
+						<div flexDirection={Column} gap={8}><label>Large Tabs</label>
+							<tabs size={Lg}><tabs-list><tabs-trigger value="x">Overview</tabs-trigger><tabs-trigger value="y">Details</tabs-trigger></tabs-list></tabs></div>
+					</div>
+				</div>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Accordion</h2>
+					<div flexDirection={Column} gap={8}>
+						<label>Single Open (default)</label>
+						<accordion value={faq}>
+							<accordion-item value="faq-1"><accordion-trigger>What is ashui?</accordion-trigger><accordion-content><p>ashui is a Haxe UI framework: fine-grained signals, CSS, and a GPU renderer.</p></accordion-content></accordion-item>
+							<accordion-item value="faq-2"><accordion-trigger>How do animations work?</accordion-trigger><accordion-content><p>Layout changes animate by FLIP; states and styles by CSS transitions on the theme motion tokens.</p></accordion-content></accordion-item>
+							<accordion-item value="faq-3"><accordion-trigger>Is it production ready?</accordion-trigger><accordion-content><p>Under active development.</p></accordion-content></accordion-item>
+						</accordion>
+					</div>
+					<div flexDirection={Column} gap={8}>
+						<label>Multi Open</label>
+						<accordion type="multiple">
+							<accordion-item value="s1"><accordion-trigger>Appearance</accordion-trigger><accordion-content><p>Themes, colors and fonts.</p></accordion-content></accordion-item>
+							<accordion-item value="s2"><accordion-trigger>Notifications</accordion-trigger><accordion-content><p>Email and push.</p></accordion-content></accordion-item>
+							<accordion-item value="s3"><accordion-trigger>Privacy</accordion-trigger><accordion-content><p>Data sharing.</p></accordion-content></accordion-item>
+						</accordion>
+					</div>
+				</div>
+				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
+					<h2>Loading States</h2>
+					<div flexDirection={Row} gap={128} alignItems={Center}>
+						<div flexDirection={Column} gap={32}><skeleton width={200} height={20} /><skeleton width={150} height={16} /><skeleton width={180} height={16} /></div>
+						<skeleton width={48} height={48} class="rounded-full" />
+						<div flexDirection={Row} gap={64} alignItems={Center}><spinner size={Sm} /><spinner /><spinner size={Lg} /></div>
+						<div flexDirection={Row} gap={16} alignItems={Center} height={48}><avatar size="sm"><avatar-fallback>AL</avatar-fallback></avatar><avatar><avatar-fallback>CN</avatar-fallback></avatar><avatar size="lg"><avatar-fallback>GH</avatar-fallback></avatar><separator orientation="vertical" /></div>
+					</div>
+				</div>
 			</div>
 		');
-		Snapshot.scene("components@2x", 720, 640, build, page.rgb(), page.a, 2.0);
+		Snapshot.scene(light ? "components-light" : "components", 1400, 3600, build, page.rgb(), page.a, 2.0, 1.0);
 		for (p in ashui.css.Css.problems)
 			Sys.println("css: " + p);
 	}

@@ -9,7 +9,7 @@ import ashui.types.Style;
 import ashui.ui.Div;
 
 /**
-	The shapes of Blinc's notch_demo at its sizes, its drop shadow on each:
+	Notched shapes with a drop shadow on each:
 	a menu-bar dropdown, a bulge, a cut, a peak and a scoop, then the same
 	with a border, which follows each outline alone.
 **/

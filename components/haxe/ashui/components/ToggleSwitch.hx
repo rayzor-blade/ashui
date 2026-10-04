@@ -14,6 +14,7 @@ typedef ToggleSwitchProps = {
 	?disabled:IntoReactive<Bool>,
 	/** Called with whether it is on, after a click, Enter or Space turns it. **/
 	?onChange:Bool->Void,
+	?size:Size,
 	?id:String
 }
 
@@ -22,7 +23,7 @@ typedef ToggleSwitchProps = {
 	it is on. It takes focus, and a click, Enter or Space turns it. In hxx
 	it is `<toggle-switch>`: `switch` is a Haxe keyword hxx keeps. CSS:
 	`.ui-switch`, `:checked`, `:hover`, `:disabled`, `[data-state]` (on,
-	off), `.ui-switch-thumb`; `--ui-switch-width`, `-height`, `-thumb`,
+	off), `[data-size]`, `.ui-switch-thumb`; `--ui-switch-width`, `-height`, `-thumb`,
 	`-travel`, `-track`, `-track-hover`, `-track-on`, `-track-on-hover`,
 	`-thumb-bg`.
 **/
@@ -42,7 +43,10 @@ class ToggleSwitch extends Component<ToggleSwitchProps> {
 		}
 		var on = state;
 		var thumb = Library.part("ui-switch-thumb");
-		var box = Library.part("ui-switch", null, ["state" => Computed.make(() -> (on.get() ? "on" : "off" : Null<String>))], [thumb], props.id);
+		var box = Library.part("ui-switch", null, [
+			"state" => Computed.make(() -> (on.get() ? "on" : "off" : Null<String>)),
+			"size" => (props.size == null ? Size.Md : props.size : String)
+		], [thumb], props.id);
 		var i = Interaction.of(box.node).setFocusable(true);
 		if (props.disabled != null)
 			i.setDisabled(props.disabled);

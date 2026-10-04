@@ -14,6 +14,7 @@ typedef TabsProps = {
 	?value:IntoReactive<String>,
 	/** Called with the value of the tab chosen. **/
 	?onValueChange:String->Void,
+	?size:Size,
 	?id:String
 }
 
@@ -23,7 +24,8 @@ typedef TabsProps = {
 	click, Enter or Space chooses a trigger; in the list, the arrows, Home
 	and End move to another and choose it. CSS: `.ui-tabs`,
 	`.ui-tabs-list`, `.ui-tabs-trigger`, `.ui-tabs-content`, each
-	`[data-state]` active or inactive (an inactive content is not shown);
+	`[data-state]` active or inactive (an inactive content is not shown),
+	`.ui-tabs[data-size]`;
 	`--ui-tabs-list-bg`, `-active-bg`, `-radius`, `-trigger-radius`.
 **/
 class Tabs extends Component<TabsProps> {
@@ -88,7 +90,7 @@ class Tabs extends Component<TabsProps> {
 					Focus.set(enabled[next].interaction, true);
 					choose(enabled[next].props.value);
 				});
-		return Library.part("ui-tabs", null, null, children, props.id);
+		return Library.part("ui-tabs", null, ["size" => (props.size == null ? Size.Md : props.size : String)], children, props.id);
 	}
 }
 
