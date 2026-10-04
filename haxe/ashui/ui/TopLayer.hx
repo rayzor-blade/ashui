@@ -13,6 +13,14 @@ enum Placement {
 	Below(x:Float, y:Float, width:Float, height:Float);
 
 	Centered;
+
+	/**
+		On `side` of the box at `(x, y)`, `width` by `height` ("top", "bottom",
+		"left" or "right"), `gap` from it and centred along it, as wide as its
+		content; on the opposite side when there is no room, and never past
+		the root's edges. A tooltip's place.
+	**/
+	Beside(x:Float, y:Float, width:Float, height:Float, side:String, gap:Float);
 }
 
 /** One entry of the top layer; `close` takes it out. **/
@@ -92,7 +100,7 @@ class TopLayer {
 		Opens `content` in `tree`'s top layer, placed by `placement`.
 		`backdrop` dims what is beneath; `onClose` runs however it closes.
 	**/
-	public static function open(tree:LayoutTree, content:Element, placement:Placement, ?backdrop:Brush, ?onClose:Void->Void):TopEntry {
+	public static function open(tree:LayoutTree, content:Element, placement:Placement, ?backdrop:Brush, ?onClose:Void->Void, passThrough = false):TopEntry {
 		var root = tree.root;
 		if (root == null)
 			throw "TopLayer.open needs a tree that has been laid out";
@@ -126,6 +134,32 @@ class TopLayer {
 					flexDirection: FlexDirection.Column,
 					alignItems: Align.Stretch
 				}, [content], tree);
+			case Beside(x, y, bw, bh, side, gap):
+				var c = tree.getBounds(content.node);
+				var cw = c == null ? 0.0 : c.width, ch = c == null ? 0.0 : c.height;
+				var s = side;
+				// The opposite side when this one has no room.
+				if (s == "top" && y - gap - ch < 0)
+					s = "bottom";
+				else if (s == "bottom" && y + bh + gap + ch > h)
+					s = "top";
+				else if (s == "left" && x - gap - cw < 0)
+					s = "right";
+				else if (s == "right" && x + bw + gap + cw > w)
+					s = "left";
+				var left = switch s {
+					case "left": x - gap - cw;
+					case "right": x + bw + gap;
+					case _: x + (bw - cw) / 2;
+				}
+				var top = switch s {
+					case "top": y - gap - ch;
+					case "bottom": y + bh + gap;
+					case _: y + (bh - ch) / 2;
+				}
+				var holder = new Div({position: Absolute, left: Math.max(0, Math.min(left, w - cw)), top: Math.max(0, Math.min(top, h - ch))}, [content], tree);
+				ashui.css.Identity.of(tree, content.node.id).setAttribute("data-side", s);
+				holder;
 		}
 		shade.appendChild(holder);
 		var entry:Null<TopEntry> = null;
@@ -142,6 +176,9 @@ class TopLayer {
 			case _:
 		});
 		tree.addChild(root.id, shade.node.id);
+		// What only shows, as a tooltip, takes no presses: they reach what is beneath.
+		if (passThrough)
+			tree.setPassThrough(shade.node.id, true);
 		entry = new TopEntry(content, shade, holder, onClose);
 		entries.push(entry);
 		return entry;

@@ -1,0 +1,12 @@
+--class-path ../haxe
+--class-path ../components/haxe
+--class-path ../../hlwindow/haxe
+--class-path .
+-lib hashlink
+-lib tink_hxx
+# tink's own sources use deprecated metadata
+-w -WDeprecated
+# The CSS whose classes hxx accepts in class=
+
+-main Components
+-hl bin/components.hl

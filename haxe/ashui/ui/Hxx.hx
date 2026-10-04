@@ -196,6 +196,9 @@ class Hxx {
 		var tag = node.name.value;
 		if (~/[A-Z]/.match(tag))
 			Context.error('hxx: tags are lowercase kebab-case: write <${kebab(tag)}>', node.name.pos);
+		// An imported component of a built-in element's name wins over it, as an import does in JSX.
+		if (tag != 'div' && importedComponent(tag))
+			return lowerComponent(node);
 		return switch tag {
 			case 'div': lowerDiv(node);
 			case t if (TEXT_TAGS.indexOf(t) >= 0): lowerDiv(node, t);
@@ -210,6 +213,17 @@ class Hxx {
 			case 'svg': lowerSvg(node);
 			case 'img': lowerImg(node);
 			case _: lowerComponent(node);
+		}
+	}
+
+	/** Whether `tag` names a component class visible where the template is, other than a built-in one of ashui.ui. **/
+	static function importedComponent(tag:String):Bool {
+		var type = try Context.getType(className(tag)) catch (_:Dynamic) null;
+		if (type == null)
+			return false;
+		return switch type {
+			case TInst(c, _): c.get().pack.join(".") != "ashui.ui" && componentProps(type) != null;
+			case _: false;
 		}
 	}
 
@@ -484,29 +498,51 @@ class Hxx {
 			case TAnonymous(a): [for (f in a.get().fields) f.name => f.type];
 			case _: Context.error('hxx: <$tag>\'s props are not a structure', node.name.pos);
 		}
-		var fields = [
-			for (a in node.attributes)
-				switch a {
-					case Regular(name, value):
-						// HTML's for, a Haxe keyword, is the htmlFor prop.
-						var field = name.value == "for" ? "htmlFor" : name.value;
-						var propType = propTypes.get(field);
-						if (propType == null)
-							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
-						{field: field, expr: propValue(value, propType)};
-					case Empty(name):
-						if (!propTypes.exists(name.value))
-							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
-						{field: name.value, expr: macro @:pos(name.pos) true};
-					case Splat(e):
-						Context.error('hxx: spreading attributes is not supported', e.pos);
-				}
-		];
+		// Attributes the component does not take go to its root element, as a <div>'s do: class adds classes, style and layout attributes bind.
+		var el = '__component${counter++}';
+		var rootSets:Array<Expr> = [];
+		var fields = [];
+		for (a in node.attributes)
+			switch a {
+				case Regular(name, value):
+					// HTML's for, a Haxe keyword, is the htmlFor prop.
+					var field = name.value == "for" ? "htmlFor" : name.value;
+					var propType = propTypes.get(field);
+					if (propType != null) {
+						fields.push({field: field, expr: propValue(value, propType)});
+						continue;
+					}
+					switch name.value {
+						case 'class':
+							var css = [];
+							var sets = ashui.style.Tw.setters(value, macro $i{el}.node, css);
+							if (css.length > 0)
+								sets.unshift(macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).addClasses($v{css}));
+							rootSets = rootSets.concat(sets);
+						case 'style':
+							rootSets.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
+						case _:
+							rootSets.push(setter(el, a, '<$tag>'));
+					}
+				case Empty(name):
+					if (!propTypes.exists(name.value))
+						Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
+					fields.push({field: name.value, expr: macro @:pos(name.pos) true});
+				case Splat(e):
+					Context.error('hxx: spreading attributes is not supported', e.pos);
+			}
 		var module = cls.module.split('.').pop();
 		var path:TypePath = module == cls.name ? {pack: cls.pack, name: cls.name} : {pack: cls.pack, name: module, sub: cls.name};
 		var propsExpr:Expr = {expr: EObjectDecl(fields), pos: node.name.pos};
 		var kids = childArray(elements(node.children));
-		return {expr: ENew(path, [propsExpr, kids]), pos: node.name.pos};
+		var made:Expr = {expr: ENew(path, [propsExpr, kids]), pos: node.name.pos};
+		if (rootSets.length == 0)
+			return made;
+		return macro @:pos(node.name.pos) {
+			var $el = $made;
+			$b{rootSets};
+			$i{el};
+		};
 	}
 
 	/** The `Props` of `ashui.ui.Component<Props>` that `type` extends, or null. **/

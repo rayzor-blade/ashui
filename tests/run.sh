@@ -133,13 +133,17 @@ memory)
 	haxe smoke.hxml
 	smoke=0
 	run smoke.hl || smoke=$?
+	# The ashui.components library, on its own class path.
+	haxe components.hxml
+	components=0
+	run components.hl || components=$?
 	# Pure Haxe, so the interpreter runs it.
 	css=0
 	haxe --class-path ../haxe --class-path . -main CssParse --interp || css=$?
 	haxe --class-path ../haxe --class-path . -main CssValues --interp || css=$?
 	compile=0
 	compile_fixtures || compile=$?
-	[ $smoke -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
+	[ $smoke -eq 0 ] && [ $components -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

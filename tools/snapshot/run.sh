@@ -50,7 +50,7 @@ render() {
 	cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
 	rm -f bin/xgpu.hdll
 	cp "$(first "$vib"/hlwgpu/target/release/libhlwgpu.$ext "$vib"/hlwgpu/target/debug/libhlwgpu.$ext)" bin/xgpu.hdll
-	if ! out=$(haxe --class-path "$repo/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
+	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" \
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path "$(dirname "$scene")" -main "$name" -hl "bin/$name.hl" 2>&1); then
