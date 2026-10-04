@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791130163,"nonce":"u42/iDZ3brtav6OEr8O/vAcRBOo=","message":"Atlas uploads: only the changed region since 399dac3. In TreeMotion, after the first full 1024x1024 upload, later syncs send strips of 186x19 and 618x18. All three parts of this issue are done.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1791130164,"nonce":"UhzX+A0cem7drVg9NuAwhuXjYeg=","status":2}]}
