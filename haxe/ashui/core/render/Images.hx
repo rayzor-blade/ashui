@@ -102,6 +102,14 @@ class Images {
 			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, width, height, fit, pixels.getData()));
 	}
 
+	/** Bitmap `slot`'s rect in `atlas`, resampled to fill `width` by `height` at `onScreen` target pixels a unit; null when it does not fit. **/
+	public static function bitmap(slot:Int, width:Float, height:Float, onScreen:Float, atlas:ImageAtlas):Null<ImageAtlas.Rect> {
+		var scale = bucket(onScreen);
+		var w = side(width * scale), h = side(height * scale);
+		var fill = ashui.types.Brush.ImageFit.Fill;
+		return atlas.get('bitmap${slot * 4 + fill}:${w}x$h', w, h, pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, w, h, fill, pixels.getData()));
+	}
+
 	static function bucket(onScreen:Float):Float {
 		if (!(onScreen > 0))
 			return 1;

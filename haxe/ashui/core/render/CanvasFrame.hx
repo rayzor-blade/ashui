@@ -72,6 +72,18 @@ class CanvasFrame {
 		scissorHeight = scissor[3];
 	}
 
+	/** The renderer's image atlas, which images a canvas draws are resampled into. **/
+	public var images(get, never):ImageAtlas;
+
+	inline function get_images():ImageAtlas
+		return @:privateAccess renderer.imageAtlas;
+
+	/** The sampler images are drawn through: linear between texels. **/
+	public var imageSampler(get, never):gpu.GpuSampler;
+
+	inline function get_imageSampler():gpu.GpuSampler
+		return @:privateAccess renderer.glyphSampler;
+
 	/**
 		Draws `vertices` vertices of a `UiShader`, by its WGSL, once, as the
 		canvas's record's instance: its `recordIndex`, and so `primitive` and

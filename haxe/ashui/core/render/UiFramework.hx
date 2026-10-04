@@ -209,14 +209,15 @@ class UiFramework extends Extension {
 
 	/**
 		The records alone in group 1, a layer's shadow alone in group 2, and
-		a canvas's own data alone in group 3: each texture at binding 0 and
-		HXSL's unused sampler for it after, so bindings made in order match.
+		a canvas's own data in group 3, with the image atlas its images are
+		drawn from: each texture and HXSL's sampler for it after, so bindings
+		made in order match.
 	**/
 	override function group(name:String):Null<Int> {
 		return switch name {
 			case "records": 1;
 			case "shadow": 2;
-			case "canvas": 3;
+			case "canvas" | "canvasImages": 3;
 			case _: null;
 		}
 	}

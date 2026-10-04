@@ -6,9 +6,11 @@ package ashui.core.render;
 	its coverage and the texel where its paint starts; then its distances
 	inside up to four edges of its shape, in pixels, which cover the pixels
 	just inside an edge by how far inside they are. A paint is eight
-	texels: its kind (0 solid, 1 linear, 2 radial), stop count and
+	texels: its kind (0 solid, 1 linear, 2 radial, 3 image), stop count and
 	opacity; its geometry, in layout units; up to four stop offsets; and
-	the stops' colours. Gradients are mixed premultiplied, as CSS mixes
+	the stops' colours. An image's paint is its opacity, then the map from
+	a pixel to where in the image it is, 0 to 1 across, as two rows of
+	an affine, then the image's rect in `canvasImages`, the image atlas. Gradients are mixed premultiplied, as CSS mixes
 	them. Drawn with the canvas's record as its instance, it is clipped as
 	the canvas is (`canvasClip`).
 **/
@@ -25,6 +27,8 @@ class PathShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
 
+		// The atlas first: its sampler is used and the canvas's is not, so bindings made in order run images, sampler, canvas.
+		@param var canvasImages : Sampler2D;
 		@param var canvas : Sampler2D;
 
 		var output : { position : Vec4, color : Vec4 };
@@ -54,7 +58,15 @@ class PathShader implements UiShader {
 			var at = int(paint + 0.5);
 			var head = canvasTexel(at);
 			var color = canvasTexel(at + 3);
-			if (head.x > 0.5) {
+			if (head.x > 2.5) {
+				var row0 = canvasTexel(at + 1);
+				var row1 = canvasTexel(at + 2);
+				var rect = canvasTexel(at + 3);
+				var st = clamp(vec2(dot(row0.xyz, vec3(pixel, 1.)), dot(row1.xyz, vec3(pixel, 1.))), vec2(0., 0.), vec2(1., 1.));
+				// Kept half a texel inside its rect, so filtering does not reach its neighbours in the atlas.
+				var where = clamp(mix(rect.xy, rect.zw, st), rect.xy + vec2(0.5, 0.5), rect.zw - vec2(0.5, 0.5));
+				color = textureLod(canvasImages, where / textureSize(canvasImages), 0.);
+			} else if (head.x > 0.5) {
 				var geo = canvasTexel(at + 1);
 				var offsets = canvasTexel(at + 2);
 				var t = 0.;

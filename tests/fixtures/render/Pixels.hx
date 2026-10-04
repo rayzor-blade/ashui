@@ -457,6 +457,29 @@ class Pixels {
 		probe("and red again a cell on", 38, 40, (r, g, b) -> r > 200 && b < 60);
 		probe("repeated across the box", 47, 44, (r, g, b) -> b > 200 && r < 60);
 
+		// A canvas draws a bitmap into a rect, resampled for its size on screen, and at an opacity.
+		var canvasImageTree = new LayoutTree();
+		var canvasImageRoot:Div = ashui.reactive.Owner.root(canvasImageTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.image(pair, 0, 0, 32, 16);
+					ctx.pushOpacity(0.5);
+					ctx.image(pair, 0, 24, 32, 16);
+					ctx.popOpacity();
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(canvasImageRoot, SIZE, SIZE);
+		label = "canvas image: ";
+		probe("stretched into its rect, red on the left", 14, 16, (r, g, b) -> r > 200 && b < 60);
+		probe("and blue on the right", 34, 16, (r, g, b) -> b > 200 && r < 60);
+		probe("nothing past its rect", 44, 16, near(0xffffff));
+		probe("at half opacity, over the white under it", 14, 40, (r, g, b) -> r > 200 && g > 100 && g < 160 && b > 100 && b < 160);
+		probe("its blue half too", 34, 40, (r, g, b) -> b > 200 && r > 100 && r < 160);
+
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
 		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);

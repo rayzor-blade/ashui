@@ -41,6 +41,11 @@ class CanvasPainter {
 	var madeTransform:Null<Affine> = null;
 	var madeRatio = 0.0;
 
+	/** The image atlas's revision the triangles' image rects are for; a reset of the atlas moves them. **/
+	var madeAtlas = -1;
+
+	var groupAtlas = -1;
+
 	/** Kept from build to build: the triangles, where each draw's begin, the paints, and the bytes uploaded. **/
 	final mesh = new Mesh();
 
@@ -53,24 +58,29 @@ class CanvasPainter {
 	public function play(frame:CanvasFrame, ctx:DrawContext):Void {
 		var t = frame.transform, m = madeTransform;
 		var moved = m == null || t.a != m.a || t.b != m.b || t.c != m.c || t.d != m.d || t.e != m.e || t.f != m.f;
-		if (ctx != madeFor || moved || frame.pixelRatio != madeRatio) {
+		var atlas = frame.images;
+		if (ctx != madeFor || moved || frame.pixelRatio != madeRatio || (hasImages && atlas.revision != madeAtlas)) {
 			build(frame, ctx);
 			madeFor = ctx;
 			madeTransform = t;
 			madeRatio = frame.pixelRatio;
+			madeAtlas = atlas.revision;
 		}
 		if (vertexCount == 0)
 			return;
 		var pipeline = frame.bind(PathShader.WGSL);
-		if (group == null || groupPipeline != pipeline.pipeline) {
+		if (group == null || groupPipeline != pipeline.pipeline || groupAtlas != atlas.revision) {
 			if (group != null)
 				group.destroy();
-			// The texture alone: it is fetched, never sampled, as the records are.
+			// The image atlas and its sampler, then the canvas's data, which is fetched, never sampled.
 			var bindings = new GpuBindings();
+			bindings.texture(atlas.view);
+			bindings.sampler(frame.imageSampler);
 			bindings.texture(view);
 			group = frame.device.bindGroup(pipeline.pipeline, PathShader.TEXTURE_canvas_GROUP, bindings);
 			bindings.destroy();
 			groupPipeline = pipeline.pipeline;
+			groupAtlas = atlas.revision;
 		}
 		frame.encoder.renderSetBindGroup(PathShader.TEXTURE_canvas_GROUP, group);
 		frame.encoder.renderDrawRange(vertexCount, 1, 0, frame.record);
@@ -83,6 +93,7 @@ class CanvasPainter {
 		mesh.clear();
 		starts.resize(0);
 		paints.resize(0);
+		hasImages = false;
 		for (op in ctx.ops) {
 			var before = mesh.vertexCount();
 			switch op {
@@ -98,6 +109,13 @@ class CanvasPainter {
 					Tessellate.stroke(contours, stroke, m.scale(), aa, mesh);
 					if (mesh.vertexCount() > before)
 						encode(brush, m, contours, opacity, paints);
+				case Image(slot, x, y, w, h, transform, opacity):
+					hasImages = true;
+					var m = frame.transform.after(transform);
+					var contours = Flatten.path(new ashui.draw.Path().rect(x, y, w, h), m, tolerance);
+					Tessellate.fill(contours, NonZero, aa, mesh);
+					if (mesh.vertexCount() > before)
+						encodeImage(frame, slot, x, y, w, h, m, opacity, paints);
 			}
 			if (mesh.vertexCount() > before)
 				starts.push(before);
@@ -145,6 +163,31 @@ class CanvasPainter {
 			group = null;
 		}
 		frame.device.queue().writeTexture(texture, bytes, PathShader.ROW_TEXELS, needed, PathShader.ROW_TEXELS * 16);
+	}
+
+	/** Whether the record draws an image, so a reset of the image atlas makes its triangles again. **/
+	var hasImages = false;
+
+	/**
+		An image's paint, `PathShader`'s eight texels: its opacity; the map
+		from a pixel to where in the image it is, 0 to 1 across; and its
+		rect in the image atlas, resampled for the size it covers on screen.
+		One that does not fit in the atlas paints nothing.
+	**/
+	static function encodeImage(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>):Void {
+		var rect = Images.bitmap(slot, w, h, m.scale() * frame.pixelRatio, frame.images);
+		var inverse = m.after(new Affine(w, 0, 0, h, x, y)).inverse();
+		if (rect == null || inverse == null) {
+			for (_ in 0...8)
+				for (_ in 0...4)
+					out.push(0);
+			return;
+		}
+		for (v in [3.0, 0, opacity, 0, inverse.a, inverse.c, inverse.e, 0, inverse.b, inverse.d, inverse.f, 0, rect.x, rect.y, rect.x + rect.width,
+			rect.y + rect.height])
+			out.push(v);
+		for (_ in 0...16)
+			out.push(0);
 	}
 
 	/**

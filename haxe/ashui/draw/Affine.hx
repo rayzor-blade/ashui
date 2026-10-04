@@ -47,6 +47,15 @@ class Affine {
 	public inline function y(px:Float, py:Float):Float
 		return b * px + d * py + f;
 
+	/** The transform that undoes this one; null when it flattens the plane, as a scale by 0 does. **/
+	public function inverse():Null<Affine> {
+		var det = a * d - b * c;
+		if (Math.abs(det) < 1e-12)
+			return null;
+		var ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
+		return new Affine(ia, ib, ic, id, -(ia * e + ic * f), -(ib * e + id * f));
+	}
+
 	/** How much it scales lengths, on average over directions: what a tolerance or a line width is worth on screen. **/
 	public function scale():Float
 		return Math.sqrt(Math.abs(a * d - b * c));

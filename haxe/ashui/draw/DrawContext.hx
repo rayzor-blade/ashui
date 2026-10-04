@@ -7,7 +7,13 @@ import ashui.types.Brush;
 enum DrawOp {
 	Fill(path:Path, brush:Brush, rule:FillRule, transform:Affine, opacity:Float);
 	Stroke(path:Path, stroke:Stroke, brush:Brush, transform:Affine, opacity:Float);
+
+	/** A bitmap, the renderer's `slot`, drawn into the rect `x`, `y`, `width` by `height`. **/
+	Image(slot:Int, x:Float, y:Float, width:Float, height:Float, transform:Affine, opacity:Float);
 }
+
+/** What an image is drawn from: a bitmap, `ashui.types.Bitmap`, which these are. **/
+typedef DrawImage = {final slot:Int; final width:Int; final height:Int;}
 
 /**
 	What a canvas draws with: shapes and paths, filled or stroked with a
@@ -111,6 +117,14 @@ class DrawContext {
 		var outline = GlyphOutlines.of(text, style != null ? style : {});
 		return outline == null ? {width: 0.0, ascent: 0.0, descent: 0.0} : {width: outline.width, ascent: outline.ascent, descent: outline.descent};
 	}
+
+	/**
+		`image` drawn into the rect at `(x, y)`, `width` by `height`, its own
+		size when they are left out. It is resampled at the size it covers on
+		screen, so it stays sharp up to its own resolution, turned or scaled.
+	**/
+	public function image(image:DrawImage, x:Float, y:Float, ?width:Float, ?height:Float):Void
+		ops.push(Image(image.slot, x, y, width != null ? width : image.width, height != null ? height : image.height, transform, opacity));
 
 	/** A straight line, which has no inside: only its stroke. **/
 	public function line(x1:Float, y1:Float, x2:Float, y2:Float, stroke:Stroke, brush:Brush):Void
