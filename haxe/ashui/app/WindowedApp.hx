@@ -99,6 +99,9 @@ class WindowedApp {
 		path != null && path != "" ? sys.io.File.write(path, false) : null;
 	};
 
+	/** `ASHUI_MOTION=overlay` draws motion trails over the frames, `stream` also writes each burst of motion out for review (see `ashui.debug.MotionStream`). **/
+	var motion:Null<ashui.debug.MotionStream> = null;
+
 	/** hlwindow's platform code for Wayland. **/
 	static inline var WAYLAND = 4;
 
@@ -153,6 +156,7 @@ class WindowedApp {
 		this.surface = surface;
 		format = chooseFormat();
 		offscreen = new Offscreen(device, format);
+		motion = ashui.debug.MotionStream.fromEnvironment(offscreen);
 		tree = new LayoutTree();
 		paceOnRedraw = window.platform() == WAYLAND;
 	}
@@ -202,7 +206,7 @@ class WindowedApp {
 			// No wait when a frame is due; after a present, until its redraw;
 			// short ones while something animates; otherwise the loop sleeps
 			// on the window. Never past the next timer.
-			var animating = scheduler.hasActive();
+			var animating = scheduler.hasActive() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0));
 			var timer = scheduler.untilNextTimer();
 			var t0 = haxe.Timer.stamp();
 			if (awaitingFrame && t0 - awaitingSince > FRAME_WAIT_LIMIT)
@@ -241,7 +245,13 @@ class WindowedApp {
 			#end
 			var now = haxe.Timer.stamp();
 			// Capped, so after a stall an animation carries on from where it was instead of jumping ahead.
-			scheduler.tick(Math.min(now - last, MAX_STEP), now - last);
+			var step = Math.min(now - last, MAX_STEP);
+			if (motion != null && motion.busy()) {
+				// While a burst is written, a fixed step per frame drawn: the capture's cost stays out of the motion.
+				step = motion.step(step);
+				scheduler.tick(step, step);
+			} else
+				scheduler.tick(step, now - last);
 			last = now;
 			if (theme.tick() || animating)
 				dirty = true;
@@ -272,6 +282,8 @@ class WindowedApp {
 						frameLog.flush();
 					}
 					presented = t4;
+					if (motion != null)
+						motion.frame(tree, root, logicalWidth(), logicalHeight());
 					if (onFrame != null)
 						onFrame(frames, haxe.Timer.stamp() - opened);
 				}

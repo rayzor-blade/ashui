@@ -115,7 +115,15 @@ class Snapshot {
 		return path;
 	}
 
-	static function event(line:String):Void {
+	/** The offscreen renderer snapshots draw with, made the first time it is asked for. **/
+	public static function renderer():Offscreen {
+		if (offscreen == null)
+			offscreen = Offscreen.create();
+		return offscreen;
+	}
+
+	/** Appends `line` to `events.log` in the snapshot directory, for a watcher tailing it. **/
+	public static function event(line:String):Void {
 		sys.FileSystem.createDirectory(dir());
 		var out = sys.io.File.append(haxe.io.Path.join([dir(), "events.log"]), false);
 		out.writeString(line + "\n");

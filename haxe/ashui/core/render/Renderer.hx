@@ -194,12 +194,12 @@ class Renderer {
 
 	/**
 		Draws `list` into `view`, `width` × `height` units, after clearing it
-		to the given colour. `pixelWidth` × `pixelHeight` is the size of
-		`view`'s texture, which layers match; the same as the units unless
-		they are scaled.
+		to the given colour, or over what it holds with `keep`. `pixelWidth`
+		× `pixelHeight` is the size of `view`'s texture, which layers match;
+		the same as the units unless they are scaled.
 	**/
 	public function draw(list:DisplayList, view:GpuTextureView, width:Int, height:Int, r = 0.0, g = 0.0, b = 0.0, a = 0.0, ?pixelWidth:Int,
-			?pixelHeight:Int):Void {
+			?pixelHeight:Int, keep = false):Void {
 		var layerWidth = pixelWidth != null ? pixelWidth : width;
 		var layerHeight = pixelHeight != null ? pixelHeight : height;
 		var queue = device.queue();
@@ -223,13 +223,16 @@ class Renderer {
 				offscreen = true;
 				break;
 			}
+		// Drawn over a frame already there, it draws straight into the view: a frame texture of its own would start empty.
+		if (keep)
+			offscreen = false;
 		if (offscreen && (frameLayer == null || frameLayer.width != layerWidth || frameLayer.height != layerHeight)) {
 			if (frameLayer != null)
 				destroyLayer(frameLayer);
 			frameLayer = makeLayer(layerWidth, layerHeight);
 		}
 		var base = offscreen ? frameLayer.view : view;
-		beginPass(encoder, base, true, r, g, b, a);
+		beginPass(encoder, base, !keep, r, g, b, a);
 		if (list.count > 0) {
 			var start = 0;
 			var depth = 0;

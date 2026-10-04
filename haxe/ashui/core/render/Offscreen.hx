@@ -50,6 +50,11 @@ class Offscreen {
 	/** Seconds the last `render` spent flushing, laying out, building the display list and encoding the draw. **/
 	public var timings(default, null) = {flush: 0.0, layout: 0.0, list: 0.0, draw: 0.0};
 
+	/** Drawn over every frame, in order, after the UI: a debugger's overlays. **/
+	public final overlays:Array<FrameOverlay> = [];
+
+	final overlayList = new DisplayList();
+
 	/** How many primitives the last frame drew. **/
 	public var primitives(get, never):Int;
 
@@ -100,6 +105,13 @@ class Offscreen {
 		var pixelHeight = targetHeight != null ? targetHeight : Math.round(height * scale);
 		renderer.draw(list, view, width, height, (clear >> 16 & 0xff) / 255, (clear >> 8 & 0xff) / 255, (clear & 0xff) / 255, clearAlpha,
 			pixelWidth, pixelHeight);
+		for (overlay in overlays)
+			overlay.draw(tree, root, width, height, element -> {
+				element.tree.flush();
+				element.tree.computeLayout(element.node, width, height);
+				overlayList.update(element.tree, element.node, scale);
+				renderer.draw(overlayList, view, width, height, 0, 0, 0, 0, pixelWidth, pixelHeight, true);
+			});
 		timings.draw = haxe.Timer.stamp() - t1;
 	}
 
