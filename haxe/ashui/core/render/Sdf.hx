@@ -82,7 +82,10 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			// The box with sharp corners.
 			var box = length(max(q, vec2(0., 0.))) + min(max(q.x, q.y), 0.);
 			var d = 0.;
-			if (n <= -100.) {
+			if (r <= 0.) {
+				// No corner to shape: a superellipse of no radius is 0 everywhere, which would halve the coverage inside.
+				d = box;
+			} else if (n <= -100.) {
 				// A notch: the box less everything beyond the corner's step, whose only edges are the step's two faces.
 				var cut = length(max(-qa, vec2(0., 0.))) + min(max(-qa.x, -qa.y), 0.);
 				d = max(box, -cut);

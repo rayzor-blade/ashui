@@ -386,6 +386,16 @@ class Pixels {
 		probe("and red again a cell on", 38, 40, (r, g, b) -> r > 200 && b < 60);
 		probe("repeated across the box", 47, 44, (r, g, b) -> b > 200 && r < 60);
 
+		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
+		var nestTree = new LayoutTree();
+		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);
+		var innerClip = new Div({width: 16, height: 16, overflow: Overflow.Clip}, [nestedImage], nestTree);
+		var outerClip = new Div({position: Position.Absolute, left: 4, top: 4, width: 56, height: 56, padding: 20, overflow: Overflow.Clip,
+			cornerRadius: CornerRadius.all(18), cornerShape: ashui.types.CornerShape.squircle()}, [innerClip], nestTree);
+		pixels = offscreen.renderToRgba8(new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [outerClip], nestTree), SIZE, SIZE);
+		label = "nested clips: ";
+		probe("an image inside a square clip inside a squircle one is drawn whole", 25, 32, (r, g, b) -> r > 230 && g < 20 && b < 40);
+
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');
 		var colourDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="#0000ff"/></svg>');
