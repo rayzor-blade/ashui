@@ -116,7 +116,12 @@ class MeshData {
 		return out;
 	}
 
-	/** Each vertex's tangent from how its triangles' texture coordinates run, made perpendicular to its normal. **/
+	/**
+		Each vertex's tangent from how its triangles' texture coordinates run,
+		made perpendicular to its normal, with the handedness that puts the
+		bitangent, `cross(normal, tangent) * w`, toward decreasing v: up the
+		image, as glTF and normal textures have it.
+	**/
 	public static function tangentsOf(positions:Array<Float>, normals:Array<Float>, uvs:Array<Float>, indices:Array<Int>):Array<Float> {
 		var n = Std.int(positions.length / 3);
 		var tan = [for (_ in 0...n * 3) 0.0], bit = [for (_ in 0...n * 3) 0.0];
@@ -148,7 +153,7 @@ class MeshData {
 			var ortho = tv.sub(nv.scale(nv.dot(tv))).normalize();
 			if (ortho.length() == 0)
 				ortho = nv.cross(Math.abs(nv.y) < 0.99 ? Vec3.UP : new Vec3(1, 0, 0)).normalize();
-			var w = nv.cross(ortho).dot(at(bit, v)) < 0 ? -1.0 : 1.0;
+			var w = nv.cross(ortho).dot(at(bit, v)) > 0 ? -1.0 : 1.0;
 			out.push(ortho.x);
 			out.push(ortho.y);
 			out.push(ortho.z);
