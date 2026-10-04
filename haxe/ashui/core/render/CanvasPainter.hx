@@ -35,20 +35,29 @@ class CanvasPainter {
 	var groupPipeline:Null<GpuPipeline> = null;
 	var vertexCount = 0;
 
-	/** What the triangles were made for. **/
+	/** What the triangles were made for: the record, and the canvas's transform and pixel ratio. **/
 	var madeFor:Null<DrawContext> = null;
 
-	var madeKey = "";
+	var madeTransform:Null<Affine> = null;
+	var madeRatio = 0.0;
+
+	/** Kept from build to build: the triangles, where each draw's begin, the paints, and the bytes uploaded. **/
+	final mesh = new Mesh();
+
+	final starts:Array<Int> = [];
+	final paints:Array<Float> = [];
+	var bytes:Null<haxe.io.Bytes> = null;
 
 	public function new() {}
 
 	public function play(frame:CanvasFrame, ctx:DrawContext):Void {
-		var t = frame.transform;
-		var key = '${t.a} ${t.b} ${t.c} ${t.d} ${t.e} ${t.f} ${frame.pixelRatio}';
-		if (ctx != madeFor || key != madeKey) {
+		var t = frame.transform, m = madeTransform;
+		var moved = m == null || t.a != m.a || t.b != m.b || t.c != m.c || t.d != m.d || t.e != m.e || t.f != m.f;
+		if (ctx != madeFor || moved || frame.pixelRatio != madeRatio) {
 			build(frame, ctx);
 			madeFor = ctx;
-			madeKey = key;
+			madeTransform = t;
+			madeRatio = frame.pixelRatio;
 		}
 		if (vertexCount == 0)
 			return;
@@ -71,45 +80,47 @@ class CanvasPainter {
 		// A target pixel, in the layout units the triangles are in.
 		var aa = 1 / frame.pixelRatio;
 		var tolerance = TOLERANCE / frame.pixelRatio;
-		var meshes:Array<Mesh> = [];
-		var paints:Array<Array<Float>> = [];
+		mesh.clear();
+		starts.resize(0);
+		paints.resize(0);
 		for (op in ctx.ops) {
-			var mesh = new Mesh();
-			var paint:Array<Float>;
+			var before = mesh.vertexCount();
 			switch op {
 				case Fill(path, brush, rule, transform, opacity):
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(path, m, tolerance);
 					Tessellate.fill(contours, rule, aa, mesh);
-					paint = encode(brush, m, contours, opacity);
+					if (mesh.vertexCount() > before)
+						encode(brush, m, contours, opacity, paints);
 				case Stroke(path, stroke, brush, transform, opacity):
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(path, m, tolerance);
 					Tessellate.stroke(contours, stroke, m.scale(), aa, mesh);
-					paint = encode(brush, m, contours, opacity);
+					if (mesh.vertexCount() > before)
+						encode(brush, m, contours, opacity, paints);
 			}
-			if (mesh.vertexCount() > 0) {
-				meshes.push(mesh);
-				paints.push(paint);
-			}
+			if (mesh.vertexCount() > before)
+				starts.push(before);
 		}
-		vertexCount = 0;
-		for (m in meshes)
-			vertexCount += m.vertexCount();
+		vertexCount = mesh.vertexCount();
 		if (vertexCount == 0)
 			return;
-		var texels = vertexCount * PathShader.VERTEX_TEXELS + paints.length * PathShader.PAINT_TEXELS;
+		var draws = starts.length;
+		var texels = vertexCount * PathShader.VERTEX_TEXELS + draws * PathShader.PAINT_TEXELS;
 		var needed = Std.int(Math.ceil(texels / PathShader.ROW_TEXELS));
-		var bytes = haxe.io.Bytes.alloc(needed * PathShader.ROW_TEXELS * 16);
-		var at = 0;
+		var size = needed * PathShader.ROW_TEXELS * 16;
+		if (bytes == null || bytes.length < size)
+			bytes = haxe.io.Bytes.alloc(size + (size >> 1));
+		var out = bytes, at = 0;
 		inline function put(v:Float) {
-			bytes.setFloat(at, v);
+			out.setFloat(at, v);
 			at += 4;
 		}
-		for (i => mesh in meshes) {
+		var d = mesh.data;
+		for (i in 0...draws) {
 			var paintTexel = vertexCount * PathShader.VERTEX_TEXELS + i * PathShader.PAINT_TEXELS;
-			var d = mesh.data, k = 0;
-			while (k < d.length) {
+			var k = starts[i] * Mesh.STRIDE, end = (i + 1 < draws ? starts[i + 1] : vertexCount) * Mesh.STRIDE;
+			while (k < end) {
 				put(d[k]);
 				put(d[k + 1]);
 				put(d[k + 2]);
@@ -119,16 +130,15 @@ class CanvasPainter {
 				k += Mesh.STRIDE;
 			}
 		}
-		for (p in paints)
-			for (v in p)
-				put(v);
+		for (v in paints)
+			put(v);
 		if (texture == null || needed > rows) {
 			if (texture != null)
 				texture.destroy();
 			rows = needed + (needed >> 1);
-			var size = new GpuExtent3D(PathShader.ROW_TEXELS);
-			size.height(rows);
-			texture = frame.device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
+			var extent = new GpuExtent3D(PathShader.ROW_TEXELS);
+			extent.height(rows);
+			texture = frame.device.texture(new GpuTextureDescriptor(extent, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
 			view = texture.createView(new GpuTextureViewDescriptor());
 			if (group != null)
 				group.destroy();
@@ -143,15 +153,33 @@ class CanvasPainter {
 		bounds for a bounding-box one, and its first four stops. A brush
 		that is neither, an image or a blur, paints nothing.
 	**/
-	static function encode(brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float):Array<Float> {
-		inline function rgba(rgb:Int, alpha:Float):Array<Float>
-			return [(rgb >> 16 & 0xff) / 255, (rgb >> 8 & 0xff) / 255, (rgb & 0xff) / 255, alpha];
+	static function encode(brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
+		inline function rgba(rgb:Int, alpha:Float) {
+			out.push((rgb >> 16 & 0xff) / 255);
+			out.push((rgb >> 8 & 0xff) / 255);
+			out.push((rgb & 0xff) / 255);
+			out.push(alpha);
+		}
+		inline function four(a:Float, b:Float, c:Float, d:Float) {
+			out.push(a);
+			out.push(b);
+			out.push(c);
+			out.push(d);
+		}
 		var g = brush.gradient;
 		if (g == null || g.stops.length == 0) {
-			var color = brush.solidRgb >= 0 ? rgba(brush.solidRgb, brush.solidAlpha) : [0.0, 0, 0, 0];
-			return [0.0, 1, opacity, 0, 0, 0, 0, 0, 0, 0, 0, 0].concat(color).concat([for (_ in 0...16) 0.0]);
+			four(0, 1, opacity, 0);
+			four(0, 0, 0, 0);
+			four(0, 0, 0, 0);
+			if (brush.solidRgb >= 0)
+				rgba(brush.solidRgb, brush.solidAlpha);
+			else
+				four(0, 0, 0, 0);
+			for (_ in 0...4)
+				four(0, 0, 0, 0);
+			return;
 		}
-		var geo:Array<Float>;
+		four(g.radial ? 2 : 1, Math.min(4, g.stops.length), opacity, 0);
 		if (g.boundingBox) {
 			var x0 = Math.POSITIVE_INFINITY, y0 = Math.POSITIVE_INFINITY, x1 = Math.NEGATIVE_INFINITY, y1 = Math.NEGATIVE_INFINITY;
 			for (c in contours)
@@ -162,16 +190,30 @@ class CanvasPainter {
 					y1 = Math.max(y1, c.y(i));
 				}
 			var w = x1 - x0, h = y1 - y0;
-			geo = g.radial ? [x0 + g.x1 * w, y0 + g.y1 * h, g.x2 * Math.max(w, h), 0] : [x0 + g.x1 * w, y0 + g.y1 * h, x0 + g.x2 * w, y0 + g.y2 * h];
-		} else
-			geo = g.radial ? [m.x(g.x1, g.y1), m.y(g.x1, g.y1), g.x2 * m.scale(), 0] : [m.x(g.x1, g.y1), m.y(g.x1, g.y1), m.x(g.x2, g.y2), m.y(g.x2, g.y2)];
-		var stops = g.stops.copy();
-		stops.sort((a, b) -> a.offset < b.offset ? -1 : a.offset > b.offset ? 1 : 0);
+			if (g.radial)
+				four(x0 + g.x1 * w, y0 + g.y1 * h, g.x2 * Math.max(w, h), 0);
+			else
+				four(x0 + g.x1 * w, y0 + g.y1 * h, x0 + g.x2 * w, y0 + g.y2 * h);
+		} else if (g.radial)
+			four(m.x(g.x1, g.y1), m.y(g.x1, g.y1), g.x2 * m.scale(), 0);
+		else
+			four(m.x(g.x1, g.y1), m.y(g.x1, g.y1), m.x(g.x2, g.y2), m.y(g.x2, g.y2));
+		// Stops in order; they are usually added so.
+		var stops = g.stops;
+		var sorted = true;
+		for (i in 1...stops.length)
+			if (stops[i].offset < stops[i - 1].offset)
+				sorted = false;
+		if (!sorted) {
+			stops = stops.copy();
+			stops.sort((a, b) -> a.offset < b.offset ? -1 : a.offset > b.offset ? 1 : 0);
+		}
 		var n = Std.int(Math.min(4, stops.length));
-		var offsets = [for (i in 0...4) i < n ? stops[i].offset : 1.0];
-		var out = [g.radial ? 2.0 : 1.0, n, opacity, 0].concat(geo).concat(offsets);
-		for (i in 0...4)
-			out = out.concat(i < n ? rgba(stops[i].rgb, stops[i].alpha) : rgba(stops[n - 1].rgb, stops[n - 1].alpha));
-		return out.concat([0.0, 0, 0, 0]);
+		four(stops[0].offset, n > 1 ? stops[1].offset : 1, n > 2 ? stops[2].offset : 1, n > 3 ? stops[3].offset : 1);
+		for (i in 0...4) {
+			var s = stops[i < n ? i : n - 1];
+			rgba(s.rgb, s.alpha);
+		}
+		four(0, 0, 0, 0);
 	}
 }

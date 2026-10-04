@@ -35,7 +35,7 @@ class Tessellate {
 		var rings = [for (c in contours) if (c.count() >= 3) c];
 		if (rings.length == 0)
 			return;
-		new Sweep(rings, rule).run(aa, mesh, coverage);
+		Sweep.fill(rings, rule, aa, mesh, coverage);
 	}
 
 	/** Where a corner between edges of outward normals `a` and `b` moves out to, for the strip to keep its width: a little at most. **/
@@ -149,6 +149,28 @@ class Tessellate {
 		from gets the join, its points swept round, cut across or met at a
 		miter, and the side turned into meets at its miter.
 	**/
+	/**
+		Sections, seven values each: the point, its left and right offsets
+		each scaled to a unit of half-width, and 1, or 0 for a fringe end
+		of no coverage. With the steps' unit directions and lengths, kept
+		and reused from line to line, as a canvas strokes every frame.
+	**/
+	static final sections:Array<Float> = [];
+
+	static final stepX:Array<Float> = [];
+	static final stepY:Array<Float> = [];
+	static final stepLength:Array<Float> = [];
+
+	static inline function section(px:Float, py:Float, lx:Float, ly:Float, rx:Float, ry:Float, covered = 1.0):Void {
+		sections.push(px);
+		sections.push(py);
+		sections.push(lx);
+		sections.push(ly);
+		sections.push(rx);
+		sections.push(ry);
+		sections.push(covered);
+	}
+
 	static function band(line:Contour, stroke:Stroke, inner:Float, outer:Float, aa:Float, mesh:Mesh, c:Float):Void {
 		var n = line.count();
 		if (n == 0)
@@ -172,112 +194,104 @@ class Tessellate {
 		var closed = line.closed && n > 2;
 		// Unit directions and lengths of the steps.
 		var steps = closed ? n : n - 1;
-		var dx = [], dy = [], len = [];
+		stepX.resize(0);
+		stepY.resize(0);
+		stepLength.resize(0);
 		for (s in 0...steps) {
 			var j = (s + 1) % n;
 			var ex = line.x(j) - line.x(s), ey = line.y(j) - line.y(s);
 			var l = Math.sqrt(ex * ex + ey * ey);
-			dx.push(ex / l);
-			dy.push(ey / l);
-			len.push(l);
+			stepX.push(ex / l);
+			stepY.push(ey / l);
+			stepLength.push(l);
 		}
-		// Sections: a point, then its left and right offsets, each scaled to a unit of half-width.
-		var sections:Array<Array<Float>> = [];
-		inline function section(px:Float, py:Float, lx:Float, ly:Float, rx:Float, ry:Float)
-			sections.push([px, py, lx, ly, rx, ry]);
-		var limit = stroke.miterLimit;
-		var round = aa * 0.1;
-		function join(i:Int, d0:Int, d1:Int) {
-			var px = line.x(i), py = line.y(i);
-			// Left normals of the step in and the step out.
-			var n0x = -dy[d0], n0y = dx[d0], n1x = -dy[d1], n1y = dx[d1];
-			var turn = dx[d0] * dy[d1] - dy[d0] * dx[d1];
-			var dot = dx[d0] * dx[d1] + dy[d0] * dy[d1];
-			var mx = n0x + n1x, my = n0y + n1y;
-			var ml = Math.sqrt(mx * mx + my * my);
-			if (Math.abs(turn) < 1e-9 && dot > 0 || ml < 1e-9) {
-				section(px, py, n0x, n0y, -n0x, -n0y);
-				return;
-			}
-			mx /= ml;
-			my /= ml;
-			var k = 1 / Math.max(mx * n0x + my * n0y, 1e-6);
-			// The side turned into meets at its miter, no farther than its steps allow.
-			var reach = Math.min(len[d0], len[d1]) / Math.max(outer, 1e-9);
-			var ki = Math.min(k, Math.max(1, reach));
-			// Turning left in these terms, the right side is the outside of the corner.
-			var outsideRight = turn > 0;
-			var ix = (outsideRight ? mx : -mx) * ki, iy = (outsideRight ? my : -my) * ki;
-			inline function put(ox:Float, oy:Float)
-				if (outsideRight) section(px, py, ix, iy, ox, oy) else section(px, py, ox, oy, ix, iy);
-			var s = outsideRight ? -1.0 : 1.0;
-			switch stroke.join {
-				case Miter if (k <= limit):
-					put(s * mx * k, s * my * k);
-				case Round:
-					var a0 = Math.atan2(s * n0y, s * n0x), a1 = Math.atan2(s * n1y, s * n1x);
-					var sweep = a1 - a0;
-					while (sweep > Math.PI)
-						sweep -= Math.PI * 2;
-					while (sweep < -Math.PI)
-						sweep += Math.PI * 2;
-					var count = Math.ceil(Math.abs(sweep) / Math.max(Math.acos(Math.max(-1, 1 - round / Math.max(outer, 1e-9))) * 2, 0.05));
-					count = Std.int(Math.max(1, Math.min(count, 64)));
-					for (t in 0...count + 1) {
-						var a = a0 + sweep * t / count;
-						put(Math.cos(a), Math.sin(a));
-					}
-				case _:
-					put(s * n0x, s * n0y);
-					put(s * n1x, s * n1y);
-			}
-		}
+		sections.resize(0);
 		if (closed) {
 			for (i in 0...n)
-				join(i, (i + n - 1) % n, i);
+				join(line, stroke, i, (i + n - 1) % n, i, outer, aa);
 		} else {
 			// The start: pushed back for a square cap, its end fringe a step behind it.
-			var sx = line.x(0), sy = line.y(0), ux = dx[0], uy = dy[0];
+			var sx = line.x(0), sy = line.y(0), ux = stepX[0], uy = stepY[0];
 			var back = stroke.cap == Square ? (inner + outer) / 2 : 0.0;
 			if (stroke.cap == Round)
 				cap(sx, sy, -ux, -uy, inner, outer, mesh, c, aa);
 			else
-				endFringe(sections, sx - ux * (back + aa), sy - uy * (back + aa), ux, uy);
+				section(sx - ux * (back + aa), sy - uy * (back + aa), -uy, ux, uy, -ux, 0);
 			section(sx - ux * back, sy - uy * back, -uy, ux, uy, -ux);
 			for (i in 1...n - 1)
-				join(i, i - 1, i);
-			var ex = line.x(n - 1), ey = line.y(n - 1), vx = dx[steps - 1], vy = dy[steps - 1];
+				join(line, stroke, i, i - 1, i, outer, aa);
+			var ex = line.x(n - 1), ey = line.y(n - 1), vx = stepX[steps - 1], vy = stepY[steps - 1];
 			section(ex + vx * back, ey + vy * back, -vy, vx, vy, -vx);
 			if (stroke.cap == Round)
 				cap(ex, ey, vx, vy, inner, outer, mesh, c, aa);
 			else
-				endFringe(sections, ex + vx * (back + aa), ey + vy * (back + aa), vx, vy);
+				section(ex + vx * (back + aa), ey + vy * (back + aa), -vy, vx, vy, -vx, 0);
 		}
-		var count = sections.length;
+		var count = Std.int(sections.length / 7);
 		var links = closed ? count : count - 1;
-		for (s in 0...links) {
-			var a = sections[s], b = sections[(s + 1) % count];
-			strip(a, b, inner, outer, mesh, c);
-		}
+		for (s in 0...links)
+			strip(s * 7, ((s + 1) % count) * 7, inner, outer, mesh, c);
 	}
 
 	/**
-		A butt or square end's fringe: a section at `(px, py)`, a fringe's
-		width past the end, its sides square to the line's direction
-		`(ux, uy)`, of no coverage, which the strip to the end's own section
-		fades across. A seventh value marks it, so `strip` draws it at
-		coverage 0 throughout.
+		The sections at the corner of `line` at point `i`, between steps
+		`d0` and `d1`: the side turned away from gets the join, its points
+		swept round, cut across or met at a miter; the side turned into
+		meets at its miter, no farther than its steps allow.
 	**/
-	static function endFringe(sections:Array<Array<Float>>, px:Float, py:Float, ux:Float, uy:Float):Void
-		sections.push([px, py, -uy, ux, uy, -ux, 0.0]);
+	static function join(line:Contour, stroke:Stroke, i:Int, d0:Int, d1:Int, outer:Float, aa:Float):Void {
+		var px = line.x(i), py = line.y(i);
+		// Left normals of the step in and the step out.
+		var n0x = -stepY[d0], n0y = stepX[d0], n1x = -stepY[d1], n1y = stepX[d1];
+		var turn = stepX[d0] * stepY[d1] - stepY[d0] * stepX[d1];
+		var dot = stepX[d0] * stepX[d1] + stepY[d0] * stepY[d1];
+		var mx = n0x + n1x, my = n0y + n1y;
+		var ml = Math.sqrt(mx * mx + my * my);
+		if (Math.abs(turn) < 1e-9 && dot > 0 || ml < 1e-9) {
+			section(px, py, n0x, n0y, -n0x, -n0y);
+			return;
+		}
+		mx /= ml;
+		my /= ml;
+		var k = 1 / Math.max(mx * n0x + my * n0y, 1e-6);
+		var reach = Math.min(stepLength[d0], stepLength[d1]) / Math.max(outer, 1e-9);
+		var ki = Math.min(k, Math.max(1, reach));
+		// Turning left in these terms, the right side is the outside of the corner.
+		var outsideRight = turn > 0;
+		var ix = (outsideRight ? mx : -mx) * ki, iy = (outsideRight ? my : -my) * ki;
+		inline function put(ox:Float, oy:Float)
+			if (outsideRight) section(px, py, ix, iy, ox, oy) else section(px, py, ox, oy, ix, iy);
+		var s = outsideRight ? -1.0 : 1.0;
+		switch stroke.join {
+			case Miter if (k <= stroke.miterLimit):
+				put(s * mx * k, s * my * k);
+			case Round:
+				var a0 = Math.atan2(s * n0y, s * n0x), a1 = Math.atan2(s * n1y, s * n1x);
+				var sweep = a1 - a0;
+				while (sweep > Math.PI)
+					sweep -= Math.PI * 2;
+				while (sweep < -Math.PI)
+					sweep += Math.PI * 2;
+				var count = Math.ceil(Math.abs(sweep) / Math.max(Math.acos(Math.max(-1, 1 - aa * 0.1 / Math.max(outer, 1e-9))) * 2, 0.05));
+				count = Std.int(Math.max(1, Math.min(count, 64)));
+				for (t in 0...count + 1) {
+					var a = a0 + sweep * t / count;
+					put(Math.cos(a), Math.sin(a));
+				}
+			case _:
+				put(s * n0x, s * n0y);
+				put(s * n1x, s * n1y);
+		}
+	}
 
-	/** The three quads from section `a` to `b`: left fringe, band, right fringe. A section flagged as a fringe end has coverage 0 across. **/
-	static function strip(a:Array<Float>, b:Array<Float>, inner:Float, outer:Float, mesh:Mesh, c:Float):Void {
-		var ca = a.length > 6 ? 0.0 : c, cb = b.length > 6 ? 0.0 : c;
-		inline function px(s:Array<Float>, side:Int, d:Float)
-			return s[0] + s[2 + side * 2] * d;
-		inline function py(s:Array<Float>, side:Int, d:Float)
-			return s[1] + s[3 + side * 2] * d;
+	/** The three quads from the section at `a` to the one at `b`: left fringe, band, right fringe. A fringe end has coverage 0 across. **/
+	static function strip(a:Int, b:Int, inner:Float, outer:Float, mesh:Mesh, c:Float):Void {
+		var f = sections;
+		var ca = c * f[a + 6], cb = c * f[b + 6];
+		inline function px(s:Int, side:Int, d:Float)
+			return f[s] + f[s + 2 + side * 2] * d;
+		inline function py(s:Int, side:Int, d:Float)
+			return f[s + 1] + f[s + 3 + side * 2] * d;
 		// Left fringe.
 		mesh.quad(px(a, 0, outer), py(a, 0, outer), 0, px(a, 0, inner), py(a, 0, inner), ca, px(b, 0, inner), py(b, 0, inner), cb, px(b, 0, outer),
 			py(b, 0, outer), 0);
