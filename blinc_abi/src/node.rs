@@ -733,7 +733,7 @@ define_prim!(
 /// every ancestor that clips, each scrolled and moved by its layout
 /// animation as the paint walk places it. A transform on the way, which
 /// can put it anywhere, counts as in view, as does a node not laid out yet;
-/// a hidden ancestor, as not. A box of no size counts where it stands, so
+/// a hidden or `display: none` ancestor, as not. A box of no size counts where it stands, so
 /// one growing from nothing is seen.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_in_view(h: *mut c_void, node: u64) -> bool {
@@ -748,6 +748,10 @@ pub unsafe extern "C" fn hl_blinc_tree_in_view(h: *mut c_void, node: u64) -> boo
     let mut clip = [f32::NEG_INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::INFINITY];
     let mut origin = (0.0f32, 0.0f32);
     for (i, &n) in path.iter().enumerate() {
+        // Under display: none, laid out as nothing at the origin, it is not drawn at all.
+        if tree.layout.get_style(n).is_some_and(|s| s.display == taffy::Display::None) {
+            return false;
+        }
         let Some(layout) = tree.layout.get_layout(n) else {
             return true;
         };
