@@ -938,6 +938,15 @@ class Smoke {
 			picked == "s" && arrowed == "m" && wrapped == "s" && ashui.input.Focus.of(formTree).node.id == radioS, [picked, arrowed, wrapped]);
 		clickAt(formNodes[4]);
 		check("a button clicks", pressedCount == 1, pressedCount);
+		// Built in plain Haxe, a box takes its handlers as attributes, as hxx's do.
+		var plainClicks = 0, plainEntered = false;
+		var plain = new Div({width: 40, height: 20, onClick: _ -> plainClicks++, onPointerEnter: _ -> plainEntered = true, focusable: true}, null, formTree);
+		formTree.addChild(form.node.id, plain.node.id);
+		formTree.flush();
+		formTree.computeLayout(form.node, 400, 400);
+		clickAt(plain.node.id);
+		check("a Div built in Haxe binds its handler attributes", plainClicks == 1 && plainEntered && ashui.input.Interaction.of(plain.node).focusable,
+			[plainClicks, plainEntered]);
 		check("built-in controls are typed for CSS", ashui.css.Identity.of(formTree, box).attribute("type") == "checkbox"
 			&& ashui.css.Identity.of(formTree, formNodes[4]).types.join(",") == "button");
 

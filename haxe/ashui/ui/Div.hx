@@ -75,7 +75,25 @@ typedef DivAttributes = {
 	?fontStyle:IntoReactive<FontStyle>,
 	?letterSpacing:IntoReactive<Single>,
 	?lineHeight:IntoReactive<Single>,
-	?textAlign:IntoReactive<TextAlign>
+	?textAlign:IntoReactive<TextAlign>,
+	// --- Input: bound to its `ashui.input.Interaction`, as hxx binds these attributes ---
+	?onClick:ashui.input.Events.PointerEvent->Void,
+	?onPointerDown:ashui.input.Events.PointerEvent->Void,
+	?onPointerUp:ashui.input.Events.PointerEvent->Void,
+	?onPointerMove:ashui.input.Events.PointerEvent->Void,
+	?onPointerEnter:ashui.input.Events.PointerEvent->Void,
+	?onPointerLeave:ashui.input.Events.PointerEvent->Void,
+	?onWheel:ashui.input.Events.PointerEvent->Void,
+	?onKeyDown:ashui.input.Events.KeyEvent->Void,
+	?onKeyUp:ashui.input.Events.KeyEvent->Void,
+	?onTextInput:ashui.input.Events.TextInputEvent->Void,
+	?onComposition:ashui.input.Events.CompositionEvent->Void,
+	?onFocus:ashui.input.Events.FocusEvent->Void,
+	?onBlur:ashui.input.Events.FocusEvent->Void,
+	/** Whether Tab and a press give it focus. **/
+	?focusable:Bool,
+	/** Whether it takes no input and matches `:disabled`; a signal or computed is followed. **/
+	?disabled:IntoReactive<Bool>
 }
 
 /**
@@ -101,6 +119,30 @@ class Div extends Element {
 				new ashui.reactive.Watch(() -> c.get(), n -> tree.setNotch(id, n));
 		}
 		ashui.reactive.Owner.onCleanup(() -> tree.setNotch(id, null));
+	}
+
+	/** The handlers and input state `attr` gives, on `node`'s Interaction; none made when it gives none. **/
+	static function bindInput(node:Node, attr:DivAttributes):Void {
+		if (attr.onClick == null && attr.onPointerDown == null && attr.onPointerUp == null && attr.onPointerMove == null && attr.onPointerEnter == null
+			&& attr.onPointerLeave == null && attr.onWheel == null && attr.onKeyDown == null && attr.onKeyUp == null && attr.onTextInput == null
+			&& attr.onComposition == null && attr.onFocus == null && attr.onBlur == null && attr.focusable == null && attr.disabled == null)
+			return;
+		var i = ashui.input.Interaction.of(node);
+		if (attr.onClick != null) i.onClick(attr.onClick);
+		if (attr.onPointerDown != null) i.onPointerDown(attr.onPointerDown);
+		if (attr.onPointerUp != null) i.onPointerUp(attr.onPointerUp);
+		if (attr.onPointerMove != null) i.onPointerMove(attr.onPointerMove);
+		if (attr.onPointerEnter != null) i.onPointerEnter(attr.onPointerEnter);
+		if (attr.onPointerLeave != null) i.onPointerLeave(attr.onPointerLeave);
+		if (attr.onWheel != null) i.onWheel(attr.onWheel);
+		if (attr.onKeyDown != null) i.onKeyDown(attr.onKeyDown);
+		if (attr.onKeyUp != null) i.onKeyUp(attr.onKeyUp);
+		if (attr.onTextInput != null) i.onTextInput(attr.onTextInput);
+		if (attr.onComposition != null) i.onComposition(attr.onComposition);
+		if (attr.onFocus != null) i.onFocus(attr.onFocus);
+		if (attr.onBlur != null) i.onBlur(attr.onBlur);
+		if (attr.focusable != null) i.setFocusable(attr.focusable);
+		if (attr.disabled != null) i.setDisabled(attr.disabled);
 	}
 
 	public function new(?attr:DivAttributes, ?children:Array<Element>, ?tree:LayoutTree) {
@@ -222,6 +264,7 @@ class Div extends Element {
 				node.set(Prop.LineHeight, attr.lineHeight);
 			if (attr.textAlign != null)
 				node.set(Prop.TextAlign, attr.textAlign);
+			bindInput(node, attr);
 		}
 
 		// The children, placed in order.
