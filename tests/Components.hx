@@ -19,6 +19,8 @@ import ashui.components.Breadcrumb;
 import ashui.components.Pagination;
 import ashui.components.Table;
 import ashui.components.Kbd;
+import ashui.components.Menubar;
+import ashui.components.NavigationMenu;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -536,6 +538,72 @@ class Components {
 		var c0 = dtTree.getBounds(new ashui.layout.Node(cells[1])), c1 = dtTree.getBounds(new ashui.layout.Node(cells[3]));
 		check("a Table's rows share their columns", Math.abs(c0.x - c1.x) < 0.5, [c0.x, c1.x]);
 		check("a Kbd is a kbd keycap", dtAll(i -> i.hasClass("ui-kbd") && i.types.indexOf("kbd") >= 0).length == 1);
+
+		// --- Menubar and navigation menu ---
+		var mbTree = new LayoutTree();
+		var mbRoot:Div = Owner.root(mbTree, _ -> hxx('
+			<div width={800} height={500} flexDirection={Column} gap={60} padding={10}>
+				<menubar>
+					<menubar-menu><menubar-trigger id="mf">File</menubar-trigger><menubar-content><menubar-item>New</menubar-item></menubar-content></menubar-menu>
+					<menubar-menu><menubar-trigger id="me">Edit</menubar-trigger><menubar-content><menubar-item>Undo</menubar-item></menubar-content></menubar-menu>
+				</menubar>
+				<navigation-menu>
+					<navigation-menu-item><navigation-menu-trigger id="na">A</navigation-menu-trigger><navigation-menu-content><navigation-menu-link>a</navigation-menu-link></navigation-menu-content></navigation-menu-item>
+					<navigation-menu-item><navigation-menu-trigger id="nb">B</navigation-menu-trigger><navigation-menu-content><navigation-menu-link>b</navigation-menu-link></navigation-menu-content></navigation-menu-item>
+				</navigation-menu>
+			</div>
+		'));
+		function mbFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				mbTree.flush();
+				mbTree.computeLayout(mbRoot.node, 800, 500);
+				mbTree.flush();
+			}
+		function mbAt(id:String):{x:Float, y:Float} {
+			var found:Null<haxe.Int64> = null;
+			for (n in mbTree.order())
+				if (identity2(mbTree, n) != null && identity2(mbTree, n).id == id)
+					found = n;
+			var b = mbTree.getBounds(new ashui.layout.Node(found));
+			return {x: b.x + b.width / 2, y: b.y + b.height / 2};
+		}
+		function openLabel():Null<String> {
+			var entries = ashui.ui.TopLayer.openEntries();
+			if (entries.length == 0)
+				return null;
+			var b = mbTree.getBounds(entries[entries.length - 1].content.node);
+			return b == null ? null : Std.string(Math.round(b.x));
+		}
+		mbFrames(2);
+		var f = mbAt("mf"), e = mbAt("me");
+		ashui.input.Pointer.move(mbTree, f.x, f.y);
+		ashui.input.Pointer.press(mbTree);
+		ashui.input.Pointer.release(mbTree);
+		mbFrames(20);
+		var fileMenuX = openLabel();
+		ashui.input.Pointer.move(mbTree, e.x, e.y);
+		mbFrames(20);
+		var editMenuX = openLabel();
+		ashui.input.Keyboard.input(mbTree, key(Named(ArrowLeft), ArrowLeft));
+		mbFrames(20);
+		var backX = openLabel();
+		ashui.input.Keyboard.input(mbTree, key(Named(Escape), Escape));
+		mbFrames(20);
+		check("a Menubar: the pointer crossing to another trigger opens its menu in place, the arrows move between menus, each lined up with its trigger",
+			fileMenuX != null && editMenuX != null && fileMenuX != editMenuX && backX == fileMenuX && ashui.ui.TopLayer.openEntries().length == 0,
+			[fileMenuX, editMenuX, backX]);
+		var na = mbAt("na"), nb = mbAt("nb");
+		ashui.input.Pointer.move(mbTree, na.x, na.y);
+		mbFrames(20);
+		var oneOpen = ashui.ui.TopLayer.openEntries().length;
+		ashui.input.Pointer.move(mbTree, nb.x, nb.y);
+		mbFrames(30);
+		var stillOne = ashui.ui.TopLayer.openEntries().length;
+		ashui.input.Pointer.move(mbTree, 790, 490);
+		mbFrames(40);
+		check("a NavigationMenu opens an item resting on it, one at a time, and closes once the pointer leaves",
+			oneOpen == 1 && stillOne == 1 && ashui.ui.TopLayer.openEntries().length == 0, [oneOpen, stillOne]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

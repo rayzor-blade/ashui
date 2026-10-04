@@ -106,6 +106,9 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 					case Named(End):
 						e.preventDefault();
 						Focus.set(items[items.length - 1], true);
+					case Named(ArrowLeft) | Named(ArrowRight):
+						if (sideKey(e.key.match(Named(ArrowRight)) ? 1 : -1))
+							e.preventDefault();
 					// Enter and Space click the focused item, as they click any focusable element.
 					case _:
 				}
@@ -113,6 +116,10 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 		}
 		return root;
 	}
+
+	/** Left or right in the open menu: nothing for a dropdown menu; a menubar's moves to the next menu. True when it acted. **/
+	function sideKey(dir:Int):Bool
+		return false;
 
 	/** The menu's enabled items, in order. **/
 	function items():Array<Interaction> {

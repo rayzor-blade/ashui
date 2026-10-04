@@ -21,11 +21,15 @@ class Floating {
 	var anchor:Null<Element> = null;
 	var side = "bottom";
 	var gap = 4.0;
+	/** Lined up with the anchor's start or end instead of centred on it. **/
+	public var align:Null<String> = null;
 	var entry:Null<ashui.ui.TopEntry> = null;
 	/** A point to open at instead of beside the anchor, as a context menu opens at the pointer. **/
 	var point:Null<{x:Float, y:Float}> = null;
 	/** Opened with no backdrop, the page beneath still under the pointer: a hover card. **/
 	public var modeless = false;
+	/** Called with its top-layer entry each time it opens. **/
+	public var shown:Null<ashui.ui.TopEntry->Void> = null;
 	var before:Null<Interaction> = null;
 	/** Called after it opens, to move focus into it; the panel takes focus when it is null. **/
 	public var opened:Null<Void->Void> = null;
@@ -73,8 +77,10 @@ class Floating {
 			LayoutTree.flushHooks.push(retry);
 			return;
 		}
-		before = Focus.of(tree);
-		var placement:ashui.ui.TopLayer.Placement = point != null ? At(point.x, point.y) : Beside(b.x, b.y, b.width, b.height, side, gap);
+		// Focus goes back to its own trigger when it closes, else to what had it: a menubar's menus open one from another.
+		var own = Interaction.find(anchor.node);
+		before = own != null && own.focusable ? own : Focus.of(tree);
+		var placement:ashui.ui.TopLayer.Placement = point != null ? At(point.x, point.y) : Beside(b.x, b.y, b.width, b.height, side, gap, align);
 		point = null;
 		entry = TopLayer.open(tree, panel, placement, null, () -> {
 			entry = null;
@@ -83,6 +89,8 @@ class Floating {
 			if (before != null && !modeless)
 				Focus.set(before, Focus.byKeyboard);
 		}, false, true, modeless);
+		if (shown != null)
+			shown(entry);
 		// Focus into it, so its keys and Escape reach it: what `opened` says, or the panel itself. A modeless one leaves focus where it is.
 		if (opened != null)
 			opened();
