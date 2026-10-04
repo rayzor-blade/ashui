@@ -1,0 +1,24 @@
+{
+	"name": "ashui-markup",
+	"displayName": "ashui markup",
+	"description": "Highlights ashui templates in Haxe: inline markup, hxx('...') and render() '...' templates, with Haxe inside their {...} holes.",
+	"version": "0.1.0",
+	"publisher": "ashui",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.70.0"
+	},
+	"categories": ["Programming Languages"],
+	"contributes": {
+		"grammars": [
+			{
+				"scopeName": "ashui.markup.injection",
+				"path": "./syntaxes/ashui-markup.tmLanguage.json",
+				"injectTo": ["source.hx"],
+				"embeddedLanguages": {
+					"meta.embedded.expression.ashui": "haxe"
+				}
+			}
+		]
+	}
+}

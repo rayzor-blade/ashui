@@ -1,0 +1,247 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"scopeName": "ashui.markup.injection",
+	"injectionSelector": "L:source.hx -comment -string -meta.tag.ashui -meta.tag.control.ashui -meta.embedded.markup.ashui",
+	"patterns": [
+		{
+			"include": "#template-string"
+		},
+		{
+			"include": "#element"
+		}
+	],
+	"repository": {
+		"template-string": {
+			"comment": "hxx('<div>...</div>') and function render() '<div>...</div>': a template in a single-quoted string.",
+			"begin": "\\b(hxx|render\\s*\\(\\s*\\))\\s*(\\()?\\s*(')",
+			"beginCaptures": {
+				"1": {
+					"name": "entity.name.function.ashui"
+				},
+				"2": {
+					"name": "punctuation.definition.parameters.begin.ashui"
+				},
+				"3": {
+					"name": "punctuation.definition.string.begin.ashui"
+				}
+			},
+			"end": "(')",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.definition.string.end.ashui"
+				}
+			},
+			"contentName": "meta.embedded.markup.ashui",
+			"patterns": [
+				{
+					"match": "\\\\.",
+					"name": "constant.character.escape.ashui"
+				},
+				{
+					"include": "#markup-content"
+				}
+			]
+		},
+		"element": {
+			"patterns": [
+				{
+					"include": "#control"
+				},
+				{
+					"include": "#tag"
+				}
+			]
+		},
+		"control": {
+			"comment": "<if {cond}>, <for {v in list}>, <switch>, <case>: lowered to Show, For and switches.",
+			"begin": "(?<![\\w)\\]])(<)(if|for|switch|case)(?=[\\s/>])",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.definition.tag.begin.ashui"
+				},
+				"2": {
+					"name": "keyword.control.flow.ashui"
+				}
+			},
+			"end": "(/>)|(</)(\\2)\\s*(>)",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.definition.tag.end.ashui"
+				},
+				"2": {
+					"name": "punctuation.definition.tag.begin.ashui"
+				},
+				"3": {
+					"name": "keyword.control.flow.ashui"
+				},
+				"4": {
+					"name": "punctuation.definition.tag.end.ashui"
+				}
+			},
+			"name": "meta.tag.control.ashui",
+			"patterns": [
+				{
+					"include": "#tag-header"
+				},
+				{
+					"include": "#markup-content"
+				}
+			]
+		},
+		"tag": {
+			"comment": "<name attrs>children</name> or <name attrs />; lowercase, kebab-case, maybe a package path. A < right after a name or a closing bracket is a type parameter or a comparison, never markup.",
+			"begin": "(?<![\\w)\\]])(<)([a-z][\\w.\\-]*)(?=[\\s/>])",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.definition.tag.begin.ashui"
+				},
+				"2": {
+					"name": "entity.name.tag.ashui"
+				}
+			},
+			"end": "(/>)|(</)(\\2)\\s*(>)",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.definition.tag.end.ashui"
+				},
+				"2": {
+					"name": "punctuation.definition.tag.begin.ashui"
+				},
+				"3": {
+					"name": "entity.name.tag.ashui"
+				},
+				"4": {
+					"name": "punctuation.definition.tag.end.ashui"
+				}
+			},
+			"name": "meta.tag.ashui",
+			"patterns": [
+				{
+					"include": "#tag-header"
+				},
+				{
+					"include": "#markup-content"
+				}
+			]
+		},
+		"tag-header": {
+			"comment": "From after the tag's name to its > or before its />: attributes.",
+			"begin": "\\G",
+			"end": "(?=/>)|(>)",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.definition.tag.end.ashui"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#embedded"
+				},
+				{
+					"include": "#string"
+				},
+				{
+					"match": "[a-zA-Z_][\\w\\-:]*",
+					"name": "entity.other.attribute-name.ashui"
+				},
+				{
+					"match": "=",
+					"name": "keyword.operator.assignment.ashui"
+				}
+			]
+		},
+		"markup-content": {
+			"patterns": [
+				{
+					"include": "#comment"
+				},
+				{
+					"match": "(<)(else)\\s*(/?>)",
+					"captures": {
+						"1": {
+							"name": "punctuation.definition.tag.begin.ashui"
+						},
+						"2": {
+							"name": "keyword.control.flow.ashui"
+						},
+						"3": {
+							"name": "punctuation.definition.tag.end.ashui"
+						}
+					}
+				},
+				{
+					"include": "#element"
+				},
+				{
+					"include": "#embedded"
+				},
+				{
+					"match": "&(?:[a-zA-Z]+|#\\d+|#x[0-9a-fA-F]+);",
+					"name": "constant.character.entity.ashui"
+				}
+			]
+		},
+		"embedded": {
+			"comment": "{expr}: Haxe, with markup allowed inside it again.",
+			"begin": "\\{",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.section.embedded.begin.ashui"
+				}
+			},
+			"end": "\\}",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.embedded.end.ashui"
+				}
+			},
+			"contentName": "meta.embedded.expression.ashui",
+			"patterns": [
+				{
+					"include": "#braces"
+				},
+				{
+					"include": "#element"
+				},
+				{
+					"include": "source.hx"
+				}
+			]
+		},
+		"braces": {
+			"comment": "A block or object inside an embedded expression, so its } does not end the expression.",
+			"begin": "\\{",
+			"end": "\\}",
+			"patterns": [
+				{
+					"include": "#braces"
+				},
+				{
+					"include": "#element"
+				},
+				{
+					"include": "source.hx"
+				}
+			]
+		},
+		"string": {
+			"patterns": [
+				{
+					"begin": "\"",
+					"end": "\"",
+					"name": "string.quoted.double.ashui"
+				},
+				{
+					"begin": "'",
+					"end": "'",
+					"name": "string.quoted.single.ashui"
+				}
+			]
+		},
+		"comment": {
+			"begin": "<!--",
+			"end": "-->",
+			"name": "comment.block.ashui"
+		}
+	}
+}
