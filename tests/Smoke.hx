@@ -968,6 +968,47 @@ class Smoke {
 		refTree.flush();
 		check("ref= holds the element a template built, is cleared when it goes and set when it comes back, and is followed",
 			boundFirst && clearedAfter && boxRef.get() != null && seen.join(",") == "true,false,true", [boundFirst, clearedAfter, seen]);
+		// query: one handle on an element, a ref, or what a selector matches.
+		var qTree = new LayoutTree();
+		var qShown = Signal.make(false);
+		var qLater = new ashui.ui.Ref<Div>(), qBox = new ashui.ui.Ref<Div>();
+		var qRoot:Div = Owner.root(qTree, _ -> hxx('
+			<div flexDirection={Column} width={200} height={200}>
+				<div ref={qBox} width={40} height={20} />
+				<button width={40} height={20}>R</button>
+				<button width={40} height={20}>R</button>
+				<if {qShown.get()}><div ref={qLater} width={40} height={20} /></if>
+			</div>
+		'));
+		function qSettle() {
+			qTree.flush();
+			qTree.computeLayout(qRoot.node, 200, 200);
+			qTree.flush();
+		}
+		qSettle();
+		var boxClicks = 0, rowClicks = 0, laterClicks = 0;
+		ashui.ui.Query.query(qBox.get()).onClick(_ -> boxClicks++).addClass("picked").attr("data-state", "on").click();
+		var boxState = ashui.ui.Query.query(qBox).getAttr("data-state"), boxPicked = ashui.ui.Query.query(qBox).hasClass("picked");
+		var rows = ashui.ui.Query.query("button", qRoot).onClick(_ -> rowClicks++);
+		for (n in rows.nodes()) {
+			var b = qTree.getBounds(n);
+			ashui.input.Pointer.move(qTree, b.x + 2, b.y + 2);
+			ashui.input.Pointer.press(qTree);
+			ashui.input.Pointer.release(qTree);
+		}
+		// Told before its element is built, a ref's query does it to each element the ref comes to hold.
+		var later = ashui.ui.Query.query(qLater).onClick(_ -> laterClicks++);
+		qShown.set(true);
+		qSettle();
+		later.click();
+		qShown.set(false);
+		qSettle();
+		qShown.set(true);
+		qSettle();
+		later.click();
+		check("query drives an element, what a selector matches, and each element a ref comes to hold",
+			boxClicks == 1 && boxState == "on" && boxPicked && rows.count() == 2 && rowClicks == 2 && laterClicks == 2,
+			[boxClicks, boxState, boxPicked, rows.count(), rowClicks, laterClicks]);
 		check("built-in controls are typed for CSS", ashui.css.Identity.of(formTree, box).attribute("type") == "checkbox"
 			&& ashui.css.Identity.of(formTree, formNodes[4]).types.join(",") == "button");
 

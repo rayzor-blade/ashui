@@ -138,6 +138,11 @@ class CssParser {
 	}
 
 	/** Pushes a rule with what it declares; `:root`'s custom properties outside `@media` become the sheet's variables. **/
+	/** A selector list on its own, as `query` takes one: `.card > .title, #save`. Throws its error, as text, for one it cannot read. **/
+	public static function selectors(text:String):Array<Selector> {
+		return try new SelectorReader(text, 0).list(false) catch (f:Failure) throw 'bad selector "$text": ${f.message}';
+	}
+
 	function emit(selectors:Array<Selector>, declarations:Array<Declaration>, media:Null<Array<Array<MediaQuery>>>, order:Int, start:Int):Void {
 		var rootOnly = media == null && Lambda.foreach(selectors, s -> s.compounds.length == 1 && isRoot(s.compounds[0]));
 		if (rootOnly)

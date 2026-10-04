@@ -311,6 +311,30 @@ class Css {
 		return a == null ? null : a.values.get(name);
 	}
 
+	/**
+		The elements under `root` in `tree`, `root` included, that one of
+		`selectors` matches, in document order: `querySelectorAll`.
+	**/
+	public static function select(tree:LayoutTree, root:haxe.Int64, selectors:Array<Selector>):Array<haxe.Int64> {
+		var walk = new TreeWalk(tree);
+		var out = [];
+		function visit(node:haxe.Int64) {
+			var identity = Identity.of(tree, node);
+			if (identity != null && !identity.anonymous) {
+				walk.subject = identity;
+				for (s in selectors)
+					if (walk.matches(s, node)) {
+						out.push(node);
+						break;
+					}
+			}
+			for (child in tree.children(node))
+				visit(child);
+		}
+		visit(root);
+		return out;
+	}
+
 	/** `text` with its `var()`s replaced as `identity` would read them: its own and inherited custom properties, `:root`'s, the theme's. **/
 	public static function resolve(identity:Identity, text:String):String {
 		var a = applied.get(identity);
