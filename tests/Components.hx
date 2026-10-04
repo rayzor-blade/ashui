@@ -108,17 +108,23 @@ class Components {
 		check("the arrows move among the triggers, choosing as they go", tab.get() == "account", tab.get());
 
 		var tipId = kids[7];
+		var tipState = () -> identity(tipId).attribute("data-state");
 		var tb = tree.getBounds(new ashui.layout.Node(tipId));
 		ashui.input.Pointer.move(tree, tb.x + 5, tb.y + 5);
 		settle();
-		var before = ashui.ui.TopLayer.openEntries().length;
+		var waiting = tipState(), before = ashui.ui.TopLayer.openEntries().length;
 		ashui.animation.AnimationScheduler.main.tick(0.3);
 		settle();
-		var shown = ashui.ui.TopLayer.openEntries().length;
+		var open = tipState(), shown = ashui.ui.TopLayer.openEntries().length;
+		var rootKids = tree.children(page.node.id).length;
 		ashui.input.Pointer.move(tree, 590, 590);
 		settle();
-		check("a Tooltip shows after the pointer rests on what it holds, and goes when it leaves", before == 0 && shown == 1
-			&& ashui.ui.TopLayer.openEntries().length == 0, [before, shown]);
+		var closing = tipState(), stillDrawn = tree.children(page.node.id).length == rootKids;
+		ashui.animation.AnimationScheduler.main.tick(0.5);
+		settle();
+		check("a Tooltip waits, opens after its delay, fades as the pointer leaves, then closes, each its data-state",
+			waiting == "waiting" && before == 0 && open == "open" && shown == 1 && closing == "closing" && stillDrawn && tipState() == "closed"
+			&& tree.children(page.node.id).length == rootKids - 1, [waiting, open, closing, tipState(), stillDrawn]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

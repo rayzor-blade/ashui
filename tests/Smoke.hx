@@ -1393,6 +1393,61 @@ class Smoke {
 			&& @:privateAccess maskedDiv.node.styled.exists(ashui.layout.Node.field(ashui.layout.Prop.MaskImage))
 			&& ashui.css.Css.problems.filter(p -> p.indexOf("mask-image") >= 0).length == 1, ashui.css.Css.problems);
 
+		// --- State machines: typed transitions on signals, actions, timers on the scheduler's clock ---
+		var clock = new ashui.animation.AnimationScheduler();
+		var log = [];
+		var m = new ashui.state.Machine<SmokeState, SmokeEvent>(Idle, (st, ev) -> switch [st, ev] {
+			case [Idle, Go]: Loading(0);
+			case [Loading(n), Step]: Loading(n + 1);
+			case [Loading(_), Done]: Shown;
+			case [Shown, Go]: Shown;
+			case [Shown, Hide]: Hiding;
+			case [Hiding, Gone]: Idle;
+			case _: null;
+		}, clock);
+		m.onExit(Idle, _ -> log.push("exit idle")).onEnter(Loading(0), st -> log.push("enter " + Std.string(st)));
+		m.onEnter(Shown, _ -> log.push("enter shown")).after(Hiding, 0.2, Gone);
+		var name = m.name();
+		m.send(Hide);
+		var ignored = Type.enumEq(m.state.get(), Idle);
+		m.send(Go);
+		m.send(Step);
+		check("a machine moves by its transition, ignores what it does not take, and matches a state's arguments by constructor",
+			ignored && Type.enumEq(m.state.get(), Loading(1)) && log.join("|") == "exit idle|enter Loading(0)|enter Loading(1)",
+			[Std.string(m.state.get()), log.join("|")]);
+		m.send(Done);
+		log.resize(0);
+		m.send(Go);
+		check("a move to the state it is in runs no actions", log.length == 0 && m.is(Shown), log);
+		m.send(Hide);
+		check("its name is its state's, in kebab case, for data-state", name.get() == "hiding", name.get());
+		clock.tick(0.1);
+		var stillHiding = m.is(Hiding);
+		clock.tick(0.15);
+		check("a transient state's timer sends its event after its time on the scheduler's clock", stillHiding && m.is(Idle), Std.string(m.state.get()));
+		m.after(Shown, 0.1, Hide);
+		m.send(Go);
+		m.send(Done);
+		m.send(Hide);
+		clock.tick(0.05);
+		m.send(Gone);
+		clock.tick(0.2);
+		check("leaving a state cancels its timers", m.is(Idle), Std.string(m.state.get()));
+		var chained = new ashui.state.Machine<SmokeState, SmokeEvent>(Idle, (st, ev) -> switch [st, ev] {
+			case [Idle, Go]: Shown;
+			case [Shown, Hide]: Hiding;
+			case _: null;
+		}, clock);
+		chained.onEnter(Shown, _ -> chained.send(Hide));
+		chained.send(Go);
+		check("an event an action sends is taken once the move is done", chained.is(Hiding), Std.string(chained.state.get()));
+		var started = 0;
+		var fresh = new ashui.state.Machine<SmokeState, SmokeEvent>(Shown, (st, ev) -> null, clock);
+		fresh.onEnter(Shown, _ -> started++).start();
+		fresh.dispose();
+		fresh.send(Go);
+		check("start runs the first state's entry; a disposed machine takes nothing", started == 1 && fresh.is(Shown), started);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('
@@ -2443,4 +2498,19 @@ class CounterView extends View {
 	public function increment():Void {
 		count++;
 	}
+}
+
+enum SmokeState {
+	Idle;
+	Loading(n:Int);
+	Shown;
+	Hiding;
+}
+
+enum SmokeEvent {
+	Go;
+	Step;
+	Done;
+	Hide;
+	Gone;
 }

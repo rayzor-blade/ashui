@@ -216,6 +216,12 @@ class Hxx {
 		}
 	}
 
+	/** Whether `name` is an attribute a `<div>` takes as a property, so a component's root can take it. **/
+	static function rootAttribute(name:String):Bool {
+		var key = name == 'bg' ? 'Background' : name.charAt(0).toUpperCase() + name.substr(1);
+		return (try Context.typeof(macro ashui.layout.Prop.$key) catch (_:Dynamic) null) != null;
+	}
+
 	/** Whether `tag` names a component class visible where the template is, other than a built-in one of ashui.ui. **/
 	static function importedComponent(tag:String):Bool {
 		var type = try Context.getType(className(tag)) catch (_:Dynamic) null;
@@ -521,8 +527,10 @@ class Hxx {
 							rootSets = rootSets.concat(sets);
 						case 'style':
 							rootSets.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
-						case _:
+						case n if (inputSetter(el, n, value) != null || rootAttribute(n)):
 							rootSets.push(setter(el, a, '<$tag>'));
+						case _:
+							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
 					}
 				case Empty(name):
 					if (!propTypes.exists(name.value))
