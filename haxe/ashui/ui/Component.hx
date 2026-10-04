@@ -97,10 +97,17 @@ abstract class Component<Props> extends Element {
 		node = null;
 	}
 
-	/** Adds the component's tag to its node's identity, so a CSS type selector, `counter-view`, matches it. **/
+	/**
+		Adds the component's tag to its node's identity, so a CSS type
+		selector, `counter-view`, matches it. Not a tag that names an HTML
+		element: a `Dialog` of a component library is not HTML's `dialog`,
+		and would take its user-agent styles; an element a component is
+		makes its own type, as a button's `<button>` does.
+	**/
 	function identify():Void {
-		if (node != null)
-			ashui.css.Identity.register(tree, node, tag(Type.getClass(this)));
+		var name = tag(Type.getClass(this));
+		if (node != null && !ashui.css.HtmlElements.has(name))
+			ashui.css.Identity.register(tree, node, name);
 	}
 
 	/** A component class's tag, as hxx spells it: `CounterView` is `counter-view`. **/
