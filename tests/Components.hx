@@ -22,6 +22,8 @@ import ashui.components.Kbd;
 import ashui.components.Menubar;
 import ashui.components.NavigationMenu;
 import ashui.components.ScrollArea;
+import ashui.components.Command;
+import ashui.components.Combobox;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -630,6 +632,60 @@ class Components {
 		@:privateAccess ashui.input.Pointer.wheel(saTree, 0, -60);
 		check("a ScrollArea scrolls under the wheel; its scrollbars mode comes from the library's CSS", modes.join(",") == "auto,always,hidden"
 			&& first != null && first.y.get() > 0, [modes, first == null ? -1 : first.y.get()]);
+
+		// --- Command and Combobox ---
+		var cmTree = new LayoutTree();
+		var cmPick = Signal.make(""), cbValue = Signal.make("");
+		var cmRoot:Div = Owner.root(cmTree, _ -> hxx('
+			<div width={800} height={500} flexDirection={Row} gap={20} padding={10} alignItems={Start}>
+				<command onSelect={v -> cmPick.set(v)}>
+					<command-input id="q" />
+					<command-list>
+						<command-empty>None</command-empty>
+						<command-group heading="A"><command-item value="apple">Apple</command-item><command-item value="apricot">Apricot</command-item></command-group>
+						<command-group heading="B"><command-item value="banana">Banana</command-item></command-group>
+					</command-list>
+				</command>
+				<combobox id="cb" value={cbValue} options={[{value: "x", label: "Ex"}, {value: "y", label: "Why"}]} />
+			</div>
+		'));
+		function cmFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				cmTree.flush();
+				cmTree.computeLayout(cmRoot.node, 800, 500);
+				cmTree.flush();
+			}
+		function cmFind(pred:ashui.css.Identity->Bool):Array<haxe.Int64>
+			return [for (id in cmTree.order()) if (identity2(cmTree, id) != null && pred(identity2(cmTree, id))) id];
+		function cmPress(id:haxe.Int64) {
+			var b = cmTree.getBounds(new ashui.layout.Node(id));
+			ashui.input.Pointer.move(cmTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(cmTree);
+			ashui.input.Pointer.release(cmTree);
+			cmFrames(20);
+		}
+		cmFrames(2);
+		cmPress(cmFind(i -> i.id == "q")[0]);
+		ashui.input.Keyboard.text(cmTree, "ap");
+		cmFrames(3);
+		var hiddenGroups = cmFind(i -> i.hasClass("ui-command-group") && i.attribute("data-hidden") != null).length;
+		var emptyHidden = cmFind(i -> i.hasClass("ui-command-empty") && i.attribute("data-hidden") != null).length;
+		ashui.input.Keyboard.input(cmTree, key(Named(ArrowDown), ArrowDown));
+		ashui.input.Keyboard.input(cmTree, key(Named(Enter), Enter));
+		cmFrames(2);
+		ashui.input.Keyboard.text(cmTree, "zz");
+		cmFrames(3);
+		var emptyShown = cmFind(i -> i.hasClass("ui-command-empty") && i.attribute("data-hidden") == null).length;
+		check("a Command filters as it is typed in, hiding a group with nothing left; the arrows and Enter choose; it says when nothing matches",
+			hiddenGroups == 1 && emptyHidden == 1 && cmPick.get() == "apricot" && emptyShown == 1, [hiddenGroups, emptyHidden, cmPick.get(), emptyShown]);
+		cmPress(cmFind(i -> i.id == "cb")[0]);
+		ashui.input.Keyboard.text(cmTree, "why");
+		cmFrames(3);
+		ashui.input.Keyboard.input(cmTree, key(Named(Enter), Enter));
+		cmFrames(20);
+		check("a Combobox opens a search on its options and the one chosen is its value", cbValue.get() == "y" && ashui.ui.TopLayer.openEntries().length == 0,
+			cbValue.get());
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

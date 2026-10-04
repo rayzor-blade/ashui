@@ -17,7 +17,7 @@ import ashui.ui.TopLayer;
 **/
 class Floating {
 	public final open:Signal<Bool>;
-	final panel:Div;
+	final panel:Element;
 	var anchor:Null<Element> = null;
 	var side = "bottom";
 	var gap = 4.0;
@@ -34,7 +34,7 @@ class Floating {
 	/** Called after it opens, to move focus into it; the panel takes focus when it is null. **/
 	public var opened:Null<Void->Void> = null;
 
-	public function new(open:Signal<Bool>, panel:Div) {
+	public function new(open:Signal<Bool>, panel:Element) {
 		this.open = open;
 		this.panel = panel;
 		new Watch(() -> open.get(), v -> if (v) show() else hide());
