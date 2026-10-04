@@ -1,0 +1,13 @@
+{
+	// ashui templates (.vscode/ashui-markup): attribute names apart from their string values, tags and control tags apart from Haxe.
+	"editor.tokenColorCustomizations": {
+		"textMateRules": [
+			{ "scope": "entity.name.tag.ashui", "settings": { "foreground": "#7ee787" } },
+			{ "scope": "entity.other.attribute-name.ashui", "settings": { "foreground": "#ffa657" } },
+			{ "scope": "keyword.control.flow.ashui", "settings": { "foreground": "#ff7b72" } },
+			{ "scope": ["punctuation.definition.tag.begin.ashui", "punctuation.definition.tag.end.ashui", "keyword.operator.assignment.ashui"], "settings": { "foreground": "#8b949e" } },
+			{ "scope": ["string.quoted.double.ashui", "string.quoted.single.ashui"], "settings": { "foreground": "#a5d6ff" } },
+			{ "scope": ["punctuation.section.embedded.begin.ashui", "punctuation.section.embedded.end.ashui"], "settings": { "foreground": "#d2a8ff" } }
+		]
+	}
+}
