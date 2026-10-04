@@ -126,6 +126,8 @@ class DialogClose extends Component<{?variant:ButtonVariant, ?size:ButtonSize, ?
 
 typedef DialogContentProps = {
 	?size:DialogSize,
+	/** A sheet's edge: "right", "left", "top" or "bottom"; a dialog has none. **/
+	?side:String,
 	?id:String
 }
 
@@ -140,17 +142,32 @@ class DialogContent extends Component<DialogContentProps> {
 	function dismissible():Bool
 		return true;
 
+	/** The panel's class, and where it opens. **/
+	function panelClass():String
+		return "ui-dialog";
+
+	function placement():ashui.ui.TopLayer.Placement
+		return Centered;
+
+	/** What the panel holds: its children, and for a subclass anything it adds. **/
+	function contents():Array<Element>
+		return children;
+
+	function size():String
+		return props.size == null ? DialogSize.Md : props.size;
+
 	function render():Element {
 		Library.use();
 		var dialog = new ashui.ui.Dialog({
 			open: open,
-			classes: ["ui-dialog"],
+			classes: [panelClass()],
 			id: props.id,
 			backdrop: ashui.types.Brush.solid(0x000000, 0.5),
-			dismissible: dismissible()
-		}, children);
+			dismissible: dismissible(),
+			placement: placement()
+		}, contents());
 		panel = dialog.panel;
-		ashui.css.Identity.of(panel.tree, panel.node.id).setAttribute("data-size", props.size == null ? DialogSize.Md : props.size);
+		ashui.css.Identity.of(panel.tree, panel.node.id).setAttribute("data-size", size());
 		return dialog;
 	}
 

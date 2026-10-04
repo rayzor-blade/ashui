@@ -11,6 +11,10 @@ import ashui.components.Checkbox;
 import ashui.components.RadioGroup;
 import ashui.components.Select;
 import ashui.components.NumberInput;
+import ashui.components.Toggle;
+import ashui.components.Sheet;
+import ashui.components.HoverCard;
+import ashui.components.ContextMenu;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -388,6 +392,98 @@ class Components {
 		for (_ in 0...3)
 			formClick(steps[0]);
 		check("a NumberInput's buttons step it and stop at its bounds", top == 2 && qty.get() == 0, [top, qty.get()]);
+
+		// --- Toggles, a sheet, a hover card and a context menu ---
+		var pnTree = new LayoutTree();
+		var one = Signal.make(["a"]), many = Signal.make(([] : Array<String>)), sheetOpen = Signal.make(false), ctxPick = Signal.make("");
+		var pnRoot:Div = Owner.root(pnTree, _ -> hxx('
+			<div width={800} height={500} flexDirection={Column} gap={12} padding={10}>
+				<toggle-group value={one}><toggle-group-item id="ga" value="a">A</toggle-group-item><toggle-group-item id="gb" value="b">B</toggle-group-item></toggle-group>
+				<toggle-group type="multiple" value={many}><toggle-group-item id="ma" value="a">A</toggle-group-item><toggle-group-item id="mb" value="b">B</toggle-group-item></toggle-group>
+				<sheet open={sheetOpen}><sheet-trigger id="sh">Open</sheet-trigger><sheet-content side="left"><p>Hi</p></sheet-content></sheet>
+				<hover-card openDelay={0.2}><hover-card-trigger id="hc"><p>@me</p></hover-card-trigger><hover-card-content><p>Card</p></hover-card-content></hover-card>
+				<context-menu><context-menu-trigger id="ctx"><div width={200} height={80} /></context-menu-trigger>
+					<context-menu-content><context-menu-item onSelect={() -> ctxPick.set("x")}>X</context-menu-item></context-menu-content></context-menu>
+			</div>
+		'));
+		function pnFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				pnTree.flush();
+				pnTree.computeLayout(pnRoot.node, 800, 500);
+				pnTree.flush();
+			}
+		function pnAt(id:String, ?root:haxe.Int64):{x:Float, y:Float} {
+			var found:Null<haxe.Int64> = null;
+			function walk(at:haxe.Int64) {
+				var identity = identity2(pnTree, at);
+				if (identity != null && identity.id == id)
+					found = at;
+				for (c in pnTree.children(at))
+					walk(c);
+			}
+			walk(root != null ? root : pnRoot.node.id);
+			var b = pnTree.getBounds(new ashui.layout.Node(found));
+			return {x: b.x + b.width / 2, y: b.y + b.height / 2};
+		}
+		function pnClick(id:String, ?button:window.MouseButton) {
+			var p = pnAt(id);
+			ashui.input.Pointer.move(pnTree, p.x, p.y);
+			ashui.input.Pointer.press(pnTree, button == null ? Left : button);
+			ashui.input.Pointer.release(pnTree, button == null ? Left : button);
+			pnFrames(30);
+		}
+		pnFrames(2);
+		pnClick("gb");
+		var singleMoved = one.get().join(",") == "b";
+		pnClick("gb");
+		pnClick("ma");
+		pnClick("mb");
+		check("a single ToggleGroup moves its one choice and keeps it; a multiple one gathers them", singleMoved && one.get().join(",") == "b"
+			&& many.get().join(",") == "a,b", [one.get(), many.get()]);
+
+		pnClick("sh");
+		var entry = ashui.ui.TopLayer.openEntries()[0];
+		var sb2 = entry == null ? null : pnTree.getBounds(entry.content.node);
+		var atLeft = sb2 != null && sb2.x < 1 && sb2.height > 450;
+		var closeBox = Lambda.find(pnTree.order(), id -> identity2(pnTree, id) != null && identity2(pnTree, id).hasClass("ui-sheet-close"));
+		var cb = pnTree.getBounds(new ashui.layout.Node(closeBox));
+		ashui.input.Pointer.move(pnTree, cb.x + cb.width / 2, cb.y + cb.height / 2);
+		ashui.input.Pointer.press(pnTree);
+		ashui.input.Pointer.release(pnTree);
+		pnFrames(30);
+		check("a Sheet opens along its edge, full height, and its corner button closes it", sheetOpen.get() == false && atLeft, [atLeft, sheetOpen.get()]);
+
+		var hp = pnAt("hc");
+		ashui.input.Pointer.move(pnTree, hp.x, hp.y);
+		pnFrames(6);
+		var tooSoon = ashui.ui.TopLayer.openEntries().length;
+		pnFrames(12);
+		var opened2 = ashui.ui.TopLayer.openEntries().length;
+		var card = ashui.ui.TopLayer.openEntries()[0].content;
+		var cardBox = pnTree.getBounds(card.node);
+		ashui.input.Pointer.move(pnTree, cardBox.x + 10, cardBox.y + 10);
+		pnFrames(30);
+		var stayed2 = ashui.ui.TopLayer.openEntries().length;
+		ashui.input.Pointer.move(pnTree, 790, 490);
+		pnFrames(40);
+		check("a HoverCard opens after its delay, stays as the pointer moves onto the card, and closes once it leaves both",
+			tooSoon == 0 && opened2 == 1 && stayed2 == 1 && ashui.ui.TopLayer.openEntries().length == 0, [tooSoon, opened2, stayed2]);
+
+		var cp = pnAt("ctx");
+		ashui.input.Pointer.move(pnTree, cp.x, cp.y);
+		ashui.input.Pointer.press(pnTree, Right);
+		ashui.input.Pointer.release(pnTree, Right);
+		pnFrames(20);
+		var menu = ashui.ui.TopLayer.openEntries()[0];
+		var mb2 = menu == null ? null : pnTree.getBounds(menu.content.node);
+		var atPointer = mb2 != null && Math.abs(mb2.x - cp.x) < 1 && Math.abs(mb2.y - cp.y) < 1;
+		ashui.input.Pointer.move(pnTree, mb2.x + 20, mb2.y + 15);
+		ashui.input.Pointer.press(pnTree);
+		ashui.input.Pointer.release(pnTree);
+		pnFrames(20);
+		check("a right-click opens a ContextMenu with its corner at the pointer; an item chosen closes it", atPointer && ctxPick.get() == "x"
+			&& ashui.ui.TopLayer.openEntries().length == 0, [atPointer, ctxPick.get()]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

@@ -467,3 +467,89 @@ progress.ui-progress { width: var(--ui-progress-width, 300px); height: 8px; back
 progress.ui-progress[data-size="sm"] { height: 4px; }
 progress.ui-progress[data-size="lg"] { height: 12px; }
 progress.ui-progress > .bar { background: var(--ui-progress-bar, var(--primary)); transition: width var(--duration-slow) var(--ease-nav); }
+
+/* ---------------------------------------------------------------- Toggle */
+
+/* A button that stays pressed: clear when off, a faint wash of the text colour when on; the outline variant keeps a hairline either way. */
+.ui-toggle {
+	flex-direction: row; align-items: center; justify-content: center; gap: 6px;
+	height: 36px; min-width: 36px; padding: 0 12px; font-size: var(--text-sm); font-weight: 500; letter-spacing: var(--tracking-tight);
+	border: 1px solid transparent; border-radius: var(--ui-toggle-radius, var(--radius-default));
+	background: transparent; color: var(--text-primary); box-shadow: none;
+	outline: 0 solid var(--focus-ring); outline-offset: 2px;
+	transition: background var(--duration-fast) var(--ease-state), border-color var(--duration-fast) var(--ease-state),
+		transform var(--duration-faster) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
+}
+.ui-toggle:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+.ui-toggle:active { background: color-mix(in srgb, var(--text-primary) 10%, transparent); transform: scale(0.97); }
+.ui-toggle[data-state="on"] { background: var(--ui-toggle-on, color-mix(in srgb, var(--text-primary) 10%, var(--background))); }
+.ui-toggle[data-state="on"]:hover { background: color-mix(in srgb, var(--text-primary) 14%, var(--background)); }
+.ui-toggle:focus-visible { outline-width: 3px; }
+.ui-toggle:disabled { opacity: 0.5; transform: none; }
+.ui-toggle[data-variant="outline"], .ui-toggle-group[data-variant="outline"] > .ui-toggle { border-color: var(--border-secondary); }
+.ui-toggle[data-size="sm"], .ui-toggle-group[data-size="sm"] > .ui-toggle { height: 32px; min-width: 32px; padding: 0 8px; font-size: var(--text-xs); border-radius: var(--ui-toggle-radius, var(--radius-sm)); }
+.ui-toggle[data-size="lg"], .ui-toggle-group[data-size="lg"] > .ui-toggle { height: 40px; min-width: 40px; padding: 0 16px; font-size: var(--text-base); }
+.ui-toggle > svg { flex-shrink: 0; }
+.ui-toggle-group { flex-direction: row; align-items: center; align-self: flex-start; gap: 4px; }
+
+/* ----------------------------------------------------------------- Sheet */
+
+/* A dialog along an edge: it slides in from that edge over the sheet curve, its inner corners rounded. */
+dialog.ui-sheet {
+	flex-direction: column; gap: 16px; padding: 0 0 16px; min-width: 0; max-width: none; position: relative;
+	border: 1px solid var(--border); background: var(--surface-elevated); color: var(--text-primary); box-shadow: var(--shadow-xl);
+	border-radius: 0;
+}
+dialog.ui-sheet[data-side="right"] { width: var(--ui-sheet-width, 400px); border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
+dialog.ui-sheet[data-side="left"] { width: var(--ui-sheet-width, 400px); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+dialog.ui-sheet[data-side="bottom"] { height: var(--ui-sheet-height, 300px); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+dialog.ui-sheet[data-side="top"] { height: var(--ui-sheet-height, 300px); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+dialog.ui-sheet[data-size="sm"] { --ui-sheet-width: 320px; --ui-sheet-height: 200px; }
+dialog.ui-sheet[data-size="lg"] { --ui-sheet-width: 540px; --ui-sheet-height: 400px; }
+/* Where it slides from: its own reach beyond its edge (set --ui-sheet-from with a width of your own). */
+dialog.ui-sheet[data-side="right"] { --ui-sheet-from: translateX(400px); }
+dialog.ui-sheet[data-side="right"][data-size="sm"] { --ui-sheet-from: translateX(320px); }
+dialog.ui-sheet[data-side="right"][data-size="lg"] { --ui-sheet-from: translateX(540px); }
+dialog.ui-sheet[data-side="left"] { --ui-sheet-from: translateX(-400px); }
+dialog.ui-sheet[data-side="left"][data-size="sm"] { --ui-sheet-from: translateX(-320px); }
+dialog.ui-sheet[data-side="left"][data-size="lg"] { --ui-sheet-from: translateX(-540px); }
+dialog.ui-sheet[data-side="bottom"] { --ui-sheet-from: translateY(300px); }
+dialog.ui-sheet[data-side="bottom"][data-size="sm"] { --ui-sheet-from: translateY(200px); }
+dialog.ui-sheet[data-side="bottom"][data-size="lg"] { --ui-sheet-from: translateY(400px); }
+dialog.ui-sheet[data-side="top"] { --ui-sheet-from: translateY(-300px); }
+dialog.ui-sheet[data-side="top"][data-size="sm"] { --ui-sheet-from: translateY(-200px); }
+dialog.ui-sheet[data-side="top"][data-size="lg"] { --ui-sheet-from: translateY(-400px); }
+dialog.ui-sheet[open] { animation: ui-sheet-in var(--duration-slow) var(--ease-sheet); }
+dialog.ui-sheet[closing] { animation: ui-sheet-out var(--duration-normal) var(--ease-sheet) forwards; }
+@keyframes ui-sheet-in { from { transform: var(--ui-sheet-from); } to { transform: none; } }
+@keyframes ui-sheet-out { from { transform: none; } to { transform: var(--ui-sheet-from); } }
+/* Its header across the top under a hairline; what follows inset from its sides. */
+.ui-sheet > * { margin-left: 16px; margin-right: 16px; }
+.ui-sheet > .ui-dialog-header { margin: 0; padding: 16px 52px 16px 16px; gap: 4px; border-bottom: 1px solid var(--border); }
+.ui-sheet > .ui-sheet-close { margin: 0; }
+.ui-sheet .ui-dialog-title { font-size: var(--text-lg); }
+.ui-sheet .ui-dialog-footer { margin-top: auto; }
+.ui-sheet-close {
+	position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center;
+	border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); box-shadow: none;
+	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state);
+}
+.ui-sheet-close:hover { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
+
+/* ----------------------------------------------------------- Hover card */
+
+.ui-hover-card-root { flex-direction: row; align-self: flex-start; }
+.ui-hover-card-trigger { flex-direction: row; align-self: flex-start; outline: 0 solid var(--focus-ring); outline-offset: 2px; transition: outline-width var(--duration-fast) var(--ease-out); }
+.ui-hover-card-trigger:focus-visible { outline-width: 3px; }
+.ui-hover-card {
+	flex-direction: column; gap: 8px; padding: 16px; width: var(--ui-hover-card-width, 280px);
+	border: 1px solid var(--border); border-radius: var(--ui-hover-card-radius, var(--radius-md));
+	background: var(--surface-elevated); color: var(--text-primary); font-size: var(--text-sm); box-shadow: var(--shadow-md);
+}
+.ui-hover-card[data-state="open"] { animation: ui-rise-in var(--duration-normal) var(--ease-spring); }
+.ui-hover-card[closing] { animation: ui-rise-out var(--duration-faster) var(--ease-in) forwards; }
+
+/* --------------------------------------------------------- Context menu */
+
+.ui-context-menu-trigger { flex-direction: column; outline: 0 solid var(--focus-ring); outline-offset: 2px; transition: outline-width var(--duration-fast) var(--ease-out); }
+.ui-context-menu-trigger:focus-visible { outline-width: 3px; }

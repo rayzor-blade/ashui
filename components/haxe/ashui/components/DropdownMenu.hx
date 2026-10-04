@@ -39,6 +39,12 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 	static final registry = new Registry<DropdownMenu>();
 
 	var panel:Null<Div> = null;
+	var floating:Null<Floating> = null;
+
+	/** Opens the menu with its top-left at `(x, y)`, as a context menu opens at the pointer. **/
+	public function openAt(x:Float, y:Float):Void
+		if (floating != null)
+			floating.openAt(x, y);
 
 	function render():Element {
 		opened = switch props.open {
@@ -60,7 +66,7 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 		registry.add(root.tree, root.node.id, this);
 		var trigger:Null<Element> = null, content:Null<DropdownMenuContent> = null;
 		for (c in children)
-			if (Std.isOfType(c, DropdownMenuTrigger))
+			if (Std.isOfType(c, DropdownMenuTrigger) || Std.isOfType(c, ashui.components.ContextMenu.ContextMenuTrigger))
 				trigger = c;
 			else if (Std.isOfType(c, DropdownMenuContent))
 				content = cast c;
@@ -71,6 +77,7 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 			// Its own state, so its opening animation plays as it opens, not when it is first styled out of sight.
 			ashui.css.Identity.of(p.tree, p.node.id).bindAttribute("data-state", Computed.make(() -> (open.get() ? "open" : "closed" : Null<String>)));
 			var floating = new Floating(opened, p);
+			this.floating = floating;
 			// Into the menu as it opens: its first item by the keyboard, the panel itself by a press, so the arrows work either way.
 			floating.opened = () -> {
 				var items = this.items();

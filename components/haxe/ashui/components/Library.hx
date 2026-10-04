@@ -31,7 +31,7 @@ import ashui.ui.Div;
 **/
 class Library {
 	/** The library's stylesheet, read from `components/css/components.css` when the program is compiled. **/
-	public static final CSS:String = Sheet.read();
+	public static final CSS:String = LibraryCss.read();
 
 	/** Puts the library's stylesheet in force, once, under the page's sheets. **/
 	public static function use():Void
