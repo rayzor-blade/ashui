@@ -4,6 +4,8 @@ import ashui.components.Badge;
 import ashui.components.Button;
 import ashui.components.Card;
 import ashui.components.Dialog;
+import ashui.components.DropdownMenu;
+import ashui.components.Popover;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -30,8 +32,8 @@ class Components {
 	static function identity2(tree:LayoutTree, id:haxe.Int64)
 		return ashui.css.Identity.of(tree, id);
 
-	static function key(k:window.Key, code:window.KeyCode):window.KeyEvent
-		return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
+	static function key(k:window.Key, code:window.KeyCode, pressed = true):window.KeyEvent
+		return Input(Code(code), k, None, Standard, pressed ? Pressed : Released, false, Unavailable);
 
 	static function main() {
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Light);
@@ -235,6 +237,77 @@ class Components {
 		var stayed = alertOpen.get();
 		press("no");
 		check("an AlertDialog stays open on Escape; its own action closes it", stayed && !alertOpen.get(), [stayed, alertOpen.get()]);
+
+		// --- Popover and DropdownMenu: anchored panels; a menu's keys ---
+		var flTree = new LayoutTree();
+		var popOpen = Signal.make(false), menuOpen = Signal.make(false), picked = Signal.make("");
+		var flRoot:Div = Owner.root(flTree, _ -> hxx('
+			<div width={600} height={400} flexDirection={Row} gap={40} padding={20} alignItems={Start}>
+				<popover open={popOpen}><popover-trigger id="p">Open</popover-trigger><popover-content><p>Hi</p></popover-content></popover>
+				<dropdown-menu open={menuOpen}>
+					<dropdown-menu-trigger id="m">Options</dropdown-menu-trigger>
+					<dropdown-menu-content>
+						<dropdown-menu-item onSelect={() -> picked.set("one")}>One</dropdown-menu-item>
+						<dropdown-menu-item disabled={true}>Off</dropdown-menu-item>
+						<dropdown-menu-item onSelect={() -> picked.set("two")}>Two</dropdown-menu-item>
+					</dropdown-menu-content>
+				</dropdown-menu>
+			</div>
+		'));
+		function flSettle() {
+			ashui.animation.AnimationScheduler.main.tick(0.5);
+			flTree.flush();
+			flTree.computeLayout(flRoot.node, 600, 400);
+			flTree.flush();
+			flTree.computeLayout(flRoot.node, 600, 400);
+		}
+		function flFind(at:haxe.Int64, id:String):Null<haxe.Int64> {
+			var identity = identity2(flTree, at);
+			if (identity != null && identity.id == id)
+				return at;
+			for (c in flTree.children(at)) {
+				var f = flFind(c, id);
+				if (f != null)
+					return f;
+			}
+			return null;
+		}
+		function flPress(id:String) {
+			flSettle();
+			var b = flTree.getBounds(new ashui.layout.Node(flFind(flRoot.node.id, id)));
+			ashui.input.Pointer.move(flTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(flTree);
+			ashui.input.Pointer.release(flTree);
+			flSettle();
+		}
+		flSettle();
+		flPress("p");
+		var popShown = popOpen.get() && ashui.ui.TopLayer.openEntries().length == 1;
+		var trigger = flTree.getBounds(new ashui.layout.Node(flFind(flRoot.node.id, "p")));
+		var panel = ashui.ui.TopLayer.openEntries()[0].content;
+		var pb = flTree.getBounds(panel.node);
+		var below = pb != null && Math.abs(pb.y - (trigger.y + trigger.height + 4)) < 1.5;
+		ashui.input.Keyboard.input(flTree, key(Named(Escape), Escape));
+		flSettle();
+		check("a Popover opens under its trigger, 4 from it, and Escape closes it", popShown && below && !popOpen.get(), [popShown, below, popOpen.get()]);
+
+		ashui.input.Keyboard.input(flTree, key(Named(Tab), Tab));
+		flSettle();
+		var m = ashui.input.Interaction.byId(flTree, flFind(flRoot.node.id, "m"));
+		ashui.input.Focus.set(m, true);
+		ashui.input.Keyboard.input(flTree, key(Named(Enter), Enter));
+		ashui.input.Keyboard.input(flTree, key(Named(Enter), Enter, false));
+		flSettle();
+		var firstFocused = ashui.input.Focus.of(flTree);
+		var firstIsOne = firstFocused != null && identity2(flTree, firstFocused.node.id).hasClass("ui-menu-item");
+		ashui.input.Keyboard.input(flTree, key(Named(ArrowDown), ArrowDown));
+		flSettle();
+		ashui.input.Keyboard.input(flTree, key(Named(Enter), Enter));
+		ashui.input.Keyboard.input(flTree, key(Named(Enter), Enter, false));
+		flSettle();
+		var back = ashui.input.Focus.of(flTree) == m;
+		check("a DropdownMenu opened by the keyboard focuses its first item; the arrows skip a disabled item; Enter chooses and closes it, focus back on the trigger",
+			firstIsOne && picked.get() == "two" && !menuOpen.get() && back, [firstIsOne, picked.get(), menuOpen.get(), back]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

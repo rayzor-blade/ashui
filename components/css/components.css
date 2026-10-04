@@ -303,3 +303,42 @@
 .ui-dialog-title { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: var(--text-xl); font-weight: 600; line-height: 1.2; }
 .ui-dialog-description { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
 .ui-dialog-footer { flex-direction: row; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* --------------------------------------------------------- Popover, menus */
+
+/* Floating panels rise a little into place as they open and sink away as they close; keyed to their open state, as they are styled before they are shown. */
+@keyframes ui-rise-in { from { opacity: 0; transform: translateY(-4px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes ui-rise-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-4px) scale(0.96); } }
+
+.ui-popover-root, .ui-dropdown-menu { flex-direction: row; align-self: flex-start; }
+.ui-popover {
+	flex-direction: column; gap: 8px; padding: var(--ui-popover-padding, 16px); min-width: 200px; max-width: var(--ui-popover-width, 320px);
+	border: 1px solid var(--ui-popover-border, var(--border)); border-radius: var(--ui-popover-radius, var(--radius-md));
+	background: var(--ui-popover-bg, var(--surface-elevated)); color: var(--text-primary); font-size: var(--text-sm);
+	box-shadow: var(--ui-popover-shadow, var(--shadow-md)); outline: none;
+}
+.ui-popover[data-state="open"] { animation: ui-rise-in var(--duration-normal) var(--ease-spring); }
+.ui-popover[closing] { animation: ui-rise-out var(--duration-faster) var(--ease-in) forwards; }
+
+/* A menu: no padding, so its items' highlight runs to the panel's rounded edge, which clips it. */
+.ui-menu {
+	flex-direction: column; min-width: var(--ui-menu-width, 180px); overflow: hidden; outline: none;
+	border: 1px solid var(--ui-menu-border, var(--border)); border-radius: var(--ui-menu-radius, var(--radius-default));
+	background: var(--ui-menu-bg, var(--surface-elevated)); color: var(--text-primary);
+	box-shadow: var(--ui-menu-shadow, var(--shadow-md));
+}
+.ui-menu[data-state="open"] { animation: ui-rise-in var(--duration-fast) var(--ease-state); }
+.ui-menu[closing] { animation: ui-rise-out var(--duration-faster) var(--ease-in) forwards; }
+.ui-menu-item {
+	flex-direction: row; align-items: center; gap: 8px; padding: 8px 12px; font-size: var(--text-sm); color: var(--text-primary); outline: none;
+	transition: background var(--duration-faster) var(--ease-state);
+}
+.ui-menu-item:hover, .ui-menu-item:focus-visible { background: var(--ui-menu-highlight, var(--accent-subtle)); }
+.ui-menu-item[data-variant="destructive"] { color: var(--error); }
+.ui-menu-item:disabled { opacity: 0.5; }
+.ui-menu-item-label { flex-grow: 1; flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+.ui-menu-shortcut { flex-shrink: 0; padding-left: 16px; font-size: var(--text-xs); color: var(--text-tertiary); letter-spacing: 0.05em; }
+.ui-menu-label { flex-direction: row; flex-wrap: wrap; align-items: baseline; padding: 8px 12px 4px; font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); }
+.ui-menu-separator { height: 1px; flex-shrink: 0; margin: 4px 0; background: var(--border); }
+.ui-dropdown-menu-chevron { flex-shrink: 0; color: var(--text-secondary); transition: transform var(--duration-normal) var(--ease-state); }
+.ui-dropdown-menu[data-state="open"] .ui-dropdown-menu-chevron { transform: rotate(180deg); }

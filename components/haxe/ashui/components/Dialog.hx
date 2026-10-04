@@ -55,7 +55,7 @@ class Dialog extends Component<DialogProps> {
 	public var opened(default, null):Signal<Bool>;
 
 	/** Each dialog by its root's node and its panel's, so a trigger or a close button inside finds the one it is in. **/
-	static final byNode = new haxe.ds.ObjectMap<LayoutTree, Map<String, Dialog>>();
+	static final registry = new Registry<Dialog>();
 
 	function render():Element {
 		opened = switch props.open {
@@ -74,38 +74,16 @@ class Dialog extends Component<DialogProps> {
 		}
 		var root = Library.part("ui-dialog-root", null, ["state" => Computed.make(() -> (open.get() ? "open" : "closed" : Null<String>))], children,
 			props.id);
-		remember(root.tree, root.node.id);
+		registry.add(root.tree, root.node.id, this);
 		for (c in children)
 			if (Std.isOfType(c, DialogContent))
 				(cast c : DialogContent).bindTo(this);
 		return root;
 	}
 
-	function remember(tree:LayoutTree, id:haxe.Int64):Void {
-		var map = byNode.get(tree);
-		if (map == null)
-			byNode.set(tree, map = new Map());
-		var key = haxe.Int64.toStr(id);
-		map.set(key, this);
-		if (ashui.reactive.Owner.current != null)
-			ashui.reactive.Owner.onCleanup(() -> map.remove(key));
-	}
-
 	/** The dialog the node `id` of `tree` is in: its panel's, or the one whose trigger it is. **/
-	public static function near(tree:LayoutTree, id:haxe.Int64):Null<Dialog> {
-		var map = byNode.get(tree);
-		if (map == null)
-			return null;
-		var own = map.get(haxe.Int64.toStr(id));
-		if (own != null)
-			return own;
-		for (up in tree.ancestors(id)) {
-			var found = map.get(haxe.Int64.toStr(up));
-			if (found != null)
-				return found;
-		}
-		return null;
-	}
+	public static function near(tree:LayoutTree, id:haxe.Int64):Null<Dialog>
+		return registry.near(tree, id);
 }
 
 /** A button that opens the dialog it is in; it takes a Button's `variant` and `size`. **/
@@ -179,7 +157,7 @@ class DialogContent extends Component<DialogContentProps> {
 	@:allow(ashui.components.Dialog)
 	function bindTo(d:Dialog):Void {
 		if (panel != null)
-			@:privateAccess d.remember(panel.tree, panel.node.id);
+			@:privateAccess Dialog.registry.add(panel.tree, panel.node.id, d);
 		var opened = d.opened;
 		open.set(opened.get());
 		new Watch(() -> opened.get(), v -> if (open.get() != v) open.set(v));
