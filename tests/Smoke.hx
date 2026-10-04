@@ -968,6 +968,26 @@ class Smoke {
 		refTree.flush();
 		check("ref= holds the element a template built, is cleared when it goes and set when it comes back, and is followed",
 			boundFirst && clearedAfter && boxRef.get() != null && seen.join(",") == "true,false,true", [boundFirst, clearedAfter, seen]);
+		// Tw's text classes on a box reach the text it holds, as inherited CSS does.
+		var twTree = new LayoutTree();
+		var twRoot:Div = Owner.root(twTree, _ -> <div flexDirection={Column}>
+			<div class="text-xl font-bold text-white/50"><text>Title</text></div>
+			<p class="text-sm italic">Body</p>
+		</div>);
+		twTree.flush();
+		twTree.computeLayout(twRoot.node, 300, 200);
+		twTree.flush();
+		var twBox = twTree.children(twRoot.node.id)[0];
+		var twText = ashui.css.Identity.of(twTree, twTree.children(twBox)[0]);
+		var twSize = ashui.css.Css.resolved(twText, "font-size"), twWeight = ashui.css.Css.resolved(twText, "font-weight");
+		var twColor = ashui.css.Css.resolved(twText, "color");
+		var twPara = twTree.children(twRoot.node.id)[1];
+		var twParaPiece = Lambda.find(twTree.order(), n -> ashui.ui.Text.at(n) != null && ashui.ui.Text.at(n).text() == "Body" && twTree.ancestors(n).indexOf(twPara) >= 0);
+		var twParaSize = twParaPiece == null ? null : ashui.css.Css.resolved(ashui.css.Identity.of(twTree, twParaPiece), "font-size");
+		check("Tw's text classes on a box reach the text inside it, as Tailwind's do",
+			Std.parseFloat(twSize) == ashui.theme.Themed.fontSize(TextXl).get() && twWeight == "700" && twColor != null && twColor.indexOf("50%") >= 0
+			&& twParaSize != null && Std.parseFloat(twParaSize) == ashui.theme.Themed.fontSize(TextSm).get(), [twSize, twWeight, twColor, twParaSize]);
+
 		// Inline markup: a template written as Haxe's own markup, no hxx() around it.
 		var mkTree = new LayoutTree();
 		var mkCount = Signal.make(2);

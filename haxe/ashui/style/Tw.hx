@@ -62,8 +62,10 @@ import haxe.macro.Type;
 	  `shadow-inner`, `shadow-none`;
 	- type, `TypographyToken`: `text-xs` … `text-5xl`, `font-thin` …
 	  `font-black`, `leading-none` … `leading-loose`, `tracking-tighter` …
-	  `tracking-wider` (in ems of the string's `text-` size, else the theme's
-	  base size);
+	  `tracking-wider` (in ems of the element's font size). These, `text-left`
+	  … `text-justify`, `italic` and the `text-` colours are the element's
+	  own CSS declarations, so the text it holds inherits them, as in
+	  Tailwind;
 	- transitions, composed into one `ashui.animation.Transition`:
 	  `transition` (colours, opacity, shadow, transform), `transition-colors`,
 	  `-opacity`, `-shadow`, `-transform`, `-all`, `-none`; `duration-fastest`
@@ -142,14 +144,9 @@ class Tw {
 		var gradient = new Gradient();
 		var motion = new Motion();
 		var transform = new TransformClasses();
-		// Letter spacing is in ems of the font size this string sets, else the theme's base size.
-		var tracking:Null<{token:String, pos:Position}> = null;
-		var size = "TextBase";
-		var trackingClass = ~/^tracking-(tighter|tight|normal|wide|wider)$/;
 		// hover:, active: and dark: classes, by property, then by variant.
 		var variants = new Map<String, Map<String, {value:Expr, pos:Position}>>();
 		var variant = VARIANT;
-		var sizeClass = ~/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/;
 		// A backdrop blur and the background colour class it is painted under, merged after the loop.
 		var backdrop:Null<{radius:Float, pos:Position}> = null;
 		var background:Null<{name:String, alpha:Float}> = null;
@@ -193,14 +190,12 @@ class Tw {
 				var percent = bgColor.matched(2);
 				background = {name: bgColor.matched(1), alpha: percent == null ? 1.0 : Std.parseInt(percent) / 100};
 			}
-			if (trackingClass.match(word)) {
-				var name = trackingClass.matched(1);
-				tracking = {token: "Tracking" + name.charAt(0).toUpperCase() + name.substr(1), pos: pos};
+			// A class of an inherited text property is the element's own declaration, which what it holds inherits, as in Tailwind.
+			var declared = inheritedCss(word);
+			if (declared != null) {
+				var name = declared.name, value = declared.value;
+				out.push(macro @:pos(pos) ashui.css.Identity.declare($node, $v{name}, $v{value}));
 				continue;
-			}
-			if (sizeClass.match(word)) {
-				var step = sizeClass.matched(1);
-				size = "Text" + (~/^\d/.match(step) ? step : step.charAt(0).toUpperCase() + step.substr(1));
 			}
 			var make = lookup(vocabulary, word, pos);
 			if (make != null) {
@@ -334,11 +329,6 @@ class Tw {
 			out.unshift(macro var __group = ashui.input.Relations.groupOf($node));
 		if (peered)
 			out.unshift(macro var __peer = ashui.input.Relations.peerOf($node));
-		if (tracking != null) {
-			var t = tracking.token;
-			var value = macro ashui.theme.Themed.tracking(ashui.theme.TypographyToken.$t, ashui.theme.TypographyToken.$size);
-			out.push({expr: (macro $node.set(ashui.layout.Prop.LetterSpacing, $value)).expr, pos: tracking.pos});
-		}
 		var background = gradient.build(node);
 		if (background != null)
 			out.push(background);
@@ -695,6 +685,49 @@ class Tw {
 	}
 
 	/** Tailwind's colours that no theme changes: `0xRRGGBB` and alpha. **/
+	/**
+		`word` as the CSS declaration of the inherited text property it sets,
+		over the theme's variables: `text-xl` is `font-size: var(--text-xl)`,
+		`text-muted/70` a mix of `--muted` at 70%. Null for any other class.
+	**/
+	static function inheritedCss(word:String):Null<{name:String, value:String}> {
+		var size = ~/^text-(xs|sm|base|lg|xl|[2-9]xl)$/;
+		if (size.match(word))
+			return {name: "font-size", value: 'var(--text-${size.matched(1)})'};
+		var align = ~/^text-(left|center|right|justify)$/;
+		if (align.match(word))
+			return {name: "text-align", value: align.matched(1)};
+		if (word == "italic" || word == "not-italic")
+			return {name: "font-style", value: word == "italic" ? "italic" : "normal"};
+		var font = ~/^font-([a-z]+)$/;
+		if (font.match(word)) {
+			var name = font.matched(1);
+			if (["sans", "mono", "serif"].indexOf(name) >= 0)
+				return {name: "font-family", value: 'var(--font-$name)'};
+			if (["thin", "light", "normal", "medium", "semibold", "bold", "black"].indexOf(name) >= 0)
+				return {name: "font-weight", value: 'var(--font-$name)'};
+			return null;
+		}
+		var leading = ~/^leading-([a-z]+)$/;
+		if (leading.match(word))
+			return {name: "line-height", value: 'var(--leading-${leading.matched(1)})'};
+		var tracking = ~/^tracking-(tighter|tight|normal|wide|wider)$/;
+		if (tracking.match(word))
+			return {name: "letter-spacing", value: 'var(--tracking-${tracking.matched(1)})'};
+		var color = ~/^text-([a-z0-9-]+?)(?:\/(\d{1,3}))?$/;
+		if (color.match(word)) {
+			var name = color.matched(1), percent = color.matched(2);
+			if (colors == null)
+				vocabulary();
+			var fixed = fixedColor(name);
+			var base = fixed != null ? (fixed.alpha == 0 ? "transparent" : '#${StringTools.hex(fixed.hex, 6)}') : colors.exists(name) ? 'var(--$name)' : null;
+			if (base == null)
+				return null;
+			return {name: "color", value: percent == null ? base : 'color-mix(in srgb, $base $percent%, transparent)'};
+		}
+		return null;
+	}
+
 	static function fixedColor(name:String):Null<{hex:Int, alpha:Float}> {
 		return switch name {
 			case "white": {hex: 0xffffff, alpha: 1.0};

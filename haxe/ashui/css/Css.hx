@@ -454,7 +454,26 @@ class Css {
 		// The same declaration may come from two selectors of one rule; the last stands.
 		var own = new Map<String, String>();
 		var from = new Map<String, Declaration>();
+		// Its inline declarations stand over every rule but an !important one, which the sort put last.
+		var declared = identity.inlineDeclarations();
+		var inlined = false;
+		function applyInline() {
+			inlined = true;
+			if (declared != null)
+				for (name => value in declared) {
+					var covered = Properties.LONGHANDS.get(name);
+					if (covered != null)
+						for (l in covered) {
+							own.remove(l);
+							from.remove(l);
+						}
+					own.set(name, value);
+					from.remove(name);
+				}
+		}
 		for (m in matched) {
+			if (m.important && !inlined)
+				applyInline();
 			// A shorthand sets its longhands anew, over what weaker rules declared of them.
 			var covered = Properties.LONGHANDS.get(m.declaration.name);
 			if (covered != null)
@@ -465,6 +484,8 @@ class Css {
 			own.set(m.declaration.name, m.declaration.value);
 			from.set(m.declaration.name, m.declaration);
 		}
+		if (!inlined)
+			applyInline();
 
 		// What it inherits from its parent, under its own.
 		var parent = walk.parent(node);

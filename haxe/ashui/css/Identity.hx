@@ -40,6 +40,39 @@ class Identity {
 	/** Attributes CSS's `[name=value]` tests, as HTML elements have: `type`, `name`, `value`. **/
 	var attributes:Null<Map<String, String>> = null;
 
+	/** Declarations of its own, as HTML's `style` attribute holds: over every rule that matches it but an `!important` one, and inherited as the cascade's values are. **/
+	var declared:Null<Map<String, String>> = null;
+
+	/** Declares `name: value` on it inline, or takes the declaration away with null. **/
+	public function setInline(name:String, value:Null<String>):Identity {
+		if (value == null) {
+			if (declared == null || !declared.remove(name))
+				return this;
+		} else {
+			if (declared == null)
+				declared = new Map();
+			if (declared.get(name) == value)
+				return this;
+			declared.set(name, value);
+		}
+		for (hook in hooks)
+			hook(this);
+		return this;
+	}
+
+	/** Its inline declarations, or null when it has none. **/
+	public function inlineDeclarations():Null<Map<String, String>>
+		return declared;
+
+	/** `node`'s identity, made as a `div`'s when it has none, with `name: value` declared on it inline: what Tw's text classes write. **/
+	public static function declare(node:ashui.layout.Node, name:String, value:String):Void {
+		var tree = node.tree;
+		var identity = of(tree, node.id);
+		if (identity == null)
+			identity = register(tree, node, "div");
+		identity.setInline(name, value);
+	}
+
 	/** Sets attribute `name` to `value`, or removes it with null. **/
 	public function setAttribute(name:String, value:Null<String>):Identity {
 		if (value == null) {
