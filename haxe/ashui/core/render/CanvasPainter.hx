@@ -51,6 +51,13 @@ class CanvasPainter {
 
 	final starts:Array<Int> = [];
 	final paints:Array<Float> = [];
+
+	/** Per draw, the clip it was drawn under. **/
+	final drawClips:Array<Null<DrawClip>> = [];
+
+	/** The clip table: each clip once, in the order written, and the texel each starts at, from the table's start. **/
+	final clipOrder:Array<DrawClip> = [];
+	final clipAt = new haxe.ds.ObjectMap<DrawClip, Int>();
 	var bytes:Null<haxe.io.Bytes> = null;
 
 	public function new() {}
@@ -93,23 +100,26 @@ class CanvasPainter {
 		mesh.clear();
 		starts.resize(0);
 		paints.resize(0);
+		drawClips.resize(0);
+		clipOrder.resize(0);
+		clipAt.clear();
 		hasImages = false;
 		for (op in ctx.ops) {
 			var before = mesh.vertexCount();
 			switch op {
-				case Fill(path, brush, rule, transform, opacity):
+				case Fill(path, brush, rule, transform, opacity, clip):
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(path, m, tolerance);
 					Tessellate.fill(contours, rule, aa, mesh);
 					if (mesh.vertexCount() > before)
 						encode(brush, m, contours, opacity, paints);
-				case Stroke(path, stroke, brush, transform, opacity):
+				case Stroke(path, stroke, brush, transform, opacity, clip):
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(path, m, tolerance);
 					Tessellate.stroke(contours, stroke, m.scale(), aa, mesh);
 					if (mesh.vertexCount() > before)
 						encode(brush, m, contours, opacity, paints);
-				case Image(slot, x, y, w, h, transform, opacity):
+				case Image(slot, x, y, w, h, transform, opacity, clip):
 					hasImages = true;
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(new ashui.draw.Path().rect(x, y, w, h), m, tolerance);
@@ -117,14 +127,23 @@ class CanvasPainter {
 					if (mesh.vertexCount() > before)
 						encodeImage(frame, slot, x, y, w, h, m, opacity, paints);
 			}
-			if (mesh.vertexCount() > before)
+			if (mesh.vertexCount() > before) {
 				starts.push(before);
+				drawClips.push(clipOf(op));
+			}
 		}
 		vertexCount = mesh.vertexCount();
 		if (vertexCount == 0)
 			return;
 		var draws = starts.length;
-		var texels = vertexCount * PathShader.VERTEX_TEXELS + draws * PathShader.PAINT_TEXELS;
+		var table = vertexCount * PathShader.VERTEX_TEXELS + draws * PathShader.PAINT_TEXELS;
+		// A paint's head ends with the texel its clip starts at, 0 for none: texel 0 is a vertex, never a clip.
+		for (i in 0...draws) {
+			var c = drawClips[i];
+			if (c != null)
+				paints[i * PathShader.PAINT_TEXELS * 4 + 3] = table + place(c);
+		}
+		var texels = table + clipOrder.length * PathShader.CLIP_TEXELS;
 		var needed = Std.int(Math.ceil(texels / PathShader.ROW_TEXELS));
 		var size = needed * PathShader.ROW_TEXELS * 16;
 		if (bytes == null || bytes.length < size)
@@ -150,6 +169,9 @@ class CanvasPainter {
 		}
 		for (v in paints)
 			put(v);
+		for (c in clipOrder)
+			for (v in encodeClip(frame, c, c.outer == null ? 0 : table + clipAt.get(c.outer)))
+				put(v);
 		if (texture == null || needed > rows) {
 			if (texture != null)
 				texture.destroy();
@@ -196,6 +218,56 @@ class CanvasPainter {
 		bounds for a bounding-box one, and its first four stops. A brush
 		that is neither, an image or a blur, paints nothing.
 	**/
+	static function clipOf(op:DrawOp):Null<DrawClip>
+		return switch op {
+			case Fill(_, _, _, _, _, clip) | Stroke(_, _, _, _, _, clip) | Image(_, _, _, _, _, _, _, clip): clip;
+		}
+
+	/** Where `clip` starts in the table, from its start, placing it and those outside it the first time. **/
+	function place(clip:DrawClip):Int {
+		var at = clipAt.get(clip);
+		if (at != null)
+			return at;
+		if (clip.outer != null)
+			place(clip.outer);
+		at = clipOrder.length * PathShader.CLIP_TEXELS;
+		clipAt.set(clip, at);
+		clipOrder.push(clip);
+		return at;
+	}
+
+	/**
+		A clip's four texels: its kind (1 box, 2 ellipse, 0 nothing kept),
+		the texel the clip outside it starts at, its radius and a pixel's
+		size in its own coordinates; the map from a pixel to those, as two
+		rows of an affine; and its centre and half its width and height.
+	**/
+	static function encodeClip(frame:CanvasFrame, clip:DrawClip, next:Int):Array<Float> {
+		var m = frame.transform.after(clip.transform);
+		var inverse = m.inverse();
+		var kind = 0.0, radius = 0.0, cx = 0.0, cy = 0.0, hw = 0.0, hh = 0.0;
+		switch clip.shape {
+			case Box(x, y, w, h, r):
+				kind = 1;
+				radius = r;
+				cx = x + w / 2;
+				cy = y + h / 2;
+				hw = Math.max(0, w / 2);
+				hh = Math.max(0, h / 2);
+			case Ellipse(x, y, rx, ry):
+				kind = 2;
+				cx = x;
+				cy = y;
+				hw = Math.max(0.000001, rx);
+				hh = Math.max(0.000001, ry);
+		}
+		if (inverse == null || hw <= 0 || hh <= 0) {
+			kind = 0;
+			inverse = Affine.IDENTITY;
+		}
+		return [kind, next, radius, m.scale() * frame.pixelRatio, inverse.a, inverse.c, inverse.e, 0, inverse.b, inverse.d, inverse.f, 0, cx, cy, hw, hh];
+	}
+
 	static function encode(brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
 		inline function rgba(rgb:Int, alpha:Float) {
 			out.push((rgb >> 16 & 0xff) / 255);

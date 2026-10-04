@@ -494,6 +494,32 @@ class Pixels {
 		probe("at half opacity, over the white under it", 14, 40, (r, g, b) -> r > 200 && g > 100 && g < 160 && b > 100 && b < 160);
 		probe("its blue half too", 34, 40, (r, g, b) -> b > 200 && r > 100 && r < 160);
 
+		// A canvas's clips: what is drawn is kept inside them, nested, until each is popped.
+		var canvasClipTree = new LayoutTree();
+		var canvasClipRoot:Div = ashui.reactive.Owner.root(canvasClipTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.pushClipCircle(24, 24, 16);
+					ctx.fillRect(0, 0, 48, 48, Brush.solid(0x0000ff));
+					ctx.pushClipRect(0, 0, 24, 48);
+					ctx.fillRect(0, 0, 48, 48, Brush.solid(0xff0000));
+					ctx.popClip();
+					ctx.popClip();
+					ctx.fillRect(0, 44, 48, 4, Brush.solid(0x00ff00));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(canvasClipRoot, SIZE, SIZE);
+		label = "canvas clip: ";
+		probe("kept inside the circle", 40, 32, (r, g, b) -> b > 200 && r < 60);
+		probe("inside both clips, the inner draw", 24, 32, (r, g, b) -> r > 200 && b < 60);
+		probe("nothing in the canvas's corner, outside the circle", 12, 12, near(0xffffff));
+		probe("nor past the circle's edge", 52, 32, near(0xffffff));
+		probe("drawn whole once the clips are popped", 32, 54, (r, g, b) -> g > 200 && r < 60 && b < 60);
+
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
 		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);

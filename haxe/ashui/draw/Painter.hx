@@ -6,9 +6,10 @@ import ashui.types.Brush;
 	Drawing with a current fill and stroke, as Processing does: set them,
 	then draw shapes that take them. `fill` and `stroke` set them,
 	`noFill` and `noStroke` leave them out; a shape is filled, then
-	stroked, with whichever are set. `push` and `pop` bracket transforms:
-	a `pop` undoes every `translate`, `rotate` and `scale` since its
-	`push`, and the fill and stroke with them. Each call returns the
+	stroked, with whichever are set. `push` and `pop` bracket transforms
+	and clips: a `pop` undoes every `translate`, `rotate`, `scale` and
+	`clipRect`, `clipCircle` or `clipEllipse` since its `push`, and the
+	fill and stroke with them. Each call returns the
 	painter, to chain.
 **/
 class Painter {
@@ -18,8 +19,8 @@ class Painter {
 	var strokeBrush:Null<Brush> = null;
 	var strokeStyle = new Stroke(1);
 
-	/** Per `push`: transforms pushed since, and the paint state to go back to. **/
-	final groups:Array<{transforms:Int, fill:Null<Brush>, stroke:Null<Brush>, style:Stroke}> = [];
+	/** Per `push`: transforms and clips pushed since, and the paint state to go back to. **/
+	final groups:Array<{transforms:Int, clips:Int, fill:Null<Brush>, stroke:Null<Brush>, style:Stroke}> = [];
 
 	public function new(ctx:DrawContext)
 		this.ctx = ctx;
@@ -47,7 +48,7 @@ class Painter {
 	}
 
 	public function push():Painter {
-		groups.push({transforms: 0, fill: fillBrush, stroke: strokeBrush, style: strokeStyle});
+		groups.push({transforms: 0, clips: 0, fill: fillBrush, stroke: strokeBrush, style: strokeStyle});
 		return this;
 	}
 
@@ -56,6 +57,8 @@ class Painter {
 		if (g != null) {
 			for (_ in 0...g.transforms)
 				ctx.popTransform();
+			for (_ in 0...g.clips)
+				ctx.popClip();
 			fillBrush = g.fill;
 			strokeBrush = g.stroke;
 			strokeStyle = g.style;
@@ -77,6 +80,28 @@ class Painter {
 		ctx.pushTransform(t);
 		if (groups.length > 0)
 			groups[groups.length - 1].transforms++;
+		return this;
+	}
+
+	/** What is drawn after this kept inside the rectangle, its corners rounded by `radius`; until the `pop`, or for good outside a `push`. **/
+	public function clipRect(x:Float, y:Float, w:Float, h:Float, radius = 0.0):Painter {
+		ctx.pushClipRect(x, y, w, h, radius);
+		return clipped();
+	}
+
+	public function clipCircle(x:Float, y:Float, r:Float):Painter {
+		ctx.pushClipCircle(x, y, r);
+		return clipped();
+	}
+
+	public function clipEllipse(x:Float, y:Float, rx:Float, ry:Float):Painter {
+		ctx.pushClipEllipse(x, y, rx, ry);
+		return clipped();
+	}
+
+	function clipped():Painter {
+		if (groups.length > 0)
+			groups[groups.length - 1].clips++;
 		return this;
 	}
 

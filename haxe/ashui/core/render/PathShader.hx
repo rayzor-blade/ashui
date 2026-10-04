@@ -10,8 +10,11 @@ package ashui.core.render;
 	opacity; its geometry, in layout units; up to four stop offsets; and
 	the stops' colours. An image's paint is its opacity, then the map from
 	a pixel to where in the image it is, 0 to 1 across, as two rows of
-	an affine, then the image's rect in `canvasImages`, the image atlas. Gradients are mixed premultiplied, as CSS mixes
-	them. Drawn with the canvas's record as its instance, it is clipped as
+	an affine, then the image's rect in `canvasImages`, the image atlas.
+	A paint's first texel ends with the texel its clip starts at, 0 for
+	none; a clip is four texels, its kind and the clip outside it, and
+	its shape (`CanvasPainter.encodeClip`), up to `CLIP_DEPTH` deep.
+	Gradients are mixed premultiplied, as CSS mixes them. Drawn with the canvas's record as its instance, it is clipped as
 	the canvas is (`canvasClip`).
 **/
 class PathShader implements UiShader {
@@ -20,6 +23,12 @@ class PathShader implements UiShader {
 
 	/** Texels to a paint. **/
 	public static inline var PAINT_TEXELS = 8;
+
+	/** Texels to a clip. **/
+	public static inline var CLIP_TEXELS = 4;
+
+	/** Clips, one inside another, a draw is kept inside; those further out are not applied. **/
+	public static inline var CLIP_DEPTH = 8;
 
 	/** Texels to a vertex. **/
 	public static inline var VERTEX_TEXELS = 2;
@@ -52,6 +61,26 @@ class PathShader implements UiShader {
 
 		function premultiplied(c : Vec4) : Vec4 {
 			return vec4(c.rgb * c.a, c.a);
+		}
+
+		// How much of this pixel the clip at texel `t` keeps: inside by half a pixel or more, all of it.
+		function drawClipCoverage(t : Int) : Float {
+			var head = canvasTexel(t);
+			var row0 = canvasTexel(t + 1);
+			var row1 = canvasTexel(t + 2);
+			var shape = canvasTexel(t + 3);
+			var p = vec2(dot(row0.xyz, vec3(pixel, 1.)), dot(row1.xyz, vec3(pixel, 1.))) - shape.xy;
+			var d = 0.;
+			if (head.x > 1.5) {
+				// Ellipse: exact for a circle, close for the rest.
+				var k0 = length(p / shape.zw);
+				var k1 = length(p / (shape.zw * shape.zw));
+				d = k1 > 0.000001 ? k0 * (k0 - 1.) / k1 : -min(shape.z, shape.w);
+			} else {
+				var q = abs(p) - shape.zw + vec2(head.z, head.z);
+				d = length(max(q, vec2(0., 0.))) + min(max(q.x, q.y), 0.) - head.z;
+			}
+			return head.x > 0.5 ? clamp(0.5 - d * head.w, 0., 1.) : 0.;
 		}
 
 		function fragment() {
@@ -93,6 +122,15 @@ class PathShader implements UiShader {
 			// Inside each edge by half a pixel or more, fully covered; on the edge, half.
 			var inside = clamp(edges + vec4(0.5, 0.5, 0.5, 0.5), vec4(0., 0., 0., 0.), vec4(1., 1., 1., 1.));
 			var covered = coverage * inside.x * inside.y * inside.z * inside.w;
+			var clip = int(head.w + 0.5);
+			var depth = 0;
+			while (depth < 8) {
+				if (clip > 0) {
+					covered *= drawClipCoverage(clip);
+					clip = int(canvasTexel(clip).y + 0.5);
+				}
+				depth++;
+			}
 			output.color = vec4(color.rgb, color.a * head.z * covered * canvasClip(pixel));
 		}
 	};
