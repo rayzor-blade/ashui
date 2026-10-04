@@ -30,6 +30,14 @@ typedef SceneKitProps = {
 
 	?backgroundAlpha:IntoReactive<Float>,
 
+	/** Light from all round, and what surfaces reflect: a sky, from an `.hdr` with `Environment.fromHdr`. **/
+	?environment:IntoReactive<Null<ashui.draw3d.Environment>>,
+
+	?environmentIntensity:IntoReactive<Float>,
+
+	/** What is drawn behind the scene: an environment, blurred or not, or colours (see `Skybox`). **/
+	?skybox:IntoReactive<Null<ashui.draw3d.Skybox>>,
+
 	/** Whether dragging and scrolling move the camera; true by default. **/
 	?controls:Bool,
 
@@ -61,7 +69,8 @@ class SceneKit extends Component<SceneKitProps> {
 			draw: ctx -> {
 				ctx.setScene(new Scene3D(camera.camera(), read(props.lights, base.lights), read(props.ambient, base.ambient),
 					read(props.ambientStrength, base.ambientStrength), read(props.exposure, base.exposure), read(props.background, base.background),
-					read(props.backgroundAlpha, base.backgroundAlpha)));
+					read(props.backgroundAlpha, base.backgroundAlpha), read(props.environment, null), read(props.environmentIntensity, 1.0),
+					read(props.skybox, null)));
 				if (props.draw != null)
 					props.draw(ctx);
 			}

@@ -545,6 +545,45 @@ class Pixels {
 		probe("the further one around it", 18, 32, (r, g, b) -> b > 200 && r < 60);
 		probe("cut by the rounded clip at the corner", 10, 10, near(0xffffff));
 
+		// An environment: drawn behind as a skybox, sky above and ground below, and reflected by a polished sphere.
+		var skyEnv = ashui.draw3d.Environment.gradient(0x2060ff, 0x2060ff, 0x20c040, 1, 16);
+		var ballMesh:ashui.draw3d.MeshData = {
+			var p:Array<Float> = [], idx:Array<Int> = [];
+			for (r in 0...17)
+				for (sg in 0...33) {
+					var phi = r / 16 * Math.PI, theta = sg / 32 * Math.PI * 2;
+					p.push(-Math.cos(theta) * Math.sin(phi));
+					p.push(Math.cos(phi));
+					p.push(Math.sin(theta) * Math.sin(phi));
+				}
+			for (r in 0...16)
+				for (sg in 0...32) {
+					var a = r * 33 + sg, b = a + 33;
+					for (i in [a, b, a + 1, a + 1, b, b + 1])
+						idx.push(i);
+				}
+			ashui.draw3d.MeshData.build(p, idx, p.copy(), null, null, new ashui.draw3d.Material({baseColor: 0xffffff, metallic: 1, roughness: 0.05}));
+		};
+		var envTree = new LayoutTree();
+		var envRoot:Div = ashui.reactive.Owner.root(envTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 4), ashui.math.Vec3.ZERO, null, 1.0), [], null,
+						null, null, null, null, skyEnv, 1, ashui.draw3d.Skybox.Sky(skyEnv)));
+					ctx.drawMesh(ballMesh, ashui.math.Mat4.scaling(new ashui.math.Vec3(0.6, 0.6, 0.6)));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(envRoot, SIZE, SIZE);
+		label = "environment: ";
+		probe("the skybox shows the sky at the top", 32, 10, (r, g, b) -> b > 150 && g < b && r < 120);
+		probe("and the ground at the bottom", 32, 54, (r, g, b) -> g > 120 && g > b && r < 120);
+		probe("a polished sphere reflects the sky near its top", 32, 26, (r, g, b) -> b > g && b > 100);
+		probe("and the ground near its bottom", 32, 38, (r, g, b) -> g > b && g > 80);
+
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
 		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);

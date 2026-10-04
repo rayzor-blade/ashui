@@ -121,7 +121,7 @@ class WindowedApp {
 		var instance = new GpuInstance();
 		// The device comes first: an await does not wake on Ash once a window is open.
 		var adapter = instance.requestAdapter(Power.HighPerformance).await();
-		var device = adapter.requestDevice().await();
+		var device = ashui.core.render.Renderer.requestDevice(adapter);
 		var attributes = settings.attributes();
 		// Raw device motion is not used, and a moving mouse sends a lot of it.
 		Window.listenDeviceEvents(Never);

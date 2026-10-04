@@ -74,7 +74,7 @@ class Offscreen {
 	/** An offscreen renderer on a device of its own. **/
 	public static function create(format:TextureFormat = Rgba8unorm):Offscreen {
 		var adapter = new GpuInstance().requestAdapter(Power.HighPerformance).await();
-		return new Offscreen(adapter.requestDevice().await(), format);
+		return new Offscreen(ashui.core.render.Renderer.requestDevice(adapter), format);
 	}
 
 	/**

@@ -24,6 +24,7 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 		@param var metalRoughMap : Sampler2D;
 		@param var emissiveMap : Sampler2D;
 		@param var occlusionMap : Sampler2D;
+		@param var environmentMap : SamplerCube;
 		@param var scene : StorageBuffer<Vec4>;
 		@param var draws : StorageBuffer<Vec4>;
 
@@ -83,11 +84,20 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 						lit += directLight(n, v, lightDirection(i, worldPos), lightRadiance(i, worldPos), albedo.rgb, metallic, roughness);
 					i++;
 				}
-				// Ambient: brighter from the sky than the ground, reflected along r for the specular part.
-				var ambient = ambientLight();
 				var r = reflect(-v, n);
-				var sky = ambient * mix(0.35, 1.25, clamp(r.y * 0.5 + 0.5, 0., 1.));
-				var around = ambient * mix(0.6, 1.1, clamp(n.y * 0.5 + 0.5, 0., 1.));
+				var sky = vec3(0., 0., 0.);
+				var around = vec3(0., 0., 0.);
+				if (hasEnvironment()) {
+					// The environment, blurred for the roughness along the reflection, and at its blurriest round the normal.
+					var levels = environmentLevels();
+					sky = textureLod(environmentMap, r, roughness * levels).rgb * environmentIntensity();
+					around = textureLod(environmentMap, n, levels).rgb * environmentIntensity();
+				} else {
+					// Ambient: brighter from the sky than the ground.
+					var ambient = ambientLight();
+					sky = ambient * mix(0.35, 1.25, clamp(r.y * 0.5 + 0.5, 0., 1.));
+					around = ambient * mix(0.6, 1.1, clamp(n.y * 0.5 + 0.5, 0., 1.));
+				}
 				var occlusion = mix(1., texture(occlusionMap, texcoord).r, surface.w);
 				var f0 = reflectance(albedo.rgb, metallic);
 				lit += (around * albedo.rgb * (1. - metallic) + sky * environmentBrdf(f0, roughness, max(dot(n, v), 0.0001))) * occlusion;

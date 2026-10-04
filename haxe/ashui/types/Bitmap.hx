@@ -47,6 +47,16 @@ class Bitmap {
 
 	public final height:Int;
 
+	/**
+		Frees its decoded pixels once a mesh's texture is made of them, keeping
+		only the GPU's copy: for an image drawn only on meshes, as glTF's are.
+		After that it draws nothing anywhere else.
+	**/
+	public var gpuOnly = false;
+
+	/** Called with each bitmap as it is disposed: what holds a copy of its pixels lets it go. **/
+	@:noCompletion public static final disposing:Array<Bitmap->Void> = [];
+
 	function new(slot:Int) {
 		this.slot = slot;
 		width = BitmapNative.blinc_bitmap_size(slot, false);
@@ -84,6 +94,8 @@ class Bitmap {
 
 	/** Frees its pixels; it must not be drawn after. **/
 	public function dispose():Void {
+		for (f in disposing)
+			f(this);
 		BitmapNative.blinc_bitmap_release(slot);
 		for (k => v in loaded)
 			if (v == this)

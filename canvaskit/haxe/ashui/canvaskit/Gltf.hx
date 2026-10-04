@@ -25,7 +25,8 @@ typedef GltfDraw = {mesh:MeshData, transform:Mat4};
 	```
 
 	Normals and tangents left out of a mesh are worked out (see
-	`MeshData.build`). Animations and skins are not read yet.
+	`MeshData.build`). Its images are `gpuOnly`: their decoded pixels are
+	freed once they are on the GPU. Animations and skins are not read yet.
 **/
 class Gltf {
 	public final draws:Array<GltfDraw>;
@@ -212,6 +213,8 @@ private class Reader {
 		var image:Dynamic = list(json.images)[t.source];
 		var bytes = if (image.bufferView != null) view(image.bufferView) else uri(image.uri);
 		var made = Bitmap.fromBytes(bytes);
+		// Drawn only on meshes: once on the GPU, its decoded pixels are freed.
+		made.gpuOnly = true;
 		images.set(t.source, made);
 		return made;
 	}

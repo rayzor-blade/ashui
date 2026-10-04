@@ -1,5 +1,6 @@
 import ashui.canvaskit.SceneKit;
 import ashui.components.Accordion;
+import ashui.components.Slider;
 import ashui.components.Alert;
 import ashui.components.Badge;
 import ashui.components.Button;
@@ -1180,6 +1181,18 @@ class Components {
 			[tyBox("tyLead").height, tyBox("tyLarge").height, tyBox("tyMuted").height]);
 
 		canvasKit();
+
+		// A labelled slider is 300 wide by default, and no wider than what holds it.
+		var narrowTree = new LayoutTree();
+		var narrowSlider:Null<Slider> = null;
+		var narrow:Div = Owner.root(narrowTree, _ -> {
+			narrowSlider = new Slider({label: "Exposure", value: 0.5});
+			new Div({width: 200, flexDirection: Column, padding: 10}, [narrowSlider], narrowTree);
+		});
+		narrowTree.flush();
+		narrowTree.computeLayout(narrow.node, 400, 200);
+		var sb = narrowTree.getBounds(narrowSlider.node);
+		check("a labelled slider in a column narrower than it shrinks to fit", sb != null && sb.width <= 180 + 0.5, sb == null ? null : sb.width);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

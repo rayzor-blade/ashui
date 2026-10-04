@@ -177,6 +177,31 @@ class Draw {
 		var halfway = Quat.IDENTITY.slerp(quarter, 0.5);
 		check("slerp halfway through a quarter turn is an eighth", near(halfway.rotate(new Vec3(1, 0, 0)), new Vec3(Math.cos(Math.PI / 4), 0, -Math.sin(Math.PI / 4))));
 
+		// --- Environments ---
+		var Env = ashui.draw3d.Environment;
+		check("16-bit floats: one, a half, zero, and the largest finite one for what is past it",
+			Env.half(1) == 0x3C00 && Env.half(0.5) == 0x3800 && Env.half(0) == 0 && Env.half(1e9) == 0x7BFF, [Env.half(1), Env.half(0.5)]);
+		check("a cube's +Z face looks along +Z through its middle, +Y up through its top edge",
+			near(Env.direction(4, 0, 0), new Vec3(0, 0, 1)) && Env.direction(4, 0, -1).y > 0.7, Env.direction(4, 0, -1));
+		check("its +Y face looks up", near(Env.direction(2, 0, 0), Vec3.UP));
+		// A Radiance file of two rows of four flat pixels, then one of rows eight wide, run-length encoded.
+		function hdr(width:Int, height:Int, body:Array<Int>):haxe.io.Bytes {
+			var head = haxe.io.Bytes.ofString('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y $height +X $width\n');
+			var b = haxe.io.Bytes.alloc(head.length + body.length);
+			b.blit(0, head, 0, head.length);
+			for (i in 0...body.length)
+				b.set(head.length + i, body[i]);
+			return b;
+		}
+		var flat = ashui.draw3d.Environment.Rgbe.decode(hdr(4, 2, [for (_ in 0...8) for (v in [128, 64, 32, 129]) v]));
+		var c = flat.sample(new Vec3(0, 0, -1));
+		check("an .hdr's pixels decode to their colour times two to their exponent", Math.abs(c.x - 128.5 / 128) < 1e-6 && Math.abs(c.z - 32.5 / 128) < 1e-6, c);
+		var rle = ashui.draw3d.Environment.Rgbe.decode(hdr(8, 1, [2, 2, 0, 8, 136, 200, 136, 100, 136, 50, 136, 136]));
+		var d = rle.sample(new Vec3(0, 1, 0));
+		check("and run-length encoded rows decode too", Math.abs(d.x - 200.5) < 1e-6 && Math.abs(d.y - 100.5) < 1e-6, d);
+		var sky = ashui.draw3d.Environment.gradient(0x3366ff, 0xffffff, 0x222222, 1, 8);
+		check("an environment has every mip level down to a texel a face", sky.levels == 4 && sky.faces[3].length == 6 * 8 && sky.faces[0].length == 6 * 64 * 8);
+
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

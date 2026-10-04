@@ -11,15 +11,19 @@ package ashui.shaders;
 	declares `@param var scene : StorageBuffer<Vec4>;` itself.
 
 	The buffer is rows of four floats: the view-projection's columns, the
-	eye and the light count, the ambient light and the exposure, then four
-	rows each light: its kind (0 directional, 1 point, 2 spot), range and
+	eye and the light count, the ambient light and the exposure, the
+	environment's intensity, its blurriest mip level and whether there is
+	one, the inverse view-projection's columns, the skybox (its kind, 0
+	none, 1 a sky, 2 a gradient; its mip level and intensity) and its
+	gradient's zenith, horizon and ground colours, then four rows each
+	light: its kind (0 directional, 1 point, 2 spot), range and
 	spot cone's cosines; its colour times its intensity; its position; the
 	way it shines. Colours are linear.
 **/
 class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	public static inline var MAX_LIGHTS = 8;
 	public static inline var LIGHT_ROWS = 4;
-	public static inline var FIRST_LIGHT = 6;
+	public static inline var FIRST_LIGHT = 15;
 	public static inline var ROWS = FIRST_LIGHT + MAX_LIGHTS * LIGHT_ROWS;
 
 	static var SRC = {
@@ -45,13 +49,56 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 			return scene[5].w;
 		}
 
+		/** What the environment's light is multiplied by. **/
+		function environmentIntensity() : Float {
+			return scene[6].x;
+		}
+
+		/** The environment's blurriest mip level, which rough surfaces and diffuse light sample. **/
+		function environmentLevels() : Float {
+			return scene[6].y;
+		}
+
+		/** Whether there is an environment; without one, ambient light stands in for it. **/
+		function hasEnvironment() : Bool {
+			return scene[6].z > 0.5;
+		}
+
+		/** What is behind the scene: 0 nothing, 1 a sky, 2 a gradient. **/
+		function skyboxKind() : Float {
+			return scene[11].x;
+		}
+
+		/** The mip level a sky skybox shows its environment at. **/
+		function skyboxLevel() : Float {
+			return scene[11].y;
+		}
+
+		function skyboxIntensity() : Float {
+			return scene[11].z;
+		}
+
+		/** A gradient skybox's colour the way `d` looks, by its height. **/
+		function skyboxGradient(d : Vec3) : Vec3 {
+			var c = mix(scene[13].rgb, scene[12].rgb, pow(clamp(d.y, 0., 1.), 0.6));
+			if (d.y < 0.)
+				c = mix(scene[13].rgb, scene[14].rgb, clamp(-d.y * 4., 0., 1.));
+			return c;
+		}
+
+		/** The way from the eye through `ndc`, a point on the screen from -1 to 1 each way, up positive. **/
+		function viewDirection(ndc : Vec2) : Vec3 {
+			var p = scene[7] * ndc.x + scene[8] * ndc.y + scene[9] + scene[10];
+			return normalize(p.xyz / p.w - scene[4].xyz);
+		}
+
 		function lightCount() : Int {
 			return int(scene[4].w + 0.5);
 		}
 
 		/** The way from `at` toward light `i`, of unit length. **/
 		function lightDirection(i : Int, at : Vec3) : Vec3 {
-			var row = 6 + i * 4;
+			var row = 15 + i * 4;
 			var l = -normalize(scene[row + 3].xyz);
 			if (scene[row].x > 0.5)
 				l = normalize(scene[row + 2].xyz - at);
@@ -60,7 +107,7 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 
 		/** The light `i` brings to `at`: its colour and intensity, faded by distance and, for a spot, its cone. **/
 		function lightRadiance(i : Int, at : Vec3) : Vec3 {
-			var row = 6 + i * 4;
+			var row = 15 + i * 4;
 			var kind = scene[row];
 			var fade = 1.;
 			if (kind.x > 0.5) {

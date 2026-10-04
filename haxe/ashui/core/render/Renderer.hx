@@ -159,6 +159,21 @@ class Renderer {
 		return made;
 	}
 
+	/**
+		A device from `adapter` whose memory is allocated in small blocks
+		rather than large ones kept for speed: the large blocks are mostly
+		empty for a UI and its few textures.
+	**/
+	public static function requestDevice(adapter:gpu.GpuAdapter):gpu.GpuDevice {
+		#if ashui_caribou
+		return adapter.requestDevice().await();
+		#else
+		var descriptor = new gpu.GpuDeviceDescriptor();
+		descriptor.memoryHints(MemoryUsage);
+		return adapter.requestDeviceWith(descriptor).await();
+		#end
+	}
+
 	/** Pipelines made for canvases' shaders, by their WGSL. **/
 	final canvasPasses = new Map<String, Pass>();
 

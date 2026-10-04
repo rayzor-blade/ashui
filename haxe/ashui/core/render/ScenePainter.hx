@@ -71,9 +71,12 @@ private class SceneLayer {
 	filtered down. A layer is rendered again only when its draws or its
 	size change; otherwise it is only drawn again.
 
-	A mesh's vertices and indices, and its material's textures with all
-	their mip levels, are uploaded the first time it is drawn and kept
-	while it is drawn; those not drawn in a frame are freed.
+	A mesh's vertices and indices are uploaded the first time it is drawn
+	and kept while it is drawn; those not drawn in a frame are freed. A
+	texture, with all its mip levels, is made once for every canvas and
+	kept until its bitmap is disposed; a `gpuOnly` bitmap's pixels are
+	freed once it is made. The layer is rendered at `SUPERSAMPLE` times
+	the screen's pixels where they are coarser than two a layout unit.
 **/
 class ScenePainter {
 	/** Layer pixels to a target pixel, each way: the antialiasing. **/
@@ -86,8 +89,26 @@ class ScenePainter {
 
 	final layers:Array<SceneLayer> = [];
 	final meshes = new haxe.ds.ObjectMap<MeshData, {vertices:GpuBuffer, indices:GpuBuffer, used:Int}>();
-	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int}>();
-	final textures = new Map<String, Uploaded & {used:Int}>();
+	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, environment:Null<ashui.draw3d.Environment>}>();
+	/** Environments' cubemaps, shared by every canvas, kept while the environment is. **/
+	static final environments = new haxe.ds.ObjectMap<ashui.draw3d.Environment, Uploaded>();
+
+	/** A black cube, bound where a scene has no environment. **/
+	static var noEnvironment:Null<Uploaded> = null;
+
+	static var environmentSampler:Null<GpuSampler> = null;
+	static var watchingEnvironments = false;
+	var skyPipeline:Null<GpuPipeline> = null;
+	var skyGroup:Null<GpuBindGroup> = null;
+	var skyGroupFor:Null<{environment:Null<ashui.draw3d.Environment>, buffers:Int}> = null;
+
+	/** Textures, by bitmap slot and colour space, shared by every canvas on the one device. **/
+	static final textures = new Map<String, Uploaded>();
+
+	static var watchingDisposal = false;
+
+	/** Pixels resampled for an upload, reused from level to level and texture to texture in a frame. **/
+	var scratch:Null<haxe.io.Bytes> = null;
 	final pipelines = new Map<Int, GpuPipeline>();
 	var defaults:Null<{white:Uploaded, flat:Uploaded}> = null;
 	var sampler:Null<GpuSampler> = null;
@@ -120,12 +141,10 @@ class ScenePainter {
 				g.group.destroy();
 				materials.remove(m);
 			}
-		for (k => t in textures)
-			if (t.used != frameCount) {
-				t.view.destroy();
-				t.texture.destroy();
-				textures.remove(k);
-			}
+		scratch = null;
+		for (b in pendingRelease)
+			@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_release(b.slot);
+		pendingRelease.resize(0);
 	}
 
 	/** Draws run `index` of the canvas's 3D runs, `draws` seen as `scene` says, over the canvas's box. **/
@@ -133,8 +152,9 @@ class ScenePainter {
 		while (layers.length <= index)
 			layers.push(new SceneLayer());
 		var layer = layers[index];
-		var w = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.width * frame.scale * SUPERSAMPLE))));
-		var h = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.height * frame.scale * SUPERSAMPLE))));
+		var ss = frame.pixelRatio >= 2 ? 1 : SUPERSAMPLE;
+		var w = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.width * frame.scale * ss))));
+		var h = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.height * frame.scale * ss))));
 		var resized = w != layer.width || h != layer.height || layer.color == null;
 		if (resized) {
 			layer.destroy();
@@ -185,10 +205,10 @@ class ScenePainter {
 			group.used = frameCount;
 		for (t in [m.baseColorTexture, m.emissiveTexture])
 			if (t != null)
-				texture(frame, t, true).used = frameCount;
+				texture(frame, t, true);
 		for (t in [m.normalTexture, m.metallicRoughnessTexture, m.occlusionTexture])
 			if (t != null)
-				texture(frame, t, false).used = frameCount;
+				texture(frame, t, false);
 	}
 
 	function render(frame:CanvasFrame, layer:SceneLayer, draws:Array<SceneDraw>, scene:Scene3D):Void {
@@ -196,7 +216,8 @@ class ScenePainter {
 		ensureBuffers(frame, draws.length);
 		var aspect = frame.width / Math.max(frame.height, 0.0001);
 		var viewProjection = scene.camera.projection(aspect).mul(scene.camera.view());
-		device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection), ashui.shaders.Scene.ROWS * 16);
+		var environment = scene.environment;
+		device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection, environment != null ? environment.levels - 1 : 0), ashui.shaders.Scene.ROWS * 16);
 		// Opaque first, in order; then blended, furthest first, so each blends over what is behind it.
 		var order = [for (i in 0...draws.length) i];
 		var eye = scene.camera.eye;
@@ -217,7 +238,12 @@ class ScenePainter {
 		for (slot in 0...order.length)
 			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]]);
 		device.queue().writeBuffer(drawBuffer, 0, bytes, bytes.length);
-		var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material)];
+		var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material, environment)];
+		var sky = switch scene.skybox {
+			case null: null;
+			case Sky(e, _, _): skyBinding(frame, e);
+			case Gradient(_): skyBinding(frame, null);
+		}
 		var bg = scene.background, ba = scene.backgroundAlpha;
 		frame.suspend(encoder -> {
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
@@ -233,6 +259,11 @@ class ScenePainter {
 			pass.addColorAttachments(color);
 			pass.depthStencilAttachment(depth);
 			encoder.beginRenderPass(pass);
+			if (sky != null) {
+				encoder.renderSetPipeline(sky.pipeline);
+				encoder.renderSetBindGroup(0, sky.group);
+				encoder.renderDraw(3, 1);
+			}
 			for (slot in 0...order.length) {
 				var d = draws[order[slot]];
 				var gpu = meshes.get(d.mesh);
@@ -294,10 +325,10 @@ class ScenePainter {
 		return made;
 	}
 
-	/** Its textures, the scene and the draws: a material's bind group, made for its pipeline. **/
-	function materialGroup(frame:CanvasFrame, material:Material):GpuBindGroup {
+	/** Its textures, the environment, the scene and the draws: a material's bind group, made for its pipeline. **/
+	function materialGroup(frame:CanvasFrame, material:Material, environment:Null<ashui.draw3d.Environment>):GpuBindGroup {
 		var known = materials.get(material);
-		if (known != null && known.buffers == buffers) {
+		if (known != null && known.buffers == buffers && known.environment == environment) {
 			known.used = frameCount;
 			return known.group;
 		}
@@ -317,12 +348,99 @@ class ScenePainter {
 			bindings.texture(view);
 			bindings.sampler(sampler);
 		}
+		bindings.texture(cube(frame, environment).view);
+		bindings.sampler(environmentSampler);
 		bindings.buffer(sceneBuffer);
 		bindings.buffer(drawBuffer);
 		var group = frame.device.bindGroup(pipeline(frame, material, 1), 0, bindings);
 		bindings.destroy();
-		materials.set(material, {group: group, used: frameCount, buffers: buffers});
+		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: environment});
 		return group;
+	}
+
+	/** The sky pass's pipeline and its bind group for `environment`. **/
+	function skyBinding(frame:CanvasFrame, environment:Null<ashui.draw3d.Environment>):{pipeline:GpuPipeline, group:GpuBindGroup} {
+		var device = frame.device;
+		if (skyPipeline == null) {
+			var builder = device.pipeline();
+			builder.shader(device.createShader(SkyShader.WGSL), "vertex", "fragment");
+			builder.target(frame.format, GpuFlags.COLOR_WRITE_ALL);
+			builder.depth(DEPTH_FORMAT, false, Always);
+			builder.primitive(TriangleList, None, Ccw);
+			skyPipeline = builder.build();
+		}
+		if (skyGroup == null || skyGroupFor.environment != environment || skyGroupFor.buffers != buffers) {
+			if (skyGroup != null)
+				skyGroup.destroy();
+			var bindings = new GpuBindings();
+			bindings.texture(cube(frame, environment).view);
+			bindings.sampler(environmentSampler);
+			bindings.buffer(sceneBuffer);
+			skyGroup = device.bindGroup(skyPipeline, 0, bindings);
+			bindings.destroy();
+			skyGroupFor = {environment: environment, buffers: buffers};
+		}
+		return {pipeline: skyPipeline, group: skyGroup};
+	}
+
+	/** `environment`'s cubemap on the GPU, every level, its pixels then freed; a black one for none. **/
+	function cube(frame:CanvasFrame, environment:Null<ashui.draw3d.Environment>):Uploaded {
+		var device = frame.device;
+		if (environmentSampler == null) {
+			var s = new GpuSamplerDescriptor();
+			s.magFilter(Linear);
+			s.minFilter(Linear);
+			s.mipmapFilter(Linear);
+			environmentSampler = device.sampler(s);
+		}
+		if (environment == null) {
+			if (noEnvironment == null)
+				noEnvironment = makeCube(device, 1, [haxe.io.Bytes.alloc(6 * 8)]);
+			return noEnvironment;
+		}
+		var known = environments.get(environment);
+		if (known != null)
+			return known;
+		var faces = environment.faces;
+		if (!watchingEnvironments) {
+			watchingEnvironments = true;
+			ashui.draw3d.Environment.disposing.push(e -> {
+				var t = environments.get(e);
+				if (t != null) {
+					t.view.destroy();
+					t.texture.destroy();
+					environments.remove(e);
+				}
+			});
+		}
+		var made = makeCube(device, environment.size, faces != null ? faces : [for (l in 0...environment.levels) haxe.io.Bytes.alloc(6 * 8 * Std.int(Math.pow(Math.max(1, environment.size >> l), 2)))]);
+		environment.faces = null;
+		environments.set(environment, made);
+		return made;
+	}
+
+	static function makeCube(device:gpu.GpuDevice, size:Int, levels:Array<haxe.io.Bytes>):Uploaded {
+		var extent = new GpuExtent3D(size);
+		extent.height(size);
+		extent.depthOrArrayLayers(6);
+		var descriptor = new GpuTextureDescriptor(extent, TextureFormat.Rgba16float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
+		descriptor.mipLevelCount(levels.length);
+		var t = device.texture(descriptor);
+		for (level in 0...levels.length) {
+			var n = Std.int(Math.max(1, size >> level));
+			var destination = new GpuTexelCopyTextureInfo(t);
+			destination.mipLevel(level);
+			var layout = new GpuTexelCopyBufferLayout();
+			layout.bytesPerRow(n * 8);
+			layout.rowsPerImage(n);
+			var copy = new GpuExtent3D(n);
+			copy.height(n);
+			copy.depthOrArrayLayers(6);
+			device.queue().writeTextureWith(destination, levels[level], layout, copy);
+		}
+		var view = new GpuTextureViewDescriptor();
+		view.dimension(Cube);
+		return {texture: t, view: t.createView(view)};
 	}
 
 	function ensureBuffers(frame:CanvasFrame, draws:Int):Void {
@@ -386,11 +504,22 @@ class ScenePainter {
 		whole image; `srgb` for colour, which the GPU turns linear as it is
 		sampled.
 	**/
-	function texture(frame:CanvasFrame, bitmap:Bitmap, srgb:Bool):Uploaded & {used:Int} {
+	function texture(frame:CanvasFrame, bitmap:Bitmap, srgb:Bool):Uploaded {
 		var key = '${bitmap.slot}/${srgb ? 1 : 0}';
 		var known = textures.get(key);
 		if (known != null)
 			return known;
+		if (!watchingDisposal) {
+			watchingDisposal = true;
+			Bitmap.disposing.push(b -> for (k in ['${b.slot}/0', '${b.slot}/1']) {
+				var t = textures.get(k);
+				if (t != null) {
+					t.view.destroy();
+					t.texture.destroy();
+					textures.remove(k);
+				}
+			});
+		}
 		var w = bitmap.width, h = bitmap.height;
 		var levels = 1;
 		while ((w >> levels) > 0 || (h >> levels) > 0)
@@ -401,9 +530,11 @@ class ScenePainter {
 			GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
 		descriptor.mipLevelCount(levels);
 		var t = frame.device.texture(descriptor);
+		if (scratch == null || scratch.length < w * h * 4)
+			scratch = haxe.io.Bytes.alloc(w * h * 4);
+		var px = scratch;
 		for (level in 0...levels) {
 			var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
-			var px = haxe.io.Bytes.alloc(lw * lh * 4);
 			@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_resample(bitmap.slot, lw, lh, (Fill : ashui.types.Brush.ImageFit), px);
 			var destination = new GpuTexelCopyTextureInfo(t);
 			destination.mipLevel(level);
@@ -414,17 +545,26 @@ class ScenePainter {
 			extent.height(lh);
 			frame.device.queue().writeTextureWith(destination, px, layout, extent);
 		}
-		var made = {texture: t, view: t.createView(new GpuTextureViewDescriptor()), used: frameCount};
+		var made = {texture: t, view: t.createView(new GpuTextureViewDescriptor())};
 		textures.set(key, made);
+		// Its other colour space may still be wanted; its pixels go once both a material asks for are made.
+		if (bitmap.gpuOnly)
+			releaseWhenMade(bitmap);
 		return made;
 	}
+
+	/** Frees `bitmap`'s pixels at the end of the frame, after every texture its materials take from it is made. **/
+	function releaseWhenMade(bitmap:Bitmap):Void
+		pendingRelease.push(bitmap);
+
+	final pendingRelease:Array<Bitmap> = [];
 
 	static function linear(c:Int):Float {
 		var v = c / 255;
 		return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 	}
 
-	static function sceneBytes(scene:Scene3D, viewProjection:Mat4):haxe.io.Bytes {
+	static function sceneBytes(scene:Scene3D, viewProjection:Mat4, levels:Int):haxe.io.Bytes {
 		var out = haxe.io.Bytes.alloc(ashui.shaders.Scene.ROWS * 16);
 		viewProjection.write(out, 0);
 		var lights = scene.lights.slice(0, ashui.shaders.Scene.MAX_LIGHTS);
@@ -432,6 +572,21 @@ class ScenePainter {
 		row(out, 4, eye.x, eye.y, eye.z, lights.length);
 		var a = scene.ambient, s = scene.ambientStrength;
 		row(out, 5, linear(a >> 16 & 0xff) * s, linear(a >> 8 & 0xff) * s, linear(a & 0xff) * s, scene.exposure);
+		row(out, 6, scene.environmentIntensity, levels, scene.environment != null ? 1 : 0, 0);
+		var inverse = viewProjection.inverse();
+		(inverse != null ? inverse : Mat4.IDENTITY).write(out, 7 * 16);
+		function color(at:Int, c:Int)
+			row(out, at, linear(c >> 16 & 0xff), linear(c >> 8 & 0xff), linear(c & 0xff), 0);
+		switch scene.skybox {
+			case null:
+			case Sky(e, blur, intensity):
+				row(out, 11, 1, (blur != null ? blur : 0) * (e.levels - 1), intensity != null ? intensity : 1, 0);
+			case Gradient(zenith, horizon, ground):
+				row(out, 11, 2, 0, 1, 0);
+				color(12, zenith);
+				color(13, horizon);
+				color(14, ground);
+		}
 		for (i in 0...lights.length) {
 			var at = ashui.shaders.Scene.FIRST_LIGHT + i * ashui.shaders.Scene.LIGHT_ROWS;
 			inline function rgb(c:Int, k:Float)
