@@ -33,6 +33,9 @@ class Sweep {
 	/** The vertex ys, sorted, each once. **/
 	final ys:Array<Float> = [];
 
+	/** Level edges where the fill ends: `y, left x, right x`, and 1 where it is filled below, -1 above. **/
+	final levels:Array<Array<Float>> = [];
+
 	public function new(rings:Array<Contour>, rule:FillRule) {
 		this.rule = rule;
 		for (r in rings) {
@@ -80,6 +83,14 @@ class Sweep {
 		return rule == EvenOdd ? w & 1 != 0 : w != 0;
 
 	public function run(aa:Float, mesh:Mesh, c:Float):Void {
+		// Level edges are in no band: whether the fill ends at one is found from the winding just above and below its middle.
+		for (e in 0...sx.length)
+			if (Math.abs(ey[e] - sy[e]) <= EPS && Math.abs(ex[e] - sx[e]) > EPS) {
+				var mx = (sx[e] + ex[e]) / 2, my = sy[e], h = Math.max(1e-6, aa * 1e-3);
+				var above = filled(winding(mx, my - h)), below = filled(winding(mx, my + h));
+				if (above != below)
+					levels.push([my, Math.min(sx[e], ex[e]), Math.max(sx[e], ex[e]), below ? 1 : -1, e]);
+			}
 		// Edges in order of their tops, added to the active set as the sweep reaches them.
 		var order = [for (e in 0...sx.length) if (Math.abs(ey[e] - sy[e]) > EPS) e];
 		order.sort((a, b) -> Reflect.compare(top(a), top(b)));
@@ -106,7 +117,7 @@ class Sweep {
 						bandBottom = y;
 				}
 			}
-			band(crossing, bandTop, bandBottom, mesh, c);
+			band(crossing, bandTop, bandBottom, aa, mesh, c);
 			bandTop = bandBottom;
 			if (bandBottom >= ys[at] - EPS)
 				at++;
@@ -121,8 +132,15 @@ class Sweep {
 		return y0 + (y1 - y0) * Math.max(0, Math.min(1, t));
 	}
 
-	/** One band: the trapezoids where the winding is inside, and the pieces of edge where it changes from inside to out. **/
-	function band(edges:Array<Int>, y0:Float, y1:Float, mesh:Mesh, c:Float):Void {
+	/**
+		One band: the trapezoids where the winding is inside, and the pieces
+		of edge where it changes from inside to out. A trapezoid's sides are
+		the shape's edges, as it runs from where the fill starts to where it
+		ends; its top or bottom is too where a level edge of the shape lies
+		along it. Each vertex carries its distance inside each of those, in
+		target pixels.
+	**/
+	function band(edges:Array<Int>, y0:Float, y1:Float, aa:Float, mesh:Mesh, c:Float):Void {
 		var w = 0;
 		var left = -1;
 		for (e in edges) {
@@ -139,10 +157,49 @@ class Sweep {
 			else if (left >= 0) {
 				var la = xAt(left, y0), lb = xAt(left, y1), ra = xAt(e, y0), rb = xAt(e, y1);
 				if (ra - la > EPS || rb - lb > EPS)
-					mesh.quad(la, y0, c, ra, y0, c, rb, y1, c, lb, y1, c);
+					trapezoid(left, e, y0, y1, la, lb, ra, rb, aa, mesh, c);
 				left = -1;
 			}
 		}
+	}
+
+	function trapezoid(l:Int, r:Int, y0:Float, y1:Float, la:Float, lb:Float, ra:Float, rb:Float, aa:Float, mesh:Mesh, c:Float):Void {
+		// Inward normals of the side edges: rightward for the left side, leftward for the right.
+		var ln = inward(l, 1), rn = inward(r, -1);
+		var lx = xAt(l, y0), rx = xAt(r, y0);
+		inline function dl(px:Float, py:Float)
+			return ((px - lx) * ln[0] + (py - y0) * ln[1]) / aa;
+		inline function dr(px:Float, py:Float)
+			return ((px - rx) * rn[0] + (py - y0) * rn[1]) / aa;
+		var top = alongLevel(y0, la, ra, 1), bottom = alongLevel(y1, lb, rb, -1);
+		inline function dt(py:Float)
+			return top ? (py - y0) / aa : Mesh.FAR;
+		inline function db(py:Float)
+			return bottom ? (y1 - py) / aa : Mesh.FAR;
+		inline function v(px:Float, py:Float)
+			mesh.vertex(px, py, c, dl(px, py), dr(px, py), dt(py), db(py));
+		v(la, y0);
+		v(ra, y0);
+		v(rb, y1);
+		v(la, y0);
+		v(rb, y1);
+		v(lb, y1);
+	}
+
+	/** The unit normal of edge `e` with an x of the sign of `side`. **/
+	function inward(e:Int, side:Int):Array<Float> {
+		var dx = ex[e] - sx[e], dy = ey[e] - sy[e];
+		var l = Math.sqrt(dx * dx + dy * dy);
+		var nx = dy / l, ny = -dx / l;
+		return (nx > 0) == (side > 0) ? [nx, ny] : [-nx, -ny];
+	}
+
+	/** Whether a level edge of the fill lies along `y` over the span `x0` to `x1`, filled on the side `below` says. **/
+	function alongLevel(y:Float, x0:Float, x1:Float, below:Int):Bool {
+		for (l in levels)
+			if (Math.abs(l[0] - y) <= EPS && l[3] == below && l[1] <= x0 + EPS && l[2] >= x1 - EPS)
+				return true;
+		return false;
 	}
 
 	/** How many times the contours wind round `(px, py)`. **/
@@ -178,15 +235,14 @@ class Sweep {
 				continue;
 			var dx = (ex[e] - sx[e]) / l, dy = (ey[e] - sy[e]) / l;
 			if (Math.abs(ey[e] - sy[e]) <= EPS) {
-				// Level: inside above or below.
-				var mx = (sx[e] + ex[e]) / 2, my = sy[e], h = Math.max(1e-6, aa * 1e-3);
-				var above = filled(winding(mx, my - h)), below = filled(winding(mx, my + h));
-				if (above == below)
-					continue;
-				nx[e] = 0;
-				ny[e] = above ? 1 : -1;
-				pieces[e] = [my, my, 0];
-				atStart[e] = atEnd[e] = true;
+				// Level: outward away from the side it is filled on, found before the bands.
+				for (lv in levels)
+					if (lv[4] == e) {
+						nx[e] = 0;
+						ny[e] = lv[3] > 0 ? -1 : 1;
+						pieces[e] = [sy[e], sy[e], 0];
+						atStart[e] = atEnd[e] = true;
+					}
 				continue;
 			}
 			var p = pieces[e];
@@ -252,9 +308,11 @@ class Sweep {
 		}
 	}
 
+	/** A piece of the fringe: from half coverage at the edge to none half a pixel out, so a pixel is covered as much as it is inside the edge. **/
 	inline function emit(e:Int, ax:Float, ay:Float, bx:Float, by:Float, offset:(Int, Float, Float) -> Array<Float>, aa:Float, mesh:Mesh,
 			c:Float):Void {
 		var oa = offset(e, ax, ay), ob = offset(e, bx, by);
-		mesh.quad(ax, ay, c, bx, by, c, bx + ob[0] * aa, by + ob[1] * aa, 0, ax + oa[0] * aa, ay + oa[1] * aa, 0);
+		var w = aa * 0.5, h = c * 0.5;
+		mesh.quad(ax, ay, h, bx, by, h, bx + ob[0] * w, by + ob[1] * w, 0, ax + oa[0] * w, ay + oa[1] * w, 0);
 	}
 }

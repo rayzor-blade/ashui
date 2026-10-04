@@ -15,7 +15,7 @@ class Tessellate {
 	/**
 		The inside of `contours`, closed whatever they say, by `rule`, cut
 		into trapezoids by a sweep down the page, then the fringe outside
-		its edges. A single convex contour is a fan instead.
+		its edges.
 
 		The sweep cuts the plane into bands at every vertex and every point
 		where edges cross, so no two edges cross inside a band. Across a
@@ -27,72 +27,15 @@ class Tessellate {
 		meet exactly, as each edge's position is worked out the same way
 		by the bands either side of it. Where the count changes from inside
 		to outside across an edge, that piece of edge is the shape's edge,
-		and gets the fringe on its outer side.
+		and gets the fringe on its outer side; a trapezoid's vertices carry
+		their distances inside the shape's edges it lies along, so the
+		pixels just inside them are covered by how far inside they are.
 	**/
 	public static function fill(contours:Array<Contour>, rule:FillRule, aa:Float, mesh:Mesh, coverage = 1.0):Void {
 		var rings = [for (c in contours) if (c.count() >= 3) c];
 		if (rings.length == 0)
 			return;
-		if (rings.length == 1 && convex(rings[0])) {
-			var r = oriented(rings[0], true);
-			for (i in 1...r.count() - 1)
-				mesh.triangle(r.x(0), r.y(0), coverage, r.x(i), r.y(i), coverage, r.x(i + 1), r.y(i + 1), coverage);
-			fringe(r, aa, mesh, coverage);
-			return;
-		}
 		new Sweep(rings, rule).run(aa, mesh, coverage);
-	}
-
-	/** Whether the ring turns one way only, and only once round: a star turns one way, but twice. **/
-	static function convex(r:Contour):Bool {
-		var n = r.count(), sign = 0, total = 0.0;
-		for (i in 0...n) {
-			var a = i, b = (i + 1) % n, c = (i + 2) % n;
-			var ux = r.x(b) - r.x(a), uy = r.y(b) - r.y(a), vx = r.x(c) - r.x(b), vy = r.y(c) - r.y(b);
-			var cross = ux * vy - uy * vx;
-			total += Math.atan2(cross, ux * vx + uy * vy);
-			if (Math.abs(cross) < 1e-12)
-				continue;
-			var s = cross > 0 ? 1 : -1;
-			if (sign == 0)
-				sign = s;
-			else if (s != sign)
-				return false;
-		}
-		return Math.abs(total) < Math.PI * 2 + 1e-6;
-	}
-
-	/** The ring running with positive area (`positive`) or negative, reversed if it does not. **/
-	static function oriented(r:Contour, positive:Bool):Contour {
-		if ((r.area2() > 0) == positive)
-			return r;
-		var out = new Contour();
-		out.closed = true;
-		var i = r.count();
-		while (i-- > 0)
-			out.add(r.x(i), r.y(i));
-		return out;
-	}
-
-	/**
-		The fringe outside a ring of positive area: a strip `aa` wide along
-		each edge, out to its right, each vertex moved out along the mean
-		of its edges' normals so the strip keeps its width round a corner.
-	**/
-	static function fringe(r:Contour, aa:Float, mesh:Mesh, coverage:Float):Void {
-		var n = r.count();
-		var ox = [], oy = [];
-		for (i in 0...n) {
-			var p = (i + n - 1) % n, q = (i + 1) % n;
-			var n0 = rightNormal(r.x(p), r.y(p), r.x(i), r.y(i)), n1 = rightNormal(r.x(i), r.y(i), r.x(q), r.y(q));
-			var m = miter(n0[0], n0[1], n1[0], n1[1]);
-			ox.push(r.x(i) + m[0] * aa);
-			oy.push(r.y(i) + m[1] * aa);
-		}
-		for (i in 0...n) {
-			var j = (i + 1) % n;
-			mesh.quad(r.x(i), r.y(i), coverage, r.x(j), r.y(j), coverage, ox[j], oy[j], 0, ox[i], oy[i], 0);
-		}
 	}
 
 	/** Where a corner between edges of outward normals `a` and `b` moves out to, for the strip to keep its width: a little at most. **/

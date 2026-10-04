@@ -15,14 +15,19 @@ class Draw {
 		Sys.println('${ok ? "ok  " : "FAIL"} $name${ok ? "" : ': $detail'}');
 	}
 
-	/** The mesh's area weighted by coverage: what it paints. **/
+	static inline var S = Mesh.STRIDE;
+
+	/** A triangle's area, its first vertex at `i`. **/
+	static function area(d:Array<Float>, i:Int):Float
+		return Math.abs((d[i + S] - d[i]) * (d[i + 2 * S + 1] - d[i + 1]) - (d[i + 2 * S] - d[i]) * (d[i + S + 1] - d[i + 1])) / 2;
+
+	/** The mesh's area weighted by coverage: what it paints, its distances aside. **/
 	static function painted(m:Mesh):Float {
 		var sum = 0.0, d = m.data;
 		var i = 0;
 		while (i < d.length) {
-			var area = Math.abs((d[i + 3] - d[i]) * (d[i + 7] - d[i + 1]) - (d[i + 6] - d[i]) * (d[i + 4] - d[i + 1])) / 2;
-			sum += area * (d[i + 2] + d[i + 5] + d[i + 8]) / 3;
-			i += 9;
+			sum += area(d, i) * (d[i + 2] + d[i + S + 2] + d[i + 2 * S + 2]) / 3;
+			i += 3 * S;
 		}
 		return sum;
 	}
@@ -32,9 +37,9 @@ class Draw {
 		var sum = 0.0, d = m.data;
 		var i = 0;
 		while (i < d.length) {
-			if (d[i + 2] == 1 && d[i + 5] == 1 && d[i + 8] == 1)
-				sum += Math.abs((d[i + 3] - d[i]) * (d[i + 7] - d[i + 1]) - (d[i + 6] - d[i]) * (d[i + 4] - d[i + 1])) / 2;
-			i += 9;
+			if (d[i + 2] == 1 && d[i + S + 2] == 1 && d[i + 2 * S + 2] == 1)
+				sum += area(d, i);
+			i += 3 * S;
 		}
 		return sum;
 	}
@@ -76,8 +81,13 @@ class Draw {
 
 		// --- Fills ---
 		var square = fill(new Path().rect(0, 0, 10, 10));
-		check("a square fills its area, and its fringe a pixel wide around it", Math.abs(solid(square) - 100) < 1e-6
-			&& Math.abs(painted(square) - 100 - 40 * 0.5) < 2, [solid(square), painted(square)]);
+		check("a square fills its area, and its fringe half a pixel out from half weight", Math.abs(solid(square) - 100) < 1e-6
+			&& Math.abs(painted(square) - 100 - 40 * 0.125) < 1, [solid(square), painted(square)]);
+		// A square's trapezoid: each vertex as far inside each side as it is, in pixels; its corner on two sides at once.
+		var corner = square.data.slice(0, S);
+		var far = [for (i in 0...Std.int(square.data.length / S)) square.data[i * S + 2] == 1 ? Math.max(square.data[i * S + 3], square.data[i * S + 4]) : 0];
+		check("a fill's vertices carry their distance inside its edges, in pixels", corner[0] == 0 && corner[1] == 0 && corner[3] == 0
+			&& corner[5] == 0 && far.indexOf(10) >= 0, corner);
 		var l = fill(new Path().moveTo(0, 0).lineTo(20, 0).lineTo(20, 5).lineTo(5, 5).lineTo(5, 20).lineTo(0, 20).close());
 		check("a concave shape fills its area exactly, no triangle over another", Math.abs(solid(l) - 175) < 1e-6, solid(l));
 		var framed = new Path().rect(0, 0, 10, 10).rect(2, 2, 6, 6);
@@ -101,9 +111,9 @@ class Draw {
 		check("a path crossing itself fills both its lobes, nothing over another", Math.abs(solid(crossed) - 50) < 1e-6 && finite(crossed), solid(crossed));
 		var overlap = fill(new Path().rect(0, 0, 10, 10).rect(5, 5, 10, 10));
 		check("overlapping paths fill their union once, by non-zero", Math.abs(solid(overlap) - 175) < 1e-6, solid(overlap));
-		check("a concave shape's fringe runs its whole outline, half its length at full weight", Math.abs(painted(l) - 175 - 80 * 0.5) < 3, painted(l));
+		check("a concave shape's fringe runs its whole outline", Math.abs(painted(l) - 175 - 80 * 0.125) < 1.5, painted(l));
 		check("overlapping paths have a fringe on their union's outline alone, none where they cross inside",
-			Math.abs(painted(overlap) - 175 - 60 * 0.5) < 3, painted(overlap));
+			Math.abs(painted(overlap) - 175 - 60 * 0.125) < 1.5, painted(overlap));
 		var star = new Path().moveTo(50, 0).lineTo(79, 90).lineTo(2, 34).lineTo(98, 34).lineTo(21, 90).close();
 		var starNonZero = solid(fill(star, NonZero)), starEvenOdd = solid(fill(star, EvenOdd));
 		check("a star is filled whole by non-zero, its middle left out by even-odd", starNonZero > starEvenOdd + 500 && starEvenOdd > 1000,
