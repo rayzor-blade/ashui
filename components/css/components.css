@@ -892,3 +892,26 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 }
 .ui-drawer:hover .ui-drawer-handle-bar { background: color-mix(in srgb, var(--text-primary) 30%, transparent); }
 .ui-drawer[data-dragging] .ui-drawer-handle-bar { background: color-mix(in srgb, var(--text-primary) 45%, transparent); width: 56px; }
+
+/* ------------------------------------------------------------- Tree view */
+
+/* Rows that choose and open; an open item's children indented under a guide down from its chevron, growing in and folding away. */
+.ui-tree { flex-direction: column; gap: 1px; font-size: var(--text-sm); }
+.ui-tree-item { flex-direction: column; gap: 1px; }
+.ui-tree-row {
+	flex-direction: row; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: var(--radius-md);
+	color: var(--text-secondary); background: transparent; outline: 0 solid var(--focus-ring); outline-offset: -2px;
+	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
+}
+.ui-tree-row:hover { background: var(--accent-subtle); color: var(--text-primary); }
+.ui-tree-row[data-selected] { background: color-mix(in srgb, var(--primary) 24%, transparent); color: var(--text-primary); }
+.ui-tree-row:focus-visible { outline-width: 2px; }
+.ui-tree-chevron { flex-shrink: 0; color: var(--text-tertiary); transition: transform var(--duration-normal) var(--ease-state); }
+.ui-tree-item[data-state="open"] > .ui-tree-row > .ui-tree-chevron { transform: rotate(90deg); }
+.ui-tree-chevron-space { flex-shrink: 0; width: 14px; }
+.ui-tree-icon { flex-shrink: 0; color: var(--text-tertiary); }
+.ui-tree-row[data-selected] > .ui-tree-icon { color: var(--primary); }
+.ui-tree-label { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+.ui-tree-group { flex-direction: column; gap: 1px; overflow: hidden; margin-left: 14px; padding-left: 7px; border-left: 1px solid transparent; }
+.ui-tree[data-guides] .ui-tree-group { border-left-color: var(--border); }
+.ui-tree-group[data-state="closed"] { height: 0; }

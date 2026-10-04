@@ -32,6 +32,7 @@ import ashui.components.AvatarGroup;
 import ashui.components.InputOtp;
 import ashui.components.Resizable;
 import ashui.components.Drawer;
+import ashui.components.TreeView;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -960,6 +961,57 @@ class Components {
 		drPull(36, 2);
 		drFrames(40);
 		check("a Drawer flicked toward its edge closes, though it went only a little way", !drOpen.get(), drOpen.get());
+
+
+		// --- TreeView: a press chooses and opens, the group grows in; the arrows walk the rows shown, Left steps out and closes ---
+		var tvTree = new LayoutTree();
+		var tvPick = Signal.make((null : Null<String>));
+		var tvRoot:Div = Owner.root(tvTree, _ -> hxx('
+			<div width={400} height={400} flexDirection={Column}>
+				<tree-view selected={tvPick}>
+					<tree-item id="tvA" value="a" label="A">
+						<tree-item value="a1" label="A1" />
+						<tree-item value="a2" label="A2" />
+					</tree-item>
+					<tree-item id="tvB" value="b" label="B" />
+				</tree-view>
+			</div>
+		'));
+		function tvFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				tvTree.flush();
+				tvTree.computeLayout(tvRoot.node, 400, 400);
+				tvTree.flush();
+			}
+		function tvItem(id:String):haxe.Int64
+			return Lambda.find(tvTree.order(), n -> identity2(tvTree, n) != null && identity2(tvTree, n).id == id);
+		function tvRowY(id:String):Float
+			return tvTree.getBounds(new ashui.layout.Node(tvTree.children(tvItem(id))[0])).y;
+		tvFrames(2);
+		var bClosed = tvRowY("tvB");
+		var aRow = tvTree.getBounds(new ashui.layout.Node(tvTree.children(tvItem("tvA"))[0]));
+		ashui.input.Pointer.move(tvTree, aRow.x + 20, aRow.y + aRow.height / 2);
+		ashui.input.Pointer.press(tvTree);
+		ashui.input.Pointer.release(tvTree);
+		tvFrames(1);
+		var tvAnims:Map<String, ashui.animation.LayoutAnimation> = @:privateAccess ashui.animation.LayoutAnimation.animated.get(tvTree);
+		var bMoving = @:privateAccess tvAnims.get(haxe.Int64.toStr(tvItem("tvB"))).running;
+		tvFrames(40);
+		var bOpen = tvRowY("tvB");
+		check("a TreeView row pressed is chosen and opens, the rows below easing down as its items grow in",
+			tvPick.get() == "a" && identity2(tvTree, tvItem("tvA")).attribute("data-state") == "open" && bMoving && bOpen - bClosed > 50,
+			[tvPick.get(), bClosed, bMoving, bOpen]);
+		ashui.input.Keyboard.input(tvTree, key(Named(ArrowDown), ArrowDown));
+		ashui.input.Keyboard.input(tvTree, key(Named(ArrowDown), ArrowDown));
+		ashui.input.Keyboard.input(tvTree, key(Named(Enter), Enter));
+		var walked = tvPick.get();
+		ashui.input.Keyboard.input(tvTree, key(Named(ArrowLeft), ArrowLeft));
+		ashui.input.Keyboard.input(tvTree, key(Named(ArrowLeft), ArrowLeft));
+		tvFrames(40);
+		check("a TreeView's arrows walk the rows shown and Enter chooses; Left steps out to the parent, then closes it",
+			walked == "a2" && identity2(tvTree, tvItem("tvA")).attribute("data-state") == "closed" && Math.abs(tvRowY("tvB") - bClosed) < 0.5,
+			[walked, identity2(tvTree, tvItem("tvA")).attribute("data-state"), tvRowY("tvB")]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
