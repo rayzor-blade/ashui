@@ -17,6 +17,8 @@ class Keyboard {
 		switch event {
 			case Input(physical, key, _, location, state, repeat, _):
 				var pressed = state == Pressed;
+				if (pressed)
+					Focus.note(true);
 				var focused = Focus.of(tree);
 				var e = focused == null ? null : new KeyEvent(focused.node, key, physical, location, repeat, mods);
 				if (e != null)

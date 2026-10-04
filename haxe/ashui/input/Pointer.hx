@@ -63,6 +63,7 @@ class Pointer {
 
 	/** `button` went down where the pointer is. **/
 	public static function press(tree:LayoutTree, button:MouseButton = Left):Void {
+		Focus.note(false);
 		var s = state(tree);
 		s.pressed = true;
 		moved(tree);

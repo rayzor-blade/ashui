@@ -19,6 +19,17 @@ class Focus {
 	/** By tree, the interactions whose `focusWithin` is set. **/
 	static final within = new haxe.ds.ObjectMap<LayoutTree, Array<Interaction>>();
 
+	/**
+		Whether the keyboard was the last input: a key sets it, a press clears
+		it. Focus moved by code (a dialog focusing its first control) shows
+		its ring by this, as CSS's `:focus-visible` does after keyboard use.
+	**/
+	public static var byKeyboard(default, null) = false;
+
+	@:allow(ashui.input)
+	static function note(keyboard:Bool):Void
+		byKeyboard = keyboard;
+
 	/** The focused node's interaction in `tree`, if any. **/
 	public static function of(tree:LayoutTree):Null<Interaction>
 		return current.get(tree);
