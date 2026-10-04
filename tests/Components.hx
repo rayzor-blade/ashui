@@ -15,6 +15,10 @@ import ashui.components.Toggle;
 import ashui.components.Sheet;
 import ashui.components.HoverCard;
 import ashui.components.ContextMenu;
+import ashui.components.Breadcrumb;
+import ashui.components.Pagination;
+import ashui.components.Table;
+import ashui.components.Kbd;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -484,6 +488,54 @@ class Components {
 		pnFrames(20);
 		check("a right-click opens a ContextMenu with its corner at the pointer; an item chosen closes it", atPointer && ctxPick.get() == "x"
 			&& ashui.ui.TopLayer.openEntries().length == 0, [atPointer, ctxPick.get()]);
+
+		// --- Breadcrumb, pagination, table, kbd ---
+		var dtTree = new LayoutTree();
+		var pg = Signal.make(1);
+		var dtRoot:Div = Owner.root(dtTree, _ -> hxx('
+			<div width={800} height={500} flexDirection={Column} gap={12} padding={10}>
+				<breadcrumb><breadcrumb-item>Home</breadcrumb-item><breadcrumb-item current={true}>Here</breadcrumb-item></breadcrumb>
+				<pagination page={pg} total={10} />
+				<table><table-body>
+					<table-row><table-cell>A</table-cell><table-cell>B</table-cell></table-row>
+					<table-row><table-cell>CC</table-cell><table-cell>D</table-cell></table-row>
+				</table-body></table>
+				<kbd>K</kbd>
+			</div>
+		'));
+		function dtSettle() {
+			dtTree.flush();
+			dtTree.computeLayout(dtRoot.node, 800, 500);
+			dtTree.flush();
+			dtTree.computeLayout(dtRoot.node, 800, 500);
+		}
+		function dtAll(pred:ashui.css.Identity->Bool):Array<haxe.Int64>
+			return [for (id in dtTree.order()) if (identity2(dtTree, id) != null && pred(identity2(dtTree, id))) id];
+		function dtClick(id:haxe.Int64) {
+			var b = dtTree.getBounds(new ashui.layout.Node(id));
+			ashui.input.Pointer.move(dtTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(dtTree);
+			ashui.input.Pointer.release(dtTree);
+			dtSettle();
+		}
+		dtSettle();
+		var crumbs = dtAll(i -> i.hasClass("ui-breadcrumb-item")), seps = dtAll(i -> i.hasClass("ui-breadcrumb-separator"));
+		check("a Breadcrumb puts a separator between its items and marks the current one", crumbs.length == 2 && seps.length == 1
+			&& identity2(dtTree, crumbs[1]).attribute("data-current") == "page");
+		var steps = dtAll(i -> i.hasClass("ui-pagination-button") && i.attribute("data-step") != null);
+		var prevDisabled = ashui.input.Interaction.byId(dtTree, steps[0]).disabled.get();
+		dtClick(steps[1]);
+		var afterNext = pg.get();
+		// On page 2 the numbers are 1, 2, 3 and 10.
+		var numbers = dtAll(i -> i.hasClass("ui-pagination-button") && i.attribute("data-step") == null);
+		dtClick(numbers[2]);
+		var active = dtAll(i -> i.hasClass("ui-pagination-button") && i.attribute("data-state") == "active");
+		check("Pagination follows its page: previous disabled on the first, next and a number step it, the current one active",
+			prevDisabled && afterNext == 2 && pg.get() == 3 && active.length == 1, [prevDisabled, afterNext, pg.get(), active.length]);
+		var cells = dtAll(i -> i.hasClass("ui-table-cell"));
+		var c0 = dtTree.getBounds(new ashui.layout.Node(cells[1])), c1 = dtTree.getBounds(new ashui.layout.Node(cells[3]));
+		check("a Table's rows share their columns", Math.abs(c0.x - c1.x) < 0.5, [c0.x, c1.x]);
+		check("a Kbd is a kbd keycap", dtAll(i -> i.hasClass("ui-kbd") && i.types.indexOf("kbd") >= 0).length == 1);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
