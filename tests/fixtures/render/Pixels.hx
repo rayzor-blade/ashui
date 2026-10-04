@@ -341,9 +341,9 @@ class Pixels {
 		var painted = 0;
 		var canvasRoot:Div = ashui.reactive.Owner.root(canvasTree, _ -> {
 			var canvas = new ashui.ui.Canvas({
-				paint: pass -> {
+				paint: frame -> {
 					painted++;
-					pass.draw(pass.pass(CanvasProbeShader.WGSL), 6);
+					frame.draw(CanvasProbeShader.WGSL, 6);
 				}
 			});
 			canvas.node.set(Prop.Width, (40 : Single));

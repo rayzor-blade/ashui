@@ -9,7 +9,7 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 #if ashui_gpu
-typedef CanvasPaint = ashui.core.render.CanvasPass->Void;
+typedef CanvasPaint = ashui.core.render.CanvasFrame->Void;
 #else
 /** A build without the renderer lays a canvas out and never paints it. **/
 typedef CanvasPaint = Dynamic->Void;
@@ -19,7 +19,7 @@ typedef CanvasProps = {
 	/**
 		Paints the canvas with the GPU, in every frame drawn: handed the
 		render pass at the canvas's place in paint order, scissored to its
-		clipped box (see `CanvasPass`).
+		clipped box (see `CanvasFrame`).
 	**/
 	?paint:CanvasPaint,
 
@@ -83,7 +83,7 @@ class Canvas extends Component<CanvasProps> {
 		ticks.set(ticks.get() + 1);
 
 	@:allow(ashui.core.render.Renderer)
-	function paintWith(pass:Dynamic):Void
+	function paintWith(frame:Dynamic):Void
 		if (props.paint != null)
-			props.paint(pass);
+			props.paint(frame);
 }

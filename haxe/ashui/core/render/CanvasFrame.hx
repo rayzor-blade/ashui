@@ -13,15 +13,16 @@ import gpu.TextureFormat;
 	The pass is begun and drawing into the frame's target, or the layer the
 	canvas is in; its scissor is set to the canvas's clipped box, so any draw
 	is clipped to it. For exact clipping, rounded clips, a clip-path, edge
-	fades and opacity, a shader implements `UiShader`, is made with `pass`,
-	is drawn with `draw`, which draws it with the canvas's record as its
+	fades and opacity, a shader implements `UiShader`, is drawn with `draw`
+	(or bound with `bind`), which draws it with the canvas's record as its
 	instance, and multiplies its colour's alpha by `canvasClip(pixel)`,
-	where `pixel` is the screen position `transform` gives.
+	where `pixel` is the screen position `transform` gives:
+	`paint={frame -> frame.draw(MyShader.WGSL, 6)}`.
 
 	It is good only during the canvas's `paint`: the renderer restores its
 	own state after.
 **/
-class CanvasPass {
+class CanvasFrame {
 	public final device:GpuDevice;
 	public final encoder:GpuEncoder;
 	public final format:TextureFormat;
@@ -72,22 +73,27 @@ class CanvasPass {
 	}
 
 	/**
-		A pipeline for a `UiShader`'s WGSL, drawing into this frame's targets,
-		alpha-blended, with ashui's frame uniforms and records bound for it;
-		made once per shader and kept.
+		Draws `vertices` vertices of a `UiShader`, by its WGSL, once, as the
+		canvas's record's instance: its `recordIndex`, and so `primitive` and
+		`canvasClip`, are the canvas's. Its pipeline, alpha-blended into the
+		frame's targets, is made the first time and kept.
 	**/
-	public function pass(wgsl:String):Pass
-		return renderer.uiPass(wgsl);
+	public function draw(wgsl:String, vertices:Int):Void {
+		bind(wgsl);
+		encoder.renderDrawRange(vertices, 1, 0, record);
+	}
 
 	/**
-		Draws `vertices` vertices of `pass`'s shader once, as the canvas's
-		record's instance: its `recordIndex`, and so `primitive` and
-		`canvasClip`, are the canvas's.
+		Sets the pipeline of a `UiShader`, by its WGSL, with ashui's frame
+		uniforms and records bound, and returns it: for a shader with bind
+		groups of its own, set after this, its draws made on `encoder` with
+		`record` as the first instance.
 	**/
-	public function draw(pass:Pass, vertices:Int):Void {
-		encoder.renderSetPipeline(pass.pipeline);
-		encoder.renderSetBindGroup(BoxShader.FRAME_GROUP, pass.group);
-		encoder.renderSetBindGroup(BoxShader.TEXTURE_records_GROUP, pass.records);
-		encoder.renderDrawRange(vertices, 1, 0, record);
+	public function bind(wgsl:String):Pass {
+		var pipeline = renderer.uiPass(wgsl);
+		encoder.renderSetPipeline(pipeline.pipeline);
+		encoder.renderSetBindGroup(BoxShader.FRAME_GROUP, pipeline.group);
+		encoder.renderSetBindGroup(BoxShader.TEXTURE_records_GROUP, pipeline.records);
+		return pipeline;
 	}
 }

@@ -371,7 +371,7 @@ class Renderer {
 		if (x1 <= x0 || y1 <= y0)
 			return;
 		encoder.renderSetScissorRect(x0, y0, x1 - x0, y1 - y0);
-		canvas.paintWith(new CanvasPass(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0]));
+		canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0]));
 		encoder.renderSetScissorRect(0, 0, targetWidth, targetHeight);
 	}
 
