@@ -21,6 +21,12 @@ enum Placement {
 		the root's edges. A tooltip's place.
 	**/
 	Beside(x:Float, y:Float, width:Float, height:Float, side:String, gap:Float);
+
+	/** Along one edge of the root, "left", "right", "top" or "bottom", stretched along it: a sheet's place. **/
+	Edge(side:String);
+
+	/** Its top-left at `(x, y)`, or flipped left and up of it where it would run past the root's edges: a context menu at the pointer. **/
+	At(x:Float, y:Float);
 }
 
 /** One entry of the top layer; `close` takes it out. **/
@@ -60,8 +66,10 @@ class TopEntry {
 		var c = tree.getBounds(content.node);
 		var cw = c == null ? 0.0 : c.width, ch = c == null ? 0.0 : c.height;
 		var spot:Null<{left:Float, top:Float}> = switch placement {
-			case Centered:
+			case Centered | Edge(_):
 				null;
+			case At(x, y):
+				{left: x + cw <= w ? x : Math.max(0, x - cw), top: y + ch <= h ? y : Math.max(0, y - ch)};
 			case Below(x, y, bw, bh):
 				// Below its box when it fits, else above it.
 				var top = y + bh + ch <= h || y - ch < 0 ? y + bh : y - ch;
@@ -176,10 +184,12 @@ class TopLayer {
 		Opens `content` in `tree`'s top layer, placed by `placement`.
 		`backdrop` dims what is beneath; `onClose` runs however it closes.
 		Not `dismissible`, a press on the backdrop or Escape leaves it open:
-		only its own controls close it, as an alert dialog's.
+		only its own controls close it, as an alert dialog's. `modeless`, it
+		has no backdrop at all: the page beneath takes presses and the pointer
+		as before while the content takes its own, as a hover card's.
 	**/
 	public static function open(tree:LayoutTree, content:Element, placement:Placement, ?backdrop:Brush, ?onClose:Void->Void, passThrough = false,
-			dismissible = true):TopEntry {
+			dismissible = true, modeless = false):TopEntry {
 		var root = tree.root;
 		if (root == null)
 			throw "TopLayer.open needs a tree that has been laid out";
@@ -190,9 +200,10 @@ class TopLayer {
 			position: Absolute,
 			left: 0,
 			top: 0,
-			width: w,
-			height: h,
-			bg: backdrop != null ? backdrop : Brush.solid(0, 0),
+			// Modeless, of no size: what it holds is hit where it is, and nothing else of it is there.
+			width: modeless ? 0 : w,
+			height: modeless ? 0 : h,
+			bg: backdrop != null && !modeless ? backdrop : Brush.solid(0, 0),
 			alignItems: Align.Center,
 			justifyContent: Justify.Center
 		}, tree);
@@ -202,8 +213,20 @@ class TopLayer {
 			case Below(_, _, bw, _):
 				// At least as wide as its box, the content stretched to it, as a select's list matches the select.
 				new Div({position: Absolute, minWidth: bw, flexDirection: FlexDirection.Column, alignItems: Align.Stretch}, [content], tree);
-			case Beside(_, _, _, _, _, _):
+			case Beside(_, _, _, _, _, _) | At(_, _):
 				new Div({position: Absolute}, [content], tree);
+			case Edge(side):
+				// Pinned to its edge and stretched along it; the content stretches with it.
+				var holder = new Div({position: Absolute, flexDirection: side == "left" || side == "right" ? FlexDirection.Row : FlexDirection.Column,
+					alignItems: Align.Stretch}, [content], tree);
+				var n = holder.node;
+				switch side {
+					case "left": n.set(ashui.layout.Prop.Left, 0); n.set(ashui.layout.Prop.Top, 0); n.set(ashui.layout.Prop.Bottom, 0);
+					case "top": n.set(ashui.layout.Prop.Left, 0); n.set(ashui.layout.Prop.Right, 0); n.set(ashui.layout.Prop.Top, 0);
+					case "bottom": n.set(ashui.layout.Prop.Left, 0); n.set(ashui.layout.Prop.Right, 0); n.set(ashui.layout.Prop.Bottom, 0);
+					case _: n.set(ashui.layout.Prop.Right, 0); n.set(ashui.layout.Prop.Top, 0); n.set(ashui.layout.Prop.Bottom, 0);
+				}
+				holder;
 		}
 		shade.appendChild(holder);
 		var entry:Null<TopEntry> = null;

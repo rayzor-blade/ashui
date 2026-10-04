@@ -28,6 +28,9 @@ typedef DialogProps = {
 	/** Whether Escape and a press on the backdrop close it; true by default, as HTML's. False for one only its own controls close. **/
 	?dismissible:Bool,
 
+	/** Where a modal one opens in the top layer: centred by default, or along an edge (a sheet). **/
+	?placement:ashui.ui.TopLayer.Placement,
+
 	/** Called when it closes, however it closes. **/
 	?onClose:Void->Void
 }
@@ -102,7 +105,7 @@ class Dialog extends Component<DialogProps> {
 		// Marked open as it is shown, so its opening animation starts then.
 		var identity = ashui.css.Identity.of(tree, dialog.node.id);
 		identity.setAttribute("open", "");
-		entry = TopLayer.open(tree, dialog, Centered, props.backdrop != null ? props.backdrop : ashui.types.Brush.solid(0x000000, 0.4), () -> {
+		entry = TopLayer.open(tree, dialog, props.placement != null ? props.placement : Centered, props.backdrop != null ? props.backdrop : ashui.types.Brush.solid(0x000000, 0.4), () -> {
 			identity.setAttribute("open", null);
 			entry = null;
 			if (release != null)
