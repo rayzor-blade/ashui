@@ -153,11 +153,17 @@
 
 /* -------------------------------------------------------------- Skeleton */
 
+/* A placeholder with a highlight sweeping across it: a band of a lighter tint, its gradient stops moved from before the left edge to past the right. */
 .ui-skeleton {
-	border-radius: var(--ui-skeleton-radius, var(--radius-sm)); background: var(--ui-skeleton-bg, var(--surface-elevated));
-	animation: ui-skeleton-pulse 750ms linear infinite alternate;
+	--ui-skeleton-base: var(--ui-skeleton-bg, var(--surface-elevated));
+	--ui-skeleton-shine: var(--ui-skeleton-highlight, color-mix(in srgb, var(--text-primary) 9%, var(--surface-elevated)));
+	border-radius: var(--ui-skeleton-radius, var(--radius-sm)); background: var(--ui-skeleton-base);
+	animation: ui-skeleton-shimmer var(--ui-skeleton-duration, 1.6s) var(--ease-in-out) infinite;
 }
-@keyframes ui-skeleton-pulse { from { opacity: 1; } to { opacity: 0.4; } }
+@keyframes ui-skeleton-shimmer {
+	from { background: linear-gradient(90deg, var(--ui-skeleton-base) -60%, var(--ui-skeleton-shine) -30%, var(--ui-skeleton-base) 0%); }
+	to { background: linear-gradient(90deg, var(--ui-skeleton-base) 100%, var(--ui-skeleton-shine) 130%, var(--ui-skeleton-base) 160%); }
+}
 
 /* --------------------------------------------------------------- Spinner */
 
