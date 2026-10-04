@@ -6,6 +6,7 @@ import ashui.components.Card;
 import ashui.components.Dialog;
 import ashui.components.DropdownMenu;
 import ashui.components.Popover;
+import ashui.components.Toast;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -308,6 +309,30 @@ class Components {
 		var back = ashui.input.Focus.of(flTree) == m;
 		check("a DropdownMenu opened by the keyboard focuses its first item; the arrows skip a disabled item; Enter chooses and closes it, focus back on the trigger",
 			firstIsOne && picked.get() == "two" && !menuOpen.get() && back, [firstIsOne, picked.get(), menuOpen.get(), back]);
+
+		// --- Toasts: shown, gone after their time, held while the pointer is on one, dismissed by their handle ---
+		var toastTree = new LayoutTree();
+		var toastRoot:Div = Owner.root(toastTree, _ -> hxx('<div width={720} height={420}><toaster /></div>'));
+		function toastFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				toastTree.flush();
+				toastTree.computeLayout(toastRoot.node, 720, 420);
+				toastTree.flush();
+			}
+		function count()
+			return @:privateAccess Toaster.current.toasts.get().length;
+		toastFrames(1);
+		Toaster.show({title: "Brief", duration: 0.2});
+		var kept = Toaster.show({title: "Kept", duration: 0});
+		toastFrames(2);
+		var both = count() == 2;
+		toastFrames(40);
+		var afterTime = count();
+		kept.dismiss();
+		toastFrames(30);
+		check("a toast goes after its time and when dismissed; one with no time stays until then", both && afterTime == 1 && count() == 0,
+			[both, afterTime, count()]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
