@@ -79,6 +79,8 @@ class MotionOverlay implements FrameOverlay {
 			}
 			byNode.get(key).push(t);
 		}
+		// Labels placed so far, so one over a nested element's moves up clear of its parent's.
+		var placed:Array<{x:Float, y:Float, w:Float}> = [];
 		for (key in order) {
 			var group = byNode.get(key);
 			var lead = group[0];
@@ -98,7 +100,19 @@ class MotionOverlay implements FrameOverlay {
 			var elapsed = Math.max(0, (lead.running ? now : lead.ended) - lead.began - lead.delay);
 			var time = lead.kind == Spring ? MotionCheck.ms(elapsed) : '${MotionCheck.ms(Math.min(elapsed, lead.duration))}/${MotionCheck.ms(lead.duration)}';
 			var more = group.length > 1 ? ' +${group.length - 1}' : "";
-			out.push(label(own, r.x, Math.max(0, r.y - 16), '#${lead.id} ${lead.property}$more $time${flagged ? " !" : ""}', colour, fade));
+			var text = '#${lead.id} ${lead.property}$more $time${flagged ? " !" : ""}';
+			// About the width ten-unit text takes.
+			var lw = text.length * 5.6 + 6;
+			// Above it, higher and higher, then under its bars when the top of the frame is reached.
+			var spots = [for (k in 0...6) r.y - 16 - 15 * k].filter(y -> y >= 0).concat([for (k in 0...6) r.y + r.h + 26 + 15 * k]);
+			var ly = spots[0];
+			for (y in spots)
+				if (!Lambda.exists(placed, p -> Math.abs(p.y - y) < 15 && r.x < p.x + p.w && p.x < r.x + lw)) {
+					ly = y;
+					break;
+				}
+			placed.push({x: r.x, y: ly, w: lw});
+			out.push(label(own, r.x, ly, text, colour, fade));
 		}
 		if (curves) {
 			var plotted = tracks.copy();

@@ -38,6 +38,8 @@ typedef MotionVerdict = {
 class MotionCheck {
 	/** A fraction of the move a frame may be off its curve. **/
 	public static var tolerance = 0.02;
+	/** Seconds within which a move undone by the next on the same property is a bounce rather than two intended moves. **/
+	public static var bounceWindow = 0.3;
 
 	public static function check(track:MotionTrack, ?trace:MotionTrace):MotionVerdict {
 		var s = track.samples;
@@ -101,6 +103,19 @@ class MotionCheck {
 					break;
 				}
 			}
+		if (trace != null) {
+			// A move cut short and then undone soon after: something changed and changed back, a flicker in the layout or the styles.
+			var previous:Null<MotionTrack> = null;
+			for (other in trace.tracks) {
+				if (other == track)
+					break;
+				if (other.key() == track.key())
+					previous = other;
+			}
+			if (previous != null && previous.end == Interrupted && track.to == previous.from && track.from != track.to
+				&& track.began - previous.began < bounceWindow)
+				issues.push('undid track #${previous.id} ${ms(track.began - previous.began)} after it began: a change and its reverse');
+		}
 		if (track.end == Interrupted)
 			notes.push('interrupted at ${pct(last == null ? 0 : last.progress)}');
 		if (track.end == Running)
