@@ -51,6 +51,9 @@ import gpu.TextureUsage;
 	Then a red square blurred by 4: red in its middle, a pink halo past its
 	edges, white away from it.
 
+	Then a box with CSS's `backdrop-filter: blur(4px)` over a black stripe:
+	the stripe grey and spread under the box, sharp and black outside it.
+
 	Then drop shadows: a red circle's sharp black one offset by 6, cast by
 	the circle rather than its box, and a red square's blurred one.
 
@@ -332,6 +335,19 @@ class Pixels {
 		probe("spreads past its edge", 21, 32, (r, g, b) -> r > 250 && g > 110 && g < 245);
 		probe("fades out away from it", 8, 32, (r, g, b) -> r > 250 && g > 250 && b > 250);
 		probe("its corner is softer than its edge's middle", 25, 25, (r, g, b) -> g > 100);
+
+		// CSS backdrop-filter: a black stripe under a frosted box blurs; outside it, the stripe stays sharp.
+		var frostSheet = ashui.css.Css.load('.frost { backdrop-filter: blur(4px); background: rgba(255, 255, 255, 0); }');
+		var frostTree = new LayoutTree();
+		var stripe = new Div({position: Position.Absolute, left: 30, top: 0, width: 4, height: SIZE, bg: Brush.solid(0x000000)}, frostTree);
+		var frost = new Div({classes: ["frost"], position: Position.Absolute, left: 12, top: 24, width: 40, height: 32}, frostTree);
+		var frostRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [stripe, frost], frostTree);
+		pixels = offscreen.renderToRgba8(frostRoot, SIZE, SIZE);
+		label = "backdrop-filter: ";
+		probe("the stripe under the box is blurred, no longer black", 32, 40, (r, g, b) -> r > 40 && r < 220 && Math.abs(r - g) < 3);
+		probe("and spread past its edge", 36, 40, (r, g, b) -> r < 250);
+		probe("outside the box it stays sharp", 32, 10, near(0x000000));
+		ashui.css.Css.remove(frostSheet);
 
 		var dropTree = new LayoutTree();
 		var disc = new Div({position: Position.Absolute, left: 8, top: 8, width: 16, height: 16, bg: Brush.solid(0xff0000),

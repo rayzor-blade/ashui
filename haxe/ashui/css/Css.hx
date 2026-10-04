@@ -482,6 +482,19 @@ class Css {
 			rootFontSize: rootFontSize,
 			currentColor: values.exists("color") ? (try CssValue.color(substitute(values.get("color"), values, identity)) catch (_:String) CurrentColor) : CurrentColor
 		};
+		// The background frosts over a backdrop-filter's blur, so each reads whether the other is there.
+		if (resolved.exists("backdrop-filter")) {
+			var blur = try Properties.backdropBlur(resolved.get("backdrop-filter"), ctx) catch (_:String) 0.0;
+			ctx = {
+				viewportWidth: ctx.viewportWidth,
+				viewportHeight: ctx.viewportHeight,
+				fontSize: ctx.fontSize,
+				rootFontSize: ctx.rootFontSize,
+				currentColor: ctx.currentColor,
+				backdropBlur: blur,
+				hasBackground: resolved.exists("background") || resolved.exists("background-color")
+			};
+		}
 		var fields:Array<Int> = [];
 		// The transition first, so the changes below move by it.
 		try {
@@ -523,7 +536,9 @@ class Css {
 						viewportHeight: ctx.viewportHeight,
 						fontSize: ownFontSize,
 						rootFontSize: ctx.rootFontSize,
-						currentColor: ctx.currentColor
+						currentColor: ctx.currentColor,
+						backdropBlur: ctx.backdropBlur,
+						hasBackground: ctx.hasBackground
 					};
 			}
 		});

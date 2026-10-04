@@ -23,6 +23,12 @@ typedef ApplyContext = {
 
 	/** What `currentcolor` is: the element's `color`. **/
 	final currentColor:CssColor;
+
+	/** The element's `backdrop-filter: blur()`, which its background frosts over; 0 or none for none. **/
+	final ?backdropBlur:Float;
+
+	/** Whether the element has a `background` too, which then writes the frosted brush. **/
+	final ?hasBackground:Bool;
 }
 
 /**
@@ -297,7 +303,8 @@ class Properties {
 		});
 		h.set("background-color", (n, v, c) -> {
 			var col = colorOf(CssValue.color(v), c);
-			write(n, Prop.Background, Brush.solid(col.rgb, col.alpha));
+			var blur = c.backdropBlur == null ? 0.0 : c.backdropBlur;
+			write(n, Prop.Background, blur > 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha));
 			[Node.field(Prop.Background)];
 		});
 		h.set("background-image", (n, v, _) -> {
@@ -306,10 +313,11 @@ class Properties {
 		});
 		h.set("background", (n, v, c) -> {
 			var t = StringTools.trim(v);
-			var brush = if (t.toLowerCase() == "none") Brush.solid(0, 0) else if (CssValue.call(t) != null
+			var blur = c.backdropBlur == null ? 0.0 : c.backdropBlur;
+			var brush = if (t.toLowerCase() == "none") blur > 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (CssValue.call(t) != null
 				&& CssValue.call(t).name.indexOf("gradient") >= 0 || CssValue.call(t) != null && CssValue.call(t).name == "url") image(t) else {
 				var col = colorOf(CssValue.color(t), c);
-				Brush.solid(col.rgb, col.alpha);
+				blur > 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
 			}
 			write(n, Prop.Background, brush);
 			[Node.field(Prop.Background)];
@@ -490,6 +498,14 @@ class Properties {
 			}
 			out;
 		});
+		// What is behind the box blurred under its background; the background writes it when there is one.
+		h.set("backdrop-filter", (n, v, c) -> {
+			var r = backdropBlur(v, c);
+			if (c.hasBackground == true)
+				return [];
+			write(n, Prop.Background, r > 0 ? Brush.blur(r) : Brush.solid(0, 0));
+			[Node.field(Prop.Background)];
+		});
 		h.set("clip-path", (n, v, _) -> {
 			var path = try ashui.types.ClipPath.parse(v) catch (e:String) throw e;
 			write(n, Prop.ClipPath, path);
@@ -569,6 +585,19 @@ class Properties {
 	static final STYLES = ["none", "hidden", "solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"];
 
 	// --- Helpers ---
+
+	/** The radius of `backdrop-filter`'s `blur()`; 0 for none. Throws for any other filter. **/
+	public static function backdropBlur(v:String, c:ApplyContext):Float {
+		if (StringTools.trim(v).toLowerCase() == "none")
+			return 0;
+		var r = 0.0;
+		for (f in CssValue.filters(v))
+			switch f {
+				case Blur(l): r = pixels(l, c);
+				case _: throw "backdrop-filter takes blur() alone";
+			}
+		return r;
+	}
 
 	static inline function write<T>(n:Node, prop:Prop<T>, value:T):Void
 		n.style(prop, value);
