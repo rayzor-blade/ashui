@@ -109,6 +109,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 
 	/** CSS's `mask-image`: a gradient brush, its points fractions of the box, whose alpha the element and its subtree are drawn through. **/
 	public static inline var MaskImage:Prop<ashui.types.Brush> = cast PropertyId.MaskImage;
+	/** Width over height, which sizes a box given only one of them; NaN for none. **/
+	public static inline var AspectRatio:Prop<Single> = cast PropertyId.AspectRatio;
 
 	// --- grid, as CSS writes it: `repeat(3, 1fr) 120px`, `span 2`, `1 / -1` ---
 	public static inline var GridTemplateColumns:Prop<String> = cast PropertyId.GridTemplateColumns;

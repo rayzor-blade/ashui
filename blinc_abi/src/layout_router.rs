@@ -309,6 +309,8 @@ fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
         38 => (P::Filter, render(|p, v| filter(p).saturate = v)?),
         39 => (P::Filter, render(|p, v| filter(p).sepia = v)?),
         40 => (P::Filter, render(|p, v| filter(p).blur = v)?),
+        // Width over height; NaN or none positive is no ratio.
+        47 => (P::Width, layout(|s, v: f32| s.aspect_ratio = if v.is_finite() && v > 0.0 { Some(v) } else { None })?),
         _ => return None,
     })
 }
@@ -926,6 +928,7 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
         87 => lay(P::Display, Box::new(move |s| s.grid_column = Line { start: GridPlacement::Auto, end: GridPlacement::Auto })),
         88 => lay(P::Display, Box::new(move |s| s.grid_row = Line { start: GridPlacement::Auto, end: GridPlacement::Auto })),
         89 => ren(P::Filter, Box::new(|p| p.mask_image = None)),
+        90 => lay(P::Width, Box::new(|s| s.aspect_ratio = None)),
         _ => {}
     }
 }

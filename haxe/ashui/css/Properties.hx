@@ -180,6 +180,20 @@ class Properties {
 				number(n, Prop.FlexShrink, parts[1], 0)
 			].concat(handlers.get("flex-basis")(n, parts[2], c));
 		});
+		// Width over height: "16 / 9", a number, or auto for none.
+		h.set("aspect-ratio", (n, v, _) -> {
+			var t = StringTools.trim(v).toLowerCase();
+			var ratio:Float = Math.NaN;
+			if (t != "auto") {
+				var parts = t.split("/").map(StringTools.trim);
+				var w = Std.parseFloat(parts[0]), hh = parts.length > 1 ? Std.parseFloat(parts[1]) : 1.0;
+				if (parts.length > 2 || Math.isNaN(w) || Math.isNaN(hh) || w <= 0 || hh <= 0)
+					throw "aspect-ratio takes a width over a height, 16 / 9, a number or auto";
+				ratio = w / hh;
+			}
+			write(n, Prop.AspectRatio, ratio);
+			[Node.field(Prop.AspectRatio)];
+		});
 		// When a scroll container's thumb shows; after overflow in the alphabetical order of a restyle, so the container exists by then.
 		h.set("scrollbar-visibility", (n, v, _) -> {
 			var key = StringTools.trim(v).toLowerCase();
