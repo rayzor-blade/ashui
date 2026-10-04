@@ -17,11 +17,11 @@ typedef SidebarProps = {
 
 /**
 	A side navigation that collapses to its icons: a toggle at its top, then
-	`SidebarItem`s, icon and label, in `SidebarGroup`s under labels. It is
-	as wide as what it shows; collapsing takes the labels away, and layout
-	animation eases its width from one to the other, what it holds clipped
-	to the width drawn. Beside it in a `SidebarLayout`, a `SidebarInset`
-	moves over by layout animation too. CSS: `.ui-sidebar` (`[data-state]`
+	`SidebarItem`s, icon and label, in `SidebarGroup`s under labels.
+	Collapsing eases its width to its icons' and back, by a transition, the
+	page beside it in a `SidebarLayout`, a `SidebarInset`, moving with it;
+	its labels fade and its group labels fold away as it narrows, so
+	nothing in it jumps. CSS: `.ui-sidebar` (`[data-state]`
 	expanded or collapsed), `.ui-sidebar-toggle`, `.ui-sidebar-group`,
 	`.ui-sidebar-group-label`, `.ui-sidebar-item` (`[data-active]`,
 	`:hover`), `.ui-sidebar-icon`, `.ui-sidebar-label`.
@@ -54,8 +54,6 @@ class Sidebar extends Component<SidebarProps> {
 		});
 		var box = Library.part("ui-sidebar", "nav", ["state" => Computed.make(() -> (c.get() ? "collapsed" : "expanded" : Null<String>))],
 			([toggle] : Array<Element>).concat(children), props.id);
-		// Its width eases between expanded and collapsed, what it holds clipped to the width drawn.
-		ashui.animation.LayoutAnimation.attach(box.node, {position: false});
 		return box;
 	}
 }
@@ -114,11 +112,8 @@ class SidebarLayout extends Component<{?id:String}> {
 		return Library.part("ui-sidebar-layout", null, null, children, props.id);
 }
 
-/** The page beside the sidebar; it moves over by layout animation as the sidebar's width changes. **/
+/** The page beside the sidebar, which moves over as the sidebar's width eases. **/
 class SidebarInset extends Component<{?id:String}> {
-	function render():Element {
-		var box = Library.part("ui-sidebar-inset", "main", null, children, props.id);
-		ashui.animation.LayoutAnimation.attach(box.node, {size: false});
-		return box;
-	}
+	function render():Element
+		return Library.part("ui-sidebar-inset", "main", null, children, props.id);
 }

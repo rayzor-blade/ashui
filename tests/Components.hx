@@ -727,7 +727,7 @@ class Components {
 			first.attribute("data-outside") != null && pressed != null && pressed.month == 9 && pressed.day == 30 && stepped != null
 			&& stepped.month == 10 && stepped.day == 6, [pressed, stepped]);
 
-		// --- Sidebar: collapsing eases its width and slides what is beside it, by layout animation ---
+		// --- Sidebar: collapsing eases its width, the inset moving with it, its items kept on one line ---
 		var sbTree = new LayoutTree();
 		var folded = Signal.make(false);
 		var sbRoot:Div = Owner.root(sbTree, _ -> hxx('
@@ -745,19 +745,21 @@ class Components {
 				sbTree.computeLayout(sbRoot.node, 700, 400);
 				sbTree.flush();
 			}
+		function sbFind(cls:String):Array<haxe.Int64>
+			return [for (id in sbTree.order()) if (identity2(sbTree, id) != null && identity2(sbTree, id).hasClass(cls)) id];
+		function sbBox(id:haxe.Int64)
+			return sbTree.getBounds(new ashui.layout.Node(id));
 		sbFrames(2);
-		var bar = [for (id in sbTree.order()) if (identity2(sbTree, id) != null && identity2(sbTree, id).hasClass("ui-sidebar")) id][0];
-		var inset = [for (id in sbTree.order()) if (identity2(sbTree, id) != null && identity2(sbTree, id).hasClass("ui-sidebar-inset")) id][0];
-		var wide = sbTree.getBounds(new ashui.layout.Node(bar)).width;
+		var bar = sbFind("ui-sidebar")[0], inset = sbFind("ui-sidebar-inset")[0], item = sbFind("ui-sidebar-item")[0];
+		var wide = sbBox(bar).width, itemHigh = sbBox(item).height;
 		folded.set(true);
-		sbFrames(1);
-		var sbAnims:Map<String, ashui.animation.LayoutAnimation> = @:privateAccess ashui.animation.LayoutAnimation.animated.get(sbTree);
-		var barMoving = @:privateAccess sbAnims.get(haxe.Int64.toStr(bar)).running;
-		var insetMoving = @:privateAccess sbAnims.get(haxe.Int64.toStr(inset)).running;
+		sbFrames(6);
+		var midway = sbBox(bar).width, insetMidway = sbBox(inset).x, itemMidway = sbBox(item).height;
 		sbFrames(30);
-		var narrow = sbTree.getBounds(new ashui.layout.Node(bar)).width;
-		check("a Sidebar collapses to its icons, its width easing and the inset sliding by layout animation, its state on data-state",
-			narrow < wide && barMoving && insetMoving && identity2(sbTree, bar).attribute("data-state") == "collapsed", [wide, narrow, barMoving, insetMoving]);
+		var narrow = sbBox(bar).width;
+		check("a Sidebar collapses to its icons, its width easing and the inset moving with it, its items kept on one line, its state on data-state",
+			narrow < midway && midway < wide && insetMidway < sbBox(bar).x + wide && itemMidway == itemHigh
+			&& identity2(sbTree, bar).attribute("data-state") == "collapsed", [wide, midway, narrow, itemHigh, itemMidway]);
 
 
 		// --- AspectRatio, AvatarGroup, InputOtp ---
