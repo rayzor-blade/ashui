@@ -42,6 +42,12 @@ class CssValues {
 			&& rgba("rgb(100% 50% 0% / 50%)") == "FF8000/0.5", [rgba("rgb(255, 0, 0)"), rgba("rgba(0,0,255,0.25)"), rgba("rgb(100% 50% 0% / 50%)")]);
 		check("hsl()", rgba("hsl(0, 100%, 50%)") == "FF0000/1" && rgba("hsl(120 100% 50%)") == "00FF00/1" && rgba("hsla(240deg, 100%, 50%, 0.5)") == "0000FF/0.5",
 			[rgba("hsl(0, 100%, 50%)"), rgba("hsl(120 100% 50%)"), rgba("hsla(240deg, 100%, 50%, 0.5)")]);
+		var mixes = [
+			rgba("color-mix(in srgb, #ff0000, #0000ff)"), rgba("color-mix(in srgb, white 90%, black)"),
+			rgba("color-mix(in srgb, #ff0000 10%, transparent)"), rgba("color-mix(in srgb, red 20%, blue 20%)")
+		];
+		check("color-mix() in srgb: even by default, the rest of 100, premultiplied over transparent, an alpha under 100",
+			mixes.join(" ") == "800080/1 E6E6E6/1 FF0000/0.1 800080/0.4", mixes);
 		check("named colours, transparent and currentcolor", rgba("RebeccaPurple") == "663399/1" && rgba("transparent") == "000000/0"
 			&& rgba("currentColor") == "current");
 		check("a bad colour is refused", fails(() -> CssValue.color("#12")) && fails(() -> CssValue.color("blurple")) && fails(() -> CssValue.color("lab(50 0 0)")));

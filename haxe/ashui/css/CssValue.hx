@@ -401,6 +401,8 @@ class CssValue {
 		var c = call(t);
 		if (c == null)
 			throw 'expected a colour, not "$text"';
+		if (c.name == "color-mix")
+			return mix(c.args);
 		var parts = c.args.indexOf(",") >= 0 ? split(c.args, ",") : slashed(c.args);
 		return switch c.name {
 			case "rgb" | "rgba":
@@ -414,8 +416,50 @@ class CssValue {
 				var h = dimension(parts[0]) != null && dimension(parts[0]).unit == "" ? number(parts[0]) * Math.PI / 180 : angle(parts[0]);
 				Rgba(hsl(h, clamp01(amount(parts[1])), clamp01(amount(parts[2]))), parts.length == 4 ? clamp01(amount(parts[3])) : 1);
 			case n:
-				throw '$n() is not a colour this supports; rgb(), hsl(), hex and names are';
+				throw '$n() is not a colour this supports; rgb(), hsl(), color-mix(), hex and names are';
 		}
+	}
+
+	/**
+		`color-mix(in srgb, a p%, b q%)`, CSS Color 5's: the two colours
+		interpolated with premultiplied alpha, a missing percentage the rest of
+		100, and percentages summing under 100 scaling the result's alpha.
+	**/
+	static function mix(args:String):CssColor {
+		var parts = split(args, ",");
+		if (parts.length != 3 || StringTools.trim(parts[0]) != "in srgb")
+			throw "color-mix() takes in srgb and two colours";
+		var sides = [for (i in 1...3) {
+			var words = split(parts[i], " ");
+			var last = words[words.length - 1];
+			var pct = words.length > 1 && StringTools.endsWith(last, "%") ? number(last.substr(0, last.length - 1)) / 100 : null;
+			{color: color(pct == null ? parts[i] : words.slice(0, words.length - 1).join(" ")), pct: pct};
+		}];
+		var p1 = sides[0].pct, p2 = sides[1].pct;
+		if (p1 == null && p2 == null) {
+			p1 = 0.5;
+			p2 = 0.5;
+		} else if (p1 == null)
+			p1 = 1 - p2;
+		else if (p2 == null)
+			p2 = 1 - p1;
+		var sum = p1 + p2;
+		if (sum <= 0)
+			throw "color-mix()'s percentages sum to zero";
+		var scale = Math.min(sum, 1);
+		p1 /= sum;
+		p2 /= sum;
+		function channels(c:CssColor):Array<Float>
+			return switch c {
+				case Rgba(rgb, a): [(rgb >> 16 & 0xFF) * a, (rgb >> 8 & 0xFF) * a, (rgb & 0xFF) * a, a];
+				case _: throw "color-mix() cannot mix currentcolor";
+			}
+		var a = channels(sides[0].color), b = channels(sides[1].color);
+		var alpha = a[3] * p1 + b[3] * p2;
+		if (alpha <= 0)
+			return Rgba(0, 0);
+		var ch = [for (i in 0...3) Std.int(Math.max(0, Math.min(255, Math.round((a[i] * p1 + b[i] * p2) / alpha))))];
+		return Rgba((ch[0] << 16) | (ch[1] << 8) | ch[2], alpha * scale);
 	}
 
 	/** Space-separated channels with an optional `/ alpha`, as CSS Color 4 writes them. **/
