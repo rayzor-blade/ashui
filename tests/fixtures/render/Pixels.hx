@@ -223,6 +223,21 @@ class Pixels {
 		probe("almost gone at the end", 55, 30, (r, g, b) -> r > 240 && g > 230);
 		probe("and what it holds masked with it", 46, 12, (r, g, b) -> b > 240 && r > 150 && r < 240);
 
+		// Layout animation: a box layout moves 30 to the right is drawn where it was when the move starts, and at its place once it has run.
+		var flipTree = new LayoutTree();
+		var shift = ashui.reactive.Signal.make((4 : Single));
+		var flipBox = new Div({position: Position.Absolute, left: shift, top: 20, width: 20, height: 20, bg: Brush.solid(0xff0000), animateLayout: true}, flipTree);
+		var flipRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [flipBox], flipTree);
+		pixels = offscreen.renderToRgba8(flipRoot, SIZE, SIZE);
+		shift.set(34);
+		pixels = offscreen.renderToRgba8(flipRoot, SIZE, SIZE);
+		label = "layout animation: ";
+		probe("drawn where it was as the move starts", 10, 30, near(0xff0000));
+		probe("not yet at its place", 50, 30, near(0xffffff));
+		pixels = offscreen.renderAnimatedToRgba8(flipRoot, SIZE, SIZE, 1.0);
+		probe("at its place once the move has run", 50, 30, near(0xff0000));
+		probe("and gone from where it was", 10, 30, near(0xffffff));
+
 		// A notch: concave top corners of 10, so its body starts 10 down, flaring out to the box's edge there.
 		var notchTree = new LayoutTree();
 		var notched = new Div({position: Position.Absolute, left: 8, top: 8, width: 48, height: 40, bg: Brush.solid(0xff0000),

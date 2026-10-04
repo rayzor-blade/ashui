@@ -698,9 +698,19 @@ pub fn append(
     if tree.layout.get_style(node).is_some_and(|s| s.display == taffy::Display::None) {
         return;
     }
-    let x = origin.0 + layout.location.x;
-    let y = origin.1 + layout.location.y;
-    let (w, h) = (layout.size.width, layout.size.height);
+    let mut x = origin.0 + layout.location.x;
+    let mut y = origin.1 + layout.location.y;
+    let (mut w, mut h) = (layout.size.width, layout.size.height);
+    // A layout animation draws it, and so its children, away from its layout; at a size of its own, its children clipped to it.
+    let mut sized = false;
+    if let Some(v) = tree.visuals.get(&node) {
+        x += v[0];
+        y += v[1];
+        if v[2] >= 0.0 {
+            (w, h) = (v[2], v[3].max(0.0));
+            sized = true;
+        }
+    }
     // Fills and shapes are drawn in the box's own coordinates.
     let local = [0.0, 0.0, w, h];
     let mut m = m;
@@ -918,8 +928,8 @@ pub fn append(
     }
 
     // Children are clipped to the padding box, rounded by what is left of a
-    // uniform radius after a uniform border.
-    if clips_children(tree, node) {
+    // uniform radius after a uniform border; and to a box a layout animation sizes.
+    if clips_children(tree, node) || sized {
         let (sides, r) = tree
             .props
             .get(&node)

@@ -55,6 +55,8 @@ typedef DivAttributes = {
 	?maskImage:IntoReactive<ashui.types.Brush>,
 	/** Drawn as this notch instead of its rounded box: concave corners, steps and edge modifiers (see `ashui.types.Notch`); a signal of one animates it. **/
 	?notch:IntoReactive<ashui.types.Notch>,
+	/** Eases from where it was to where layout puts it whenever its place or size changes (see `ashui.animation.LayoutAnimation`). **/
+	?animateLayout:Bool,
 	?gridTemplateColumns:IntoReactive<String>,
 	?gridTemplateRows:IntoReactive<String>,
 	?gridColumn:IntoReactive<String>,
@@ -182,6 +184,8 @@ class Div extends Element {
 				node.set(Prop.MaskImage, attr.maskImage);
 			if (attr.notch != null)
 				bindNotch(this, attr.notch);
+			if (attr.animateLayout == true)
+				ashui.animation.LayoutAnimation.attach(node);
 			if (attr.gridTemplateColumns != null)
 				node.set(Prop.GridTemplateColumns, attr.gridTemplateColumns);
 			if (attr.gridTemplateRows != null)

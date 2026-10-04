@@ -527,7 +527,7 @@ class Hxx {
 							rootSets = rootSets.concat(sets);
 						case 'style':
 							rootSets.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
-						case n if (inputSetter(el, n, value) != null || rootAttribute(n)):
+						case n if (inputSetter(el, n, value) != null || rootAttribute(n) || n == 'animateLayout' || n == 'notch'):
 							rootSets.push(setter(el, a, '<$tag>'));
 						case _:
 							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
@@ -617,6 +617,8 @@ class Hxx {
 				inputSetter(el, name.value, value);
 			case Regular(name, value) if (name.value == 'notch' && tag == '<div>'):
 				macro @:pos(value.pos) ashui.ui.Div.bindNotch($i{el}, $value);
+			case Regular(name, value) if (name.value == 'animateLayout'):
+				macro @:pos(value.pos) if (($value : Bool)) ashui.animation.LayoutAnimation.attach($i{el}.node);
 			case Regular(name, value):
 				var key = name.value == 'bg' ? 'Background' : name.value.charAt(0).toUpperCase() + name.value.substr(1);
 				var keyExpr = macro @:pos(name.pos) ashui.layout.Prop.$key;

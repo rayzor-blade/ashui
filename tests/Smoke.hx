@@ -1448,6 +1448,42 @@ class Smoke {
 		fresh.send(Go);
 		check("start runs the first state's entry; a disposed machine takes nothing", started == 1 && fresh.is(Shown), started);
 
+		// --- Layout animation: FLIP, drawn from where it was to where layout puts it ---
+		var flipTree = new LayoutTree();
+		var above = Signal.make((20 : Single));
+		var boxWidth = Signal.make((100 : Single));
+		var carried = new Div({width: 20, height: 10, animateLayout: true}, flipTree);
+		var moving = new Div({width: boxWidth, height: 40, animateLayout: true}, [carried], flipTree);
+		var flipRoot = new Div({width: 300, height: 300, flexDirection: Column, alignItems: Start}, [new Div({width: 50, height: above}, flipTree), moving],
+			flipTree);
+		function flipSettle() {
+			flipTree.flush();
+			flipTree.computeLayout(flipRoot.node, 300, 300);
+			flipTree.flush();
+		}
+		flipSettle();
+		var anims:Map<String, ashui.animation.LayoutAnimation> = @:privateAccess ashui.animation.LayoutAnimation.animated.get(flipTree);
+		var movingAnim = anims.get(haxe.Int64.toStr(moving.node.id)), carriedAnim = anims.get(haxe.Int64.toStr(carried.node.id));
+		above.set(60);
+		flipSettle();
+		var startDy = @:privateAccess movingAnim.shown.dy;
+		var hitOld = flipTree.hitTest(10, 25).map(h -> h.id).indexOf(moving.node.id) >= 0;
+		var carriedStill = @:privateAccess carriedAnim.shown.dy == 0 && !@:privateAccess carriedAnim.running;
+		ashui.animation.AnimationScheduler.main.tick(0.1);
+		var midDy = @:privateAccess movingAnim.shown.dy;
+		ashui.animation.AnimationScheduler.main.tick(0.5);
+		check("a box layout moves is drawn where it was, eases to its place, and is hit where it is drawn", startDy == -40 && midDy > -40 && midDy < 0
+			&& @:privateAccess movingAnim.shown.dy == 0 && !@:privateAccess movingAnim.running && hitOld, [startDy, midDy, hitOld]);
+		check("a child its animated parent carries does not move twice", carriedStill);
+		boxWidth.set(200);
+		flipSettle();
+		var startW = @:privateAccess movingAnim.shown.w;
+		ashui.animation.AnimationScheduler.main.tick(0.1);
+		var midW = @:privateAccess movingAnim.shown.w;
+		ashui.animation.AnimationScheduler.main.tick(0.5);
+		check("a box layout resizes is drawn at the size between, then at its own", startW == 100 && midW > 100 && midW < 200
+			&& @:privateAccess movingAnim.shown.w == -1, [startW, midW]);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('

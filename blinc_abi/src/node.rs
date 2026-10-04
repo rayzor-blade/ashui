@@ -40,6 +40,9 @@ pub struct Tree {
     pub(crate) pass_through: std::collections::HashSet<LayoutNodeId>,
     /// Nodes drawn as a notch: signed corner radii, then the top and bottom edges' modifiers.
     pub(crate) notches: HashMap<LayoutNodeId, [[f32; 4]; 3]>,
+    /// Nodes drawn away from their layout while a layout animation runs:
+    /// moved by (dx, dy), and at size (w, h) when w is not negative.
+    pub(crate) visuals: HashMap<LayoutNodeId, [f32; 4]>,
 }
 
 /// A scroll container's state, which the paint walk and the hit test read.
@@ -78,6 +81,7 @@ fn shared() -> &'static mut Tree {
             scrolls: HashMap::new(),
             pass_through: std::collections::HashSet::new(),
             notches: HashMap::new(),
+            visuals: HashMap::new(),
         })
     }
 }
@@ -753,6 +757,23 @@ pub unsafe extern "C" fn hl_blinc_tree_set_notch(h: *mut c_void, node: u64, data
     tree.notches.insert(id(node), rows);
 }
 define_prim!(hlp_blinc_tree_set_notch, hl_blinc_tree_set_notch, "PXblinc_tree_lB_v");
+
+/// Draws `node` moved by `(dx, dy)` from its layout, and at size `(w, h)`
+/// with its children clipped to it when `w` is not negative, as a layout
+/// animation does; its children move with it, and the hit test follows.
+/// `clear` draws it at its layout again.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_set_visual(h: *mut c_void, node: u64, dx: f32, dy: f32, w: f32, hh: f32, clear: bool) {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return;
+    };
+    if clear {
+        tree.visuals.remove(&id(node));
+    } else {
+        tree.visuals.insert(id(node), [dx, dy, w, hh]);
+    }
+}
+define_prim!(hlp_blinc_tree_set_visual, hl_blinc_tree_set_visual, "PXblinc_tree_lffffb_v");
 
 /// Makes the hit test pass through `node` and everything inside it, or not.
 #[unsafe(no_mangle)]

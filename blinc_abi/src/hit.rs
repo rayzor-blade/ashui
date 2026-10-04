@@ -54,9 +54,19 @@ fn hit(
     let Some(layout) = tree.layout.get_layout(node) else {
         return false;
     };
-    let x = origin.0 + layout.location.x;
-    let y = origin.1 + layout.location.y;
-    let (w, h) = (layout.size.width, layout.size.height);
+    let mut x = origin.0 + layout.location.x;
+    let mut y = origin.1 + layout.location.y;
+    let (mut w, mut h) = (layout.size.width, layout.size.height);
+    // Where a layout animation draws it.
+    let mut sized = false;
+    if let Some(v) = tree.visuals.get(&node) {
+        x += v[0];
+        y += v[1];
+        if v[2] >= 0.0 {
+            (w, h) = (v[2], v[3].max(0.0));
+            sized = true;
+        }
+    }
     let mut m = m;
     if let Some(props) = tree.props.get(&node) {
         if !props.visible {
@@ -84,7 +94,7 @@ fn hit(
     }
 
     let overflow = tree.layout.get_style(node).map(|s| s.overflow);
-    let clipped = overflow.is_some_and(|o| o.x != Overflow::Visible || o.y != Overflow::Visible);
+    let clipped = sized || overflow.is_some_and(|o| o.x != Overflow::Visible || o.y != Overflow::Visible);
     if clipped {
         let bw = tree.props.get(&node).map_or(0.0, |p| p.border_width);
         clips.push(Clip {

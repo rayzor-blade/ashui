@@ -86,6 +86,9 @@ extern class LayoutTreeNative {
 	/** `node`'s own text alignment, as `ashui.types.Style.TextAlign`'s codes; -1 when it has none. **/
 	static function blinc_tree_text_align(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Int;
 
+	/** Draws `node` moved by `(dx, dy)` from its layout, at size `(w, h)` when `w` is not negative, its children clipped to it; `clear` puts it back. **/
+	static function blinc_tree_set_visual(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, dx:Single, dy:Single, w:Single, h:Single, clear:Bool):Void;
+
 	/** Draws `node` as a notch from twelve F32s, or as a box again with null (see `ashui.types.Notch.encode`). **/
 	static function blinc_tree_set_notch(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, data:hl.Bytes):Void;
 

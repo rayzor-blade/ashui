@@ -388,6 +388,19 @@ class LayoutTree {
 	public function textAlign(node:haxe.Int64):Int
 		return LayoutTreeNative.blinc_tree_text_align(this.ptr, node);
 
+	/**
+		Draws `node` moved by `(dx, dy)` from where layout puts it, and at
+		`width` by `height` with its children clipped to that when `width` is
+		not negative, as a layout animation does; its children move with it,
+		and `hitTest` finds it there. Layout is not touched.
+	**/
+	public function setVisual(node:haxe.Int64, dx:Float, dy:Float, width:Float = -1, height:Float = -1):Void
+		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, dx, dy, width, height, false);
+
+	/** Draws `node` where layout puts it again. **/
+	public function clearVisual(node:haxe.Int64):Void
+		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, 0, 0, -1, -1, true);
+
 	/** Draws `node` as `notch`, or as its box again with null. **/
 	public function setNotch(node:haxe.Int64, notch:Null<ashui.types.Notch>):Void {
 		if (notch == null) {
