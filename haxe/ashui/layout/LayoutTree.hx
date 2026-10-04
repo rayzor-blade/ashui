@@ -376,6 +376,8 @@ class LayoutTree {
 			flush();
 			LayoutTreeNative.blinc_tree_compute_layout(this.ptr, root.id, width, height);
 		}
+		for (hook in settledHooks)
+			hook(this);
 	}
 
 	/** Passes after the first that `layoutHooks` may ask for; text flow needs one when a width changes. **/
@@ -383,6 +385,9 @@ class LayoutTree {
 
 	/** Called after each layout pass; true when it changed what is laid out, for another pass. **/
 	public static final layoutHooks:Array<LayoutTree->Bool> = [];
+
+	/** Called once a layout has settled, after its last pass: what reads the final layout, as layout animation does, never sees a pass between. **/
+	public static final settledHooks:Array<LayoutTree->Void> = [];
 
 	/** `node`'s own text alignment, as `ashui.types.Style.TextAlign`'s codes, set by CSS, Tw or its own code; -1 when it has none. **/
 	public function textAlign(node:haxe.Int64):Int

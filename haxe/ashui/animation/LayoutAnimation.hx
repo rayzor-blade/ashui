@@ -79,12 +79,12 @@ class LayoutAnimation {
 		if (hooked)
 			return;
 		hooked = true;
-		LayoutTree.layoutHooks.push(tree -> {
+		// Once layout settles: a pass between, before text flows, is not where anything is.
+		LayoutTree.settledHooks.push(tree -> {
 			var list = animated.get(tree);
 			if (list != null)
 				for (a in list)
 					a.measure(list);
-			false;
 		});
 	}
 
