@@ -988,6 +988,35 @@ class Smoke {
 			Std.parseFloat(twSize) == ashui.theme.Themed.fontSize(TextXl).get() && twWeight == "700" && twColor != null && twColor.indexOf("50%") >= 0
 			&& twParaSize != null && Std.parseFloat(twParaSize) == ashui.theme.Themed.fontSize(TextSm).get(), [twSize, twWeight, twColor, twParaSize]);
 
+		// A RefList holds each item a <for> builds under one ref=, and query does what it is told to each, even one added later.
+		var rlTree = new LayoutTree();
+		var rlItems = Signal.make([1, 2]);
+		var rlRows = new ashui.ui.RefList<Div>();
+		var rlRoot:Div = Owner.root(rlTree, _ -> <div flexDirection={Column} width={100} height={100}>
+			<for {i in rlItems.get()}><div ref={rlRows} height={20} /></for>
+		</div>);
+		function rlSettle() {
+			rlTree.flush();
+			rlTree.computeLayout(rlRoot.node, 100, 100);
+			rlTree.flush();
+		}
+		rlSettle();
+		var rlClicks = 0;
+		var rlQuery = ashui.ui.Query.query(rlRows).onClick(_ -> rlClicks++);
+		var rlBefore = rlRows.length();
+		rlItems.set([1, 2, 3]);
+		rlSettle();
+		for (n in rlQuery.nodes()) {
+			var b = rlTree.getBounds(n);
+			ashui.input.Pointer.move(rlTree, b.x + 2, b.y + 2);
+			ashui.input.Pointer.press(rlTree);
+			ashui.input.Pointer.release(rlTree);
+		}
+		rlItems.set([3]);
+		rlSettle();
+		check("a RefList holds each <for> item's element, and query binds each, one added later too", rlBefore == 2 && rlClicks == 3 && rlRows.length() == 1,
+			[rlBefore, rlClicks, rlRows.length()]);
+
 		// Inline markup: a template written as Haxe's own markup, no hxx() around it.
 		var mkTree = new LayoutTree();
 		var mkCount = Signal.make(2);

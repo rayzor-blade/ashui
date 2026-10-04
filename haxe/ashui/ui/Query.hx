@@ -23,12 +23,13 @@ import ashui.reactive.Watch;
 	    query(panel).addClass("open").set(Prop.Opacity, 0.9);
 	    query(".row", list).onClick(e -> pick(e)).removeClass("stale");
 
-	`query` takes an element, a `Ref`, or a selector with where to look, an
+	`query` takes an element, a `Ref`, a `RefList`, or a selector with where to look, an
 	element or a tree; anything else is a compile error, and a quoted
 	selector is read at compile time. On a `Ref` what it is told is kept,
 	and done again on each element the ref comes to hold; on an element or
 	a selector it is done now, to what is there now, as
-	`querySelectorAll`'s list is what matched when it ran.
+	`querySelectorAll`'s list is what matched when it ran. On a `RefList`
+	it is done to every element in it, and to each that joins later.
 **/
 class Query {
 	/** A handle on `target`: an element, a `Ref`, or a selector with `within`, an element or a tree, to look under. **/
@@ -40,10 +41,19 @@ class Query {
 			case TInst(_.get() => {pack: ['ashui', 'ui'], name: 'Ref'}, _): true;
 			case _: false;
 		}
+		var isRefList = switch Context.follow(type) {
+			case TInst(_.get() => {pack: ['ashui', 'ui'], name: 'RefList'}, _): true;
+			case _: false;
+		}
 		var noWithin = within == null || switch within.expr {
 			case EConst(CIdent('null')): true;
 			case _: false;
 		};
+		if (isRefList) {
+			if (!noWithin)
+				Context.error('query: a RefList takes no place to look', within.pos);
+			return macro @:pos(target.pos) ashui.ui.Query.ofRefList($target);
+		}
 		if (isRef || is('ashui.layout.Element')) {
 			if (!noWithin)
 				Context.error('query: an element or a Ref takes no place to look', within.pos);
@@ -101,6 +111,24 @@ class Query {
 				f(e.node);
 		});
 		held = ref.get();
+		return q;
+	}
+
+	@:noCompletion public static function ofRefList<T:Element>(list:RefList<T>):Query {
+		var replay:Array<Node->Void> = [];
+		var told:Array<Element> = [];
+		var q = new Query(null, () -> [for (e in list.get()) e.node], replay);
+		// Each element that joins the list is told what this was; those already in it were told as it was said.
+		new Watch(() -> list.get(), now -> {
+			told = told.filter(e -> now.indexOf(cast e) >= 0);
+			for (e in now)
+				if (told.indexOf(e) < 0) {
+					told.push(e);
+					for (f in replay)
+						f(e.node);
+				}
+		});
+		told = [for (e in list.get()) e];
 		return q;
 	}
 
