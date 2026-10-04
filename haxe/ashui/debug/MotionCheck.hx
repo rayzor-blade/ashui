@@ -106,15 +106,22 @@ class MotionCheck {
 			issues.push('ended at ${pct(last.progress)}, short of its end');
 		if (track.kind == Spring && track.end == Running && trace != null && trace.stopped != null)
 			issues.push("never settled");
-		if (trace != null)
+		if (trace != null) {
+			// The same move again with nothing between taking it back: a restyle that started it twice. Taken back first, it is a second change.
+			var repeated:Null<MotionTrack> = null;
 			for (other in trace.tracks) {
 				if (other == track)
 					break;
-				if (other.key() == track.key() && other.end == Completed && other.from == track.from && other.to == track.to && track.from != track.to) {
-					issues.push('ran again from ${track.from} to ${track.to}, as track #${other.id} already had');
-					break;
-				}
+				if (other.key() != track.key())
+					continue;
+				if (other.end == Completed && other.from == track.from && other.to == track.to && track.from != track.to)
+					repeated = other;
+				else if (repeated != null && other.to == track.from)
+					repeated = null;
 			}
+			if (repeated != null)
+				issues.push('ran again from ${track.from} to ${track.to}, as track #${repeated.id} already had');
+		}
 		if (trace != null) {
 			// A move cut short and then undone soon after: something changed and changed back, a flicker in the layout or the styles.
 			var previous:Null<MotionTrack> = null;

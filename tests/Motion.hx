@@ -144,6 +144,12 @@ class Motion {
 			again.sample(1, 1);
 			again.finish(Completed);
 		}
+		for (move in [["0", "1"], ["1", "0"], ["0", "1"]]) {
+			var toggled = MotionTrace.begin(Transition, null, null, "w", move[0], move[1], 0, 1 / 60, Linear, null, "toggler");
+			frame();
+			toggled.sample(1, 1);
+			toggled.finish(Completed);
+		}
 		var there = MotionTrace.begin(Layout, null, null, "layout", "0,0", "0,48", 0, 0.24, EaseOut, null, "item");
 		frame(2);
 		there.sample(0.3, 0.1);
@@ -162,8 +168,11 @@ class Motion {
 			MotionCheck.check(snapped, faults).issues);
 		var repeated = MotionCheck.check([for (t in faults.tracks) if (t.label == "repeater") t][1], faults);
 		check("the same move run again is reported", repeated.issues.filter(i -> StringTools.startsWith(i, "ran again")).length == 1, repeated.issues);
+		var retoggled = MotionCheck.check([for (t in faults.tracks) if (t.label == "toggler") t][2], faults);
+		check("a move taken back and made again is not a repeat", retoggled.issues.filter(i -> StringTools.startsWith(i, "ran again")).length == 0,
+			retoggled.issues);
 		var report = MotionCheck.report(faults);
-		check("the report sums up and judges each track", StringTools.startsWith(report, "motion trace: 6 tracks") && report.indexOf("WARN") > 0,
+		check("the report sums up and judges each track", StringTools.startsWith(report, "motion trace: 9 tracks") && report.indexOf("WARN") > 0,
 			report.split("\n")[0]);
 		var json:Dynamic = haxe.Json.parse(MotionCheck.json(trace));
 		check("the trace reads back as JSON, samples and expected values included", json.tracks.length == trace.tracks.length
