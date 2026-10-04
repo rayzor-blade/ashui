@@ -142,6 +142,20 @@ class Smoke {
 		check("a sketch draws its first frame once laid out, at no time, then one a tick, its clock the scheduler's",
 			afterLayout == 1 && seen.length == 3 && seen[0] == 0 && seen[2] == 0.5, seen);
 
+		// --- white-space: nowrap keeps text to one line in a box too narrow for it; it is inherited by the text ---
+		ashui.css.Css.load('.one-line { white-space: nowrap; }');
+		var wsTree = new LayoutTree();
+		var wrapped = new Text("several words that need room", {fontSize: 14}, wsTree);
+		var kept = new Text("several words that need room", {fontSize: 14}, wsTree);
+		var keptBox = new Div({classes: ["one-line"], width: 60}, [kept], wsTree);
+		var wsRoot = new Div({flexDirection: Column, alignItems: Start}, [new Div({width: 60}, [wrapped], wsTree), keptBox], wsTree);
+		ashui.css.Css.update();
+		wsTree.flush();
+		wsTree.computeLayout(wsRoot.node, 400, 400);
+		wsTree.flush();
+		var wrappedH = wsTree.getBounds(wrapped.node).height, keptH = wsTree.getBounds(kept.node).height;
+		check("white-space: nowrap keeps text to one line, inherited from the box it is in", wrappedH > keptH * 1.5 && keptH < 20, [wrappedH, keptH]);
+
 		// --- Text bound to a computed string is measured again when it changes ---
 		var clicks = Signal.make(1);
 		var counter = new Text(clicks.computed(c -> 'Value: $c'), tree);

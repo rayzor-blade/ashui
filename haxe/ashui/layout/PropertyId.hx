@@ -134,6 +134,7 @@ enum abstract PropertyId(Int) from Int to Int {
     var MaskImage = 89;
     // CSS's aspect-ratio: width over height, which sizes a box given only one of them; NaN for none.
     var AspectRatio = 90;
+    var TextWrap = 91;
 
     /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
@@ -154,7 +155,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
                  Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
-                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft | FilterBrightness | FilterContrast | FilterGrayscale | FilterHueRotate | FilterInvert | FilterSaturate | FilterSepia | FilterBlur | AspectRatio:
+                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft | FilterBrightness | FilterContrast | FilterGrayscale | FilterHueRotate | FilterInvert | FilterSaturate | FilterSepia | FilterBlur | AspectRatio | TextWrap:
                 TypeF32;
 
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)

@@ -560,6 +560,16 @@ class Properties {
 			write(n, Prop.LineHeight, multiple);
 			[Node.field(Prop.LineHeight)];
 		});
+		// Whether text breaks lines at its width: nowrap and pre keep it to one line; the rest wrap.
+		h.set("white-space", (n, v, _) -> {
+			var keep = switch StringTools.trim(v).toLowerCase() {
+				case "nowrap" | "pre": true;
+				case "normal" | "pre-wrap" | "pre-line" | "break-spaces": false;
+				case other: throw 'white-space takes normal, nowrap, pre, pre-wrap, pre-line or break-spaces, not "$other"';
+			}
+			write(n, Prop.TextWrap, keep ? 0.0 : 1.0);
+			[Node.field(Prop.TextWrap)];
+		});
 		h.set("letter-spacing", (n, v, c) -> {
 			var px = v.toLowerCase() == "normal" ? 0.0 : pixels(CssValue.length(v), c);
 			write(n, Prop.LetterSpacing, px);

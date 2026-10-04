@@ -245,7 +245,7 @@ fn length_auto(v: f32) -> LengthPercentageAuto {
 /// Blinc property it is part of.
 const SIDES_BASE: i32 = 43;
 
-fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
+fn side_write(node: LayoutNodeId, raw: i32) -> Option<(PropertyId, Write<f32>)> {
     use PropertyId as P;
     let pad = |v: f32| LengthPercentage::Length(v);
     Some(match raw - SIDES_BASE {
@@ -311,6 +311,8 @@ fn side_write(raw: i32) -> Option<(PropertyId, Write<f32>)> {
         40 => (P::Filter, render(|p, v| filter(p).blur = v)?),
         // Width over height; NaN or none positive is no ratio.
         47 => (P::Width, layout(|s, v: f32| s.aspect_ratio = if v.is_finite() && v > 0.0 { Some(v) } else { None })?),
+        // Whether text breaks lines at its width, as CSS's white-space: 0 keeps it to one line.
+        48 => (P::TextAlign, render(move |_, v: f32| record_text(node, move |c| c.wrap = v != 0.0))?),
         _ => return None,
     })
 }
@@ -448,7 +450,7 @@ pub unsafe extern "C" fn hl_blinc_apply_f32(
     comp: *mut c_void,
 ) {
     let node = LayoutNodeId::from_raw(node);
-    if let Some((prop, write)) = side_write(prop) {
+    if let Some((prop, write)) = side_write(node, prop) {
         unsafe { bind(node, prop, kind, constant, sig, comp, write) };
         return;
     }
@@ -929,6 +931,7 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
         88 => lay(P::Display, Box::new(move |s| s.grid_row = Line { start: GridPlacement::Auto, end: GridPlacement::Auto })),
         89 => ren(P::Filter, Box::new(|p| p.mask_image = None)),
         90 => lay(P::Width, Box::new(|s| s.aspect_ratio = None)),
+        91 => ren(P::TextAlign, Box::new(move |_| record_text(node, |c| c.wrap = true))),
         _ => {}
     }
 }

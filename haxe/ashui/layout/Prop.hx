@@ -111,6 +111,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var MaskImage:Prop<ashui.types.Brush> = cast PropertyId.MaskImage;
 	/** Width over height, which sizes a box given only one of them; NaN for none. **/
 	public static inline var AspectRatio:Prop<Single> = cast PropertyId.AspectRatio;
+	/** Whether text breaks lines at its width: 1, as it does by default, or 0, kept to one line. **/
+	public static inline var TextWrap:Prop<Single> = cast PropertyId.TextWrap;
 
 	// --- grid, as CSS writes it: `repeat(3, 1fr) 120px`, `span 2`, `1 / -1` ---
 	public static inline var GridTemplateColumns:Prop<String> = cast PropertyId.GridTemplateColumns;

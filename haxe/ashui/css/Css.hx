@@ -611,7 +611,7 @@ class Css {
 	static function problem(d:Null<Declaration>, message:String):Void
 		report(d, message);
 
-	static final INHERITED = ["color", "font-size", "font-weight", "font-style", "font-family", "line-height", "letter-spacing", "text-align"];
+	static final INHERITED = ["color", "font-size", "font-weight", "font-style", "font-family", "line-height", "letter-spacing", "text-align", "white-space"];
 
 	static function inheritedSignature(values:Map<String, String>):String {
 		var out = [for (name => v in values) if (INHERITED.indexOf(name) >= 0 || StringTools.startsWith(name, "--")) '$name:$v'];
