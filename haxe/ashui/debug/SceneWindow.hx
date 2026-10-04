@@ -10,7 +10,10 @@ import ashui.layout.LayoutTree;
 	set, as `tools/snapshot/run.sh --window` does. The UI is live: it takes
 	the pointer and keys, and `ASHUI_MOTION=overlay` draws the motion
 	overlay over it. The scene keeps its own size, in a window no larger
-	than a screen holds, which scrolls it both ways. `ASHUI_WINDOW_SECONDS` closes it after that long, for
+	than a screen holds, which scrolls it both ways. `ASHUI_WINDOW_CLICKS`,
+	a number, clicks that many times, one every 150ms, each at the middle
+	of a focusable element picked at random from those in view, a seeded
+	pick so a run repeats: for finding what interaction breaks. `ASHUI_WINDOW_SECONDS` closes it after that long, for
 	a run nobody is watching, a profile or a measure of its memory.
 **/
 class SceneWindow {
@@ -55,6 +58,35 @@ class SceneWindow {
 				}
 				app.invalidate();
 				return done < frames;
+			});
+		}
+		var clicks = Std.parseInt(Sys.getEnv("ASHUI_WINDOW_CLICKS"));
+		if (clicks != null && clicks > 0) {
+			var seed = 12345, since = 0.0, made = 0;
+			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+				var app = ashui.app.WindowedApp.current;
+				if (app == null || app.tree.order().length == 0)
+					return true;
+				since += dt;
+				if (since < 0.15)
+					return true;
+				since = 0;
+				var tree = app.tree;
+				var targets = [for (i in ashui.input.Interaction.inTree(tree)) if (i.focusable && tree.getBounds(i.node) != null
+					&& tree.getBounds(i.node).width > 0) i];
+				if (targets.length > 0) {
+					seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+					var pick = targets[seed % targets.length];
+					var b = tree.getBounds(pick.node);
+					ashui.input.Pointer.move(tree, b.x + b.width / 2, b.y + b.height / 2);
+					ashui.input.Pointer.press(tree);
+					ashui.input.Pointer.release(tree);
+					var who = ashui.css.Identity.of(tree, pick.node.id);
+					Sys.println('click $made ${who == null ? "?" : who.classes().join(".")} at ${Std.int(b.x + b.width / 2)},${Std.int(b.y + b.height / 2)}');
+					app.invalidate();
+				}
+				made++;
+				return made < clicks;
 			});
 		}
 		var seconds = Std.parseFloat(Sys.getEnv("ASHUI_WINDOW_SECONDS"));
