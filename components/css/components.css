@@ -703,3 +703,33 @@ input.ui-command-field:hover, input.ui-command-field:focus { background: transpa
 .ui-combobox-chevron { flex-shrink: 0; color: var(--text-tertiary); }
 .ui-combobox-content { box-shadow: var(--shadow-md); border-radius: var(--radius-default); }
 .ui-combobox-content[closing] { animation: ui-rise-out var(--duration-faster) var(--ease-in) forwards; }
+
+/* -------------------------------------------------------------- Calendar */
+
+/* A month: its name between two quiet buttons, the week's days, and six weeks of days in a grid of seven. */
+.ui-calendar { flex-direction: column; gap: 12px; align-self: flex-start; padding: 12px;
+	border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text-primary); }
+.ui-calendar-header { flex-direction: row; align-items: center; justify-content: space-between; }
+.ui-calendar-caption { font-size: var(--text-sm); font-weight: 500; }
+.ui-calendar-nav {
+	width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center; border: 1px solid var(--border);
+	border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); box-shadow: none;
+	outline: 0 solid var(--focus-ring); outline-offset: 2px;
+	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
+}
+.ui-calendar-nav:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-primary); }
+.ui-calendar-nav:focus-visible { outline-width: 3px; }
+.ui-calendar-grid { display: grid; grid-template-columns: repeat(7, 36px); row-gap: 2px; }
+.ui-calendar-weekday { height: 28px; align-items: center; justify-content: center; font-size: var(--text-xs); color: var(--text-secondary); }
+.ui-calendar-day {
+	width: 36px; height: 36px; padding: 0; align-items: center; justify-content: center; font-size: var(--text-sm);
+	border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-primary); box-shadow: none;
+	outline: 0 solid var(--focus-ring); outline-offset: 1px;
+	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
+}
+.ui-calendar-day:hover { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
+.ui-calendar-day:active { transform: scale(0.94); }
+.ui-calendar-day[data-outside] { color: var(--text-tertiary); }
+.ui-calendar-day[data-today] { background: var(--accent-subtle); color: var(--accent); font-weight: 600; }
+.ui-calendar-day[data-selected], .ui-calendar-day[data-selected]:hover { background: var(--primary); color: var(--text-inverse); }
+.ui-calendar-day:focus-visible { outline-width: 2px; }

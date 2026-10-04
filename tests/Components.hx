@@ -24,6 +24,7 @@ import ashui.components.NavigationMenu;
 import ashui.components.ScrollArea;
 import ashui.components.Command;
 import ashui.components.Combobox;
+import ashui.components.Calendar;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -686,6 +687,36 @@ class Components {
 		cmFrames(20);
 		check("a Combobox opens a search on its options and the one chosen is its value", cbValue.get() == "y" && ashui.ui.TopLayer.openEntries().length == 0,
 			cbValue.get());
+
+		// --- Calendar: a press chooses, the keys cross into the next month ---
+		var calTree = new LayoutTree();
+		var day = Signal.make((null : Null<ashui.components.Calendar.CalendarDay>));
+		var calRoot:Div = Owner.root(calTree, _ -> hxx('<div width={400} height={400}><calendar value={day} today={{year: 2026, month: 9, day: 4}} /></div>'));
+		function calFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				calTree.flush();
+				calTree.computeLayout(calRoot.node, 400, 400);
+				calTree.flush();
+			}
+		calFrames(2);
+		var cells = [for (id in calTree.order()) if (identity2(calTree, id) != null && identity2(calTree, id).hasClass("ui-calendar-day")) id];
+		var first = identity2(calTree, cells[0]);
+		var cb2 = calTree.getBounds(new ashui.layout.Node(cells[33]));
+		ashui.input.Pointer.move(calTree, cb2.x + cb2.width / 2, cb2.y + cb2.height / 2);
+		ashui.input.Pointer.press(calTree);
+		ashui.input.Pointer.release(calTree);
+		calFrames(5);
+		var pressed = day.get();
+		ashui.input.Keyboard.input(calTree, key(Named(ArrowDown), ArrowDown));
+		calFrames(5);
+		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter));
+		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter, false));
+		calFrames(5);
+		var stepped = day.get();
+		check("a Calendar shows six weeks from the month's first week, a press chooses a day, the arrows cross into the next month",
+			first.attribute("data-outside") != null && pressed != null && pressed.month == 9 && pressed.day == 30 && stepped != null
+			&& stepped.month == 10 && stepped.day == 6, [pressed, stepped]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
