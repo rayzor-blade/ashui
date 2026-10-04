@@ -29,6 +29,9 @@ typedef ApplyContext = {
 
 	/** Whether the element has a `background` too, which then writes the frosted brush. **/
 	final ?hasBackground:Bool;
+
+	/** The element's `background-size`, which a `url()` image in its background is fitted by. **/
+	final ?backgroundSize:String;
 }
 
 /**
@@ -307,15 +310,17 @@ class Properties {
 			write(n, Prop.Background, blur > 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha));
 			[Node.field(Prop.Background)];
 		});
-		h.set("background-image", (n, v, _) -> {
-			write(n, Prop.Background, image(v));
+		h.set("background-image", (n, v, c) -> {
+			write(n, Prop.Background, image(v, c));
 			[Node.field(Prop.Background)];
 		});
+		// Read by `background`'s `url()` images, through the context; nothing of its own to write.
+		h.set("background-size", (_, _, _) -> []);
 		h.set("background", (n, v, c) -> {
 			var t = StringTools.trim(v);
 			var blur = c.backdropBlur == null ? 0.0 : c.backdropBlur;
 			var brush = if (t.toLowerCase() == "none") blur > 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (CssValue.call(t) != null
-				&& CssValue.call(t).name.indexOf("gradient") >= 0 || CssValue.call(t) != null && CssValue.call(t).name == "url") image(t) else {
+				&& CssValue.call(t).name.indexOf("gradient") >= 0 || CssValue.call(t) != null && CssValue.call(t).name == "url") image(t, c) else {
 				var col = colorOf(CssValue.color(t), c);
 				blur > 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
 			}
@@ -735,13 +740,33 @@ class Properties {
 	static inline function clamp01(v:Float):Float
 		return Math.max(0, Math.min(1, v));
 
-	/** A gradient or `url()` as a brush; the gradient's points are fractions of the box. **/
-	static function image(v:String):Brush {
+	/**
+		A gradient or `url()` as a brush; the gradient's points are fractions
+		of the box. A `url()` of a PNG, JPEG or WebP file, relative to the
+		working directory, is that bitmap, read once: by `background-size` in
+		`c`, covering, contained or stretched (`100% 100%`), else at its own
+		size, repeated, as CSS draws one.
+	**/
+	static function image(v:String, ?c:ApplyContext):Brush {
 		var call = CssValue.call(v);
 		if (call != null && call.name == "url") {
 			var src = StringTools.trim(call.args);
 			if ((StringTools.startsWith(src, '"') || StringTools.startsWith(src, "'")) && src.length >= 2)
 				src = src.substr(1, src.length - 2);
+			#if sys
+			if (~/\.(png|jpe?g|webp)$/i.match(src)) {
+				var size = c == null || c.backgroundSize == null ? "auto" : StringTools.trim(c.backgroundSize).toLowerCase();
+				var fit:ashui.types.Brush.ImageFit = switch size {
+					case "cover": Cover;
+					case "contain": Contain;
+					case "100% 100%": Fill;
+					case _: Tile;
+				}
+				// A file that cannot be read draws nothing, as a browser draws a broken image.
+				var bitmap = try ashui.types.Bitmap.load(src) catch (_:Dynamic) null;
+				return bitmap == null ? Brush.solid(0, 0) : Brush.bitmap(bitmap, fit);
+			}
+			#end
 			return Brush.image(src);
 		}
 		var brush:Brush;

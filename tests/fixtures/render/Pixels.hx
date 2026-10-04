@@ -457,6 +457,20 @@ class Pixels {
 		probe("and red again a cell on", 38, 40, (r, g, b) -> r > 200 && b < 60);
 		probe("repeated across the box", 47, 44, (r, g, b) -> b > 200 && r < 60);
 
+		// CSS's url() reads an image file into a background, fitted by background-size.
+		var pairFile = haxe.io.Path.join([Sys.getCwd(), "pixels-pair.png"]);
+		sys.io.File.saveBytes(pairFile, haxe.crypto.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg=="));
+		var urlSheet = ashui.css.Css.load('.urlbg { background: url("$pairFile"); background-size: 100% 100%; }');
+		var urlTree = new LayoutTree();
+		var urlBox = new Div({classes: ["urlbg"], width: 48, height: 24}, urlTree);
+		var urlRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [urlBox], urlTree);
+		pixels = offscreen.renderToRgba8(urlRoot, SIZE, SIZE);
+		label = "css url(): ";
+		probe("the file stretched over the box, red on the left", 16, 20, (r, g, b) -> r > 200 && b < 60);
+		probe("and blue on the right", 48, 20, (r, g, b) -> b > 200 && r < 60);
+		ashui.css.Css.remove(urlSheet);
+		sys.FileSystem.deleteFile(pairFile);
+
 		// A canvas draws a bitmap into a rect, resampled for its size on screen, and at an opacity.
 		var canvasImageTree = new LayoutTree();
 		var canvasImageRoot:Div = ashui.reactive.Owner.root(canvasImageTree, _ -> {

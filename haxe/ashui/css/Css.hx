@@ -552,6 +552,17 @@ class Css {
 				hasBackground: resolved.exists("background") || resolved.exists("background-color")
 			};
 		}
+		if (resolved.exists("background-size"))
+			ctx = {
+				viewportWidth: ctx.viewportWidth,
+				viewportHeight: ctx.viewportHeight,
+				fontSize: ctx.fontSize,
+				rootFontSize: ctx.rootFontSize,
+				currentColor: ctx.currentColor,
+				backdropBlur: ctx.backdropBlur,
+				hasBackground: ctx.hasBackground,
+				backgroundSize: resolved.get("background-size")
+			};
 		var fields:Array<Int> = [];
 		// The transition first, so the changes below move by it.
 		try {
@@ -595,7 +606,8 @@ class Css {
 						rootFontSize: ctx.rootFontSize,
 						currentColor: ctx.currentColor,
 						backdropBlur: ctx.backdropBlur,
-						hasBackground: ctx.hasBackground
+						hasBackground: ctx.hasBackground,
+						backgroundSize: ctx.backgroundSize
 					};
 			}
 		});
