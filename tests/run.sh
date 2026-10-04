@@ -145,6 +145,8 @@ memory)
 	css=0
 	haxe --class-path ../haxe --class-path . -main CssParse --interp || css=$?
 	haxe --class-path ../haxe --class-path . -main CssValues --interp || css=$?
+	# ashui.draw's vector core: flattening and the triangles of fills and strokes.
+	haxe --class-path ../haxe --class-path . -main Draw --interp || css=$?
 	compile=0
 	compile_fixtures || compile=$?
 	[ $smoke -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
