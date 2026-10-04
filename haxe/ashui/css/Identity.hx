@@ -24,6 +24,14 @@ class Identity {
 
 	public var id(default, null):Null<String> = null;
 
+	/**
+		Not counted among its siblings: a node a layout adds, as text flow's
+		pieces are, is skipped by `:first-child`, `:nth-child`, `+` and `~`,
+		so they see the elements the author wrote. Its own type and classes
+		still match.
+	**/
+	public var anonymous = false;
+
 	/** The tree its node is in. **/
 	public var tree(default, null):LayoutTree;
 

@@ -1206,12 +1206,14 @@ class Smoke {
 		ashui.input.Pointer.release(flowTree);
 		check("a click on a wrapped link's second line is a click on the link", linkClicks == 1, linkClicks);
 
-		var codeAtom = @:privateAccess flowList[1].atoms[0];
-		var codeBounds = flowTree.getBounds(codeAtom.node);
-		var beside = wrapped.filter(p -> Math.abs(p.y - codeBounds.y) < 20 && p.text.indexOf("then") >= 0 || p.text.indexOf("it.") >= 0)[0];
+		// code's text, in its box, on the baseline of the text beside it.
+		var codeRun = Lambda.find(@:privateAccess flowList[1].runs, r -> @:privateAccess r.deco != null);
+		var codePiece = flowTree.getBounds(@:privateAccess codeRun.pieces[0].text.node);
+		var beside = wrapped.filter(p -> Math.abs(p.y - codePiece.y) < 20 && (p.text.indexOf("then") >= 0 || p.text.indexOf("it.") >= 0))[0];
 		var besideRun = Lambda.find(@:privateAccess flowList[1].runs, r -> Lambda.exists(@:privateAccess r.pieces, q -> q.text.node.id == beside.node));
-		var codeBaseline = codeBounds.y + codeAtom.above, textBaseline = beside.y + @:privateAccess besideRun.above;
-		check("a box in the flow, as code is, sits on the line's baseline", Math.abs(codeBaseline - textBaseline) < 0.5, [codeBaseline, textBaseline]);
+		var codeBaseline = codePiece.y + @:privateAccess codeRun.above, textBaseline = beside.y + @:privateAccess besideRun.above;
+		check("an inline box in the flow, as code is, has its text on the line's baseline", Math.abs(codeBaseline - textBaseline) < 0.5,
+			[codeBaseline, textBaseline]);
 
 		var shortHeight = flowTree.getBounds(@:privateAccess flowList[2].root.node).height;
 		said.set("a much longer sentence that now needs more than one line here");
@@ -1257,6 +1259,50 @@ class Smoke {
 		var edge = rootBox.x + rootBox.width;
 		check("text-align: justify fills every line to the edge but the last", lastTop > firstTop && Math.abs(firstLineEnd - edge) < 1
 			&& lastLineEnd < edge - 5, [firstLineEnd, lastLineEnd, edge]);
+
+		// --- Inline flow: boxes per line, long words, structure ---
+		var proseTree = new LayoutTree();
+		ashui.css.Css.load('.breaking { overflow-wrap: anywhere } .lead > strong:first-child { opacity: 0.5 }');
+		var proseRoot:Div = Owner.root(proseTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Stretch} width={160}>
+				<p>some text and <mark>a highlight that runs over the line</mark> end</p>
+				<p>Supercalifragilisticexpialidocious</p>
+				<p>Supercalifragilisticexpialidocious</p>
+				<p><strong>Lead</strong> in</p>
+			</div>
+		'));
+		var proseKids = proseTree.children(proseRoot.node.id);
+		ashui.css.Identity.of(proseTree, proseKids[2]).setClasses(["breaking"]);
+		ashui.css.Identity.of(proseTree, proseKids[3]).setClasses(["lead"]);
+		for (_ in 0...2) {
+			proseTree.flush();
+			proseTree.computeLayout(proseRoot.node, 160, 600);
+		}
+		var proseFlows:Array<ashui.text.InlineFlow> = @:privateAccess ashui.text.InlineFlow.flows.get(proseTree);
+		var markRun = Lambda.find(@:privateAccess proseFlows[0].runs, r -> @:privateAccess r.deco != null);
+		var markBoxes = [
+			for (b in @:privateAccess markRun.deco.boxes)
+				if (b.shown.get() == ashui.types.Style.Display.Flex) proseTree.getBounds(b.node)
+		];
+		var copyIdentity = ashui.css.Identity.of(proseTree, @:privateAccess markRun.deco.boxes[1].node.id);
+		check("an inline box that wraps has a box on each line, the copies styled as it is", markBoxes.length >= 2 && markBoxes[1].y > markBoxes[0].y
+			&& copyIdentity.types.indexOf("mark") >= 0 && copyIdentity.anonymous, [for (b in markBoxes) b.y]);
+		function widestPiece(flow:ashui.text.InlineFlow):{width:Float, count:Int} {
+			var w = 0.0, n = 0;
+			for (run in @:privateAccess flow.runs)
+				for (piece in @:privateAccess run.pieces)
+					if (piece.shown.get() == ashui.types.Style.Display.Flex) {
+						w = Math.max(w, proseTree.getBounds(piece.text.node).width);
+						n++;
+					}
+			return {width: w, count: n};
+		}
+		var overflowing = widestPiece(proseFlows[1]), broken = widestPiece(proseFlows[2]);
+		check("a word longer than its line overflows, unless overflow-wrap lets it break", overflowing.count == 1 && overflowing.width > 160
+			&& broken.count >= 2 && broken.width <= 160, [overflowing, broken]);
+		var leadStrong = ashui.css.Identity.of(proseTree, proseTree.children(proseKids[3])[2]);
+		check("the flow's own nodes are not counted by :first-child", leadStrong.types.indexOf("strong") >= 0
+			&& ashui.css.Css.computed(leadStrong, "opacity") == "0.5", ashui.css.Css.computed(leadStrong, "opacity"));
 
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();

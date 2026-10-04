@@ -474,6 +474,9 @@ class Properties {
 			write(n, Prop.LetterSpacing, px);
 			[Node.field(Prop.LetterSpacing)];
 		});
+		// How a flow of text breaks a word longer than its line; InlineFlow reads them from the cascade.
+		for (name in ["overflow-wrap", "word-wrap", "word-break"])
+			h.set(name, (_, _, _) -> []);
 		h.set("text-align", (n, v, _) -> [
 			enumWrite(n, Prop.TextAlign, v, [
 				"left" => TextAlign.Left,

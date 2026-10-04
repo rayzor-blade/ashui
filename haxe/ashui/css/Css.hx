@@ -778,9 +778,18 @@ private class TreeWalk {
 		return a.length == 0 ? null : a[0];
 	}
 
+	/** `node` and its siblings, those a layout added aside (see `Identity.anonymous`). **/
 	function siblings(node:haxe.Int64):Array<haxe.Int64> {
 		var p = parent(node);
-		return p == null ? [node] : children(p);
+		if (p == null)
+			return [node];
+		return [
+			for (c in children(p)) {
+				var identity = c == node ? null : Identity.of(tree, c);
+				if (identity == null || !identity.anonymous)
+					c;
+			}
+		];
 	}
 
 	/** Whether `selector` matches `node` as its subject. **/

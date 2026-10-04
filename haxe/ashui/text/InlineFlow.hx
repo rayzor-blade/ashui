@@ -26,6 +26,8 @@ private class Run {
 	public var below = 0.0;
 	/** The pieces shown, made as lines need them and kept for the next flow. **/
 	public final pieces:Array<Piece> = [];
+	/** The inline element that paints a box around it, as `code` does, when it is that element's text. **/
+	public var deco:Null<Deco> = null;
 
 	public function new(probe:Text, parent:haxe.Int64) {
 		this.probe = probe;
@@ -46,10 +48,52 @@ private class Piece {
 
 	public function new(tree:LayoutTree) {
 		text = new Text(content, {wrap: false}, tree);
+		Identity.of(tree, text.node.id).anonymous = true;
 		text.node.set(Prop.Position, Position.Absolute);
 		text.node.set(Prop.Left, left);
 		text.node.set(Prop.Top, top);
 		text.node.set(Prop.Display, shown);
+	}
+}
+
+/**
+	An inline element that paints a box, as `code`'s background, around one
+	text: a box on each line its text is on. The first is the element; those
+	after are copies of it, of its type and classes, so CSS styles them
+	alike. Its padding is at its start and end, not where a line breaks it,
+	as CSS's `box-decoration-break: slice`.
+**/
+private class Deco {
+	public final node:Node;
+	public final tag:String;
+	public final classes:Array<String>;
+	public var padding = {top: 0.0, right: 0.0, bottom: 0.0, left: 0.0};
+	public final boxes:Array<DecoBox> = [];
+
+	public function new(node:Node, tag:String, classes:Array<String>) {
+		this.node = node;
+		this.tag = tag;
+		this.classes = classes;
+	}
+}
+
+/** One line's box of a `Deco`. **/
+private class DecoBox {
+	public final node:Node;
+	public final left = Signal.make((0 : Single));
+	public final top = Signal.make((0 : Single));
+	public final width = Signal.make((0 : Single));
+	public final height = Signal.make((0 : Single));
+	public final shown = Signal.make(Display.Flex);
+
+	public function new(node:Node) {
+		this.node = node;
+		node.set(Prop.Position, Position.Absolute);
+		node.set(Prop.Left, left);
+		node.set(Prop.Top, top);
+		node.set(Prop.Width, width);
+		node.set(Prop.Height, height);
+		node.set(Prop.Display, shown);
 	}
 }
 
@@ -161,6 +205,7 @@ class InlineFlow {
 	final kept = new Map<String, Run>();
 	final keptAtoms = new Map<String, Atom>();
 	final framed = new Map<String, Bool>();
+	final decos = new Map<String, Deco>();
 
 	var structureChanged = true;
 	var measureChanged = true;
@@ -198,6 +243,8 @@ class InlineFlow {
 			flexGrow: 1
 		}, tree);
 		spacer.node.set(Prop.MaxWidthPercent, 1);
+		Identity.of(tree, anchor.node.id).anonymous = true;
+		Identity.of(tree, spacer.node.id).anonymous = true;
 		// First, so they are under everything for the hit test: the spacer covers the flow.
 		tree.replaceChildren(root.node.id, [anchor.node.id, spacer.node.id].concat(tree.children(root.node.id)));
 		var key = haxe.Int64.toStr(root.node.id);
@@ -252,6 +299,23 @@ class InlineFlow {
 		for (r in kept)
 			for (p in r.pieces)
 				skip.set(key(p.text.node.id), true);
+		for (d in decos)
+			for (i => b in d.boxes)
+				if (i > 0)
+					skip.set(key(b.node.id), true);
+		var seenDecos = new Map<String, Bool>();
+		/** The texts under `node` when they are all it holds, the flow's own pieces aside. **/
+		function onlyText(node:haxe.Int64):Null<Array<haxe.Int64>> {
+			var texts = [];
+			for (c in tree.children(node))
+				if (skip.exists(key(c)))
+					continue;
+				else if (Text.at(c) != null)
+					texts.push(c);
+				else
+					return null;
+			return texts;
+		}
 		function walk(parent:haxe.Int64) {
 			for (child in tree.children(parent)) {
 				var k = key(child);
@@ -265,6 +329,7 @@ class InlineFlow {
 						text.node.set(Prop.Display, Display.None);
 						kept.set(k, run);
 					}
+					run.deco = null;
 					seen.set(k, true);
 					nextRuns.push(run);
 					order.push(Word(run, 0, 0, 0, 0));
@@ -279,6 +344,33 @@ class InlineFlow {
 				}
 				var edges = tree.boxEdges(child);
 				var plain = isInline(identity) && edges != null && !edges.painted && edges.top + edges.right + edges.bottom + edges.left == 0;
+				var texts = !plain && isInline(identity) ? onlyText(child) : null;
+				if (texts != null && texts.length == 1) {
+					// A box around one text: a box on each line it is on.
+					var deco = decos.get(k);
+					if (deco == null) {
+						deco = new Deco(new Node(child), identity.types[0], identity.classes().copy());
+						deco.boxes.push(new DecoBox(deco.node));
+						decos.set(k, deco);
+					}
+					seenDecos.set(k, true);
+					var t = texts[0], tk = key(t);
+					var text = Text.at(t);
+					var run = kept.get(tk);
+					if (run == null || run.parent != child) {
+						run = new Run(text, child);
+						text.node.set(Prop.Display, Display.None);
+						kept.set(tk, run);
+					}
+					run.deco = deco;
+					seen.set(tk, true);
+					nextRuns.push(run);
+					order.push(Word(run, 0, 0, 0, 0));
+					members.push(k);
+					members.push(tk);
+					watches.push(new Watch(() -> text.text(), _ -> measureChanged = true));
+					continue;
+				}
 				if (plain) {
 					// A frame: at the origin, its pieces placed in it.
 					if (!framed.exists(k)) {
@@ -314,6 +406,14 @@ class InlineFlow {
 		for (k => _ in keptAtoms)
 			if (!seen.exists(k))
 				keptAtoms.remove(k);
+		// Boxes that left the flow: their copies go with them.
+		for (k => d in decos)
+			if (!seenDecos.exists(k)) {
+				for (i => b in d.boxes)
+					if (i > 0)
+						tree.removeSubtree(b.node.id);
+				decos.remove(k);
+			}
 		runs = nextRuns;
 		atoms = nextAtoms;
 		for (m in members)
@@ -339,6 +439,11 @@ class InlineFlow {
 				case Break:
 					afterSpace = true;
 			}
+		for (d in decos) {
+			var e = tree.boxEdges(d.node.id);
+			if (e != null)
+				d.padding = {top: e.top, right: e.right, bottom: e.bottom, left: e.left};
+		}
 		for (atom in atoms) {
 			var b = tree.getBounds(atom.node);
 			atom.width = b == null ? 0 : b.width;
@@ -409,7 +514,15 @@ class InlineFlow {
 						if (end < 0)
 							end = s.length;
 						var space = end < s.length ? run.x(end + 1) - run.x(end) : 0.0;
-						list.push(Word(run, i, end, run.x(end) - run.x(i), space));
+						var w = run.x(end) - run.x(i);
+						// A box around the text is wider by its padding at the text's start and end.
+						if (run.deco != null) {
+							if (i == 0)
+								w += run.deco.padding.left;
+							if (end == s.length)
+								w += run.deco.padding.right;
+						}
+						list.push(Word(run, i, end, w, space));
 						i = end + 1;
 					}
 				case other:
@@ -418,8 +531,22 @@ class InlineFlow {
 		return list;
 	}
 
+	/** Whether a word longer than the line may break inside: CSS's `overflow-wrap: anywhere` or `break-word`, or `word-break: break-all`. **/
+	function breaksWords():Bool {
+		var identity = Identity.of(tree, root.node.id);
+		if (identity == null)
+			return false;
+		var wrap = ashui.css.Css.computed(identity, "overflow-wrap");
+		if (wrap == null)
+			wrap = ashui.css.Css.computed(identity, "word-wrap");
+		var wordBreak = ashui.css.Css.computed(identity, "word-break");
+		return (wrap != null && ["anywhere", "break-word"].indexOf(StringTools.trim(wrap)) >= 0)
+			|| (wordBreak != null && ["break-all", "break-word"].indexOf(StringTools.trim(wordBreak)) >= 0);
+	}
+
 	/** Lines of `list` at `width`: greedy, breaking at spaces, a space at the start of a line dropped. **/
 	function lines(list:Array<Item>, width:Float):Array<Line> {
+		var breaking = breaksWords();
 		var out:Array<Line> = [];
 		var line:Line = {items: [], above: 0, below: 0, ends: false};
 		var x = 0.0;
@@ -429,7 +556,25 @@ class InlineFlow {
 			line = {items: [], above: 0, below: 0, ends: false};
 			x = 0;
 		}
-		for (item in list) {
+		var queue = list.copy();
+		queue.reverse();
+		while (queue.length > 0) {
+			var item = queue.pop();
+			// A word too long for any line, where CSS lets it break: as much as fits in the room left, the rest after.
+			switch item {
+				case Word(run, start, end, w, space) if (breaking && w > width && run.deco == null && end - start > 1):
+					var room = width - x;
+					var to = start;
+					while (to < end && run.x(to + 1) - run.x(start) <= room)
+						to++;
+					if (to == start && x == 0)
+						to = start + 1;
+					if (to > start && to < end) {
+						queue.push(Word(run, to, end, run.x(end) - run.x(to), space));
+						item = Word(run, start, to, run.x(to) - run.x(start), 0);
+					}
+				case _:
+			}
 			var w = switch item {
 				case Word(_, _, _, w, _): w;
 				case Box(atom): atom.width;
@@ -523,7 +668,8 @@ class InlineFlow {
 				}
 			longest = Math.max(longest, x - trailing);
 			changed = set(spacerWidth, Math.ceil(longest)) || changed;
-			changed = set(spacerMin, Math.ceil(widest)) || changed;
+			// A word that may break sets no minimum: the flow can be as narrow as what holds it.
+			changed = set(spacerMin, breaksWords() ? 0 : Math.ceil(widest)) || changed;
 		}
 		var s = tree.getBounds(spacer.node), a = tree.getBounds(anchor.node);
 		if (s == null || a == null)
@@ -558,6 +704,18 @@ class InlineFlow {
 			case Break: 0.0;
 		}
 
+	/** `deco`'s box for its `n`th line: the element itself for the first, a copy of it beside it for each after. **/
+	function decoBox(deco:Deco, n:Int):DecoBox {
+		while (deco.boxes.length <= n) {
+			var copy = Owner.root(tree, _ -> new Div({tag: deco.tag, classes: deco.classes}, tree));
+			Identity.of(tree, copy.node.id).anonymous = true;
+			var parent = tree.ancestors(deco.node.id)[0];
+			tree.addChild(parent, copy.node.id);
+			deco.boxes.push(new DecoBox(copy.node));
+		}
+		return deco.boxes[n];
+	}
+
 	static function set(signal:Signal<Single>, v:Float):Bool {
 		if (signal.get() == v)
 			return false;
@@ -573,13 +731,20 @@ class InlineFlow {
 		for (line in lines) {
 			// Where the line starts, and what each space between its words gains when it is justified.
 			var natural = 0.0, gaps = 0;
+			// A space stretches unless it is inside a box around text, which keeps its words together.
+			function stretches(k:Int):Bool
+				return switch line.items[k].item {
+					case Word(run, _, _, _, space) if (space > 0 && k < line.items.length - 1):
+						run.deco == null || !line.items[k + 1].item.match(Word(_, _, _, _, _)) || switch line.items[k + 1].item {
+							case Word(next, _, _, _, _): next != run;
+							case _: true;
+						}
+					case _: false;
+				}
 			for (k => p in line.items) {
 				natural = Math.max(natural, p.x + itemWidth(p.item));
-				switch p.item {
-					case Word(_, _, _, _, space) if (space > 0 && k < line.items.length - 1):
-						gaps++;
-					case _:
-				}
+				if (stretches(k))
+					gaps++;
 			}
 			var free = Math.max(0, width - natural);
 			var justify = align == Justify && !line.ends && gaps > 0;
@@ -594,11 +759,8 @@ class InlineFlow {
 			var gained = 0.0;
 			for (k => p in line.items) {
 				xs.push(p.x + shift + gained);
-				switch p.item {
-					case Word(_, _, _, _, space) if (space > 0):
-						gained += extra;
-					case _:
-				}
+				if (justify && stretches(k))
+					gained += extra;
 			}
 			var i = 0;
 			while (i < line.items.length) {
@@ -610,7 +772,7 @@ class InlineFlow {
 						var j = i, end = 0;
 						while (j < line.items.length)
 							switch line.items[j].item {
-								case Word(r, _, e, _, _) if (r == run && (j == i || !justify)):
+								case Word(r, _, e, _, _) if (r == run && (j == i || !justify || r.deco != null)):
 									end = e;
 									j++;
 								case _:
@@ -618,14 +780,30 @@ class InlineFlow {
 							}
 						var n = used.exists(run) ? used.get(run) : 0;
 						used.set(run, n + 1);
+						var deco = run.deco;
+						// A box around the text: this line's, the element itself first, then copies of it.
+						var box = deco == null ? null : decoBox(deco, n);
 						if (n >= run.pieces.length) {
 							var piece = Owner.root(tree, _ -> new Piece(tree));
-							tree.addChild(run.parent, piece.text.node.id);
+							tree.addChild(box != null ? box.node.id : run.parent, piece.text.node.id);
 							run.pieces.push(piece);
 						}
 						var piece = run.pieces[n];
 						var text = run.text.substring(start, end);
 						var left = dx + x, top = dy + y + line.above - run.above;
+						if (box != null) {
+							var pad = deco.padding;
+							var inset = start == 0 ? pad.left : 0.0;
+							var right = xs[j - 1] + itemWidth(line.items[j - 1].item);
+							set(box.left, left);
+							set(box.top, top - pad.top);
+							set(box.width, dx + right - left);
+							set(box.height, run.above + run.below + pad.top + pad.bottom);
+							box.shown.set(Display.Flex);
+							// Inside the box: after its padding where the text starts, at its top padding.
+							left = inset;
+							top = pad.top;
+						}
 						piece.content.set(text);
 						set(piece.left, left);
 						set(piece.top, top);
@@ -644,11 +822,14 @@ class InlineFlow {
 			}
 			y += line.above + line.below;
 		}
-		// Pieces no line needs now are hidden, kept for later.
+		// Pieces, and boxes after the first, no line needs now are hidden, kept for later.
 		for (run in runs) {
 			var n = used.exists(run) ? used.get(run) : 0;
 			for (k in n...run.pieces.length)
 				run.pieces[k].shown.set(Display.None);
+			if (run.deco != null)
+				for (k in Std.int(Math.max(1, n))...run.deco.boxes.length)
+					run.deco.boxes[k].shown.set(Display.None);
 		}
 		var heightChanged = set(spacerHeight, Math.ceil(y));
 		var s = sig.toString();
