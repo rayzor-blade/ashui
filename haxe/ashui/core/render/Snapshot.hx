@@ -36,6 +36,10 @@ class Snapshot {
 	**/
 	public static function scene(name:String, width:Int, height:Int, build:Void->Element, clear = 0xffffff, clearAlpha = 1.0, scale = 1.0,
 			settle = 0.0):String {
+		if (ashui.debug.SceneWindow.wanted()) {
+			ashui.debug.SceneWindow.open(name, width, height, build);
+			return "";
+		}
 		try {
 			var tree = new LayoutTree();
 			var root:Element = Owner.root(tree, _ -> build());

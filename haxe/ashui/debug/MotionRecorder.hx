@@ -65,6 +65,10 @@ class MotionRecorder {
 		var o:MotionRecordOptions = options == null ? {} : options;
 		var fps = o.fps == null ? 60 : o.fps;
 		var frames = o.frames == null ? 60 : o.frames;
+		if (SceneWindow.wanted()) {
+			SceneWindow.open(name, width, height, build, o.before, fps, frames);
+			return {dir: "", frames: [], filmstrip: "", curves: null, report: 'motion $name opened in a window', trace: MotionTrace.start()};
+		}
 		var scale = o.scale == null ? 1.0 : o.scale;
 		var dir = haxe.io.Path.join([Snapshot.dir(), "motion", name]);
 		clean(dir);

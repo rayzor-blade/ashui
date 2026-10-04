@@ -40,6 +40,10 @@ class AlignProbe {
 	public static var threshold = 60;
 
 	public static function record(name:String, width:Int, height:Int, build:Void->Element, scale = 2.0, page = 0xffffff):Array<AlignResult> {
+		if (SceneWindow.wanted()) {
+			SceneWindow.open(name, width, height, build);
+			return [];
+		}
 		var dir = haxe.io.Path.join([Snapshot.dir(), "align", name]);
 		sys.FileSystem.createDirectory(dir);
 		var drawn = draw(width, height, build, scale, page);
