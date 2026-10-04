@@ -20,8 +20,6 @@ import ashui.ui.Hxx.hxx;
 	    tools/demo/run.sh LiquidGlass.hx
 **/
 class LiquidGlass {
-	static final CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
-
 	public static function config():WindowConfig
 		return new WindowConfig().title("Liquid glass").size(440, 200).transparent(true).decorations(false).shadow(false).blurRadius(2).theme(DefaultTheme.bundle());
 
@@ -31,7 +29,6 @@ class LiquidGlass {
 	/** The card, its panel painted with `glass`. **/
 	public static function card(glass:Brush):Element {
 		var panel = new Ref<Div>();
-		var close = ashui.svg.SvgDocument.parse(CLOSE);
 		// The window has no title bar: a press on the panel itself moves it; the cross and Escape close it.
 		var root:Div = hxx('
 			<div width={440} height={200} padding={20} focusable={true} onKeyDown={e -> if (e.key.match(Named(Escape))) WindowedApp.current.quit()}>
@@ -41,7 +38,9 @@ class LiquidGlass {
 						<text class="text-xs font-semibold text-white/70 tracking-wide">NOW PLAYING</text>
 						<div class="flex items-center justify-center rounded-full text-white/80" width={24} height={24} bg={Brush.solid(0xffffff, 0.12)}
 							onClick={() -> WindowedApp.current.quit()}>
-							{new ashui.ui.Svg(close, {width: 14, height: 14})}
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width={14} height={14}>
+								<path d="M18 6 6 18" /><path d="m6 6 12 12" />
+							</svg>
 						</div>
 					</div>
 					<text class="text-2xl font-bold text-white">Glass Animals</text>
