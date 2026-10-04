@@ -97,7 +97,8 @@ class SceneWindow {
 				if (app != null)
 					app.quit();
 			});
-		ashui.app.WindowedApp.run({title: name, width: Std.int(Math.min(width, MAX_WIDTH)), height: Std.int(Math.min(height, MAX_HEIGHT))}, () -> {
+		var config = new ashui.app.WindowConfig().title(name).size(Std.int(Math.min(width, MAX_WIDTH)), Std.int(Math.min(height, MAX_HEIGHT)));
+		ashui.app.WindowedApp.run(config, () -> {
 			root = build();
 			root.node.set(ashui.layout.Prop.FlexShrink, (0 : Single));
 			// Wider than the window, it takes the window's width and lays out again, as a page does; narrower, it keeps its own.

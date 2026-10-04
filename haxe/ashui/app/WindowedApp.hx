@@ -7,7 +7,6 @@ import ashui.layout.Element;
 import ashui.layout.LayoutTree;
 import ashui.reactive.Owner;
 import ashui.theme.Platform;
-import ashui.theme.ThemeBundle;
 import ashui.theme.ThemeState;
 import ashui.theme.WindowTheme;
 import gpu.GpuAdapter;
@@ -18,20 +17,6 @@ import gpu.GpuSurfaceConfiguration;
 import gpu.Power;
 import gpu.TextureFormat;
 import window.Window;
-import window.WindowAttributes;
-
-/** How `WindowedApp.run` opens its window; every field is optional. **/
-typedef WindowConfig = {
-	?title:String,
-	/** The inner size in logical pixels. **/
-	?width:Int,
-	?height:Int,
-	?resizable:Bool,
-	/** The theme to install when none is; the default theme otherwise. **/
-	?theme:ThemeBundle,
-	/** Called after each presented frame with its number and the seconds since the window opened. **/
-	?onFrame:(frame:Int, seconds:Float) -> Void
-}
 
 /**
 	Opens a window and draws a UI into it until the window closes. `run`
@@ -61,6 +46,8 @@ class WindowedApp {
 	public var frames(default, null) = 0;
 
 	final adapter:GpuAdapter;
+	/** What is under the window shows where the UI draws nothing. **/
+	final transparent:Bool;
 	final surface:GpuSurface;
 	final format:TextureFormat;
 	final scheduler = AnimationScheduler.main;
@@ -115,29 +102,27 @@ class WindowedApp {
 	static inline var WHEEL_LINE = 40.0;
 
 	/** Runs `build`'s UI in a window until it closes or `quit` is called. Returns the frames presented. **/
-	public static function run(config:WindowConfig, build:Void->Element):Int {
+	public static function run(settings:WindowConfig, build:Void->Element):Int {
+		var config = settings.data;
 		if (ThemeState.tryGet() == null)
 			ThemeState.init(config.theme != null ? config.theme : ashui.theme.themes.DefaultTheme.bundle(), Platform.detectSystemColorScheme());
 		var instance = new GpuInstance();
 		// The device comes first: an await does not wake on Ash once a window is open.
 		var adapter = instance.requestAdapter(Power.HighPerformance).await();
 		var device = adapter.requestDevice().await();
-		var attributes = new WindowAttributes();
-		attributes.title(config.title != null ? config.title : "ashui");
-		attributes.width(config.width != null ? config.width : 800);
-		attributes.height(config.height != null ? config.height : 600);
-		attributes.resizable(config.resizable != false);
+		var attributes = settings.attributes();
 		// Raw device motion is not used, and a moving mouse sends a lot of it.
 		Window.listenDeviceEvents(Never);
 		var window = Window.open(attributes);
 		if (!window.valid())
 			throw "the window could not be opened";
 		// An app started from a terminal or another process is not made active on its own.
-		window.focus();
+		if (config.active != false)
+			window.focus();
 		var surface = instance.surface(window.platform(), window.raw(0), window.raw(1), window.raw(2), window.raw(3));
 		if (!surface.valid())
 			throw 'platform ${window.platform()} gave no GPU surface';
-		var app = new WindowedApp(window, adapter, device, surface);
+		var app = new WindowedApp(window, adapter, device, surface, config.transparent == true);
 		current = app;
 		try {
 			app.loop(build, config.onFrame);
@@ -151,8 +136,9 @@ class WindowedApp {
 		return app.frames;
 	}
 
-	function new(window:Window, adapter:GpuAdapter, device:GpuDevice, surface:GpuSurface) {
+	function new(window:Window, adapter:GpuAdapter, device:GpuDevice, surface:GpuSurface, transparent:Bool) {
 		this.window = window;
+		this.transparent = transparent;
 		this.adapter = adapter;
 		this.device = device;
 		this.surface = surface;
@@ -446,8 +432,8 @@ class WindowedApp {
 			return false;
 		}
 		var background = ThemeState.get().color(Background);
-		offscreen.clear = background.rgb();
-		offscreen.clearAlpha = background.a;
+		offscreen.clear = transparent ? 0 : background.rgb();
+		offscreen.clearAlpha = transparent ? 0 : background.a;
 		offscreen.scale = window.scaleFactor();
 		offscreen.targetWidth = window.width();
 		offscreen.targetHeight = window.height();
@@ -472,8 +458,22 @@ class WindowedApp {
 		var configuration = new GpuSurfaceConfiguration(format, window.width(), window.height());
 		var capabilities = surface.capabilities(adapter);
 		configuration.presentMode(presentMode(capabilities));
-		configuration.alphaMode(capabilities.alphaMode(0));
+		configuration.alphaMode(alphaMode(capabilities));
 		device.configureSurfaceWith(surface, configuration);
+	}
+
+	/**
+		How the window's frames composite over what is under it: with their
+		alpha when transparent, as the surface allows. Straight colours
+		blended over a frame cleared to nothing come out premultiplied.
+	**/
+	function alphaMode(capabilities:gpu.GpuSurfaceCapabilities):gpu.AlphaMode {
+		if (transparent)
+			for (wanted in [gpu.AlphaMode.PreMultiplied, gpu.AlphaMode.PostMultiplied])
+				for (i in 0...capabilities.alphaModeCount())
+					if (capabilities.alphaMode(i) == wanted)
+						return wanted;
+		return capabilities.alphaMode(0);
 	}
 
 	/**
