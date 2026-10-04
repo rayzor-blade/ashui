@@ -24,7 +24,7 @@ class LiquidGlass {
 		return new WindowConfig().title("Liquid glass").size(440, 200).transparent(true).blur(true).decorations(false).theme(DefaultTheme.bundle());
 
 	public static function page():Element
-		return card(Brush.glass(14, 0xffffff, 0.14, false));
+		return card(Brush.glass(14, 0xffffff, 0.02, false));
 
 	/** The card, its panel painted with `glass`. **/
 	public static function card(glass:Brush):Element {
