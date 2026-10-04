@@ -1,11 +1,12 @@
 import ashui.app.WindowConfig;
 import ashui.app.WindowedApp;
-import ashui.input.Interaction;
 import ashui.layout.Element;
 import ashui.theme.ThemeState;
 import ashui.theme.themes.DefaultTheme;
 import ashui.types.Brush;
 import ashui.types.Style;
+import ashui.ui.Div;
+import ashui.ui.Ref;
 import ashui.ui.Hxx.hxx;
 
 /**
@@ -29,32 +30,28 @@ class LiquidGlass {
 
 	/** The card, its panel painted with `glass`. **/
 	public static function card(glass:Brush):Element {
-		var close:Element = hxx('
-			<div class="flex items-center justify-center rounded-full text-white/80" width={24} height={24} bg={Brush.solid(0xffffff, 0.12)}>
-				{new ashui.ui.Svg(ashui.svg.SvgDocument.parse(CLOSE), {width: 14, height: 14})}
+		var panel = new Ref<Div>();
+		var close = ashui.svg.SvgDocument.parse(CLOSE);
+		// The window has no title bar: a press on the panel itself moves it; the cross and Escape close it.
+		var root:Div = hxx('
+			<div width={440} height={200} padding={20} focusable={true} onKeyDown={e -> if (e.key.match(Named(Escape))) WindowedApp.current.quit()}>
+				<div ref={panel} class="flex flex-col gap-3 p-6 rounded-3xl" width={400} height={160} bg={glass}
+					onPointerDown={e -> if (e.target == panel.get().node) WindowedApp.current.window.dragWindow()}>
+					<div class="flex flex-row items-center justify-between">
+						<text class="text-xs font-semibold text-white/70 tracking-wide">NOW PLAYING</text>
+						<div class="flex items-center justify-center rounded-full text-white/80" width={24} height={24} bg={Brush.solid(0xffffff, 0.12)}
+							onClick={() -> WindowedApp.current.quit()}>
+							{new ashui.ui.Svg(close, {width: 14, height: 14})}
+						</div>
+					</div>
+					<text class="text-2xl font-bold text-white">Glass Animals</text>
+					<text class="text-sm text-white/80">Heat Waves · Dreamland</text>
+					<div class="rounded-full" width={352} height={4} bg={Brush.solid(0xffffff, 0.2)}>
+						<div class="rounded-full" width={140} height={4} bg={Brush.solid(0xffffff, 0.9)} />
+					</div>
+				</div>
 			</div>
 		');
-		var panel:Element = hxx('
-			<div class="flex flex-col gap-3 p-6 rounded-3xl" width={400} height={160} bg={glass}>
-				<div class="flex flex-row items-center justify-between">
-					<text class="text-xs font-semibold text-white/70 tracking-wide">NOW PLAYING</text>
-					{close}
-				</div>
-				<text class="text-2xl font-bold text-white">Glass Animals</text>
-				<text class="text-sm text-white/80">Heat Waves · Dreamland</text>
-				<div class="rounded-full" width={352} height={4} bg={Brush.solid(0xffffff, 0.2)}>
-					<div class="rounded-full" width={140} height={4} bg={Brush.solid(0xffffff, 0.9)} />
-				</div>
-			</div>
-		');
-		var root:Element = hxx('<div width={440} height={200} padding={20}>{panel}</div>');
-		// The window has no title bar: a press on the panel moves it.
-		Interaction.of(panel.node).onPointerDown(e -> if (e.target == panel.node) WindowedApp.current.window.dragWindow());
-		Interaction.of(close.node).onClick(_ -> WindowedApp.current.quit());
-		Interaction.of(root.node).setFocusable(true).onKeyDown(e -> switch e.key {
-			case Named(Escape): WindowedApp.current.quit();
-			case _:
-		});
 		return root;
 	}
 

@@ -391,7 +391,7 @@ class Hxx {
 					xml.set(name.value, text);
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
-				case Regular(name, _) if (['width', 'height', 'color'].indexOf(name.value) >= 0):
+				case Regular(name, _) if (['width', 'height', 'color', 'ref'].indexOf(name.value) >= 0):
 					own.push(setter(el, a, '<svg>'));
 				case Regular(name, value):
 					Context.error('hxx: <svg> takes "${name.value}" only as a quoted value', value.pos);
@@ -527,6 +527,8 @@ class Hxx {
 							rootSets = rootSets.concat(sets);
 						case 'style':
 							rootSets.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
+						case 'ref':
+							rootSets.push(refSetter(value, el));
 						case n if (inputSetter(el, n, value) != null || rootAttribute(n) || n == 'animateLayout' || n == 'notch'):
 							rootSets.push(setter(el, a, '<$tag>'));
 						case _:
@@ -610,9 +612,15 @@ class Hxx {
 		}
 	}
 
+	/** `ref={x}`: `x`, a `Ref` of the element's type, holds the element; a `Ref` of another type does not compile. **/
+	static function refSetter(value:Expr, el:String):Expr
+		return macro @:pos(value.pos) $value.bind($i{el});
+
 	/** `el.node.set(Prop.Key, value)` for one attribute, or its input setter. **/
 	static function setter(el:String, attribute:Attribute, tag:String):Expr {
 		return switch attribute {
+			case Regular(name, value) if (name.value == 'ref'):
+				refSetter(value, el);
 			case Regular(name, value) if (inputSetter(el, name.value, value) != null):
 				inputSetter(el, name.value, value);
 			case Regular(name, value) if (name.value == 'notch' && tag == '<div>'):

@@ -947,6 +947,27 @@ class Smoke {
 		clickAt(plain.node.id);
 		check("a Div built in Haxe binds its handler attributes", plainClicks == 1 && plainEntered && ashui.input.Interaction.of(plain.node).focusable,
 			[plainClicks, plainEntered]);
+		// ref= names an element inside a template; under <if> it follows the element there now.
+		var refTree = new LayoutTree();
+		var shownRef = Signal.make(true);
+		var boxRef = new ashui.ui.Ref<Div>(), keptRef = new ashui.ui.Ref<Div>();
+		var refRoot:Div = Owner.root(refTree, _ -> hxx('
+			<div flexDirection={Column}>
+				<div ref={keptRef} width={30} height={10} />
+				<if {shownRef.get()}><div ref={boxRef} width={20} height={10} /></if>
+			</div>
+		'));
+		refTree.flush();
+		var boundFirst = boxRef.get() != null && keptRef.get() != null && refTree.ancestors(boxRef.get().node.id).length > 0;
+		var seen = [];
+		new ashui.reactive.Watch(() -> boxRef.bound(), b -> seen.push(b));
+		shownRef.set(false);
+		refTree.flush();
+		var clearedAfter = boxRef.get() == null && keptRef.get() != null;
+		shownRef.set(true);
+		refTree.flush();
+		check("ref= holds the element a template built, is cleared when it goes and set when it comes back, and is followed",
+			boundFirst && clearedAfter && boxRef.get() != null && seen.join(",") == "true,false,true", [boundFirst, clearedAfter, seen]);
 		check("built-in controls are typed for CSS", ashui.css.Identity.of(formTree, box).attribute("type") == "checkbox"
 			&& ashui.css.Identity.of(formTree, formNodes[4]).types.join(",") == "button");
 

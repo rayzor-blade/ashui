@@ -775,6 +775,13 @@ class Components {
 		var legend = [for (id in chFind("ui-chart-legend-item")) chText(id)].join(",");
 		check("a chart of more than one series has a legend of their names", legend == "Desktop,Mobile", legend);
 
+		// --- ref= on a component holds the component itself, typed as its class ---
+		var cardRef = new ashui.ui.Ref<Card>();
+		var refTree = new LayoutTree();
+		Owner.root(refTree, _ -> hxx('<div><card ref={cardRef} width={120}><card-content>Hi</card-content></card></div>'));
+		refTree.flush();
+		check("ref= on a component holds the component", cardRef.get() != null && Std.isOfType(cardRef.get(), Card));
+
 		// --- Sidebar: collapsing eases its width, the inset moving with it, its items kept on one line ---
 		var sbTree = new LayoutTree();
 		var folded = Signal.make(false);
