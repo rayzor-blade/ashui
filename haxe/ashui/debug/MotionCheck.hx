@@ -38,8 +38,12 @@ typedef MotionVerdict = {
 class MotionCheck {
 	/** A fraction of the move a frame may be off its curve. **/
 	public static var tolerance = 0.02;
-	/** Seconds within which a move undone by the next on the same property is a bounce rather than two intended moves. **/
-	public static var bounceWindow = 0.3;
+	/**
+		Seconds within which a move undone by the next on the same property is
+		a bounce rather than two intended moves: a few frames, as a flicker in
+		layout or styles is; a person moving focus on undoes a ring later.
+	**/
+	public static var bounceWindow = 0.05;
 
 	public static function check(track:MotionTrack, ?trace:MotionTrace):MotionVerdict {
 		var s = track.samples;
