@@ -631,8 +631,9 @@ class Css {
 		if (themeVariables != null)
 			return themeVariables;
 		var state = try ashui.theme.ThemeState.get() catch (_:Dynamic) null;
+		// Nothing kept before there is a theme: the first restyle after one is set reads it.
 		if (state == null)
-			return themeVariables = new Map();
+			return new Map();
 		if (!themeWatched) {
 			themeWatched = true;
 			new ashui.reactive.Watch(() -> state.revision.get(), _ -> {
