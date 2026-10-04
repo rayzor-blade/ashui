@@ -726,7 +726,20 @@ input.ui-command-field:hover, input.ui-command-field:focus { background: transpa
 }
 .ui-calendar-nav:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-primary); }
 .ui-calendar-nav:focus-visible { outline-width: 3px; }
+.ui-calendar-body { flex-direction: column; gap: 2px; }
+.ui-calendar-weekdays { display: grid; grid-template-columns: repeat(7, 36px); }
+/* The days, clipped a little outside them so focus rings show: a month turning slides the new one in from its side, pushing the old out the other. */
+.ui-calendar-months { overflow: hidden; margin: -4px; padding: 4px; }
 .ui-calendar-grid { display: grid; grid-template-columns: repeat(7, 36px); row-gap: 2px; }
+.ui-calendar-grid[data-enter="next"] { animation: ui-calendar-from-next var(--duration-normal) var(--ease-nav); }
+.ui-calendar-grid[data-enter="prev"] { animation: ui-calendar-from-prev var(--duration-normal) var(--ease-nav); }
+.ui-calendar-grid[data-leaving] { position: absolute; left: 4px; top: 4px; }
+.ui-calendar-grid[data-leaving="next"] { animation: ui-calendar-to-prev var(--duration-normal) var(--ease-nav) forwards; }
+.ui-calendar-grid[data-leaving="prev"] { animation: ui-calendar-to-next var(--duration-normal) var(--ease-nav) forwards; }
+@keyframes ui-calendar-from-next { from { transform: translateX(260px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes ui-calendar-from-prev { from { transform: translateX(-260px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes ui-calendar-to-prev { from { transform: none; opacity: 1; } to { transform: translateX(-260px); opacity: 0.4; } }
+@keyframes ui-calendar-to-next { from { transform: none; opacity: 1; } to { transform: translateX(260px); opacity: 0.4; } }
 .ui-calendar-weekday { height: 28px; align-items: center; justify-content: center; font-size: var(--text-xs); color: var(--text-secondary); }
 .ui-calendar-day {
 	width: 36px; height: 36px; padding: 0; align-items: center; justify-content: center; font-size: var(--text-sm);

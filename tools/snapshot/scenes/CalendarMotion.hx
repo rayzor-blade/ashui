@@ -9,7 +9,8 @@ import ashui.ui.Hxx.hxx;
 /**
 	A calendar, today fixed at 4 October 2026, recorded with the motion
 	overlay: the 15th chosen by a press, the arrows moving on, Page Down
-	turning to November, and Enter choosing there. Writes
+	turning to November, sliding in from the right, Enter choosing there,
+	and the back arrow turning to October again, from the left. Writes
 	`.ashui/snapshots/motion/calendar/` (`calendar-light` with
 	`SCHEME=light`).
 **/
@@ -28,8 +29,8 @@ class CalendarMotion {
 			return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
 		var result = MotionRecorder.record(light ? "calendar-light" : "calendar", 380, 400, build, {
 			fps: 60,
-			frames: 80,
-			minFrames: 70,
+			frames: 110,
+			minFrames: 100,
 			scale: 2,
 			clear: page.rgb(),
 			before: (frame, tree, root) -> switch frame {
@@ -46,6 +47,12 @@ class CalendarMotion {
 				case 46:
 					ashui.input.Keyboard.input(tree, key(Named(Enter), Enter));
 					ashui.input.Keyboard.input(tree, Input(Code(Enter), Named(Enter), None, Standard, Released, false, Unavailable));
+				case 70:
+					var back = Lambda.find(tree.order(), id -> ashui.css.Identity.of(tree, id) != null && ashui.css.Identity.of(tree, id).attribute("data-step") == "prev");
+					var b = tree.getBounds(new ashui.layout.Node(back));
+					ashui.input.Pointer.move(tree, b.x + b.width / 2, b.y + b.height / 2);
+					ashui.input.Pointer.press(tree);
+					ashui.input.Pointer.release(tree);
 				case _:
 			}
 		});

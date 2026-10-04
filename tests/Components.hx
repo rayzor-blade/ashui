@@ -719,6 +719,9 @@ class Components {
 		var pressed = day.get();
 		ashui.input.Keyboard.input(calTree, key(Named(ArrowDown), ArrowDown));
 		calFrames(5);
+		function calGrids()
+			return [for (id in calTree.order()) if (identity2(calTree, id) != null && identity2(calTree, id).hasClass("ui-calendar-grid")) identity2(calTree, id)];
+		var turning = [for (g in calGrids()) '${g.attribute("data-enter")}/${g.attribute("data-leaving")}'].join(",");
 		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter));
 		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter, false));
 		calFrames(5);
@@ -726,6 +729,9 @@ class Components {
 		check("a Calendar shows six weeks from the month's first week, a press chooses a day, the arrows cross into the next month",
 			first.attribute("data-outside") != null && pressed != null && pressed.month == 9 && pressed.day == 30 && stepped != null
 			&& stepped.month == 10 && stepped.day == 6, [pressed, stepped]);
+		calFrames(20);
+		check("turning the month slides the next one in and the shown one out, which then goes", turning == "null/next,next/null" && calGrids().length == 1,
+			[turning, calGrids().length]);
 
 		// --- Sidebar: collapsing eases its width, the inset moving with it, its items kept on one line ---
 		var sbTree = new LayoutTree();

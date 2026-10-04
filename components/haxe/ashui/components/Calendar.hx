@@ -28,11 +28,15 @@ typedef CalendarProps = {
 	A month to pick a day from: its name between buttons to the months
 	before and after, the days of the week, and six weeks of days, those of
 	the months around it muted. Today is marked; the chosen day is filled.
-	A press chooses a day (one of another month moves to it); the arrows move
+	A press chooses a day (one of another month moves to it); turning the
+	month slides the new one in from the side it is on. The arrows move
 	a day or a week, Page Up and Page Down a month, Home and End to the week's
 	ends, and Enter or Space chooses. CSS: `.ui-calendar`,
 	`.ui-calendar-header`, `.ui-calendar-caption`, `.ui-calendar-nav`
-	(`[data-step]`), `.ui-calendar-weekday`, `.ui-calendar-day`
+	(`[data-step]`), `.ui-calendar-body`, `.ui-calendar-weekdays`,
+	`.ui-calendar-weekday`, `.ui-calendar-months`, `.ui-calendar-grid` (a
+	month's days: `[data-enter]` and `[data-leaving]`, `next` or `prev`, as
+	it turns), `.ui-calendar-day`
 	(`[data-outside]`, `[data-today]`, `[data-selected]`, `:hover`,
 	`:focus-visible`).
 **/
@@ -67,43 +71,62 @@ class Calendar extends Component<CalendarProps> {
 		var focused = Signal.make(key(first));
 
 		var caption = Library.part("ui-calendar-caption", null, null, [new ashui.ui.Text(Computed.make(() -> '${MONTHS[shown.get().month]} ${shown.get().year}'))]);
-		var header = Library.part("ui-calendar-header", null, null, [nav("prev", () -> shown.set(shift(shown.get(), -1))), caption,
-			nav("next", () -> shown.set(shift(shown.get(), 1)))]);
-		var weekdays:Array<Element> = [for (i in 0...7) Library.part("ui-calendar-weekday", null, null, [new ashui.ui.Text(WEEKDAYS[(i + start) % 7])])];
+		// The months on screen: the one shown, and one leaving while it slides away.
+		var pages = Signal.make([new Page(first.year, first.month, null)]);
+		// Turns to `m`, the new month sliding in from the side it is on and the one shown sliding out the other.
+		function turn(m:{year:Int, month:Int}) {
+			var now = shown.get();
+			if (m.year == now.year && m.month == now.month)
+				return;
+			var side = m.year * 12 + m.month > now.year * 12 + now.month ? "next" : "prev";
+			shown.set(m);
+			var leaving = Lambda.find(pages.get(), p -> p.leaving.get() == null);
+			pages.set(pages.get().concat([new Page(m.year, m.month, side)]));
+			if (leaving == null)
+				return;
+			leaving.leaving.set(side);
+			var theme = ashui.theme.ThemeState.tryGet();
+			var seconds = theme == null ? 0 : theme.animations().durationFaster / 1000;
+			var identity = leaving.element == null ? null : ashui.css.Identity.of(leaving.element.tree, leaving.element.node.id);
+			ashui.css.Animations.whenPlayed([identity], seconds, () -> pages.set(pages.get().filter(p -> p != leaving)));
+		}
+		var header = Library.part("ui-calendar-header", null, null, [nav("prev", () -> turn(shift(shown.get(), -1))), caption,
+			nav("next", () -> turn(shift(shown.get(), 1)))]);
+		var weekdays = Library.part("ui-calendar-weekdays", null, null,
+			[for (i in 0...7) Library.part("ui-calendar-weekday", null, null, [new ashui.ui.Text(WEEKDAYS[(i + start) % 7])])]);
 
 		var choose = (d:CalendarDay) -> {
 			v.set(d);
-			if (d.month != shown.get().month || d.year != shown.get().year)
-				shown.set({year: d.year, month: d.month});
+			turn({year: d.year, month: d.month});
 			focused.set(key(d));
 			if (props.onChange != null)
 				props.onChange(d);
 		};
-		// The 42 days of the six weeks shown, by key.
-		var days = Computed.make(() -> {
-			var m = shown.get();
-			var lead = (new Date(m.year, m.month, 1, 0, 0, 0).getDay() - start + 7) % 7;
-			[for (i in 0...42) key(addDays({year: m.year, month: m.month, day: 1}, i - lead))];
-		});
-		var cells = new For(() -> days.get(), k -> {
-			var d = parse(k);
-			var cell = Library.part("ui-calendar-day", "button", [
-				"outside" => Computed.make(() -> (d.month != shown.get().month ? "" : null : Null<String>)),
-				"today" => (same(d, today) ? "" : null : Null<String>),
-				"selected" => Computed.make(() -> (v.get() != null && same(v.get(), d) ? "" : null : Null<String>))
-			], [new ashui.ui.Text(Std.string(d.day))]);
-			ashui.css.Identity.of(cell.tree, cell.node.id).setAttribute("type", "button");
-			var i = Interaction.of(cell.node).setFocusable(true);
-			i.onClick(_ -> choose(d));
-			// Focus follows the day the keys are on, while focus is in the grid, or was as the month turned.
-			new Watch(() -> focused.get(), f -> if (f == k && grid != null && (refocus || hasFocusIn(grid))) {
-				refocus = false;
-				Focus.set(i, true);
-			});
-			cell;
-		});
-		grid = Library.part("ui-calendar-grid", null, null, weekdays.concat([cells]));
-		Interaction.of(grid.node).onKeyDown(e -> {
+		var months = Library.part("ui-calendar-months", null, null, [new For(() -> pages.get(), page -> {
+			var lead = (new Date(page.year, page.month, 1, 0, 0, 0).getDay() - start + 7) % 7;
+			var cells:Array<Element> = [for (i in 0...42) {
+				var d = addDays({year: page.year, month: page.month, day: 1}, i - lead);
+				var k = key(d);
+				var cell = Library.part("ui-calendar-day", "button", [
+					"outside" => (d.month != page.month ? "" : null : Null<String>),
+					"today" => (same(d, today) ? "" : null : Null<String>),
+					"selected" => Computed.make(() -> (v.get() != null && same(v.get(), d) ? "" : null : Null<String>))
+				], [new ashui.ui.Text(Std.string(d.day))]);
+				ashui.css.Identity.of(cell.tree, cell.node.id).setAttribute("type", "button");
+				var i = Interaction.of(cell.node).setFocusable(true);
+				i.onClick(_ -> choose(d));
+				// Focus follows the day the keys are on, while focus is in the days, or was as the month turned; a leaving month's days let it go.
+				new Watch(() -> focused.get(), f -> if (f == k && page.leaving.get() == null && body != null && (refocus || hasFocusIn(body))) {
+					refocus = false;
+					Focus.set(i, true);
+				});
+				cell;
+			}];
+			page.element = Library.part("ui-calendar-grid", null, ["enter" => page.enter, "leaving" => Computed.make(() -> page.leaving.get())], cells);
+			page.element;
+		})]);
+		body = Library.part("ui-calendar-body", null, null, [weekdays, months]);
+		Interaction.of(body.node).onKeyDown(e -> {
 			var at = parse(focused.get());
 			var next:Null<CalendarDay> = switch e.key {
 				case Named(ArrowLeft): addDays(at, -1);
@@ -122,14 +145,14 @@ class Calendar extends Component<CalendarProps> {
 			if (next.month != shown.get().month || next.year != shown.get().year) {
 				// The month's days are made anew; the focused one takes focus as it is made.
 				refocus = true;
-				shown.set({year: next.year, month: next.month});
+				turn({year: next.year, month: next.month});
 			}
 			focused.set(key(next));
 		});
-		return Library.part("ui-calendar", null, null, [header, grid], props.id);
+		return Library.part("ui-calendar", null, null, [header, body], props.id);
 	}
 
-	var grid:Null<ashui.ui.Div> = null;
+	var body:Null<ashui.ui.Div> = null;
 	/** Set as the keys turn the month, so the day they are on takes focus once its cell is made. **/
 	var refocus = false;
 
@@ -179,5 +202,20 @@ class Calendar extends Component<CalendarProps> {
 		var m = shift({year: d.year, month: d.month}, n);
 		var days = DateTools.getMonthDays(new Date(m.year, m.month, 1, 0, 0, 0));
 		return {year: m.year, month: m.month, day: Std.int(Math.min(d.day, days))};
+	}
+}
+
+/** A month on screen: the side it came in from, if it slid in, and the side it is leaving by. **/
+private class Page {
+	public final year:Int;
+	public final month:Int;
+	public final enter:Null<String>;
+	public final leaving = Signal.make((null : Null<String>));
+	public var element:Null<ashui.ui.Div> = null;
+
+	public function new(year:Int, month:Int, enter:Null<String>) {
+		this.year = year;
+		this.month = month;
+		this.enter = enter;
 	}
 }
