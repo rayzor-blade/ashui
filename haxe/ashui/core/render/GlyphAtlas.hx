@@ -3,6 +3,9 @@ package ashui.core.render;
 import ashui.core.externs.TextNative;
 import gpu.GpuDevice;
 import gpu.GpuExtent3D;
+import gpu.GpuOrigin3D;
+import gpu.GpuTexelCopyBufferLayout;
+import gpu.GpuTexelCopyTextureInfo;
 import gpu.GpuTexture;
 import gpu.GpuTextureDescriptor;
 import gpu.GpuTextureView;
@@ -12,15 +15,16 @@ import gpu.TextureUsage;
 
 /**
 	The GPU copy of one of the text engine's glyph atlases. The engine packs
-	each glyph it rasterizes into the atlas; `sync` uploads the atlas when it
-	changed since this copy last took it, replacing the texture when the
-	atlas grew. Every renderer keeps its own copies of the one engine's.
+	each glyph it rasterizes into the atlas; `sync` uploads the region that
+	changed since this copy last took it, or the whole atlas when it grew,
+	replacing the texture then. Every renderer keeps its own copies of the
+	one engine's.
 **/
 class GlyphAtlas {
 	final device:GpuDevice;
 	final color:Bool;
 	final bytesPerPixel:Int;
-	final info = haxe.io.Bytes.alloc(12);
+	final info = haxe.io.Bytes.alloc(28);
 	var seen = 0;
 	var pixels:haxe.io.Bytes = haxe.io.Bytes.alloc(0);
 	var texture:Null<GpuTexture> = null;
@@ -39,26 +43,49 @@ class GlyphAtlas {
 		allocate(1, 1);
 	}
 
-	/** Uploads the atlas if it changed since the last call. **/
+	/** Uploads what of the atlas changed since the last call. **/
 	public function sync():Void {
 		var which = color ? 1 : 0;
-		var size = TextNative.blinc_text_atlas_take(which, seen, pixels.getData(), pixels.length, info.getData());
-		if (size == 0)
+		if (!take(which, seen))
 			return;
-		if (size > pixels.length) {
-			pixels = haxe.io.Bytes.alloc(size);
-			size = TextNative.blinc_text_atlas_take(which, seen, pixels.getData(), pixels.length, info.getData());
-			if (size == 0)
-				return;
-		}
-		var width = info.getInt32(0);
-		var height = info.getInt32(4);
-		seen = info.getInt32(8);
-		if (width <= 0 || height <= 0 || width * height * bytesPerPixel > size)
+		var width = info.getInt32(0), height = info.getInt32(4);
+		if (width <= 0 || height <= 0)
 			return;
-		if (texture == null || texture.width() != width || texture.height() != height)
+		if (texture == null || texture.width() != width || texture.height() != height) {
 			allocate(width, height);
-		device.queue().writeTexture(texture, pixels, width, height, width * bytesPerPixel);
+			// A new texture takes the whole atlas, whatever changed of it.
+			if (info.getInt32(20) != width || info.getInt32(24) != height)
+				if (!take(which, 0))
+					return;
+		}
+		seen = info.getInt32(8);
+		var x = info.getInt32(12), y = info.getInt32(16), w = info.getInt32(20), h = info.getInt32(24);
+		if (w <= 0 || h <= 0)
+			return;
+		var origin = new GpuOrigin3D();
+		origin.x(x);
+		origin.y(y);
+		var destination = new GpuTexelCopyTextureInfo(texture);
+		destination.origin(origin);
+		var layout = new GpuTexelCopyBufferLayout();
+		layout.bytesPerRow(w * bytesPerPixel);
+		layout.rowsPerImage(h);
+		var extent = new GpuExtent3D(w);
+		extent.height(h);
+		device.queue().writeTextureWith(destination, pixels, layout, extent);
+	}
+
+	/** The region changed since revision `since` into `pixels`, its place in `info`; false when there is none. **/
+	function take(which:Int, since:Int):Bool {
+		var size = TextNative.blinc_text_atlas_take(which, since, pixels.getData(), pixels.length, info.getData());
+		if (size == 0)
+			return false;
+		if (size > pixels.length) {
+			// Room for this region and some to spare, so a few larger ones do not each allocate.
+			pixels = haxe.io.Bytes.alloc(size + (size >> 1));
+			size = TextNative.blinc_text_atlas_take(which, since, pixels.getData(), pixels.length, info.getData());
+		}
+		return size > 0;
 	}
 
 	function allocate(width:Int, height:Int):Void {

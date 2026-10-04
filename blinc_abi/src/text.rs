@@ -243,14 +243,30 @@ pub fn half_leading(context: &TextMeasureContext, font_size: f32) -> f32 {
 // ATLASES
 // ============================================================================
 
-/// How often each atlas changed: the coverage atlas, then the colour one.
-static REVISIONS: Mutex<[i32; 2]> = Mutex::new([0, 0]);
+/// The changes an atlas has had, newest last, each with the region it wrote
+/// and the atlas's size then; enough of them for a caller a few frames behind.
+struct AtlasHistory {
+    revision: i32,
+    changes: std::collections::VecDeque<(i32, (u32, u32, u32, u32), (u32, u32))>,
+}
+
+/// How many changes an atlas remembers; a caller further behind takes it whole.
+const ATLAS_HISTORY: usize = 32;
+
+/// The coverage atlas's history, then the colour one's.
+static HISTORIES: Mutex<[AtlasHistory; 2]> = Mutex::new([
+    AtlasHistory { revision: 0, changes: std::collections::VecDeque::new() },
+    AtlasHistory { revision: 0, changes: std::collections::VecDeque::new() },
+]);
 
 /// The coverage atlas (`color` 0, one byte a pixel) or the colour-glyph atlas
 /// (`color` 1, RGBA). Each change bumps its revision. When the revision is
-/// not `seen`, writes its width, height and revision as three i32s to `info`
-/// and returns its size in bytes, copying the pixels into `out` when they fit
-/// in `capacity`. Returns 0 when the caller has seen this revision.
+/// not `seen`, writes seven i32s to `info`: the atlas's width, height and
+/// revision, then the region `x`, `y`, `width` and `height` changed since
+/// `seen`, the whole atlas when `seen` is 0, too old, or older than its last
+/// growth. Returns the region's size in bytes, copying its rows, packed, into
+/// `out` when they fit in `capacity`. Returns 0 when the caller has seen this
+/// revision.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_text_atlas_take(
     color: i32,
@@ -261,35 +277,56 @@ pub unsafe extern "C" fn hl_blinc_text_atlas_take(
 ) -> i32 {
     let mut r = renderer();
     let color = color != 0;
-    let slot = color as usize;
-    let mut revisions = REVISIONS.lock().unwrap_or_else(|e| e.into_inner());
-    if color && r.color_atlas_is_dirty() {
-        r.mark_color_atlas_clean();
-        revisions[slot] += 1;
-    } else if !color && r.atlas_is_dirty() {
-        r.mark_atlas_clean();
-        revisions[slot] += 1;
+    let mut histories = HISTORIES.lock().unwrap_or_else(|e| e.into_inner());
+    let history = &mut histories[color as usize];
+    let (dirty, rect, dims) = if color {
+        (r.color_atlas_is_dirty(), r.color_atlas_dirty_rect(), r.color_atlas_dimensions())
+    } else {
+        (r.atlas_is_dirty(), r.atlas_dirty_rect(), r.atlas_dimensions())
+    };
+    if dirty {
+        if color { r.mark_color_atlas_clean() } else { r.mark_atlas_clean() }
+        history.revision += 1;
+        history.changes.push_back((history.revision, rect.unwrap_or((0, 0, dims.0, dims.1)), dims));
+        if history.changes.len() > ATLAS_HISTORY {
+            history.changes.pop_front();
+        }
     }
-    let revision = revisions[slot];
+    let revision = history.revision;
     if revision == seen {
         return 0;
     }
-    let ((w, h), pixels) = if color {
-        (r.color_atlas_dimensions(), r.color_atlas_pixels())
+    // The union of what changed after `seen`, when every change since is remembered and the atlas kept its size.
+    let since: Vec<_> = history.changes.iter().filter(|c| c.0 > seen).collect();
+    let known = seen > 0 && since.first().is_some_and(|c| c.0 == seen + 1) && since.iter().all(|c| c.2 == dims);
+    let (x, y, w, h) = if known {
+        let (mut x0, mut y0, mut x1, mut y1) = (u32::MAX, u32::MAX, 0, 0);
+        for &&(_, (x, y, w, h), _) in &since {
+            x0 = x0.min(x);
+            y0 = y0.min(y);
+            x1 = x1.max(x + w);
+            y1 = y1.max(y + h);
+        }
+        (x0, y0, x1.min(dims.0) - x0, y1.min(dims.1) - y0)
     } else {
-        (r.atlas_dimensions(), r.atlas_pixels())
+        (0, 0, dims.0, dims.1)
     };
     if !info.is_null() {
         let info = info as *mut i32;
-        unsafe {
-            info.write_unaligned(w as i32);
-            info.add(1).write_unaligned(h as i32);
-            info.add(2).write_unaligned(revision);
+        for (i, v) in [dims.0 as i32, dims.1 as i32, revision, x as i32, y as i32, w as i32, h as i32].into_iter().enumerate() {
+            unsafe { info.add(i).write_unaligned(v) };
         }
     }
-    let size = pixels.len();
+    let bpp = if color { 4 } else { 1 };
+    let row = w as usize * bpp;
+    let size = row * h as usize;
     if !out.is_null() && size <= capacity.max(0) as usize {
-        unsafe { std::ptr::copy_nonoverlapping(pixels.as_ptr(), out as *mut u8, size) };
+        let pixels = if color { r.color_atlas_pixels() } else { r.atlas_pixels() };
+        let stride = dims.0 as usize * bpp;
+        for j in 0..h as usize {
+            let from = (y as usize + j) * stride + x as usize * bpp;
+            unsafe { std::ptr::copy_nonoverlapping(pixels[from..from + row].as_ptr(), (out as *mut u8).add(j * row), row) };
+        }
     }
     size as i32
 }
