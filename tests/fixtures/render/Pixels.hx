@@ -484,7 +484,7 @@ class Pixels {
 		// Frames of an animated UI in time the test keeps: a bar a CSS animation widens over a second.
 		var motionSheet = ashui.css.Css.load('
 			@keyframes slide { from { width: 10px } to { width: 50px } }
-			.slide { height: 10px; background: #ff0000; animation: slide 1s linear; }
+			.slide { width: 8px; height: 10px; background: #ff0000; animation: slide 1s linear; }
 		');
 		var motionTree = new LayoutTree();
 		var bar = new Div({classes: ["slide"]}, motionTree);
@@ -496,8 +496,10 @@ class Pixels {
 		probe("half a second on, 30 wide", 25, 5, near(0xff0000));
 		probe("and no wider", 35, 5, near(0xffffff));
 		pixels = offscreen.renderAnimatedToRgba8(motionRoot, SIZE, SIZE, 0.6);
-		probe("ended, back to its own width", 25, 5, near(0xffffff));
-		probe("which it draws", 5, 5, near(0xff0000));
+		probe("ended, back to its own width, 8", 25, 5, near(0xffffff));
+		probe("which it draws, and keeps: it does not start again", 5, 5, near(0xff0000));
+		pixels = offscreen.renderAnimatedToRgba8(motionRoot, SIZE, SIZE, 0.5);
+		probe("half a second later still its own width", 9, 5, near(0xffffff));
 		ashui.css.Css.remove(motionSheet);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');

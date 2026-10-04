@@ -90,20 +90,19 @@ class Animations {
 	}
 
 	/** Whether `identity` has an animation running. **/
-	public static function active(identity:Identity):Bool
-		return running.exists(identity);
-
-	@:allow(ashui.css.Run)
-	static function ended(run:Run):Void {
-		var list = running.get(run.identity);
-		if (list != null) {
-			list.remove(run);
-			if (list.length == 0)
-				running.remove(run.identity);
-		}
-		// The cascade takes the properties back.
-		@:privateAccess Css.markAgain(run.identity);
+	public static function active(identity:Identity):Bool {
+		var list = running.get(identity);
+		return list != null && Lambda.exists(list, r -> !r.finished && !r.stopped);
 	}
+
+	/**
+		A run that played to its end and holds nothing: kept on the list,
+		finished, so the same entry does not start it again when the cascade
+		takes its properties back; it goes when the entry does.
+	**/
+	@:allow(ashui.css.Run)
+	static function ended(run:Run):Void
+		@:privateAccess Css.markAgain(run.identity);
 
 	static function signature(s:AnimationSpec):String
 		return '${s.name}|${s.duration}|${s.easing}|${s.delay}|${s.iterations}|${s.direction}|${s.fill}';
