@@ -241,7 +241,7 @@ class WindowedApp {
 			#end
 			var now = haxe.Timer.stamp();
 			// Capped, so after a stall an animation carries on from where it was instead of jumping ahead.
-			scheduler.tick(Math.min(now - last, MAX_STEP));
+			scheduler.tick(Math.min(now - last, MAX_STEP), now - last);
 			last = now;
 			if (theme.tick() || animating)
 				dirty = true;

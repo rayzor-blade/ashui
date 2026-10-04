@@ -1892,7 +1892,7 @@ class Smoke {
 		// --- Timers wake the loop when due, and are not animation ---
 		var timerClock = new ashui.animation.AnimationScheduler();
 		var rang = 0;
-		// Long enough that a loaded machine's delays between these lines stay well inside it.
+		// On the scheduler's clock: what its ticks add up to.
 		timerClock.after(0.2, () -> rang++);
 		var cancelled = timerClock.after(0.2, () -> rang += 10);
 		cancelled.cancel();
@@ -1900,8 +1900,7 @@ class Smoke {
 		var idle = !timerClock.hasActive();
 		timerClock.tick(0.001);
 		var early = rang;
-		Sys.sleep(0.25);
-		timerClock.tick(0.001);
+		timerClock.tick(0.25);
 		check("timers: due at their time, not before, cancelled ones never, and not counted as animation",
 			waitFor != null && waitFor > 0.1 && waitFor <= 0.2 && idle && early == 0 && rang == 1 && timerClock.untilNextTimer() == null,
 			[waitFor, idle, early, rang]);

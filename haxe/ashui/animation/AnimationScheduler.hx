@@ -82,7 +82,7 @@ class AnimationScheduler {
 
 	/** Calls `callback` once `seconds` from now, at the first tick after. **/
 	public function after(seconds:Float, callback:Void->Void):Timer {
-		var timer = new Timer(haxe.Timer.stamp() + seconds, callback);
+		var timer = new Timer(clock + seconds, callback);
 		locked(() -> {
 			timers.push(timer);
 			null;
@@ -97,7 +97,7 @@ class AnimationScheduler {
 			for (t in timers)
 				if (!t.cancelled && (soonest == null || t.at < soonest))
 					soonest = t.at;
-			soonest == null ? null : Math.max(0, soonest - haxe.Timer.stamp());
+			soonest == null ? null : Math.max(0, soonest - clock);
 		});
 	}
 
@@ -114,8 +114,22 @@ class AnimationScheduler {
 		});
 	}
 
-	/** Advances every spring `dt` seconds, dropping those that settle. **/
-	public function tick(dt:Float):Void {
+	/**
+		The timers' clock, in seconds: what the ticks have added up to, so a
+		timer is due after the time ticked, as an animation is, and a program
+		that ticks a fixed step, a test or an offscreen render, sees the same
+		timers fire on every run.
+	**/
+	public var clock(default, null) = 0.0;
+
+	/**
+		Advances every spring `dt` seconds, dropping those that settle, and
+		the timers' clock `elapsed` seconds, `dt` unless given: a frame loop
+		that limits its step still passes the whole time slept, so a timer it
+		woke for is due.
+	**/
+	public function tick(dt:Float, ?elapsed:Float):Void {
+		clock += elapsed == null ? dt : elapsed;
 		locked(() -> {
 			var settled = [];
 			for (id => spring in springs) {
@@ -138,7 +152,7 @@ class AnimationScheduler {
 		// Due timers, after the tickers, so one a timer starts begins at the next tick
 		// rather than taking this tick's whole step at once. Outside the lock: a
 		// callback may set another.
-		var now = haxe.Timer.stamp();
+		var now = clock;
 		var due = locked(() -> {
 			var fire = [for (t in timers) if (t.at <= now || t.cancelled) t];
 			for (t in fire)
@@ -176,7 +190,7 @@ class AnimationScheduler {
 
 /** A callback `AnimationScheduler.after` will call; `cancel` stops it. **/
 class Timer {
-	/** When it is due, in `haxe.Timer.stamp` seconds. **/
+	/** When it is due, on the scheduler's `clock`. **/
 	public final at:Float;
 	public final callback:Void->Void;
 	public var cancelled(default, null) = false;
