@@ -1221,6 +1221,27 @@ class Smoke {
 		var longHeight = flowTree.getBounds(@:privateAccess flowList[2].root.node).height;
 		check("a flow measures again when its text changes, and grows a line", longHeight > shortHeight * 1.5, [shortHeight, longHeight]);
 
+		// --- Inline flow: a paragraph taken away while others stay, its siblings' children changing after ---
+		var goneTree = new LayoutTree();
+		var lines = Signal.make(["a", "b"]);
+		var goneRoot:Div = Owner.root(goneTree, _ -> new Div({width: 200, height: 200, flexDirection: Column}, [
+			new ashui.ui.For(() -> lines.get(), v -> hxx('<div><p>Line {v}</p></div>'))
+		], goneTree));
+		function goneSettle() {
+			goneTree.flush();
+			goneTree.computeLayout(goneRoot.node, 200, 200);
+			goneTree.flush();
+		}
+		goneSettle();
+		lines.set(["a"]);
+		var survived = try {
+			goneSettle();
+			lines.set(["a", "c"]);
+			goneSettle();
+			true;
+		} catch (e:haxe.Exception) false;
+		check("a paragraph removed from a list leaves no flow behind to trip on the list's next change", survived);
+
 		// --- Inline flow: text-align ---
 		var alignTree = new LayoutTree();
 		ashui.css.Css.load('.justified { text-align: justify }');

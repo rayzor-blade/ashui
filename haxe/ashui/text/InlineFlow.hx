@@ -247,8 +247,10 @@ class InlineFlow {
 		Identity.of(tree, spacer.node.id).anonymous = true;
 		// First, so they are under everything for the hit test: the spacer covers the flow.
 		tree.replaceChildren(root.node.id, [anchor.node.id, spacer.node.id].concat(tree.children(root.node.id)));
-		var key = haxe.Int64.toStr(root.node.id);
-		AfterChildren.watch(tree, "flow " + key, parent -> parent == root.node.id || members.indexOf(haxe.Int64.toStr(parent)) >= 0, () -> structureChanged = true);
+		// The root's id, kept: taking a flow away removes its nodes before its owner's cleanup stops this watch.
+		var rootId = root.node.id;
+		var key = haxe.Int64.toStr(rootId);
+		AfterChildren.watch(tree, "flow " + key, parent -> parent == rootId || members.indexOf(haxe.Int64.toStr(parent)) >= 0, () -> structureChanged = true);
 	}
 
 	function forget():Void {
