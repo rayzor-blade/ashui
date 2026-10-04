@@ -1,0 +1,52 @@
+package ashui.shaders;
+
+/**
+	A mesh draw's own settings, for `@:import ashui.shaders.MeshDraw;`:
+	read from the `draws` buffer, `ROWS` rows of four floats a draw, the
+	draw's instance index naming its own. The rows are the model matrix's
+	columns, the normal matrix's, the base colour and alpha (linear), then
+	metallic, roughness, normal scale and occlusion strength, the emissive
+	colour (linear, times its strength) and the alpha cut-off, then whether
+	it has a normal texture, whether it is unlit, its alpha mode (0 opaque,
+	1 mask, 2 blend) and its opacity. The importing shader declares
+	`@param var draws : StorageBuffer<Vec4>;` itself, as HXSL imports
+	bring functions and not parameters.
+**/
+class MeshDraw implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
+	public static inline var ROWS = 12;
+
+	static var SRC = {
+		@param var draws : StorageBuffer<Vec4>;
+
+		/** A point (`w` 1) or direction (`w` 0) of draw `i`'s mesh, placed in the scene. **/
+		function modelToWorld(i : Int, p : Vec4) : Vec4 {
+			var d = i * 12;
+			return draws[d] * p.x + draws[d + 1] * p.y + draws[d + 2] * p.z + draws[d + 3] * p.w;
+		}
+
+		/** A normal of draw `i`'s mesh, turned as its surface is in the scene; not of unit length. **/
+		function normalToWorld(i : Int, n : Vec3) : Vec3 {
+			var d = i * 12;
+			return (draws[d + 4] * n.x + draws[d + 5] * n.y + draws[d + 6] * n.z).xyz;
+		}
+
+		function drawBaseColor(i : Int) : Vec4 {
+			return draws[i * 12 + 7];
+		}
+
+		/** Metallic, roughness, normal scale, occlusion strength. **/
+		function drawSurface(i : Int) : Vec4 {
+			return draws[i * 12 + 8];
+		}
+
+		/** The emissive colour, and the alpha cut-off. **/
+		function drawEmissive(i : Int) : Vec4 {
+			return draws[i * 12 + 9];
+		}
+
+		/** Has a normal texture, unlit, alpha mode, opacity. **/
+		function drawFlags(i : Int) : Vec4 {
+			return draws[i * 12 + 10];
+		}
+	};
+}

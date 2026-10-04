@@ -55,6 +55,7 @@ class Snapshot {
 			return capture(name, tree, root.node, width, height, clear, clearAlpha, scale);
 		} catch (e:haxe.Exception) {
 			event('error $name ${e.message.split("\n").join(" ")}');
+			Sys.println(e.details());
 			throw e;
 		}
 	}
@@ -87,6 +88,7 @@ class Snapshot {
 			return paths;
 		} catch (e:haxe.Exception) {
 			event('error $name ${e.message.split("\n").join(" ")}');
+			Sys.println(e.details());
 			throw e;
 		}
 	}

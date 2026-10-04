@@ -80,6 +80,9 @@ class Canvas extends Component<CanvasProps> {
 		Owner.onCleanup(() -> {
 			bySlot.remove(slot);
 			LayoutTreeNative.blinc_tree_set_canvas(tree.ptr, id, -1);
+			#if ashui_gpu
+			painter.dispose();
+			#end
 		});
 		// A tick read by a watch: changing it makes the next flush report a change, so a frame is drawn.
 		var t = ticks;

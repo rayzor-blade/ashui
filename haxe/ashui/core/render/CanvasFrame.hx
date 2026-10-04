@@ -53,10 +53,14 @@ class CanvasFrame {
 
 	final renderer:Renderer;
 
+	/** The view the pass draws into, to begin it again after `suspend`. **/
+	final target:gpu.GpuTextureView;
+
 	@:allow(ashui.core.render.Renderer)
 	function new(renderer:Renderer, device:GpuDevice, encoder:GpuEncoder, format:TextureFormat, record:Int, width:Float, height:Float,
-			transform:Affine, scale:Float, pixelRatio:Float, scissor:Array<Int>) {
+			transform:Affine, scale:Float, pixelRatio:Float, scissor:Array<Int>, target:gpu.GpuTextureView) {
 		this.renderer = renderer;
+		this.target = target;
 		this.device = device;
 		this.encoder = encoder;
 		this.format = format;
@@ -70,6 +74,19 @@ class CanvasFrame {
 		scissorY = scissor[1];
 		scissorWidth = scissor[2];
 		scissorHeight = scissor[3];
+	}
+
+	/**
+		Ends the pass to run `passes`, which begin and end passes of their own
+		on `encoder`, into textures of their own, then begins it again on the
+		frame's target, keeping what it holds, scissored as before. What was
+		set on the pass, pipelines and bindings, is gone after: set it again.
+	**/
+	public function suspend(passes:GpuEncoder->Void):Void {
+		encoder.renderEnd();
+		passes(encoder);
+		@:privateAccess renderer.beginPass(encoder, target, false, 0, 0, 0, 0);
+		encoder.renderSetScissorRect(scissorX, scissorY, scissorWidth, scissorHeight);
 	}
 
 	/** The renderer's image atlas, which images a canvas draws are resampled into. **/

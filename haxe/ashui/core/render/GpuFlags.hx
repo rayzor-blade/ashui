@@ -9,6 +9,9 @@ class GpuFlags {
 	public static var BUFFER_UNIFORM(get, never):Int;
 	public static var BUFFER_COPY_DST(get, never):Int;
 	public static var BUFFER_MAP_READ(get, never):Int;
+	public static var BUFFER_VERTEX(get, never):Int;
+	public static var BUFFER_INDEX(get, never):Int;
+	public static var BUFFER_STORAGE(get, never):Int;
 	public static var TEXTURE_COPY_SRC(get, never):Int;
 	public static var TEXTURE_COPY_DST(get, never):Int;
 	public static var TEXTURE_BINDING(get, never):Int;
@@ -19,6 +22,9 @@ class GpuFlags {
 	static inline function get_BUFFER_UNIFORM():Int return gpu.BufferUsage.UNIFORM();
 	static inline function get_BUFFER_COPY_DST():Int return gpu.BufferUsage.COPY_DST();
 	static inline function get_BUFFER_MAP_READ():Int return gpu.BufferUsage.MAP_READ();
+	static inline function get_BUFFER_VERTEX():Int return gpu.BufferUsage.VERTEX();
+	static inline function get_BUFFER_INDEX():Int return gpu.BufferUsage.INDEX();
+	static inline function get_BUFFER_STORAGE():Int return gpu.BufferUsage.STORAGE();
 	static inline function get_TEXTURE_COPY_SRC():Int return gpu.TextureUsage.COPY_SRC();
 	static inline function get_TEXTURE_COPY_DST():Int return gpu.TextureUsage.COPY_DST();
 	static inline function get_TEXTURE_BINDING():Int return gpu.TextureUsage.TEXTURE_BINDING();
@@ -28,6 +34,9 @@ class GpuFlags {
 	static inline function get_BUFFER_UNIFORM():Int return gpu.BufferUsage.UNIFORM;
 	static inline function get_BUFFER_COPY_DST():Int return gpu.BufferUsage.COPY_DST;
 	static inline function get_BUFFER_MAP_READ():Int return gpu.BufferUsage.MAP_READ;
+	static inline function get_BUFFER_VERTEX():Int return gpu.BufferUsage.VERTEX;
+	static inline function get_BUFFER_INDEX():Int return gpu.BufferUsage.INDEX;
+	static inline function get_BUFFER_STORAGE():Int return gpu.BufferUsage.STORAGE;
 	static inline function get_TEXTURE_COPY_SRC():Int return gpu.TextureUsage.COPY_SRC;
 	static inline function get_TEXTURE_COPY_DST():Int return gpu.TextureUsage.COPY_DST;
 	static inline function get_TEXTURE_BINDING():Int return gpu.TextureUsage.TEXTURE_BINDING;

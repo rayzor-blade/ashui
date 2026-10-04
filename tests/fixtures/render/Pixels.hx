@@ -520,6 +520,31 @@ class Pixels {
 		probe("nor past the circle's edge", 52, 32, near(0xffffff));
 		probe("drawn whole once the clips are popped", 32, 54, (r, g, b) -> g > 200 && r < 60 && b < 60);
 
+		// Meshes on a canvas: the nearer hides the further, whatever order they are drawn in, inside the canvas's rounded clip.
+		function quad(color:Int, z:Float):ashui.draw3d.MeshData
+			return ashui.draw3d.MeshData.build([-1, -1, z, 1, -1, z, 1, 1, z, -1, 1, z], [0, 1, 2, 0, 2, 3], null, null, null,
+				new ashui.draw3d.Material({baseColor: color, unlit: true}));
+		var front = quad(0xff0000, 0), back = quad(0x0000ff, -1);
+		var meshTree = new LayoutTree();
+		var meshRoot:Div = ashui.reactive.Owner.root(meshTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 3), ashui.math.Vec3.ZERO, null, 1.2));
+					ctx.drawMesh(front, ashui.math.Mat4.scaling(new ashui.math.Vec3(0.5, 0.5, 1)));
+					ctx.drawMesh(back, ashui.math.Mat4.scaling(new ashui.math.Vec3(2, 2, 1)));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			var rounded = new Div({width: 48, height: 48, overflow: Overflow.Clip, cornerRadius: CornerRadius.all(24)}, [canvas]);
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [rounded]);
+		});
+		pixels = offscreen.renderToRgba8(meshRoot, SIZE, SIZE);
+		label = "canvas mesh: ";
+		probe("the nearer quad in the middle, drawn first", 32, 32, (r, g, b) -> r > 200 && b < 60 && g < 60);
+		probe("the further one around it", 18, 32, (r, g, b) -> b > 200 && r < 60);
+		probe("cut by the rounded clip at the corner", 10, 10, near(0xffffff));
+
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
 		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);

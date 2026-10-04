@@ -317,7 +317,7 @@ class Renderer {
 					continue;
 				}
 				if (kind == DisplayList.PRIM_CANVAS) {
-					paintCanvas(encoder, list, start, width, height, layerWidth, layerHeight);
+					paintCanvas(encoder, list, start, width, height, layerWidth, layerHeight, depth == 0 ? base : layers[depth - 1].view);
 					start++;
 					continue;
 				}
@@ -350,7 +350,8 @@ class Renderer {
 		clipped box, then sets the scissor back to the whole target. Nothing
 		else needs restoring: each run sets its own pipeline and bindings.
 	**/
-	function paintCanvas(encoder:GpuEncoder, list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int):Void {
+	function paintCanvas(encoder:GpuEncoder, list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int,
+			target:GpuTextureView):Void {
 		var canvas = ashui.ui.Canvas.at(Std.int(list.get(at, GRADIENT_FIELD)));
 		if (canvas == null)
 			return;
@@ -371,7 +372,7 @@ class Renderer {
 		if (x1 <= x0 || y1 <= y0)
 			return;
 		encoder.renderSetScissorRect(x0, y0, x1 - x0, y1 - y0);
-		canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0]));
+		canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0], target));
 		encoder.renderSetScissorRect(0, 0, targetWidth, targetHeight);
 	}
 

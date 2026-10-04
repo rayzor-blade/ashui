@@ -60,7 +60,19 @@ class CanvasPainter {
 	final clipAt = new haxe.ds.ObjectMap<DrawClip, Int>();
 	var bytes:Null<haxe.io.Bytes> = null;
 
+	/** The record's runs, in order: of paths, by their vertices, and of meshes, each drawn by `scenes`. **/
+	final steps:Array<CanvasStep> = [];
+
+	var scenes:Null<ScenePainter> = null;
+
 	public function new() {}
+
+	/** Frees what its 3D draws uploaded. **/
+	public function dispose():Void
+		if (scenes != null) {
+			scenes.dispose();
+			scenes = null;
+		}
 
 	public function play(frame:CanvasFrame, ctx:DrawContext):Void {
 		var t = frame.transform, m = madeTransform;
@@ -73,8 +85,25 @@ class CanvasPainter {
 			madeRatio = frame.pixelRatio;
 			madeAtlas = atlas.revision;
 		}
-		if (vertexCount == 0)
-			return;
+		for (step in steps)
+			if (step.match(Meshes(_)) && scenes == null)
+				scenes = new ScenePainter();
+		if (scenes != null)
+			scenes.beginFrame();
+		var run = 0;
+		for (step in steps)
+			switch step {
+				case Paths(first, count):
+					drawPaths(frame, first, count);
+				case Meshes(draws, scene):
+					scenes.draw(frame, run++, draws, scene);
+			}
+		if (scenes != null)
+			scenes.endFrame();
+	}
+
+	function drawPaths(frame:CanvasFrame, first:Int, count:Int):Void {
+		var atlas = frame.images;
 		var pipeline = frame.bind(PathShader.WGSL);
 		if (group == null || groupPipeline != pipeline.pipeline || groupAtlas != atlas.revision) {
 			if (group != null)
@@ -90,7 +119,7 @@ class CanvasPainter {
 			groupAtlas = atlas.revision;
 		}
 		frame.encoder.renderSetBindGroup(PathShader.TEXTURE_canvas_GROUP, group);
-		frame.encoder.renderDrawRange(vertexCount, 1, 0, frame.record);
+		frame.encoder.renderDrawRange(count, 1, first, frame.record);
 	}
 
 	function build(frame:CanvasFrame, ctx:DrawContext):Void {
@@ -103,10 +132,28 @@ class CanvasPainter {
 		drawClips.resize(0);
 		clipOrder.resize(0);
 		clipAt.clear();
+		steps.resize(0);
 		hasImages = false;
+		var pathsFrom = 0;
+		function endPaths() {
+			if (mesh.vertexCount() > pathsFrom)
+				steps.push(Paths(pathsFrom, mesh.vertexCount() - pathsFrom));
+			pathsFrom = mesh.vertexCount();
+		}
 		for (op in ctx.ops) {
 			var before = mesh.vertexCount();
 			switch op {
+				case Mesh3D(m, transform, scene, opacity):
+					endPaths();
+					// Meshes drawn one after another, seen the same way, are one run, sharing depth.
+					var last = steps.length > 0 ? steps[steps.length - 1] : null;
+					switch last {
+						case Meshes(draws, s) if (last != null && s == scene):
+							draws.push({mesh: m, transform: transform, opacity: opacity});
+						case _:
+							steps.push(Meshes([{mesh: m, transform: transform, opacity: opacity}], scene));
+					}
+					continue;
 				case Fill(path, brush, rule, transform, opacity, clip):
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(path, m, tolerance);
@@ -132,6 +179,7 @@ class CanvasPainter {
 				drawClips.push(clipOf(op));
 			}
 		}
+		endPaths();
 		vertexCount = mesh.vertexCount();
 		if (vertexCount == 0)
 			return;
@@ -221,6 +269,7 @@ class CanvasPainter {
 	static function clipOf(op:DrawOp):Null<DrawClip>
 		return switch op {
 			case Fill(_, _, _, _, _, clip) | Stroke(_, _, _, _, _, clip) | Image(_, _, _, _, _, _, _, clip): clip;
+			case Mesh3D(_): null;
 		}
 
 	/** Where `clip` starts in the table, from its start, placing it and those outside it the first time. **/
@@ -331,4 +380,10 @@ class CanvasPainter {
 		}
 		four(0, 0, 0, 0);
 	}
+}
+
+/** A run of a canvas's record: paths, `count` vertices from `first`, or meshes. **/
+enum CanvasStep {
+	Paths(first:Int, count:Int);
+	Meshes(draws:Array<ScenePainter.SceneDraw>, scene:ashui.draw3d.Scene3D);
 }

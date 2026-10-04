@@ -10,6 +10,9 @@ enum DrawOp {
 
 	/** A bitmap, the renderer's `slot`, drawn into the rect `x`, `y`, `width` by `height`. **/
 	Image(slot:Int, x:Float, y:Float, width:Float, height:Float, transform:Affine, opacity:Float, clip:Null<DrawClip>);
+
+	/** A mesh in 3D, placed by `transform`, seen as `scene` says. **/
+	Mesh3D(mesh:ashui.draw3d.MeshData, transform:ashui.math.Mat4, scene:ashui.draw3d.Scene3D, opacity:Float);
 }
 
 /** What a clip keeps: a rectangle with its corners rounded by `radius`, or an ellipse, by its centre and half its width and height. **/
@@ -54,6 +57,13 @@ typedef DrawImage = {final slot:Int; final width:Int; final height:Int;}
 	`pushClipEllipse` keep what is drawn after them inside a shape,
 	inside the clips already pushed, until the matching `popClip`.
 
+	Meshes are drawn in 3D with `drawMesh`, seen through the camera and lit
+	by the lights `setCamera`, `setLights` or `setScene` set last. Meshes
+	drawn one after another share a depth buffer, nearer surfaces hiding
+	further ones, over the canvas's box; shapes drawn after them go over
+	them. A mesh takes the canvas's clipping and the opacity pushed, not
+	the clips pushed.
+
 	It records rather than draws: the canvas plays its record on the GPU,
 	at whatever size and place on screen it is drawn, so a path is
 	flattened for the scale it is seen at.
@@ -70,6 +80,7 @@ class DrawContext {
 	var opacity = 1.0;
 	final opacities:Array<Float> = [];
 	var clip:Null<DrawClip> = null;
+	var scene = ashui.draw3d.Scene3D.DEFAULT;
 	final clips:Array<Null<DrawClip>> = [];
 
 	public function new(width:Float, height:Float) {
@@ -185,6 +196,25 @@ class DrawContext {
 	**/
 	public function image(image:DrawImage, x:Float, y:Float, ?width:Float, ?height:Float):Void
 		ops.push(Image(image.slot, x, y, width != null ? width : image.width, height != null ? height : image.height, transform, opacity, clip));
+
+	/** What meshes drawn after this are seen through: its camera, lights, ambient light, exposure and background. **/
+	public function setScene(scene:ashui.draw3d.Scene3D):Void
+		this.scene = scene;
+
+	public function currentScene():ashui.draw3d.Scene3D
+		return scene;
+
+	/** Meshes drawn after this seen through `camera`. **/
+	public function setCamera(camera:ashui.draw3d.Camera):Void
+		scene = scene.with(camera);
+
+	/** Meshes drawn after this lit by `lights`. **/
+	public function setLights(lights:Array<ashui.draw3d.Light>):Void
+		scene = scene.with(null, lights);
+
+	/** `mesh` drawn in 3D, placed by `transform`, the identity by default. **/
+	public function drawMesh(mesh:ashui.draw3d.MeshData, ?transform:ashui.math.Mat4):Void
+		ops.push(Mesh3D(mesh, transform != null ? transform : ashui.math.Mat4.IDENTITY, scene, opacity));
 
 	/** A straight line, which has no inside: only its stroke. **/
 	public function line(x1:Float, y1:Float, x2:Float, y2:Float, stroke:Stroke, brush:Brush):Void
