@@ -26,6 +26,10 @@ import ashui.components.Command;
 import ashui.components.Combobox;
 import ashui.components.Calendar;
 import ashui.components.Sidebar;
+import ashui.components.AspectRatio;
+import ashui.components.Avatar;
+import ashui.components.AvatarGroup;
+import ashui.components.InputOtp;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -750,6 +754,57 @@ class Components {
 		var narrow = sbTree.getBounds(new ashui.layout.Node(bar)).width;
 		check("a Sidebar collapses to its icons, its width easing and the inset sliding by layout animation, its state on data-state",
 			narrow < wide && barMoving && insetMoving && identity2(sbTree, bar).attribute("data-state") == "collapsed", [wide, narrow, barMoving, insetMoving]);
+
+
+		// --- AspectRatio, AvatarGroup, InputOtp ---
+		var exTree = new LayoutTree();
+		var otpCode = Signal.make("");
+		var otpDone = Signal.make("");
+		var exRoot:Div = Owner.root(exTree, _ -> hxx('
+			<div width={600} height={400} flexDirection={Column} gap={10}>
+				<div width={160} flexDirection={Row}><aspect-ratio id="ar"><div /></aspect-ratio></div>
+				<div width={90}><aspect-ratio id="sq" ratio={1}><div /></aspect-ratio></div>
+				<div flexDirection={Row}>
+					<avatar-group id="ag" max={2}><avatar><avatar-fallback>A</avatar-fallback></avatar><avatar><avatar-fallback>B</avatar-fallback></avatar><avatar><avatar-fallback>C</avatar-fallback></avatar><avatar><avatar-fallback>D</avatar-fallback></avatar></avatar-group>
+					<div id="after" width={10} height={10} />
+				</div>
+				<input-otp id="otp" length={4} value={otpCode} onComplete={c -> otpDone.set(c)} />
+			</div>
+		'));
+		function exFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				exTree.flush();
+				exTree.computeLayout(exRoot.node, 600, 400);
+				exTree.flush();
+			}
+		function exFind(pred:ashui.css.Identity->Bool):Array<haxe.Int64>
+			return [for (id in exTree.order()) if (identity2(exTree, id) != null && pred(identity2(exTree, id))) id];
+		function exBounds(name:String)
+			return exTree.getBounds(new ashui.layout.Node(exFind(i -> i.id == name)[0]));
+		exFrames(2);
+		var ar = exBounds("ar"), sq = exBounds("sq");
+		check("an AspectRatio is as wide as its container and as tall as its ratio makes it, 16 / 9 by default",
+			ar.width == 160 && Math.abs(ar.height - 90) < 1 && sq.width == 90 && Math.abs(sq.height - 90) < 1, [ar.width, ar.height, sq.width, sq.height]);
+		var ag = exBounds("ag"), after = exBounds("after");
+		var more = exFind(i -> i.hasClass("ui-avatar-more"));
+		check("an AvatarGroup overlaps its avatars, as wide as they are together, and counts past max in a bubble",
+			more.length == 1 && exFind(i -> i.hasClass("ui-avatar")).length == 2 && ag.width == 100 && after.x == ag.x + ag.width,
+			[more.length, ag.width, after.x]);
+		var otpBox = exBounds("otp");
+		ashui.input.Pointer.move(exTree, otpBox.x + 10, otpBox.y + otpBox.height / 2);
+		ashui.input.Pointer.press(exTree);
+		ashui.input.Pointer.release(exTree);
+		exFrames(2);
+		var activeFirst = exFind(i -> i.hasClass("ui-input-otp-slot") && i.attribute("data-active") != null).length;
+		ashui.input.Keyboard.text(exTree, "1a2");
+		exFrames(2);
+		var partial = otpCode.get(), filled = exFind(i -> i.hasClass("ui-input-otp-slot") && i.attribute("data-filled") != null).length;
+		ashui.input.Keyboard.text(exTree, "345");
+		exFrames(2);
+		check("an InputOtp keeps digits up to its length, marks the slots filled and the next active, and calls onComplete once full",
+			activeFirst == 1 && partial == "12" && filled == 2 && otpCode.get() == "1234" && otpDone.get() == "1234",
+			[activeFirst, partial, filled, otpCode.get(), otpDone.get()]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
