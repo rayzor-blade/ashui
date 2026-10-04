@@ -82,9 +82,10 @@ class UserAgent {
 		/* Lists: each item its marker, then its content; a list inside an item sits under the text of the item. */
 		ul, ol { flex-direction: column; gap: 2px; margin: 1em 0; color: var(--text-primary); }
 		li ul, li ol { margin: 2px 0 0 0; }
-		li { flex-direction: row; align-items: flex-start; }
+		/* The marker on the baseline of the first line, as CSS sets it: a bullet, which has no text, by its bottom edge. */
+		li { flex-direction: row; align-items: baseline; }
 		li > .marker { flex-shrink: 0; width: 32px; padding-right: 8px; align-items: center; justify-content: flex-end; color: var(--text-secondary); }
-		li > .marker > .bullet { display: none; flex-shrink: 0; width: 6px; height: 6px; }
+		li > .marker > .bullet { display: none; flex-shrink: 0; width: 6px; height: 6px; margin-bottom: 0.1em; }
 		li > .marker.disc > .bullet { display: flex; border-radius: var(--radius-full); background: var(--text-secondary); }
 		li > .marker.circle > .bullet { display: flex; border-radius: var(--radius-full); border: 1.5px solid var(--text-secondary); }
 		li > .marker.square > .bullet { display: flex; width: 5px; height: 5px; background: var(--text-secondary); }
