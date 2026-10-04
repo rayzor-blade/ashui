@@ -95,6 +95,17 @@ class Animations {
 		return list != null && Lambda.exists(list, r -> !r.finished && !r.stopped);
 	}
 
+	/** How long, in seconds, the longest of `identity`'s running animations has left to play; infinite for one that repeats forever. **/
+	public static function remaining(identity:Identity):Float {
+		var list = running.get(identity);
+		var left = 0.0;
+		if (list != null)
+			for (r in list)
+				if (!@:privateAccess r.finished && !r.stopped)
+					left = Math.max(left, @:privateAccess r.spec.delay + r.spec.duration * r.spec.iterations - r.elapsed);
+		return left;
+	}
+
 	/**
 		A run that played to its end and holds nothing: kept on the list,
 		finished, so the same entry does not start it again when the cascade

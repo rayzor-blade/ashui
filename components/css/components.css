@@ -874,7 +874,8 @@ dialog.ui-drawer[data-size="lg"] { --ui-drawer-width: 400px; }
 dialog.ui-drawer[data-side="left"][data-size="lg"] { --ui-drawer-from: translateX(-440px); }
 dialog.ui-drawer[data-side="right"][data-size="lg"] { --ui-drawer-from: translateX(440px); }
 dialog.ui-drawer[open] { animation: ui-drawer-in var(--duration-slow) var(--ease-sheet); }
-dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(--ease-sheet) forwards; }
+/* Leaving, it gathers speed toward its edge, as it slowed coming in. */
+dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(--ease-in) forwards; }
 @keyframes ui-drawer-in { from { transform: var(--ui-drawer-from); } to { transform: none; } }
 @keyframes ui-drawer-out { from { transform: none; } to { transform: var(--ui-drawer-from); } }
 .ui-drawer > * { margin-left: 24px; margin-right: 24px; }

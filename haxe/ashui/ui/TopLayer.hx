@@ -35,6 +35,7 @@ enum Placement {
 class TopEntry {
 	public final content:Element;
 	final layer:Div;
+	final dim:Div;
 	final holder:Div;
 	final onClose:Null<Void->Void>;
 	final placement:Placement;
@@ -43,9 +44,10 @@ class TopEntry {
 	var placed:Null<{left:Float, top:Float}> = null;
 
 	@:allow(ashui.ui.TopLayer)
-	function new(content:Element, layer:Div, holder:Div, onClose:Null<Void->Void>, placement:Placement) {
+	function new(content:Element, layer:Div, dim:Div, holder:Div, onClose:Null<Void->Void>, placement:Placement) {
 		this.content = content;
 		this.layer = layer;
+		this.dim = dim;
 		this.holder = holder;
 		this.onClose = onClose;
 		this.placement = placement;
@@ -110,6 +112,9 @@ class TopEntry {
 		return true;
 	}
 
+	/** The longest a closing entry waits for its animations, in seconds. **/
+	static inline var CLOSE_LIMIT = 2.0;
+
 	public function close():Void {
 		if (closed)
 			return;
@@ -117,7 +122,7 @@ class TopEntry {
 		@:privateAccess TopLayer.entries.remove(this);
 		// Marked closing, so CSS animates it away, and taken out once that has played.
 		var tree = layer.tree;
-		var marked = [Identity.of(tree, layer.node.id), Identity.of(tree, content.node.id)];
+		var marked = [Identity.of(tree, dim.node.id), Identity.of(tree, content.node.id)];
 		for (identity in marked)
 			if (identity != null)
 				identity.setAttribute("closing", "");
@@ -140,9 +145,23 @@ class TopEntry {
 			if (layer.node != null)
 				layer.remove();
 		}
-		if (seconds > 0)
-			ashui.animation.AnimationScheduler.main.after(seconds, finish);
-		else
+		if (seconds > 0) {
+			// Taken out once its closing animations have played, the backdrop's and the content's, however long they run:
+			// the restyle that starts them comes within `seconds`, and none runs past the limit.
+			var waited = 0.0;
+			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+				waited += dt;
+				// Left after this tick, whether the animations' tickers run before this one or after.
+				var left = 0.0;
+				for (identity in marked)
+					if (identity != null)
+						left = Math.max(left, ashui.css.Animations.remaining(identity) - dt);
+				if (waited < CLOSE_LIMIT && (waited < seconds || left > 0))
+					return true;
+				finish();
+				return false;
+			});
+		} else
 			finish();
 		if (onClose != null)
 			onClose();
@@ -202,17 +221,26 @@ class TopLayer {
 		var rootBounds = tree.getBounds(root);
 		var w = rootBounds == null ? 0.0 : rootBounds.width, h = rootBounds == null ? 0.0 : rootBounds.height;
 		var shade = new Div({
-			tag: "backdrop",
 			position: Absolute,
 			left: 0,
 			top: 0,
 			// Modeless, of no size: what it holds is hit where it is, and nothing else of it is there.
 			width: modeless ? 0 : w,
 			height: modeless ? 0 : h,
-			bg: backdrop != null && !modeless ? backdrop : Brush.solid(0, 0),
 			alignItems: Align.Center,
 			justifyContent: Justify.Center
 		}, tree);
+		// The backdrop beside the content, under it, as HTML's `::backdrop`: it fades on its own, and what the content does is its own.
+		var dim = new Div({
+			tag: "backdrop",
+			position: Absolute,
+			left: 0,
+			top: 0,
+			width: modeless ? 0 : w,
+			height: modeless ? 0 : h,
+			bg: backdrop != null && !modeless ? backdrop : Brush.solid(0, 0)
+		}, tree);
+		shade.appendChild(dim);
 		var holder = switch placement {
 			case Centered:
 				new Div({}, [content], tree);
@@ -238,7 +266,7 @@ class TopLayer {
 		var entry:Null<TopEntry> = null;
 		Interaction.of(shade.node).onPointerDown(e -> {
 			// A press on the backdrop itself, not on what it holds.
-			if (e.target == shade.node && entry != null && dismissible)
+			if ((e.target == shade.node || e.target == dim.node) && entry != null && dismissible)
 				entry.close();
 		});
 		Interaction.of(shade.node).onKeyDown(e -> switch e.key {
@@ -252,7 +280,7 @@ class TopLayer {
 		// What only shows, as a tooltip, takes no presses: they reach what is beneath.
 		if (passThrough)
 			tree.setPassThrough(shade.node.id, true);
-		entry = new TopEntry(content, shade, holder, onClose, placement);
+		entry = new TopEntry(content, shade, dim, holder, onClose, placement);
 		entries.push(entry);
 		// Placed now for what size the content has, and again once layout gives it one.
 		hook();
