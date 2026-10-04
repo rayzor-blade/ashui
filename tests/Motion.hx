@@ -90,6 +90,14 @@ class Motion {
 		check("a colour fades in from transparent keeping its hue, alpha premultiplied", fills.length == 2 && half != null && half.value != null
 			&& StringTools.startsWith(half.value, "#ff0000/"), [for (f in fills) f.samples.map(x -> x.value)]);
 
+		// --- Motion on an element not drawn: styled while detached, as a closed popover's panel is ---
+		var hidden:Div = Owner.root(tree, _ -> new Div({classes: ["grow"]}, tree));
+		frame(15);
+		var unseen = Lambda.find(trace.tracks, t -> t.kind == Keyframes && t.node == hidden.node.id);
+		var uv = unseen == null ? null : MotionCheck.check(unseen, trace);
+		check("an animation that runs where nothing is drawn is reported", uv != null
+			&& uv.issues.filter(i -> StringTools.startsWith(i, "ran where it is not drawn")).length == 1, uv == null ? null : uv.issues);
+
 		// --- A spring, against the oscillator's closed form ---
 		var spring = new ashui.animation.Spring(ashui.animation.SpringConfig.wobbly(), 0);
 		var id = scheduler.register(spring);

@@ -31,6 +31,8 @@ class MotionTrace {
 	/** The scheduler's clock when it started. **/
 	public final started:Float;
 	public var stopped(default, null):Null<Float> = null;
+	/** Whether `observe` has been called: only then do missing drawn rects mean anything. **/
+	public var observed(default, null) = false;
 	var nextId = 1;
 
 	function new() {
@@ -90,6 +92,7 @@ class MotionTrace {
 		calls it itself.
 	**/
 	public function observe(tree:LayoutTree):Void {
+		observed = true;
 		var now = clock();
 		for (t in tracks) {
 			if (t.tree != tree || t.node == null)
@@ -99,6 +102,10 @@ class MotionTrace {
 				continue;
 			var last = t.lastRect();
 			if (last != null && last.clock == now)
+				continue;
+			// Only where it is drawn: under the tree's root, not detached, as a closed popover's panel is.
+			var root = tree.root;
+			if (root == null || (t.node != root.id && tree.ancestors(t.node).indexOf(root.id) < 0))
 				continue;
 			var b = tree.getBounds(new ashui.layout.Node(t.node));
 			if (b == null)

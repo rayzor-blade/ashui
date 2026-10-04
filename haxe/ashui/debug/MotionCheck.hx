@@ -77,6 +77,14 @@ class MotionCheck {
 
 		if (track.from == track.to && track.kind != Keyframes && track.duration > 0 && track.end != Snapped)
 			issues.push('moved nowhere: from equals to, yet it ran ${ms(ran == null ? 0 : ran)}');
+		// An animation is there to be seen: one spent out of sight is an entrance or exit that never showed. A transition
+		// finishing on an element taken away (a closed menu's hovered item) is only work for nothing.
+		if (track.node != null && track.rects.length == 0 && s.length > 2 && trace != null && trace.observed) {
+			if (track.kind == Keyframes)
+				issues.push("ran where it is not drawn: its element was detached the whole time, so the motion was never seen");
+			else
+				notes.push("ran where it is not drawn");
+		}
 		if (track.duration > 0 && track.kind != Spring && track.end == Completed && s.length <= 1)
 			issues.push("snapped: no frames between its start and end");
 		if (startLag > 0.0005)
