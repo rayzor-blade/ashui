@@ -15,7 +15,10 @@ package ashui.core.render;
 	drawn in the top side's colour when that has any alpha; a faint shadow
 	lies inside it; and a little of the tint in `via` is mixed over.
 
-	The result is faded by the element's opacity, `color.w`.
+	Where nothing is drawn behind it, as in a transparent window over the
+	desktop, it draws the tint and the rim's light over what shows through,
+	which the system blurs when the window asks it to. The result is faded
+	by the element's opacity, `color.w`.
 
 	A glass's grain, `color.z`, adds Blinc's smooth value noise over the
 	result, finer on liquid glass than on frosted.
@@ -77,6 +80,7 @@ class BackdropShader implements UiShader {
 			var inner = max(0., -d);
 			var normal = vec2(0., 0.);
 			var offset = vec2(0., 0.);
+			var lens = 0.;
 			if (liquid) {
 				var e = 0.5;
 				var gx = boxDistance(local + vec2(e, 0.), box, radius, shape, nc, nt, nb) - boxDistance(local - vec2(e, 0.), box, radius, shape, nc, nt, nb);
@@ -86,6 +90,7 @@ class BackdropShader implements UiShader {
 				normal = g / max(length(g), 0.0001);
 				var rim = min(25., min(box.x, box.y) * 0.2);
 				var bevel = 1. - clamp(inner / rim, 0., 1.);
+				lens = bevel * bevel;
 				// Layout units to target pixels.
 				var k = size.x / viewport.x * length(m.xy);
 				offset = normal * bevel * bevel * 60. * primitive.gradient.y * k;
@@ -111,27 +116,52 @@ class BackdropShader implements UiShader {
 				rgb = texel.rgb / texel.a;
 			var c = vec4(rgb, 1.);
 			rgb = clamp(vec3(dot(primitive.color2, c), dot(primitive.border, c), dot(primitive.borderColor, c)), vec3(0., 0., 0.), vec3(1., 1., 1.));
+			// Where nothing is drawn behind it, as in a transparent window, what shows through is the desktop, which the
+			// system blurs: over it, the tint the filter adds, premultiplied, at the alpha it covers what is behind with.
+			var tint = clamp(vec3(primitive.color2.w, primitive.border.w, primitive.borderColor.w), vec3(0., 0., 0.), vec3(1., 1., 1.));
+			var tintAlpha = clamp(1. - (primitive.color2.x + primitive.border.y + primitive.borderColor.z) / 3., 0., 1.);
 			if (liquid) {
 				var width = primitive.gradient.z;
 				var line = smoothstep(0., width * 0.3, inner) * (1. - smoothstep(width, width * 1.5, inner));
 				var light = vec2(cos(primitive.gradient.w), sin(primitive.gradient.w));
 				var lit = line * 0.6 * (0.2 + 0.8 * max(0., dot(normal, -light)));
 				var edge = primitive.borderTop;
-				if (edge.a > 0.001)
-					rgb = mix(rgb, edge.rgb, line * edge.a);
-				else
-					rgb = rgb + vec3(lit, lit, lit);
 				var s0 = width * 2.5;
 				var s1 = width * 8.;
 				var shade = smoothstep(s0, s1, inner) * (1. - smoothstep(s1, s1 * 3., inner)) * 0.04;
+				var via = primitive.via.a * 0.08;
+				if (edge.a > 0.001) {
+					rgb = mix(rgb, edge.rgb, line * edge.a);
+					var k = line * edge.a;
+					tint = tint * (1. - k) + edge.rgb * k;
+					tintAlpha = k + tintAlpha * (1. - k);
+				} else {
+					rgb = rgb + vec3(lit, lit, lit);
+					tint = tint * (1. - lit) + vec3(lit, lit, lit);
+					tintAlpha = lit + tintAlpha * (1. - lit);
+				}
 				rgb = rgb - vec3(shade, shade, shade);
-				rgb = clamp(mix(rgb, primitive.via.rgb, primitive.via.a * 0.08), vec3(0., 0., 0.), vec3(1., 1., 1.));
+				rgb = clamp(mix(rgb, primitive.via.rgb, via), vec3(0., 0., 0.), vec3(1., 1., 1.));
+				tint = tint * (1. - shade) * (1. - via) + primitive.via.rgb * via;
+				tintAlpha = via + (shade + tintAlpha * (1. - shade)) * (1. - via);
+				// With nothing behind it to bend, its rim is lit as thick glass is: brighter toward the edge, most where the light falls.
+				var facing = 0.5 + 0.5 * max(0., dot(normal, -light));
+				var glow = lens * 0.35 * facing;
+				tint = tint * (1. - glow) + vec3(glow, glow, glow);
+				tintAlpha = glow + tintAlpha * (1. - glow);
+				// Enough of it that the system blurs what is behind even a clear one.
+				tintAlpha = max(tintAlpha, 0.04);
 			}
+			// What is drawn behind it, filtered, and the desktop's share where nothing is.
+			var under = texel.a;
+			var alpha = under + tintAlpha * (1. - under);
+			if (alpha > 0.0001)
+				rgb = (rgb * under + tint * (1. - under)) / alpha;
 			if (primitive.color.z > 0.) {
 				var grain = (noise(place.zw * 0.3) - 0.5) * primitive.color.z * (liquid ? 0.005 : 0.02);
 				rgb = clamp(rgb + vec3(grain, grain, grain), vec3(0., 0., 0.), vec3(1., 1., 1.));
 			}
-			output.color = vec4(rgb, texel.a * cover * primitive.color.w);
+			output.color = vec4(rgb, alpha * cover * primitive.color.w);
 		}
 	};
 }
