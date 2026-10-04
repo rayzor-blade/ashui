@@ -10,7 +10,8 @@ import ashui.layout.LayoutTree;
 	set, as `tools/snapshot/run.sh --window` does. The UI is live: it takes
 	the pointer and keys, and `ASHUI_MOTION=overlay` draws the motion
 	overlay over it. The scene keeps its own size, in a window no larger
-	than a screen holds, which scrolls it both ways. `ASHUI_WINDOW_CLICKS`,
+	than a screen holds, which scrolls it; one wider than that window
+	takes the window's width instead and lays out again. `ASHUI_WINDOW_CLICKS`,
 	a number, clicks that many times, one every 150ms, each at the middle
 	of a focusable element picked at random from those in view, a seeded
 	pick so a run repeats: for finding what interaction breaks. `ASHUI_WINDOW_SECONDS` closes it after that long, for
@@ -99,9 +100,12 @@ class SceneWindow {
 		ashui.app.WindowedApp.run({title: name, width: Std.int(Math.min(width, MAX_WIDTH)), height: Std.int(Math.min(height, MAX_HEIGHT))}, () -> {
 			root = build();
 			root.node.set(ashui.layout.Prop.FlexShrink, (0 : Single));
+			// Wider than the window, it takes the window's width and lays out again, as a page does; narrower, it keeps its own.
+			if (width > MAX_WIDTH)
+				root.node.set(ashui.layout.Prop.WidthPercent, (1 : Single));
 			var scroller = new ashui.ui.Div({flexDirection: ashui.types.Style.FlexDirection.Column, alignItems: ashui.types.Style.Align.Start, overflow: ashui.types.Style.Overflow.Scroll}, [root]);
-			scroller.node.set(ashui.layout.Prop.WidthPercent, (100 : Single));
-			scroller.node.set(ashui.layout.Prop.HeightPercent, (100 : Single));
+			scroller.node.set(ashui.layout.Prop.WidthPercent, (1 : Single));
+			scroller.node.set(ashui.layout.Prop.HeightPercent, (1 : Single));
 			ashui.input.Scroll.attach(scroller.node, true, true);
 			scroller;
 		});
