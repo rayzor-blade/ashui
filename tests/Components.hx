@@ -33,6 +33,7 @@ import ashui.components.InputOtp;
 import ashui.components.Resizable;
 import ashui.components.Drawer;
 import ashui.components.TreeView;
+import ashui.components.Typography;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -1012,6 +1013,29 @@ class Components {
 		check("a TreeView's arrows walk the rows shown and Enter chooses; Left steps out to the parent, then closes it",
 			walked == "a2" && identity2(tvTree, tvItem("tvA")).attribute("data-state") == "closed" && Math.abs(tvRowY("tvB") - bClosed) < 0.5,
 			[walked, identity2(tvTree, tvItem("tvA")).attribute("data-state"), tvRowY("tvB")]);
+
+
+		// --- Typography: prose spaces its elements by what follows what; lead, large and muted are their own text styles ---
+		var tyTree = new LayoutTree();
+		var tyRoot:Div = Owner.root(tyTree, _ -> hxx('
+			<div width={800} height={800} flexDirection={Column}>
+				<prose><h1 id="tyH1">Title</h1><p id="tyP1">First.</p><h2 id="tyH2">Section</h2><p id="tyP2">Second.</p></prose>
+				<lead id="tyLead">Lead</lead><large id="tyLarge">Large</large><muted id="tyMuted">Muted</muted>
+			</div>
+		'));
+		tyTree.flush();
+		tyTree.computeLayout(tyRoot.node, 800, 800);
+		tyTree.flush();
+		function tyBox(id:String)
+			return tyTree.getBounds(new ashui.layout.Node(Lambda.find(tyTree.order(), n -> identity2(tyTree, n) != null && identity2(tyTree, n).id == id)));
+		var h1 = tyBox("tyH1"), p1 = tyBox("tyP1"), h2 = tyBox("tyH2"), p2 = tyBox("tyP2");
+		var afterTitle = p1.y - (h1.y + h1.height), beforeSection = h2.y - (p1.y + p1.height), afterSection = p2.y - (h2.y + h2.height);
+		check("Prose spaces a title's paragraph by 16, a section by 40 above and 24 below, its first element flush",
+			h1.y == 0 && Math.abs(afterTitle - 16) < 0.5 && Math.abs(beforeSection - 40) < 0.5 && Math.abs(afterSection - 24) < 0.5,
+			[h1.y, afterTitle, beforeSection, afterSection]);
+		check("Lead, Large and Muted step the text size: larger, a little larger, smaller",
+			tyBox("tyLead").height > tyBox("tyLarge").height && tyBox("tyLarge").height > tyBox("tyMuted").height,
+			[tyBox("tyLead").height, tyBox("tyLarge").height, tyBox("tyMuted").height]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
