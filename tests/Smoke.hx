@@ -63,6 +63,19 @@ class Smoke {
 		check("signal width applied", b != null && near(b.width, 200), b);
 		check("computed height applied", b != null && near(b.height, 50), b);
 		check("gap offsets second child", b != null && near(b.y, 65), b);
+		// Gaps are layout units, constant or bound: not Blinc's `gap()` steps of 4.
+		var gapTree = new LayoutTree();
+		var gapSize = Signal.make((8 : Single));
+		var gapFirst = new Div({height: 10}, gapTree), gapSecond = new Div({height: 10}, gapTree);
+		var gapColumn = new Div({flexDirection: Column, gap: gapSize, width: 50}, [gapFirst, gapSecond], gapTree);
+		gapTree.flush();
+		gapTree.computeLayout(gapColumn.node, 100, 100);
+		var boundAt = gapTree.getBounds(gapSecond.node).y;
+		gapSize.set(12);
+		gapTree.flush();
+		gapTree.computeLayout(gapColumn.node, 100, 100);
+		var movedTo = gapTree.getBounds(gapSecond.node).y;
+		check("a gap bound to a signal is in layout units, before and after it changes", near(boundAt, 18) && near(movedTo, 22), [boundAt, movedTo]);
 
 		w.set(120);
 		check("signal change queues relayout", tree.flush());
