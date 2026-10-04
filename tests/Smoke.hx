@@ -838,6 +838,17 @@ class Smoke {
 		}
 		var boxBounds = formTree.getBounds(new ashui.layout.Node(box));
 		check("a checkbox has the user-agent sheet's size", boxBounds != null && boxBounds.width == 18 && boxBounds.height == 18, boxBounds);
+		// Its check and dash, and a radio's dot, centred in the box.
+		var marks = formTree.children(box).concat(formTree.children(formNodes[1]));
+		var offCentre = [
+			for (m in marks) {
+				var b = formTree.getBounds(new ashui.layout.Node(m));
+				var outer = formTree.getBounds(new ashui.layout.Node(formTree.ancestors(m)[0]));
+				Math.abs(b.x + b.width / 2 - (outer.x + outer.width / 2)) + Math.abs(b.y + b.height / 2 - (outer.y + outer.height / 2));
+			}
+		];
+		check("a checkbox's marks and a radio's dot are centred in their box", marks.length == 3 && Lambda.foreach(offCentre, d -> d < 0.5),
+			offCentre);
 		clickAt(box);
 		var afterBox = agreed.get();
 		clickAt(labelText);
