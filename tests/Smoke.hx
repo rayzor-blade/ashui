@@ -92,6 +92,18 @@ class Smoke {
 		var s = tree.getBounds(short.node);
 		check("text measured from full content", t != null && s != null && t.width > s.width * 4, '$t vs $s');
 
+		// --- A line is its font size times its line-height, as in CSS, whatever the face's own line height ---
+		var lineTree = new LayoutTree();
+		var plainLine = new Text("Hx", {fontSize: 20}, lineTree);
+		var tallLine = new Text("Hx", {fontSize: 20}, lineTree);
+		tallLine.node.set(ashui.layout.Prop.LineHeight, (1.5 : Single));
+		var lineRoot = new Div({flexDirection: Column, alignItems: Start}, [plainLine, tallLine], lineTree);
+		lineTree.flush();
+		lineTree.computeLayout(lineRoot.node, 400, 400);
+		var plainH = lineTree.getBounds(plainLine.node).height, tallH = lineTree.getBounds(tallLine.node).height;
+		check("a line is font-size times line-height: 1.2 by default, 1.5 when set", Math.abs(plainH - 24) < 0.5 && Math.abs(tallH - 30) < 0.5,
+			[plainH, tallH]);
+
 		// --- Text bound to a computed string is measured again when it changes ---
 		var clicks = Signal.make(1);
 		var counter = new Text(clicks.computed(c -> 'Value: $c'), tree);

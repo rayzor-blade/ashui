@@ -37,9 +37,18 @@ pub fn ensure_face(context: &TextMeasureContext) {
     }
 }
 
+/// The faces `system-ui` names, by platform, as browsers resolve it.
+#[cfg(target_os = "macos")]
+const SYSTEM_UI: &[&str] = &[".SF NS", "SF Pro", "SF Pro Text"];
+#[cfg(target_os = "windows")]
+const SYSTEM_UI: &[&str] = &["Segoe UI Variable", "Segoe UI"];
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const SYSTEM_UI: &[&str] = &[];
+
 /// A CSS font stack resolved as a browser does: the first family installed,
 /// or the first generic keyword (`monospace`, `serif`, `sans-serif`,
-/// `system-ui` and kin) as Blinc's generic face. `ui-monospace`,
+/// `system-ui` and kin) as Blinc's generic face, `system-ui` as the
+/// platform's UI face where it is installed. `ui-monospace`,
 /// `ui-serif` and `ui-sans-serif` name the platform's own face, which the
 /// families after them usually list, so they are used only if none of
 /// those is installed. A stack with none is the system face.
@@ -70,13 +79,35 @@ pub fn resolve_family(stack: &str) -> (Option<String>, LayoutGeneric) {
             _ => None,
         };
         if let Some(g) = generic {
+            // The platform's UI face for system-ui, as a browser's: its metrics, not a generic sans-serif's, centre capitals in their line.
+            if g == LayoutGeneric::System && platform.is_none() {
+                drop(registry);
+                return (system_ui(), LayoutGeneric::System);
+            }
             return (None, platform.unwrap_or(g));
         }
         if registry.has_font(name) {
             return (Some(name.to_string()), LayoutGeneric::System);
         }
     }
-    (None, platform.unwrap_or(LayoutGeneric::System))
+    match platform {
+        Some(p) => (None, p),
+        None => {
+            drop(registry);
+            (system_ui(), LayoutGeneric::System)
+        }
+    }
+}
+
+/// The installed face of `SYSTEM_UI`, looked up once: what text with no family of its own is set in.
+pub fn system_ui() -> Option<String> {
+    static FACE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    FACE.get_or_init(|| {
+        let registry = renderer().font_registry();
+        let mut registry = registry.lock().unwrap_or_else(|e| e.into_inner());
+        SYSTEM_UI.iter().find(|f| registry.has_font(f)).map(|f| f.to_string())
+    })
+    .clone()
 }
 
 fn generic(g: LayoutGeneric) -> GenericFont {
@@ -152,6 +183,27 @@ pub fn prepare(
 /// places them: half of what the line box has beyond the font's ascender
 /// and descender, at `font_size`. Blinc's layout puts the first baseline at
 /// the ascender, leaving all of that space below the text.
+/// CSS's `line-height`, a multiple of the font size, as a multiple of the
+/// face's own line height (ascent, descent and gap), which is how Blinc's
+/// measure and renderer read a context's: so a line is `font_size * css`
+/// tall whatever the face, as in CSS.
+pub fn face_line_height(context: &TextMeasureContext, css: f32) -> f32 {
+    let registry = global_font_registry();
+    let Ok(registry) = registry.lock() else {
+        return css;
+    };
+    let Some(font) = registry.get_for_render_with_style(
+        context.font_name.as_deref(),
+        generic(context.generic_font),
+        context.font_weight,
+        context.italic,
+    ) else {
+        return css;
+    };
+    let natural = font.metrics().line_height_px(1.0);
+    if natural > 0.0 { css / natural } else { css }
+}
+
 pub fn half_leading(context: &TextMeasureContext, font_size: f32) -> f32 {
     let registry = global_font_registry();
     let Ok(registry) = registry.lock() else {
