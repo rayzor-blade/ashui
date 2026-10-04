@@ -419,6 +419,13 @@ class Css {
 		var own = new Map<String, String>();
 		var from = new Map<String, Declaration>();
 		for (m in matched) {
+			// A shorthand sets its longhands anew, over what weaker rules declared of them.
+			var covered = Properties.LONGHANDS.get(m.declaration.name);
+			if (covered != null)
+				for (l in covered) {
+					own.remove(l);
+					from.remove(l);
+				}
 			own.set(m.declaration.name, m.declaration.value);
 			from.set(m.declaration.name, m.declaration);
 		}
@@ -495,7 +502,9 @@ class Css {
 		@:privateAccess identity.node.styleAll(() -> {
 			// font-size first: em in the rest is the element's own font size.
 			var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name];
-			names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Reflect.compare(a, b));
+			// Shorthands before their longhands, which a stronger rule declared when both are here.
+			names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Properties.rank(a) != Properties.rank(b) ? Properties.rank(a)
+				- Properties.rank(b) : Reflect.compare(a, b));
 			for (name in names) {
 				var v = resolved.get(name);
 				if (!Properties.known(name)) {

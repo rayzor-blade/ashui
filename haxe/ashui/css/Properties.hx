@@ -40,6 +40,44 @@ class Properties {
 	/** The supported properties, by name. **/
 	static final handlers:Map<String, (Node, String, ApplyContext) -> Array<Int>> = build();
 
+	/**
+		The longhands each shorthand sets. The cascade reads it both ways: a
+		shorthand drops the longhands a weaker rule declared, and is applied
+		before those a stronger rule declares, which then win.
+	**/
+	public static final LONGHANDS:Map<String, Array<String>> = {
+		var sides = ["top", "right", "bottom", "left"];
+		var m:Map<String, Array<String>> = [
+			"margin" => [for (s in sides) 'margin-$s'],
+			"padding" => [for (s in sides) 'padding-$s'],
+			"inset" => sides.copy(),
+			"gap" => ["row-gap", "column-gap"],
+			"flex" => ["flex-grow", "flex-shrink", "flex-basis"],
+			"background" => ["background-color", "background-image"],
+			"overflow" => ["overflow-x", "overflow-y"],
+			"outline" => ["outline-width", "outline-color"],
+			"border-width" => [for (s in sides) 'border-$s-width'],
+			"border-color" => [for (s in sides) 'border-$s-color']
+		];
+		for (s in sides)
+			m.set('border-$s', ['border-$s-width', 'border-$s-color']);
+		var all = ["border-width", "border-color", "border-style"];
+		for (s in sides)
+			all = all.concat(['border-$s', 'border-$s-width', 'border-$s-color']);
+		m.set("border", all);
+		m;
+	};
+
+	/** 0 for a shorthand no other covers, 1 for one another covers, 2 for the rest: the order the cascade applies them in. **/
+	public static function rank(name:String):Int {
+		if (!LONGHANDS.exists(name))
+			return 2;
+		for (list in LONGHANDS)
+			if (list.indexOf(name) >= 0)
+				return 1;
+		return 0;
+	}
+
 	/** Whether `name` is a property this applies. **/
 	public static function known(name:String):Bool
 		return handlers.exists(name);

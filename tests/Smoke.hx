@@ -1140,6 +1140,24 @@ class Smoke {
 		check("CSS grid: tracks, repeat, and an item placed by line and span", spanned.x == 50 && spanned.width == 250 && spanned.y == 20
 			&& spanned.height == 30, [spanned.x, spanned.width, spanned.y, spanned.height]);
 
+		// A stronger rule's shorthand resets a weaker rule's longhands; a stronger longhand wins over a weaker shorthand, alphabetical order aside.
+		ashui.css.Css.load('
+			.boxed > * { margin-left: 30px; bottom: 5px; column-gap: 7px; }
+			.boxed > .reset { margin: 0; inset: auto; gap: 0; }
+			.boxed { margin: 4px; } .boxed { margin-left: 9px; }
+		');
+		var resetKid = new Div({classes: ["reset"], width: 10, height: 10}, gridTree);
+		var plainKid = new Div({width: 10, height: 10}, gridTree);
+		var shorthandRoot:Div = Owner.root(gridTree, _ -> new Div({flexDirection: Column, alignItems: Start},
+			[new Div({classes: ["boxed"], flexDirection: Column, alignItems: Start}, [resetKid, plainKid], gridTree)], gridTree));
+		gridTree.flush();
+		gridTree.computeLayout(shorthandRoot.node, 400, 400);
+		gridTree.flush();
+		var boxedBounds = gridTree.getBounds(new ashui.layout.Node(gridTree.children(shorthandRoot.node.id)[0]));
+		var resetX = gridTree.getBounds(resetKid.node).x - boxedBounds.x, plainX = gridTree.getBounds(plainKid.node).x - boxedBounds.x;
+		check("a stronger shorthand resets a weaker rule's longhands, and a stronger longhand overrides a weaker shorthand",
+			resetX == 0 && plainX == 30 && boxedBounds.x == 9, [resetX, plainX, boxedBounds.x]);
+
 		ashui.css.Css.load('.opened > .leaf { width: 30px; height: 10px } .opened + .after { width: 40px; height: 10px }');
 		var openedClasses = Signal.make(["closed"]);
 		var leaf = new Div({classes: ["leaf"]}, gridTree);
