@@ -11,7 +11,7 @@ import ashui.ui.Hxx.hxx;
 /**
 	Liquid glass over the desktop: a window with no frame and nothing of its
 	own behind the UI, whose one panel is liquid glass. The system blurs
-	the desktop behind the panel a little, and draws no shadow, which on a
+	the desktop behind the panel only slightly, and draws no shadow, which on a
 	transparent window outlines what it draws; the panel's tint and rim
 	light are drawn over it. Drag the panel to move the window; the cross or Escape closes
 	it.
@@ -22,10 +22,10 @@ class LiquidGlass {
 	static final CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
 	public static function config():WindowConfig
-		return new WindowConfig().title("Liquid glass").size(440, 200).transparent(true).decorations(false).shadow(false).blurRadius(6).theme(DefaultTheme.bundle());
+		return new WindowConfig().title("Liquid glass").size(440, 200).transparent(true).decorations(false).shadow(false).blurRadius(2).theme(DefaultTheme.bundle());
 
 	public static function page():Element
-		return card(Brush.glass(14, 0xffffff, 0.04, false));
+		return card(Brush.glass(14, 0x000000, 0.1, false));
 
 	/** The card, its panel painted with `glass`. **/
 	public static function card(glass:Brush):Element {

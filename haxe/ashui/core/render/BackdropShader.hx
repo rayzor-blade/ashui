@@ -144,11 +144,14 @@ class BackdropShader implements UiShader {
 				rgb = clamp(mix(rgb, primitive.via.rgb, via), vec3(0., 0., 0.), vec3(1., 1., 1.));
 				tint = tint * (1. - shade) * (1. - via) + primitive.via.rgb * via;
 				tintAlpha = via + (shade + tintAlpha * (1. - shade)) * (1. - via);
-				// With nothing behind it to bend, its rim is lit as thick glass is: brighter toward the edge, most where the light falls.
-				var facing = 0.5 + 0.5 * max(0., dot(normal, -light));
-				var glow = lens * 0.35 * facing;
-				tint = tint * (1. - glow) + vec3(glow, glow, glow);
-				tintAlpha = glow + tintAlpha * (1. - glow);
+				// With nothing behind it to bend, its rim is lit as a thick, curved edge is: darker just inside it, then light
+				// gathered toward the edge, most where it faces the light and a weaker reflection across from there.
+				var band = lens * (1. - lens) * 4. * 0.12;
+				tint = tint * (1. - band);
+				tintAlpha = band + tintAlpha * (1. - band);
+				var spec = lens * lens * (0.85 * max(0., dot(normal, -light)) + 0.35 * max(0., dot(normal, light)));
+				tint = tint * (1. - spec) + vec3(spec, spec, spec);
+				tintAlpha = spec + tintAlpha * (1. - spec);
 				// Enough of it that the system blurs what is behind even a clear one.
 				tintAlpha = max(tintAlpha, 0.04);
 			}
