@@ -51,7 +51,7 @@ class SheetContent extends DialogContent {
 
 	override function contents():Array<Element> {
 		if (cross == null)
-			cross = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>');
+			cross = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>);
 		var icon = new ashui.ui.Svg(cross, {width: 18, height: 18});
 		var close = Library.part("ui-sheet-close", "button", null, [icon]);
 		ashui.css.Identity.of(close.tree, close.node.id).setAttribute("type", "button");

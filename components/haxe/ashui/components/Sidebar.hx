@@ -43,7 +43,7 @@ class Sidebar extends Component<SidebarProps> {
 		}
 		var c = collapsed;
 		if (chevron == null)
-			chevron = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>');
+			chevron = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>);
 		var icon = new ashui.ui.Svg(chevron, {width: 16, height: 16});
 		var toggle = Library.part("ui-sidebar-toggle", "button", null, [icon]);
 		ashui.css.Identity.of(toggle.tree, toggle.node.id).setAttribute("type", "button");
@@ -69,8 +69,8 @@ class SidebarGroup extends Component<{?label:String, ?id:String}> {
 }
 
 typedef SidebarItemProps = {
-	/** Its icon, SVG markup drawn in the text's colour. **/
-	?icon:String,
+	/** Its icon, drawn in the text's colour: `SvgDocument.of(<svg>...</svg>)`, read at compile time, or SVG markup. **/
+	?icon:ashui.svg.Icon,
 	/** The page shown. **/
 	?active:IntoReactive<Bool>,
 	?onClick:ashui.input.Events.PointerEvent->Void,
@@ -79,15 +79,11 @@ typedef SidebarItemProps = {
 
 /** One of the sidebar's places: its icon, and its label while the sidebar is expanded. **/
 class SidebarItem extends Component<SidebarItemProps> {
-	static final parsed = new Map<String, ashui.svg.SvgDocument>();
 
 	function render():Element {
 		var parts:Array<Element> = [];
 		if (props.icon != null) {
-			var doc = parsed.get(props.icon);
-			if (doc == null)
-				parsed.set(props.icon, doc = ashui.svg.SvgDocument.parse(props.icon));
-			var icon = new ashui.ui.Svg(doc, {width: 16, height: 16});
+			var icon = new ashui.ui.Svg(props.icon, {width: 16, height: 16});
 			ashui.css.Identity.of(icon.tree, icon.node.id).setClasses(["ui-sidebar-icon"]);
 			parts.push(icon);
 		}

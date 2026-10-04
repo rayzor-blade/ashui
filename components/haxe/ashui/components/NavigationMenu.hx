@@ -115,7 +115,7 @@ class NavigationMenuTrigger extends Component<{?id:String}> {
 
 	function render():Element {
 		if (chevron == null)
-			chevron = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>');
+			chevron = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>);
 		var icon = new ashui.ui.Svg(chevron, {width: 12, height: 12});
 		ashui.css.Identity.of(icon.tree, icon.node.id).setClasses(["ui-nav-chevron"]);
 		var box = Library.part("ui-nav-trigger", "button", null, children.concat([icon]), props.id);

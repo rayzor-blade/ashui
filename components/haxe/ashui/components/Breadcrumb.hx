@@ -34,7 +34,7 @@ class Breadcrumb extends Component<BreadcrumbProps> {
 		if (props.separator != null)
 			return Library.part("ui-breadcrumb-separator", null, null, [new ashui.ui.Text(props.separator)]);
 		if (chevron == null)
-			chevron = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>');
+			chevron = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>);
 		var icon = new ashui.ui.Svg(chevron, {width: 14, height: 14});
 		return Library.part("ui-breadcrumb-separator", null, null, [icon]);
 	}

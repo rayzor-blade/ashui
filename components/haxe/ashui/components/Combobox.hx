@@ -55,7 +55,7 @@ class Combobox extends Component<ComboboxProps> {
 			o == null ? null : o.label;
 		};
 		if (chevrons == null)
-			chevrons = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>');
+			chevrons = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>);
 		var icon = new ashui.ui.Svg(chevrons, {width: 14, height: 14});
 		ashui.css.Identity.of(icon.tree, icon.node.id).setClasses(["ui-combobox-chevron"]);
 		var placeholder = props.placeholder == null ? "Select..." : props.placeholder;

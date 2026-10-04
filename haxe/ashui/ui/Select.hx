@@ -104,7 +104,7 @@ class Select extends Component<SelectProps> {
 			var l = labelOf(value.get());
 			(l == "" && placeholder != null ? placeholder : l);
 		});
-		var chevron = new Svg(ashui.svg.SvgDocument.parse(CHEVRON), {width: 14, height: 14});
+		var chevron = new Svg(CHEVRON, {width: 14, height: 14});
 		ashui.css.Identity.of(chevron.tree, chevron.node.id).setClasses(["chevron"]);
 		button = new Div({tag: "select", id: props.id}, [new Text(label), chevron]);
 		if (props.name != null)
@@ -248,5 +248,5 @@ class Select extends Component<SelectProps> {
 	public function isOpen():Bool
 		return open != null;
 
-	static final CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+	static final CHEVRON = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>);
 }

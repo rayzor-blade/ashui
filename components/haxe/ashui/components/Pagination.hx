@@ -33,12 +33,11 @@ class Pagination extends Component<PaginationProps> {
 	public var page(default, null):Signal<Int>;
 
 	static final ICONS = [
-		"prev" => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
-		"next" => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
-		"first" => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>',
-		"last" => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>'
+		"prev" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>),
+		"next" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>),
+		"first" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>),
+		"last" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>)
 	];
-	static final parsed = new Map<String, ashui.svg.SvgDocument>();
 
 	function render():Element {
 		page = switch props.page {
@@ -96,10 +95,7 @@ class Pagination extends Component<PaginationProps> {
 	}
 
 	function step(kind:String, run:Void->Void, disabled:Computed<Bool>):Element {
-		var doc = parsed.get(kind);
-		if (doc == null)
-			parsed.set(kind, doc = ashui.svg.SvgDocument.parse(ICONS.get(kind)));
-		var icon = new ashui.ui.Svg(doc, {width: 16, height: 16});
+		var icon = new ashui.ui.Svg(ICONS.get(kind), {width: 16, height: 16});
 		var b = Library.part("ui-pagination-button", "button", ["step" => kind], [icon]);
 		var i = Interaction.of(b.node).setFocusable(true);
 		i.setDisabled(disabled);

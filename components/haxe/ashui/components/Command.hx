@@ -133,7 +133,7 @@ class CommandInput extends Component<{?placeholder:String, ?id:String}> {
 
 	function render():Element {
 		if (glass == null)
-			glass = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>');
+			glass = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>);
 		var icon = new ashui.ui.Svg(glass, {width: 16, height: 16});
 		ashui.css.Identity.of(icon.tree, icon.node.id).setClasses(["ui-command-search"]);
 		field = new ashui.ui.Input({value: text, placeholder: props.placeholder, id: props.id});

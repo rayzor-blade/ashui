@@ -46,10 +46,9 @@ class Calendar extends Component<CalendarProps> {
 	static final MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 	static final WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 	static final ARROWS = [
-		"prev" => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
-		"next" => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>'
+		"prev" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>),
+		"next" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>)
 	];
-	static final parsed = new Map<String, ashui.svg.SvgDocument>();
 
 	function render():Element {
 		value = switch props.value {
@@ -157,10 +156,7 @@ class Calendar extends Component<CalendarProps> {
 	var refocus = false;
 
 	function nav(kind:String, run:Void->Void):Element {
-		var doc = parsed.get(kind);
-		if (doc == null)
-			parsed.set(kind, doc = ashui.svg.SvgDocument.parse(ARROWS.get(kind)));
-		var b = Library.part("ui-calendar-nav", "button", ["step" => kind], [new ashui.ui.Svg(doc, {width: 16, height: 16})]);
+		var b = Library.part("ui-calendar-nav", "button", ["step" => kind], [new ashui.ui.Svg(ARROWS.get(kind), {width: 16, height: 16})]);
 		ashui.css.Identity.of(b.tree, b.node.id).setAttribute("type", "button");
 		Interaction.of(b.node).setFocusable(true).onClick(_ -> run());
 		return b;

@@ -110,8 +110,8 @@ typedef TreeItemProps = {
 	value:String,
 	/** Its row's text; elements other than items among its children follow it. **/
 	?label:String,
-	/** An icon before its label, SVG markup drawn in the text's colour. **/
-	?icon:String,
+	/** An icon before its label, drawn in the text's colour: `SvgDocument.of(<svg>...</svg>)`, read at compile time, or SVG markup. **/
+	?icon:ashui.svg.Icon,
 	/** Whether its items show. A signal is read and written; a constant sets it once. **/
 	?expanded:IntoReactive<Bool>,
 	?id:String
@@ -133,7 +133,6 @@ class TreeItem extends Component<TreeItemProps> {
 	var choose:Null<String->Void> = null;
 
 	static var chevron:Null<ashui.svg.SvgDocument> = null;
-	static final parsed = new Map<String, ashui.svg.SvgDocument>();
 
 	function render():Element {
 		expanded = switch props.expanded {
@@ -152,17 +151,14 @@ class TreeItem extends Component<TreeItemProps> {
 		var parts:Array<Element> = [];
 		if (items.length > 0) {
 			if (chevron == null)
-				chevron = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>');
+				chevron = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>);
 			var c = new ashui.ui.Svg(chevron, {width: 14, height: 14});
 			ashui.css.Identity.of(c.tree, c.node.id).setClasses(["ui-tree-chevron"]);
 			parts.push(c);
 		} else
 			parts.push(Library.part("ui-tree-chevron-space", null, null, []));
 		if (props.icon != null) {
-			var doc = parsed.get(props.icon);
-			if (doc == null)
-				parsed.set(props.icon, doc = ashui.svg.SvgDocument.parse(props.icon));
-			var icon = new ashui.ui.Svg(doc, {width: 16, height: 16});
+			var icon = new ashui.ui.Svg(props.icon, {width: 16, height: 16});
 			ashui.css.Identity.of(icon.tree, icon.node.id).setClasses(["ui-tree-icon"]);
 			parts.push(icon);
 		}
