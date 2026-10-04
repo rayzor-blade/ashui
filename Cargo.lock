@@ -87,6 +87,7 @@ dependencies = [
  "blinc_text",
  "hl_abi",
  "taffy",
+ "ttf-parser 0.25.1",
 ]
 
 [[package]]

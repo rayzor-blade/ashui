@@ -519,3 +519,137 @@ mod tests {
         }
     }
 }
+
+// ============================================================================
+// OUTLINES
+// ============================================================================
+
+/// Path commands for a glyph outline, in pixels, the baseline at y 0 and y
+/// growing down: 0 move (x, y), 1 line (x, y), 2 quadratic (cx, cy, x, y),
+/// 3 cubic (c1x, c1y, c2x, c2y, x, y), 4 close.
+struct Outline {
+    out: Vec<f32>,
+    scale: f32,
+    x: f32,
+    y: f32,
+}
+
+impl ttf_parser::OutlineBuilder for Outline {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.out.extend([0.0, self.x + x * self.scale, self.y - y * self.scale]);
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.out.extend([1.0, self.x + x * self.scale, self.y - y * self.scale]);
+    }
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        let s = self.scale;
+        self.out.extend([2.0, self.x + x1 * s, self.y - y1 * s, self.x + x * s, self.y - y * s]);
+    }
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        let s = self.scale;
+        self.out.extend([3.0, self.x + x1 * s, self.y - y1 * s, self.x + x2 * s, self.y - y2 * s, self.x + x * s, self.y - y * s]);
+    }
+    fn close(&mut self) {
+        self.out.push(4.0);
+    }
+}
+
+/// `text` laid out in a face of `font_name` (else the generic family), as
+/// `style` sets it, six f32s: generic family (0 system, 1 monospace, 2
+/// serif, 3 sans-serif), weight, italic (0 or 1), size in pixels, letter
+/// spacing and line height; as path commands (see `Outline`) of every
+/// glyph: the first line's baseline at y 0, each line after it `line_height`
+/// times the face's line below. Writes the widest line's width, the face's
+/// ascent and descent (positive, below the baseline) and its line height,
+/// in pixels, as four f32s to `info`. Returns the number of f32s, copying
+/// them to `out` when they fit in `capacity`; 0 when no face is found.
+#[unsafe(no_mangle)]
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "C" fn hl_blinc_text_outline(
+    text: *const vbyte,
+    font_name: *const vbyte,
+    style: *const vbyte,
+    out: *mut vbyte,
+    capacity: i32,
+    info: *mut vbyte,
+) -> i32 {
+    if style.is_null() {
+        return 0;
+    }
+    let s = |i: usize| unsafe { (style as *const f32).add(i).read_unaligned() };
+    let (generic, weight, italic, size, letter_spacing, line_height) = (s(0) as i32, s(1) as i32, s(2) != 0.0, s(3), s(4), s(5));
+    let text = unsafe { crate::hl::string_from(text) };
+    let name = unsafe { crate::hl::opt_string_from(font_name) };
+    let generic = match generic {
+        1 => GenericFont::Monospace,
+        2 => GenericFont::Serif,
+        3 => GenericFont::SansSerif,
+        _ => GenericFont::System,
+    };
+    // Resolved before the registry is locked: finding the system face locks it too.
+    let name = name.or_else(|| if generic == GenericFont::System { system_ui() } else { None });
+    // From the renderer's registry, loaded as text nodes' faces are, so a weight not yet used is found.
+    let font = {
+        let registry = renderer().font_registry();
+        let mut registry = registry.lock().unwrap_or_else(|e| e.into_inner());
+        let weight = weight.clamp(1, 1000) as u16;
+        match registry.get_for_render_with_style(name.as_deref(), generic, weight, italic) {
+            Some(font) => font,
+            None => match registry.load_with_fallback_styled(name.as_deref(), generic, weight, italic) {
+                Ok(font) => font,
+                Err(_) => return 0,
+            },
+        }
+    };
+    let Ok(face) = ttf_parser::Face::parse(font.data(), font.face_index()) else {
+        return 0;
+    };
+    let scale = size / face.units_per_em() as f32;
+    let metrics = font.metrics();
+    let ascent = metrics.ascender_px(size);
+    let descent = -metrics.descender_px(size);
+    let natural = metrics.line_height_px(size);
+    let options = LayoutOptions {
+        max_width: None,
+        alignment: TextAlignment::Left,
+        anchor: TextAnchor::Top,
+        line_break: LineBreakMode::None,
+        line_height: 1.0,
+        letter_spacing,
+    };
+    let engine = blinc_text::TextLayoutEngine::new();
+    let mut outline = Outline { out: Vec::new(), scale, x: 0.0, y: 0.0 };
+    let mut widest = 0.0f32;
+    for (row, paragraph) in text.split('\n').enumerate() {
+        let layout = engine.layout(paragraph, &font, size, &options);
+        widest = widest.max(layout.width);
+        let down = row as f32 * natural * line_height;
+        for line in &layout.lines {
+            for g in &line.glyphs {
+                // A glyph the face lacks draws nothing rather than its missing-glyph box.
+                if g.glyph_id == 0 {
+                    continue;
+                }
+                outline.x = g.x;
+                outline.y = down + (g.y - line.baseline_y);
+                face.outline_glyph(ttf_parser::GlyphId(g.glyph_id), &mut outline);
+            }
+        }
+    }
+    if !info.is_null() {
+        let info = info as *mut f32;
+        for (i, v) in [widest, ascent, descent, natural].into_iter().enumerate() {
+            unsafe { info.add(i).write_unaligned(v) };
+        }
+    }
+    let n = outline.out.len();
+    if !out.is_null() && n <= capacity.max(0) as usize {
+        unsafe { std::ptr::copy_nonoverlapping(outline.out.as_ptr(), out as *mut f32, n) };
+    }
+    n as i32
+}
+define_prim!(
+    hlp_blinc_text_outline,
+    hl_blinc_text_outline,
+    "PBBBBiB_i"
+);

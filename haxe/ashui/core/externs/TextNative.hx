@@ -28,4 +28,19 @@ extern class TextNative {
 	**/
 	static function blinc_text_carets(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, text:hl.Bytes, fontSize:Single, wrapWidth:Single,
 		out:hl.Bytes, capacity:Int, info:hl.Bytes):Int;
+
+	/**
+		`text` in a face of `font` (null for the system's), set as `style`
+		says, six F32s: the generic family (0 system, 1 monospace, 2 serif, 3
+		sans-serif), weight, italic (0 or 1), size in pixels, letter spacing
+		and line height; as path commands of its glyphs' outlines, as F32s: 0
+		move (x, y), 1 line (x, y), 2 quadratic (cx, cy, x, y), 3 cubic (c1x,
+		c1y, c2x, c2y, x, y), 4 close; the first line's baseline at y 0, y
+		down, each line `lineHeight` times the face's below the last. Writes
+		the widest line's width, the ascent, the descent below the baseline
+		and the face's line height, in pixels, as four F32s to `info`.
+		Returns how many F32s there are, copying them to `out` when they fit
+		in `capacity`; 0 when no face is found.
+	**/
+	static function blinc_text_outline(text:hl.Bytes, font:hl.Bytes, style:hl.Bytes, out:hl.Bytes, capacity:Int, info:hl.Bytes):Int;
 }

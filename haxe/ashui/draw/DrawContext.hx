@@ -80,6 +80,38 @@ class DrawContext {
 	public function strokeCircle(cx:Float, cy:Float, radius:Float, stroke:Stroke, brush:Brush):Void
 		strokePath(new Path().circle(cx, cy, radius), stroke, brush);
 
+	/**
+		`text` filled with `brush`, set as `style` says, its point at `(x, y)`:
+		where its start, middle or end is by `style.align`, and which of its
+		lines is there by `style.baseline`, the baseline by default. Its
+		glyphs are paths, so it scales and turns as any shape does. Lines
+		break at `\n`. Draws nothing where there is no text engine.
+	**/
+	public function text(text:String, x:Float, y:Float, brush:Brush, ?style:GlyphOutlines.TextStyle):Void {
+		var s:GlyphOutlines.TextStyle = style != null ? style : {};
+		var outline = GlyphOutlines.of(text, s);
+		if (outline == null || outline.commands.length == 0)
+			return;
+		var dx = switch s.align {
+			case Middle: -outline.width / 2;
+			case End: -outline.width;
+			case _: 0.0;
+		}
+		var dy = switch s.baseline {
+			case Top: outline.ascent;
+			case Middle: (outline.ascent - outline.descent) / 2;
+			case Bottom: -outline.descent;
+			case _: 0.0;
+		}
+		fillPath(GlyphOutlines.path(outline, x + dx, y + dy), brush, NonZero);
+	}
+
+	/** How wide `text` set as `style` is, and how far it reaches above and below its baseline; zeros where there is no text engine. **/
+	public function measureText(text:String, ?style:GlyphOutlines.TextStyle):{width:Float, ascent:Float, descent:Float} {
+		var outline = GlyphOutlines.of(text, style != null ? style : {});
+		return outline == null ? {width: 0.0, ascent: 0.0, descent: 0.0} : {width: outline.width, ascent: outline.ascent, descent: outline.descent};
+	}
+
 	/** A straight line, which has no inside: only its stroke. **/
 	public function line(x1:Float, y1:Float, x2:Float, y2:Float, stroke:Stroke, brush:Brush):Void
 		strokePath(new Path().moveTo(x1, y1).lineTo(x2, y2), stroke, brush);

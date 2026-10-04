@@ -1017,6 +1017,24 @@ class Smoke {
 		check("a RefList holds each <for> item's element, and query binds each, one added later too", rlBefore == 2 && rlClicks == 3 && rlRows.length() == 1,
 			[rlBefore, rlClicks, rlRows.length()]);
 
+		// Text on a canvas: its glyphs' outlines, set by the text engine, placed by its alignment.
+		var regular = ashui.draw.GlyphOutlines.of("Canvas", {size: 20}), bold = ashui.draw.GlyphOutlines.of("Canvas", {size: 20, weight: 700});
+		var textCtx = new ashui.draw.DrawContext(200, 100);
+		textCtx.text("Canvas", 100, 50, ashui.types.Brush.solid(0xffffff), {size: 20, align: Middle});
+		var textBounds = switch textCtx.ops[0] {
+			case Fill(path, _, _, _, _): ashui.draw.Flatten.path(path, ashui.draw.Affine.IDENTITY, 0.25);
+			case _: [];
+		}
+		var minX = 1e9, maxX = -1e9;
+		for (c in textBounds)
+			for (i in 0...c.count()) {
+				minX = Math.min(minX, c.x(i));
+				maxX = Math.max(maxX, c.x(i));
+			}
+		check("canvas text is its glyphs' outlines: bold set wider than regular, middle-aligned about its point",
+			regular != null && bold != null && regular.commands.length > 0 && bold.width > regular.width && Math.abs((minX + maxX) / 2 - 100) < 2,
+			[regular == null ? null : regular.width, bold == null ? null : bold.width, minX, maxX]);
+
 		// Inline markup: a template written as Haxe's own markup, no hxx() around it.
 		var mkTree = new LayoutTree();
 		var mkCount = Signal.make(2);
