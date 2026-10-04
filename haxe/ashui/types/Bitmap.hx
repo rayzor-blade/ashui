@@ -9,7 +9,7 @@ import haxe.macro.Expr;
 #end
 
 /**
-	A raster image, PNG or JPEG, decoded once and drawn by `ashui.ui.Image`
+	A raster image, PNG, JPEG or WebP, decoded once and drawn by `ashui.ui.Image`
 	or as a background with `Brush.bitmap`. Each place it is drawn resamples
 	it to the size it covers on screen, so a large photo costs no more than
 	the pixels it fills, and a zoom keeps it sharp up to its own resolution.
@@ -53,11 +53,11 @@ class Bitmap {
 		height = BitmapNative.blinc_bitmap_size(slot, true);
 	}
 
-	/** `bytes` of PNG or JPEG decoded; throws when they are not one. **/
+	/** `bytes` of PNG, JPEG or WebP decoded; throws when they are not one. **/
 	public static function fromBytes(bytes:haxe.io.Bytes):Bitmap {
 		var slot = BitmapNative.blinc_bitmap_decode(bytes, bytes.length);
 		if (slot < 0)
-			throw "not a PNG or JPEG image";
+			throw "not a PNG, JPEG or WebP image";
 		return new Bitmap(slot);
 	}
 

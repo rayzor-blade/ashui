@@ -11,7 +11,7 @@ crate-type = ["cdylib", "staticlib"]
 blinc_core = {git = "https://github.com/project-blinc/blinc", branch = "main"}
 blinc_svg = {git = "https://github.com/project-blinc/blinc", branch = "main", features = ["svg_raster_images"]}
 blinc_text = {git = "https://github.com/project-blinc/blinc", branch = "main"}
-blinc_image = {git = "https://github.com/project-blinc/blinc", branch = "main", default-features = false, features = ["png", "jpeg"]}
+blinc_image = {git = "https://github.com/project-blinc/blinc", branch = "main", default-features = false, features = ["png", "jpeg", "webp"]}
 blinc_layout = {git = "https://github.com/project-blinc/blinc", branch = "main", features = ["text_measurer"]}
 hl_abi = {git="https://github.com/rayzor-blade/hl_abi", branch="main"}
 taffy = { version = "0.6", features = ["content_size"] }
