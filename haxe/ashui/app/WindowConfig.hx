@@ -39,8 +39,12 @@ typedef WindowConfigData = {
 	?maximizeButton:Bool,
 	/** What is under it shows where the UI draws nothing: the page is not filled with the theme's background. **/
 	?transparent:Bool,
-	/** What is under a transparent window is blurred, where the platform can. **/
+	/** What is under a transparent window is blurred, where the platform can: heavily, on macOS. **/
 	?blur:Bool,
+	/** How far what is under a transparent window is blurred, in pixels; 0 is none. Only on or off where the platform takes no radius. **/
+	?blurRadius:Int,
+	/** The system's shadow around it; true by default. A transparent window's follows what it draws, so clear glass wants none. **/
+	?shadow:Bool,
 	/** Kept out of screenshots and screen sharing, where the platform can. **/
 	?contentProtected:Bool,
 	/** Above or below other windows, or among them. **/
@@ -180,6 +184,16 @@ abstract WindowConfig(WindowConfigData) from WindowConfigData to WindowConfigDat
 		return abstract;
 	}
 
+	public inline function blurRadius(value:Int):WindowConfig {
+		this.blurRadius = value;
+		return abstract;
+	}
+
+	public inline function shadow(value = true):WindowConfig {
+		this.shadow = value;
+		return abstract;
+	}
+
 	public inline function contentProtected(value = true):WindowConfig {
 		this.contentProtected = value;
 		return abstract;
@@ -242,6 +256,8 @@ abstract WindowConfig(WindowConfigData) from WindowConfigData to WindowConfigDat
 		if (c.maximizeButton != null) a.maximizeButton(c.maximizeButton);
 		if (c.transparent != null) a.transparent(c.transparent);
 		if (c.blur != null) a.blur(c.blur);
+		if (c.blurRadius != null) a.blurRadius(c.blurRadius);
+		if (c.shadow != null) a.hasShadow(c.shadow);
 		if (c.contentProtected != null) a.contentProtected(c.contentProtected);
 		if (c.level != null) a.windowLevel(c.level);
 		if (c.appearance != null) a.theme(c.appearance);
