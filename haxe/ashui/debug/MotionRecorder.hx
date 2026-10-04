@@ -73,6 +73,8 @@ class MotionRecorder {
 		offscreen.clearAlpha = 1;
 		offscreen.scale = scale;
 
+		// Started before the UI is built, so an animation it starts with, a loop that never ends, is in the trace.
+		var trace = MotionTrace.start();
 		var tree = new LayoutTree();
 		var root:Element = Owner.root(tree, _ -> build());
 		function layout() {
@@ -88,7 +90,10 @@ class MotionRecorder {
 				layout();
 			}
 
-		var trace = MotionTrace.start();
+		// What ran its course while it settled is not what the recording is of.
+		var settled = [for (t in trace.tracks) if (!t.running) t];
+		for (t in settled)
+			trace.tracks.remove(t);
 		var overlay = o.overlay == false ? null : new MotionOverlay(trace);
 		// curves.png plots every track; on the frames the panel would only cover the UI.
 		if (overlay != null)
