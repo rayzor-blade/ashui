@@ -30,6 +30,7 @@ import ashui.components.AspectRatio;
 import ashui.components.Avatar;
 import ashui.components.AvatarGroup;
 import ashui.components.InputOtp;
+import ashui.components.Resizable;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
 import ashui.components.Tabs;
@@ -805,6 +806,72 @@ class Components {
 		check("an InputOtp keeps digits up to its length, marks the slots filled and the next active, and calls onComplete once full",
 			activeFirst == 1 && partial == "12" && filled == 2 && otpCode.get() == "1234" && otpDone.get() == "1234",
 			[activeFirst, partial, filled, otpCode.get(), otpDone.get()]);
+
+
+		// --- Resizable: a handle drags the space between two panels within their bounds; its keys step it ---
+		var rzTree = new LayoutTree();
+		var rzLeft = Signal.make(150.0);
+		var rzRoot:Div = Owner.root(rzTree, _ -> hxx('
+			<div width={600} height={400} flexDirection={Column}>
+				<resizable height={200}>
+					<resizable-panel size={rzLeft} minSize={100} maxSize={300}><div /></resizable-panel>
+					<resizable-panel id="mid" minSize={60}><div /></resizable-panel>
+					<resizable-panel id="end"><div /></resizable-panel>
+				</resizable>
+			</div>
+		'));
+		function rzFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				rzTree.flush();
+				rzTree.computeLayout(rzRoot.node, 600, 400);
+				rzTree.flush();
+			}
+		function rzFind(pred:ashui.css.Identity->Bool):Array<haxe.Int64>
+			return [for (id in rzTree.order()) if (identity2(rzTree, id) != null && pred(identity2(rzTree, id))) id];
+		function rzBounds(id:haxe.Int64)
+			return rzTree.getBounds(new ashui.layout.Node(id));
+		rzFrames(2);
+		var rzHandles = rzFind(i -> i.hasClass("ui-resizable-handle"));
+		var h0 = rzBounds(rzHandles[0]);
+		var hcx = h0.x + h0.width / 2, hcy = h0.y + h0.height / 2;
+		ashui.input.Pointer.move(rzTree, hcx, hcy);
+		ashui.input.Pointer.press(rzTree);
+		rzFrames(1);
+		var draggingSet = identity2(rzTree, rzHandles[0]).attribute("data-dragging") != null;
+		ashui.input.Pointer.move(rzTree, hcx + 80, hcy);
+		rzFrames(1);
+		var dragged = rzLeft.get();
+		ashui.input.Pointer.move(rzTree, hcx + 400, hcy);
+		rzFrames(1);
+		var atMax = rzLeft.get();
+		ashui.input.Pointer.move(rzTree, hcx - 400, hcy);
+		rzFrames(1);
+		var atMin = rzLeft.get(), leftWidth = rzBounds(rzFind(i -> i.hasClass("ui-resizable-panel"))[0]).width;
+		ashui.input.Pointer.release(rzTree);
+		rzFrames(1);
+		check("a Resizable handle drags its panel's size, kept within its min and max, marked while it drags",
+			draggingSet && dragged == 230 && atMax == 300 && atMin == 100 && leftWidth == 100
+			&& identity2(rzTree, rzHandles[0]).attribute("data-dragging") == null, [draggingSet, dragged, atMax, atMin, leftWidth]);
+		ashui.input.Keyboard.input(rzTree, key(Named(ArrowRight), ArrowRight));
+		ashui.input.Keyboard.input(rzTree, key(Named(ArrowRight), ArrowRight));
+		var stepped = rzLeft.get();
+		ashui.input.Keyboard.input(rzTree, key(Named(End), End));
+		rzFrames(1);
+		check("a focused Resizable handle steps by its arrow keys, and End takes it as far as the panels allow", stepped == 120 && rzLeft.get() == 300,
+			[stepped, rzLeft.get()]);
+		// The middle panel took a size when the first handle moved; the last, still sharing the space, takes what the middle gives up.
+		var h1 = rzBounds(rzHandles[1]);
+		var mid = rzFind(i -> i.id == "mid")[0], end = rzFind(i -> i.id == "end")[0];
+		var midBefore = rzBounds(mid).width, endBefore = rzBounds(end).width;
+		ashui.input.Pointer.move(rzTree, h1.x + h1.width / 2, h1.y + 20);
+		ashui.input.Pointer.press(rzTree);
+		ashui.input.Pointer.move(rzTree, h1.x + h1.width / 2 - 200, h1.y + 20);
+		rzFrames(1);
+		ashui.input.Pointer.release(rzTree);
+		var midAfter = rzBounds(mid).width, endAfter = rzBounds(end).width;
+		check("a Resizable handle gives a panel's space to the one beyond it, down to the panel's min, the last still filling the group",
+			midAfter == 60 && Math.abs(endAfter - (endBefore + midBefore - 60)) <= 1, [midBefore, endBefore, midAfter, endAfter]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

@@ -804,3 +804,32 @@ a.ui-sidebar-item:hover { background: var(--accent-subtle); color: var(--text-pr
 .ui-input-otp-slot[data-active] { border-color: var(--border-focus); outline-width: 2px; }
 .ui-input-otp-separator { width: 12px; justify-content: center; color: var(--text-tertiary); }
 input.ui-input-otp-field { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: auto; height: auto; padding: 0; opacity: 0; border: 0; outline-width: 0; }
+
+/* ------------------------------------------------------------- Resizable */
+
+/* A line between panels in a wider hit area; it thickens and takes the primary colour under the pointer, while dragged and with keyboard focus. */
+.ui-resizable {
+	flex-direction: row; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg);
+	background: var(--ui-resizable-bg, var(--surface));
+}
+.ui-resizable[data-direction="vertical"] { flex-direction: column; }
+.ui-resizable-panel { flex-direction: column; overflow: hidden; }
+.ui-resizable-handle { flex-shrink: 0; width: 9px; align-items: center; justify-content: center; outline: none; }
+.ui-resizable[data-direction="vertical"] > .ui-resizable-handle { width: auto; height: 9px; }
+.ui-resizable-line {
+	width: 1px; height: 100%; align-items: center; justify-content: center; background: var(--border);
+	transition: width var(--duration-fast) var(--ease-out), height var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-state);
+}
+.ui-resizable[data-direction="vertical"] > .ui-resizable-handle > .ui-resizable-line { width: 100%; height: 1px; }
+.ui-resizable-handle:hover > .ui-resizable-line, .ui-resizable-handle[data-dragging] > .ui-resizable-line,
+.ui-resizable-handle:focus-visible > .ui-resizable-line { width: 3px; background: var(--primary); }
+.ui-resizable[data-direction="vertical"] > .ui-resizable-handle:hover > .ui-resizable-line,
+.ui-resizable[data-direction="vertical"] > .ui-resizable-handle[data-dragging] > .ui-resizable-line,
+.ui-resizable[data-direction="vertical"] > .ui-resizable-handle:focus-visible > .ui-resizable-line { width: 100%; height: 3px; }
+.ui-resizable-grip {
+	flex-shrink: 0; width: 10px; height: 24px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-elevated);
+	transition: border-color var(--duration-fast) var(--ease-state);
+}
+.ui-resizable[data-direction="vertical"] .ui-resizable-grip { width: 24px; height: 10px; }
+.ui-resizable-handle:hover .ui-resizable-grip, .ui-resizable-handle[data-dragging] .ui-resizable-grip,
+.ui-resizable-handle:focus-visible .ui-resizable-grip { border-color: var(--primary); }
