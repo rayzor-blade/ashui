@@ -159,6 +159,14 @@ class Canvas extends Component<CanvasProps> {
 		return box;
 	}
 
+	/** Its width as last laid out; read in a computed or watch, which follows it. **/
+	public function laidWidth():Float
+		return width.get();
+
+	/** Its height as last laid out, followed as `laidWidth` is. **/
+	public function laidHeight():Float
+		return height.get();
+
 	/** Asks for a frame: what `paint` draws has changed. **/
 	public function repaint():Void
 		ticks.set(ticks.get() + 1);

@@ -25,6 +25,7 @@ import ashui.components.ScrollArea;
 import ashui.components.Command;
 import ashui.components.Combobox;
 import ashui.components.Calendar;
+import ashui.components.Chart;
 import ashui.components.Sidebar;
 import ashui.components.AspectRatio;
 import ashui.components.Avatar;
@@ -732,6 +733,47 @@ class Components {
 		calFrames(20);
 		check("turning the month slides the next one in and the shown one out, which then goes", turning == "null/next,next/null" && calGrids().length == 1,
 			[turning, calGrids().length]);
+
+		// --- Charts: the tooltip shows the values at the label under the pointer; new values are moved to, not jumped to ---
+		var chTree = new LayoutTree();
+		var chData = Signal.make(([{name: "Desktop", values: [10.0, 30, 20]}, {name: "Mobile", values: [5.0, 15, 25]}] : Array<ChartSeries>));
+		var chRoot:Div = Owner.root(chTree, _ -> hxx('<div width={400} height={300} padding={20}><line-chart series={chData} labels={["Jan", "Feb", "Mar"]} /></div>'));
+		function chFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				chTree.flush();
+				chTree.computeLayout(chRoot.node, 400, 300);
+				chTree.flush();
+			}
+		function chFind(cls:String):Array<haxe.Int64>
+			return [for (id in chTree.order()) if (identity2(chTree, id) != null && identity2(chTree, id).hasClass(cls)) id];
+		function chText(id:haxe.Int64):String {
+			var out = [];
+			function walk(n:haxe.Int64) {
+				var t = ashui.ui.Text.at(n);
+				if (t != null)
+					out.push(t.text());
+				for (c in chTree.children(n))
+					walk(c);
+			}
+			walk(id);
+			return out.join("|");
+		}
+		chFrames(60);
+		var plotBox = chTree.getBounds(new ashui.layout.Node(chFind("ui-chart-plot")[0]));
+		var tipShown = () -> chTree.getBounds(new ashui.layout.Node(chFind("ui-chart-tooltip")[0])).width > 0;
+		var hiddenBefore = !tipShown();
+		// The middle third of the plot, past the value axis's labels: Feb.
+		ashui.input.Pointer.move(chTree, plotBox.x + plotBox.width * 0.55, plotBox.y + plotBox.height / 2);
+		chFrames(2);
+		var tipText = chText(chFind("ui-chart-tooltip")[0]);
+		check("a chart's tooltip shows the label under the pointer and each series' value there", hiddenBefore && tipShown()
+			&& tipText == "Feb|Desktop|30|Mobile|15", [hiddenBefore, tipShown(), tipText]);
+		ashui.input.Pointer.move(chTree, 5, 5);
+		chFrames(2);
+		check("and goes when the pointer leaves", !tipShown());
+		var legend = [for (id in chFind("ui-chart-legend-item")) chText(id)].join(",");
+		check("a chart of more than one series has a legend of their names", legend == "Desktop,Mobile", legend);
 
 		// --- Sidebar: collapsing eases its width, the inset moving with it, its items kept on one line ---
 		var sbTree = new LayoutTree();

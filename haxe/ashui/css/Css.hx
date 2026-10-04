@@ -311,6 +311,18 @@ class Css {
 		return a == null ? null : a.values.get(name);
 	}
 
+	/** `text` with its `var()`s replaced as `identity` would read them: its own and inherited custom properties, `:root`'s, the theme's. **/
+	public static function resolve(identity:Identity, text:String):String {
+		var a = applied.get(identity);
+		return substitute(text, a == null ? new Map() : a.values, identity);
+	}
+
+	/** `identity`'s computed value of `name` with its `var()`s replaced; null when it has none. **/
+	public static function resolved(identity:Identity, name:String):Null<String> {
+		var v = computed(identity, name);
+		return v == null ? null : resolve(identity, v);
+	}
+
 	/** Called with each element whose styles were applied anew, as text flow measures again when a font changes. **/
 	public static final restyled:Array<Identity->Void> = [];
 

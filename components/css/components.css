@@ -979,3 +979,43 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-lead { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: var(--text-xl); line-height: 1.6; color: var(--text-secondary); }
 .ui-large { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: var(--text-lg); font-weight: 600; color: var(--text-primary); }
 .ui-muted { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-size: var(--text-sm); color: var(--text-secondary); }
+
+/* --------------------------------------------------------------- Charts */
+
+/* The palette series take in turn, and the colour a comparison's baseline takes. */
+:root { --chart-1: #2563eb; --chart-2: #14b8a6; --chart-3: #f59e0b; --chart-4: #8b5cf6; --chart-5: #ec4899; --chart-baseline: #cbd5e1; }
+@media (prefers-color-scheme: dark) {
+	:root { --chart-1: #3b82f6; --chart-2: #2dd4bf; --chart-3: #fbbf24; --chart-4: #a78bfa; --chart-5: #f472b6; --chart-baseline: #475569; }
+}
+.ui-chart { flex-direction: column; gap: 12px; align-self: stretch; }
+.ui-chart[data-bare] { gap: 0; align-self: center; }
+.ui-chart-plot { position: relative; align-self: stretch; }
+.ui-chart-axis { font-size: var(--text-xs); color: var(--text-tertiary); white-space: nowrap; }
+.ui-chart-axis[data-hidden] { display: none; }
+.ui-chart-band-label { font-size: 10px; color: var(--text-secondary); }
+/* Colours the canvas reads: the grid's, the cursor's, the surface a dot is ringed with. */
+.ui-chart-grid, .ui-chart-cursor, .ui-chart-surface, .ui-chart-band { position: absolute; width: 0; height: 0; }
+.ui-chart-grid { color: var(--border); }
+.ui-chart-cursor { color: var(--text-secondary); }
+.ui-chart-surface { color: var(--surface); }
+.ui-chart-legend { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 16px; font-size: var(--text-xs); color: var(--text-secondary); }
+.ui-chart-legend[data-hidden] { display: none; }
+.ui-chart-legend-item { flex-direction: row; align-items: center; gap: 6px; }
+.ui-chart-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.ui-chart-c1 { color: var(--chart-1); background: var(--chart-1); }
+.ui-chart-c2 { color: var(--chart-2); background: var(--chart-2); }
+.ui-chart-c3 { color: var(--chart-3); background: var(--chart-3); }
+.ui-chart-c4 { color: var(--chart-4); background: var(--chart-4); }
+.ui-chart-c5 { color: var(--chart-5); background: var(--chart-5); }
+/* The values at the label under the pointer, in a card beside it. */
+.ui-chart-tooltip {
+	flex-direction: column; gap: 6px; min-width: 128px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md);
+	background: var(--surface-elevated); box-shadow: var(--shadow-md); font-size: var(--text-xs);
+}
+.ui-chart-tooltip-title { font-weight: 500; color: var(--text-primary); }
+.ui-chart-tooltip-row { flex-direction: row; align-items: center; gap: 8px; }
+.ui-chart-tooltip-name { flex-grow: 1; color: var(--text-secondary); }
+.ui-chart-tooltip-value { margin-left: 12px; font-weight: 500; color: var(--text-primary); }
+.ui-chart-note { font-size: var(--text-xs); font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.ui-chart-note[data-tone="bad"] { color: var(--error); }
+.ui-chart-note[data-tone="good"] { color: var(--success); }
