@@ -107,6 +107,33 @@ class Animations {
 	}
 
 	/**
+		Calls `done` once the animations of `identities` have played: those
+		running, and those a restyle starts within `atLeast` seconds, as one
+		does on the frame after an attribute marks an element leaving. None
+		is waited on past `limit` seconds, so one that repeats forever still
+		lets it go. With no theme's clock running, at once.
+	**/
+	public static function whenPlayed(identities:Array<Null<Identity>>, atLeast:Float, done:Void->Void, limit = 2.0):Void {
+		if (atLeast <= 0) {
+			done();
+			return;
+		}
+		var waited = 0.0;
+		ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+			waited += dt;
+			// Left after this tick, whether the animations' tickers run before this one or after.
+			var left = 0.0;
+			for (identity in identities)
+				if (identity != null)
+					left = Math.max(left, remaining(identity) - dt);
+			if (waited < limit && (waited < atLeast || left > 0))
+				return true;
+			done();
+			return false;
+		});
+	}
+
+	/**
 		A run that played to its end and holds nothing: kept on the list,
 		finished, so the same entry does not start it again when the cascade
 		takes its properties back; it goes when the entry does.

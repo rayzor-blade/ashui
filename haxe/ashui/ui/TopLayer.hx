@@ -112,9 +112,6 @@ class TopEntry {
 		return true;
 	}
 
-	/** The longest a closing entry waits for its animations, in seconds. **/
-	static inline var CLOSE_LIMIT = 2.0;
-
 	public function close():Void {
 		if (closed)
 			return;
@@ -145,24 +142,8 @@ class TopEntry {
 			if (layer.node != null)
 				layer.remove();
 		}
-		if (seconds > 0) {
-			// Taken out once its closing animations have played, the backdrop's and the content's, however long they run:
-			// the restyle that starts them comes within `seconds`, and none runs past the limit.
-			var waited = 0.0;
-			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
-				waited += dt;
-				// Left after this tick, whether the animations' tickers run before this one or after.
-				var left = 0.0;
-				for (identity in marked)
-					if (identity != null)
-						left = Math.max(left, ashui.css.Animations.remaining(identity) - dt);
-				if (waited < CLOSE_LIMIT && (waited < seconds || left > 0))
-					return true;
-				finish();
-				return false;
-			});
-		} else
-			finish();
+		// Taken out once its closing animations have played, the backdrop's and the content's, however long they run.
+		ashui.css.Animations.whenPlayed(marked, seconds, finish);
 		if (onClose != null)
 			onClose();
 	}
