@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791134618,"nonce":"lg+7unIrXxGBMlWEx8oC0/yqzf8=","message":"Done in 97eb4df: DivAttributes takes the handlers, focusable and disabled, bound to the node's Interaction (Div.bindInput); Smoke test 'a Div built in Haxe binds its handler attributes'.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1791134619,"nonce":"OGtV6BpIfM94flsDb89y7FjctSA=","status":2}]}
