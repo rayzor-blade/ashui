@@ -89,6 +89,16 @@ private typedef Line = {
 	var items:Array<{item:Item, x:Float}>;
 	var above:Float;
 	var below:Float;
+	/** The last line of the flow or before a break, which justifying leaves as it is. **/
+	var ends:Bool;
+}
+
+/** How a flow's lines sit in its width: CSS's `text-align`. **/
+private enum abstract Align(Int) {
+	var Left = 0;
+	var Center = 1;
+	var Right = 2;
+	var Justify = 3;
 }
 
 /**
@@ -179,11 +189,13 @@ class InlineFlow {
 		this.root = root;
 		tree = root.tree;
 		anchor = new Div({position: Absolute, left: 0, top: 0, width: 0, height: 0}, tree);
+		// As wide as its longest line when what holds it sizes to it, as wide as what holds it when that is wider, so lines align across it.
 		spacer = new Div({
 			width: spacerWidth,
 			minWidth: spacerMin,
 			height: spacerHeight,
-			flexShrink: 1
+			flexShrink: 1,
+			flexGrow: 1
 		}, tree);
 		spacer.node.set(Prop.MaxWidthPercent, 1);
 		// First, so they are under everything for the hit test: the spacer covers the flow.
@@ -409,11 +421,12 @@ class InlineFlow {
 	/** Lines of `list` at `width`: greedy, breaking at spaces, a space at the start of a line dropped. **/
 	function lines(list:Array<Item>, width:Float):Array<Line> {
 		var out:Array<Line> = [];
-		var line:Line = {items: [], above: 0, below: 0};
+		var line:Line = {items: [], above: 0, below: 0, ends: false};
 		var x = 0.0;
-		function end() {
+		function end(ends = false) {
+			line.ends = ends;
 			out.push(line);
-			line = {items: [], above: 0, below: 0};
+			line = {items: [], above: 0, below: 0, ends: false};
 			x = 0;
 		}
 		for (item in list) {
@@ -424,7 +437,7 @@ class InlineFlow {
 			}
 			switch item {
 				case Break:
-					end();
+					end(true);
 					continue;
 				case Word(_, _, _, w, _) if (w == 0 && x == 0):
 					// A space alone at the start of a line.
@@ -439,7 +452,7 @@ class InlineFlow {
 				end();
 			line.items.push({item: item, x: x});
 			if (block) {
-				end();
+				end(true);
 				continue;
 			}
 			x += w + switch item {
@@ -447,8 +460,10 @@ class InlineFlow {
 				case _: 0.0;
 			};
 		}
-		if (line.items.length > 0 || out.length == 0)
+		if (line.items.length > 0 || out.length == 0) {
+			line.ends = true;
 			out.push(line);
+		}
 		for (l in out)
 			for (p in l.items)
 				switch p.item {
@@ -518,10 +533,30 @@ class InlineFlow {
 				changed = set(atom.fill, s.width) || changed;
 		if (s.width != flowedWidth || changed) {
 			flowedWidth = s.width;
-			changed = place(lines(items(), s.width), s.x - a.x, s.y - a.y) || changed;
+			changed = place(lines(items(), s.width), s.x - a.x, s.y - a.y, s.width, alignment()) || changed;
 		}
 		return changed;
 	}
+
+	/** The root's `text-align`: its own, as CSS or Tw set it, or `justify` from the cascade, which a single text cannot draw. **/
+	function alignment():Align {
+		var identity = Identity.of(tree, root.node.id);
+		var css = identity == null ? null : ashui.css.Css.computed(identity, "text-align");
+		if (css != null && StringTools.trim(css).toLowerCase() == "justify")
+			return Justify;
+		return switch tree.textAlign(root.node.id) {
+			case 1: Center;
+			case 2: Right;
+			case _: Left;
+		}
+	}
+
+	static function itemWidth(item:Item):Float
+		return switch item {
+			case Word(_, _, _, w, _): w;
+			case Box(atom): atom.width;
+			case Break: 0.0;
+		}
 
 	static function set(signal:Signal<Single>, v:Float):Bool {
 		if (signal.get() == v)
@@ -531,21 +566,51 @@ class InlineFlow {
 	}
 
 	/** Puts each line's pieces and boxes in place, from `(dx, dy)`; true when anything moved. **/
-	function place(lines:Array<Line>, dx:Float, dy:Float):Bool {
+	function place(lines:Array<Line>, dx:Float, dy:Float, width:Float, align:Align):Bool {
 		var used = new Map<Run, Int>();
 		var sig = new StringBuf();
 		var y = 0.0;
 		for (line in lines) {
+			// Where the line starts, and what each space between its words gains when it is justified.
+			var natural = 0.0, gaps = 0;
+			for (k => p in line.items) {
+				natural = Math.max(natural, p.x + itemWidth(p.item));
+				switch p.item {
+					case Word(_, _, _, _, space) if (space > 0 && k < line.items.length - 1):
+						gaps++;
+					case _:
+				}
+			}
+			var free = Math.max(0, width - natural);
+			var justify = align == Justify && !line.ends && gaps > 0;
+			var shift = switch align {
+				case Center: free / 2;
+				case Right: free;
+				case _: 0.0;
+			}
+			var extra = justify ? free / gaps : 0.0;
+			// Each item's x, its line's shift and the spaces before it added.
+			var xs = [];
+			var gained = 0.0;
+			for (k => p in line.items) {
+				xs.push(p.x + shift + gained);
+				switch p.item {
+					case Word(_, _, _, _, space) if (space > 0):
+						gained += extra;
+					case _:
+				}
+			}
 			var i = 0;
 			while (i < line.items.length) {
 				var p = line.items[i];
+				var x = xs[i];
 				switch p.item {
 					case Word(run, start, _, _, _):
-						// The run's words on this line, one piece.
+						// The run's words on this line, one piece; each word its own when the spaces between them are widened.
 						var j = i, end = 0;
 						while (j < line.items.length)
 							switch line.items[j].item {
-								case Word(r, _, e, _, _) if (r == run):
+								case Word(r, _, e, _, _) if (r == run && (j == i || !justify)):
 									end = e;
 									j++;
 								case _:
@@ -560,7 +625,7 @@ class InlineFlow {
 						}
 						var piece = run.pieces[n];
 						var text = run.text.substring(start, end);
-						var left = dx + p.x, top = dy + y + line.above - run.above;
+						var left = dx + x, top = dy + y + line.above - run.above;
 						piece.content.set(text);
 						set(piece.left, left);
 						set(piece.top, top);
@@ -568,7 +633,7 @@ class InlineFlow {
 						sig.add('$text@$left,$top;');
 						i = j;
 					case Box(atom):
-						var left = dx + p.x, top = dy + y + line.above - atom.above;
+						var left = dx + x, top = dy + y + line.above - atom.above;
 						set(atom.left, left);
 						set(atom.top, top);
 						sig.add('box@$left,$top;');

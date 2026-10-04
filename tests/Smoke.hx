@@ -1219,6 +1219,45 @@ class Smoke {
 		var longHeight = flowTree.getBounds(@:privateAccess flowList[2].root.node).height;
 		check("a flow measures again when its text changes, and grows a line", longHeight > shortHeight * 1.5, [shortHeight, longHeight]);
 
+		// --- Inline flow: text-align ---
+		var alignTree = new LayoutTree();
+		ashui.css.Css.load('.justified { text-align: justify }');
+		var alignPage:Div = Owner.root(alignTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Stretch} width={200}>
+				<p class="text-center">short</p>
+				<p class="text-right">short</p>
+				<p>words that run on long enough to fill more than one whole line of this width</p>
+			</div>
+		'));
+		var alignKids = alignTree.children(alignPage.node.id);
+		ashui.css.Identity.of(alignTree, alignKids[2]).setClasses(["justified"]);
+		alignTree.flush();
+		alignTree.computeLayout(alignPage.node, 200, 400);
+		alignTree.flush();
+		alignTree.computeLayout(alignPage.node, 200, 400);
+		var alignFlows:Array<ashui.text.InlineFlow> = @:privateAccess ashui.text.InlineFlow.flows.get(alignTree);
+		function shownPieces(flow:ashui.text.InlineFlow) {
+			var out = [];
+			for (run in @:privateAccess flow.runs)
+				for (piece in @:privateAccess run.pieces)
+					if (piece.shown.get() == ashui.types.Style.Display.Flex)
+						out.push(alignTree.getBounds(piece.text.node));
+			return out;
+		}
+		var rootBox = alignTree.getBounds(new ashui.layout.Node(alignKids[0]));
+		var centred = shownPieces(alignFlows[0])[0], righted = shownPieces(alignFlows[1])[0];
+		var leftGap = centred.x - rootBox.x, rightGap = rootBox.x + rootBox.width - (centred.x + centred.width);
+		check("text-align: center sets a flow's line in the middle, right at the end", Math.abs(leftGap - rightGap) < 1
+			&& Math.abs(righted.x + righted.width - (rootBox.x + rootBox.width)) < 1, [leftGap, rightGap, righted.x + righted.width]);
+		var justified = shownPieces(alignFlows[2]);
+		var firstTop = Lambda.fold(justified, (b, m:Float) -> Math.min(m, b.y), 1e9);
+		var lastTop = Lambda.fold(justified, (b, m:Float) -> Math.max(m, b.y), -1e9);
+		var firstLineEnd = Lambda.fold(justified.filter(b -> b.y == firstTop), (b, m:Float) -> Math.max(m, b.x + b.width), 0);
+		var lastLineEnd = Lambda.fold(justified.filter(b -> b.y == lastTop), (b, m:Float) -> Math.max(m, b.x + b.width), 0);
+		var edge = rootBox.x + rootBox.width;
+		check("text-align: justify fills every line to the edge but the last", lastTop > firstTop && Math.abs(firstLineEnd - edge) < 1
+			&& lastLineEnd < edge - 5, [firstLineEnd, lastLineEnd, edge]);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('

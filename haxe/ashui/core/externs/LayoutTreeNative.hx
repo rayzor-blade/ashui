@@ -83,6 +83,9 @@ extern class LayoutTreeNative {
 	/** Writes padding, top, right, bottom, left, then 1 if the node paints a box of its own and 0 if not, as five F32s; false before layout. **/
 	static function blinc_tree_box_edges(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 
+	/** `node`'s own text alignment, as `ashui.types.Style.TextAlign`'s codes; -1 when it has none. **/
+	static function blinc_tree_text_align(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Int;
+
 	/** Makes the hit test pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
 	static function blinc_tree_set_pass_through(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, through:Bool):Void;
 

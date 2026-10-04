@@ -480,7 +480,9 @@ class Properties {
 				"start" => TextAlign.Left,
 				"center" => TextAlign.Center,
 				"right" => TextAlign.Right,
-				"end" => TextAlign.Right
+				"end" => TextAlign.Right,
+				// A text node draws one line as it is; a flow of text justifies its lines (see InlineFlow).
+				"justify" => TextAlign.Left
 			])
 		]);
 		return h;

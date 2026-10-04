@@ -711,6 +711,21 @@ pub unsafe extern "C" fn hl_blinc_tree_box_edges(h: *mut c_void, node: u64, out:
 }
 define_prim!(hlp_blinc_tree_box_edges, hl_blinc_tree_box_edges, "PXblinc_tree_lB_b");
 
+/// `node`'s own text alignment, 0 left, 1 centre, 2 right, as `ashui.types.Style.TextAlign`; -1 when it has none.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_text_align(h: *mut c_void, node: u64) -> i32 {
+    let Some(tree) = (unsafe { tree(h) }) else {
+        return -1;
+    };
+    match tree.props.get(&id(node)).and_then(|p| p.text_align) {
+        Some(blinc_layout::div::TextAlign::Left) => 0,
+        Some(blinc_layout::div::TextAlign::Center) => 1,
+        Some(blinc_layout::div::TextAlign::Right) => 2,
+        None => -1,
+    }
+}
+define_prim!(hlp_blinc_tree_text_align, hl_blinc_tree_text_align, "PXblinc_tree_l_i");
+
 /// Makes the hit test pass through `node` and everything inside it, or not.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_tree_set_pass_through(h: *mut c_void, node: u64, through: bool) {

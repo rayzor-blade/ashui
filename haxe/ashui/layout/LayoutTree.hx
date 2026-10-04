@@ -384,6 +384,10 @@ class LayoutTree {
 	/** Called after each layout pass; true when it changed what is laid out, for another pass. **/
 	public static final layoutHooks:Array<LayoutTree->Bool> = [];
 
+	/** `node`'s own text alignment, as `ashui.types.Style.TextAlign`'s codes, set by CSS, Tw or its own code; -1 when it has none. **/
+	public function textAlign(node:haxe.Int64):Int
+		return LayoutTreeNative.blinc_tree_text_align(this.ptr, node);
+
 	/** Makes `hitTest` pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
 	public function setPassThrough(node:haxe.Int64, through:Bool):Void
 		LayoutTreeNative.blinc_tree_set_pass_through(this.ptr, node, through);

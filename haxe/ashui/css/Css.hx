@@ -278,6 +278,12 @@ class Css {
 				mark(identity);
 	}
 
+	/** `identity`'s computed value of CSS property `name`, inherited ones included, as CSS text; null when it has none. **/
+	public static function computed(identity:Identity, name:String):Null<String> {
+		var a = applied.get(identity);
+		return a == null ? null : a.values.get(name);
+	}
+
 	/** Called with each element whose styles were applied anew, as text flow measures again when a font changes. **/
 	public static final restyled:Array<Identity->Void> = [];
 
