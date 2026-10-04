@@ -18,9 +18,11 @@ enum Placement {
 		On `side` of the box at `(x, y)`, `width` by `height` ("top", "bottom",
 		"left" or "right"), `gap` from it and centred along it, as wide as its
 		content; on the opposite side when there is no room, and never past
-		the root's edges. A tooltip's place.
+		the root's edges. A tooltip's place. `align` "start" or "end" lines it
+		up with that end of the box instead of centring it, as a menubar's
+		menus line up with their triggers.
 	**/
-	Beside(x:Float, y:Float, width:Float, height:Float, side:String, gap:Float);
+	Beside(x:Float, y:Float, width:Float, height:Float, side:String, gap:Float, ?align:String);
 
 	/** Along one edge of the root, "left", "right", "top" or "bottom", stretched along it: a sheet's place. **/
 	Edge(side:String);
@@ -74,7 +76,7 @@ class TopEntry {
 				// Below its box when it fits, else above it.
 				var top = y + bh + ch <= h || y - ch < 0 ? y + bh : y - ch;
 				{left: Math.max(0, Math.min(x, w - cw)), top: top};
-			case Beside(x, y, bw, bh, side, gap):
+			case Beside(x, y, bw, bh, side, gap, align):
 				var s = side;
 				// The opposite side when this one has no room.
 				if (s == "top" && y - gap - ch < 0)
@@ -88,12 +90,12 @@ class TopEntry {
 				var left = switch s {
 					case "left": x - gap - cw;
 					case "right": x + bw + gap;
-					case _: x + (bw - cw) / 2;
+					case _: align == "start" ? x : align == "end" ? x + bw - cw : x + (bw - cw) / 2;
 				}
 				var top = switch s {
 					case "top": y - gap - ch;
 					case "bottom": y + bh + gap;
-					case _: y + (bh - ch) / 2;
+					case _: align == "start" ? y : align == "end" ? y + bh - ch : y + (bh - ch) / 2;
 				}
 				var identity = Identity.of(tree, content.node.id);
 				if (identity != null && identity.attribute("data-side") != s)
@@ -145,6 +147,10 @@ class TopEntry {
 		if (onClose != null)
 			onClose();
 	}
+
+	/** The backdrop's interaction: what the pointer does over the page while it is open, a menubar watching for another of its menus. **/
+	public function backdrop():Interaction
+		return Interaction.of(layer.node);
 
 	public var isOpen(get, never):Bool;
 
@@ -213,7 +219,7 @@ class TopLayer {
 			case Below(_, _, bw, _):
 				// At least as wide as its box, the content stretched to it, as a select's list matches the select.
 				new Div({position: Absolute, minWidth: bw, flexDirection: FlexDirection.Column, alignItems: Align.Stretch}, [content], tree);
-			case Beside(_, _, _, _, _, _) | At(_, _):
+			case Beside(_, _, _, _, _, _, _) | At(_, _):
 				new Div({position: Absolute}, [content], tree);
 			case Edge(side):
 				// Pinned to its edge and stretched along it; the content stretches with it.
