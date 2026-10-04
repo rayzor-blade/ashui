@@ -1304,6 +1304,82 @@ class Smoke {
 		check("the flow's own nodes are not counted by :first-child", leadStrong.types.indexOf("strong") >= 0
 			&& ashui.css.Css.computed(leadStrong, "opacity") == "0.5", ashui.css.Css.computed(leadStrong, "opacity"));
 
+		// --- Built-in forms: constraints, :user-invalid, submit and reset ---
+		var formTree2 = new LayoutTree();
+		var email = Signal.make("");
+		var nick = Signal.make("start");
+		var agreed2 = Signal.make(false);
+		var submitted:Null<ashui.ui.Form.FormData> = null;
+		var formRoot:Div = Owner.root(formTree2, _ -> hxx('
+			<div flexDirection={Column} alignItems={Start} width={400}>
+				<form onSubmit={d -> submitted = d}>
+					<input type="email" name="email" value={email} required={true} placeholder="you@example.com" />
+					<input type="text" name="nick" value={nick} maxlength={3} pattern="[a-z]+" />
+					<input type="number" name="age" min={1} max={120} />
+					<input type="checkbox" name="agree" checked={agreed2} required={true} />
+					<button type="reset">Reset</button>
+					<button>Send</button>
+				</form>
+			</div>
+		'));
+		function formSettle2() {
+			formTree2.flush();
+			formTree2.computeLayout(formRoot.node, 400, 600);
+			formTree2.flush();
+		}
+		formSettle2();
+		var formNode = formTree2.children(formRoot.node.id)[0];
+		var fields = [for (c in formTree2.children(formNode)) c];
+		function clickNode(n:haxe.Int64) {
+			var b = formTree2.getBounds(new ashui.layout.Node(n));
+			ashui.input.Pointer.move(formTree2, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(formTree2);
+			ashui.input.Pointer.release(formTree2);
+			formSettle2();
+		}
+		var emailInput = ashui.ui.Input.at(formTree2, fields[0]), nickInput = ashui.ui.Input.at(formTree2, fields[1]);
+		var ageInput = ashui.ui.Input.at(formTree2, fields[2]), agreeInput = ashui.ui.Input.at(formTree2, fields[3]);
+		var emailState = @:privateAccess emailInput.interaction;
+		var shownEmpty = emailState.formState("placeholder-shown").get();
+		var untouchedInvalid = emailState.formState("invalid").get() && !emailState.formState("user-invalid").get();
+		clickNode(fields[5]);
+		check("submitting an invalid form submits nothing, marks its controls :user-invalid and focuses the first invalid one",
+			submitted == null && untouchedInvalid && emailState.formState("user-invalid").get()
+			&& ashui.input.Focus.of(formTree2) == emailState && shownEmpty, [submitted == null, untouchedInvalid, shownEmpty]);
+		email.set("ada");
+		formSettle2();
+		var badEmail = emailInput.validationMessage();
+		email.set("ada@example.com");
+		formSettle2();
+		check("an email input is invalid until it has an address, and :placeholder-shown leaves once it has text", badEmail.indexOf("@") >= 0
+			&& emailInput.checkValidity() && !emailState.formState("placeholder-shown").get(), badEmail);
+		clickNode(fields[1]);
+		@:privateAccess nickInput.editing.anchor.set(0);
+		@:privateAccess nickInput.editing.caret.set(5);
+		ashui.input.Keyboard.text(formTree2, "abcdef");
+		formSettle2();
+		check("maxlength cuts what is typed to the room left", nick.get() == "abc", nick.get());
+		nick.set("ab1");
+		formSettle2();
+		var patternMessage = nickInput.validationMessage();
+		nick.set("abc");
+		@:privateAccess ageInput.value.set("200");
+		formSettle2();
+		check("pattern and a number's max are constraints, with a browser's messages", patternMessage.indexOf("format") >= 0
+			&& ageInput.validationMessage().indexOf("120") >= 0, [patternMessage, ageInput.validationMessage()]);
+		@:privateAccess ageInput.value.set("30");
+		agreed2.set(true);
+		formSettle2();
+		clickNode(fields[1]);
+		ashui.input.Keyboard.input(formTree2, key(Named(Enter), Enter));
+		formSettle2();
+		check("Enter in a text input submits a valid form, with each named control's value", submitted != null && submitted.get("email") == "ada@example.com"
+			&& submitted.get("nick") == "abc" && submitted.get("age") == "30" && submitted.get("agree") == "on",
+			submitted == null ? null : [for (e in submitted.entries) e.name + "=" + e.value]);
+		clickNode(fields[4]);
+		check("a reset button puts each control's first value back", email.get() == "" && nick.get() == "start" && !agreed2.get(),
+			[email.get(), nick.get(), agreed2.get()]);
+
 		// --- CSS: rules apply by the cascade, under what an element sets itself ---
 		var cssTree = new LayoutTree();
 		var sheet = ashui.css.Css.load('

@@ -65,7 +65,9 @@ private typedef Applied = {
 
 	State pseudo-classes read the element's `Interaction`: `:hover`,
 	`:active`, `:focus`, `:focus-visible`, `:focus-within`, `:disabled` and
-	`:enabled`, `:checked` and `:indeterminate`, of the element itself or of
+	`:enabled`, `:checked` and `:indeterminate`, and a form control's
+	`:placeholder-shown`, `:valid`, `:invalid`, `:user-valid`,
+	`:user-invalid`, `:required` and `:optional`, of the element itself or of
 	one a combinator reaches (`.card:hover .title`). An element whose rules
 	test a state is matched again when that state changes, and only then.
 **/
@@ -935,6 +937,7 @@ private class TreeWalk {
 			case "focus-within": interaction.focusWithin;
 			case "checked": interaction.checked;
 			case "indeterminate": interaction.indeterminate;
+			case n if (Selector.FORM_STATES.indexOf(n) >= 0): interaction.formState(n);
 			case _: interaction.disabled;
 		}
 		if (subject != null)

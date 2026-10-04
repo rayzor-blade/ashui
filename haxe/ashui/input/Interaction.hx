@@ -141,6 +141,26 @@ class Interaction {
 		return this;
 	}
 
+	/** The form states CSS reads, made the first time each is asked for (see `formState`). **/
+	var formStates:Null<Map<String, Signal<Bool>>> = null;
+
+	/**
+		One of a form control's states, which its control sets and CSS's
+		pseudo-classes of the same name read: `placeholder-shown`, `valid`,
+		`invalid`, `user-valid` and `user-invalid` (once the user has
+		changed it, or a form it is in was submitted), `required`,
+		`optional`. False until the control sets it, so an element that is
+		no form control matches none.
+	**/
+	public function formState(name:String):Signal<Bool> {
+		if (formStates == null)
+			formStates = new Map();
+		var s = formStates.get(name);
+		if (s == null)
+			formStates.set(name, s = Signal.make(false));
+		return s;
+	}
+
 	/** Disables it while `value`, a constant, signal or computed, is true. **/
 	public function setDisabled(value:IntoReactive<Bool>):Interaction {
 		if (disabledWatch != null) {

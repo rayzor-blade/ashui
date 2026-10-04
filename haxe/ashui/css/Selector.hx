@@ -114,7 +114,13 @@ class Compound {
 **/
 class Selector {
 	/** The states a `State` pseudo-class may name. **/
-	public static final STATES = ["hover", "active", "focus", "focus-visible", "focus-within", "disabled", "enabled", "checked", "indeterminate"];
+	public static final STATES = [
+		"hover", "active", "focus", "focus-visible", "focus-within", "disabled", "enabled", "checked", "indeterminate", "placeholder-shown", "valid", "invalid",
+		"user-valid", "user-invalid", "required", "optional"
+	];
+
+	/** The states a form control sets (see `Interaction.formState`). **/
+	public static final FORM_STATES = ["placeholder-shown", "valid", "invalid", "user-valid", "user-invalid", "required", "optional"];
 
 	public final compounds:Array<Compound>;
 	public final combinators:Array<Combinator>;

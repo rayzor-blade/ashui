@@ -221,6 +221,13 @@ class UserAgent {
 		}
 		legend { flex-direction: row; align-items: baseline; padding: 0 2px; font-weight: 600; color: var(--text-primary); }
 
+		/* Forms, and controls the user has left invalid, in the error colours of the theme. */
+		form { flex-direction: column; align-items: flex-start; }
+		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]):user-invalid,
+		input:is([type="checkbox"], [type="radio"]):user-invalid {
+			border-color: var(--border-error); outline-color: var(--focus-ring-error);
+		}
+
 		/* Labels: their text beside their control. */
 		label { flex-direction: row; align-items: center; gap: 8px; color: var(--text-primary); }
 

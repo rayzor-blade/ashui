@@ -45,6 +45,16 @@ private typedef Choice = {
 	the keys are on) and the group headings `optgroup`.
 **/
 class Select extends Component<SelectProps> {
+	static final byNode = new Map<String, Select>();
+
+	/** The select at `node`, null if it is none, for a form to find. **/
+	public static function at(node:haxe.Int64):Null<Select>
+		return byNode.get(haxe.Int64.toStr(node));
+
+	/** Its name, which a form submits its value under; null for none. **/
+	public function name():Null<String>
+		return props.name;
+
 	/** The chosen option's value; the caller's signal when `value` was one. **/
 	public var value(default, null):Signal<String>;
 
@@ -103,6 +113,9 @@ class Select extends Component<SelectProps> {
 				choose(match.option.valueText(), false);
 		});
 		Owner.onCleanup(() -> if (open != null) open.close());
+		var key = haxe.Int64.toStr(button.node.id);
+		byNode.set(key, this);
+		Owner.onCleanup(() -> byNode.remove(key));
 		return button;
 	}
 

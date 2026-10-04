@@ -37,8 +37,18 @@ typedef InputProps = {
 	?max:Float,
 	?step:Float,
 
-	/** Shown, dimmed, while a text input or a number is empty. **/
+	/** Shown, dimmed, while a text input or a number is empty; CSS's `:placeholder-shown` meanwhile. **/
 	?placeholder:String,
+
+	/** Must be filled in, ticked, or one of its radios chosen, for it to be valid, and for a form it is in to submit. **/
+	?required:Bool,
+
+	/** A text input's value must match this regular expression, the whole value. **/
+	?pattern:String,
+
+	/** A text input's least and greatest length; no more than `maxlength` can be typed or pasted. **/
+	?minlength:Int,
+	?maxlength:Int,
 
 	/**
 		Radios sharing a value: the checked one's, set as one is checked, so
@@ -75,6 +85,13 @@ typedef InputProps = {
 	dragging along it sets the value, as do the arrows, Page Up and Page
 	Down (a tenth of the range), Home and End.
 
+	It is valid by HTML's constraints: `required`, `pattern`, `minlength`
+	and `maxlength`, an `email` or `url` well formed, a `number` within `min`
+	and `max` and on its `step`. CSS reads that as `:valid` and `:invalid`,
+	and as `:user-valid` and `:user-invalid` once the user has changed it and
+	left it, or a form it is in was submitted; `checkValidity` and
+	`validationMessage` read it too. `reset` puts its first value back.
+
 	Its look is the user-agent stylesheet's, through `input[type="..."]`,
 	`:checked`, `:indeterminate`, `:hover`, `:focus`, `:focus-visible` and
 	`:disabled`, so CSS or Tw classes restyle it. A range's parts are
@@ -105,6 +122,15 @@ class Input extends Component<InputProps> {
 
 	var interaction:Interaction;
 
+	/** Changed by the user and left, or its form submitted: `:user-invalid` shows from then on. **/
+	final touched = Signal.make(false);
+
+	/** Edited since it took focus, so leaving it touches it. **/
+	var edited = false;
+
+	/** What `reset` puts back. **/
+	var initial:{text:Null<String>, checked:Bool, group:Null<String>} = {text: null, checked: false, group: null};
+
 	function render():Element {
 		var type = props.type == null ? "text" : props.type.toLowerCase();
 		state = Signal.make(false);
@@ -118,8 +144,129 @@ class Input extends Component<InputProps> {
 		var key = haxe.Int64.toStr(el.node.id);
 		byNode.set(key, this);
 		Owner.onCleanup(() -> byNode.remove(key));
+		constrain(type);
 		return el;
 	}
+
+	/** Keeps its form states, those CSS reads, as its value and constraints make them. **/
+	function constrain(type:String):Void {
+		var i = interaction;
+		i.formState("required").set(props.required == true);
+		i.formState("optional").set(props.required != true);
+		initial = {text: value != null ? value.get() : null, checked: state.get(), group: props.group != null ? props.group.get() : null};
+		new Watch(() -> {
+			var bad = problem() != null;
+			var user = touched.get();
+			[bad, user];
+		}, v -> {
+			var bad = v[0], user = v[1];
+			i.formState("invalid").set(bad);
+			i.formState("valid").set(!bad);
+			i.formState("user-invalid").set(bad && user);
+			i.formState("user-valid").set(!bad && user);
+		});
+		if (value != null && props.placeholder != null) {
+			var text = value;
+			new Watch(() -> text.get() == "", empty -> i.formState("placeholder-shown").set(empty));
+		}
+		// Leaving it after an edit touches it.
+		i.onBlur(_ -> if (edited) touched.set(true));
+		i.onFocus(_ -> edited = false);
+	}
+
+	/** Why it is invalid, as a browser says it, or null when it is valid. **/
+	function problem():Null<String> {
+		var type = props.type == null ? "text" : props.type.toLowerCase();
+		switch type {
+			case "checkbox":
+				return props.required == true && !state.get() ? "Please tick this box if you want to proceed." : null;
+			case "radio":
+				if (props.required != true)
+					return null;
+				var chosen = props.group != null ? props.group.get() != null && props.group.get() != "" : Lambda.exists(set(), r -> r.state.get());
+				return chosen ? null : "Please select one of these options.";
+			case "range":
+				return null;
+			case _:
+		}
+		var v = value == null ? "" : value.get();
+		if (v == "")
+			return props.required == true ? "Please fill in this field." : null;
+		if (type == "number") {
+			var n = parseNumber(v);
+			if (Math.isNaN(n))
+				return "Please enter a number.";
+			if (props.min != null && n < props.min)
+				return 'Value must be greater than or equal to ${formatNumber(props.min)}.';
+			if (props.max != null && n > props.max)
+				return 'Value must be less than or equal to ${formatNumber(props.max)}.';
+			if (props.step != null && props.step > 0 && !same(snap(n, props.min, null, props.step), n))
+				return "Please enter a valid value.";
+			return null;
+		}
+		if (type == "email" && !~/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*$/.match(v))
+			return v.indexOf("@") < 0 ? 'Please include an "@" in the email address.' : "Please enter an email address.";
+		if (type == "url" && !~/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s]+$/.match(v))
+			return "Please enter a URL.";
+		if (props.pattern != null && !(try new EReg("^(?:" + props.pattern + ")$", "u").match(v) catch (_:Dynamic) true))
+			return "Please match the requested format.";
+		// As a browser, too short only once the user has edited it.
+		if (props.minlength != null && v.length < props.minlength && touched.get())
+			return 'Please lengthen this text to ${props.minlength} characters or more.';
+		if (props.maxlength != null && v.length > props.maxlength)
+			return 'Please shorten this text to ${props.maxlength} characters or less.';
+		return null;
+	}
+
+	/** Whether it is valid now. **/
+	public function checkValidity():Bool
+		return problem() == null;
+
+	/** Why it is invalid, as a browser would say it; empty when it is valid. **/
+	public function validationMessage():String {
+		var p = problem();
+		return p == null ? "" : p;
+	}
+
+	/** Marks it as the user having changed it, as submitting its form does, so `:user-invalid` shows. **/
+	public function touch():Void
+		touched.set(true);
+
+	/** Puts back the value it was built with, checked or not, and untouched, as a form's reset does. **/
+	public function reset():Void {
+		if (value != null && initial.text != null)
+			value.set(initial.text);
+		if (props.group != null && initial.group != null)
+			props.group.set(initial.group);
+		else
+			state.set(initial.checked);
+		touched.set(false);
+	}
+
+	/** Its name, which a form submits its value under; null for none. **/
+	public function name():Null<String>
+		return props.name;
+
+	/** What a form submits for it: its value, a checkbox's or radio's only while checked; null for nothing. **/
+	public function formValue():Null<String> {
+		var type = props.type == null ? "text" : props.type.toLowerCase();
+		return switch type {
+			case "checkbox": state.get() ? (constValue() != null ? constValue() : "on") : null;
+			case "radio": isChecked() ? constValue() : null;
+			case "range": valueAsNumber != null ? formatNumber(valueAsNumber.get()) : null;
+			case _: value != null ? value.get() : null;
+		}
+	}
+
+	/** Whether it is a text input or a number, where Enter submits its form. **/
+	public function submitsOnEnter():Bool {
+		var type = props.type == null ? "text" : props.type.toLowerCase();
+		return type == "number" || TEXT_TYPES.indexOf(type) >= 0;
+	}
+
+	/** Takes focus, as a form does to the first control that is invalid. **/
+	public function focus():Void
+		ashui.input.Focus.set(interaction, true);
 
 	static final TEXT_TYPES = ["text", "password", "search", "email", "tel", "url"];
 
@@ -248,7 +395,11 @@ class Input extends Component<InputProps> {
 			type: type,
 			placeholder: props.placeholder,
 			disabled: props.disabled,
-			onInput: props.onInput
+			onInput: v -> {
+				edited = true;
+				if (props.onInput != null)
+					props.onInput(v);
+			}
 		}, steppers);
 		var e = editing = field.editing;
 		interaction = e.interaction;
@@ -271,6 +422,17 @@ class Input extends Component<InputProps> {
 					props.onInput("");
 				true;
 			} else false;
+		}
+		if (props.maxlength != null) {
+			// No more than its maxlength typed or pasted: what is inserted is cut to the room left beside the selection.
+			var limit = props.maxlength;
+			var before = e.accept;
+			e.accept = typed -> {
+				var t = before == null ? typed : before(typed);
+				var r = e.selectionRange();
+				var room = limit - (text.get().length - (r.to - r.from));
+				room <= 0 ? "" : t.length > room ? t.substr(0, room) : t;
+			}
 		}
 		var identity = ashui.css.Identity.of(field.tree, field.node.id);
 		if (props.id != null)
@@ -448,6 +610,7 @@ class Input extends Component<InputProps> {
 				return;
 			check();
 		}
+		touched.set(true);
 		if (props.onChange != null)
 			props.onChange(state.get());
 	}
