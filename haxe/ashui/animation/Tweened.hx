@@ -100,7 +100,8 @@ class Tweened<T> {
 	}
 
 	function retarget(value:T):Void {
-		if (value == to)
+		// A restyle makes new objects for values it did not change: equal ones are no move.
+		if (value == to || same(value, to))
 			return;
 		// A scheme transition already animates every themed value; tweening
 		// each of its frames again would trail it, so the value follows.
@@ -139,6 +140,46 @@ class Tweened<T> {
 		if (t != null)
 			t.finish(Snapped);
 		track = null;
+	}
+
+	/** Whether two values are the same, read by the property's type; a gradient only when it is the same object. **/
+	function same(a:T, b:T):Bool {
+		if (a == null || b == null)
+			return false;
+		var x:Dynamic = a, y:Dynamic = b;
+		return switch prop.getDataType() {
+			case TypeColor:
+				var c:Color = x, d:Color = y;
+				c.rgb == d.rgb && c.alpha == d.alpha;
+			case TypeBrush:
+				var c:Brush = x, d:Brush = y;
+				c.solidRgb >= 0 && c.solidRgb == d.solidRgb && c.solidAlpha == d.solidAlpha;
+			case TypeCornerRadius:
+				if (!Std.isOfType(x, ashui.types.CornerRadius) || !Std.isOfType(y, ashui.types.CornerRadius))
+					false;
+				else {
+					var c:ashui.types.CornerRadius = x, d:ashui.types.CornerRadius = y;
+					c.topLeft == d.topLeft && c.topRight == d.topRight && c.bottomRight == d.bottomRight && c.bottomLeft == d.bottomLeft;
+				}
+			case TypeShadow:
+				var c:Shadow = x, d:Shadow = y;
+				if (c.layers.length != d.layers.length)
+					false;
+				else {
+					var equal = true;
+					for (i in 0...c.layers.length)
+						for (k in 0...c.layers[i].length)
+							if (c.layers[i][k] != d.layers[i][k])
+								equal = false;
+					equal;
+				}
+			case TypeTransform:
+				var c:ashui.types.Transform = x, d:ashui.types.Transform = y;
+				c.translateX == d.translateX && c.translateY == d.translateY && c.rotate == d.rotate && c.scaleX == d.scaleX && c.scaleY == d.scaleY
+					&& c.skewX == d.skewX && c.skewY == d.skewY;
+			case _:
+				false;
+		}
 	}
 
 	/** A value as the motion report writes it, read by the property's type. **/
