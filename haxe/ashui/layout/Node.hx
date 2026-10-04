@@ -36,7 +36,34 @@ class Node {
 
 	function set_transition(value:Null<ashui.animation.Transition>) {
 		ownTransition = true;
-		return transition = value;
+		transition = value;
+		retween();
+		return value;
+	}
+
+	/**
+		Properties bound to a signal or computed before any transition covered
+		them, by property: a transition arriving later, as a stylesheet's does
+		after an element is built, moves their later changes too.
+	**/
+	var reactives:Null<Map<Int, Dynamic>> = null;
+
+	/** Puts each reactive binding the transition now covers behind a tween, from where it is. **/
+	function retween():Void {
+		if (transition == null || reactives == null)
+			return;
+		for (key => reactive in reactives) {
+			var prop:PropertyId = key;
+			if (!transition.covers(prop) || (tweens != null && tweens.exists(key)))
+				continue;
+			var tween = ashui.animation.Tweened.bind(this, prop, transition.forProperty(prop), reactive);
+			if (tween != null) {
+				if (tweens == null)
+					tweens = new Map();
+				tweens.set(key, tween);
+				reactives.remove(key);
+			}
+		}
 	}
 
 	/** Whether the node's own code set its transition, which a stylesheet's then leaves alone. **/
@@ -101,6 +128,16 @@ class Node {
 				tweens.set(key, tween);
 				return;
 			}
+		}
+		// Remembered while it follows a signal or computed, for a transition that arrives later.
+		switch (reactive : ReactiveType<T>) {
+			case Bound(_) | Derived(_):
+				if (reactives == null)
+					reactives = new Map();
+				reactives.set(key, reactive);
+			case Const(_):
+				if (reactives != null)
+					reactives.remove(key);
 		}
 		bind(prop, reactive);
 	}

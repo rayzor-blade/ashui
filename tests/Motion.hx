@@ -98,6 +98,19 @@ class Motion {
 		check("an animation that runs where nothing is drawn is reported", uv != null
 			&& uv.issues.filter(i -> StringTools.startsWith(i, "ran where it is not drawn")).length == 1, uv == null ? null : uv.issues);
 
+		// --- A property bound to a computed before a stylesheet's transition arrives still moves by it ---
+		ashui.css.Css.load(".bound { height: 4px; transition: width 100ms linear; }");
+		var share = Signal.make(0.2);
+		var bar:Div = Owner.root(tree, _ -> new Div({classes: ["bound"]}, tree));
+		bar.node.set(ashui.layout.Prop.WidthPercent, ashui.reactive.Computed.make(() -> (share.get() : Single)));
+		@:privateAccess tree.addChild(root.node.id, bar.node.id);
+		frame(2);
+		share.set(0.9);
+		frame(8);
+		var grew = Lambda.find(trace.tracks, t -> t.node == bar.node.id && t.property == "width-percent");
+		check("a binding made before its transition, as a progress bar's width, moves by the transition when it arrives",
+			grew != null && grew.end == Completed && grew.from == "0.2" && grew.to == "0.9", grew == null ? null : [grew.from, grew.to, grew.end]);
+
 		// --- A spring, against the oscillator's closed form ---
 		var spring = new ashui.animation.Spring(ashui.animation.SpringConfig.wobbly(), 0);
 		var id = scheduler.register(spring);
