@@ -733,3 +733,39 @@ input.ui-command-field:hover, input.ui-command-field:focus { background: transpa
 .ui-calendar-day[data-today] { background: var(--accent-subtle); color: var(--accent); font-weight: 600; }
 .ui-calendar-day[data-selected], .ui-calendar-day[data-selected]:hover { background: var(--primary); color: var(--text-inverse); }
 .ui-calendar-day:focus-visible { outline-width: 2px; }
+
+/* --------------------------------------------------------------- Sidebar */
+
+/* As wide as what it shows: collapsed, the labels go and layout animation eases the width, clipping what it holds. */
+.ui-sidebar-layout { flex-direction: row; align-items: stretch; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.ui-sidebar {
+	flex-direction: column; flex-shrink: 0; gap: 2px; padding: 8px 0; overflow: hidden;
+	background: var(--ui-sidebar-bg, var(--surface)); border-right: 1px solid var(--border);
+}
+.ui-sidebar-toggle {
+	align-self: flex-start; margin: 0 6px 6px; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center;
+	border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); box-shadow: none;
+	outline: 0 solid var(--focus-ring); outline-offset: 2px;
+	transition: background var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
+}
+.ui-sidebar-toggle:hover { background: var(--accent-subtle); color: var(--text-primary); }
+.ui-sidebar-toggle:active { transform: none; }
+.ui-sidebar-toggle:focus-visible { outline-width: 3px; }
+.ui-sidebar-toggle > svg { transition: transform var(--duration-normal) var(--ease-state); }
+.ui-sidebar[data-state="collapsed"] > .ui-sidebar-toggle > svg { transform: rotate(180deg); }
+.ui-sidebar-group { flex-direction: column; gap: 2px; }
+.ui-sidebar-group-label { padding: 8px 12px 4px; font-size: var(--text-xs); color: var(--text-tertiary); letter-spacing: 0.04em; }
+.ui-sidebar-item, a.ui-sidebar-item {
+	flex-direction: row; align-items: center; gap: 12px; padding: 8px 12px; opacity: 1;
+	color: var(--text-secondary); font-size: var(--text-sm); background: transparent;
+	outline: 0 solid var(--focus-ring); outline-offset: -2px;
+	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state), outline-width var(--duration-fast) var(--ease-out);
+}
+a.ui-sidebar-item:hover { background: var(--accent-subtle); color: var(--text-primary); opacity: 1; }
+.ui-sidebar-item[data-active], a.ui-sidebar-item[data-active]:hover { background: var(--surface-elevated); color: var(--text-primary); }
+.ui-sidebar-item[data-active] > .ui-sidebar-icon { color: var(--primary); }
+.ui-sidebar-item:focus-visible { outline-width: 2px; }
+.ui-sidebar-icon { flex-shrink: 0; }
+.ui-sidebar-label { flex-shrink: 0; flex-direction: row; }
+.ui-sidebar[data-state="collapsed"] .ui-sidebar-label, .ui-sidebar[data-state="collapsed"] .ui-sidebar-group-label { display: none; }
+.ui-sidebar-inset { flex-grow: 1; flex-direction: column; min-width: 0; }
