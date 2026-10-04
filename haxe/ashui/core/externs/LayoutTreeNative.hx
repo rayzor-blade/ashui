@@ -80,6 +80,9 @@ extern class LayoutTreeNative {
 	/** Writes container `node`'s viewport width and height and its content's width and height as four F32s; false before layout. **/
 	static function blinc_tree_scroll_extent(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 
+	/** Makes the hit test pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
+	static function blinc_tree_set_pass_through(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, through:Bool):Void;
+
 	/** Writes absolute x, y, width, height as four F32s into `out`. **/
 	static function blinc_tree_get_bounds(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 }

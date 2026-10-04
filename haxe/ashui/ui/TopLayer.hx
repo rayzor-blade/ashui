@@ -1,5 +1,6 @@
 package ashui.ui;
 
+import ashui.css.Identity;
 import ashui.input.Interaction;
 import ashui.layout.Element;
 import ashui.layout.LayoutTree;
@@ -18,13 +19,15 @@ enum Placement {
 class TopEntry {
 	public final content:Element;
 	final layer:Div;
+	final holder:Div;
 	final onClose:Null<Void->Void>;
 	var closed = false;
 
 	@:allow(ashui.ui.TopLayer)
-	function new(content:Element, layer:Div, onClose:Null<Void->Void>) {
+	function new(content:Element, layer:Div, holder:Div, onClose:Null<Void->Void>) {
 		this.content = content;
 		this.layer = layer;
+		this.holder = holder;
 		this.onClose = onClose;
 	}
 
@@ -33,11 +36,35 @@ class TopEntry {
 			return;
 		closed = true;
 		@:privateAccess TopLayer.entries.remove(this);
-		// The content is kept, to open again; only the layer around it goes.
-		var parent = layer.tree.ancestors(content.node.id);
-		if (parent.length > 0)
-			layer.tree.detachChildren(parent[0]);
-		layer.remove();
+		// Marked closing, so CSS animates it away, and taken out once that has played.
+		var tree = layer.tree;
+		var marked = [Identity.of(tree, layer.node.id), Identity.of(tree, content.node.id)];
+		for (identity in marked)
+			if (identity != null)
+				identity.setAttribute("closing", "");
+		var theme = ashui.theme.ThemeState.tryGet();
+		var seconds = theme == null ? 0 : theme.animations().durationFaster / 1000;
+		// While it goes, presses pass through it to what is beneath.
+		tree.setPassThrough(layer.node.id, true);
+		var layerNode = layer.node.id, holderNode = holder.node.id;
+		function finish() {
+			for (identity in marked)
+				if (identity != null)
+					identity.setAttribute("closing", null);
+			tree.setPassThrough(layerNode, false);
+			// The content is kept, to open again; only the layer around it goes. Opened again meanwhile, it is in another layer by now.
+			if (content.node != null) {
+				var parent = tree.ancestors(content.node.id);
+				if (parent.length > 0 && parent[0] == holderNode)
+					tree.detachChildren(holderNode);
+			}
+			if (layer.node != null)
+				layer.remove();
+		}
+		if (seconds > 0)
+			ashui.animation.AnimationScheduler.main.after(seconds, finish);
+		else
+			finish();
 		if (onClose != null)
 			onClose();
 	}
@@ -72,6 +99,7 @@ class TopLayer {
 		var rootBounds = tree.getBounds(root);
 		var w = rootBounds == null ? 0.0 : rootBounds.width, h = rootBounds == null ? 0.0 : rootBounds.height;
 		var shade = new Div({
+			tag: "backdrop",
 			position: Absolute,
 			left: 0,
 			top: 0,
@@ -114,7 +142,7 @@ class TopLayer {
 			case _:
 		});
 		tree.addChild(root.id, shade.node.id);
-		entry = new TopEntry(content, shade, onClose);
+		entry = new TopEntry(content, shade, holder, onClose);
 		entries.push(entry);
 		return entry;
 	}

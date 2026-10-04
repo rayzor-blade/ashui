@@ -36,6 +36,8 @@ pub struct Tree {
     pub(crate) images: HashMap<LayoutNodeId, i32>,
     /// Scroll containers: how far their content is scrolled, and their thumb.
     pub(crate) scrolls: HashMap<LayoutNodeId, Scroll>,
+    /// Nodes the hit test passes through, with everything inside them, as CSS's `pointer-events: none`.
+    pub(crate) pass_through: std::collections::HashSet<LayoutNodeId>,
 }
 
 /// A scroll container's state, which the paint walk and the hit test read.
@@ -72,6 +74,7 @@ fn shared() -> &'static mut Tree {
             owners: HashMap::new(),
             images: HashMap::new(),
             scrolls: HashMap::new(),
+            pass_through: std::collections::HashSet::new(),
         })
     }
 }
@@ -674,6 +677,19 @@ define_prim!(
     hl_blinc_tree_get_bounds,
     "PXblinc_tree_lB_b"
 );
+
+/// Makes the hit test pass through `node` and everything inside it, or not.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_tree_set_pass_through(h: *mut c_void, node: u64, through: bool) {
+    if let Some(tree) = unsafe { tree(h) } {
+        if through {
+            tree.pass_through.insert(id(node));
+        } else {
+            tree.pass_through.remove(&id(node));
+        }
+    }
+}
+define_prim!(hlp_blinc_tree_set_pass_through, hl_blinc_tree_set_pass_through, "PXblinc_tree_lb_v");
 
 /// Scrolls container `node`'s content by `(x, y)` and colours its thumb
 /// `thumb`, `0xAARRGGBB` (0 hides it), as Blinc's scroll containers do.

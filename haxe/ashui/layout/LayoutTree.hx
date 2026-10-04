@@ -367,6 +367,10 @@ class LayoutTree {
 		LayoutTreeNative.blinc_tree_compute_layout(this.ptr, root.id, width, height);
 	}
 
+	/** Makes `hitTest` pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
+	public function setPassThrough(node:haxe.Int64, through:Bool):Void
+		LayoutTreeNative.blinc_tree_set_pass_through(this.ptr, node, through);
+
 	/**
 		The nodes under `(x, y)` as they are drawn, through transforms and
 		inside clips: the topmost first, then each of its ancestors up to

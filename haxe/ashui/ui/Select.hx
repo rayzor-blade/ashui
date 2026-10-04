@@ -195,7 +195,10 @@ class Select extends Component<SelectProps> {
 					if (r.choice == match)
 						Focus.set(r.interaction, true);
 		});
+		var identity = ashui.css.Identity.of(tree, button.node.id);
+		identity.setAttribute("open", "");
 		open = TopLayer.open(tree, picker, Below(b.x, b.y, b.width, b.height), null, () -> {
+			identity.setAttribute("open", null);
 			open = null;
 			owner.dispose();
 			Focus.set(interaction, true);

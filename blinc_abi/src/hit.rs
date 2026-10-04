@@ -48,6 +48,9 @@ fn hit(
     py: f32,
     out: &mut Vec<Hit>,
 ) -> bool {
+    if tree.pass_through.contains(&node) {
+        return false;
+    }
     let Some(layout) = tree.layout.get_layout(node) else {
         return false;
     };

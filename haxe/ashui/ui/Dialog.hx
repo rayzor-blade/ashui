@@ -58,7 +58,6 @@ class Dialog extends Component<DialogProps> {
 		}
 		// Modal: a placeholder in place, and the dialog itself in the top layer while open.
 		var dialog = new Div({tag: "dialog", id: props.id}, children);
-		ashui.css.Identity.of(dialog.tree, dialog.node.id).setAttribute("open", "");
 		box.node.set(ashui.layout.Prop.Display, ashui.types.Style.Display.None);
 		new Watch(() -> opened.get(), v -> if (v) show(dialog) else hide());
 		Owner.onCleanup(hide);
@@ -81,7 +80,11 @@ class Dialog extends Component<DialogProps> {
 			return;
 		}
 		before = Focus.of(tree);
+		// Marked open as it is shown, so its opening animation starts then.
+		var identity = ashui.css.Identity.of(tree, dialog.node.id);
+		identity.setAttribute("open", "");
 		entry = TopLayer.open(tree, dialog, Centered, ashui.types.Brush.solid(0x000000, 0.4), () -> {
+			identity.setAttribute("open", null);
 			entry = null;
 			if (release != null)
 				release();

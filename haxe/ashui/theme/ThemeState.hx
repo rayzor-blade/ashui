@@ -464,7 +464,27 @@ class ThemeState {
 		ease("nav", a.easeNav);
 		ease("spring", a.easeSpring);
 		ease("sheet", a.easeSheet);
+		var sh = currentShadows;
+		function shadow(name:String, stack:Array<Shadow>)
+			vars.set(name, cssShadow(stack));
+		shadow("shadow-sm", sh.shadowSm);
+		shadow("shadow", sh.shadowDefault);
+		shadow("shadow-md", sh.shadowMd);
+		shadow("shadow-lg", sh.shadowLg);
+		shadow("shadow-xl", sh.shadowXl);
+		shadow("shadow-2xl", sh.shadow2xl);
+		shadow("shadow-inner", sh.shadowInner);
 		return vars;
+	}
+
+	/** A shadow stack as CSS's `box-shadow`: each layer `x y blur spread colour`, `inset` first when inside; `none` for none. **/
+	static function cssShadow(stack:Array<Shadow>):String {
+		var layers = [
+			for (l in stack)
+				if (l.color.a > 0 || l.blur > 0 || l.spread != 0)
+					(l.inset ? "inset " : "") + '${px(l.offsetX)} ${px(l.offsetY)} ${px(l.blur)} ${px(l.spread)} ${cssColor(l.color)}'
+		];
+		return layers.length == 0 ? "none" : layers.join(", ");
 	}
 
 	/** `c` as CSS: `#rrggbb` when opaque, else `rgba(r,g,b,a)`. **/

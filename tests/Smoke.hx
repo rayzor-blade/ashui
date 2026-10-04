@@ -546,7 +546,7 @@ class Smoke {
 		var themeState = ashui.theme.ThemeState.get();
 		var vars = themeState.toCssVariableMap();
 		check("the CSS variable map writes values as Blinc does",
-			[for (k in vars.keys()) k].length == 118 && vars.get("radius-xl") == "18px" && vars.get("text-sm") == "13px"
+			[for (k in vars.keys()) k].length == 125 && vars.get("radius-xl") == "18px" && vars.get("shadow-md") != "none" && vars.get("text-sm") == "13px"
 			&& vars.get("primary") == "#2a63e9" && vars.get("border") == "rgba(15,20,34,0.1)" && vars.get("focus-ring") == "rgba(42,99,233,0.35)"
 			&& vars.get("font-sans").indexOf('"Noto Sans"') == 0 && vars.get("ease-default") == "cubic-bezier(0.25, 0.1, 0.25, 1)"
 			&& vars.get("leading-tight") == "1.25" && vars.get("tracking-tight") == "-0.025em" && vars.get("duration-fast") == "180ms",
