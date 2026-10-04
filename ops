@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":5,"timestamp":1791104799,"nonce":"IKcrF6iHpKV672PB1lfmUm9q3rg=","added":["perf area:style"],"removed":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791107546,"nonce":"t/3e2x051hGoZCbZnu9DulYscKI=","message":"Fixed in a69c65d. MotionDebug's report now has no 'moved nowhere' tracks (18 tracks down to 12 on the same script).","files":null}]}
