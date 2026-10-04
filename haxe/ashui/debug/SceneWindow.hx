@@ -9,10 +9,16 @@ import ashui.layout.LayoutTree;
 	a build with the window (`-D ashui_window`) run with `ASHUI_WINDOW`
 	set, as `tools/snapshot/run.sh --window` does. The UI is live: it takes
 	the pointer and keys, and `ASHUI_MOTION=overlay` draws the motion
-	overlay over it. `ASHUI_WINDOW_SECONDS` closes it after that long, for
+	overlay over it. The scene keeps its own size, in a window no larger
+	than a screen holds, which scrolls it both ways. `ASHUI_WINDOW_SECONDS` closes it after that long, for
 	a run nobody is watching, a profile or a measure of its memory.
 **/
 class SceneWindow {
+	/** The largest window a scene opens in, in layout units; a larger scene scrolls in it. **/
+	static inline var MAX_WIDTH = 1280;
+
+	static inline var MAX_HEIGHT = 860;
+
 	/** Whether scenes open in a window. **/
 	public static function wanted():Bool {
 		#if (hlwindow || ashui_window)
@@ -58,7 +64,15 @@ class SceneWindow {
 				if (app != null)
 					app.quit();
 			});
-		ashui.app.WindowedApp.run({title: name, width: width, height: height}, () -> root = build());
+		ashui.app.WindowedApp.run({title: name, width: Std.int(Math.min(width, MAX_WIDTH)), height: Std.int(Math.min(height, MAX_HEIGHT))}, () -> {
+			root = build();
+			root.node.set(ashui.layout.Prop.FlexShrink, (0 : Single));
+			var scroller = new ashui.ui.Div({flexDirection: ashui.types.Style.FlexDirection.Column, alignItems: ashui.types.Style.Align.Start, overflow: ashui.types.Style.Overflow.Scroll}, [root]);
+			scroller.node.set(ashui.layout.Prop.WidthPercent, (100 : Single));
+			scroller.node.set(ashui.layout.Prop.HeightPercent, (100 : Single));
+			ashui.input.Scroll.attach(scroller.node, true, true);
+			scroller;
+		});
 		#end
 	}
 }
