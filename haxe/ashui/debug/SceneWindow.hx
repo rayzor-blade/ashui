@@ -9,7 +9,8 @@ import ashui.layout.LayoutTree;
 	a build with the window (`-D ashui_window`) run with `ASHUI_WINDOW`
 	set, as `tools/snapshot/run.sh --window` does. The UI is live: it takes
 	the pointer and keys, and `ASHUI_MOTION=overlay` draws the motion
-	overlay over it.
+	overlay over it. `ASHUI_WINDOW_SECONDS` closes it after that long, for
+	a run nobody is watching, a profile or a measure of its memory.
 **/
 class SceneWindow {
 	/** Whether scenes open in a window. **/
@@ -47,6 +48,13 @@ class SceneWindow {
 				return done < frames;
 			});
 		}
+		var seconds = Std.parseFloat(Sys.getEnv("ASHUI_WINDOW_SECONDS"));
+		if (!Math.isNaN(seconds))
+			ashui.animation.AnimationScheduler.main.after(seconds, () -> {
+				var app = ashui.app.WindowedApp.current;
+				if (app != null)
+					app.quit();
+			});
 		ashui.app.WindowedApp.run({title: name, width: width, height: height}, () -> root = build());
 		#end
 	}
