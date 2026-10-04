@@ -980,7 +980,8 @@ class Smoke {
 		settle();
 		var opened = fruitSelect.isOpen() && layerTree.children(page.node.id).length == 5;
 		var shade = layerTree.children(page.node.id)[4];
-		var listbox = layerTree.children(layerTree.children(shade)[0])[0];
+		// The layer holds its backdrop, then the holder of what it shows.
+		var listbox = layerTree.children(layerTree.children(shade)[1])[0];
 		var listWidth = layerTree.getBounds(new ashui.layout.Node(listbox)).width;
 		check("the list of options is as wide as its select", Math.abs(listWidth - sb.width) < 0.5, [listWidth, sb.width]);
 		ashui.input.Keyboard.input(layerTree, key(Named(ArrowDown), ArrowDown));
