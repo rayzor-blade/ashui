@@ -33,12 +33,15 @@ class SceneWindow {
 		#if (hlwindow || ashui_window)
 		var root:Null<Element> = null;
 		if (script != null && frames > 0) {
-			var elapsed = 0.0, done = 0;
+			var elapsed = 0.0, done = 0, started = false;
 			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+				// Not until the UI is drawn, as a recording's first frame is, so a script finds what it looks for; its clock starts there.
 				var app = ashui.app.WindowedApp.current;
-				if (app == null || root == null)
+				if (app == null || root == null || app.tree.order().length == 0)
 					return true;
-				elapsed += dt;
+				if (started)
+					elapsed += dt;
+				started = true;
 				// Every frame whose time has come, in order, each once.
 				while (done < frames && done <= elapsed * fps) {
 					script(done, app.tree, root);

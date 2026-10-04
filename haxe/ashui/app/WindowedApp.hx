@@ -142,6 +142,8 @@ class WindowedApp {
 		try {
 			app.loop(build, config.onFrame);
 		} catch (e:haxe.Exception) {
+			// Where it failed, which the rethrow below would report as here.
+			Sys.stderr().writeString(e.details() + "\n");
 			app.close(instance);
 			throw e;
 		}
