@@ -437,7 +437,7 @@ input.ui-radio:active > .dot { transform: scale(0.8); }
 .ui-radio-group[data-orientation="horizontal"] { flex-direction: row; align-items: center; gap: 24px; }
 
 /* Sliders: a label and value over a thin track, filled to a dark-centred thumb ringed in the primary colour. */
-.ui-slider-field { flex-direction: column; gap: 10px; width: var(--ui-slider-width, 300px); }
+.ui-slider-field { flex-direction: column; gap: 10px; width: var(--ui-slider-width, 300px); max-width: 100%; }
 .ui-slider-header { flex-direction: row; justify-content: space-between; align-items: baseline; font-size: 14px; }
 .ui-slider-label { color: var(--text-primary); }
 .ui-slider-value { color: var(--text-secondary); }
