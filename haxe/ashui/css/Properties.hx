@@ -180,6 +180,16 @@ class Properties {
 				number(n, Prop.FlexShrink, parts[1], 0)
 			].concat(handlers.get("flex-basis")(n, parts[2], c));
 		});
+		// When a scroll container's thumb shows; after overflow in the alphabetical order of a restyle, so the container exists by then.
+		h.set("scrollbar-visibility", (n, v, _) -> {
+			var key = StringTools.trim(v).toLowerCase();
+			if (["auto", "always", "hover", "hidden"].indexOf(key) < 0)
+				throw "scrollbar-visibility takes auto, always, hover or hidden";
+			var scroll = ashui.input.Scroll.of(n);
+			if (scroll != null)
+				scroll.visibility = key;
+			[];
+		});
 		// Scrolling along one axis or both makes the element a scroll container, as Tw's `overflow-auto` does.
 		for (axis in [{name: "overflow", x: true, y: true}, {name: "overflow-x", x: true, y: false}, {name: "overflow-y", x: false, y: true}]) {
 			h.set(axis.name, (n, v, _) -> {

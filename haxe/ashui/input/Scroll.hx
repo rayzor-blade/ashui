@@ -15,7 +15,8 @@ import ashui.reactive.Watch;
 	A wheel event scrolls the innermost container under the pointer that can
 	still move that way, and goes on to the containers around it once that
 	one reaches its edge. A thumb shows how far along the content is while
-	it scrolls, then fades.
+	it scrolls, then fades; `visibility` keeps it shown, shows it while the
+	pointer is over the container, or never shows it.
 **/
 class Scroll {
 	static final byNode = new haxe.ds.ObjectMap<Node, Scroll>();
@@ -38,6 +39,32 @@ class Scroll {
 	var stay:Null<ashui.animation.AnimationScheduler.Timer> = null;
 	final extent = new hl.Bytes(16);
 
+	/**
+		When the thumb shows: "auto" while it scrolls (the default),
+		"always", "hover" while the pointer is over the container, or
+		"hidden". CSS's `scrollbar-visibility` sets it.
+	**/
+	public var visibility(default, set) = "auto";
+
+	function set_visibility(v:String):String {
+		visibility = v;
+		switch v {
+			case "always":
+				fading = false;
+				thumb.set(1);
+			case "hidden":
+				fading = false;
+				thumb.set(0);
+			case "hover":
+				if (Interaction.of(node).hovered.get())
+					thumb.set(1);
+				else
+					fade();
+			case _:
+		}
+		return v;
+	}
+
 	function new(node:Node, alongX:Bool, alongY:Bool) {
 		this.node = node;
 		this.alongX = alongX;
@@ -45,6 +72,15 @@ class Scroll {
 		x = Signal.make(0.0);
 		y = Signal.make(0.0);
 		Interaction.of(node).onWheel(wheel);
+		// Shown while the pointer is over it, for "hover".
+		var hovered = Interaction.of(node).hovered;
+		new Watch(() -> hovered.get(), h -> if (visibility == "hover") {
+			if (h) {
+				fading = false;
+				thumb.set(1);
+			} else
+				fade();
+		});
 		// Reacts at the next flush, which marks the frame for redrawing.
 		new Watch(() -> {
 			var c = ashui.theme.ThemeState.tryGet();
@@ -75,6 +111,14 @@ class Scroll {
 	/** `node`'s scroll container, if it is one. **/
 	public static function of(node:Node):Null<Scroll>
 		return byNode.get(node);
+
+	/** The scroll container of the node `id`, found by its id rather than its `Node`. **/
+	public static function at(id:haxe.Int64):Null<Scroll> {
+		for (n => s in byNode)
+			if (n.id == id)
+				return s;
+		return null;
+	}
 
 	/** How far the content can scroll right and down; zeros before layout. **/
 	public function limits():{x:Float, y:Float} {
@@ -127,6 +171,9 @@ class Scroll {
 	}
 
 	function showThumb():Void {
+		// Always shown, never shown, or shown by the pointer: scrolling changes none of these.
+		if (visibility != "auto")
+			return;
 		if (thumb.get() != 1)
 			thumb.set(1);
 		fading = false;
@@ -138,13 +185,17 @@ class Scroll {
 
 	function fade():Void {
 		stay = null;
+		// From where it is: nothing to fade when it is not shown.
+		var from = thumb.get();
+		if (from <= 0 || fading)
+			return;
 		fading = true;
 		var faded = 0.0;
 		ashui.animation.AnimationScheduler.main.addTicker(dt -> {
 			if (!fading)
 				return false;
 			faded += dt;
-			var alpha = Math.max(0, 1 - faded / THUMB_FADES);
+			var alpha = Math.max(0, from * (1 - faded / THUMB_FADES));
 			thumb.set(alpha);
 			if (alpha <= 0) {
 				fading = false;
