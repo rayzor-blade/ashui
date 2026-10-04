@@ -166,6 +166,30 @@ class WindowedApp {
 		quitting = true;
 	}
 
+	/**
+		Moves the window with the pointer from `press` until its button is
+		released: a window with no title bar dragged by what it shows. The
+		window moves by as far as the pointer has on screen, its position
+		plus the pointer's in it, so the press stays under the pointer.
+	**/
+	public function dragWith(press:ashui.input.Events.PointerEvent):Void {
+		// In logical pixels, as layout and setPosition are; the window's position reads in physical ones.
+		var scale = window.scaleFactor();
+		var startX = window.x() / scale, startY = window.y() / scale;
+		var fromX = startX + press.x, fromY = startY + press.y;
+		var follow:Null<LayoutTree->Void> = null;
+		follow = t -> if (t == tree) {
+			var at = ashui.input.Pointer.at(tree);
+			if (!at.pressed) {
+				ashui.input.Pointer.hooks.remove(follow);
+				return;
+			}
+			var x = window.x() / scale + at.x, y = window.y() / scale + at.y;
+			window.setPosition(Math.round(startX + x - fromX), Math.round(startY + y - fromY));
+		};
+		ashui.input.Pointer.hooks.push(follow);
+	}
+
 	/** Draws a frame at the next chance, for a change the app knows of and the tree does not. **/
 	public function invalidate():Void {
 		dirty = true;

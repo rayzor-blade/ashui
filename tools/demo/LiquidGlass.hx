@@ -16,11 +16,17 @@ import ashui.ui.Ref;
 	light are drawn over it. Drag the panel to move the window; the cross or Escape closes
 	it.
 
-	    tools/demo/run.sh LiquidGlass.hx
+		tools/demo/run.sh LiquidGlass.hx
 **/
 class LiquidGlass {
 	public static function config():WindowConfig
-		return new WindowConfig().title("Liquid glass").size(440, 200).transparent(true).decorations(false).shadow(false).blurRadius(2).theme(DefaultTheme.bundle());
+		return new WindowConfig().title("Liquid glass")
+			.size(440, 200)
+			.transparent(true)
+			.decorations(false)
+			.shadow(false)
+			.blurRadius(2)
+			.theme(DefaultTheme.bundle());
 
 	public static function page():Element
 		return card(Brush.glass(14, 0x000000, 0.1, false));
@@ -31,7 +37,7 @@ class LiquidGlass {
 		// The window has no title bar: a press on the panel itself moves it; the cross and Escape close it.
 		var root:Div = <div width={440} height={200} padding={20} focusable={true} onKeyDown={e -> if (e.key.match(Named(Escape))) WindowedApp.current.quit()}>
 			<div ref={panel} class="flex flex-col gap-3 p-6 rounded-3xl" width={400} height={160} bg={glass}
-				onPointerDown={e -> if (e.target == panel.get().node) WindowedApp.current.window.dragWindow()}>
+				onPointerDown={e -> if (e.target == panel.get().node) WindowedApp.current.dragWith(e)}>
 				<div class="flex flex-row items-center justify-between">
 					<text class="text-xs font-semibold text-white/70 tracking-wide">NOW PLAYING</text>
 					<div class="flex items-center justify-center rounded-full text-white/80" width={24} height={24} bg={Brush.solid(0xffffff, 0.12)}
