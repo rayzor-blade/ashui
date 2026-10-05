@@ -19,7 +19,9 @@ import haxe.io.Bytes;
 	Endpoints are each block's extremes, inset slightly, along the diagonal
 	of its colour box the colours lie along; each pixel takes the nearest
 	of the values between them. Images whose sides are not a multiple of 4
-	repeat their last row and column to fill the blocks. With `-D ash_simd`
+	repeat their last row and column to fill the blocks. Only the first
+	`width × height` pixels of `rgba` are read, so one buffer serves every
+	mip level. With `-D ash_simd`
 	on Ash, one-channel blocks are searched with ash-simd's 16-lane bytes.
 **/
 class BcEncoder {
@@ -68,10 +70,11 @@ class BcEncoder {
 		return out;
 	}
 
-	/** Whether every pixel's alpha is full. **/
-	public static function opaque(rgba:Bytes):Bool {
+	/** Whether every pixel's alpha is full: all of `rgba`, or its first `pixels`. **/
+	public static function opaque(rgba:Bytes, ?pixels:Int):Bool {
+		var end = pixels != null ? pixels * 4 : rgba.length;
 		var i = 3;
-		while (i < rgba.length) {
+		while (i < end) {
 			if (rgba.get(i) != 255)
 				return false;
 			i += 4;

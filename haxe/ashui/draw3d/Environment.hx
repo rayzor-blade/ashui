@@ -16,8 +16,10 @@ import haxe.io.Bytes;
 	surface blurs it. Texels are 16-bit floats, eight bytes each: brighter
 	than white where the sky is.
 
-	Its pixels are freed once it is on the GPU, and its GPU copy by
-	`dispose`.
+	Building one from a 2K sky takes a moment: build it on the worker
+	thread, `Worker.run(() -> Environment.fromHdr(bytes), sky -> ...)`, and
+	the scene draws with its ambient light until it comes. Its pixels are
+	freed once it is on the GPU, and its GPU copy by `dispose`.
 **/
 class Environment {
 	/** Texels along a face's edge, at the sharpest level. **/
@@ -52,7 +54,8 @@ class Environment {
 	**/
 	public static function fromHdr(bytes:Bytes, size = 256):Environment {
 		var sky = Rgbe.decode(bytes);
-		return fill(size, sky.sampleInto);
+		// A face texel at 256 covers about two by two of a 2K sky's pixels: one interpolated sample a texel is enough.
+		return fill(size, sky.sampleInto, 1);
 	}
 
 	/** A sky from `zenith` overhead to `horizon` round the level to `ground` below, `0xRRGGBB`, each times `intensity`. **/
@@ -82,11 +85,11 @@ class Environment {
 
 	/**
 		Faces `size` square, each texel the average of `sample` at four points
-		in it: `sample(x, y, z, out)` writes the light from the unit direction
+		in it, or at its middle with `samples` 1: `sample(x, y, z, out)` writes the light from the unit direction
 		`(x, y, z)` into `out[0..2]`. Nothing is made a sample, so a large sky
 		leaves no garbage behind.
 	**/
-	static function fill(size:Int, sample:(Float, Float, Float, haxe.ds.Vector<Float>) -> Void):Environment {
+	static function fill(size:Int, sample:(Float, Float, Float, haxe.ds.Vector<Float>) -> Void, samples = 4):Environment {
 		var one = new haxe.ds.Vector<Float>(3);
 		var levels = 1;
 		while ((size >> levels) > 0)
@@ -97,8 +100,9 @@ class Environment {
 			for (y in 0...size)
 				for (x in 0...size) {
 					var r = 0.0, g = 0.0, b = 0.0;
-					for (k in 0...4) {
-						var u = (x + (k & 1 == 0 ? 0.25 : 0.75)) / size * 2 - 1, v = (y + (k < 2 ? 0.25 : 0.75)) / size * 2 - 1;
+					for (k in 0...samples) {
+						var u = (x + (samples == 1 ? 0.5 : k & 1 == 0 ? 0.25 : 0.75)) / size * 2 - 1;
+						var v = (y + (samples == 1 ? 0.5 : k < 2 ? 0.25 : 0.75)) / size * 2 - 1;
 						// The way through (u, v) on this face, as `direction` gives it, unnormalized.
 						var dx = 0.0, dy = 0.0, dz = 0.0;
 						switch face {
@@ -116,9 +120,9 @@ class Environment {
 						b += one[2];
 					}
 					var i = (y * size + x) * 3;
-					out[i] = r / 4;
-					out[i + 1] = g / 4;
-					out[i + 2] = b / 4;
+					out[i] = r / samples;
+					out[i + 1] = g / samples;
+					out[i + 2] = b / samples;
 				}
 		}
 		var faces = [];

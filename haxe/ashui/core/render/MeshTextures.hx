@@ -35,7 +35,8 @@ enum abstract TextureRole(Int) to Int {
 	A texture is uploaded as it is, eight bits a channel with every mip
 	level, the first time a material asks for it, so it is drawn at once.
 	Where the GPU samples block-compressed textures (BC, on desktop GPUs),
-	a thread then compresses each level (`BcEncoder`) as its role says,
+	the `Worker` thread then compresses each level (`BcEncoder`) as its
+	role says, one texture after another,
 	and the compressed texture takes the uncompressed one's place on the
 	main thread: a quarter of its memory for colour, an eighth for
 	occlusion. `revision` counts the replacements, and each painter's
@@ -62,11 +63,6 @@ class MeshTextures {
 
 	/** Bitmaps whose pixels go at the end of the frame, nothing more to be made from them. **/
 	static final releasing:Array<Bitmap> = [];
-
-	/** Compressed levels the threads have finished, for the main thread to upload. **/
-	static final finished:Array<{key:String, bitmap:Bitmap, format:TextureFormat, blockBytes:Int, levels:Array<Bytes>}> = [];
-
-	static final lock = new sys.thread.Mutex();
 
 	/** Whether to compress at all: a GPU that cannot sample BC, or `-D ashui_no_bc`, leaves textures as they are. **/
 	public static var compress = #if ashui_no_bc false #else true #end;
@@ -112,78 +108,73 @@ class MeshTextures {
 		releasing.resize(0);
 	}
 
-	/** Compresses `bitmap`'s levels on a thread of its own, then has them uploaded on the main thread. **/
+	/** Pixels the worker resamples a level into, reused from level to level and texture to texture: only the worker uses it. **/
+	static var workBuffer:Null<Bytes> = null;
+
+	/** Compresses `bitmap`'s levels on the worker, then has them put in place on the main thread. **/
 	static function compressLater(key:String, bitmap:Bitmap, role:TextureRole, levels:Int):Void {
 		running.set(bitmap.slot, (running.exists(bitmap.slot) ? running.get(bitmap.slot) : 0) + 1);
 		var w = bitmap.width, h = bitmap.height;
-		sys.thread.Thread.create(() -> {
-			var px = Bytes.alloc(w * h * 4);
+		ashui.core.Worker.run(() -> {
+			if (workBuffer == null || workBuffer.length < w * h * 4)
+				workBuffer = Bytes.alloc(w * h * 4);
+			var px = workBuffer;
 			var out = [];
 			var format = TextureFormat.Bc4RUnorm, blockBytes = 8;
 			for (level in 0...levels) {
 				var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
 				resample(bitmap, lw, lh, px);
-				var rgba = px.sub(0, lw * lh * 4);
 				switch role {
 					case Color:
 						// Alpha is decided by the sharpest level, so every level is the same format.
 						if (level == 0)
-							format = BcEncoder.opaque(rgba) ? TextureFormat.Bc1RgbaUnormSrgb : TextureFormat.Bc3RgbaUnormSrgb;
+							format = BcEncoder.opaque(px, lw * lh) ? TextureFormat.Bc1RgbaUnormSrgb : TextureFormat.Bc3RgbaUnormSrgb;
 						blockBytes = format == TextureFormat.Bc1RgbaUnormSrgb ? 8 : 16;
-						out.push(blockBytes == 8 ? BcEncoder.bc1(rgba, lw, lh) : BcEncoder.bc3(rgba, lw, lh));
+						out.push(blockBytes == 8 ? BcEncoder.bc1(px, lw, lh) : BcEncoder.bc3(px, lw, lh));
 					case Data:
 						format = TextureFormat.Bc1RgbaUnorm;
-						out.push(BcEncoder.bc1(rgba, lw, lh));
+						out.push(BcEncoder.bc1(px, lw, lh));
 					case Occlusion:
 						format = TextureFormat.Bc4RUnorm;
-						out.push(BcEncoder.bc4(rgba, lw, lh, 0));
+						out.push(BcEncoder.bc4(px, lw, lh, 0));
 					case Normal:
 						format = TextureFormat.Bc5RgUnorm;
 						blockBytes = 16;
-						out.push(BcEncoder.bc5(rgba, lw, lh));
+						out.push(BcEncoder.bc5(px, lw, lh));
 				}
 			}
-			lock.acquire();
-			finished.push({key: key, bitmap: bitmap, format: format, blockBytes: blockBytes, levels: out});
-			lock.release();
-			ashui.animation.AnimationScheduler.main.after(0, upload);
-		});
+			return {key: key, bitmap: bitmap, format: format, blockBytes: blockBytes, levels: out};
+		}, job -> upload(job));
 	}
 
-	/** On the main thread: the finished compressions' textures in place of the uncompressed ones. **/
-	static function upload():Void {
-		lock.acquire();
-		var done = finished.copy();
-		finished.resize(0);
-		lock.release();
-		if (done.length == 0 || device == null)
+	/** On the main thread: a finished compression's texture in place of the uncompressed one. **/
+	static function upload(job:{key:String, bitmap:Bitmap, format:TextureFormat, blockBytes:Int, levels:Array<Bytes>}):Void {
+		if (device == null)
 			return;
-		for (job in done) {
-			var slot = job.bitmap.slot;
-			var left = running.get(slot) - 1;
-			if (left > 0) running.set(slot, left) else running.remove(slot);
-			var old = textures.get(job.key);
-			// Disposed while it was being compressed: nothing to replace.
-			if (old == null)
-				continue;
-			var w = job.bitmap.width, h = job.bitmap.height;
-			var size = new GpuExtent3D(w);
-			size.height(h);
-			var descriptor = new GpuTextureDescriptor(size, job.format, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
-			descriptor.mipLevelCount(job.levels.length);
-			var t = device.texture(descriptor);
-			for (level in 0...job.levels.length) {
-				// A level smaller than a block is a whole block on the GPU.
-				var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
-				var bw = (lw + 3) >> 2, bh = (lh + 3) >> 2;
-				write(device, t, level, job.levels[level], bw * job.blockBytes, bw * 4, bh * 4, bh);
-			}
-			old.view.destroy();
-			old.texture.destroy();
-			textures.set(job.key, {texture: t, view: t.createView(new GpuTextureViewDescriptor())});
-			if (job.bitmap.gpuOnly && !running.exists(slot))
-				@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_release(slot);
+		var slot = job.bitmap.slot;
+		var left = running.get(slot) - 1;
+		if (left > 0) running.set(slot, left) else running.remove(slot);
+		var old = textures.get(job.key);
+		// Disposed while it was being compressed: nothing to replace.
+		if (old == null)
+			return;
+		var w = job.bitmap.width, h = job.bitmap.height;
+		var size = new GpuExtent3D(w);
+		size.height(h);
+		var descriptor = new GpuTextureDescriptor(size, job.format, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
+		descriptor.mipLevelCount(job.levels.length);
+		var t = device.texture(descriptor);
+		for (level in 0...job.levels.length) {
+			// A level smaller than a block is a whole block on the GPU.
+			var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
+			var bw = (lw + 3) >> 2, bh = (lh + 3) >> 2;
+			write(device, t, level, job.levels[level], bw * job.blockBytes, bw * 4, bh * 4, bh);
 		}
+		old.view.destroy();
+		old.texture.destroy();
+		textures.set(job.key, {texture: t, view: t.createView(new GpuTextureViewDescriptor())});
+		if (job.bitmap.gpuOnly && !running.exists(slot))
+			@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_release(slot);
 		revision++;
 		for (r in repaints.copy())
 			r();

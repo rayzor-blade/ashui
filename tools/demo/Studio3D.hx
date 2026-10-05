@@ -29,9 +29,14 @@ import ashui.types.Style;
 class Studio3D {
 	static function main() {
 		var helmet = Gltf.load("../../snapshot/assets/3d/DamagedHelmet/DamagedHelmet.gltf");
+		// The sky is built on the worker thread; the helmet is lit by ambient light until it comes.
+		var night = Signal.make((null : ashui.draw3d.Environment));
 		var started = haxe.Timer.stamp();
-		var night = ashui.draw3d.Environment.fromHdr(sys.io.File.getBytes("../../snapshot/assets/3d/rogland_clear_night_2k.hdr"));
-		trace('sky made in ${Math.round((haxe.Timer.stamp() - started) * 1000)}ms');
+		var hdr = sys.io.File.getBytes("../../snapshot/assets/3d/rogland_clear_night_2k.hdr");
+		ashui.core.Worker.run(() -> ashui.draw3d.Environment.fromHdr(hdr), sky -> {
+			trace('sky made in ${Math.round((haxe.Timer.stamp() - started) * 1000)}ms, off the main thread');
+			night.set(sky);
+		});
 		var camera = new OrbitCamera(0.4, 0.15, 3, null, 0.7);
 		camera.frame(helmet.min, helmet.max);
 		camera.zoom(0.8);
@@ -50,7 +55,7 @@ class Studio3D {
 		});
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
 		function page():Element return <div flexDirection={Row} width={1100} height={720} padding={16} gap={16}>
-			<scene-kit camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} skybox={Computed.make(() -> showSky.get() ? Sky(night, blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} width={760} height={688} />
+			<scene-kit camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} width={760} height={688} />
 			<card width={292}>
 				<card-header><card-title>Studio</card-title><card-description>Drag to turn, Shift-drag to move, scroll to zoom</card-description></card-header>
 				<card-content>
