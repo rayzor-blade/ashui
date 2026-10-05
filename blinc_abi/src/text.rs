@@ -360,12 +360,13 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
         LayoutGeneric::SansSerif => GenericFont::SansSerif,
         _ => GenericFont::System,
     };
-    let font = {
+    // The face, and the fallback faces its text needs, as Blinc lays it out to draw it.
+    let (font, fallbacks) = {
         let registry = global_font_registry();
         let Ok(mut registry) = registry.lock() else {
             return 0;
         };
-        match registry.get_for_render_with_style(
+        let font = match registry.get_for_render_with_style(
             context.font_name.as_deref(),
             generic,
             context.font_weight,
@@ -376,7 +377,9 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
                 Ok(font) => font,
                 Err(_) => return 0,
             },
-        }
+        };
+        let fallbacks = blinc_text::FallbackFaces::resolve(&mut registry, &font, &text);
+        (font, fallbacks)
     };
     let size = if font_size > 0.0 { font_size } else { context.font_size };
     let options = LayoutOptions {
@@ -407,7 +410,7 @@ pub unsafe extern "C" fn hl_blinc_text_carets(
     let mut line = 0usize;
     let mut base = 0usize;
     for paragraph in text.split('\n') {
-        let layout = engine.layout(paragraph, &font, size, &options);
+        let layout = engine.layout_with_fallbacks(paragraph, &font, size, &options, &fallbacks);
         if layout.lines.is_empty() {
             carets.push([utf16[base] as f32, 0.0, line as f32]);
             line += 1;
@@ -565,28 +568,23 @@ pub unsafe extern "C" fn hl_blinc_text_outline(
     // Resolved before the registry is locked: finding the system face locks it too.
     let name = name.or_else(|| if generic == GenericFont::System { system_ui() } else { None });
     // From the renderer's registry, loaded as text nodes' faces are, so a weight not yet used is found.
-    let font = {
+    let (font, fallbacks) = {
         let registry = renderer().font_registry();
         let mut registry = registry.lock().unwrap_or_else(|e| e.into_inner());
         let weight = weight.clamp(1, 1000) as u16;
-        match registry.get_for_render_with_style(name.as_deref(), generic, weight, italic) {
+        let font = match registry.get_for_render_with_style(name.as_deref(), generic, weight, italic) {
             Some(font) => font,
             None => match registry.load_with_fallback_styled(name.as_deref(), generic, weight, italic) {
                 Ok(font) => font,
                 Err(_) => return 0,
             },
-        }
+        };
+        // The faces glyphs the primary lacks are drawn from: symbols, emoji, CJK.
+        let fallbacks = blinc_text::FallbackFaces::resolve(&mut registry, &font, &text);
+        (font, fallbacks)
     };
-    // Scaled by swash, as Blinc rasterizes text, at the variable face's weight Blinc shapes it at.
-    let Some(swash_font) = swash::FontRef::from_index(font.data(), font.face_index() as usize) else {
-        return 0;
-    };
+    // Scaled by swash, as Blinc rasterizes text, each face at the weight Blinc shapes it at.
     let mut context = swash::scale::ScaleContext::new();
-    let mut builder = context.builder(swash_font).size(size).hint(false);
-    if let Some(w) = font.variation_weight() {
-        builder = builder.variations([swash::Setting::from(("wght", w))]);
-    }
-    let mut scaler = builder.build();
     let metrics = font.metrics();
     let ascent = metrics.ascender_px(size);
     let descent = -metrics.descender_px(size);
@@ -603,7 +601,7 @@ pub unsafe extern "C" fn hl_blinc_text_outline(
     let mut outline = Outline { out: Vec::new(), x: 0.0, y: 0.0 };
     let mut widest = 0.0f32;
     for (row, paragraph) in text.split('\n').enumerate() {
-        let layout = engine.layout(paragraph, &font, size, &options);
+        let layout = engine.layout_with_fallbacks(paragraph, &font, size, &options, &fallbacks);
         widest = widest.max(layout.width);
         let down = row as f32 * if line_height > 0.0 { size * line_height } else { natural };
         for line in &layout.lines {
@@ -614,7 +612,22 @@ pub unsafe extern "C" fn hl_blinc_text_outline(
                 }
                 outline.x = g.x;
                 outline.y = down + (g.y - line.baseline_y);
-                if let Some(path) = scaler.scale_outline(g.glyph_id as u16) {
+                // From the face it is drawn in; a colour emoji has no outline and draws nothing here.
+                let face = match g.face {
+                    blinc_text::FaceChoice::Primary => Some(&font),
+                    choice => fallbacks.face(choice),
+                };
+                let Some(face) = face else {
+                    continue;
+                };
+                let Some(swash_font) = swash::FontRef::from_index(face.data(), face.face_index() as usize) else {
+                    continue;
+                };
+                let mut builder = context.builder(swash_font).size(size).hint(false);
+                if let Some(w) = face.variation_weight() {
+                    builder = builder.variations([swash::Setting::from(("wght", w))]);
+                }
+                if let Some(path) = builder.build().scale_outline(g.glyph_id as u16) {
                     outline.add(&path);
                 }
             }

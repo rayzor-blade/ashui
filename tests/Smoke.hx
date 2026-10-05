@@ -1041,6 +1041,11 @@ class Smoke {
 				same = false;
 		check("BC4 blocks are the same whether ash-simd or plain Haxe searches them", same);
 
+		// Glyphs the face lacks come from Blinc's fallback faces: CJK text on a canvas is outlined, each character about an em wide.
+		var cjk = ashui.draw.GlyphOutlines.of("你好", {size: 20});
+		check("canvas text in Chinese is drawn from a CJK face, an em a character", cjk != null && cjk.commands.length > 20 && Math.abs(cjk.width - 40) < 4,
+			cjk == null ? null : cjk.width);
+
 		// Text on a canvas: its glyphs' outlines, set by the text engine, placed by its alignment.
 		var regular = ashui.draw.GlyphOutlines.of("Canvas", {size: 20}), bold = ashui.draw.GlyphOutlines.of("Canvas", {size: 20, weight: 700});
 		var textCtx = new ashui.draw.DrawContext(200, 100);
