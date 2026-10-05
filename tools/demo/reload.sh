@@ -1,15 +1,10 @@
 #!/bin/sh
 # Opens the hot reload demo on Ash with --hot-reload and recompiles it
 # whenever a .hx file under tools/demo or haxe/ changes; the window then takes
-# the new code and keeps its state. Needs built ../hlwgpu, ../hlwindow and
-# ../ash checkouts.
+# the new code and keeps its state. Needs ../hlwgpu, ../hlwindow and a built
+# ../ash checkout; the libraries are built as needed.
 #   reload.sh [Demo.hx]   defaults to Reloading.hx
 set -e
-first() {
-	for f in "$@"; do
-		[ -f "$f" ] && { echo "$f"; return; }
-	done
-}
 cd "$(dirname "$0")"
 repo="$(cd ../.. && pwd)"
 vib="$(cd "$repo/.." && pwd)"
@@ -20,13 +15,16 @@ Darwin) ext=dylib ;;
 *) ext=so ;;
 esac
 mkdir -p bin
+# ashui's, hlwgpu's and hlwindow's libraries, built when missing or out of date.
 cargo build --release --manifest-path "$repo/Cargo.toml"
+cargo build --release --manifest-path "$vib/hlwgpu/Cargo.toml" -p hlwgpu
+cargo build --release --manifest-path "$vib/hlwindow/Cargo.toml"
 rm -f bin/blinc_abi.hdll
 cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
 rm -f bin/xgpu.hdll
-cp "$(first "$vib"/hlwgpu/target/release/libhlwgpu.$ext "$vib"/hlwgpu/target/debug/libhlwgpu.$ext)" bin/xgpu.hdll
+cp "$vib/hlwgpu/target/release/libhlwgpu.$ext" bin/xgpu.hdll
 rm -f bin/xwindow.hdll
-cp "$(first "$vib"/hlwindow/target/release/libhlwindow.$ext "$vib"/hlwindow/target/debug/libhlwindow.$ext)" bin/xwindow.hdll
+cp "$vib/hlwindow/target/release/libhlwindow.$ext" bin/xwindow.hdll
 
 # Compiles beside the running .hl and moves it into place, so Ash never reads a half-written file.
 build() {

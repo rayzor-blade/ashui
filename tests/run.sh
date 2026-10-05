@@ -77,12 +77,9 @@ compile_fixtures() {
 
 case "${1:-}" in
 render)
-	# The newer of hlwgpu's debug and release builds.
-	xgpu=$(first ../../hlwgpu/target/release/libhlwgpu.dylib ../../hlwgpu/target/release/libhlwgpu.so ../../hlwgpu/target/debug/libhlwgpu.dylib ../../hlwgpu/target/debug/libhlwgpu.so)
-	if [ -z "$xgpu" ]; then
-		echo "no hlwgpu build: run cargo build in ../hlwgpu" >&2
-		exit 1
-	fi
+	# hlwgpu's library, built when missing or out of date.
+	cargo build --release --manifest-path ../../hlwgpu/Cargo.toml -p hlwgpu
+	xgpu=$(first ../../hlwgpu/target/release/libhlwgpu.dylib ../../hlwgpu/target/release/libhlwgpu.so)
 	rm -f bin/xgpu.hdll
 	cp "$xgpu" bin/xgpu.hdll
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
@@ -91,12 +88,11 @@ render)
 	run pixels.hl
 	;;
 window)
-	xgpu=$(first ../../hlwgpu/target/release/libhlwgpu.dylib ../../hlwgpu/target/release/libhlwgpu.so ../../hlwgpu/target/debug/libhlwgpu.dylib ../../hlwgpu/target/debug/libhlwgpu.so)
-	xwindow=$(first ../../hlwindow/target/release/libhlwindow.dylib ../../hlwindow/target/release/libhlwindow.so ../../hlwindow/target/debug/libhlwindow.dylib ../../hlwindow/target/debug/libhlwindow.so)
-	if [ -z "$xgpu" ] || [ -z "$xwindow" ]; then
-		echo "build ../hlwgpu and ../hlwindow first (cargo build --release)" >&2
-		exit 1
-	fi
+	# hlwgpu's and hlwindow's libraries, built when missing or out of date.
+	cargo build --release --manifest-path ../../hlwgpu/Cargo.toml -p hlwgpu
+	cargo build --release --manifest-path ../../hlwindow/Cargo.toml
+	xgpu=$(first ../../hlwgpu/target/release/libhlwgpu.dylib ../../hlwgpu/target/release/libhlwgpu.so)
+	xwindow=$(first ../../hlwindow/target/release/libhlwindow.dylib ../../hlwindow/target/release/libhlwindow.so)
 	rm -f bin/xgpu.hdll
 	cp "$xgpu" bin/xgpu.hdll
 	rm -f bin/xwindow.hdll

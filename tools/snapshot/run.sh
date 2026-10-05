@@ -13,14 +13,8 @@
 #                             ASHUI_MOTION=overlay draws the motion overlay.
 #
 # A scene is a class whose main calls Snapshot.scene; see scenes/Demo.hx.
-# Needs built ../ash and ../hlwgpu checkouts beside this repository.
+# Needs ../hlwgpu (and ../hlwindow for --window) beside this repository, built here as needed, and a built ../ash.
 set -e
-# The first of the given files that exists.
-first() {
-	for f in "$@"; do
-		[ -f "$f" ] && { echo "$f"; return; }
-	done
-}
 watch=0
 window=0
 while :; do
@@ -58,15 +52,24 @@ render() {
 	fi
 	rm -f bin/blinc_abi.hdll
 	cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
+	# hlwgpu's and, for a window, hlwindow's libraries, built when missing or out of date.
+	if ! out=$(cargo build --release --manifest-path "$vib/hlwgpu/Cargo.toml" -p hlwgpu 2>&1); then
+		echo "error $name hlwgpu failed to build: $(echo "$out" | grep -m1 '^error')" >> "$events"
+		echo "$out" >&2
+		return 1
+	fi
 	rm -f bin/xgpu.hdll
-	cp "$(first "$vib"/hlwgpu/target/release/libhlwgpu.$ext "$vib"/hlwgpu/target/debug/libhlwgpu.$ext)" bin/xgpu.hdll
+	cp "$vib/hlwgpu/target/release/libhlwgpu.$ext" bin/xgpu.hdll
 	# A window needs hlwindow's library and the window build of ashui.
 	defines=""
 	if [ $window -eq 1 ]; then
-		xwindow="$(first "$vib"/hlwindow/target/release/libhlwindow.$ext "$vib"/hlwindow/target/debug/libhlwindow.$ext)"
-		[ -n "$xwindow" ] || { echo "build ../hlwindow first (cargo build --release)" >&2; return 1; }
+		if ! out=$(cargo build --release --manifest-path "$vib/hlwindow/Cargo.toml" 2>&1); then
+			echo "error $name hlwindow failed to build: $(echo "$out" | grep -m1 '^error')" >> "$events"
+			echo "$out" >&2
+			return 1
+		fi
 		rm -f bin/xwindow.hdll
-		cp "$xwindow" bin/xwindow.hdll
+		cp "$vib/hlwindow/target/release/libhlwindow.$ext" bin/xwindow.hdll
 		defines="-D ashui_window"
 	fi
 	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
