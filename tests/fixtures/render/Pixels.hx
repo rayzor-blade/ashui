@@ -850,6 +850,35 @@ class Pixels {
 		label = "blended but solid: ";
 		probe("the quad in front hides the one behind, though sorted first", 32, 32, (r, g, b) -> r > 200 && g < 60);
 
+		// Frustum culling: a mesh behind the camera is left out, and drawn as soon as the camera turns to it.
+		var ahead = ashui.draw3d.MeshData.build([-0.4, -0.4, 0, 0.4, -0.4, 0, 0.4, 0.4, 0, -0.4, 0.4, 0], [0, 1, 2, 0, 2, 3], null, null, null,
+			new ashui.draw3d.Material({baseColor: 0x00ff00, unlit: true, doubleSided: true}));
+		var lookBack = ashui.reactive.Signal.make(false);
+		var cullTree = new LayoutTree();
+		var cullRoot:Div = ashui.reactive.Owner.root(cullTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					var eye = new ashui.math.Vec3(0, 0, 3);
+					ctx.setCamera(new ashui.draw3d.Camera(eye, new ashui.math.Vec3(0, 0, lookBack.get() ? 6 : 0), null, 1.0));
+					ctx.drawMesh(ahead);
+					ctx.drawMesh(ahead, ashui.math.Mat4.translation(new ashui.math.Vec3(0, 0, 6)));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(cullRoot, SIZE, SIZE);
+		label = "culling: ";
+		var leftOut = ashui.core.render.ScenePainter.culled;
+		Sys.println('${leftOut == 1 ? "ok  " : "FAIL"} culling: the mesh behind the camera is left out: $leftOut culled');
+		if (leftOut != 1)
+			failures++;
+		probe("the mesh ahead is drawn", 32, 32, (r, g, b) -> g > 200 && r < 60);
+		lookBack.set(true);
+		pixels = offscreen.renderToRgba8(cullRoot, SIZE, SIZE);
+		probe("turned round, the other is drawn", 32, 32, (r, g, b) -> g > 200 && r < 60);
+
 		// One's own GPU drawing in a scene: a pass's quad and a mesh share depth, each hiding the other where it is in front.
 		var front = new TestQuadPass(0.5), back = new TestQuadPass(-0.5);
 		var passMesh = ashui.draw3d.MeshData.build([-0.4, -0.4, 0, 0.4, -0.4, 0, 0.4, 0.4, 0, -0.4, 0.4, 0], [0, 1, 2, 0, 2, 3], null, null, null,

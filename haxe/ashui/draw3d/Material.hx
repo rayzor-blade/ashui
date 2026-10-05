@@ -31,6 +31,7 @@ typedef MaterialOptions = {
 	?shader:String,
 	?textureTransform:TextureTransform,
 	?fog:Bool,
+	?culled:Bool,
 }
 
 /**
@@ -44,7 +45,10 @@ typedef MaterialOptions = {
 	`textureTransform` scales, rotates and moves every texture on the
 	surface, as glTF's `KHR_texture_transform` does. Setting `fog` to false
 	keeps the surface out of the scene's fog, as a sky drawn as a mesh
-	should be. Colours are `0xRRGGBB`, as `Brush` takes them. `unlit` shows the base
+	should be. A mesh is not drawn while its bounds are outside the camera's
+	view; set `culled` to false for a material whose shader moves vertices
+	far outside the mesh's own bounds. Colours are `0xRRGGBB`, as `Brush`
+	takes them. `unlit` shows the base
 	colour as it is, unshaded. `shader` is the WGSL of a shader that
 	extends ashui's mesh shader (`@:extends ashui.core.render.MeshShader`)
 	to light or present the surface its own way; ashui's own by default.
@@ -72,6 +76,7 @@ class Material {
 	public final shader:Null<String>;
 	public final textureTransform:Null<TextureTransform>;
 	public final fog:Bool;
+	public final culled:Bool;
 
 	public function new(?o:MaterialOptions) {
 		if (o == null)
@@ -96,6 +101,7 @@ class Material {
 		shader = o.shader;
 		textureTransform = o.textureTransform;
 		fog = o.fog != false;
+		culled = o.culled != false;
 	}
 
 	/** A copy with the settings `o` gives in place of these. **/
@@ -120,6 +126,7 @@ class Material {
 			doubleSided: o.doubleSided != null ? o.doubleSided : doubleSided,
 			shader: o.shader != null ? o.shader : shader,
 			textureTransform: o.textureTransform != null ? o.textureTransform : textureTransform,
-			fog: o.fog != null ? o.fog : fog
+			fog: o.fog != null ? o.fog : fog,
+			culled: o.culled != null ? o.culled : culled
 		});
 }

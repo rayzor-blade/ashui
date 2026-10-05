@@ -470,6 +470,13 @@ class ScenePainter {
 			camera = camera.with(null, null, 2 * Math.atan(Math.tan(camera.fovY / 2) * (1 + scene.lens * (aspect * aspect + 1))));
 		var view = camera.view(), projection = camera.projection(aspect);
 		var viewProjection = projection.mul(view);
+		// Frustum culling: a draw whose bounds are wholly outside the camera's view is not drawn, nor drawn again for glow.
+		// Its buffers stay uploaded while the app keeps drawing it, so it shows again at once when it comes into view.
+		var inView = [for (d in draws) !d.material.culled || inside(viewProjection, d)];
+		culled = 0;
+		for (v in inView)
+			if (!v)
+				culled++;
 		// A blended material at full opacity is drawn in two halves: its solid fragments with the opaque meshes,
 		// writing depth, so a shell its exporter marked blended hides what is inside it; then the rest, blended.
 		// Each entry is a draw's index times two, plus one for a solid half.
@@ -549,7 +556,7 @@ class ScenePainter {
 			for (p in passes)
 				p.prepare(passFrame);
 			if (shadows != null)
-				drawShadows(frame, encoder, passFrame, draws, order, solid, passes);
+				drawShadows(frame, encoder, passFrame, draws, order, solid, passes, shadows.viewProjection);
 			var groups = [for (i in order) materialGroup(frame, draws[i].material, passFrame.environment, passFrame.shadowMap)];
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
 			color.viewTextureView(layer.colorView);
@@ -576,6 +583,8 @@ class ScenePainter {
 				if (slot == order.length)
 					break;
 				var d = draws[order[slot]];
+				if (!inView[order[slot]])
+					continue;
 				var gpu = meshes.get(d.mesh);
 				encoder.renderSetPipeline(pipeline(frame, d.material, slot >= firstBlended));
 				encoder.renderSetBindGroup(0, groups[slot]);
@@ -586,13 +595,40 @@ class ScenePainter {
 			stage(Overlay);
 			encoder.renderEnd();
 			if (glowing)
-				drawGlow(frame, encoder, layer, draws, order, groups, firstBlended, passes, passFrame);
+				drawGlow(frame, encoder, layer, draws, order, groups, firstBlended, passes, passFrame, inView);
 			if (blooming)
 				glow(frame, encoder, layer, scene.bloom);
 			layer.previousViewProjection = viewProjection;
 			if (finishing(scene))
 				bend(frame, encoder, layer, scene.lens, scene.vignette, scene.grain, scene.aberration, scene.grade, scene.antialias, scene.motionBlur);
 		});
+	}
+
+	/** How many draws the last render, of any painter, left out because they were outside the camera's view. **/
+	public static var culled(default, null) = 0;
+
+	/**
+		Whether any of `d`'s bounds, placed by its transform, may be within
+		`viewProjection`'s view: false only when all eight corners lie outside
+		the same one of its six planes.
+	**/
+	static function inside(viewProjection:Mat4, d:SceneDraw):Bool {
+		var m = viewProjection.mul(d.transform).m;
+		var lo = d.mesh.min, hi = d.mesh.max;
+		// Each bit is a plane all corners so far are outside of: left, right, bottom, top, near, far.
+		var outside = 63;
+		for (k in 0...8) {
+			var x = (k & 1) == 0 ? lo.x : hi.x, y = (k & 2) == 0 ? lo.y : hi.y, z = (k & 4) == 0 ? lo.z : hi.z;
+			var cx = m[0] * x + m[4] * y + m[8] * z + m[12];
+			var cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+			var cz = m[2] * x + m[6] * y + m[10] * z + m[14];
+			var cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+			var bits = (cx < -cw ? 1 : 0) | (cx > cw ? 2 : 0) | (cy < -cw ? 4 : 0) | (cy > cw ? 8 : 0) | (cz < 0 ? 16 : 0) | (cz > cw ? 32 : 0);
+			outside &= bits;
+			if (outside == 0)
+				return true;
+		}
+		return false;
 	}
 
 	var lensPipeline:Null<GpuPipeline> = null;
@@ -607,7 +643,7 @@ class ScenePainter {
 		untone-mapped light. Then each `GlowCaster` pass draws its own glow.
 	**/
 	function drawGlow(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, draws:Array<SceneDraw>, order:Array<Int>,
-			groups:Array<GpuBindGroup>, firstBlended:Int, passes:Array<ashui.draw3d.ScenePass>, passFrame:ScenePassFrame):Void {
+			groups:Array<GpuBindGroup>, firstBlended:Int, passes:Array<ashui.draw3d.ScenePass>, passFrame:ScenePassFrame, inView:Array<Bool>):Void {
 		var device = frame.device;
 		if (layer.glow == null) {
 			layer.glowWidth = Std.int(Math.max(1, layer.width >> 1));
@@ -639,7 +675,7 @@ class ScenePainter {
 		encoder.beginRenderPass(pass);
 		for (slot in 0...firstBlended) {
 			var d = draws[order[slot]];
-			if (d.material.unlit)
+			if (d.material.unlit || !inView[order[slot]])
 				continue;
 			var gpu = meshes.get(d.mesh);
 			encoder.renderSetPipeline(glowPipeline(frame, d.material));
@@ -1073,7 +1109,7 @@ class ScenePainter {
 		drawn in two halves casts once.
 	**/
 	function drawShadows(frame:CanvasFrame, encoder:gpu.GpuEncoder, passFrame:ScenePassFrame, draws:Array<SceneDraw>, order:Array<Int>,
-			solid:Array<Bool>, passes:Array<ashui.draw3d.ScenePass>):Void {
+			solid:Array<Bool>, passes:Array<ashui.draw3d.ScenePass>, lightView:Mat4):Void {
 		var device = frame.device;
 		if (shadowPipeline == null) {
 			var builder = passFrame.shadowPipelineBuilder(MeshShadowShader.WGSL);
@@ -1113,8 +1149,8 @@ class ScenePainter {
 		for (slot in 0...order.length) {
 			var d = draws[order[slot]];
 			var m = d.material;
-			// Faded meshes let light through: they cast none.
-			if (d.opacity < 1 || solid[slot])
+			// Faded meshes let light through: they cast none. Nor do meshes outside the light's view.
+			if (d.opacity < 1 || solid[slot] || !inside(lightView, d))
 				continue;
 			var group = shadowGroup;
 			if (m.alphaMode != Opaque) {
