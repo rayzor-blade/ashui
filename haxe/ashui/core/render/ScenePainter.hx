@@ -84,6 +84,17 @@ private class SceneLayer {
 	public var glow:Null<GpuTexture> = null;
 	public var glowView:Null<GpuTextureView> = null;
 
+	/** For motion blur: how far each pixel moved on screen since the previous frame, drawn with the glow. **/
+	public var velocity:Null<GpuTexture> = null;
+	public var velocityView:Null<GpuTextureView> = null;
+
+	/** The velocity view the finishing pass's bind group was made with. **/
+	public var lensVelocity:Null<GpuTextureView> = null;
+
+	/** The previous frame's view-projection, and each mesh's transforms in it (by mesh, in drawing order), for motion blur. **/
+	public var previousViewProjection:Null<Mat4> = null;
+	public var previousModels = new haxe.ds.ObjectMap<MeshData, Array<Mat4>>();
+
 	public var lensColor:Null<GpuTexture> = null;
 	public var lensView:Null<GpuTextureView> = null;
 	public var lensGroup:Null<GpuBindGroup> = null;
@@ -127,6 +138,13 @@ private class SceneLayer {
 			glow.destroy();
 		glow = null;
 		glowView = null;
+		if (velocityView != null)
+			velocityView.destroy();
+		if (velocity != null)
+			velocity.destroy();
+		velocity = null;
+		velocityView = null;
+		lensVelocity = null;
 		for (l in bloomLevels)
 			l.destroy();
 		bloomLevels.resize(0);
@@ -465,9 +483,25 @@ class ScenePainter {
 		});
 		var order = [for (e in entries) e >> 1];
 		var solid = [for (e in entries) e & 1 == 1];
+		// Each draw's transform in the previous frame: the same mesh's, drawn as many times before it then; its own if it is new.
+		var models = new haxe.ds.ObjectMap<MeshData, Array<Mat4>>();
+		var before = [
+			for (d in draws) {
+				var now = models.get(d.mesh);
+				if (now == null) {
+					now = [];
+					models.set(d.mesh, now);
+				}
+				var then = layer.previousModels.get(d.mesh);
+				var prior = then != null && now.length < then.length ? then[now.length] : d.transform;
+				now.push(d.transform);
+				prior;
+			}
+		];
+		layer.previousModels = models;
 		var bytes = haxe.io.Bytes.alloc(entries.length * ashui.shaders.MeshDraw.ROWS * 16);
 		for (slot in 0...order.length)
-			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]], solid[slot]);
+			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]], solid[slot], before[order[slot]]);
 		device.queue().writeBuffer(drawBuffer, 0, bytes, bytes.length);
 		// Passes of the opaque and transparent stages go after the opaque meshes, before the first blended one.
 		var firstBlended = order.length;
@@ -492,7 +526,8 @@ class ScenePainter {
 			var shadows = lighting.shadows();
 			if (shadows != null)
 				passFrame.shadowMap = shadowTarget(frame, shadows.size).view;
-			device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection, environment, shadows, order.length), ashui.shaders.Scene.ROWS * 16);
+			device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection, environment, shadows, order.length,
+				layer.previousViewProjection != null ? layer.previousViewProjection : viewProjection), ashui.shaders.Scene.ROWS * 16);
 			inline function stage(at:ashui.draw3d.ScenePass.SceneStage)
 				for (p in passes)
 					if (p.stage() == at)
@@ -511,7 +546,9 @@ class ScenePainter {
 			depth.depthClearValue(1);
 			depth.depthLoadOp(Clear);
 			// The glow pass tests against this depth, so it is kept when there is bloom.
-			var glowing = scene.bloom != null && scene.bloom.strength > 0;
+			var blooming = scene.bloom != null && scene.bloom.strength > 0;
+			// The second pass draws both the glow and the velocities: for bloom, motion blur, or both.
+			var glowing = blooming || scene.motionBlur > 0;
 			depth.depthStoreOp(glowing ? Store : Discard);
 			var pass = new GpuRenderPassDescriptor();
 			pass.addColorAttachments(color);
@@ -535,12 +572,13 @@ class ScenePainter {
 			}
 			stage(Overlay);
 			encoder.renderEnd();
-			if (glowing) {
+			if (glowing)
 				drawGlow(frame, encoder, layer, draws, order, groups, firstBlended, passes, passFrame);
+			if (blooming)
 				glow(frame, encoder, layer, scene.bloom);
-			}
+			layer.previousViewProjection = viewProjection;
 			if (finishing(scene))
-				bend(frame, encoder, layer, scene.lens, scene.vignette, scene.grain, scene.aberration, scene.grade, scene.antialias);
+				bend(frame, encoder, layer, scene.lens, scene.vignette, scene.grain, scene.aberration, scene.grade, scene.antialias, scene.motionBlur);
 		});
 	}
 
@@ -562,16 +600,22 @@ class ScenePainter {
 			size.height(layer.height);
 			layer.glow = device.texture(new GpuTextureDescriptor(size, Rgba16float, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
 			layer.glowView = layer.glow.createView(new GpuTextureViewDescriptor());
+			layer.velocity = device.texture(new GpuTextureDescriptor(size, Rgba16float, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
+			layer.velocityView = layer.velocity.createView(new GpuTextureViewDescriptor());
 		}
 		var color = new GpuRenderPassColorAttachment(Clear, Store);
 		color.viewTextureView(layer.glowView);
 		color.clearValue(new GpuColor(0, 0, 0, 0));
+		var moved = new GpuRenderPassColorAttachment(Clear, Store);
+		moved.viewTextureView(layer.velocityView);
+		moved.clearValue(new GpuColor(0, 0, 0, 0));
 		var depth = new GpuRenderPassDepthStencilAttachment();
 		depth.viewTextureView(layer.depthView);
 		depth.depthLoadOp(Load);
 		depth.depthStoreOp(Discard);
 		var pass = new GpuRenderPassDescriptor();
 		pass.addColorAttachments(color);
+		pass.addColorAttachments(moved);
 		pass.depthStencilAttachment(depth);
 		encoder.beginRenderPass(pass);
 		for (slot in 0...firstBlended) {
@@ -683,11 +727,11 @@ class ScenePainter {
 
 	/** Whether the scene needs the finishing pass: a fish-eye, vignette, grain, chromatic aberration, colour grade or anti-aliasing. **/
 	static function finishing(scene:Scene3D):Bool
-		return scene.lens > 0 || scene.vignette > 0 || scene.grain > 0 || scene.aberration > 0 || scene.grade != null || scene.antialias;
+		return scene.lens > 0 || scene.vignette > 0 || scene.grain > 0 || scene.aberration > 0 || scene.grade != null || scene.antialias || scene.motionBlur > 0;
 
 	/** The finishing pass: draws the rendered layer into the layer's lens texture through the fish-eye (`strength`), with anti-aliasing, chromatic aberration, a colour grade, vignette and grain. **/
 	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float, vignette:Float, grain:Float, aberration:Float,
-			grade:Null<ashui.draw3d.ColorGrade>, antialias:Bool):Void {
+			grade:Null<ashui.draw3d.ColorGrade>, antialias:Bool, motionBlur:Float):Void {
 		var device = frame.device;
 		if (lensPipeline == null) {
 			var builder = device.pipeline();
@@ -702,12 +746,21 @@ class ScenePainter {
 			layer.lensColor = device.texture(new GpuTextureDescriptor(size, frame.format, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
 			layer.lensView = layer.lensColor.createView(new GpuTextureViewDescriptor());
 			layer.lensSettings = device.createBuffer(new GpuBufferDescriptor(80, GpuFlags.BUFFER_STORAGE | GpuFlags.BUFFER_COPY_DST));
+		}
+		// The velocities when there are any; without them the layer stands in, and motion blur is off.
+		var velocity = motionBlur > 0 && layer.velocityView != null ? layer.velocityView : layer.colorView;
+		if (layer.lensGroup == null || layer.lensVelocity != velocity) {
+			if (layer.lensGroup != null)
+				layer.lensGroup.destroy();
 			var bindings = new GpuBindings();
 			bindings.texture(layer.colorView);
+			bindings.sampler(compositeSampler(frame));
+			bindings.texture(velocity);
 			bindings.sampler(compositeSampler(frame));
 			bindings.buffer(layer.lensSettings);
 			layer.lensGroup = device.bindGroup(lensPipeline, 0, bindings);
 			bindings.destroy();
+			layer.lensVelocity = velocity;
 		}
 		var aspect = layer.width / Math.max(1, layer.height);
 		var b = haxe.io.Bytes.alloc(80);
@@ -733,6 +786,7 @@ class ScenePainter {
 		b.setFloat(60, grade != null ? grade.saturation : 1);
 		b.setFloat(64, grade != null ? grade.strength : 0);
 		b.setFloat(68, antialias ? 1 : 0);
+		b.setFloat(72, velocity == layer.colorView ? 0 : motionBlur);
 		device.queue().writeBuffer(layer.lensSettings, 0, b, 80);
 		var color = new GpuRenderPassColorAttachment(Clear, Store);
 		color.viewTextureView(layer.lensView);
@@ -870,6 +924,7 @@ class ScenePainter {
 		if (glow) {
 			// The glow pass redraws visible surfaces at the depth they left: LessEqual, no blending, no depth writes.
 			builder.target(ScenePassFrame.GLOW_FORMAT, GpuFlags.COLOR_WRITE_ALL);
+			builder.target(ScenePassFrame.VELOCITY_FORMAT, GpuFlags.COLOR_WRITE_ALL);
 			builder.depth(DEPTH_FORMAT, false, LessEqual);
 		} else {
 			builder.target(frame.format, GpuFlags.COLOR_WRITE_ALL);
@@ -1167,7 +1222,7 @@ class ScenePainter {
 	}
 
 	static function sceneBytes(scene:Scene3D, viewProjection:Mat4, environment:Null<ashui.draw3d.SceneLighting.EnvironmentMap>,
-			shadows:Null<ashui.draw3d.SceneLighting.ShadowSettings>, drawCount:Int):haxe.io.Bytes {
+			shadows:Null<ashui.draw3d.SceneLighting.ShadowSettings>, drawCount:Int, previousViewProjection:Mat4):haxe.io.Bytes {
 		var out = haxe.io.Bytes.alloc(ashui.shaders.Scene.ROWS * 16);
 		viewProjection.write(out, 0);
 		var lighting = scene.lighting;
@@ -1186,6 +1241,7 @@ class ScenePainter {
 			shadows.viewProjection.write(out, 7 * 16);
 			row(out, 11, 1, shadows.bias, shadows.strength, Std.int(Math.max(16, Math.min(8192, shadows.size))));
 		}
+		previousViewProjection.write(out, 14 * 16);
 		for (i in 0...lights.length) {
 			var at = ashui.shaders.Scene.FIRST_LIGHT + i * ashui.shaders.Scene.LIGHT_ROWS;
 			inline function rgb(c:Int, k:Float)
@@ -1211,8 +1267,9 @@ class ScenePainter {
 	}
 
 	/** A draw's rows; `solid` for the half of a blended material drawn with the opaque meshes, its alpha mode 3. **/
-	static function writeDraw(out:haxe.io.Bytes, offset:Int, d:SceneDraw, solid:Bool):Void {
+	static function writeDraw(out:haxe.io.Bytes, offset:Int, d:SceneDraw, solid:Bool, before:Mat4):Void {
 		d.transform.write(out, offset);
+		before.write(out, offset + 12 * 16);
 		var n = d.transform.normalMatrix().m;
 		var m = d.material;
 		var t = m.textureTransform != null ? m.textureTransform : ashui.draw3d.TextureTransform.IDENTITY;

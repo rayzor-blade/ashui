@@ -16,7 +16,8 @@ package ashui.shaders;
 	and where the fog is whole (0 for none), the shadow's light
 	view-projection's columns, whether there are shadows with their bias,
 	strength and map size, the fog's colour and where it starts, its
-	opacity and the number of mesh draws, then four
+	opacity and the number of mesh draws, the previous frame's
+	view-projection columns (for motion blur), then four
 	rows each light: its kind (0 directional, 1 point, 2 spot), range and
 	spot cone's cosines; its colour times its intensity; its position; the
 	way it shines. Colours are linear.
@@ -24,7 +25,7 @@ package ashui.shaders;
 class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	public static inline var MAX_LIGHTS = 8;
 	public static inline var LIGHT_ROWS = 4;
-	public static inline var FIRST_LIGHT = 14;
+	public static inline var FIRST_LIGHT = 18;
 	public static inline var ROWS = FIRST_LIGHT + MAX_LIGHTS * LIGHT_ROWS;
 
 	static var SRC = {
@@ -33,6 +34,11 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 		/** A point in the scene, `w` 1, or a direction, `w` 0, to clip space through the camera. **/
 		function worldToClip(p : Vec4) : Vec4 {
 			return scene[0] * p.x + scene[1] * p.y + scene[2] * p.z + scene[3] * p.w;
+		}
+
+		/** A point in the scene, `w` 1, to clip space through the previous frame's camera, for motion blur. **/
+		function worldToClipBefore(p : Vec4) : Vec4 {
+			return scene[14] * p.x + scene[15] * p.y + scene[16] * p.z + scene[17] * p.w;
 		}
 
 		/** Where the camera is. **/
@@ -114,7 +120,7 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 
 		/** The way from `at` toward light `i`, of unit length. **/
 		function lightDirection(i : Int, at : Vec3) : Vec3 {
-			var row = 14 + i * 4;
+			var row = 18 + i * 4;
 			var l = -normalize(scene[row + 3].xyz);
 			if (scene[row].x > 0.5)
 				l = normalize(scene[row + 2].xyz - at);
@@ -123,7 +129,7 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 
 		/** The light `i` brings to `at`: its colour and intensity, faded by distance and, for a spot, its cone. **/
 		function lightRadiance(i : Int, at : Vec3) : Vec3 {
-			var row = 14 + i * 4;
+			var row = 18 + i * 4;
 			var kind = scene[row];
 			var fade = 1.;
 			if (kind.x > 0.5) {

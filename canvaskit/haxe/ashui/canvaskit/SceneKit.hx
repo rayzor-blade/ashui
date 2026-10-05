@@ -59,6 +59,9 @@ typedef SceneKitProps = {
 	/** Whether edges are smoothed by FXAA anti-aliasing; off by default. **/
 	?antialias:IntoReactive<Bool>,
 
+	/** Motion blur: how long the shutter stays open, as a share of a frame, from 0 (the default, none) to 1. **/
+	?motionBlur:IntoReactive<Float>,
+
 	/** Bloom: bright parts of the scene glow onto their surroundings (see `Bloom`). There is none by default. **/
 	?bloom:IntoReactive<ashui.draw3d.Bloom>,
 
@@ -144,7 +147,8 @@ class SceneKit extends Component<SceneKitProps> {
 				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0),
 					read(props.fog, null), read(props.lens, 0.0), read(props.bloom, null),
 					read(props.vignette, 0.0), read(props.grain, 0.0), read(props.aberration, 0.0),
-					read(props.grade, null), read(props.antialias, false)));
+					read(props.grade, null), read(props.antialias, false),
+					read(props.motionBlur, 0.0)));
 				sky.skybox = read(props.skybox, null);
 				if (sky.skybox != null)
 					ctx.drawPass(sky);

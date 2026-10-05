@@ -1,9 +1,13 @@
 package ashui.core.render;
 
 /**
-	The finishing pass over a rendered 3D layer: a fish-eye lens, FXAA
-	anti-aliasing, chromatic aberration, a colour grade, a vignette and
-	film grain, in that order.
+	The finishing pass over a rendered 3D layer: a fish-eye lens, motion
+	blur or FXAA anti-aliasing, chromatic aberration, a colour grade, a
+	vignette and film grain, in that order.
+
+	Motion blur reads how far each pixel moved since the previous frame
+	from `velocityMap` and averages the layer along that movement. Where a
+	pixel moved less than a texel, FXAA is used instead.
 
 	The fish-eye makes each pixel read the layer from further out the
 	further the pixel is from the centre, so the centre is magnified and
@@ -19,7 +23,7 @@ package ashui.core.render;
 	strength, the aberration's strength, the time in seconds, and the
 	layer's width in pixels. `lens[2]` holds the grade's shadow tint and
 	contrast, `lens[3]` its highlight tint and saturation, and `lens[4]`
-	the grade's strength and whether FXAA is on.
+	the grade's strength, whether FXAA is on, and the motion blur's shutter.
 
 	FXAA follows Timothy Lottes' lightweight version: it measures the
 	brightness of the four diagonal neighbours, finds the direction of any
@@ -30,6 +34,7 @@ class LensShader implements hlwgpu.hxsl.Shader {
 		var output : { position : Vec4, color : Vec4 };
 
 		@param var lensSource : Sampler2D;
+		@param var velocityMap : Sampler2D;
 		@param var lens : StorageBuffer<Vec4>;
 
 		var uv : Vec2;
@@ -85,7 +90,23 @@ class LensShader implements hlwgpu.hxsl.Shader {
 			var shift = vec2(split.x / s.y * 0.5, split.y * 0.5);
 			var texel = vec2(1. / e.w, s.y / e.w);
 			var c = textureLod(lensSource, at, 0.);
-			if (lens[4].y > 0.5)
+			// Motion blur: the layer averaged along this pixel's movement over the shutter, at most a twentieth of the frame long.
+			var smear = vec2(0., 0.);
+			if (lens[4].z > 0.) {
+				smear = textureLod(velocityMap, at, 0.).xy * lens[4].z;
+				var length = sqrt(dot(smear, smear));
+				if (length > 0.05)
+					smear *= 0.05 / length;
+			}
+			if (sqrt(dot(smear / texel, smear / texel)) > 1.) {
+				var sum = vec4(0., 0., 0., 0.);
+				var k = 0;
+				while (k < 12) {
+					sum += textureLod(lensSource, at + smear * (float(k) / 11. - 0.5), 0.);
+					k++;
+				}
+				c = sum / 12.;
+			} else if (lens[4].y > 0.5)
 				c = fxaa(at, texel);
 			var red = textureLod(lensSource, at + shift, 0.).r;
 			var blue = textureLod(lensSource, at - shift, 0.).b;

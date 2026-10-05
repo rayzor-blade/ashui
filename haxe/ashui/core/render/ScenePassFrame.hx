@@ -63,6 +63,9 @@ class ScenePassFrame {
 	/** The format of the glow target that bloom's glow pass draws into. **/
 	public static inline var GLOW_FORMAT = TextureFormat.Rgba16float;
 
+	/** The format of the velocity target the glow pass also draws, for motion blur. **/
+	public static inline var VELOCITY_FORMAT = TextureFormat.Rgba16float;
+
 	public static inline var SHADOW_DEPTH_FORMAT = TextureFormat.Depth24plus;
 
 	@:allow(ashui.core.render.ScenePainter)
@@ -111,6 +114,8 @@ class ScenePassFrame {
 		A pipeline builder for a `GlowCaster`'s glow pass: it draws into the
 		half-float glow target, unblended, and tests against the scene's depth
 		with LessEqual without writing it, so only what is visible glows.
+		The pass also has a velocity target for motion blur, which this
+		builder leaves unwritten, so a pass's own drawing is not blurred.
 		Triangles are not culled. Add vertex buffers and attributes, then
 		`build`.
 	**/
@@ -118,6 +123,7 @@ class ScenePassFrame {
 		var builder = device.pipeline();
 		builder.shader(device.createShader(wgsl), "vertex", "fragment");
 		builder.target(GLOW_FORMAT, GpuFlags.COLOR_WRITE_ALL);
+		builder.target(VELOCITY_FORMAT, 0);
 		builder.depth(depthFormat, false, LessEqual);
 		builder.primitive(TriangleList, None, Ccw);
 		return builder;
