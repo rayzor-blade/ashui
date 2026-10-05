@@ -4,6 +4,7 @@ import ashui.draw.Affine;
 import ashui.draw.DrawContext;
 import ashui.draw.Flatten;
 import ashui.draw.Mesh;
+import ashui.draw.Path.FillRule;
 import ashui.draw.Tessellate;
 import ashui.types.Brush;
 import gpu.GpuBindGroup;
@@ -58,6 +59,12 @@ class CanvasPainter {
 	/** The clip table: each clip once, in the order written, and the texel each starts at, from the table's start. **/
 	final clipOrder:Array<DrawClip> = [];
 	final clipAt = new haxe.ds.ObjectMap<DrawClip, Int>();
+
+	/** Each path drawn last frame, and its triangles once it has been drawn twice: a path drawn again is moved, not tessellated again. **/
+	final shapes = new haxe.ds.ObjectMap<ashui.draw.Path, Shape>();
+
+	/** Counts builds, so a shape not drawn in the last one is forgotten. **/
+	var builds = 0;
 	var bytes:Null<haxe.io.Bytes> = null;
 
 	/** The record's runs, in order: of paths, by their vertices, and of meshes, each drawn by `scenes`. **/
@@ -135,6 +142,7 @@ class CanvasPainter {
 	}
 
 	function build(frame:CanvasFrame, ctx:DrawContext):Void {
+		builds++;
 		// A target pixel, in the layout units the triangles are in.
 		var aa = 1 / frame.pixelRatio;
 		var tolerance = TOLERANCE / frame.pixelRatio;
@@ -174,14 +182,12 @@ class CanvasPainter {
 					continue;
 				case Fill(path, brush, rule, transform, opacity, clip):
 					var m = frame.transform.after(transform);
-					var contours = Flatten.path(path, m, tolerance);
-					Tessellate.fill(contours, rule, aa, mesh);
+					var contours = tessellate(path, m, tolerance, aa, rule, null, needsContours(brush));
 					if (mesh.vertexCount() > before)
 						encode(brush, m, contours, opacity, paints);
 				case Stroke(path, stroke, brush, transform, opacity, clip):
 					var m = frame.transform.after(transform);
-					var contours = Flatten.path(path, m, tolerance);
-					Tessellate.stroke(contours, stroke, m.scale(), aa, mesh);
+					var contours = tessellate(path, m, tolerance, aa, NonZero, stroke, needsContours(brush));
 					if (mesh.vertexCount() > before)
 						encode(brush, m, contours, opacity, paints);
 				case Image(slot, x, y, w, h, transform, opacity, clip):
@@ -198,6 +204,8 @@ class CanvasPainter {
 			}
 		}
 		endPaths();
+		for (path in [for (p in shapes.keys()) if (shapes.get(p).build != builds) p])
+			shapes.remove(path);
 		vertexCount = mesh.vertexCount();
 		if (vertexCount == 0)
 			return;
@@ -262,6 +270,63 @@ class CanvasPainter {
 		rect in the image atlas, resampled for the size it covers on screen.
 		One that does not fit in the atlas paints nothing.
 	**/
+	/**
+		Tessellates `path`, drawn through `m`, into the mesh, filled by `rule`
+		or stroked by `stroke`. A path drawn last frame and again now, turned
+		and scaled the same, has its triangles from then moved by the change in
+		`m`'s translation instead; one that has gained commands since is
+		tessellated again. Returns the contours when `contours` asks
+		for them, which a shape whose triangles are reused does not keep.
+	**/
+	function tessellate(path:ashui.draw.Path, m:Affine, tolerance:Float, aa:Float, rule:FillRule, stroke:Null<ashui.draw.Stroke>,
+			contours:Bool):Array<ashui.draw.Flatten.Contour> {
+		var known = shapes.get(path);
+		if (!contours && known != null && known.data != null && known.a == m.a && known.b == m.b && known.c == m.c && known.d == m.d
+			&& known.tolerance == tolerance && known.aa == aa && known.rule == rule && known.stroke == stroke && known.commands == path.commands.length) {
+			var dx = m.e - known.e, dy = m.f - known.f, data = known.data, out = mesh.data;
+			var i = 0;
+			while (i < data.length) {
+				out.push(data[i] + dx);
+				out.push(data[i + 1] + dy);
+				for (k in 2...Mesh.STRIDE)
+					out.push(data[i + k]);
+				i += Mesh.STRIDE;
+			}
+			known.build = builds;
+			return NONE;
+		}
+		var from = mesh.data.length;
+		var flat = Flatten.path(path, m, tolerance);
+		if (stroke != null)
+			Tessellate.stroke(flat, stroke, m.scale(), aa, mesh);
+		else
+			Tessellate.fill(flat, rule, aa, mesh);
+		// Kept the second time a path is drawn: one made afresh each frame is never copied.
+		var data = known != null ? mesh.data.slice(from) : null;
+		shapes.set(path, {
+			build: builds,
+			commands: path.commands.length,
+			a: m.a,
+			b: m.b,
+			c: m.c,
+			d: m.d,
+			e: m.e,
+			f: m.f,
+			tolerance: tolerance,
+			aa: aa,
+			rule: rule,
+			stroke: stroke,
+			data: data
+		});
+		return flat;
+	}
+
+	static final NONE:Array<ashui.draw.Flatten.Contour> = [];
+
+	/** Whether `brush` is placed by the shape's bounds, which it reads from the contours. **/
+	static function needsContours(brush:Brush):Bool
+		return brush.gradient != null && brush.gradient.boundingBox;
+
 	static function encodeImage(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>):Void {
 		var rect = Images.bitmap(slot, w, h, m.scale() * frame.pixelRatio, frame.images);
 		var inverse = m.after(new Affine(w, 0, 0, h, x, y)).inverse();
@@ -417,4 +482,21 @@ class CanvasPainter {
 enum CanvasStep {
 	Paths(first:Int, count:Int);
 	Meshes(draws:Array<ScenePainter.SceneDraw>, passes:Array<ashui.draw3d.ScenePass>, scene:ashui.draw3d.Scene3D);
+}
+
+/** A path as last drawn: the transform it was drawn through, how, and its triangles once kept. **/
+private typedef Shape = {
+	build:Int,
+	commands:Int,
+	a:Float,
+	b:Float,
+	c:Float,
+	d:Float,
+	e:Float,
+	f:Float,
+	tolerance:Float,
+	aa:Float,
+	rule:FillRule,
+	stroke:Null<ashui.draw.Stroke>,
+	data:Null<Array<Float>>
 }

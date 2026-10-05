@@ -551,6 +551,30 @@ class Pixels {
 		probe("on a line", 20, 14, red);
 		probe("between lines", 14, 14, near(0xffffff));
 
+		// One path drawn three times, moved: the third reuses the triangles made for the second, moved again.
+		var reusedTree = new LayoutTree();
+		var reusedRoot:Div = ashui.reactive.Owner.root(reusedTree, _ -> {
+			var square = new ashui.draw.Path().rect(0, 0, 8, 8);
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					for (x in [0, 16, 32]) {
+						ctx.pushTransform(new ashui.draw.Affine(1, 0, 0, 1, x, 20));
+						ctx.fillPath(square, Brush.solid(0xff0000));
+						ctx.popTransform();
+					}
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(reusedRoot, SIZE, SIZE);
+		label = "a path drawn again: ";
+		probe("first where it was put", 12, 32, red);
+		probe("second where it was put", 28, 32, red);
+		probe("third, from the second's triangles, where it was put", 44, 32, red);
+		probe("and nothing between them", 20, 32, near(0xffffff));
+
 		// A canvas's clips: what is drawn is kept inside them, nested, until each is popped.
 		var canvasClipTree = new LayoutTree();
 		var canvasClipRoot:Div = ashui.reactive.Owner.root(canvasClipTree, _ -> {

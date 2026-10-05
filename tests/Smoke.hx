@@ -1051,7 +1051,7 @@ class Smoke {
 		var textCtx = new ashui.draw.DrawContext(200, 100);
 		textCtx.text("Canvas", 100, 50, ashui.types.Brush.solid(0xffffff), {size: 20, align: Middle});
 		var textBounds = switch textCtx.ops[0] {
-			case Fill(path, _, _, _, _): ashui.draw.Flatten.path(path, ashui.draw.Affine.IDENTITY, 0.25);
+			case Fill(path, _, _, transform, _, _): ashui.draw.Flatten.path(path, transform, 0.25);
 			case _: [];
 		}
 		var minX = 1e9, maxX = -1e9;

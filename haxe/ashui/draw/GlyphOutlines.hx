@@ -42,7 +42,7 @@ enum abstract TextBaseline(Int) {
 }
 
 /** Text as paths: its glyphs' outlines, and the measure of the run. **/
-typedef TextOutline = {commands:Array<Float>, width:Float, ascent:Float, descent:Float, lineHeight:Float};
+typedef TextOutline = {commands:Array<Float>, width:Float, ascent:Float, descent:Float, lineHeight:Float, ?shape:Path};
 
 /**
 	The outlines of text's glyphs, laid out and shaped by the text engine,
@@ -98,6 +98,17 @@ class GlyphOutlines {
 		#else
 		return null;
 		#end
+	}
+
+	/**
+		`outline` as a path with its point at the origin, made once and kept
+		with the outline: a canvas drawing the same path again moves its
+		triangles rather than making them again.
+	**/
+	public static function shape(outline:TextOutline):Path {
+		if (outline.shape == null)
+			outline.shape = path(outline, 0, 0);
+		return outline.shape;
 	}
 
 	/** `outline` as a path, its point moved to `(x, y)`. **/

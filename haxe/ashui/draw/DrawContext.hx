@@ -184,7 +184,9 @@ class DrawContext {
 			case Bottom: -outline.descent;
 			case _: 0.0;
 		}
-		fillPath(GlyphOutlines.path(outline, x + dx, y + dy), brush, NonZero);
+		pushTransform(new Affine(1, 0, 0, 1, x + dx, y + dy));
+		fillPath(GlyphOutlines.shape(outline), brush, NonZero);
+		popTransform();
 	}
 
 	/** How wide `text` set as `style` is, and how far it reaches above and below its baseline; zeros where there is no text engine. **/
