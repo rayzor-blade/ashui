@@ -174,11 +174,15 @@ class WindowedApp {
 
 	/**
 		Moves the window with the pointer from `press` until its button is
-		released: a window with no title bar dragged by what it shows. The
-		window moves by as far as the pointer has on screen, its position
-		plus the pointer's in it, so the press stays under the pointer.
+		released: a window with no title bar dragged by what it shows. Call
+		it from a pointer-down handler. The system drags the window where it
+		can, as it does by a title bar. Where it cannot, the window follows
+		the pointer: it moves by as far as the pointer has on screen, so the
+		press stays under the pointer.
 	**/
 	public function dragWith(press:ashui.input.Events.PointerEvent):Void {
+		if (window.dragWindow())
+			return;
 		// In logical pixels, as layout and setPosition are; the window's position reads in physical ones.
 		var scale = window.scaleFactor();
 		var startX = window.x() / scale, startY = window.y() / scale;
