@@ -45,7 +45,7 @@ enum abstract TextureRole(Int) to Int {
 	A `gpuOnly` bitmap's pixels are freed once nothing more is made from them.
 **/
 class MeshTextures {
-	/** Counts textures replaced; what binds one made earlier binds it again. **/
+	/** Counts textures put in place after compression; what bound a stand-in binds them now. **/
 	public static var revision(default, null) = 0;
 
 	/** Called on the main thread after textures are replaced. **/
@@ -67,16 +67,25 @@ class MeshTextures {
 	/** Whether to compress at all: a GPU that cannot sample BC, or `-D ashui_no_bc`, leaves textures as they are. **/
 	public static var compress = #if ashui_no_bc false #else true #end;
 
-	/** `bitmap` on the GPU, as `role` reads it. **/
-	public static function get(gpu:GpuDevice, bitmap:Bitmap, role:TextureRole):{texture:GpuTexture, view:GpuTextureView} {
+	/** Keys of textures being compressed, not yet on the GPU. **/
+	static final pending = new Map<String, Bool>();
+
+	/** `bitmap` on the GPU, as `role` reads it; null while it is being compressed. **/
+	public static function get(gpu:GpuDevice, bitmap:Bitmap, role:TextureRole):Null<{texture:GpuTexture, view:GpuTextureView}> {
 		var key = '${bitmap.slot}/${(role : Int)}';
 		var known = textures.get(key);
-		if (known != null)
+		if (known != null || pending.exists(key))
 			return known;
 		device = gpu;
 		watchDisposal();
 		var w = bitmap.width, h = bitmap.height;
 		var levels = levelCount(w, h);
+		// BC blocks are 4×4: a texture whose sides are not a multiple of 4 stays as it is.
+		if (compress && w % 4 == 0 && h % 4 == 0 && gpu.supports(TextureCompressionBc)) {
+			pending.set(key, true);
+			compressLater(key, bitmap, role, levels);
+			return null;
+		}
 		var size = new GpuExtent3D(w);
 		size.height(h);
 		var descriptor = new GpuTextureDescriptor(size, role == Color ? TextureFormat.Rgba8unormSrgb : TextureFormat.Rgba8unorm,
@@ -92,10 +101,7 @@ class MeshTextures {
 		}
 		var made = {texture: t, view: t.createView(new GpuTextureViewDescriptor())};
 		textures.set(key, made);
-		// BC blocks are 4×4: a texture whose sides are not a multiple of 4 stays as it is.
-		if (compress && w % 4 == 0 && h % 4 == 0 && gpu.supports(TextureCompressionBc))
-			compressLater(key, bitmap, role, levels);
-		else if (bitmap.gpuOnly)
+		if (bitmap.gpuOnly)
 			releasing.push(bitmap);
 		return made;
 	}
@@ -154,9 +160,8 @@ class MeshTextures {
 		var slot = job.bitmap.slot;
 		var left = running.get(slot) - 1;
 		if (left > 0) running.set(slot, left) else running.remove(slot);
-		var old = textures.get(job.key);
-		// Disposed while it was being compressed: nothing to replace.
-		if (old == null)
+		// Disposed while it was being compressed: nothing to put in place.
+		if (!pending.remove(job.key))
 			return;
 		var w = job.bitmap.width, h = job.bitmap.height;
 		var size = new GpuExtent3D(w);
@@ -170,8 +175,6 @@ class MeshTextures {
 			var bw = (lw + 3) >> 2, bh = (lh + 3) >> 2;
 			write(device, t, level, job.levels[level], bw * job.blockBytes, bw * 4, bh * 4, bh);
 		}
-		old.view.destroy();
-		old.texture.destroy();
 		textures.set(job.key, {texture: t, view: t.createView(new GpuTextureViewDescriptor())});
 		if (job.bitmap.gpuOnly && !running.exists(slot))
 			@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_release(slot);
@@ -186,6 +189,7 @@ class MeshTextures {
 		watchingDisposal = true;
 		Bitmap.disposing.push(b -> for (role in 0...4) {
 			var k = '${b.slot}/$role';
+			pending.remove(k);
 			var t = textures.get(k);
 			if (t != null) {
 				t.view.destroy();

@@ -406,8 +406,11 @@ class ScenePainter {
 		if (known != null)
 			known.group.destroy();
 		var d = ensureDefaults(frame);
-		inline function tex(b:Null<Bitmap>, role:MeshTextures.TextureRole, fallback:Uploaded):GpuTextureView
-			return b != null ? MeshTextures.get(frame.device, b, role).view : fallback.view;
+		// A texture still being compressed is drawn as the default until it is in place.
+		function tex(b:Null<Bitmap>, role:MeshTextures.TextureRole, fallback:Uploaded):GpuTextureView {
+			var t = b != null ? MeshTextures.get(frame.device, b, role) : null;
+			return t != null ? t.view : fallback.view;
+		}
 		var bindings = new GpuBindings();
 		for (view in [
 			tex(material.baseColorTexture, Color, d.white),

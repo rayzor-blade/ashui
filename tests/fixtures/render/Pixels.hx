@@ -584,7 +584,7 @@ class Pixels {
 		probe("a polished sphere reflects the sky near its top", 32, 26, (r, g, b) -> b > g && b > 100);
 		probe("and the ground near its bottom", 32, 38, (r, g, b) -> g > b && g > 80);
 
-		// A mesh's texture, compressed on a thread of its own, takes the uncompressed one's place and draws the same.
+		// A mesh's texture is compressed on the worker; the mesh draws with the default until it is in place.
 		var halves = haxe.io.Bytes.alloc(8 * 8 * 4);
 		for (i in 0...64) {
 			var right = i % 8 >= 4;
@@ -610,7 +610,7 @@ class Pixels {
 		var before = ashui.core.render.MeshTextures.revision;
 		pixels = offscreen.renderToRgba8(bcRoot, SIZE, SIZE);
 		label = "compressed texture: ";
-		probe("drawn at once, uncompressed: red on its left", 22, 32, (r, g, b) -> r > 200 && b < 60);
+		probe("drawn at once with the default, white, while it is compressed", 22, 32, (r, g, b) -> r > 200 && g > 200 && b > 200);
 		// The compression finishes on its thread, then the scheduler puts it in place.
 		var waited = 0;
 		while (ashui.core.render.MeshTextures.revision == before && waited < 200) {
