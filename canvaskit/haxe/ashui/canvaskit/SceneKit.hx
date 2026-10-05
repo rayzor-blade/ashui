@@ -38,6 +38,9 @@ typedef SceneKitProps = {
 	/** What is drawn behind the scene: an environment, blurred or not, or colours (see `Skybox`). **/
 	?skybox:IntoReactive<Null<Skybox>>,
 
+	/** Whether the first light, if directional, casts shadows; or their size, strength and bias (see `LightRig`). **/
+	?shadows:IntoReactive<Bool>,
+
 	/** A ground grid under the scene, `GroundGrid.studio()` or one's own (see `GroundGrid`). **/
 	?grid:IntoReactive<Null<GroundGrid>>,
 
@@ -95,7 +98,7 @@ class SceneKit extends Component<SceneKitProps> {
 			onLoading: loading != null ? v -> loading.set(v) : null,
 			draw: ctx -> {
 				var rig = new LightRig(read(props.lights, defaultLights), read(props.ambient, 0xffffff), read(props.ambientStrength, 0.25),
-					read(props.environment, null), read(props.environmentIntensity, 1.0));
+					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {} : null);
 				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0)));
 				sky.skybox = read(props.skybox, null);
 				if (sky.skybox != null)

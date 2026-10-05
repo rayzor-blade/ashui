@@ -76,6 +76,7 @@ class GroundGrid implements ScenePass {
 	var settings:Null<gpu.GpuBuffer> = null;
 	var group:Null<gpu.GpuBindGroup> = null;
 	var groupScene = -1;
+	var groupShadow = -1;
 
 	public function prepare(frame:ScenePassFrame):Void {
 		if (pipeline == null) {
@@ -96,16 +97,20 @@ class GroundGrid implements ScenePass {
 		row(2, (major >> 16 & 0xff) / 255, (major >> 8 & 0xff) / 255, (major & 0xff) / 255, majorAlpha);
 		row(3, height, axes ? 1 : 0, 0, 0);
 		frame.device.queue().writeBuffer(settings, 0, b, 64);
-		// The scene's buffer is made again as scenes grow: the group follows it.
-		if (group == null || groupScene != (frame.sceneBuffer : Int)) {
+		// The scene's buffer and shadow map are made again as scenes change: the group follows them.
+		var shadow = (frame.shadowMap : Int);
+		if (group == null || groupScene != (frame.sceneBuffer : Int) || groupShadow != shadow) {
 			if (group != null)
 				group.destroy();
 			var bindings = new gpu.GpuBindings();
+			bindings.texture(frame.shadowMap);
+			bindings.sampler(frame.shadowSampler);
 			bindings.buffer(frame.sceneBuffer);
 			bindings.buffer(settings);
 			group = frame.device.bindGroup(pipeline, 0, bindings);
 			bindings.destroy();
 			groupScene = (frame.sceneBuffer : Int);
+			groupShadow = shadow;
 		}
 	}
 

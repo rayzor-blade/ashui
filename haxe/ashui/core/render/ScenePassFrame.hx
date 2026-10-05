@@ -49,9 +49,26 @@ class ScenePassFrame {
 	/** The animation scheduler's clock, in seconds. **/
 	public final time:Float;
 
+	/** The box round the scene's meshes as placed, where a lighting fits its shadows. **/
+	public final bounds:{min:ashui.math.Vec3, max:ashui.math.Vec3};
+
+	/** The scene's shadow map, depth from the light in its red, sampled with `shadowSampler`; one holding "far" where there are no shadows. **/
+	public var shadowMap(default, null):GpuTextureView;
+
+	public var shadowSampler(default, null):GpuSampler;
+
+	/** The shadow map's colour format, and the shadow pass's depth format. **/
+	public static inline var SHADOW_FORMAT = TextureFormat.R16float;
+
+	public static inline var SHADOW_DEPTH_FORMAT = TextureFormat.Depth24plus;
+
 	@:allow(ashui.core.render.ScenePainter)
 	function new(device:GpuDevice, encoder:GpuEncoder, format:TextureFormat, depthFormat:TextureFormat, width:Int, height:Int, scene:Scene3D,
-			view:Mat4, projection:Mat4, sceneBuffer:GpuBuffer, environment:GpuTextureView, environmentSampler:GpuSampler) {
+			view:Mat4, projection:Mat4, sceneBuffer:GpuBuffer, environment:GpuTextureView, environmentSampler:GpuSampler,
+			bounds:{min:ashui.math.Vec3, max:ashui.math.Vec3}, shadowMap:GpuTextureView, shadowSampler:GpuSampler) {
+		this.bounds = bounds;
+		this.shadowMap = shadowMap;
+		this.shadowSampler = shadowSampler;
 		this.device = device;
 		this.encoder = encoder;
 		this.format = format;
@@ -84,6 +101,21 @@ class ScenePassFrame {
 			builder.blend(SrcAlpha, OneMinusSrcAlpha, Add, One, OneMinusSrcAlpha, Add);
 		builder.depth(depthFormat, depthWrite, Less);
 		builder.primitive(TriangleList, Back, Ccw);
+		return builder;
+	}
+
+	/**
+		A pipeline builder for a `ShadowCaster`'s shader: into the shadow map,
+		depth tested and written, unblended, triangles unculled. Its fragment
+		writes its light-space depth as `ashui.shaders.Shadows.shadowDepth`
+		gives it; add vertex buffers and attributes, then `build`.
+	**/
+	public function shadowPipelineBuilder(wgsl:String):GpuPipelineBuilder {
+		var builder = device.pipeline();
+		builder.shader(device.createShader(wgsl), "vertex", "fragment");
+		builder.target(SHADOW_FORMAT, GpuFlags.COLOR_WRITE_ALL);
+		builder.depth(SHADOW_DEPTH_FORMAT, true, Less);
+		builder.primitive(TriangleList, None, Ccw);
 		return builder;
 	}
 }

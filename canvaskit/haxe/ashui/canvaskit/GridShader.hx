@@ -6,7 +6,8 @@ package ashui.canvaskit;
 	depth meshes hide it by. Each pixel works out its lines from where it
 	is on the plane, a pixel wide at any distance (by the coordinates'
 	screen derivatives), minor and major, the X axis red and the Z axis
-	blue, faded by distance from the eye. It sees the scene through
+	blue, faded by distance from the eye, with the scene's shadows falling
+	on it as darkness under the lines. It sees the scene through
 	ashui's `Scene` module, and reads its own settings from `grid`: size,
 	subdivisions, fade start and end; minor and major colours (sRGB, with
 	alpha); height and whether it draws axes. Ported from Blinc's canvas
@@ -15,9 +16,11 @@ package ashui.canvaskit;
 class GridShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
+		@:import ashui.shaders.Shadows;
 
 		var output : { position : Vec4, color : Vec4 };
 
+		@param var shadowMap : Sampler2D;
 		@param var scene : StorageBuffer<Vec4>;
 		@param var grid : StorageBuffer<Vec4>;
 
@@ -62,10 +65,13 @@ class GridShader implements hlwgpu.hxsl.Shader {
 				color = mix(color, vec3(0.25, 0.4, 0.9), zAxis);
 				alpha = max(alpha, max(xAxis, zAxis) * 0.85);
 			}
-			alpha *= 1. - smoothstep(spacing.z, spacing.w, length(hit - cameraEye().xz));
-			if (alpha < 0.01)
+			// Shadows fall on the ground as darkness, the lines over it.
+			var shade = 1. - shadowLight(world);
+			var cover = max(alpha, shade);
+			var fade = 1. - smoothstep(spacing.z, spacing.w, length(hit - cameraEye().xz));
+			if (cover * fade < 0.01)
 				discard;
-			output.color = vec4(color, alpha);
+			output.color = vec4(color * (alpha / max(cover, 0.0001)), cover * fade);
 		}
 	};
 }

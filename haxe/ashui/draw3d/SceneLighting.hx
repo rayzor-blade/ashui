@@ -8,6 +8,15 @@ typedef EnvironmentMap = Dynamic;
 #end
 
 /**
+	Shadows a lighting asks for: drawn from its first light, through
+	`viewProjection` (from the scene to the light's clip space, depth 0 to
+	1), into a map `size` pixels square. `bias` keeps a surface from
+	shadowing itself; `strength` is how dark a shadow is, 0 to 1. ashui
+	draws every opaque mesh, and passes that cast shadows, into the map.
+**/
+typedef ShadowSettings = {viewProjection:ashui.math.Mat4, size:Int, bias:Float, strength:Float};
+
+/**
 	What lights a 3D scene's meshes: its lights, the light that reaches
 	everywhere, and optionally an environment, a cubemap that lights them
 	from all round and that they reflect. ashui's mesh shader reads them
@@ -17,7 +26,8 @@ typedef EnvironmentMap = Dynamic;
 	HDR sky.
 
 	`prepare` runs before each render of the scene, the encoder free, to
-	put on the GPU what `environment` then gives.
+	put on the GPU what `environment` then gives, and to settle the
+	`shadows` (the frame's `bounds` say where the scene's meshes are).
 **/
 interface SceneLighting {
 	/** The lights; ashui's shader takes the first eight. **/
@@ -34,6 +44,9 @@ interface SceneLighting {
 
 	/** The environment `prepare` made, or null: then ambient light stands in for it. **/
 	function environment():Null<EnvironmentMap>;
+
+	/** The shadows `prepare` settled on, or null for none. **/
+	function shadows():Null<ShadowSettings>;
 }
 
 /** Lights and ambient light, nothing else: what a scene has with no lighting of its own. **/
@@ -60,5 +73,8 @@ class BasicLighting implements SceneLighting {
 	public function prepare(frame:ScenePass.ScenePassFrame):Void {}
 
 	public function environment():Null<EnvironmentMap>
+		return null;
+
+	public function shadows():Null<ShadowSettings>
 		return null;
 }

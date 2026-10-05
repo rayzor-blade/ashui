@@ -92,7 +92,7 @@ class ScenePainter {
 
 	final layers:Array<SceneLayer> = [];
 	final meshes = new haxe.ds.ObjectMap<MeshData, {vertices:GpuBuffer, indices:GpuBuffer, used:Int}>();
-	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, environment:Int, textures:Int}>();
+	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, environment:Int, shadow:Int, textures:Int}>();
 	/** A black cube, bound where a scene has no environment. **/
 	static var noEnvironment:Null<Uploaded> = null;
 
@@ -279,6 +279,12 @@ class ScenePainter {
 	public function dispose():Void {
 		MeshTextures.repaints.remove(repaint);
 		live.remove(this);
+		for (t in [shadowColor, shadowDepth])
+			if (t != null) {
+				t.view.destroy();
+				t.texture.destroy();
+			}
+		shadowColor = shadowDepth = null;
 		for (l in layers)
 			l.destroy();
 		layers.resize(0);
@@ -358,23 +364,30 @@ class ScenePainter {
 			}
 		var bg = scene.background, ba = scene.backgroundAlpha;
 		var black = blackCube(frame);
+		var far = noShadow(frame);
+		var bounds = sceneBounds(draws);
 		frame.suspend(encoder -> {
 			var passFrame = new ScenePassFrame(device, encoder, frame.format, DEPTH_FORMAT, layer.width, layer.height, scene, view, projection, sceneBuffer,
-				black.view, environmentSampler);
-			// The lighting first: what it puts on the GPU, its environment, is what the scene and the meshes bind.
+				black.view, environmentSampler, bounds, far.view, shadowSampler);
+			// The lighting first: what it puts on the GPU, its environment and its shadows, is what the scene and the meshes bind.
 			var lighting = scene.lighting;
 			lighting.prepare(passFrame);
 			var environment = lighting.environment();
 			if (environment != null)
 				passFrame.environment = environment.view;
-			device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection, environment), ashui.shaders.Scene.ROWS * 16);
-			var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material, passFrame.environment)];
+			var shadows = lighting.shadows();
+			if (shadows != null)
+				passFrame.shadowMap = shadowTarget(frame, shadows.size).view;
+			device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection, environment, shadows), ashui.shaders.Scene.ROWS * 16);
 			inline function stage(at:ashui.draw3d.ScenePass.SceneStage)
 				for (p in passes)
 					if (p.stage() == at)
 						p.draw(passFrame);
 			for (p in passes)
 				p.prepare(passFrame);
+			if (shadows != null)
+				drawShadows(frame, encoder, passFrame, draws, order, passes);
+			var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material, passFrame.environment, passFrame.shadowMap)];
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
 			color.viewTextureView(layer.colorView);
 			// Premultiplied, as the layer is composited.
@@ -485,6 +498,7 @@ class ScenePainter {
 			])
 				texture(binding, D2d);
 			texture(MeshShader.TEXTURE_environmentMap, Cube);
+			texture(MeshShader.TEXTURE_shadowMap, D2d);
 			buffer(MeshShader.BUFFER_scene);
 			buffer(MeshShader.BUFFER_draws);
 			var descriptor = new gpu.GpuPipelineLayoutDescriptor();
@@ -515,9 +529,10 @@ class ScenePainter {
 
 
 	/** Its textures, the environment, the scene and the draws: a material's bind group, made for its pipeline. **/
-	function materialGroup(frame:CanvasFrame, material:Material, environment:GpuTextureView):GpuBindGroup {
+	function materialGroup(frame:CanvasFrame, material:Material, environment:GpuTextureView, shadow:GpuTextureView):GpuBindGroup {
 		var known = materials.get(material);
-		if (known != null && known.buffers == buffers && known.environment == (environment : Int) && known.textures == MeshTextures.revision) {
+		if (known != null && known.buffers == buffers && known.environment == (environment : Int) && known.shadow == (shadow : Int)
+			&& known.textures == MeshTextures.revision) {
 			known.used = frameCount;
 			return known.group;
 		}
@@ -542,13 +557,134 @@ class ScenePainter {
 		}
 		bindings.texture(environment);
 		bindings.sampler(environmentSampler);
+		bindings.texture(shadow);
+		bindings.sampler(shadowSampler);
 		bindings.buffer(sceneBuffer);
 		bindings.buffer(drawBuffer);
 		// Under the shared layout: the default pipeline's group binds under an extension's too.
 		var group = frame.device.bindGroup(pipeline(frame, Material.DEFAULT, 1), 0, bindings);
 		bindings.destroy();
-		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: (environment : Int), textures: MeshTextures.revision});
+		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: (environment : Int), shadow: (shadow : Int), textures: MeshTextures.revision});
 		return group;
+	}
+
+	/** The box round every draw's mesh as placed. **/
+	static function sceneBounds(draws:Array<SceneDraw>):{min:Vec3, max:Vec3} {
+		if (draws.length == 0)
+			return {min: Vec3.ZERO, max: Vec3.ZERO};
+		var lo = new Vec3(Math.POSITIVE_INFINITY, Math.POSITIVE_INFINITY, Math.POSITIVE_INFINITY);
+		var hi = new Vec3(Math.NEGATIVE_INFINITY, Math.NEGATIVE_INFINITY, Math.NEGATIVE_INFINITY);
+		for (d in draws)
+			for (x in [d.mesh.min.x, d.mesh.max.x])
+				for (y in [d.mesh.min.y, d.mesh.max.y])
+					for (z in [d.mesh.min.z, d.mesh.max.z]) {
+						var p = d.transform.transformPoint(new Vec3(x, y, z));
+						lo = new Vec3(Math.min(lo.x, p.x), Math.min(lo.y, p.y), Math.min(lo.z, p.z));
+						hi = new Vec3(Math.max(hi.x, p.x), Math.max(hi.y, p.y), Math.max(hi.z, p.z));
+					}
+		return {min: lo, max: hi};
+	}
+
+	var shadowColor:Null<Uploaded> = null;
+	var shadowDepth:Null<Uploaded> = null;
+	var shadowSize = 0;
+	var shadowPipeline:Null<GpuPipeline> = null;
+	var shadowGroup:Null<GpuBindGroup> = null;
+	var shadowGroupBuffers = -1;
+
+	/** A 1×1 map holding "far", bound where a scene has no shadows: nothing is in shadow. **/
+	static var noShadowMap:Null<Uploaded> = null;
+
+	static var shadowSampler:Null<GpuSampler> = null;
+
+	function noShadow(frame:CanvasFrame):Uploaded {
+		if (shadowSampler == null) {
+			var s = new GpuSamplerDescriptor();
+			s.magFilter(Linear);
+			s.minFilter(Linear);
+			shadowSampler = frame.device.sampler(s);
+		}
+		if (noShadowMap == null) {
+			var size = new GpuExtent3D(1);
+			size.height(1);
+			var t = frame.device.texture(new GpuTextureDescriptor(size, ScenePassFrame.SHADOW_FORMAT, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
+			// 1.0 as a 16-bit float.
+			var one = haxe.io.Bytes.alloc(2);
+			one.setUInt16(0, 0x3C00);
+			frame.device.queue().writeTexture(t, one, 1, 1, 2);
+			noShadowMap = {texture: t, view: t.createView(new GpuTextureViewDescriptor())};
+		}
+		return noShadowMap;
+	}
+
+	/** The shadow map, `size` square, made or remade to fit, with the depth the shadow pass tests against. **/
+	function shadowTarget(frame:CanvasFrame, size:Int):Uploaded {
+		size = Std.int(Math.max(16, Math.min(8192, size)));
+		if (shadowColor == null || shadowSize != size) {
+			for (t in [shadowColor, shadowDepth])
+				if (t != null) {
+					t.view.destroy();
+					t.texture.destroy();
+				}
+			var extent = new GpuExtent3D(size);
+			extent.height(size);
+			var c = frame.device.texture(new GpuTextureDescriptor(extent, ScenePassFrame.SHADOW_FORMAT, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
+			var d = frame.device.texture(new GpuTextureDescriptor(extent, ScenePassFrame.SHADOW_DEPTH_FORMAT, GpuFlags.TEXTURE_RENDER_ATTACHMENT));
+			shadowColor = {texture: c, view: c.createView(new GpuTextureViewDescriptor())};
+			shadowDepth = {texture: d, view: d.createView(new GpuTextureViewDescriptor())};
+			shadowSize = size;
+		}
+		return shadowColor;
+	}
+
+	/** The shadow pass: every opaque mesh, then each pass that casts shadows, into the shadow map from the light. **/
+	function drawShadows(frame:CanvasFrame, encoder:gpu.GpuEncoder, passFrame:ScenePassFrame, draws:Array<SceneDraw>, order:Array<Int>,
+			passes:Array<ashui.draw3d.ScenePass>):Void {
+		var device = frame.device;
+		if (shadowPipeline == null) {
+			var builder = passFrame.shadowPipelineBuilder(MeshShadowShader.WGSL);
+			builder.vertexBuffer(MeshData.STRIDE, Vertex);
+			builder.attribute(Float32x3, MeshData.POSITION_OFFSET, MeshShadowShader.INPUT_position);
+			shadowPipeline = builder.build();
+		}
+		if (shadowGroup == null || shadowGroupBuffers != buffers) {
+			if (shadowGroup != null)
+				shadowGroup.destroy();
+			var bindings = new GpuBindings();
+			bindings.buffer(sceneBuffer);
+			bindings.buffer(drawBuffer);
+			shadowGroup = device.bindGroup(shadowPipeline, 0, bindings);
+			bindings.destroy();
+			shadowGroupBuffers = buffers;
+		}
+		var color = new GpuRenderPassColorAttachment(Clear, Store);
+		color.viewTextureView(shadowColor.view);
+		color.clearValue(new GpuColor(1, 1, 1, 1));
+		var depth = new GpuRenderPassDepthStencilAttachment();
+		depth.viewTextureView(shadowDepth.view);
+		depth.depthClearValue(1);
+		depth.depthLoadOp(Clear);
+		depth.depthStoreOp(Discard);
+		var pass = new GpuRenderPassDescriptor();
+		pass.addColorAttachments(color);
+		pass.depthStencilAttachment(depth);
+		encoder.beginRenderPass(pass);
+		encoder.renderSetPipeline(shadowPipeline);
+		encoder.renderSetBindGroup(0, shadowGroup);
+		for (slot in 0...order.length) {
+			var d = draws[order[slot]];
+			// Blended meshes let light through: they cast none.
+			if (d.mesh.material.alphaMode == Blend || d.opacity < 1)
+				continue;
+			var gpu = meshes.get(d.mesh);
+			encoder.renderSetVertexBuffer(0, gpu.vertices);
+			encoder.renderSetIndexBufferRange(gpu.indices, Uint32, 0, d.mesh.indexCount * 4);
+			encoder.renderDrawIndexedRange(d.mesh.indexCount, 1, 0, 0, slot);
+		}
+		for (p in passes)
+			if (Std.isOfType(p, ashui.draw3d.ScenePass.ShadowCaster))
+				(cast p : ashui.draw3d.ScenePass.ShadowCaster).drawShadow(passFrame);
+		encoder.renderEnd();
 	}
 
 	/** A black cube with its sampler, bound where a scene's lighting has no environment. **/
@@ -639,7 +775,8 @@ class ScenePainter {
 		return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 	}
 
-	static function sceneBytes(scene:Scene3D, viewProjection:Mat4, environment:Null<ashui.draw3d.SceneLighting.EnvironmentMap>):haxe.io.Bytes {
+	static function sceneBytes(scene:Scene3D, viewProjection:Mat4, environment:Null<ashui.draw3d.SceneLighting.EnvironmentMap>,
+			shadows:Null<ashui.draw3d.SceneLighting.ShadowSettings>):haxe.io.Bytes {
 		var out = haxe.io.Bytes.alloc(ashui.shaders.Scene.ROWS * 16);
 		viewProjection.write(out, 0);
 		var lighting = scene.lighting;
@@ -650,6 +787,10 @@ class ScenePainter {
 		row(out, 5, linear(a >> 16 & 0xff) * s, linear(a >> 8 & 0xff) * s, linear(a & 0xff) * s, scene.exposure);
 		if (environment != null)
 			row(out, 6, environment.intensity, environment.levels - 1, 1, 0);
+		if (shadows != null) {
+			shadows.viewProjection.write(out, 7 * 16);
+			row(out, 11, 1, shadows.bias, shadows.strength, Std.int(Math.max(16, Math.min(8192, shadows.size))));
+		}
 		for (i in 0...lights.length) {
 			var at = ashui.shaders.Scene.FIRST_LIGHT + i * ashui.shaders.Scene.LIGHT_ROWS;
 			inline function rgb(c:Int, k:Float)

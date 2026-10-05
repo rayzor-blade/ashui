@@ -3,8 +3,9 @@ package ashui.core.render;
 /**
 	Meshes in 3D, shaded as glTF's metallic-roughness materials are: a
 	base colour, metallic and roughness, normal, emissive and occlusion
-	textures, lit by the scene's lights and by ambient light from a sky
-	above and ground below, then exposed, tone-mapped and written as sRGB.
+	textures, lit by the scene's lights, the first casting shadows from
+	the scene's shadow map, and by the environment or ambient light, then
+	exposed, tone-mapped and written as sRGB.
 	Built from `ashui.shaders`: `Scene` for the camera and lights,
 	`MeshDraw` for each draw's transform and material, `Pbr` and
 	`ColorSpace`.
@@ -38,6 +39,7 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 		@:import ashui.shaders.MeshDraw;
 		@:import ashui.shaders.Pbr;
 		@:import ashui.shaders.ColorSpace;
+		@:import ashui.shaders.Shadows;
 
 		@input var input : { position : Vec3, normal : Vec3, uv : Vec2, tangent : Vec4 };
 		var output : { position : Vec4, color : Vec4 };
@@ -48,6 +50,7 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 		@param var emissiveMap : Sampler2D;
 		@param var occlusionMap : Sampler2D;
 		@param var environmentMap : SamplerCube;
+		@param var shadowMap : Sampler2D;
 		@param var scene : StorageBuffer<Vec4>;
 		@param var draws : StorageBuffer<Vec4>;
 
@@ -111,9 +114,12 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			var lit = vec3(0., 0., 0.);
 			var count = lightCount();
 			var i = 0;
+			// The first light casts the shadows.
+			var shadowed = shadowLight(worldPos);
 			while (i < 8) {
 				if (i < count)
-					lit += directLight(n, v, lightDirection(i, worldPos), lightRadiance(i, worldPos), albedo, surfaceMetallic, surfaceRoughness);
+					lit += directLight(n, v, lightDirection(i, worldPos), lightRadiance(i, worldPos) * (i == 0 ? shadowed : 1.), albedo, surfaceMetallic,
+						surfaceRoughness);
 				i++;
 			}
 			var r = reflect(-v, n);
@@ -149,7 +155,7 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 		**/
 		function everyBinding() : Vec4 {
 			return texture(baseColorMap, texcoord) + texture(normalMap, texcoord) + texture(metalRoughMap, texcoord) + texture(emissiveMap, texcoord)
-				+ texture(occlusionMap, texcoord) + textureLod(environmentMap, vec3(0., 1., 0.), 0.) + scene[0] + draws[0];
+				+ texture(occlusionMap, texcoord) + textureLod(environmentMap, vec3(0., 1., 0.), 0.) + textureLod(shadowMap, texcoord, 0.) + scene[0] + draws[0];
 		}
 
 		function fragment() {

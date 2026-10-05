@@ -14,7 +14,7 @@ import ashui.types.Style;
 /**
 	ashui-canvaskit's shapes in a `<scene-kit>` viewport: a box, a sphere,
 	a cylinder and a torus on a floor, seen through an orbit camera, with
-	a key light and a cool fill. Writes `.ashui/snapshots/scene-kit.png`
+	a key light casting shadows and a cool fill. Writes `.ashui/snapshots/scene-kit.png`
 	(`scene-kit-light` with `SCHEME=light`).
 **/
 class SceneKitScene {
@@ -39,7 +39,7 @@ class SceneKitScene {
 			ctx.drawMesh(can, Mat4.translation(new Vec3(1.5, 0.6, -0.2)));
 			ctx.drawMesh(ring, Mat4.compose(new Vec3(0.2, 0.7, 1.4), Quat.euler(1.1, 0, 0.2), Vec3.ONE));
 		}
-		var build = () -> <div padding={20}><scene-kit camera={camera} lights={rig} draw={draw} width={720} height={440} /></div>;
+		var build = () -> <div padding={20}><scene-kit camera={camera} lights={rig} shadows={true} draw={draw} width={720} height={440} /></div>;
 		Snapshot.scene(light ? "scene-kit-light" : "scene-kit", 760, 480, build, page.rgb(), page.a, 2.0, 1.0);
 	}
 }

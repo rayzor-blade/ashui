@@ -697,6 +697,37 @@ class Pixels {
 		probe("nothing between the lines", lineX - 6, 14, (r, g, b) -> r < 60 && g < 60 && b < 60);
 		probe("hidden by the mesh in front of it, at the origin", 32, 32, (r, g, b) -> b > 200 && r < 60);
 
+		// Shadows: a quad held over a lit floor, the light slanting along +x, darkens the floor beside it and leaves the rest lit.
+		var floor = ashui.draw3d.MeshData.build([-2, 0, -2, 2, 0, -2, 2, 0, 2, -2, 0, 2], [0, 2, 1, 0, 3, 2], null, null, null,
+			new ashui.draw3d.Material({baseColor: 0xffffff, roughness: 1}));
+		var blocker = ashui.draw3d.MeshData.build([-1, 0.6, -0.3, -0.6, 0.6, -0.3, -0.6, 0.6, 0.3, -1, 0.6, 0.3], [0, 2, 1, 0, 3, 2], null, null, null,
+			new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true}));
+		var shadowRig = new ashui.canvaskit.LightRig([Directional(new ashui.math.Vec3(1, -1, 0), 0xffffff, 3)], 0xffffff, 0.05, null, 1, {strength: 1});
+		var shadowTree = new LayoutTree();
+		var shadowRoot:Div = ashui.reactive.Owner.root(shadowTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2),
+						shadowRig, null, 0x000000, 1));
+					ctx.drawMesh(floor);
+					ctx.drawMesh(blocker);
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(shadowRoot, SIZE, SIZE);
+		label = "shadows: ";
+		// The canvas spans about ±2 units: the shadow falls from x = -0.4 to 0, the floor at x = 0.8 is open to the light.
+		var unit = 24 / (3 * Math.tan(0.6));
+		function brightness(x:Int, y:Int)
+			return pixels.get(y * ROW + x * 4) + pixels.get(y * ROW + x * 4 + 1) + pixels.get(y * ROW + x * 4 + 2);
+		var dark = brightness(32 - Std.int(0.2 * unit), 32), lit = brightness(32 + Std.int(0.8 * unit), 32);
+		Sys.println('${dark * 2 < lit ? "ok  " : "FAIL"} shadows: the floor in the shadow of the quad is darker than in the open: $dark against $lit');
+		if (!(dark * 2 < lit))
+			failures++;
+
 		// One's own GPU drawing in a scene: a pass's quad and a mesh share depth, each hiding the other where it is in front.
 		var front = new TestQuadPass(0.5), back = new TestQuadPass(-0.5);
 		var passMesh = ashui.draw3d.MeshData.build([-0.4, -0.4, 0, 0.4, -0.4, 0, 0.4, 0.4, 0, -0.4, 0.4, 0], [0, 1, 2, 0, 2, 3], null, null, null,

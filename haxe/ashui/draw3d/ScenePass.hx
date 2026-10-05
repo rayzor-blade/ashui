@@ -7,6 +7,16 @@ typedef ScenePassFrame = ashui.core.render.ScenePassFrame;
 typedef ScenePassFrame = Dynamic;
 #end
 
+/**
+	A pass that casts shadows: `drawShadow` draws its geometry's depth into
+	the scene's shadow map, `frame.encoder` in the shadow pass, through
+	`frame.shadowPipelineBuilder`, a shader that writes its light-space
+	depth as `ashui.shaders.Shadows.shadowDepth` does.
+**/
+interface ShadowCaster {
+	function drawShadow(frame:ScenePassFrame):Void;
+}
+
 /** When in a 3D scene a pass draws. **/
 enum abstract SceneStage(Int) to Int {
 	/** After the layer is cleared and the skybox drawn, before any mesh: backdrops. **/
