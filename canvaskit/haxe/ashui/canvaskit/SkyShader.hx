@@ -6,8 +6,12 @@ package ashui.canvaskit;
 	mip level or a gradient by height, exposed and tone-mapped as the
 	meshes are. Its own settings are in `sky`: the inverse view-projection's
 	columns, the eye, the kind (1 a sky, 2 a gradient), mip level,
-	intensity and whether it is grounded, the gradient's zenith, horizon
-	and ground (linear), then a grounded sky's floor, height and radius; a
+	intensity and whether it is grounded (the kind 3 a panorama), the gradient's zenith, horizon
+	and ground (linear), then a grounded sky's floor, height and radius,
+	or a panorama's spread, whether it is upside down, its texels a radian
+	and its turn as a share of the way round, then its sphere's centre and
+	radius (0 for infinitely far), and whether it is drawing for bloom's
+	glow pass; a
 	grounded sky's floor darkens under the scene's shadows.
 **/
 class SkyShader implements hlwgpu.hxsl.Shader {
@@ -20,6 +24,7 @@ class SkyShader implements hlwgpu.hxsl.Shader {
 
 		@param var environmentMap : SamplerCube;
 		@param var shadowMap : Sampler2D;
+		@param var panorama : Sampler2D;
 		@param var scene : StorageBuffer<Vec4>;
 		@param var sky : StorageBuffer<Vec4>;
 
@@ -37,7 +42,9 @@ class SkyShader implements hlwgpu.hxsl.Shader {
 		}
 
 		function fragment() {
-			var p = sky[0] * ndc.x + sky[1] * ndc.y + sky[2] + sky[3];
+			// A panorama's spread takes in more of the sky through each pixel, as a wider lens would.
+			var spread = sky[5].x > 2.5 ? sky[9].x : 1.;
+			var p = sky[0] * (ndc.x * spread) + sky[1] * (ndc.y * spread) + sky[2] + sky[3];
 			var eye = sky[4].xyz;
 			var d = normalize(p.xyz / p.w - eye);
 			var shade = 0.;
@@ -62,11 +69,40 @@ class SkyShader implements hlwgpu.hxsl.Shader {
 				c = mix(sky[7].rgb, sky[8].rgb, clamp(-d.y * 4., 0., 1.));
 			if (sky[5].x < 1.5)
 				c = textureLod(environmentMap, d, sky[5].y).rgb;
+			// A panorama: its texel the way `d` looks, round by the way round (turned) and down from overhead, at full detail.
+			var panoramic = sky[5].x > 2.5;
+			if (panoramic) {
+				// On a sphere of a radius round a centre, the eye within: the way to where the ray meets its far wall.
+				var look = d;
+				var dome = sky[10];
+				if (dome.w > 0.) {
+					var o = eye - dome.xyz;
+					var b = dot(o, d);
+					var disc = b * b - dot(o, o) + dome.w * dome.w;
+					if (disc > 0.)
+						look = normalize(o + d * (-b + sqrt(disc)));
+				}
+				// The mip level by how much sky the pixel covers: one texel a pixel at level 0, smaller levels as it takes in more.
+				var lod = log2(max(1., length(fwidth(look)) * sky[9].z));
+				var u = 0.5 + atan(look.x, -look.z) / 6.2831853 + sky[9].w;
+				var v = acos(clamp(look.y, -1., 1.)) / 3.1415927;
+				if (sky[9].y > 0.5)
+					v = 1. - v;
+				c = textureLod(panorama, vec2(fract(u), v), lod).rgb;
+			}
 			c *= sky[5].z * (1. - shade);
-			// With fog, the sky at the horizon fades into it, so the ground's far edge meets the sky in the fog.
+			// With fog, the sky at the horizon fades into it, so the ground's far edge meets the sky in the fog;
+			// over a panorama the haze thins away up the sky, as air seen edge-on does, whole below the level.
 			if (scene[6].w > 0.)
-				c = mix(c, fogColor(), 1. - smoothstep(0., 0.3, d.y));
-			output.color = vec4(linearToSrgb(toneMapAces(c * sceneExposure())), 1.);
+				c = mix(c, fogColor(), (panoramic ? exp(-max(d.y, 0.) * 9.) : 1. - smoothstep(0., 0.3, d.y)) * fogOpacity());
+			// A panorama is shown as its picture is, its colours as they are; a sky or gradient is light, exposed and tone-mapped.
+			var shown = linearToSrgb(toneMapAces(c * sceneExposure()));
+			if (panoramic)
+				shown = linearToSrgb(c);
+			// In bloom's glow pass: the sky's light, linear and untone-mapped (a panorama's as it is shown).
+			if (sky[11].x > 0.5)
+				shown = panoramic ? c : c * sceneExposure();
+			output.color = vec4(shown, 1.);
 		}
 	};
 }

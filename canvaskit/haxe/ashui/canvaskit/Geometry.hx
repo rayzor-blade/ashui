@@ -89,11 +89,12 @@ class Geometry {
 	}
 
 	/**
-		Ground `width` by `depth`, centred on the origin, raised by
-		`heightMap`: its brightness 0 at the plane, `height` at white, in
-		`divisions` each way, each vertex the map's pixel there. Its texture
-		coordinates run 0 to 1 across, so a material's `textureTransform`
-		repeats a texture over it. For a terrain's map of heights, or a
+		Ground `width` by `depth`, centred on the origin and raised by
+		`heightMap`. Black in the map stays on the plane and white rises to
+		`height`. The ground is split into `divisions` squares each way, and
+		each vertex takes the map's pixel at its position. Texture coordinates
+		run from 0 to 1 across the ground, so a material's `textureTransform`
+		can repeat a texture over it. Use it with a terrain height map or a
 		material's displacement map.
 	**/
 	public static function terrain(heightMap:ashui.types.Bitmap, width = 10.0, depth = 10.0, height = 1.0, divisions = 256,
@@ -112,13 +113,14 @@ class Geometry {
 	}
 
 	/**
-		Ground `width` by `depth`, centred on the origin, in `divisions` each
-		way, each vertex `heightAt(i, j)` above the plane, `i` across and `j`
-		into the scene, both 0 to `divisions`; normals from the heights'
-		slopes, texture coordinates 0 to 1 across. `heightAt` is asked one
-		step past each edge too, for the slopes there: ground made in pieces
-		side by side, each asked the heights of one surface, meets without a
-		seam in its shading.
+		Ground `width` by `depth`, centred on the origin and split into
+		`divisions` squares each way. Each vertex sits `heightAt(i, j)` above
+		the plane, where `i` counts across and `j` counts into the scene, both
+		from 0 to `divisions`. Normals come from the slopes between heights,
+		and texture coordinates run from 0 to 1 across. `heightAt` is also
+		asked for one step past each edge, to get the slopes there right, so
+		pieces of ground built side by side from the same height function
+		meet without a visible seam in their shading.
 	**/
 	public static function heightField(width:Float, depth:Float, divisions:Int, heightAt:(i:Int, j:Int) -> Float, ?material:Material):MeshData {
 		var d = Std.int(Math.max(1, divisions)), w = d + 1, ring = d + 3;

@@ -17,11 +17,14 @@ import ashui.draw3d.SceneLighting;
 	`bias` keeping surfaces from shadowing themselves.
 **/
 /**
-	How the first light's shadows are made: the map `size` pixels square
-	(2048), how much light they keep off (`strength`, 0.7), the `bias` that
-	keeps surfaces from shadowing themselves (0.004), and, for a scene too
-	wide for one map to cover sharply, only the part within `reach` of
-	`focus` casting and catching them.
+	Options for the first light's shadows.
+
+	- `size` is the shadow map's width and height in pixels (default 2048).
+	- `strength` is how much light a shadow blocks (default 0.7).
+	- `bias` keeps surfaces from shadowing themselves (default 0.004).
+	- `reach` and `focus`: for a scene too wide for one map to cover
+	  sharply, only the part within `reach` of `focus` casts and receives
+	  shadows.
 **/
 typedef ShadowOptions = {?size:Int, ?strength:Float, ?bias:Float, ?reach:Float, ?focus:ashui.math.Vec3};
 
