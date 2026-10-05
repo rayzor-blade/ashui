@@ -1,4 +1,5 @@
 import ashui.canvaskit.SceneKit;
+import ashui.canvaskit.CanvasKit;
 import ashui.components.Accordion;
 import ashui.components.Slider;
 import ashui.components.Alert;
@@ -155,6 +156,74 @@ class Components {
 		ashui.input.Pointer.move(kitTree, 240, 150);
 		ashui.input.Pointer.release(kitTree);
 		check("a shift-drag moves the target, not the turn", orbit.target.get().distance(before) > 0, orbit.target.get());
+	}
+
+	/** ashui-canvaskit's 2D kit: the viewport's maths, the spatial index, and <canvas-kit>'s selection, dragging, panning and zoom. **/
+	static function canvasKit2D() {
+		var view = new ashui.canvaskit.Viewport2D();
+		view.panBy(40, 20);
+		var p = view.contentToScreen(0, 0);
+		check("Viewport2D: a pan moves the content by as many screen pixels", p.x == 40 && p.y == 20, p);
+		var under = view.screenToContent(100, 80);
+		view.zoomAt(100, 80, 2);
+		var still = view.screenToContent(100, 80);
+		check("Viewport2D: zooming about a point keeps the content under it", Math.abs(still.x - under.x) < 1e-9 && Math.abs(still.y - under.y) < 1e-9, [under, still]);
+		view.zoomAt(0, 0, 1000);
+		check("and the zoom stays within its limit", view.zoom.get() == view.maxZoom, view.zoom.get());
+		var fit = view.fitting(100, 100, 200, 100, 400, 300, 0);
+		check("Viewport2D: fitting a 200x100 rect into 400x300 zooms 2 and centres it",
+			fit.zoom == 2 && Math.abs(2 * (200 + fit.panX) - 200) < 1e-9 && Math.abs(2 * (150 + fit.panY) - 150) < 1e-9, fit);
+
+		var index = new ashui.canvaskit.SpatialIndex(50);
+		index.set("a", 0, 0, 100, 100);
+		index.set("b", 50, 50, 100, 100);
+		check("SpatialIndex: a point where two overlap hits the later", index.hitTest(75, 75).id == "b");
+		check("and one only the first covers hits it", index.hitTest(10, 10).id == "a");
+		check("an area finds every rectangle it touches, bottom first", index.query(90, 90, 20, 20).join(",") == "a,b", index.query(90, 90, 20, 20));
+		index.remove("b");
+		check("a removed rectangle is gone from every cell", index.hitTest(75, 75).id == "a" && index.hitTest(140, 140) == null && index.length == 1);
+		index.set("a", 500, 500, 10, 10);
+		check("set again, it moves", index.hitTest(10, 10) == null && index.hitTest(505, 505).id == "a");
+
+		// <canvas-kit> with two boxes the app moves as they are dragged.
+		var items = [{id: "a", x: 0.0, y: 0.0}, {id: "b", x: 200.0, y: 100.0}];
+		var viewport = new ashui.canvaskit.Viewport2D();
+		var selection = new ashui.canvaskit.Selection2D();
+		var clicked = [];
+		var tree = new LayoutTree();
+		var root:Div = Owner.root(tree, _ -> <div width={400} height={300}><canvas-kit viewport={viewport} selection={selection} snap={10.0} width={400} height={300}
+			draw={(ctx, kit) -> for (it in items) kit.region(it.id, it.x, it.y, 80, 50)}
+			onDrag={(ids, dx, dy) -> for (it in items) if (ids.indexOf(it.id) >= 0) { it.x += dx; it.y += dy; }}
+			onClick={(id, _) -> clicked.push(id)} /></div>);
+		tree.flush();
+		tree.computeLayout(root.node, 400, 300);
+		tree.flush();
+		function drag(x0:Float, y0:Float, x1:Float, y1:Float, ?shift:Bool) {
+			ashui.input.Pointer.modifiers(tree, State(shift == true, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown));
+			ashui.input.Pointer.move(tree, x0, y0);
+			ashui.input.Pointer.press(tree);
+			ashui.input.Pointer.move(tree, (x0 + x1) / 2, (y0 + y1) / 2);
+			ashui.input.Pointer.move(tree, x1, y1);
+			ashui.input.Pointer.release(tree);
+			tree.flush();
+		}
+		drag(20, 20, 20, 20);
+		check("<canvas-kit>: a click on a box selects it and is reported", selection.ids.get().join(",") == "a" && clicked.join(",") == "a", [selection.ids.get(), clicked]);
+		drag(20, 20, 53, 41);
+		check("dragging it moves it by the drag, snapped to the grid", items[0].x == 30 && items[0].y == 20, items[0]);
+		drag(220, 120, 220, 120, true);
+		check("a shift-click adds the other to the selection", selection.ids.get().join(",") == "a,b", selection.ids.get());
+		drag(380, 280, 380, 280);
+		check("a click on the empty canvas clears it", selection.ids.get().length == 0, selection.ids.get());
+		drag(5, 5, 390, 290, true);
+		check("a shift-drag over the empty canvas selects every box the selection box touches", selection.ids.get().join(",") == "a,b", selection.ids.get());
+		var panBefore = viewport.panX.get();
+		drag(380, 20, 340, 20);
+		check("a drag of the empty canvas pans the view", viewport.panX.get() == panBefore - 40, viewport.panX.get());
+		ashui.input.Pointer.modifiers(tree, State(false, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown));
+		ashui.input.Pointer.move(tree, 100, 100);
+		ashui.input.Pointer.wheel(tree, 0, -200);
+		check("scrolling up zooms in", viewport.zoom.get() > 1, viewport.zoom.get());
 	}
 
 	/** ashui-canvaskit's glTF texture cap: the helmet's 2048-pixel textures read at 512 or under, the same shape. **/
@@ -1384,6 +1453,7 @@ class Components {
 		canvasKit();
 		gltf();
 		gltfTextureCap();
+		canvasKit2D();
 
 		// A labelled slider is 300 wide by default, and no wider than what holds it.
 		var narrowTree = new LayoutTree();
