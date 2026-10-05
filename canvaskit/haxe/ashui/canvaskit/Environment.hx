@@ -1,4 +1,4 @@
-package ashui.draw3d;
+package ashui.canvaskit;
 
 import ashui.math.Vec3;
 import haxe.io.Bytes;
@@ -6,8 +6,8 @@ import haxe.io.Bytes;
 /**
 	Light from all around a 3D scene: a sky, as a cubemap. Surfaces reflect
 	it, sharply where they are polished and blurred where they are rough,
-	and are lit by its average from the way they face; a scene can show it
-	behind its meshes too (`Scene3D.skybox`).
+	and are lit by its average from the way they face, through a `LightRig`;
+	a scene can show it behind its meshes too (`Skybox`).
 
 	Made from a Radiance `.hdr` photo of the whole sky (`fromHdr`), the
 	kind HDRI sites give, or from colours (`gradient`). Its faces are
@@ -31,15 +31,54 @@ class Environment {
 	/** Each level's six faces in WebGPU's order (+X, -X, +Y, -Y, +Z, -Z), row by row, RGBA as 16-bit floats; null once uploaded. **/
 	@:noCompletion public var faces:Null<Array<Bytes>>;
 
-	/** Called with each environment as it is disposed: what holds a copy of it lets it go. **/
-	@:noCompletion public static final disposing:Array<Environment->Void> = [];
-
-	/** Frees it; it must not be drawn with after. **/
+	/** Frees it, and its cubemap on the GPU; it must not be drawn with after. **/
 	public function dispose():Void {
-		for (f in disposing)
-			f(this);
+		#if ashui_gpu
+		var t = uploaded.get(this);
+		if (t != null) {
+			t.view.destroy();
+			t.texture.destroy();
+			uploaded.remove(this);
+		}
+		#end
 		faces = null;
 	}
+
+	#if ashui_gpu
+	/** Environments' cubemaps, shared by every canvas, kept until the environment is disposed. **/
+	static final uploaded = new haxe.ds.ObjectMap<Environment, {texture:gpu.GpuTexture, view:gpu.GpuTextureView}>();
+
+	/** Its cubemap on the GPU, every level, made the first time and its pixels then freed. **/
+	public function upload(device:gpu.GpuDevice):gpu.GpuTextureView {
+		var known = uploaded.get(this);
+		if (known != null)
+			return known.view;
+		var extent = new gpu.GpuExtent3D(size);
+		extent.height(size);
+		extent.depthOrArrayLayers(6);
+		var descriptor = new gpu.GpuTextureDescriptor(extent, Rgba16float, ashui.core.render.GpuFlags.TEXTURE_BINDING | ashui.core.render.GpuFlags.TEXTURE_COPY_DST);
+		descriptor.mipLevelCount(levels);
+		var t = device.texture(descriptor);
+		for (level in 0...levels) {
+			var n = Std.int(Math.max(1, size >> level));
+			var destination = new gpu.GpuTexelCopyTextureInfo(t);
+			destination.mipLevel(level);
+			var layout = new gpu.GpuTexelCopyBufferLayout();
+			layout.bytesPerRow(n * 8);
+			layout.rowsPerImage(n);
+			var copy = new gpu.GpuExtent3D(n);
+			copy.height(n);
+			copy.depthOrArrayLayers(6);
+			device.queue().writeTextureWith(destination, faces != null ? faces[level] : Bytes.alloc(n * n * 8 * 6), layout, copy);
+		}
+		var view = new gpu.GpuTextureViewDescriptor();
+		view.dimension(Cube);
+		var made = {texture: t, view: t.createView(view)};
+		uploaded.set(this, made);
+		faces = null;
+		return made.view;
+	}
+	#end
 
 	function new(size:Int, faces:Array<Bytes>) {
 		this.size = size;

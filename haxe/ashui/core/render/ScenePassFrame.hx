@@ -17,9 +17,10 @@ import gpu.TextureFormat;
 	`encoder` is free in `prepare` and inside the scene's render pass in
 	`draw`. `sceneBuffer` is the scene's storage buffer as
 	`ashui.shaders.Scene` reads it (camera, lights, ambient light,
-	exposure, environment), `environment` its cubemap, a black one when it
-	has none. Each is good only during the call it is handed to.
+	exposure, environment), `environment` the lighting's cubemap, a black
+	one when it has none; the lighting prepares before the passes do. Each is good only during the call it is handed to.
 **/
+@:allow(ashui.core.render.ScenePainter)
 class ScenePassFrame {
 	public final device:GpuDevice;
 	public final encoder:GpuEncoder;
@@ -39,7 +40,10 @@ class ScenePassFrame {
 	public final projection:Mat4;
 	public final viewProjection:Mat4;
 	public final sceneBuffer:GpuBuffer;
-	public final environment:GpuTextureView;
+
+	/** The lighting's environment cubemap once it has prepared, a black one before and where it has none. **/
+	public var environment(default, null):GpuTextureView;
+
 	public final environmentSampler:GpuSampler;
 
 	/** The animation scheduler's clock, in seconds. **/

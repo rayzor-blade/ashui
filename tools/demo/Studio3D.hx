@@ -10,7 +10,8 @@ import ashui.components.Spinner;
 import ashui.components.ToggleSwitch;
 import ashui.draw3d.Light;
 import ashui.canvaskit.GroundGrid;
-import ashui.draw3d.Skybox;
+import ashui.canvaskit.Skybox;
+import ashui.canvaskit.Environment;
 import ashui.layout.Element;
 import ashui.math.Vec3;
 import ashui.reactive.Computed;
@@ -32,10 +33,10 @@ class Studio3D {
 	static function main() {
 		var helmet = Gltf.load("../../snapshot/assets/3d/DamagedHelmet/DamagedHelmet.gltf");
 		// The sky is built on the worker thread; the helmet is lit by ambient light until it comes.
-		var night = Signal.make((null : ashui.draw3d.Environment));
+		var night = Signal.make((null : Environment));
 		var started = haxe.Timer.stamp();
 		var hdr = sys.io.File.getBytes("../../snapshot/assets/3d/rogland_clear_night_2k.hdr");
-		ashui.core.Worker.run(() -> ashui.draw3d.Environment.fromHdr(hdr), sky -> {
+		ashui.core.Worker.run(() -> Environment.fromHdr(hdr), sky -> {
 			trace('sky made in ${Math.round((haxe.Timer.stamp() - started) * 1000)}ms, off the main thread');
 			night.set(sky);
 		});

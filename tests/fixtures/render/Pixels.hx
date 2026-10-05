@@ -86,6 +86,8 @@ import gpu.TextureUsage;
 	as a glyph rasterized at its on-screen size has and a magnified one,
 	about four pixels, does not.
 **/
+import ashui.canvaskit.Skybox;
+
 class Pixels {
 	static inline var SIZE = 64;
 	static inline var ROW = SIZE * 4;
@@ -545,8 +547,9 @@ class Pixels {
 		probe("the further one around it", 18, 32, (r, g, b) -> b > 200 && r < 60);
 		probe("cut by the rounded clip at the corner", 10, 10, near(0xffffff));
 
-		// An environment: drawn behind as a skybox, sky above and ground below, and reflected by a polished sphere.
-		var skyEnv = ashui.draw3d.Environment.gradient(0x2060ff, 0x2060ff, 0x20c040, 1, 16);
+		// An environment from the kit: a LightRig lights with it and a SkyboxPass draws it behind, sky above and ground below; a polished sphere reflects it.
+		var skyEnv = ashui.canvaskit.Environment.gradient(0x2060ff, 0x2060ff, 0x20c040, 1, 16);
+		var skyPass = new ashui.canvaskit.SkyboxPass(Sky(skyEnv));
 		var ballMesh:ashui.draw3d.MeshData = {
 			var p:Array<Float> = [], idx:Array<Int> = [];
 			for (r in 0...17)
@@ -568,8 +571,9 @@ class Pixels {
 		var envRoot:Div = ashui.reactive.Owner.root(envTree, _ -> {
 			var canvas = new ashui.ui.Canvas({
 				draw: ctx -> {
-					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 4), ashui.math.Vec3.ZERO, null, 1.0), [], null,
-						null, null, null, null, skyEnv, 1, ashui.draw3d.Skybox.Sky(skyEnv)));
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 4), ashui.math.Vec3.ZERO, null, 1.0),
+						new ashui.canvaskit.LightRig([], 0xffffff, 0.25, skyEnv, 1)));
+					ctx.drawPass(skyPass);
 					ctx.drawMesh(ballMesh, ashui.math.Mat4.scaling(new ashui.math.Vec3(0.6, 0.6, 0.6)));
 				}
 			});
@@ -675,8 +679,8 @@ class Pixels {
 			var canvas = new ashui.ui.Canvas({
 				draw: ctx -> {
 					// Straight down at the origin, a little off so the view keeps a direction for up.
-					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2), [],
-						null, null, null, 0x000000, 1));
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2),
+						new ashui.draw3d.SceneLighting.BasicLighting([]), null, 0x000000, 1));
 					ctx.drawPass(testGrid);
 					ctx.drawMesh(gridBlock);
 				}

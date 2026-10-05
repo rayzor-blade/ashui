@@ -31,12 +31,12 @@ typedef SceneKitProps = {
 	?backgroundAlpha:IntoReactive<Float>,
 
 	/** Light from all round, and what surfaces reflect: a sky, from an `.hdr` with `Environment.fromHdr`. **/
-	?environment:IntoReactive<Null<ashui.draw3d.Environment>>,
+	?environment:IntoReactive<Null<Environment>>,
 
 	?environmentIntensity:IntoReactive<Float>,
 
 	/** What is drawn behind the scene: an environment, blurred or not, or colours (see `Skybox`). **/
-	?skybox:IntoReactive<Null<ashui.draw3d.Skybox>>,
+	?skybox:IntoReactive<Null<Skybox>>,
 
 	/** A ground grid under the scene, `GroundGrid.studio()` or one's own (see `GroundGrid`). **/
 	?grid:IntoReactive<Null<GroundGrid>>,
@@ -80,19 +80,26 @@ typedef SceneKitProps = {
 	`camera.reset()`).
 **/
 class SceneKit extends Component<SceneKitProps> {
+	/** A key light from above and in front, as a scene has with no `lights`. **/
+	static final defaultLights:Array<Light> = [Directional(new ashui.math.Vec3(-0.4, -1, -0.3), 0xffffff, 2.5)];
+
 	function render():Element {
 		var camera = props.camera != null ? props.camera : new OrbitCamera();
-		var base = Scene3D.DEFAULT;
+		// Drawn behind the meshes when `skybox` is set; its GPU parts freed with the element.
+		var sky = new SkyboxPass();
+		ashui.reactive.Owner.onCleanup(() -> sky.dispose());
 		var loading = props.loading;
 		var canvas = new Canvas({
 			id: props.id,
 			animate: props.animate,
 			onLoading: loading != null ? v -> loading.set(v) : null,
 			draw: ctx -> {
-				ctx.setScene(new Scene3D(camera.camera(), read(props.lights, base.lights), read(props.ambient, base.ambient),
-					read(props.ambientStrength, base.ambientStrength), read(props.exposure, base.exposure), read(props.background, base.background),
-					read(props.backgroundAlpha, base.backgroundAlpha), read(props.environment, null), read(props.environmentIntensity, 1.0),
-					read(props.skybox, null)));
+				var rig = new LightRig(read(props.lights, defaultLights), read(props.ambient, 0xffffff), read(props.ambientStrength, 0.25),
+					read(props.environment, null), read(props.environmentIntensity, 1.0));
+				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0)));
+				sky.skybox = read(props.skybox, null);
+				if (sky.skybox != null)
+					ctx.drawPass(sky);
 				var grid = read(props.grid, null);
 				if (grid != null)
 					ctx.drawPass(grid);

@@ -106,6 +106,34 @@ class Components {
 		outward("torus", ashui.canvaskit.Geometry.torus(1, 0.25), p -> new ashui.math.Vec3(p.x, 0, p.z).normalize());
 		outward("plane", ashui.canvaskit.Geometry.plane(2, 2, 4), p -> p.sub(new ashui.math.Vec3(0, 1, 0)));
 
+		// Environments: HDR decoding, cube directions, mip levels.
+		var Env = ashui.canvaskit.Environment;
+		inline function envNear(a:ashui.math.Vec3, b:ashui.math.Vec3)
+			return a.distance(b) < 1e-9;
+		check("16-bit floats: one, a half, zero, and the largest finite one for what is past it",
+			Env.half(1) == 0x3C00 && Env.half(0.5) == 0x3800 && Env.half(0) == 0 && Env.half(1e9) == 0x7BFF, [Env.half(1), Env.half(0.5)]);
+		check("a cube's +Z face looks along +Z through its middle, +Y up through its top edge",
+			envNear(Env.direction(4, 0, 0), new ashui.math.Vec3(0, 0, 1)) && Env.direction(4, 0, -1).y > 0.7, Env.direction(4, 0, -1));
+		check("its +Y face looks up", envNear(Env.direction(2, 0, 0), ashui.math.Vec3.UP));
+		// A Radiance file of two rows of four flat pixels, then one of rows eight wide, run-length encoded.
+		function hdr(width:Int, height:Int, body:Array<Int>):haxe.io.Bytes {
+			var head = haxe.io.Bytes.ofString('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y $height +X $width\n');
+			var b = haxe.io.Bytes.alloc(head.length + body.length);
+			b.blit(0, head, 0, head.length);
+			for (i in 0...body.length)
+				b.set(head.length + i, body[i]);
+			return b;
+		}
+		var flat = ashui.canvaskit.Environment.Rgbe.decode(hdr(4, 2, [for (_ in 0...8) for (v in [128, 64, 32, 129]) v]));
+		var c = flat.sample(new ashui.math.Vec3(0, 0, -1));
+		check("an .hdr's pixels decode to their colour times two to their exponent", Math.abs(c.x - 128.5 / 128) < 1e-6 && Math.abs(c.z - 32.5 / 128) < 1e-6, c);
+		var rle = ashui.canvaskit.Environment.Rgbe.decode(hdr(8, 1, [2, 2, 0, 8, 136, 200, 136, 100, 136, 50, 136, 136]));
+		var d = rle.sample(new ashui.math.Vec3(0, 1, 0));
+		check("and run-length encoded rows decode too", Math.abs(d.x - 200.5) < 1e-6 && Math.abs(d.y - 100.5) < 1e-6, d);
+		var sky = ashui.canvaskit.Environment.gradient(0x3366ff, 0xffffff, 0x222222, 1, 8);
+		check("an environment has every mip level down to a texel a face", sky.levels == 4 && sky.faces[3].length == 6 * 8 && sky.faces[0].length == 6 * 64 * 8);
+
+
 		// <scene-kit>: a drag turns its camera, a shift-drag pans it, the wheel zooms it.
 		var orbit = new ashui.canvaskit.OrbitCamera(0, 0.2, 5);
 		var kitTree = new LayoutTree();

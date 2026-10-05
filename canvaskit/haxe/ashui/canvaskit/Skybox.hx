@@ -1,8 +1,9 @@
-package ashui.draw3d;
+package ashui.canvaskit;
 
 /**
 	What a 3D scene shows behind its meshes, where they leave the canvas
-	uncovered (`Scene3D.skybox`):
+	uncovered, as `<scene-kit skybox={...}>` takes it (drawn by a
+	`SkyboxPass`):
 
 	```haxe
 	skybox={Sky(night, 0.3)}                     // an environment, a little blurred

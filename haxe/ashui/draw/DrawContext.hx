@@ -201,7 +201,7 @@ class DrawContext {
 	public function image(image:DrawImage, x:Float, y:Float, ?width:Float, ?height:Float):Void
 		ops.push(Image(image.slot, x, y, width != null ? width : image.width, height != null ? height : image.height, transform, opacity, clip));
 
-	/** What meshes drawn after this are seen through: its camera, lights, ambient light, exposure and background. **/
+	/** What meshes drawn after this are seen through: its camera, lighting, exposure and background. **/
 	public function setScene(scene:ashui.draw3d.Scene3D):Void
 		this.scene = scene;
 
@@ -212,9 +212,13 @@ class DrawContext {
 	public function setCamera(camera:ashui.draw3d.Camera):Void
 		scene = scene.with(camera);
 
-	/** Meshes drawn after this lit by `lights`. **/
+	/** Meshes drawn after this lit by `lights` and a little ambient light (`BasicLighting`). **/
 	public function setLights(lights:Array<ashui.draw3d.Light>):Void
-		scene = scene.with(null, lights);
+		scene = scene.with(null, new ashui.draw3d.SceneLighting.BasicLighting(lights));
+
+	/** Meshes drawn after this lit by `lighting`. **/
+	public function setLighting(lighting:ashui.draw3d.SceneLighting):Void
+		scene = scene.with(null, lighting);
 
 	/**
 		`pass` drawn in 3D with the meshes drawn around it, sharing their
