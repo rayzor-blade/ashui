@@ -46,8 +46,8 @@ class Library {
 	}
 
 	/**
-		Makes one of a component's inner elements, which the stylesheet styles
-		by class. For example, a drawer's handle is
+		A part is a named, styleable inner element of a component. The
+		stylesheet styles it by its class. For example, a drawer's handle is
 		`part("ui-drawer-handle")`, and `components.css` gives
 		`.ui-drawer-handle` its look.
 
