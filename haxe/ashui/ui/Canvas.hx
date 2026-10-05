@@ -38,6 +38,13 @@ typedef CanvasProps = {
 	/** While true, a frame is drawn every tick of the animation scheduler, so `paint` animates. **/
 	?animate:IntoReactive<Bool>,
 
+	/**
+		Called with true when meshes it draws start waiting for their
+		textures, which are compressed in the background, and with false when
+		all are in place; a mesh is not drawn until its textures are.
+	**/
+	?onLoading:Bool->Void,
+
 	?id:String
 }
 
@@ -74,6 +81,8 @@ class Canvas extends Component<CanvasProps> {
 	function render():Element {
 		#if ashui_gpu
 		painter.repaint = () -> repaint();
+		if (props.onLoading != null)
+			painter.onLoading = props.onLoading;
 		#end
 		var box = new Div({tag: "canvas", id: props.id});
 		var slot = nextSlot++;

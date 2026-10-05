@@ -41,6 +41,15 @@ typedef SceneKitProps = {
 	/** Whether dragging and scrolling move the camera; true by default. **/
 	?controls:Bool,
 
+	/**
+		Set to true while meshes it draws wait for their textures, which are
+		compressed in the background, and to false when all are in place: show
+		a loading state while it is true. A mesh is not drawn until its
+		textures are, so none shows plain. Start it at true to show the
+		loading state from the first frame.
+	**/
+	?loading:ashui.reactive.Signal<Bool>,
+
 	?id:String
 }
 
@@ -64,8 +73,10 @@ class SceneKit extends Component<SceneKitProps> {
 	function render():Element {
 		var camera = props.camera != null ? props.camera : new OrbitCamera();
 		var base = Scene3D.DEFAULT;
+		var loading = props.loading;
 		var canvas = new Canvas({
 			id: props.id,
+			onLoading: loading != null ? v -> loading.set(v) : null,
 			draw: ctx -> {
 				ctx.setScene(new Scene3D(camera.camera(), read(props.lights, base.lights), read(props.ambient, base.ambient),
 					read(props.ambientStrength, base.ambientStrength), read(props.exposure, base.exposure), read(props.background, base.background),

@@ -68,6 +68,9 @@ class CanvasPainter {
 	/** Asks for the canvas to be drawn again; its 3D draws call it as their textures change. **/
 	public var repaint:Void->Void = () -> {};
 
+	/** Called as its 3D draws start or stop waiting for their textures. **/
+	public var onLoading:Bool->Void = _ -> {};
+
 	public function new() {}
 
 	/** Frees what its 3D draws uploaded. **/
@@ -89,8 +92,10 @@ class CanvasPainter {
 			madeAtlas = atlas.revision;
 		}
 		for (step in steps)
-			if (step.match(Meshes(_)) && scenes == null)
+			if (step.match(Meshes(_)) && scenes == null) {
 				scenes = new ScenePainter(() -> repaint());
+				scenes.onLoading = v -> onLoading(v);
+			}
 		if (scenes != null)
 			scenes.beginFrame();
 		var run = 0;

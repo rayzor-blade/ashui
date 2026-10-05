@@ -6,6 +6,7 @@ import ashui.canvaskit.SceneKit;
 import ashui.components.Button;
 import ashui.components.Card;
 import ashui.components.Slider;
+import ashui.components.Spinner;
 import ashui.components.ToggleSwitch;
 import ashui.draw3d.Light;
 import ashui.draw3d.Skybox;
@@ -47,6 +48,8 @@ class Studio3D {
 		var showSky = Signal.make(true);
 		var blur = Signal.make(0.35);
 		var fill = Signal.make(true);
+		// True until the helmet's textures are in place: the viewport shows a spinner meanwhile.
+		var loading = Signal.make(true);
 		var rig = Computed.make(() -> {
 			var lights = [Directional(new Vec3(-0.4, -height.get(), -0.3), 0xffffff, key.get())];
 			if (fill.get())
@@ -55,7 +58,15 @@ class Studio3D {
 		});
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
 		function page():Element return <div flexDirection={Row} width={1100} height={720} padding={16} gap={16}>
-			<scene-kit camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} width={760} height={688} />
+			<div width={760} height={688}>
+				<scene-kit loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} width={760} height={688} />
+				<if {loading.get()}>
+					<div position={Absolute} left={0} top={0} width={760} height={688} flexDirection={Column} gap={12} alignItems={Center} justifyContent={Justify.Center}>
+						<spinner />
+						<text>Loading the helmet</text>
+					</div>
+				</if>
+			</div>
 			<card width={292}>
 				<card-header><card-title>Studio</card-title><card-description>Drag to turn, Shift-drag to move, scroll to zoom</card-description></card-header>
 				<card-content>

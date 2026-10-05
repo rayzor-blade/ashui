@@ -195,11 +195,41 @@ class ScenePainter {
 		}
 
 	/** Called once a canvas frame, before its runs: what was drawn last frame and not since is freed. **/
-	public function beginFrame():Void
+	public function beginFrame():Void {
 		frameCount++;
+		loadingNow = false;
+	}
+
+	/** Whether some mesh it drew last waits for its textures. **/
+	public var loading(default, null) = false;
+
+	var loadingNow = false;
+
+	/** Called with `loading` as it changes, on the main thread after the frame. **/
+	public var onLoading:Bool->Void = _ -> {};
+
+	function texturesReady(frame:CanvasFrame, mesh:MeshData):Bool {
+		var m = mesh.material;
+		for (pair in [
+			{b: m.baseColorTexture, r: MeshTextures.TextureRole.Color},
+			{b: m.emissiveTexture, r: MeshTextures.TextureRole.Color},
+			{b: m.metallicRoughnessTexture, r: MeshTextures.TextureRole.Data},
+			{b: m.occlusionTexture, r: MeshTextures.TextureRole.Occlusion},
+			{b: m.normalTexture, r: MeshTextures.TextureRole.Normal}
+		])
+			if (pair.b != null && MeshTextures.get(frame.device, pair.b, pair.r) == null)
+				return false;
+		return true;
+	}
 
 	/** After the canvas's runs: frees meshes, materials and textures no run drew this frame. **/
 	public function endFrame():Void {
+		if (loadingNow != loading) {
+			loading = loadingNow;
+			// Told after the frame: a signal set while painting would change what is being drawn.
+			var now = loading, report = onLoading;
+			ashui.animation.AnimationScheduler.main.after(0, () -> report(now));
+		}
 		for (m => g in meshes)
 			if (g.used != frameCount) {
 				g.vertices.destroy();
@@ -230,8 +260,14 @@ class ScenePainter {
 			makeLayer(frame, layer, w, h);
 		}
 		// Resources are marked used whether or not the layer is rendered again, so they outlive a frame that only composites.
+		// A mesh whose textures are still on their way is held back, rather than drawn plain.
+		var waiting = false;
 		for (d in draws)
-			markUsed(frame, d.mesh);
+			if (!markUsed(frame, d.mesh))
+				waiting = true;
+		if (waiting)
+			draws = [for (d in draws) if (texturesReady(frame, d.mesh)) d];
+		loadingNow = loadingNow || waiting;
 		if (resized || layer.madeFor != draws || layer.textures != MeshTextures.revision) {
 			render(frame, layer, draws, scene);
 			layer.madeFor = draws;
@@ -269,17 +305,23 @@ class ScenePainter {
 		layer.group = null;
 	}
 
-	function markUsed(frame:CanvasFrame, mesh:MeshData):Void {
+	/** Keeps `mesh` and its textures for this frame; whether every texture it has is on the GPU yet. **/
+	function markUsed(frame:CanvasFrame, mesh:MeshData):Bool {
 		upload(frame, mesh).used = frameCount;
 		var m = mesh.material;
 		var group = materials.get(m);
 		if (group != null)
 			group.used = frameCount;
-		if (m.baseColorTexture != null) MeshTextures.get(frame.device, m.baseColorTexture, Color);
-		if (m.emissiveTexture != null) MeshTextures.get(frame.device, m.emissiveTexture, Color);
-		if (m.metallicRoughnessTexture != null) MeshTextures.get(frame.device, m.metallicRoughnessTexture, Data);
-		if (m.occlusionTexture != null) MeshTextures.get(frame.device, m.occlusionTexture, Occlusion);
-		if (m.normalTexture != null) MeshTextures.get(frame.device, m.normalTexture, Normal);
+		var ready = true;
+		inline function want(b:Null<Bitmap>, role:MeshTextures.TextureRole)
+			if (b != null && MeshTextures.get(frame.device, b, role) == null)
+				ready = false;
+		want(m.baseColorTexture, Color);
+		want(m.emissiveTexture, Color);
+		want(m.metallicRoughnessTexture, Data);
+		want(m.occlusionTexture, Occlusion);
+		want(m.normalTexture, Normal);
+		return ready;
 	}
 
 	function render(frame:CanvasFrame, layer:SceneLayer, draws:Array<SceneDraw>, scene:Scene3D):Void {

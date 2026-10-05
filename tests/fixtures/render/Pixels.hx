@@ -584,7 +584,8 @@ class Pixels {
 		probe("a polished sphere reflects the sky near its top", 32, 26, (r, g, b) -> b > g && b > 100);
 		probe("and the ground near its bottom", 32, 38, (r, g, b) -> g > b && g > 80);
 
-		// A mesh's texture is compressed on the worker; the mesh draws with the default until it is in place.
+		// A mesh's texture is compressed on the worker; the mesh is held back until it is in place, and the canvas says it is loading meanwhile.
+		var loadingSeen:Array<Bool> = [];
 		var halves = haxe.io.Bytes.alloc(8 * 8 * 4);
 		for (i in 0...64) {
 			var right = i % 8 >= 4;
@@ -601,7 +602,8 @@ class Pixels {
 				draw: ctx -> {
 					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 2.4), ashui.math.Vec3.ZERO, null, 0.8));
 					ctx.drawMesh(texturedQuad);
-				}
+				},
+				onLoading: v -> loadingSeen.push(v)
 			});
 			canvas.node.set(Prop.Width, (48 : Single));
 			canvas.node.set(Prop.Height, (48 : Single));
@@ -610,7 +612,7 @@ class Pixels {
 		var before = ashui.core.render.MeshTextures.revision;
 		pixels = offscreen.renderToRgba8(bcRoot, SIZE, SIZE);
 		label = "compressed texture: ";
-		probe("drawn at once with the default, white, while it is compressed", 22, 32, (r, g, b) -> r > 200 && g > 200 && b > 200);
+		probe("held back while it is compressed: the page shows through", 22, 32, (r, g, b) -> r > 200 && g > 200 && b > 200);
 		// The compression finishes on its thread, then the scheduler puts it in place.
 		var waited = 0;
 		while (ashui.core.render.MeshTextures.revision == before && waited < 200) {
@@ -625,6 +627,11 @@ class Pixels {
 		pixels = offscreen.renderToRgba8(bcRoot, SIZE, SIZE);
 		probe("then compressed: red on its left", 22, 32, (r, g, b) -> r > 200 && b < 60);
 		probe("and blue on its right", 42, 32, (r, g, b) -> b > 200 && r < 60);
+		ashui.animation.AnimationScheduler.main.tick(0);
+		var told = loadingSeen.join(",");
+		Sys.println('${told == "true,false" ? "ok  " : "FAIL"} compressed texture: the canvas says it is loading, then that it is not: $told');
+		if (told != "true,false")
+			failures++;
 
 		// A 3D canvas moved out of view gives up its layer, and makes it again when it comes back.
 		ashui.core.render.ScenePainter.idleRelease = 0;
