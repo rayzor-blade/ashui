@@ -174,15 +174,16 @@ class Studio3D {
 			lights;
 		});
 
-		// The clip, played on the demo's own clock: it ticks while the clip plays and stops with it.
+		// The clip, played on the demo's own clock: it ticks while the clip plays, once the model and its textures are in, and stops with it.
 		var playing = Signal.make(true);
 		var clipTime = Signal.make(0.0);
 		var ticking = false;
-		new Watch(() -> clip.get() != null && playing.get(), run -> if (run && !ticking) {
+		new Watch(() -> clip.get(), _ -> clipTime.set(0));
+		new Watch(() -> clip.get() != null && playing.get() && !loading.get(), run -> if (run && !ticking) {
 			ticking = true;
 			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
 				var c = clip.get();
-				if (c == null || !playing.get())
+				if (c == null || !playing.get() || loading.get())
 					return ticking = false;
 				clipTime.set((clipTime.get() + dt) % c.duration);
 				return true;
