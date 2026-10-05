@@ -61,7 +61,8 @@ private class Loaded {
 	floor laid under the model where the sky has one, with a studio grid
 	under it catching its shadow. Its sections, each opening and
 	closing, play the model's animation and scrub it, and set the lighting,
-	the sky, and the floor and shadows. Drag to turn round the model,
+	the sky, and the floor and shadows; a corner shows the frames a second
+	the scene renders at. Drag to turn round the model,
 	Shift-drag or right-drag to move across, scroll to come nearer.
 
 	The examples: Khronos' DamagedHelmet (CC BY-NC, theblueturtle_) under
@@ -167,6 +168,8 @@ class Studio3D {
 		var shadowStrength = Signal.make(0.7);
 		// True until the model's textures are in place: the viewport shows a spinner meanwhile.
 		var loading = Signal.make(true);
+		// The frames a second the scene is rendered at, shown in the corner.
+		var fps = Signal.make(0.0);
 		var rig = Computed.make(() -> {
 			var lights = [Directional(new Vec3(-0.4, -height.get(), -0.3), 0xffffff, key.get())];
 			if (fill.get())
@@ -215,7 +218,7 @@ class Studio3D {
 			// The select reads its options from its own children, so they are made here and spliced in.
 			var choices:Array<Element> = [for (e in examples) <select-item value={e.id}>${e.title}</select-item>];
 			return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
+			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
 			<if {loading.get() || model.get() == null}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} alignItems={Center} justifyContent={Justify.Center}>
 					<div class="flex flex-col items-center gap-3 px-5 py-4 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md">
@@ -224,6 +227,9 @@ class Studio3D {
 					</div>
 				</div>
 			</if>
+			<div class="px-3 py-1.5 rounded-lg border border-white/10 bg-surface/70 backdrop-blur-md" position={Absolute} left={16} bottom={16}>
+				<text class="text-xs font-medium">${fps.get() > 0 ? Math.round(fps.get()) + " fps" : "idle"}</text>
+			</div>
 			<div class="flex flex-col gap-4 p-5 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md" position={Absolute} top={16} right={16} bottom={16} width={300}>
 				<card-header><card-title>Studio</card-title><card-description>Drag to turn, Shift-drag to move, scroll to zoom</card-description></card-header>
 				<select value={chosen} widthPercent={1}>{choices}</select>
