@@ -700,8 +700,9 @@ class Pixels {
 		// Shadows: a quad held over a lit floor, the light slanting along +x, darkens the floor beside it and leaves the rest lit.
 		var floor = ashui.draw3d.MeshData.build([-2, 0, -2, 2, 0, -2, 2, 0, 2, -2, 0, 2], [0, 2, 1, 0, 3, 2], null, null, null,
 			new ashui.draw3d.Material({baseColor: 0xffffff, roughness: 1}));
-		var blocker = ashui.draw3d.MeshData.build([-1, 0.6, -0.3, -0.6, 0.6, -0.3, -0.6, 0.6, 0.3, -1, 0.6, 0.3], [0, 2, 1, 0, 3, 2], null, null, null,
-			new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true}));
+		function blockerOf(material:ashui.draw3d.Material)
+			return ashui.draw3d.MeshData.build([-1, 0.6, -0.3, -0.6, 0.6, -0.3, -0.6, 0.6, 0.3, -1, 0.6, 0.3], [0, 2, 1, 0, 3, 2], null, null, null, material);
+		var blocker = ashui.reactive.Signal.make(blockerOf(new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true})));
 		var shadowRig = new ashui.canvaskit.LightRig([Directional(new ashui.math.Vec3(1, -1, 0), 0xffffff, 3)], 0xffffff, 0.05, null, 1, {strength: 1});
 		var shadowTree = new LayoutTree();
 		var shadowRoot:Div = ashui.reactive.Owner.root(shadowTree, _ -> {
@@ -710,7 +711,7 @@ class Pixels {
 					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2),
 						shadowRig, null, 0x000000, 1));
 					ctx.drawMesh(floor);
-					ctx.drawMesh(blocker);
+					ctx.drawMesh(blocker.get());
 				}
 			});
 			canvas.node.set(Prop.Width, (48 : Single));
@@ -726,6 +727,17 @@ class Pixels {
 		var dark = brightness(32 - Std.int(0.2 * unit), 32), lit = brightness(32 + Std.int(0.8 * unit), 32);
 		Sys.println('${dark * 2 < lit ? "ok  " : "FAIL"} shadows: the floor in the shadow of the quad is darker than in the open: $dark against $lit');
 		if (!(dark * 2 < lit))
+			failures++;
+		// Blended, it casts where it is solid and not where light passes through it.
+		blocker.set(blockerOf(new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true, alphaMode: Blend})));
+		pixels = offscreen.renderToRgba8(shadowRoot, SIZE, SIZE);
+		var solidBlend = brightness(32 - Std.int(0.2 * unit), 32);
+		blocker.set(blockerOf(new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true, alphaMode: Blend, alpha: 0.3})));
+		pixels = offscreen.renderToRgba8(shadowRoot, SIZE, SIZE);
+		var seeThrough = brightness(32 - Std.int(0.2 * unit), 32);
+		var casts = solidBlend * 2 < lit && seeThrough > lit * 0.8;
+		Sys.println('${casts ? "ok  " : "FAIL"} shadows: a blended quad casts when solid, $solidBlend, and not at alpha 0.3, $seeThrough, against $lit');
+		if (!casts)
 			failures++;
 
 		// On the ground grid a shadow is as dark as the light it keeps off is strong against the rest: a second light on the floor lifts it.
@@ -758,6 +770,29 @@ class Pixels {
 		Sys.println('${catches ? "ok  " : "FAIL"} shadows: the grid darkens under the key light alone, $keyAlone against $open in the open, less with a second light, $withFill');
 		if (!catches)
 			failures++;
+
+		// A material marked blended but solid hides what is behind it: its solid fragments are drawn with the opaque meshes, writing depth.
+		// The quad in front is wide, so its middle is further from the eye and it is sorted to be drawn first.
+		function blendQuad(x0:Float, x1:Float, z:Float, color:Int)
+			return ashui.draw3d.MeshData.build([x0, -0.3, z, x1, -0.3, z, x1, 0.3, z, x0, 0.3, z], [0, 1, 2, 0, 2, 3], null, null, null,
+				new ashui.draw3d.Material({baseColor: color, unlit: true, alphaMode: Blend}));
+		var wideFront = blendQuad(-0.5, 4.5, 0.5, 0xff0000), smallBack = blendQuad(-0.4, 0.4, 0, 0x00ff00);
+		var splitTree = new LayoutTree();
+		var splitRoot:Div = ashui.reactive.Owner.root(splitTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 3), ashui.math.Vec3.ZERO, null, 1.0));
+					ctx.drawMesh(wideFront);
+					ctx.drawMesh(smallBack);
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(splitRoot, SIZE, SIZE);
+		label = "blended but solid: ";
+		probe("the quad in front hides the one behind, though sorted first", 32, 32, (r, g, b) -> r > 200 && g < 60);
 
 		// One's own GPU drawing in a scene: a pass's quad and a mesh share depth, each hiding the other where it is in front.
 		var front = new TestQuadPass(0.5), back = new TestQuadPass(-0.5);

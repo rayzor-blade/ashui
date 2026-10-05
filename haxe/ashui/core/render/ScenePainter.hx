@@ -93,6 +93,9 @@ class ScenePainter {
 	final layers:Array<SceneLayer> = [];
 	final meshes = new haxe.ds.ObjectMap<MeshData, {vertices:GpuBuffer, indices:GpuBuffer, used:Int}>();
 	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, environment:Int, shadow:Int, textures:Int}>();
+
+	/** Each masked or blended material's group for the shadow pass, its base colour bound for the cutout. **/
+	final cutouts = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, textures:Int}>();
 	/** A black cube, bound where a scene has no environment. **/
 	static var noEnvironment:Null<Uploaded> = null;
 
@@ -235,6 +238,11 @@ class ScenePainter {
 				g.group.destroy();
 				materials.remove(m);
 			}
+		for (m => g in cutouts)
+			if (g.used != frameCount) {
+				g.group.destroy();
+				cutouts.remove(m);
+			}
 		MeshTextures.endFrame();
 	}
 
@@ -331,34 +339,44 @@ class ScenePainter {
 
 	function render(frame:CanvasFrame, layer:SceneLayer, draws:Array<SceneDraw>, passes:Array<ashui.draw3d.ScenePass>, scene:Scene3D):Void {
 		var device = frame.device;
-		ensureBuffers(frame, draws.length);
 		var aspect = frame.width / Math.max(frame.height, 0.0001);
 		var view = scene.camera.view(), projection = scene.camera.projection(aspect);
 		var viewProjection = projection.mul(view);
-		// Opaque first, in order; then blended, furthest first, so each blends over what is behind it.
-		var order = [for (i in 0...draws.length) i];
+		// A blended material at full opacity is drawn in two halves: its solid fragments with the opaque meshes,
+		// writing depth, so a shell its exporter marked blended hides what is inside it; then the rest, blended.
+		// Each entry is a draw's index times two, plus one for a solid half.
+		var entries = [];
+		for (i in 0...draws.length) {
+			entries.push(i * 2);
+			if (draws[i].mesh.material.alphaMode == Blend && draws[i].opacity >= 1)
+				entries.push(i * 2 + 1);
+		}
+		ensureBuffers(frame, entries.length);
 		var eye = scene.camera.eye;
-		inline function blended(i:Int)
-			return draws[i].mesh.material.alphaMode == Blend || draws[i].opacity < 1;
+		inline function blendedEntry(e:Int)
+			return e & 1 == 0 && (draws[e >> 1].mesh.material.alphaMode == Blend || draws[e >> 1].opacity < 1);
 		inline function distance(i:Int)
 			return draws[i].transform.transformPoint(draws[i].mesh.min.lerp(draws[i].mesh.max, 0.5)).distance(eye);
-		order.sort((a, b) -> {
-			var ba = blended(a), bb = blended(b);
+		// Opaque first, in order; then blended, furthest first, so each blends over what is behind it.
+		entries.sort((a, b) -> {
+			var ba = blendedEntry(a), bb = blendedEntry(b);
 			if (ba != bb)
 				return ba ? 1 : -1;
 			if (!ba)
 				return a - b;
-			var da = distance(a), db = distance(b);
+			var da = distance(a >> 1), db = distance(b >> 1);
 			return da > db ? -1 : da < db ? 1 : 0;
 		});
-		var bytes = haxe.io.Bytes.alloc(draws.length * ashui.shaders.MeshDraw.ROWS * 16);
+		var order = [for (e in entries) e >> 1];
+		var solid = [for (e in entries) e & 1 == 1];
+		var bytes = haxe.io.Bytes.alloc(entries.length * ashui.shaders.MeshDraw.ROWS * 16);
 		for (slot in 0...order.length)
-			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]]);
+			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]], solid[slot]);
 		device.queue().writeBuffer(drawBuffer, 0, bytes, bytes.length);
 		// Passes of the opaque and transparent stages go after the opaque meshes, before the first blended one.
 		var firstBlended = order.length;
-		for (slot in 0...order.length)
-			if (blended(order[slot])) {
+		for (slot in 0...entries.length)
+			if (blendedEntry(entries[slot])) {
 				firstBlended = slot;
 				break;
 			}
@@ -386,7 +404,7 @@ class ScenePainter {
 			for (p in passes)
 				p.prepare(passFrame);
 			if (shadows != null)
-				drawShadows(frame, encoder, passFrame, draws, order, passes);
+				drawShadows(frame, encoder, passFrame, draws, order, solid, passes);
 			var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material, passFrame.environment, passFrame.shadowMap)];
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
 			color.viewTextureView(layer.colorView);
@@ -411,7 +429,7 @@ class ScenePainter {
 					break;
 				var d = draws[order[slot]];
 				var gpu = meshes.get(d.mesh);
-				encoder.renderSetPipeline(pipeline(frame, d.mesh.material, d.opacity));
+				encoder.renderSetPipeline(pipeline(frame, d.mesh.material, slot >= firstBlended));
 				encoder.renderSetBindGroup(0, groups[slot]);
 				encoder.renderSetVertexBuffer(0, gpu.vertices);
 				encoder.renderSetIndexBufferRange(gpu.indices, Uint32, 0, d.mesh.indexCount * 4);
@@ -444,9 +462,8 @@ class ScenePainter {
 		frame.encoder.renderDrawRange(6, 1, 0, frame.record);
 	}
 
-	/** The pipeline for a material: culled unless double-sided, writing depth unless blended. **/
-	function pipeline(frame:CanvasFrame, material:Material, opacity:Float):GpuPipeline {
-		var blended = material.alphaMode == Blend || opacity < 1;
+	/** The pipeline for a material: culled unless double-sided, writing depth unless `blended`. **/
+	function pipeline(frame:CanvasFrame, material:Material, blended:Bool):GpuPipeline {
 		var wgsl = material.shader != null ? material.shader : MeshShader.WGSL;
 		var key = '${(material.doubleSided ? 1 : 0) | (blended ? 2 : 0)}' + wgsl;
 		var made = pipelines.get(key);
@@ -562,7 +579,7 @@ class ScenePainter {
 		bindings.buffer(sceneBuffer);
 		bindings.buffer(drawBuffer);
 		// Under the shared layout: the default pipeline's group binds under an extension's too.
-		var group = frame.device.bindGroup(pipeline(frame, Material.DEFAULT, 1), 0, bindings);
+		var group = frame.device.bindGroup(pipeline(frame, Material.DEFAULT, false), 0, bindings);
 		bindings.destroy();
 		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: (environment : Int), shadow: (shadow : Int), textures: MeshTextures.revision});
 		return group;
@@ -589,6 +606,7 @@ class ScenePainter {
 	var shadowDepth:Null<Uploaded> = null;
 	var shadowSize = 0;
 	var shadowPipeline:Null<GpuPipeline> = null;
+	var cutoutPipeline:Null<GpuPipeline> = null;
 	var shadowGroup:Null<GpuBindGroup> = null;
 	var shadowGroupBuffers = -1;
 
@@ -637,15 +655,25 @@ class ScenePainter {
 		return shadowColor;
 	}
 
-	/** The shadow pass: every opaque mesh, then each pass that casts shadows, into the shadow map from the light. **/
+	/**
+		The shadow pass, into the shadow map from the light: every mesh at
+		full opacity, a masked or blended one where its base colour's alpha
+		makes it solid, then each pass that casts shadows. A blended mesh
+		drawn in two halves casts once.
+	**/
 	function drawShadows(frame:CanvasFrame, encoder:gpu.GpuEncoder, passFrame:ScenePassFrame, draws:Array<SceneDraw>, order:Array<Int>,
-			passes:Array<ashui.draw3d.ScenePass>):Void {
+			solid:Array<Bool>, passes:Array<ashui.draw3d.ScenePass>):Void {
 		var device = frame.device;
 		if (shadowPipeline == null) {
 			var builder = passFrame.shadowPipelineBuilder(MeshShadowShader.WGSL);
 			builder.vertexBuffer(MeshData.STRIDE, Vertex);
 			builder.attribute(Float32x3, MeshData.POSITION_OFFSET, MeshShadowShader.INPUT_position);
 			shadowPipeline = builder.build();
+			builder = passFrame.shadowPipelineBuilder(MeshCutoutShadowShader.WGSL);
+			builder.vertexBuffer(MeshData.STRIDE, Vertex);
+			builder.attribute(Float32x3, MeshData.POSITION_OFFSET, MeshCutoutShadowShader.INPUT_position);
+			builder.attribute(Float32x2, MeshData.UV_OFFSET, MeshCutoutShadowShader.INPUT_uv);
+			cutoutPipeline = builder.build();
 		}
 		if (shadowGroup == null || shadowGroupBuffers != buffers) {
 			if (shadowGroup != null)
@@ -669,18 +697,44 @@ class ScenePainter {
 		pass.addColorAttachments(color);
 		pass.depthStencilAttachment(depth);
 		encoder.beginRenderPass(pass);
-		encoder.renderSetPipeline(shadowPipeline);
-		encoder.renderSetBindGroup(0, shadowGroup);
+		var defaults = ensureDefaults(frame);
+		var bound:Null<GpuBindGroup> = null;
 		for (slot in 0...order.length) {
 			var d = draws[order[slot]];
-			// Blended meshes let light through: they cast none.
-			if (d.mesh.material.alphaMode == Blend || d.opacity < 1)
+			var m = d.mesh.material;
+			// Faded meshes let light through: they cast none.
+			if (d.opacity < 1 || solid[slot])
 				continue;
+			var group = shadowGroup;
+			if (m.alphaMode != Opaque) {
+				var known = cutouts.get(m);
+				if (known == null || known.buffers != buffers || known.textures != MeshTextures.revision) {
+					if (known != null)
+						known.group.destroy();
+					var t = m.baseColorTexture != null ? MeshTextures.get(device, m.baseColorTexture, Color) : null;
+					var bindings = new GpuBindings();
+					bindings.texture(t != null ? t.view : defaults.white.view);
+					bindings.sampler(sampler);
+					bindings.buffer(sceneBuffer);
+					bindings.buffer(drawBuffer);
+					known = {group: device.bindGroup(cutoutPipeline, 0, bindings), used: frameCount, buffers: buffers, textures: MeshTextures.revision};
+					bindings.destroy();
+					cutouts.set(m, known);
+				}
+				known.used = frameCount;
+				group = known.group;
+			}
+			if (group != bound) {
+				encoder.renderSetPipeline(group == shadowGroup ? shadowPipeline : cutoutPipeline);
+				encoder.renderSetBindGroup(0, group);
+				bound = group;
+			}
 			var gpu = meshes.get(d.mesh);
 			encoder.renderSetVertexBuffer(0, gpu.vertices);
 			encoder.renderSetIndexBufferRange(gpu.indices, Uint32, 0, d.mesh.indexCount * 4);
 			encoder.renderDrawIndexedRange(d.mesh.indexCount, 1, 0, 0, slot);
 		}
+		// A pass draws with its own pipeline: it binds what it needs.
 		for (p in passes)
 			if (Std.isOfType(p, ashui.draw3d.ScenePass.ShadowCaster))
 				(cast p : ashui.draw3d.ScenePass.ShadowCaster).drawShadow(passFrame);
@@ -815,7 +869,8 @@ class ScenePainter {
 		return out;
 	}
 
-	static function writeDraw(out:haxe.io.Bytes, offset:Int, d:SceneDraw):Void {
+	/** A draw's rows; `solid` for the half of a blended material drawn with the opaque meshes, its alpha mode 3. **/
+	static function writeDraw(out:haxe.io.Bytes, offset:Int, d:SceneDraw, solid:Bool):Void {
 		d.transform.write(out, offset);
 		var n = d.transform.normalMatrix().m;
 		for (c in 0...3)
@@ -827,7 +882,7 @@ class ScenePainter {
 		row(out, at + 8, m.metallic, m.roughness, m.normalScale, m.occlusionTexture != null ? m.occlusionStrength : 0);
 		var e = m.emissive, k = m.emissiveStrength;
 		row(out, at + 9, linear(e >> 16 & 0xff) * k, linear(e >> 8 & 0xff) * k, linear(e & 0xff) * k, m.alphaCutoff);
-		row(out, at + 10, m.normalTexture != null ? 1 : 0, m.unlit ? 1 : 0, (m.alphaMode : Int), d.opacity);
+		row(out, at + 10, m.normalTexture != null ? 1 : 0, m.unlit ? 1 : 0, solid ? 3 : (m.alphaMode : Int), d.opacity);
 		row(out, at + 11, 0, 0, 0, 0);
 	}
 

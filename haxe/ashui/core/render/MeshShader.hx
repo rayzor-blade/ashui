@@ -167,6 +167,13 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 					discard;
 				alpha = 1.;
 			}
+			// A blended material at full opacity is drawn twice: its solid fragments with the opaque meshes (3), then the rest (2).
+			if (flags.z > 2.5) {
+				if (alpha < 0.998)
+					discard;
+				alpha = 1.;
+			} else if (flags.z > 1.5 && flags.w >= 1. && alpha >= 0.998)
+				discard;
 			if (flags.z < 0.5)
 				alpha = 1.;
 			var color = flags.y > 0.5 ? linearToSrgb(surfaceColor.rgb) : present(shade());
