@@ -2,6 +2,12 @@
 // runtime, and its contract is the matching Haxe extern declaration.
 #![allow(clippy::missing_safety_doc)]
 
+#[cfg(target_os = "macos")]
+mod alloc;
+#[cfg(target_os = "macos")]
+#[global_allocator]
+static ALLOCATOR: alloc::BigBlocksMapped = alloc::BigBlocksMapped;
+
 pub mod bitmap;
 mod display_list;
 mod grid;
