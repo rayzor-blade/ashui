@@ -19,11 +19,23 @@ class WindowDemo {
 		pill = ashui.reactive.Signal.make((64 : Single));
 		var stage = 0;
 		var stageFrames = [0, 0, 0];
+		var scheduler = ashui.animation.AnimationScheduler.main;
+		// Checked on a timer, not per frame: once the width settles no further frame need come.
+		function settled() {
+			if (scheduler.hasActive()) {
+				scheduler.after(0.05, settled);
+				return;
+			}
+			capture(WindowedApp.current, dir, "window-transition");
+			WindowedApp.current.quit();
+		}
 		var onFrame = (frame:Int, seconds:Float) -> {
 			var app = WindowedApp.current;
 			var theme = ThemeState.get();
 			stageFrames[stage]++;
 			if (stage == 0) {
+				// A guard that does not wait on frames either.
+				scheduler.after(15, () -> app.quit());
 				capture(app, dir, "window-" + (theme.scheme() == Light ? "light" : "dark"));
 				stage = 1;
 				theme.toggleScheme();
@@ -31,12 +43,8 @@ class WindowDemo {
 				capture(app, dir, "window-" + (theme.scheme() == Light ? "light" : "dark"));
 				stage = 2;
 				pill.set(200);
-			} else if (stage == 2 && !ashui.animation.AnimationScheduler.main.hasActive()) {
-				capture(app, dir, "window-transition");
-				app.quit();
+				scheduler.after(0.05, settled);
 			}
-			if (seconds > 15)
-				app.quit();
 		};
 		var frames = WindowedApp.run({title: "ashui", width: 360, height: 240, onFrame: onFrame}, card);
 		Sys.println('presented $frames frames: ${stageFrames[0]} before the switch, ${stageFrames[1]} for the scheme, ${stageFrames[2]} for the width');
