@@ -216,9 +216,11 @@ class Studio3D {
 			return <div class="w-full h-full">
 			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
 			<if {loading.get() || model.get() == null}>
-				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} gap={12} alignItems={Center} justifyContent={Justify.Center}>
-					<spinner />
-					<text>Loading ${example.get().title}</text>
+				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} alignItems={Center} justifyContent={Justify.Center}>
+					<div class="flex flex-col items-center gap-3 px-5 py-4 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md">
+						<spinner />
+						<text>Loading ${example.get().title}</text>
+					</div>
 				</div>
 			</if>
 			<div class="flex flex-col gap-4 p-5 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md" position={Absolute} top={16} right={16} bottom={16} width={300}>
