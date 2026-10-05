@@ -186,7 +186,7 @@ class Studio3D {
 		// Those whose files are here: the drone needs Blinc's checkout.
 		var examples = EXAMPLES.filter(e -> sys.FileSystem.exists(e.model) && (e.sky == null || sys.FileSystem.exists(e.sky)));
 		var loaded = [for (e in examples) e.id => new Loaded()];
-		var chosen = Signal.make(examples[examples.length - 1].id);
+		var chosen = Signal.make(examples[0].id);
 		var example = Computed.make(() -> examples.filter(e -> e.id == chosen.get())[0]);
 		var current = Computed.make(() -> loaded.get(chosen.get()));
 		// An example's model and sky are read on the worker thread the first time it is chosen.
@@ -620,7 +620,7 @@ private class EndlessTerrain {
 	public final revision = Signal.make(0);
 
 	final rock:ashui.draw3d.Material;
-	final chunks = new Map<String, {mesh:ashui.draw3d.MeshData, ring:Int, cx:Int, cz:Int, ?made:{base:ashui.draw3d.TextureTransform, material:ashui.draw3d.Material}}>();
+	final chunks = new Map<String, {mesh:ashui.draw3d.MeshData, ring:Int, cx:Int, cz:Int, ?at:ashui.math.Mat4, ?made:{base:ashui.draw3d.TextureTransform, material:ashui.draw3d.Material}}>();
 	final pending = new Map<String, Bool>();
 	final centreX = [for (_ in RINGS) 0x7fffffff];
 	final centreZ = [for (_ in RINGS) 0x7fffffff];
@@ -695,15 +695,21 @@ private class EndlessTerrain {
 			// The chunk's corner, in nearest chunks, carried through the transform, and its texture as many times wider as
 			// the chunk is: its texture starts where its neighbour's ends, at the same size in every ring.
 			// Made again only as `t` changes, so a chunk keeps its material, and its GPU binding, from frame to frame.
-			if (c.made == null || c.made.base != t) {
+			if (c.made == null || !same(c.made.base, t)) {
 				var wide = ring.chunk / RINGS[0].chunk, ux = c.cx * wide, uz = c.cz * wide;
 				var offset = new ashui.draw3d.TextureTransform(t.scaleX * wide, t.scaleY * wide, t.rotation, t.offsetX + m.a * ux + m.b * uz,
 					t.offsetY + m.c * ux + m.d * uz);
 				c.made = {base: t, material: c.mesh.material.with({textureTransform: offset})};
 			}
-			ctx.drawMesh(c.mesh, ashui.math.Mat4.translation(new Vec3((c.cx + 0.5) * ring.chunk, -ring.drop, (c.cz + 0.5) * ring.chunk)), c.made.material);
+			if (c.at == null)
+				c.at = ashui.math.Mat4.translation(new Vec3((c.cx + 0.5) * ring.chunk, -ring.drop, (c.cz + 0.5) * ring.chunk));
+			ctx.drawMesh(c.mesh, c.at, c.made.material);
 		}
 	}
+
+	/** Whether two texture transforms place textures the same way. **/
+	static function same(a:ashui.draw3d.TextureTransform, b:ashui.draw3d.TextureTransform):Bool
+		return a == b || (a.scaleX == b.scaleX && a.scaleY == b.scaleY && a.rotation == b.rotation && a.offsetX == b.offsetX && a.offsetY == b.offsetY);
 
 	/** `octaves` of value noise, each half the size and half the height of the last, about -1 to 1. **/
 	static function fbm(x:Float, z:Float, octaves:Int):Float {

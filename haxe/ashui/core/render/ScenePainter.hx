@@ -520,10 +520,14 @@ class ScenePainter {
 			}
 		];
 		layer.previousModels = models;
-		var bytes = haxe.io.Bytes.alloc(entries.length * ashui.shaders.MeshDraw.ROWS * 16);
+		// The draws' rows, in a buffer kept from frame to frame.
+		var size = entries.length * ashui.shaders.MeshDraw.ROWS * 16;
+		if (drawBytes == null || drawBytes.length < size)
+			drawBytes = haxe.io.Bytes.alloc(size * 2);
+		var bytes = drawBytes;
 		for (slot in 0...order.length)
 			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]], solid[slot], before[order[slot]]);
-		device.queue().writeBuffer(drawBuffer, 0, bytes, bytes.length);
+		device.queue().writeBuffer(drawBuffer, 0, bytes, size);
 		// Passes of the opaque and transparent stages go after the opaque meshes, before the first blended one.
 		var firstBlended = order.length;
 		for (slot in 0...entries.length)
@@ -607,13 +611,22 @@ class ScenePainter {
 	/** How many draws the last render, of any painter, left out because they were outside the camera's view. **/
 	public static var culled(default, null) = 0;
 
+	/** The draws' rows, kept between frames so that none are allocated. **/
+	var drawBytes:Null<haxe.io.Bytes> = null;
+
+	static final cullScratch = new haxe.ds.Vector<Float>(16);
+
 	/**
 		Whether any of `d`'s bounds, placed by its transform, may be within
 		`viewProjection`'s view: false only when all eight corners lie outside
 		the same one of its six planes.
 	**/
 	static function inside(viewProjection:Mat4, d:SceneDraw):Bool {
-		var m = viewProjection.mul(d.transform).m;
+		// The view-projection times the transform, into a scratch kept between calls.
+		var v = viewProjection.m, t = d.transform.m, m = cullScratch;
+		for (c in 0...4)
+			for (r in 0...4)
+				m[c * 4 + r] = v[r] * t[c * 4] + v[4 + r] * t[c * 4 + 1] + v[8 + r] * t[c * 4 + 2] + v[12 + r] * t[c * 4 + 3];
 		var lo = d.mesh.min, hi = d.mesh.max;
 		// Each bit is a plane all corners so far are outside of: left, right, bottom, top, near, far.
 		var outside = 63;
@@ -1325,13 +1338,22 @@ class ScenePainter {
 	static function writeDraw(out:haxe.io.Bytes, offset:Int, d:SceneDraw, solid:Bool, before:Mat4):Void {
 		d.transform.write(out, offset);
 		before.write(out, offset + 12 * 16);
-		var n = d.transform.normalMatrix().m;
 		var m = d.material;
 		var t = m.textureTransform != null ? m.textureTransform : ashui.draw3d.TextureTransform.IDENTITY;
-		var offsets = [t.offsetX, t.offsetY, 0];
-		for (c in 0...3)
-			for (r in 0...4)
-				out.setFloat(offset + (4 + c) * 16 + r * 4, r < 3 ? n[c * 4 + r] : offsets[c]);
+		// The normal matrix, the inverse transpose of the transform's 3×3 part: its columns are the cross products of
+		// the transform's columns, over the determinant. Worked out here so that no matrix is made for it.
+		var a = d.transform.m;
+		var c0x = a[5] * a[10] - a[6] * a[9], c0y = a[6] * a[8] - a[4] * a[10], c0z = a[4] * a[9] - a[5] * a[8];
+		var c1x = a[9] * a[2] - a[10] * a[1], c1y = a[10] * a[0] - a[8] * a[2], c1z = a[8] * a[1] - a[9] * a[0];
+		var c2x = a[1] * a[6] - a[2] * a[5], c2y = a[2] * a[4] - a[0] * a[6], c2z = a[0] * a[5] - a[1] * a[4];
+		var det = a[0] * c0x + a[1] * c0y + a[2] * c0z;
+		var k = Math.abs(det) > 1e-30 ? 1 / det : 0;
+		if (k == 0) {
+			c0x = 1; c0y = 0; c0z = 0; c1x = 0; c1y = 1; c1z = 0; c2x = 0; c2y = 0; c2z = 1; k = 1;
+		}
+		row(out, Std.int(offset / 16) + 4, c0x * k, c0y * k, c0z * k, t.offsetX);
+		row(out, Std.int(offset / 16) + 5, c1x * k, c1y * k, c1z * k, t.offsetY);
+		row(out, Std.int(offset / 16) + 6, c2x * k, c2y * k, c2z * k, 0);
 		var at = Std.int(offset / 16);
 		row(out, at + 7, linear(m.baseColor >> 16 & 0xff), linear(m.baseColor >> 8 & 0xff), linear(m.baseColor & 0xff), m.alpha);
 		row(out, at + 8, m.metallic, m.roughness, m.normalScale, m.occlusionTexture != null ? m.occlusionStrength : 0);
