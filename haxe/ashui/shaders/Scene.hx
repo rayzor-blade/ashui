@@ -15,17 +15,15 @@ package ashui.shaders;
 	environment's intensity, its blurriest mip level and whether there is
 	one, the inverse view-projection's columns, the skybox (its kind, 0
 	none, 1 a sky, 2 a gradient; its mip level and intensity) and its
-	gradient's zenith, horizon and ground colours, the grid (its size,
-	subdivisions, fade start and end), its minor and major colours (sRGB,
-	with their alpha), its height and whether it draws axes, then four rows
-	each light: its kind (0 directional, 1 point, 2 spot), range and
+	gradient's zenith, horizon and ground colours, then four rows each
+	light: its kind (0 directional, 1 point, 2 spot), range and
 	spot cone's cosines; its colour times its intensity; its position; the
 	way it shines. Colours are linear.
 **/
 class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	public static inline var MAX_LIGHTS = 8;
 	public static inline var LIGHT_ROWS = 4;
-	public static inline var FIRST_LIGHT = 19;
+	public static inline var FIRST_LIGHT = 15;
 	public static inline var ROWS = FIRST_LIGHT + MAX_LIGHTS * LIGHT_ROWS;
 
 	static var SRC = {
@@ -94,32 +92,13 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 			return normalize(p.xyz / p.w - scene[4].xyz);
 		}
 
-		/** Size of a major cell, minor cells to one, and where it starts and stops fading. **/
-		function gridSpacing() : Vec4 {
-			return scene[15];
-		}
-
-		/** Minor and major lines' colours, sRGB, with their alpha. **/
-		function gridMinor() : Vec4 {
-			return scene[16];
-		}
-
-		function gridMajor() : Vec4 {
-			return scene[17];
-		}
-
-		/** The grid's height, and 1 where it draws its axes. **/
-		function gridPlace() : Vec4 {
-			return scene[18];
-		}
-
 		function lightCount() : Int {
 			return int(scene[4].w + 0.5);
 		}
 
 		/** The way from `at` toward light `i`, of unit length. **/
 		function lightDirection(i : Int, at : Vec3) : Vec3 {
-			var row = 19 + i * 4;
+			var row = 15 + i * 4;
 			var l = -normalize(scene[row + 3].xyz);
 			if (scene[row].x > 0.5)
 				l = normalize(scene[row + 2].xyz - at);
@@ -128,7 +107,7 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 
 		/** The light `i` brings to `at`: its colour and intensity, faded by distance and, for a spot, its cone. **/
 		function lightRadiance(i : Int, at : Vec3) : Vec3 {
-			var row = 19 + i * 4;
+			var row = 15 + i * 4;
 			var kind = scene[row];
 			var fade = 1.;
 			if (kind.x > 0.5) {

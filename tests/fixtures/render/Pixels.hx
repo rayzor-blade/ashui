@@ -668,6 +668,7 @@ class Pixels {
 
 		// A ground grid seen from above: its major lines where whole units fall, nothing between them, hidden where a mesh is in front.
 		var gridTree = new LayoutTree();
+		var testGrid = new ashui.canvaskit.GroundGrid({size: 1, subdivisions: 1, major: 0xffffff, majorAlpha: 1, axes: false, fadeNear: 50, fadeFar: 60});
 		var gridBlock = ashui.draw3d.MeshData.build([-0.3, 0.2, -0.3, 0.3, 0.2, -0.3, 0.3, 0.2, 0.3, -0.3, 0.2, 0.3], [0, 2, 1, 0, 3, 2], null, null, null,
 			new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true}));
 		var gridRoot:Div = ashui.reactive.Owner.root(gridTree, _ -> {
@@ -675,8 +676,8 @@ class Pixels {
 				draw: ctx -> {
 					// Straight down at the origin, a little off so the view keeps a direction for up.
 					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2), [],
-						null, null, null, 0x000000, 1, null, null, null,
-						new ashui.draw3d.GroundGrid({size: 1, subdivisions: 1, major: 0xffffff, majorAlpha: 1, axes: false, fadeNear: 50, fadeFar: 60})));
+						null, null, null, 0x000000, 1));
+					ctx.drawPass(testGrid);
 					ctx.drawMesh(gridBlock);
 				}
 			});
@@ -691,6 +692,32 @@ class Pixels {
 		probe("a major line at x = 1, a pixel wide", lineX, 14, (r, g, b) -> r > 80 && g > 80 && b > 80);
 		probe("nothing between the lines", lineX - 6, 14, (r, g, b) -> r < 60 && g < 60 && b < 60);
 		probe("hidden by the mesh in front of it, at the origin", 32, 32, (r, g, b) -> b > 200 && r < 60);
+
+		// One's own GPU drawing in a scene: a pass's quad and a mesh share depth, each hiding the other where it is in front.
+		var front = new TestQuadPass(0.5), back = new TestQuadPass(-0.5);
+		var passMesh = ashui.draw3d.MeshData.build([-0.4, -0.4, 0, 0.4, -0.4, 0, 0.4, 0.4, 0, -0.4, 0.4, 0], [0, 1, 2, 0, 2, 3], null, null, null,
+			new ashui.draw3d.Material({baseColor: 0xff0000, unlit: true}));
+		var passIn = ashui.reactive.Signal.make(back);
+		var passTree = new LayoutTree();
+		var passRoot:Div = ashui.reactive.Owner.root(passTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 3), ashui.math.Vec3.ZERO, null, 1.0));
+					ctx.drawMesh(passMesh);
+					ctx.drawPass(passIn.get());
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(passRoot, SIZE, SIZE);
+		label = "scene pass: ";
+		probe("behind the mesh, the pass's quad shows around it", 22, 32, (r, g, b) -> g > 200 && r < 60);
+		probe("and the mesh hides it in the middle", 32, 32, (r, g, b) -> r > 200 && g < 60);
+		passIn.set(front);
+		pixels = offscreen.renderToRgba8(passRoot, SIZE, SIZE);
+		probe("in front of the mesh, the pass's quad hides it", 32, 32, (r, g, b) -> g > 200 && r < 60);
 
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
@@ -863,4 +890,73 @@ class Pixels {
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}
+}
+
+/** A green quad two units square at depth `z`, drawn with its own pipeline and buffer after the opaque meshes, as a game's renderer would. **/
+class TestQuadPass implements ashui.draw3d.ScenePass {
+	final z:Float;
+	var pipeline:Null<gpu.GpuPipeline> = null;
+	var place:Null<gpu.GpuBuffer> = null;
+	var group:Null<gpu.GpuBindGroup> = null;
+
+	public function new(z:Float)
+		this.z = z;
+
+	public function stage():ashui.draw3d.ScenePass.SceneStage
+		return Opaque;
+
+	public function animated():Bool
+		return false;
+
+	public function prepare(frame:ashui.core.render.ScenePassFrame):Void {
+		if (pipeline == null) {
+			var builder = frame.pipelineBuilder(TestQuadShader.WGSL);
+			builder.primitive(TriangleList, None, Ccw);
+			pipeline = builder.build();
+			place = frame.device.createBuffer(new gpu.GpuBufferDescriptor(16, ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
+			var b = haxe.io.Bytes.alloc(16);
+			b.setFloat(0, z);
+			frame.device.queue().writeBuffer(place, 0, b, 16);
+		}
+		if (group != null)
+			group.destroy();
+		var bindings = new gpu.GpuBindings();
+		bindings.buffer(frame.sceneBuffer);
+		bindings.buffer(place);
+		group = frame.device.bindGroup(pipeline, 0, bindings);
+		bindings.destroy();
+	}
+
+	public function draw(frame:ashui.core.render.ScenePassFrame):Void {
+		frame.encoder.renderSetPipeline(pipeline);
+		frame.encoder.renderSetBindGroup(0, group);
+		frame.encoder.renderDraw(6, 1);
+	}
+}
+
+/** The quad: through the scene's camera, by ashui's `Scene` module; green, opaque. **/
+class TestQuadShader implements hlwgpu.hxsl.Shader {
+	static var SRC = {
+		@:import ashui.shaders.Scene;
+
+		var output : { position : Vec4, color : Vec4 };
+
+		@param var scene : StorageBuffer<Vec4>;
+		@param var place : StorageBuffer<Vec4>;
+
+		function vertex() {
+			var c = vec2(-1., -1.);
+			if (vertexID == 1 || vertexID == 4)
+				c = vec2(1., -1.);
+			if (vertexID == 2 || vertexID == 3)
+				c = vec2(-1., 1.);
+			if (vertexID == 5)
+				c = vec2(1., 1.);
+			output.position = worldToClip(vec4(c, place[0].x, 1.));
+		}
+
+		function fragment() {
+			output.color = vec4(0., 1., 0., 1.);
+		}
+	};
 }

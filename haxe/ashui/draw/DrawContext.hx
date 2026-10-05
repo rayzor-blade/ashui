@@ -13,6 +13,9 @@ enum DrawOp {
 
 	/** A mesh in 3D, placed by `transform`, seen as `scene` says. **/
 	Mesh3D(mesh:ashui.draw3d.MeshData, transform:ashui.math.Mat4, scene:ashui.draw3d.Scene3D, opacity:Float);
+
+	/** Drawing of one's own in the same 3D scene (see `ashui.draw3d.ScenePass`). **/
+	Pass3D(pass:ashui.draw3d.ScenePass, scene:ashui.draw3d.Scene3D);
 }
 
 /** What a clip keeps: a rectangle with its corners rounded by `radius`, or an ellipse, by its centre and half its width and height. **/
@@ -58,8 +61,9 @@ typedef DrawImage = {final slot:Int; final width:Int; final height:Int;}
 	inside the clips already pushed, until the matching `popClip`.
 
 	Meshes are drawn in 3D with `drawMesh`, seen through the camera and lit
-	by the lights `setCamera`, `setLights` or `setScene` set last. Meshes
-	drawn one after another share a depth buffer, nearer surfaces hiding
+	by the lights `setCamera`, `setLights` or `setScene` set last, and one's
+	own GPU drawing joins them with `drawPass`. Meshes and passes drawn one
+	after another share a depth buffer, nearer surfaces hiding
 	further ones, over the canvas's box; shapes drawn after them go over
 	them. A mesh takes the canvas's clipping and the opacity pushed, not
 	the clips pushed.
@@ -211,6 +215,13 @@ class DrawContext {
 	/** Meshes drawn after this lit by `lights`. **/
 	public function setLights(lights:Array<ashui.draw3d.Light>):Void
 		scene = scene.with(null, lights);
+
+	/**
+		`pass` drawn in 3D with the meshes drawn around it, sharing their
+		depth: one's own GPU drawing in the scene (see `ScenePass`).
+	**/
+	public function drawPass(pass:ashui.draw3d.ScenePass):Void
+		ops.push(Pass3D(pass, scene));
 
 	/** `mesh` drawn in 3D, placed by `transform`, the identity by default. **/
 	public function drawMesh(mesh:ashui.draw3d.MeshData, ?transform:ashui.math.Mat4):Void

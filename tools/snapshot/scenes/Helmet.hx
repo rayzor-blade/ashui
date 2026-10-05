@@ -2,7 +2,7 @@ import ashui.canvaskit.Gltf;
 import ashui.canvaskit.OrbitCamera;
 import ashui.canvaskit.SceneKit;
 import ashui.core.render.Snapshot;
-import ashui.draw3d.GroundGrid;
+import ashui.canvaskit.GroundGrid;
 import ashui.draw3d.Light;
 import ashui.draw3d.Skybox;
 import ashui.math.Vec3;

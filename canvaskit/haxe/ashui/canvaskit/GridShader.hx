@@ -1,13 +1,16 @@
-package ashui.core.render;
+package ashui.canvaskit;
 
 /**
-	A scene's ground grid: a square on the plane at the grid's height,
+	`GroundGrid`'s shader: a square on the plane at the grid's height,
 	centred under the eye and as wide as the grid fades over, so it has a
 	depth meshes hide it by. Each pixel works out its lines from where it
 	is on the plane, a pixel wide at any distance (by the coordinates'
 	screen derivatives), minor and major, the X axis red and the Z axis
-	blue, faded by distance from the eye. Ported from Blinc's canvas kit
-	grid, there a full-screen pass without depth.
+	blue, faded by distance from the eye. It sees the scene through
+	ashui's `Scene` module, and reads its own settings from `grid`: size,
+	subdivisions, fade start and end; minor and major colours (sRGB, with
+	alpha); height and whether it draws axes. Ported from Blinc's canvas
+	kit grid, there a full-screen pass without depth.
 **/
 class GridShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
@@ -16,6 +19,7 @@ class GridShader implements hlwgpu.hxsl.Shader {
 		var output : { position : Vec4, color : Vec4 };
 
 		@param var scene : StorageBuffer<Vec4>;
+		@param var grid : StorageBuffer<Vec4>;
 
 		var world : Vec3;
 
@@ -28,8 +32,8 @@ class GridShader implements hlwgpu.hxsl.Shader {
 			if (vertexID == 5)
 				c = vec2(1., 1.);
 			var eye = cameraEye();
-			var reach = gridSpacing().w;
-			world = vec3(eye.x + c.x * reach, gridPlace().x, eye.z + c.y * reach);
+			var reach = grid[0].w;
+			world = vec3(eye.x + c.x * reach, grid[3].x, eye.z + c.y * reach);
 			output.position = worldToClip(vec4(world, 1.));
 		}
 
@@ -40,18 +44,18 @@ class GridShader implements hlwgpu.hxsl.Shader {
 		}
 
 		function fragment() {
-			var spacing = gridSpacing();
+			var spacing = grid[0];
 			var hit = world.xz;
 			var minorCoord = hit / (spacing.x / spacing.y);
 			var minorDeriv = max(fwidth(minorCoord), vec2(0.000001, 0.000001));
 			var minorAlpha = lineCoverage(minorCoord);
 			var majorAlpha = lineCoverage(hit / spacing.x);
-			var minor = gridMinor();
-			var major = gridMajor();
+			var minor = grid[1];
+			var major = grid[2];
 			var color = minor.rgb;
 			color = mix(color, major.rgb, majorAlpha);
 			var alpha = max(minorAlpha * minor.a, majorAlpha * major.a);
-			if (gridPlace().y > 0.5) {
+			if (grid[3].y > 0.5) {
 				var xAxis = smoothstep(minorDeriv.y, 0., abs(hit.y));
 				var zAxis = smoothstep(minorDeriv.x, 0., abs(hit.x));
 				color = mix(color, vec3(0.85, 0.25, 0.25), xAxis);

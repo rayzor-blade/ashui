@@ -245,7 +245,7 @@ class ScenePainter {
 	}
 
 	/** Draws run `index` of the canvas's 3D runs, `draws` seen as `scene` says, over the canvas's box. **/
-	public function draw(frame:CanvasFrame, index:Int, draws:Array<SceneDraw>, scene:Scene3D):Void {
+	public function draw(frame:CanvasFrame, index:Int, draws:Array<SceneDraw>, passes:Array<ashui.draw3d.ScenePass>, scene:Scene3D):Void {
 		paintedFrame = frameNumber;
 		paintedAt = haxe.Timer.stamp();
 		while (layers.length <= index)
@@ -268,8 +268,13 @@ class ScenePainter {
 		if (waiting)
 			draws = [for (d in draws) if (texturesReady(frame, d.mesh)) d];
 		loadingNow = loadingNow || waiting;
-		if (resized || layer.madeFor != draws || layer.textures != MeshTextures.revision) {
-			render(frame, layer, draws, scene);
+		// A pass that changes every frame has the scene drawn again each frame, not kept.
+		var animated = false;
+		for (p in passes)
+			if (p.animated())
+				animated = true;
+		if (resized || animated || layer.madeFor != draws || layer.textures != MeshTextures.revision) {
+			render(frame, layer, draws, passes, scene);
 			layer.madeFor = draws;
 			layer.textures = MeshTextures.revision;
 		}
@@ -324,11 +329,12 @@ class ScenePainter {
 		return ready;
 	}
 
-	function render(frame:CanvasFrame, layer:SceneLayer, draws:Array<SceneDraw>, scene:Scene3D):Void {
+	function render(frame:CanvasFrame, layer:SceneLayer, draws:Array<SceneDraw>, passes:Array<ashui.draw3d.ScenePass>, scene:Scene3D):Void {
 		var device = frame.device;
 		ensureBuffers(frame, draws.length);
 		var aspect = frame.width / Math.max(frame.height, 0.0001);
-		var viewProjection = scene.camera.projection(aspect).mul(scene.camera.view());
+		var view = scene.camera.view(), projection = scene.camera.projection(aspect);
+		var viewProjection = projection.mul(view);
 		var environment = scene.environment;
 		device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection, environment != null ? environment.levels - 1 : 0), ashui.shaders.Scene.ROWS * 16);
 		// Opaque first, in order; then blended, furthest first, so each blends over what is behind it.
@@ -352,8 +358,7 @@ class ScenePainter {
 			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]]);
 		device.queue().writeBuffer(drawBuffer, 0, bytes, bytes.length);
 		var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material, environment)];
-		var grid = scene.grid != null ? gridBinding(frame) : null;
-		// The grid goes over what is opaque and under what is blended: before the first blended draw.
+		// Passes of the opaque and transparent stages go after the opaque meshes, before the first blended one.
 		var firstBlended = order.length;
 		for (slot in 0...order.length)
 			if (blended(order[slot])) {
@@ -366,7 +371,16 @@ class ScenePainter {
 			case Gradient(_): skyBinding(frame, null);
 		}
 		var bg = scene.background, ba = scene.backgroundAlpha;
+		var environmentView = cube(frame, environment).view;
 		frame.suspend(encoder -> {
+			var passFrame = passes.length > 0 ? new ScenePassFrame(device, encoder, frame.format, DEPTH_FORMAT, layer.width, layer.height, scene, view,
+				projection, sceneBuffer, environmentView, environmentSampler) : null;
+			inline function stage(at:ashui.draw3d.ScenePass.SceneStage)
+				for (p in passes)
+					if (p.stage() == at)
+						p.draw(passFrame);
+			for (p in passes)
+				p.prepare(passFrame);
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
 			color.viewTextureView(layer.colorView);
 			// Premultiplied, as the layer is composited.
@@ -385,11 +399,11 @@ class ScenePainter {
 				encoder.renderSetBindGroup(0, sky.group);
 				encoder.renderDraw(3, 1);
 			}
+			stage(Background);
 			for (slot in 0...order.length + 1) {
-				if (slot == firstBlended && grid != null) {
-					encoder.renderSetPipeline(grid.pipeline);
-					encoder.renderSetBindGroup(0, grid.group);
-					encoder.renderDraw(6, 1);
+				if (slot == firstBlended) {
+					stage(Opaque);
+					stage(Transparent);
 				}
 				if (slot == order.length)
 					break;
@@ -401,6 +415,7 @@ class ScenePainter {
 				encoder.renderSetIndexBufferRange(gpu.indices, Uint32, 0, d.mesh.indexCount * 4);
 				encoder.renderDrawIndexedRange(d.mesh.indexCount, 1, 0, 0, slot);
 			}
+			stage(Overlay);
 			encoder.renderEnd();
 		});
 	}
@@ -487,34 +502,6 @@ class ScenePainter {
 		bindings.destroy();
 		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: environment, textures: MeshTextures.revision});
 		return group;
-	}
-
-	var gridPipeline:Null<GpuPipeline> = null;
-	var gridGroup:Null<GpuBindGroup> = null;
-	var gridGroupBuffers = -1;
-
-	/** The grid's pipeline, blended over what is drawn and hidden by what is in front, and its bind group. **/
-	function gridBinding(frame:CanvasFrame):{pipeline:GpuPipeline, group:GpuBindGroup} {
-		var device = frame.device;
-		if (gridPipeline == null) {
-			var builder = device.pipeline();
-			builder.shader(device.createShader(GridShader.WGSL), "vertex", "fragment");
-			builder.target(frame.format, GpuFlags.COLOR_WRITE_ALL);
-			builder.blend(SrcAlpha, OneMinusSrcAlpha, Add, One, OneMinusSrcAlpha, Add);
-			builder.depth(DEPTH_FORMAT, false, Less);
-			builder.primitive(TriangleList, None, Ccw);
-			gridPipeline = builder.build();
-		}
-		if (gridGroup == null || gridGroupBuffers != buffers) {
-			if (gridGroup != null)
-				gridGroup.destroy();
-			var bindings = new GpuBindings();
-			bindings.buffer(sceneBuffer);
-			gridGroup = device.bindGroup(gridPipeline, 0, bindings);
-			bindings.destroy();
-			gridGroupBuffers = buffers;
-		}
-		return {pipeline: gridPipeline, group: gridGroup};
 	}
 
 	/** The sky pass's pipeline and its bind group for `environment`. **/
@@ -676,15 +663,6 @@ class ScenePainter {
 		(inverse != null ? inverse : Mat4.IDENTITY).write(out, 7 * 16);
 		function color(at:Int, c:Int)
 			row(out, at, linear(c >> 16 & 0xff), linear(c >> 8 & 0xff), linear(c & 0xff), 0);
-		var g = scene.grid;
-		if (g != null) {
-			inline function srgb(c:Int, a:Float, at:Int)
-				row(out, at, (c >> 16 & 0xff) / 255, (c >> 8 & 0xff) / 255, (c & 0xff) / 255, a);
-			row(out, 15, g.size, Math.max(1, g.subdivisions), g.fadeNear, g.fadeFar);
-			srgb(g.minor, g.minorAlpha, 16);
-			srgb(g.major, g.majorAlpha, 17);
-			row(out, 18, g.height, g.axes ? 1 : 0, 0, 0);
-		}
 		switch scene.skybox {
 			case null:
 			case Sky(e, blur, intensity):

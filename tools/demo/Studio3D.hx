@@ -9,7 +9,7 @@ import ashui.components.Slider;
 import ashui.components.Spinner;
 import ashui.components.ToggleSwitch;
 import ashui.draw3d.Light;
-import ashui.draw3d.GroundGrid;
+import ashui.canvaskit.GroundGrid;
 import ashui.draw3d.Skybox;
 import ashui.layout.Element;
 import ashui.math.Vec3;

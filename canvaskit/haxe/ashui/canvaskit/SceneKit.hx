@@ -39,7 +39,14 @@ typedef SceneKitProps = {
 	?skybox:IntoReactive<Null<ashui.draw3d.Skybox>>,
 
 	/** A ground grid under the scene, `GroundGrid.studio()` or one's own (see `GroundGrid`). **/
-	?grid:IntoReactive<Null<ashui.draw3d.GroundGrid>>,
+	?grid:IntoReactive<Null<GroundGrid>>,
+
+	/**
+		True for a scene drawn anew every frame, as one with a pass that
+		animates (an `animated` `ScenePass`) needs: the canvas asks for every
+		frame. False by default: it is drawn as what it reads changes.
+	**/
+	?animate:IntoReactive<Bool>,
 
 	/** Whether dragging and scrolling move the camera; true by default. **/
 	?controls:Bool,
@@ -79,12 +86,16 @@ class SceneKit extends Component<SceneKitProps> {
 		var loading = props.loading;
 		var canvas = new Canvas({
 			id: props.id,
+			animate: props.animate,
 			onLoading: loading != null ? v -> loading.set(v) : null,
 			draw: ctx -> {
 				ctx.setScene(new Scene3D(camera.camera(), read(props.lights, base.lights), read(props.ambient, base.ambient),
 					read(props.ambientStrength, base.ambientStrength), read(props.exposure, base.exposure), read(props.background, base.background),
 					read(props.backgroundAlpha, base.backgroundAlpha), read(props.environment, null), read(props.environmentIntensity, 1.0),
-					read(props.skybox, null), read(props.grid, null)));
+					read(props.skybox, null)));
+				var grid = read(props.grid, null);
+				if (grid != null)
+					ctx.drawPass(grid);
 				if (props.draw != null)
 					props.draw(ctx);
 			}

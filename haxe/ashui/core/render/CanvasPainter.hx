@@ -103,8 +103,8 @@ class CanvasPainter {
 			switch step {
 				case Paths(first, count):
 					drawPaths(frame, first, count);
-				case Meshes(draws, scene):
-					scenes.draw(frame, run++, draws, scene);
+				case Meshes(draws, passes, scene):
+					scenes.draw(frame, run++, draws, passes, scene);
 			}
 		if (scenes != null)
 			scenes.endFrame();
@@ -151,15 +151,21 @@ class CanvasPainter {
 		for (op in ctx.ops) {
 			var before = mesh.vertexCount();
 			switch op {
-				case Mesh3D(m, transform, scene, opacity):
+				case Mesh3D(_, _, scene, _) | Pass3D(_, scene):
 					endPaths();
-					// Meshes drawn one after another, seen the same way, are one run, sharing depth.
+					// Meshes and passes drawn one after another, seen the same way, are one run, sharing depth.
 					var last = steps.length > 0 ? steps[steps.length - 1] : null;
-					switch last {
-						case Meshes(draws, s) if (last != null && s == scene):
-							draws.push({mesh: m, transform: transform, opacity: opacity});
+					var run = switch last {
+						case Meshes(draws, passes, s) if (last != null && s == scene): {draws: draws, passes: passes};
 						case _:
-							steps.push(Meshes([{mesh: m, transform: transform, opacity: opacity}], scene));
+							var made = {draws: [], passes: []};
+							steps.push(Meshes(made.draws, made.passes, scene));
+							made;
+					}
+					switch op {
+						case Mesh3D(m, transform, _, opacity): run.draws.push({mesh: m, transform: transform, opacity: opacity});
+						case Pass3D(pass, _): run.passes.push(pass);
+						case _:
 					}
 					continue;
 				case Fill(path, brush, rule, transform, opacity, clip):
@@ -277,7 +283,7 @@ class CanvasPainter {
 	static function clipOf(op:DrawOp):Null<DrawClip>
 		return switch op {
 			case Fill(_, _, _, _, _, clip) | Stroke(_, _, _, _, _, clip) | Image(_, _, _, _, _, _, _, clip): clip;
-			case Mesh3D(_): null;
+			case Mesh3D(_) | Pass3D(_): null;
 		}
 
 	/** Where `clip` starts in the table, from its start, placing it and those outside it the first time. **/
@@ -393,5 +399,5 @@ class CanvasPainter {
 /** A run of a canvas's record: paths, `count` vertices from `first`, or meshes. **/
 enum CanvasStep {
 	Paths(first:Int, count:Int);
-	Meshes(draws:Array<ScenePainter.SceneDraw>, scene:ashui.draw3d.Scene3D);
+	Meshes(draws:Array<ScenePainter.SceneDraw>, passes:Array<ashui.draw3d.ScenePass>, scene:ashui.draw3d.Scene3D);
 }

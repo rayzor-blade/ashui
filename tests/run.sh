@@ -84,7 +84,7 @@ render)
 	cp "$xgpu" bin/xgpu.hdll
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \
-		--class-path fixtures/render -main Pixels -hl bin/pixels.hl
+		--class-path ../canvaskit/haxe --class-path fixtures/render -main Pixels -hl bin/pixels.hl
 	run pixels.hl
 	;;
 window)
