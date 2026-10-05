@@ -27,8 +27,8 @@ import gpu.GpuTextureView;
 import gpu.GpuTextureViewDescriptor;
 import gpu.TextureFormat;
 
-/** A mesh drawn in a run of 3D draws. **/
-typedef SceneDraw = {mesh:MeshData, transform:Mat4, opacity:Float};
+/** A mesh drawn in a run of 3D draws: where, how opaque, and in which material, its own unless the draw gave another. **/
+typedef SceneDraw = {mesh:MeshData, transform:Mat4, opacity:Float, material:Material};
 
 /** A texture on the GPU and its view. **/
 private typedef Uploaded = {texture:GpuTexture, view:GpuTextureView};
@@ -102,7 +102,8 @@ class ScenePainter {
 	static var environmentSampler:Null<GpuSampler> = null;
 
 	/** Pipelines, by shader, culling and blending. **/
-	final pipelines = new Map<String, GpuPipeline>();
+	/** Each shader's pipelines, by its WGSL string's identity: single-sided or double, opaque or blended. **/
+	final pipelines = new haxe.ds.ObjectMap<String, Array<Null<GpuPipeline>>>();
 	var defaults:Null<{white:Uploaded, flat:Uploaded}> = null;
 	var sampler:Null<GpuSampler> = null;
 	var layerSampler:Null<GpuSampler> = null;
@@ -210,8 +211,7 @@ class ScenePainter {
 
 	var renderedNow = false;
 
-	function texturesReady(frame:CanvasFrame, mesh:MeshData):Bool {
-		var m = mesh.material;
+	function texturesReady(frame:CanvasFrame, m:Material):Bool {
 		for (pair in [
 			{b: m.baseColorTexture, r: MeshTextures.TextureRole.Color},
 			{b: m.emissiveTexture, r: MeshTextures.TextureRole.Color},
@@ -274,10 +274,10 @@ class ScenePainter {
 		// A mesh whose textures are still on their way is held back, rather than drawn plain.
 		var waiting = false;
 		for (d in draws)
-			if (!markUsed(frame, d.mesh))
+			if (!markUsed(frame, d.mesh, d.material))
 				waiting = true;
 		if (waiting)
-			draws = [for (d in draws) if (texturesReady(frame, d.mesh)) d];
+			draws = [for (d in draws) if (texturesReady(frame, d.material)) d];
 		loadingNow = loadingNow || waiting;
 		// A pass that changes every frame has the scene drawn again each frame, not kept.
 		var animated = false;
@@ -329,9 +329,8 @@ class ScenePainter {
 	}
 
 	/** Keeps `mesh` and its textures for this frame; whether every texture it has is on the GPU yet. **/
-	function markUsed(frame:CanvasFrame, mesh:MeshData):Bool {
+	function markUsed(frame:CanvasFrame, mesh:MeshData, m:Material):Bool {
 		upload(frame, mesh).used = frameCount;
-		var m = mesh.material;
 		var group = materials.get(m);
 		if (group != null)
 			group.used = frameCount;
@@ -358,13 +357,13 @@ class ScenePainter {
 		var entries = [];
 		for (i in 0...draws.length) {
 			entries.push(i * 2);
-			if (draws[i].mesh.material.alphaMode == Blend && draws[i].opacity >= 1)
+			if (draws[i].material.alphaMode == Blend && draws[i].opacity >= 1)
 				entries.push(i * 2 + 1);
 		}
 		ensureBuffers(frame, entries.length);
 		var eye = scene.camera.eye;
 		inline function blendedEntry(e:Int)
-			return e & 1 == 0 && (draws[e >> 1].mesh.material.alphaMode == Blend || draws[e >> 1].opacity < 1);
+			return e & 1 == 0 && (draws[e >> 1].material.alphaMode == Blend || draws[e >> 1].opacity < 1);
 		inline function distance(i:Int)
 			return draws[i].transform.transformPoint(draws[i].mesh.min.lerp(draws[i].mesh.max, 0.5)).distance(eye);
 		// Opaque first, in order; then blended, furthest first, so each blends over what is behind it.
@@ -415,7 +414,7 @@ class ScenePainter {
 				p.prepare(passFrame);
 			if (shadows != null)
 				drawShadows(frame, encoder, passFrame, draws, order, solid, passes);
-			var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material, passFrame.environment, passFrame.shadowMap)];
+			var groups = [for (i in order) materialGroup(frame, draws[i].material, passFrame.environment, passFrame.shadowMap)];
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
 			color.viewTextureView(layer.colorView);
 			// Premultiplied, as the layer is composited.
@@ -439,7 +438,7 @@ class ScenePainter {
 					break;
 				var d = draws[order[slot]];
 				var gpu = meshes.get(d.mesh);
-				encoder.renderSetPipeline(pipeline(frame, d.mesh.material, slot >= firstBlended));
+				encoder.renderSetPipeline(pipeline(frame, d.material, slot >= firstBlended));
 				encoder.renderSetBindGroup(0, groups[slot]);
 				encoder.renderSetVertexBuffer(0, gpu.vertices);
 				encoder.renderSetIndexBufferRange(gpu.indices, Uint32, 0, d.mesh.indexCount * 4);
@@ -475,12 +474,18 @@ class ScenePainter {
 	/** The pipeline for a material: culled unless double-sided, writing depth unless `blended`. **/
 	function pipeline(frame:CanvasFrame, material:Material, blended:Bool):GpuPipeline {
 		var wgsl = material.shader != null ? material.shader : MeshShader.WGSL;
-		var key = '${(material.doubleSided ? 1 : 0) | (blended ? 2 : 0)}' + wgsl;
-		var made = pipelines.get(key);
-		if (made != null)
-			return made;
-		made = buildPipeline(frame, wgsl, material.doubleSided, blended, sharedLayout(frame));
-		pipelines.set(key, made);
+		// By the shader's string itself, not its text: looked up for every draw, a shader's WGSL is too long to hash each time.
+		var variants = pipelines.get(wgsl);
+		if (variants == null) {
+			variants = [null, null, null, null];
+			pipelines.set(wgsl, variants);
+		}
+		var at = (material.doubleSided ? 1 : 0) | (blended ? 2 : 0);
+		var made = variants[at];
+		if (made == null) {
+			made = buildPipeline(frame, wgsl, material.doubleSided, blended, sharedLayout(frame));
+			variants[at] = made;
+		}
 		return made;
 	}
 
@@ -711,7 +716,7 @@ class ScenePainter {
 		var bound:Null<GpuBindGroup> = null;
 		for (slot in 0...order.length) {
 			var d = draws[order[slot]];
-			var m = d.mesh.material;
+			var m = d.material;
 			// Faded meshes let light through: they cast none.
 			if (d.opacity < 1 || solid[slot])
 				continue;
@@ -849,8 +854,11 @@ class ScenePainter {
 		row(out, 4, eye.x, eye.y, eye.z, lights.length);
 		var a = lighting.ambientColor(), s = lighting.ambientStrength();
 		row(out, 5, linear(a >> 16 & 0xff) * s, linear(a >> 8 & 0xff) * s, linear(a & 0xff) * s, scene.exposure);
-		if (environment != null)
-			row(out, 6, environment.intensity, environment.levels - 1, 1, 0);
+		var fog = scene.fog;
+		row(out, 6, environment != null ? environment.intensity : 0, environment != null ? environment.levels - 1 : 0, environment != null ? 1 : 0,
+			fog != null ? Math.max(fog.far, fog.near + 0.001) : 0);
+		if (fog != null)
+			row(out, 12, linear(fog.color >> 16 & 0xff), linear(fog.color >> 8 & 0xff), linear(fog.color & 0xff), fog.near);
 		if (shadows != null) {
 			shadows.viewProjection.write(out, 7 * 16);
 			row(out, 11, 1, shadows.bias, shadows.strength, Std.int(Math.max(16, Math.min(8192, shadows.size))));
@@ -883,17 +891,20 @@ class ScenePainter {
 	static function writeDraw(out:haxe.io.Bytes, offset:Int, d:SceneDraw, solid:Bool):Void {
 		d.transform.write(out, offset);
 		var n = d.transform.normalMatrix().m;
+		var m = d.material;
+		var t = m.textureTransform != null ? m.textureTransform : ashui.draw3d.TextureTransform.IDENTITY;
+		var offsets = [t.offsetX, t.offsetY, 0];
 		for (c in 0...3)
 			for (r in 0...4)
-				out.setFloat(offset + (4 + c) * 16 + r * 4, r < 3 ? n[c * 4 + r] : 0);
-		var m = d.mesh.material;
+				out.setFloat(offset + (4 + c) * 16 + r * 4, r < 3 ? n[c * 4 + r] : offsets[c]);
 		var at = Std.int(offset / 16);
 		row(out, at + 7, linear(m.baseColor >> 16 & 0xff), linear(m.baseColor >> 8 & 0xff), linear(m.baseColor & 0xff), m.alpha);
 		row(out, at + 8, m.metallic, m.roughness, m.normalScale, m.occlusionTexture != null ? m.occlusionStrength : 0);
 		var e = m.emissive, k = m.emissiveStrength;
 		row(out, at + 9, linear(e >> 16 & 0xff) * k, linear(e >> 8 & 0xff) * k, linear(e & 0xff) * k, m.alphaCutoff);
 		row(out, at + 10, m.normalTexture != null ? 1 : 0, m.unlit ? 1 : 0, solid ? 3 : (m.alphaMode : Int), d.opacity);
-		row(out, at + 11, 0, 0, 0, 0);
+		var uv = t.matrix();
+		row(out, at + 11, uv.a, uv.b, uv.c, uv.d);
 	}
 
 	static inline function row(out:haxe.io.Bytes, at:Int, x:Float, y:Float, z:Float, w:Float):Void {

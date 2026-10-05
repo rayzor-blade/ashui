@@ -12,17 +12,18 @@ package ashui.shaders;
 
 	The buffer is rows of four floats: the view-projection's columns, the
 	eye and the light count, the ambient light and the exposure, the
-	environment's intensity, its blurriest mip level and whether there is
-	one, the shadow's light view-projection's columns, whether there are
-	shadows with their bias, strength and map size, then four rows each
-	light: its kind (0 directional, 1 point, 2 spot), range and
+	environment's intensity, its blurriest mip level, whether there is one
+	and where the fog is whole (0 for none), the shadow's light
+	view-projection's columns, whether there are shadows with their bias,
+	strength and map size, the fog's colour and where it starts, then four
+	rows each light: its kind (0 directional, 1 point, 2 spot), range and
 	spot cone's cosines; its colour times its intensity; its position; the
 	way it shines. Colours are linear.
 **/
 class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	public static inline var MAX_LIGHTS = 8;
 	public static inline var LIGHT_ROWS = 4;
-	public static inline var FIRST_LIGHT = 12;
+	public static inline var FIRST_LIGHT = 13;
 	public static inline var ROWS = FIRST_LIGHT + MAX_LIGHTS * LIGHT_ROWS;
 
 	static var SRC = {
@@ -73,13 +74,32 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 			return scene[11];
 		}
 
+		/** How far into the fog a point at `world` is, 0 clear to 1 wholly fog; 0 without fog. **/
+		function fogAmount(world : Vec3) : Float {
+			var far = scene[6].w;
+			var amount = 0.;
+			if (far > 0.)
+				amount = smoothstep(scene[12].w, far, length(world - scene[4].xyz));
+			return amount;
+		}
+
+		/** The fog's colour, linear. **/
+		function fogColor() : Vec3 {
+			return scene[12].rgb;
+		}
+
+		/** `color` (linear, before exposure) of a point at `world`, faded into the fog by its distance. **/
+		function applyFog(color : Vec3, world : Vec3) : Vec3 {
+			return mix(color, fogColor(), fogAmount(world));
+		}
+
 		function lightCount() : Int {
 			return int(scene[4].w + 0.5);
 		}
 
 		/** The way from `at` toward light `i`, of unit length. **/
 		function lightDirection(i : Int, at : Vec3) : Vec3 {
-			var row = 12 + i * 4;
+			var row = 13 + i * 4;
 			var l = -normalize(scene[row + 3].xyz);
 			if (scene[row].x > 0.5)
 				l = normalize(scene[row + 2].xyz - at);
@@ -88,7 +108,7 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 
 		/** The light `i` brings to `at`: its colour and intensity, faded by distance and, for a spot, its cone. **/
 		function lightRadiance(i : Int, at : Vec3) : Vec3 {
-			var row = 12 + i * 4;
+			var row = 13 + i * 4;
 			var kind = scene[row];
 			var fade = 1.;
 			if (kind.x > 0.5) {

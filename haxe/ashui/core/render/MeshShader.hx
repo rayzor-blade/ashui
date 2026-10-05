@@ -65,7 +65,8 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			worldPos = w.xyz;
 			worldNormal = normalToWorld(instanceID, input.normal);
 			worldTangent = vec4(modelToWorld(instanceID, vec4(input.tangent.xyz, 0.)).xyz, input.tangent.w);
-			texcoord = input.uv;
+			// Transformed here: the transform is affine, so it carries across the triangle as the coordinates do.
+			texcoord = drawTexcoord(instanceID, input.uv);
 			drawIndex = instanceID;
 			output.position = worldToClip(w);
 		}
@@ -93,6 +94,12 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 				// x and y from the texture; z worked out from them, as a two-channel (BC5) normal map stores none.
 				var nxy = texture(normalMap, texcoord).xy * 2. - vec2(1., 1.);
 				var tn = vec3(nxy * settings.z, sqrt(max(1. - dot(nxy, nxy), 0.)));
+				// A slope in the texture's coordinates is one in the mesh's through the texture transform's transpose:
+				// turned that way, its steepness kept.
+				var m = draws[drawIndex * 12 + 11];
+				var turned = vec2(m.x * tn.x + m.z * tn.y, m.y * tn.x + m.w * tn.y);
+				if (dot(turned, turned) > 0.00000001)
+					tn = vec3(normalize(turned) * length(tn.xy), tn.z);
 				var t = worldTangent.xyz - n * dot(n, worldTangent.xyz);
 				if (dot(t, t) > 0.00000001) {
 					t = normalize(t);
@@ -176,7 +183,8 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 				discard;
 			if (flags.z < 0.5)
 				alpha = 1.;
-			var color = flags.y > 0.5 ? linearToSrgb(surfaceColor.rgb) : present(shade());
+			// Faded into the fog before it is exposed and tone-mapped, as light through air would be.
+			var color = flags.y > 0.5 ? linearToSrgb(applyFog(surfaceColor.rgb, worldPos)) : present(applyFog(shade(), worldPos));
 			// Never true (opacity is not negative): it keeps every binding, for shaders extending this one.
 			if (flags.w < -1.)
 				color += everyBinding().rgb;

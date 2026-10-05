@@ -24,7 +24,7 @@ class MeshCutoutShadowShader implements hlwgpu.hxsl.Shader {
 
 		function vertex() {
 			clip = worldToShadow(modelToWorld(instanceID, vec4(input.position, 1.)));
-			texcoord = input.uv;
+			texcoord = drawTexcoord(instanceID, input.uv);
 			drawIndex = instanceID;
 			output.position = clip;
 		}

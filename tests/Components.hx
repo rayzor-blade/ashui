@@ -194,8 +194,15 @@ class Components {
 			] : Array<Dynamic>),
 			meshes: ([
 				{primitives: [{attributes: {POSITION: 0, JOINTS_0: 1, WEIGHTS_0: 2}, targets: [{POSITION: 9}]}]},
-				{primitives: [{attributes: {POSITION: 0}}]}
+				{primitives: [{attributes: {POSITION: 0}, material: 0}]}
 			] : Array<Dynamic>),
+			materials: [{
+				pbrMetallicRoughness: {
+					baseColorTexture: {index: 0, extensions: {KHR_texture_transform: {scale: [3, 2], rotation: 0.5, offset: [0.25, 0.75]}}}
+				}
+			}],
+			textures: [{source: 0}],
+			images: [{uri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z/AfAAQAAf8iCjrwAAAAAElFTkSuQmCC"}],
 			skins: [{joints: [1, 2], inverseBindMatrices: 3}],
 			animations: [{
 				name: "wave",
@@ -246,6 +253,9 @@ class Components {
 		var wave = scene.animation("wave");
 		check("glTF: an animation's channels and its length", wave != null && wave.channels.length == 5 && wave.duration == 1, wave);
 		check("glTF: drawn at rest, every mesh where its node is", scene.draws.length == 2, scene.draws.length);
+		var placed = scene.meshes[1].primitives[0].mesh.material.textureTransform;
+		check("glTF: KHR_texture_transform's scale, rotation and offset", placed != null && placed.scaleX == 3 && placed.scaleY == 2
+			&& placed.rotation == 0.5 && placed.offsetX == 0.25 && placed.offsetY == 0.75, placed);
 
 		var pose = new ashui.canvaskit.GltfPose(scene);
 		pose.play(wave, 0.5);

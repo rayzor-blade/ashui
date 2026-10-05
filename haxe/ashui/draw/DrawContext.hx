@@ -12,7 +12,7 @@ enum DrawOp {
 	Image(slot:Int, x:Float, y:Float, width:Float, height:Float, transform:Affine, opacity:Float, clip:Null<DrawClip>);
 
 	/** A mesh in 3D, placed by `transform`, seen as `scene` says. **/
-	Mesh3D(mesh:ashui.draw3d.MeshData, transform:ashui.math.Mat4, scene:ashui.draw3d.Scene3D, opacity:Float);
+	Mesh3D(mesh:ashui.draw3d.MeshData, transform:ashui.math.Mat4, scene:ashui.draw3d.Scene3D, opacity:Float, material:ashui.draw3d.Material);
 
 	/** Drawing of one's own in the same 3D scene (see `ashui.draw3d.ScenePass`). **/
 	Pass3D(pass:ashui.draw3d.ScenePass, scene:ashui.draw3d.Scene3D);
@@ -227,9 +227,13 @@ class DrawContext {
 	public function drawPass(pass:ashui.draw3d.ScenePass):Void
 		ops.push(Pass3D(pass, scene));
 
-	/** `mesh` drawn in 3D, placed by `transform`, the identity by default. **/
-	public function drawMesh(mesh:ashui.draw3d.MeshData, ?transform:ashui.math.Mat4):Void
-		ops.push(Mesh3D(mesh, transform != null ? transform : ashui.math.Mat4.IDENTITY, scene, opacity));
+	/**
+		`mesh` drawn in 3D, placed by `transform`, the identity by default, in
+		`material`, its own by default: one mesh on the GPU drawn in several
+		materials, or in one that changes, is uploaded once.
+	**/
+	public function drawMesh(mesh:ashui.draw3d.MeshData, ?transform:ashui.math.Mat4, ?material:ashui.draw3d.Material):Void
+		ops.push(Mesh3D(mesh, transform != null ? transform : ashui.math.Mat4.IDENTITY, scene, opacity, material != null ? material : mesh.material));
 
 	/** A straight line, which has no inside: only its stroke. **/
 	public function line(x1:Float, y1:Float, x2:Float, y2:Float, stroke:Stroke, brush:Brush):Void

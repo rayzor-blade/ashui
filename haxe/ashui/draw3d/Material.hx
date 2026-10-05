@@ -29,6 +29,7 @@ typedef MaterialOptions = {
 	?unlit:Bool,
 	?doubleSided:Bool,
 	?shader:String,
+	?textureTransform:TextureTransform,
 }
 
 /**
@@ -39,7 +40,8 @@ typedef MaterialOptions = {
 	roughness, `emissiveTexture` the emissive colour; `occlusionTexture`'s
 	red darkens the light that reaches into creases, and `normalTexture`
 	bends the surface's normals for detail the triangles do not have.
-	Colours are `0xRRGGBB` as `Brush` takes them. `unlit` shows the base
+	`textureTransform` scales, turns and moves every texture on the
+	surface, as glTF's `KHR_texture_transform` does. Colours are `0xRRGGBB` as `Brush` takes them. `unlit` shows the base
 	colour as it is, unshaded. `shader` is the WGSL of a shader that
 	extends ashui's mesh shader (`@:extends ashui.core.render.MeshShader`)
 	to light or present the surface its own way; ashui's own by default.
@@ -65,6 +67,7 @@ class Material {
 	public final unlit:Bool;
 	public final doubleSided:Bool;
 	public final shader:Null<String>;
+	public final textureTransform:Null<TextureTransform>;
 
 	public function new(?o:MaterialOptions) {
 		if (o == null)
@@ -87,5 +90,30 @@ class Material {
 		unlit = o.unlit == true;
 		doubleSided = o.doubleSided == true;
 		shader = o.shader;
+		textureTransform = o.textureTransform;
 	}
+
+	/** A copy with the settings `o` gives in place of these. **/
+	public function with(o:MaterialOptions):Material
+		return new Material({
+			baseColor: o.baseColor != null ? o.baseColor : baseColor,
+			alpha: o.alpha != null ? o.alpha : alpha,
+			metallic: o.metallic != null ? o.metallic : metallic,
+			roughness: o.roughness != null ? o.roughness : roughness,
+			emissive: o.emissive != null ? o.emissive : emissive,
+			emissiveStrength: o.emissiveStrength != null ? o.emissiveStrength : emissiveStrength,
+			baseColorTexture: o.baseColorTexture != null ? o.baseColorTexture : baseColorTexture,
+			normalTexture: o.normalTexture != null ? o.normalTexture : normalTexture,
+			normalScale: o.normalScale != null ? o.normalScale : normalScale,
+			metallicRoughnessTexture: o.metallicRoughnessTexture != null ? o.metallicRoughnessTexture : metallicRoughnessTexture,
+			emissiveTexture: o.emissiveTexture != null ? o.emissiveTexture : emissiveTexture,
+			occlusionTexture: o.occlusionTexture != null ? o.occlusionTexture : occlusionTexture,
+			occlusionStrength: o.occlusionStrength != null ? o.occlusionStrength : occlusionStrength,
+			alphaMode: o.alphaMode != null ? o.alphaMode : alphaMode,
+			alphaCutoff: o.alphaCutoff != null ? o.alphaCutoff : alphaCutoff,
+			unlit: o.unlit != null ? o.unlit : unlit,
+			doubleSided: o.doubleSided != null ? o.doubleSided : doubleSided,
+			shader: o.shader != null ? o.shader : shader,
+			textureTransform: o.textureTransform != null ? o.textureTransform : textureTransform
+		});
 }

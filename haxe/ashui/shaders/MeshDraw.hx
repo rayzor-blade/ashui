@@ -4,11 +4,13 @@ package ashui.shaders;
 	A mesh draw's own settings, for `@:import ashui.shaders.MeshDraw;`:
 	read from the `draws` buffer, `ROWS` rows of four floats a draw, the
 	draw's instance index naming its own. The rows are the model matrix's
-	columns, the normal matrix's, the base colour and alpha (linear), then
-	metallic, roughness, normal scale and occlusion strength, the emissive
-	colour (linear, times its strength) and the alpha cut-off, then whether
-	it has a normal texture, whether it is unlit, its alpha mode (0 opaque,
-	1 mask, 2 blend) and its opacity. The importing shader declares
+	columns, the normal matrix's (the first two's `w` the texture offset),
+	the base colour and alpha (linear), then metallic, roughness, normal
+	scale and occlusion strength, the emissive colour (linear, times its
+	strength) and the alpha cut-off, then whether it has a normal texture,
+	whether it is unlit, its alpha mode (0 opaque, 1 mask, 2 blend, 3 a
+	blended one's solid half) and its opacity, then the texture transform's
+	2×2 matrix by rows. The importing shader declares
 	`@param var draws : StorageBuffer<Vec4>;` itself, as HXSL imports
 	bring functions and not parameters.
 **/
@@ -42,6 +44,13 @@ class MeshDraw implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxs
 		/** The emissive colour, and the alpha cut-off. **/
 		function drawEmissive(i : Int) : Vec4 {
 			return draws[i * 12 + 9];
+		}
+
+		/** A texture coordinate of draw `i`'s mesh where its material's texture transform puts it. **/
+		function drawTexcoord(i : Int, uv : Vec2) : Vec2 {
+			var d = i * 12;
+			var m = draws[d + 11];
+			return vec2(m.x * uv.x + m.y * uv.y + draws[d + 4].w, m.z * uv.x + m.w * uv.y + draws[d + 5].w);
 		}
 
 		/** Has a normal texture, unlit, alpha mode, opacity. **/

@@ -155,7 +155,7 @@ class CanvasPainter {
 		for (op in ctx.ops) {
 			var before = mesh.vertexCount();
 			switch op {
-				case Mesh3D(_, _, scene, _) | Pass3D(_, scene):
+				case Mesh3D(_, _, scene, _, _) | Pass3D(_, scene):
 					endPaths();
 					// Meshes and passes drawn one after another, seen the same way, are one run, sharing depth.
 					var last = steps.length > 0 ? steps[steps.length - 1] : null;
@@ -167,7 +167,7 @@ class CanvasPainter {
 							made;
 					}
 					switch op {
-						case Mesh3D(m, transform, _, opacity): run.draws.push({mesh: m, transform: transform, opacity: opacity});
+						case Mesh3D(m, transform, _, opacity, material): run.draws.push({mesh: m, transform: transform, opacity: opacity, material: material});
 						case Pass3D(pass, _): run.passes.push(pass);
 						case _:
 					}

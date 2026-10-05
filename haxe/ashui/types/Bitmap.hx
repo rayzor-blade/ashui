@@ -92,6 +92,16 @@ class Bitmap {
 		return made;
 	}
 
+	/**
+		Its pixels resampled to `width` × `height`, four bytes each (red,
+		green, blue, alpha), row by row: to read an image as data, such as a
+		height map. Null once a `gpuOnly` bitmap's pixels are freed.
+	**/
+	public function pixels(width:Int, height:Int):Null<haxe.io.Bytes> {
+		var out = haxe.io.Bytes.alloc(width * height * 4);
+		return BitmapNative.blinc_bitmap_resample(slot, width, height, (Fill : Brush.ImageFit), out) ? out : null;
+	}
+
 	/** Frees its pixels; it must not be drawn after. **/
 	public function dispose():Void {
 		for (f in disposing)

@@ -600,12 +600,13 @@ class Pixels {
 		var halvesBitmap = ashui.types.Bitmap.fromBytes(ashui.core.render.Png.encode(8, 8, halves));
 		var texturedQuad = ashui.draw3d.MeshData.build([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], [0, 1, 2, 0, 2, 3], null, [0, 1, 1, 1, 1, 0, 0, 0], null,
 			new ashui.draw3d.Material({baseColorTexture: halvesBitmap, unlit: true}));
+		var restyled = ashui.reactive.Signal.make((null : ashui.draw3d.Material));
 		var bcTree = new LayoutTree();
 		var bcRoot:Div = ashui.reactive.Owner.root(bcTree, _ -> {
 			var canvas = new ashui.ui.Canvas({
 				draw: ctx -> {
 					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 2.4), ashui.math.Vec3.ZERO, null, 0.8));
-					ctx.drawMesh(texturedQuad);
+					ctx.drawMesh(texturedQuad, null, restyled.get());
 				},
 				onLoading: v -> loadingSeen.push(v)
 			});
@@ -636,6 +637,37 @@ class Pixels {
 		Sys.println('${told == "true,false" ? "ok  " : "FAIL"} compressed texture: the canvas says it is loading, then that it is not: $told');
 		if (told != "true,false")
 			failures++;
+		// Drawn in another material, its texture moved half across by a texture transform: the halves change places.
+		restyled.set(texturedQuad.material.with({textureTransform: new ashui.draw3d.TextureTransform(1, 1, 0, 0.5, 0)}));
+		pixels = offscreen.renderToRgba8(bcRoot, SIZE, SIZE);
+		label = "texture transform: ";
+		probe("moved half across, blue on the left", 22, 32, (r, g, b) -> b > 200 && r < 60);
+		probe("and red on the right", 42, 32, (r, g, b) -> r > 200 && b < 60);
+
+		// Fog: a mesh past where it is whole takes its colour; one nearer than where it starts keeps its own.
+		var fogQuad = ashui.draw3d.MeshData.build([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], [0, 1, 2, 0, 2, 3], null, null, null,
+			new ashui.draw3d.Material({baseColor: 0xff0000, unlit: true}));
+		var fogFar = ashui.reactive.Signal.make(true);
+		var fogTree = new LayoutTree();
+		var fogRoot:Div = ashui.reactive.Owner.root(fogTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					var z = fogFar.get() ? -30.0 : 0.0;
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 3), new ashui.math.Vec3(0, 0, z), null, 0.8),
+						null, null, null, null, new ashui.draw3d.Fog(0x00ff00, 5, 20)));
+					ctx.drawMesh(fogQuad, ashui.math.Mat4.translation(new ashui.math.Vec3(0, 0, z)).mul(ashui.math.Mat4.scaling(new ashui.math.Vec3(fogFar.get() ? 14 : 1, fogFar.get() ? 14 : 1, 1))));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(fogRoot, SIZE, SIZE);
+		label = "fog: ";
+		probe("a mesh past the fog's far end is the fog's colour", 32, 32, (r, g, b) -> g > 200 && r < 60);
+		fogFar.set(false);
+		pixels = offscreen.renderToRgba8(fogRoot, SIZE, SIZE);
+		probe("one nearer than it starts keeps its own", 32, 32, (r, g, b) -> r > 200 && g < 60);
 
 		// A 3D canvas moved out of view gives up its layer, and makes it again when it comes back.
 		ashui.core.render.ScenePainter.idleRelease = 0;
