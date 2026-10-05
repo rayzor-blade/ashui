@@ -17,6 +17,17 @@ interface ShadowCaster {
 	function drawShadow(frame:ScenePassFrame):Void;
 }
 
+/**
+	A pass that contributes to bloom. In the scene's glow pass, `drawGlow`
+	draws the pass again with `frame.encoder`, through
+	`frame.glowPipelineBuilder`, writing its exposed light without tone
+	mapping. Whatever is brighter than the bloom's threshold then glows.
+	A pass that does not implement this does not glow.
+**/
+interface GlowCaster {
+	function drawGlow(frame:ScenePassFrame):Void;
+}
+
 /** When in a 3D scene a pass draws. **/
 enum abstract SceneStage(Int) to Int {
 	/** After the layer is cleared and the skybox drawn, before any mesh: backdrops. **/

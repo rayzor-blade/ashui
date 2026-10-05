@@ -5,13 +5,16 @@ package ashui.core.render;
 	base colour, metallic and roughness, normal, emissive and occlusion
 	textures, lit by the scene's lights, the first casting shadows from
 	the scene's shadow map, and by the environment or ambient light, then
-	exposed, tone-mapped and written as sRGB.
+	exposed, tone-mapped and written as sRGB. In bloom's glow pass it writes
+	the exposed light without tone mapping instead, so extensions glow too.
 	Built from `ashui.shaders`: `Scene` for the camera and lights,
 	`MeshDraw` for each draw's transform and material, `Pbr` and
 	`ColorSpace`.
 
-	It is three steps a shader can extend and replace, as a material of
-	one's own does (`Material.shader`): `surface` reads the material and
+	It is four steps a shader can extend and replace, as a material of
+	one's own does (`Material.shader`): `bend` moves where on screen each
+	vertex is drawn, for example to curve ground away like a planet's or
+	sway grass in the wind, while keeping its lighting; `surface` reads the material and
 	its textures into `surfaceColor`, `surfaceMetallic`,
 	`surfaceRoughness`, `surfaceNormal`, `surfaceEmission` and
 	`surfaceOcclusion`; `shade` lights them, linear; `present` exposes,
@@ -60,15 +63,35 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 		var texcoord : Vec2;
 		var drawIndex : Int;
 
+		/** 1 when drawing for bloom's glow pass, 0 when drawing the scene. **/
+		var glowPass : Float;
+
+		/**
+			Returns where a vertex placed at `world` is drawn on screen. By
+			default that is `world` itself. Lighting, shadows and fog are still
+			worked out at `world`, so a bent surface looks moved but is lit as
+			if it had not moved.
+		**/
+		function bend(world : Vec3) : Vec3 {
+			return world;
+		}
+
 		function vertex() {
-			var w = modelToWorld(instanceID, vec4(input.position, 1.));
+			// The glow pass draws a mesh again with its instance index raised by the draw count.
+			var draw = instanceID;
+			glowPass = 0.;
+			if (draw >= drawCount()) {
+				draw = draw - drawCount();
+				glowPass = 1.;
+			}
+			var w = modelToWorld(draw, vec4(input.position, 1.));
 			worldPos = w.xyz;
-			worldNormal = normalToWorld(instanceID, input.normal);
-			worldTangent = vec4(modelToWorld(instanceID, vec4(input.tangent.xyz, 0.)).xyz, input.tangent.w);
+			worldNormal = normalToWorld(draw, input.normal);
+			worldTangent = vec4(modelToWorld(draw, vec4(input.tangent.xyz, 0.)).xyz, input.tangent.w);
 			// Transformed here: the transform is affine, so it carries across the triangle as the coordinates do.
-			texcoord = drawTexcoord(instanceID, input.uv);
-			drawIndex = instanceID;
-			output.position = worldToClip(w);
+			texcoord = drawTexcoord(draw, input.uv);
+			drawIndex = draw;
+			output.position = worldToClip(vec4(bend(w.xyz), 1.));
 		}
 
 		// What `surface` reads and `shade` lights: linear colours.
@@ -184,11 +207,18 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			if (flags.z < 0.5)
 				alpha = 1.;
 			// Faded into the fog before it is exposed and tone-mapped, as light through air would be.
-			var color = flags.y > 0.5 ? linearToSrgb(applyFog(surfaceColor.rgb, worldPos)) : present(applyFog(shade(), worldPos));
+			var unlit = flags.y > 0.5 ? (flags.y > 1.5 ? surfaceColor.rgb : applyFog(surfaceColor.rgb, worldPos)) : vec3(0., 0., 0.);
+			var lit = flags.y > 0.5 ? unlit : applyFog(shade(), worldPos);
+			var color = flags.y > 0.5 ? linearToSrgb(unlit) : present(lit);
+			// For bloom's glow pass: the exposed light without tone mapping, so light brighter than white stays brighter.
+			if (glowPass > 0.5) {
+				color = lit * sceneExposure();
+				alpha = 1.;
+			}
 			// Never true (opacity is not negative): it keeps every binding, for shaders extending this one.
 			if (flags.w < -1.)
 				color += everyBinding().rgb;
-			output.color = vec4(color, alpha * flags.w);
+			output.color = vec4(color, glowPass > 0.5 ? 1. : alpha * flags.w);
 		}
 	};
 }

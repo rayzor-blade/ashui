@@ -30,6 +30,7 @@ typedef MaterialOptions = {
 	?doubleSided:Bool,
 	?shader:String,
 	?textureTransform:TextureTransform,
+	?fog:Bool,
 }
 
 /**
@@ -40,8 +41,10 @@ typedef MaterialOptions = {
 	roughness, `emissiveTexture` the emissive colour; `occlusionTexture`'s
 	red darkens the light that reaches into creases, and `normalTexture`
 	bends the surface's normals for detail the triangles do not have.
-	`textureTransform` scales, turns and moves every texture on the
-	surface, as glTF's `KHR_texture_transform` does. Colours are `0xRRGGBB` as `Brush` takes them. `unlit` shows the base
+	`textureTransform` scales, rotates and moves every texture on the
+	surface, as glTF's `KHR_texture_transform` does. Setting `fog` to false
+	keeps the surface out of the scene's fog, as a sky drawn as a mesh
+	should be. Colours are `0xRRGGBB`, as `Brush` takes them. `unlit` shows the base
 	colour as it is, unshaded. `shader` is the WGSL of a shader that
 	extends ashui's mesh shader (`@:extends ashui.core.render.MeshShader`)
 	to light or present the surface its own way; ashui's own by default.
@@ -68,6 +71,7 @@ class Material {
 	public final doubleSided:Bool;
 	public final shader:Null<String>;
 	public final textureTransform:Null<TextureTransform>;
+	public final fog:Bool;
 
 	public function new(?o:MaterialOptions) {
 		if (o == null)
@@ -91,6 +95,7 @@ class Material {
 		doubleSided = o.doubleSided == true;
 		shader = o.shader;
 		textureTransform = o.textureTransform;
+		fog = o.fog != false;
 	}
 
 	/** A copy with the settings `o` gives in place of these. **/
@@ -114,6 +119,7 @@ class Material {
 			unlit: o.unlit != null ? o.unlit : unlit,
 			doubleSided: o.doubleSided != null ? o.doubleSided : doubleSided,
 			shader: o.shader != null ? o.shader : shader,
-			textureTransform: o.textureTransform != null ? o.textureTransform : textureTransform
+			textureTransform: o.textureTransform != null ? o.textureTransform : textureTransform,
+			fog: o.fog != null ? o.fog : fog
 		});
 }

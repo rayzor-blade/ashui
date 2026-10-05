@@ -54,6 +54,14 @@ class Bitmap {
 	**/
 	public var gpuOnly = false;
 
+	/**
+		Whether a mesh texture made from this bitmap may be block-compressed
+		(BC), which uses a quarter of the memory. Set it to false to keep the
+		texture exact, for images whose fine points compression would smear,
+		such as a sky's stars.
+	**/
+	public var compressible = true;
+
 	/** Called with each bitmap as it is disposed: what holds a copy of its pixels lets it go. **/
 	@:noCompletion public static final disposing:Array<Bitmap->Void> = [];
 
@@ -93,9 +101,10 @@ class Bitmap {
 	}
 
 	/**
-		Its pixels resampled to `width` × `height`, four bytes each (red,
-		green, blue, alpha), row by row: to read an image as data, such as a
-		height map. Null once a `gpuOnly` bitmap's pixels are freed.
+		Returns the bitmap's pixels resampled to `width` × `height`, row by
+		row, four bytes each (red, green, blue, alpha). Use it to read an image
+		as data, such as a height map. Returns null once a `gpuOnly` bitmap's
+		pixels have been freed.
 	**/
 	public function pixels(width:Int, height:Int):Null<haxe.io.Bytes> {
 		var out = haxe.io.Bytes.alloc(width * height * 4);

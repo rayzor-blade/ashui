@@ -81,7 +81,7 @@ class MeshTextures {
 		var w = bitmap.width, h = bitmap.height;
 		var levels = levelCount(w, h);
 		// BC blocks are 4×4: a texture whose sides are not a multiple of 4 stays as it is.
-		if (compress && w % 4 == 0 && h % 4 == 0 && gpu.supports(TextureCompressionBc)) {
+		if (compress && bitmap.compressible && w % 4 == 0 && h % 4 == 0 && gpu.supports(TextureCompressionBc)) {
 			pending.set(key, true);
 			compressLater(key, bitmap, role, levels);
 			return null;

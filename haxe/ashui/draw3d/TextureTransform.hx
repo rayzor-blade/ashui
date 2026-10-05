@@ -1,11 +1,12 @@
 package ashui.draw3d;
 
 /**
-	Where a material's textures sit on its surface, as glTF's
-	`KHR_texture_transform` places them: each texture coordinate scaled by
-	`scaleX` and `scaleY`, turned `rotation` radians counter-clockwise
-	about the origin, then moved by `offsetX` and `offsetY`. A scale of 3
-	repeats a texture three times across where it was once.
+	Places a material's textures on its surface, as glTF's
+	`KHR_texture_transform` extension does. Each texture coordinate is
+	scaled by `scaleX` and `scaleY`, rotated counter-clockwise by `rotation`
+	radians about the origin, and then moved by `offsetX` and `offsetY`. A
+	scale of 3 repeats a texture three times across the space it covered
+	once.
 
 	```haxe
 	new Material({baseColorTexture: rock, textureTransform: new TextureTransform(4, 4)});

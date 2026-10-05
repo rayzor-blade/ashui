@@ -60,6 +60,9 @@ class ScenePassFrame {
 	/** The shadow map's colour format, and the shadow pass's depth format. **/
 	public static inline var SHADOW_FORMAT = TextureFormat.R16float;
 
+	/** The format of the glow target that bloom's glow pass draws into. **/
+	public static inline var GLOW_FORMAT = TextureFormat.Rgba16float;
+
 	public static inline var SHADOW_DEPTH_FORMAT = TextureFormat.Depth24plus;
 
 	@:allow(ashui.core.render.ScenePainter)
@@ -101,6 +104,22 @@ class ScenePassFrame {
 			builder.blend(SrcAlpha, OneMinusSrcAlpha, Add, One, OneMinusSrcAlpha, Add);
 		builder.depth(depthFormat, depthWrite, Less);
 		builder.primitive(TriangleList, Back, Ccw);
+		return builder;
+	}
+
+	/**
+		A pipeline builder for a `GlowCaster`'s glow pass: it draws into the
+		half-float glow target, unblended, and tests against the scene's depth
+		with LessEqual without writing it, so only what is visible glows.
+		Triangles are not culled. Add vertex buffers and attributes, then
+		`build`.
+	**/
+	public function glowPipelineBuilder(wgsl:String):GpuPipelineBuilder {
+		var builder = device.pipeline();
+		builder.shader(device.createShader(wgsl), "vertex", "fragment");
+		builder.target(GLOW_FORMAT, GpuFlags.COLOR_WRITE_ALL);
+		builder.depth(depthFormat, false, LessEqual);
+		builder.primitive(TriangleList, None, Ccw);
 		return builder;
 	}
 

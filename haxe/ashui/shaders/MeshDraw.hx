@@ -8,7 +8,7 @@ package ashui.shaders;
 	the base colour and alpha (linear), then metallic, roughness, normal
 	scale and occlusion strength, the emissive colour (linear, times its
 	strength) and the alpha cut-off, then whether it has a normal texture,
-	whether it is unlit, its alpha mode (0 opaque, 1 mask, 2 blend, 3 a
+	whether it is unlit (1, or 2 unlit and out of the fog), its alpha mode (0 opaque, 1 mask, 2 blend, 3 a
 	blended one's solid half) and its opacity, then the texture transform's
 	2×2 matrix by rows. The importing shader declares
 	`@param var draws : StorageBuffer<Vec4>;` itself, as HXSL imports
