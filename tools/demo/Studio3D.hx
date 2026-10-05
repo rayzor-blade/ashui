@@ -1,12 +1,14 @@
 import ashui.app.WindowConfig;
 import ashui.app.WindowedApp;
 import ashui.canvaskit.Gltf;
+import ashui.canvaskit.GltfPose;
 import ashui.canvaskit.OrbitCamera;
 import ashui.canvaskit.SceneKit;
 import ashui.components.Button;
 import ashui.components.Card;
 import ashui.components.Slider;
 import ashui.components.Spinner;
+import ashui.components.Tabs;
 import ashui.components.ToggleSwitch;
 import ashui.draw3d.Light;
 import ashui.canvaskit.GroundGrid;
@@ -16,11 +18,13 @@ import ashui.layout.Element;
 import ashui.math.Vec3;
 import ashui.reactive.Computed;
 import ashui.reactive.Signal;
+import ashui.reactive.Watch;
 import ashui.theme.themes.DefaultTheme;
 import ashui.types.Style;
 
 /**
-	A 3D studio: Khronos' DamagedHelmet (CC BY-NC, theblueturtle_) in a
+	A 3D studio: Khronos' DamagedHelmet (CC BY-NC, theblueturtle_), or
+	Blinc's Buster Drone (LaVADraGoN, CC-BY-4.0) playing its clip, in a
 	`<scene-kit>`, lit by and reflecting Rogland's clear night sky (Poly
 	Haven, CC0), filling the window. A frosted panel floats over it that
 	sets the exposure, the key light's strength and height and the sky's,
@@ -33,8 +37,23 @@ import ashui.types.Style;
 		tools/demo/run.sh Studio3D.hx
 **/
 class Studio3D {
+	/** Blinc's Buster Drone, from Blinc's checkout beside this one. **/
+	static final DRONE = "../../../../Blinc/examples/blinc_app_examples/examples/assets/3d/buster_drone/scene.gltf";
+
 	static function main() {
 		var helmet = Gltf.load("../../snapshot/assets/3d/DamagedHelmet/DamagedHelmet.gltf");
+		// The drone is read on the worker thread, and offered once it is in.
+		var drone = Signal.make((null : Gltf));
+		var dronePose:Null<GltfPose> = null;
+		var droneFloor:Null<GroundGrid> = null;
+		if (sys.FileSystem.exists(DRONE))
+			ashui.core.Worker.run(() -> Gltf.load(DRONE), d -> {
+				dronePose = new GltfPose(d);
+				droneFloor = GroundGrid.studio(d.min.y);
+				drone.set(d);
+			});
+		var model = Signal.make("helmet");
+		var showDrone = Computed.make(() -> model.get() == "drone" && drone.get() != null);
 		// The sky is built on the worker thread; the helmet is lit by ambient light until it comes.
 		var night = Signal.make((null : Environment));
 		var started = haxe.Timer.stamp();
@@ -58,6 +77,31 @@ class Studio3D {
 		var shadowStrength = Signal.make(0.7);
 		// The helmet stands on the grid: the grid at the bottom of its box.
 		var floor = GroundGrid.studio(helmet.min.y);
+		// The drone's clip, played on the demo's own clock: it ticks while the clip plays and stops with it.
+		var playing = Signal.make(true);
+		var clipTime = Signal.make(0.0);
+		var ticking = false;
+		new Watch(() -> showDrone.get() && playing.get(), run -> if (run && !ticking) {
+			ticking = true;
+			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+				if (!showDrone.get() || !playing.get())
+					return ticking = false;
+				clipTime.set((clipTime.get() + dt) % drone.get().animations[0].duration);
+				return true;
+			});
+		});
+		// Framed afresh as the model changes.
+		new Watch(() -> showDrone.get(), d -> {
+			var m = d ? drone.get() : helmet;
+			camera.frame(m.min, m.max);
+			camera.zoom(d ? 0.9 : 0.8);
+		});
+		function draw(ctx:ashui.draw.DrawContext)
+			if (showDrone.get()) {
+				dronePose.play(drone.get().animations[0], clipTime.get());
+				dronePose.draw(ctx);
+			} else
+				helmet.draw(ctx);
 		// True until the helmet's textures are in place: the viewport shows a spinner meanwhile.
 		var loading = Signal.make(true);
 		var rig = Computed.make(() -> {
@@ -68,16 +112,25 @@ class Studio3D {
 		});
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
 		function page():Element return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() ? floor : null)} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} />
+			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() ? (showDrone.get() ? droneFloor : floor) : null)} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={draw} />
 			<if {loading.get()}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} gap={12} alignItems={Center} justifyContent={Justify.Center}>
 					<spinner />
-					<text>Loading the helmet</text>
+					<text>Loading the model</text>
 				</div>
 			</if>
 			<div class="flex flex-col gap-4 p-5 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md" position={Absolute} top={16} right={16} width={292}>
 				<card-header><card-title>Studio</card-title><card-description>Drag to turn, Shift-drag to move, scroll to zoom</card-description></card-header>
-				<div flexDirection={Column} gap={18}>
+				<tabs value={model}>
+					<tabs-list><tabs-trigger value="helmet">Helmet</tabs-trigger><tabs-trigger value="drone">${drone.get() != null ? "Drone" : "Drone (loading)"}</tabs-trigger></tabs-list>
+				</tabs>
+				<if {showDrone.get()}>
+					<div flexDirection={Column} gap={14}>
+						<slider label="Clip time" value={clipTime} min={0} max={drone.get().animations[0].duration} step={0.01} format={v -> '${Math.round(v * 10) / 10}s'} />
+						<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={playing} /><text>Play "${drone.get().animations[0].name}"</text></div>
+					</div>
+				</if>
+				<div flexDirection={Column} gap={14}>
 					<slider label="Exposure" value={exposure} min={0.2} max={3} step={0.05} />
 					<slider label="Key light" value={key} min={0} max={6} step={0.1} />
 					<slider label="Key height" value={height} min={0.1} max={2} step={0.05} />
@@ -92,6 +145,6 @@ class Studio3D {
 				</div>
 			</div>
 		</div>;
-		WindowedApp.run(new WindowConfig().title("3D studio").size(1100, 720).theme(DefaultTheme.bundle()), page);
+		WindowedApp.run(new WindowConfig().title("3D studio").size(1200, 820).theme(DefaultTheme.bundle()), page);
 	}
 }
