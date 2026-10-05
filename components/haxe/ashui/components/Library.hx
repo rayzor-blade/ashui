@@ -30,15 +30,33 @@ import ashui.ui.Div;
 	user-agent stylesheet's are.
 **/
 class Library {
-	/** Puts the library's stylesheet, `components/css/components.css`, parsed when the program is compiled, in force once, under the page's sheets. **/
-	public static function use():Void
-		ashui.css.Css.useLibrary("ashui-components", ashui.css.CompiledCss.file("../../../css/components.css"));
+	static var used = false;
 
 	/**
-		A part's element: a box of HTML type `tag` (`div` unless given), of
-		class `name` and any `classes` after it, its `data-` attributes from
-		`data`, each a constant or a signal or computed it follows (null
-		leaves it out), holding `children`.
+		Puts the library's stylesheet, `components/css/components.css`, in
+		force under the page's sheets. Every component calls this when it is
+		made; only the first call builds the sheet, and later calls return at
+		once.
+	**/
+	public static function use():Void {
+		if (used)
+			return;
+		used = true;
+		ashui.css.Css.useLibrary("ashui-components", ashui.css.CompiledCss.file("../../../css/components.css"));
+	}
+
+	/**
+		Makes one of a component's inner elements, which the stylesheet styles
+		by class. For example, a drawer's handle is
+		`part("ui-drawer-handle")`, and `components.css` gives
+		`.ui-drawer-handle` its look.
+
+		The element is a `div` unless `tag` names another HTML element. Its
+		classes are `name` followed by any `classes`. Each entry in `data`
+		becomes a `data-` attribute that CSS can select on, such as
+		`data-state="open"`. A value can be a constant, or a signal or
+		computed that the attribute follows; null leaves the attribute out.
+		`children` go inside it.
 	**/
 	public static function part(name:String, ?tag:String, ?data:Map<String, IntoReactive<Null<String>>>, ?children:Array<Element>, ?id:String,
 			?classes:Array<String>):Div {
