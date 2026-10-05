@@ -106,6 +106,10 @@ class MeshTextures {
 		return made;
 	}
 
+	/** Whether textures are still being compressed: what waits for a scene to look as it will, as a snapshot does, waits for this. **/
+	public static function busy():Bool
+		return pending.keys().hasNext();
+
 	/** After a frame: frees the pixels of bitmaps nothing more is to be made from. **/
 	public static function endFrame():Void {
 		for (b in releasing)

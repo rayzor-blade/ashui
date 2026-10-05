@@ -109,6 +109,17 @@ class Snapshot {
 		var pixelHeight = Math.round(height * scale);
 		var texture = offscreen.createTexture(pixelWidth, pixelHeight);
 		offscreen.renderTree(tree, root, texture.createView(new GpuTextureViewDescriptor()), width, height);
+		// Meshes whose textures are being compressed are held back: wait for them, up to ten seconds, and draw again.
+		if (MeshTextures.busy()) {
+			var waited = 0;
+			while (MeshTextures.busy() && waited < 1000) {
+				Sys.sleep(0.01);
+				ashui.animation.AnimationScheduler.main.tick(0);
+				waited++;
+			}
+			tree.flush();
+			offscreen.renderTree(tree, root, texture.createView(new GpuTextureViewDescriptor()), width, height);
+		}
 		var pixels = offscreen.readRgba8(texture, pixelWidth, pixelHeight);
 		texture.destroy();
 		width = pixelWidth;
