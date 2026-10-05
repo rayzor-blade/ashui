@@ -163,7 +163,7 @@ class Studio3D {
 			// Procedural ground of the marble cliff's rock, its texture repeated once a chunk.
 			terrain: {rock: "../../../../Blinc/examples/blinc_app_examples/examples/assets/3d/marble_cliff_02_2k.gltf/marble_cliff_02_2k.gltf", tiles: 3},
 			flight: true,
-			lens: 0.35
+			lens: 0.2
 		}
 	];
 

@@ -341,9 +341,10 @@ class ScenePainter {
 			layers.push(new SceneLayer());
 		var layer = layers[index];
 		var ss:Float = frame.pixelRatio >= 2 ? 1 : SUPERSAMPLE;
-		// A fish-eye magnifies the centre of a wider view, so the layer is rendered at up to twice the resolution to keep the centre sharp.
+		// A fish-eye magnifies the centre of a wider view, so the layer is rendered at a higher resolution to keep the centre sharp:
+		// up to twice on a standard display, and at most 1.25 times on a high-density one, whose pixels are small enough already.
 		if (scene.lens > 0)
-			ss = Math.max(ss, Math.min(2, 1 + scene.lens * 2));
+			ss = Math.max(ss, Math.min(frame.pixelRatio >= 2 ? 1.25 : 2, 1 + scene.lens * 2));
 		layer.lens = scene.lens;
 		var w = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.width * frame.scale * ss))));
 		var h = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.height * frame.scale * ss))));
