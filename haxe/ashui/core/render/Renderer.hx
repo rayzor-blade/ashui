@@ -362,6 +362,8 @@ class Renderer {
 		}
 		encoder.submit(queue);
 		failOnError("drawing");
+		// Canvases this frame left unpainted, scrolled away or hidden, give up their 3D layers after a while.
+		ScenePainter.sweep();
 	}
 
 	/**

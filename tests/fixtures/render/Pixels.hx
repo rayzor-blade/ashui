@@ -626,6 +626,39 @@ class Pixels {
 		probe("then compressed: red on its left", 22, 32, (r, g, b) -> r > 200 && b < 60);
 		probe("and blue on its right", 42, 32, (r, g, b) -> b > 200 && r < 60);
 
+		// A 3D canvas moved out of view gives up its layer, and makes it again when it comes back.
+		ashui.core.render.ScenePainter.idleRelease = 0;
+		var awayQuad = ashui.draw3d.MeshData.build([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], [0, 1, 2, 0, 2, 3], null, null, null,
+			new ashui.draw3d.Material({baseColor: 0x00ff00, unlit: true}));
+		var awayTree = new LayoutTree();
+		var mover:Null<Div> = null;
+		var awayRoot:Div = ashui.reactive.Owner.root(awayTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 2), ashui.math.Vec3.ZERO, null, 1.2));
+					ctx.drawMesh(awayQuad, ashui.math.Mat4.scaling(new ashui.math.Vec3(3, 3, 1)));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			mover = new Div({position: Position.Relative}, [canvas]);
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8, overflow: Overflow.Clip}, [mover]);
+		});
+		pixels = offscreen.renderToRgba8(awayRoot, SIZE, SIZE);
+		label = "3D out of view: ";
+		var held = ashui.core.render.ScenePainter.layerBytes();
+		probe("drawn in view", 32, 32, (r, g, b) -> g > 200 && r < 60);
+		mover.node.set(Prop.Left, (200 : Single));
+		pixels = offscreen.renderToRgba8(awayRoot, SIZE, SIZE);
+		var away = ashui.core.render.ScenePainter.layerBytes();
+		Sys.println('${held > 0 && away == 0 ? "ok  " : "FAIL"} 3D out of view: its layer is freed once it goes unpainted: $held bytes, then $away');
+		if (!(held > 0 && away == 0))
+			failures++;
+		mover.node.set(Prop.Left, (0 : Single));
+		pixels = offscreen.renderToRgba8(awayRoot, SIZE, SIZE);
+		probe("made again and drawn when it comes back", 32, 32, (r, g, b) -> g > 200 && r < 60);
+		ashui.core.render.ScenePainter.idleRelease = 1;
+
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
 		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);

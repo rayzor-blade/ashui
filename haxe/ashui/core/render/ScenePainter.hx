@@ -120,11 +120,79 @@ class ScenePainter {
 
 	final repaint:Void->Void;
 
+	/** Seconds a canvas goes unpainted, scrolled away or hidden, before its layers are freed; drawn again, they are made again. **/
+	public static var idleRelease = 1.0;
+
+	/** Every painter with layers to free, and the frame each was last painted in. **/
+	static final live:Array<ScenePainter> = [];
+
+	static var frameNumber = 0;
+	static var sweepQueued = false;
+	var paintedFrame = -1;
+	var paintedAt = 0.0;
+
 	/** `repaint` asks for the canvas to be drawn again, as textures are replaced by their compressed versions. **/
 	public function new(repaint:Void->Void) {
 		this.repaint = repaint;
 		MeshTextures.repaints.push(repaint);
+		live.push(this);
 	}
+
+	/**
+		After each frame the renderer draws: frees the layers of painters not
+		painted for `idleRelease` seconds, and checks again after that long
+		for those not painted in this frame. A canvas painted every frame it
+		is drawn schedules nothing.
+	**/
+	public static function sweep():Void {
+		release(frameNumber);
+		frameNumber++;
+	}
+
+	/** Frees the layers of painters idle long enough and not painted in frame `frame`; checks again later for the rest. **/
+	static function release(frame:Int):Void {
+		var now = haxe.Timer.stamp(), waiting = false;
+		for (p in live) {
+			if (p.paintedFrame == frame || !p.holdsLayers())
+				continue;
+			if (now - p.paintedAt >= idleRelease)
+				p.releaseLayers();
+			else
+				waiting = true;
+		}
+		if (waiting && !sweepQueued) {
+			sweepQueued = true;
+			// Against the last frame drawn: a painter painted in it is in view.
+			ashui.animation.AnimationScheduler.main.after(idleRelease, () -> {
+				sweepQueued = false;
+				release(frameNumber - 1);
+			});
+		}
+	}
+
+	/** Bytes the layers of every painter hold on the GPU: colour and depth, four bytes a pixel each. **/
+	public static function layerBytes():Int {
+		var total = 0;
+		for (p in live)
+			for (l in p.layers)
+				if (l.color != null)
+					total += l.width * l.height * 8;
+		return total;
+	}
+
+	function holdsLayers():Bool {
+		for (l in layers)
+			if (l.color != null)
+				return true;
+		return false;
+	}
+
+	function releaseLayers():Void
+		for (l in layers) {
+			l.destroy();
+			l.width = l.height = 0;
+			l.madeFor = null;
+		}
 
 	/** Called once a canvas frame, before its runs: what was drawn last frame and not since is freed. **/
 	public function beginFrame():Void
@@ -148,6 +216,8 @@ class ScenePainter {
 
 	/** Draws run `index` of the canvas's 3D runs, `draws` seen as `scene` says, over the canvas's box. **/
 	public function draw(frame:CanvasFrame, index:Int, draws:Array<SceneDraw>, scene:Scene3D):Void {
+		paintedFrame = frameNumber;
+		paintedAt = haxe.Timer.stamp();
 		while (layers.length <= index)
 			layers.push(new SceneLayer());
 		var layer = layers[index];
@@ -173,6 +243,7 @@ class ScenePainter {
 	/** Frees every layer and upload. **/
 	public function dispose():Void {
 		MeshTextures.repaints.remove(repaint);
+		live.remove(this);
 		for (l in layers)
 			l.destroy();
 		layers.resize(0);
