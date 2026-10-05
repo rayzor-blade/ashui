@@ -1,19 +1,22 @@
 import ashui.app.WindowConfig;
 import ashui.app.WindowedApp;
+import ashui.canvaskit.Environment;
 import ashui.canvaskit.Gltf;
+import ashui.canvaskit.GltfAnimation;
 import ashui.canvaskit.GltfPose;
+import ashui.canvaskit.GroundGrid;
 import ashui.canvaskit.OrbitCamera;
 import ashui.canvaskit.SceneKit;
+import ashui.canvaskit.Skybox;
+import ashui.components.Accordion;
 import ashui.components.Button;
 import ashui.components.Card;
+import ashui.components.ScrollArea;
+import ashui.components.Select;
 import ashui.components.Slider;
 import ashui.components.Spinner;
-import ashui.components.Tabs;
 import ashui.components.ToggleSwitch;
 import ashui.draw3d.Light;
-import ashui.canvaskit.GroundGrid;
-import ashui.canvaskit.Skybox;
-import ashui.canvaskit.Environment;
 import ashui.layout.Element;
 import ashui.math.Vec3;
 import ashui.reactive.Computed;
@@ -23,86 +26,146 @@ import ashui.theme.themes.DefaultTheme;
 import ashui.types.Style;
 
 /**
-	A 3D studio: Khronos' DamagedHelmet (CC BY-NC, theblueturtle_), or
-	Blinc's Buster Drone (LaVADraGoN, CC-BY-4.0) playing its clip, in a
-	`<scene-kit>`, lit by and reflecting Rogland's clear night sky (Poly
-	Haven, CC0), filling the window. A frosted panel floats over it that
-	sets the exposure, the key light's strength and height and the sky's,
-	shows the sky behind, sharp or blurred, a studio grid under the helmet
-	and the shadow it casts there, sets how much of the key light the
-	shadow keeps off, turns the fill light on and off, and puts the camera
-	back. Drag to turn round the helmet, Shift-drag or
-	right-drag to move across, scroll to come nearer.
+	One of the studio's examples: a glTF model and the HDR sky it stands
+	under, blurred by `blur` to begin with; `grounded` for a sky whose floor
+	is laid under the model. It starts lit as `light` says: the key light's
+	strength, the blue fill or none, and the sky's strength. The nodes named
+	in `hide` are not drawn.
+**/
+typedef Example = {
+	id:String,
+	title:String,
+	model:String,
+	sky:String,
+	blur:Float,
+	grounded:Bool,
+	light:{key:Float, fill:Bool, sky:Float},
+	?hide:Array<String>
+};
+
+/** An example once chosen: its model and sky as the worker thread reads them, and what is made from them. **/
+private class Loaded {
+	public final model = Signal.make((null : Gltf));
+	public final sky = Signal.make((null : Environment));
+	public var pose:Null<GltfPose> = null;
+	public var floor:Null<GroundGrid> = null;
+	public var started = false;
+
+	public function new() {}
+}
+
+/**
+	A 3D studio: a `<scene-kit>` filling the window, and a frosted panel
+	over it. The panel chooses an example, each a glTF model under its own
+	HDR sky, which lights it and shows behind it, sharp or blurred, its
+	floor laid under the model where the sky has one, with a studio grid
+	under it catching its shadow. Its sections, each opening and
+	closing, play the model's animation and scrub it, and set the lighting,
+	the sky, and the floor and shadows. Drag to turn round the model,
+	Shift-drag or right-drag to move across, scroll to come nearer.
+
+	The examples: Khronos' DamagedHelmet (CC BY-NC, theblueturtle_) under
+	Rogland's clear night sky, and Blinc's Buster Drone (LaVADraGoN,
+	CC-BY-4.0), read from Blinc's checkout beside this one, playing its clip
+	in a photo studio's grey cove; both skies Poly Haven's, CC0.
 
 		tools/demo/run.sh Studio3D.hx
 **/
 class Studio3D {
-	/** Blinc's Buster Drone, from Blinc's checkout beside this one. **/
-	static final DRONE = "../../../../Blinc/examples/blinc_app_examples/examples/assets/3d/buster_drone/scene.gltf";
+	static final ASSETS = "../../snapshot/assets/3d/";
+
+	static final EXAMPLES:Array<Example> = [
+		{
+			id: "helmet",
+			title: "Damaged helmet",
+			model: ASSETS + "DamagedHelmet/DamagedHelmet.gltf",
+			sky: ASSETS + "rogland_clear_night_2k.hdr",
+			blur: 0.35,
+			grounded: false,
+			light: {key: 2.5, fill: true, sky: 1.5}
+		},
+		{
+			id: "drone",
+			title: "Buster drone, animated",
+			model: "../../../../Blinc/examples/blinc_app_examples/examples/assets/3d/buster_drone/scene.gltf",
+			sky: ASSETS + "studio_small_08_2k.hdr",
+			blur: 0,
+			grounded: true,
+			// Lit by the studio's softboxes as its floor is, so the drone's landing pad looks laid on it.
+			light: {key: 2.5, fill: false, sky: 1.0},
+			// The drone's own landing pad: the studio's floor takes its shadow instead.
+			hide: ["Scheibe_Boden_0"]
+		}
+	];
 
 	static function main() {
-		var helmet = Gltf.load("../../snapshot/assets/3d/DamagedHelmet/DamagedHelmet.gltf");
-		// The drone is read on the worker thread, and offered once it is in.
-		var drone = Signal.make((null : Gltf));
-		var dronePose:Null<GltfPose> = null;
-		var droneFloor:Null<GroundGrid> = null;
-		if (sys.FileSystem.exists(DRONE))
-			ashui.core.Worker.run(() -> Gltf.load(DRONE), d -> {
-				dronePose = new GltfPose(d);
-				droneFloor = GroundGrid.studio(d.min.y);
-				drone.set(d);
+		// Those whose files are here: the drone needs Blinc's checkout.
+		var examples = EXAMPLES.filter(e -> sys.FileSystem.exists(e.model) && sys.FileSystem.exists(e.sky));
+		var loaded = [for (e in examples) e.id => new Loaded()];
+		var chosen = Signal.make(examples[0].id);
+		var example = Computed.make(() -> examples.filter(e -> e.id == chosen.get())[0]);
+		var current = Computed.make(() -> loaded.get(chosen.get()));
+		// An example's model and sky are read on the worker thread the first time it is chosen.
+		new Watch(() -> chosen.get(), id -> {
+			var l = loaded.get(id), e = examples.filter(e -> e.id == id)[0];
+			if (l.started)
+				return;
+			l.started = true;
+			var started = haxe.Timer.stamp();
+			ashui.core.Worker.run(() -> Gltf.load(e.model), m -> {
+				l.pose = new GltfPose(m);
+				if (e.hide != null)
+					for (i in 0...m.nodes.length)
+						if (e.hide.indexOf(m.nodes[i].name) >= 0)
+							l.pose.visible[i] = false;
+				l.floor = GroundGrid.studio(m.min.y);
+				l.model.set(m);
 			});
-		var model = Signal.make("helmet");
-		var showDrone = Computed.make(() -> model.get() == "drone" && drone.get() != null);
-		// The sky is built on the worker thread; the helmet is lit by ambient light until it comes.
-		var night = Signal.make((null : Environment));
-		var started = haxe.Timer.stamp();
-		var hdr = sys.io.File.getBytes("../../snapshot/assets/3d/rogland_clear_night_2k.hdr");
-		ashui.core.Worker.run(() -> Environment.fromHdr(hdr), sky -> {
-			trace('sky made in ${Math.round((haxe.Timer.stamp() - started) * 1000)}ms, off the main thread');
-			night.set(sky);
+			ashui.core.Worker.run(() -> Environment.fromHdr(sys.io.File.getBytes(e.sky)), sky -> {
+				trace('${e.id}: model and sky in ${Math.round((haxe.Timer.stamp() - started) * 1000)}ms, off the main thread');
+				l.sky.set(sky);
+			});
 		});
+		var model = Computed.make(() -> current.get().model.get());
+		var sky = Computed.make(() -> current.get().sky.get());
+		var clip = Computed.make(() -> {
+			var m = model.get();
+			m != null && m.animations.length > 0 ? m.animations[0] : (null : GltfAnimation);
+		});
+
 		var camera = new OrbitCamera(0.4, 0.15, 3, null, 0.7);
-		camera.frame(helmet.min, helmet.max);
-		camera.zoom(0.8);
+		// Framed afresh as each model comes in.
+		new Watch(() -> model.get(), m -> if (m != null) {
+			camera.frame(m.min, m.max);
+			camera.zoom(m.animations.length > 0 ? 0.9 : 0.8);
+		});
 		var exposure = Signal.make(1.0);
 		var key = Signal.make(2.5);
 		var height = Signal.make(0.9);
 		var skyLight = Signal.make(1.5);
 		var showSky = Signal.make(true);
 		var blur = Signal.make(0.35);
+		// A grounded sky's camera height over the floor and the floor's reach, in the model's units, from its size as it comes in.
+		var groundHeight = Signal.make(1.0);
+		var groundRadius = Signal.make(10.0);
+		new Watch(() -> model.get(), m -> if (m != null) {
+			var size = m.max.sub(m.min);
+			trace('${example.get().id}: ${Math.round(size.x * 100) / 100} by ${Math.round(size.y * 100) / 100} by ${Math.round(size.z * 100) / 100}');
+			groundHeight.set(size.y * 1.5);
+			groundRadius.set(size.y * 1.5 * 3);
+		});
 		var fill = Signal.make(true);
+		// Each example starts with its own sky blur and lighting.
+		new Watch(() -> example.get(), e -> {
+			blur.set(e.blur);
+			key.set(e.light.key);
+			fill.set(e.light.fill);
+			skyLight.set(e.light.sky);
+		});
 		var showGrid = Signal.make(true);
 		var shadows = Signal.make(true);
 		var shadowStrength = Signal.make(0.7);
-		// The helmet stands on the grid: the grid at the bottom of its box.
-		var floor = GroundGrid.studio(helmet.min.y);
-		// The drone's clip, played on the demo's own clock: it ticks while the clip plays and stops with it.
-		var playing = Signal.make(true);
-		var clipTime = Signal.make(0.0);
-		var ticking = false;
-		new Watch(() -> showDrone.get() && playing.get(), run -> if (run && !ticking) {
-			ticking = true;
-			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
-				if (!showDrone.get() || !playing.get())
-					return ticking = false;
-				clipTime.set((clipTime.get() + dt) % drone.get().animations[0].duration);
-				return true;
-			});
-		});
-		// Framed afresh as the model changes.
-		new Watch(() -> showDrone.get(), d -> {
-			var m = d ? drone.get() : helmet;
-			camera.frame(m.min, m.max);
-			camera.zoom(d ? 0.9 : 0.8);
-		});
-		function draw(ctx:ashui.draw.DrawContext)
-			if (showDrone.get()) {
-				dronePose.play(drone.get().animations[0], clipTime.get());
-				dronePose.draw(ctx);
-			} else
-				helmet.draw(ctx);
-		// True until the helmet's textures are in place: the viewport shows a spinner meanwhile.
+		// True until the model's textures are in place: the viewport shows a spinner meanwhile.
 		var loading = Signal.make(true);
 		var rig = Computed.make(() -> {
 			var lights = [Directional(new Vec3(-0.4, -height.get(), -0.3), 0xffffff, key.get())];
@@ -110,41 +173,115 @@ class Studio3D {
 				lights.push(Directional(new Vec3(0.6, 0.2, -0.8), 0x8899ff, 0.8));
 			lights;
 		});
+
+		// The clip, played on the demo's own clock: it ticks while the clip plays and stops with it.
+		var playing = Signal.make(true);
+		var clipTime = Signal.make(0.0);
+		var ticking = false;
+		new Watch(() -> clip.get() != null && playing.get(), run -> if (run && !ticking) {
+			ticking = true;
+			ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+				var c = clip.get();
+				if (c == null || !playing.get())
+					return ticking = false;
+				clipTime.set((clipTime.get() + dt) % c.duration);
+				return true;
+			});
+		});
+		var skybox = Computed.make(() -> {
+			var e = sky.get(), m = model.get();
+			if (!showSky.get() || e == null)
+				(null : Skybox);
+			else if (example.get().grounded && m != null)
+				Grounded(e, groundHeight.get(), groundRadius.get(), m.min.y, blur.get(), skyLight.get());
+			else
+				Sky(e, blur.get(), skyLight.get());
+		});
+		function draw(ctx:ashui.draw.DrawContext) {
+			var m = model.get(), l = current.get();
+			if (m == null)
+				return;
+			var c = clip.get();
+			if (c != null)
+				l.pose.play(c, Math.min(clipTime.get(), c.duration));
+			l.pose.draw(ctx);
+		}
+
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
-		function page():Element return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() ? (showDrone.get() ? droneFloor : floor) : null)} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={draw} />
-			<if {loading.get()}>
+		function toggle(checked:Signal<Bool>, label:String):Element
+			return <div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={checked} /><text>${label}</text></div>;
+		function page():Element {
+			// The select reads its options from its own children, so they are made here and spliced in.
+			var choices:Array<Element> = [for (e in examples) <select-item value={e.id}>${e.title}</select-item>];
+			return <div class="w-full h-full">
+			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
+			<if {loading.get() || model.get() == null}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} gap={12} alignItems={Center} justifyContent={Justify.Center}>
 					<spinner />
-					<text>Loading the model</text>
+					<text>Loading ${example.get().title}</text>
 				</div>
 			</if>
-			<div class="flex flex-col gap-4 p-5 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md" position={Absolute} top={16} right={16} width={292}>
+			<div class="flex flex-col gap-4 p-5 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md" position={Absolute} top={16} right={16} bottom={16} width={300}>
 				<card-header><card-title>Studio</card-title><card-description>Drag to turn, Shift-drag to move, scroll to zoom</card-description></card-header>
-				<tabs value={model}>
-					<tabs-list><tabs-trigger value="helmet">Helmet</tabs-trigger><tabs-trigger value="drone">${drone.get() != null ? "Drone" : "Drone (loading)"}</tabs-trigger></tabs-list>
-				</tabs>
-				<if {showDrone.get()}>
-					<div flexDirection={Column} gap={14}>
-						<slider label="Clip time" value={clipTime} min={0} max={drone.get().animations[0].duration} step={0.01} format={v -> '${Math.round(v * 10) / 10}s'} />
-						<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={playing} /><text>Play "${drone.get().animations[0].name}"</text></div>
-					</div>
-				</if>
-				<div flexDirection={Column} gap={14}>
-					<slider label="Exposure" value={exposure} min={0.2} max={3} step={0.05} />
-					<slider label="Key light" value={key} min={0} max={6} step={0.1} />
-					<slider label="Key height" value={height} min={0.1} max={2} step={0.05} />
-					<slider label="Sky light" value={skyLight} min={0} max={4} step={0.05} format={percent} />
-					<slider label="Sky blur" value={blur} min={0} max={1} step={0.05} format={percent} />
-					<slider label="Shadow strength" value={shadowStrength} min={0} max={1} step={0.05} format={percent} />
-					<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={showSky} /><text>Show the sky</text></div>
-					<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={showGrid} /><text>Show the grid</text></div>
-					<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={shadows} /><text>Shadows</text></div>
-					<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={fill} /><text>Blue fill light</text></div>
-					<button variant={Outline} onClick={_ -> camera.reset()}>Reset camera</button>
-				</div>
+				<select value={chosen} widthPercent={1}>{choices}</select>
+				<scroll-area flexGrow={1} flexBasis={0} minHeight={0}>
+					<accordion type="multiple" value={["animation", "lighting", "sky", "floor"]}>
+						<accordion-item value="animation">
+							<accordion-trigger>Animation</accordion-trigger>
+							<accordion-content>
+								<if {clip.get() != null}>
+									<div flexDirection={Column} gap={14} paddingBottom={8}>
+										<slider label={'Clip "${clip.get().name}"'} value={clipTime} min={0} max={clip.get().duration} step={0.01} format={v -> '${Math.round(v * 10) / 10}s'} />
+										{toggle(playing, "Play")}
+									</div>
+								<else>
+									<text class="text-text-secondary" paddingBottom={8}>${example.get().title} has no animation.</text>
+								</if>
+							</accordion-content>
+						</accordion-item>
+						<accordion-item value="lighting">
+							<accordion-trigger>Lighting</accordion-trigger>
+							<accordion-content>
+								<div flexDirection={Column} gap={14} paddingBottom={8}>
+									<slider label="Exposure" value={exposure} min={0.2} max={3} step={0.05} />
+									<slider label="Key light" value={key} min={0} max={6} step={0.1} />
+									<slider label="Key height" value={height} min={0.1} max={2} step={0.05} />
+									{toggle(fill, "Blue fill light")}
+								</div>
+							</accordion-content>
+						</accordion-item>
+						<accordion-item value="sky">
+							<accordion-trigger>Sky</accordion-trigger>
+							<accordion-content>
+								<div flexDirection={Column} gap={14} paddingBottom={8}>
+									<slider label="Sky light" value={skyLight} min={0} max={4} step={0.05} format={percent} />
+									<slider label="Sky blur" value={blur} min={0} max={1} step={0.05} format={percent} />
+									{toggle(showSky, "Show the sky")}
+									<if {example.get().grounded && model.get() != null}>
+										<div flexDirection={Column} gap={14}>
+											<slider label="Ground height" value={groundHeight} min={0} max={(model.get().max.y - model.get().min.y) * 6} step={0.01} />
+											<slider label="Ground radius" value={groundRadius} min={1} max={Math.max(model.get().max.x - model.get().min.x, model.get().max.z - model.get().min.z) * 40} step={0.1} />
+										</div>
+									</if>
+								</div>
+							</accordion-content>
+						</accordion-item>
+						<accordion-item value="floor">
+							<accordion-trigger>Floor and shadows</accordion-trigger>
+							<accordion-content>
+								<div flexDirection={Column} gap={14} paddingBottom={8}>
+									{toggle(showGrid, "Show the grid")}
+									{toggle(shadows, "Shadows")}
+									<slider label="Shadow strength" value={shadowStrength} min={0} max={1} step={0.05} format={percent} />
+								</div>
+							</accordion-content>
+						</accordion-item>
+					</accordion>
+				</scroll-area>
+				<button variant={Outline} onClick={_ -> camera.reset()}>Reset camera</button>
 			</div>
 		</div>;
+		}
 		WindowedApp.run(new WindowConfig().title("3D studio").size(1200, 820).theme(DefaultTheme.bundle()), page);
 	}
 }
