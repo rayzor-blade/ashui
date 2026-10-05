@@ -25,8 +25,9 @@ import ashui.types.Style;
 	Haven, CC0), filling the window. A frosted panel floats over it that
 	sets the exposure, the key light's strength and height and the sky's,
 	shows the sky behind, sharp or blurred, a studio grid under the helmet
-	and the shadow it casts there, turns the fill light on and off, and
-	puts the camera back. Drag to turn round the helmet, Shift-drag or
+	and the shadow it casts there, sets how much of the key light the
+	shadow keeps off, turns the fill light on and off, and puts the camera
+	back. Drag to turn round the helmet, Shift-drag or
 	right-drag to move across, scroll to come nearer.
 
 		tools/demo/run.sh Studio3D.hx
@@ -54,6 +55,7 @@ class Studio3D {
 		var fill = Signal.make(true);
 		var showGrid = Signal.make(true);
 		var shadows = Signal.make(true);
+		var shadowStrength = Signal.make(0.7);
 		// The helmet stands on the grid: the grid at the bottom of its box.
 		var floor = GroundGrid.studio(helmet.min.y);
 		// True until the helmet's textures are in place: the viewport shows a spinner meanwhile.
@@ -66,7 +68,7 @@ class Studio3D {
 		});
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
 		function page():Element return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} shadows={shadows} grid={Computed.make(() -> showGrid.get() ? floor : null)} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} />
+			<scene-kit widthPercent={1} heightPercent={1} loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() ? floor : null)} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} />
 			<if {loading.get()}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} gap={12} alignItems={Center} justifyContent={Justify.Center}>
 					<spinner />
@@ -81,6 +83,7 @@ class Studio3D {
 					<slider label="Key height" value={height} min={0.1} max={2} step={0.05} />
 					<slider label="Sky light" value={skyLight} min={0} max={4} step={0.05} format={percent} />
 					<slider label="Sky blur" value={blur} min={0} max={1} step={0.05} format={percent} />
+					<slider label="Shadow strength" value={shadowStrength} min={0} max={1} step={0.05} format={percent} />
 					<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={showSky} /><text>Show the sky</text></div>
 					<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={showGrid} /><text>Show the grid</text></div>
 					<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={shadows} /><text>Shadows</text></div>

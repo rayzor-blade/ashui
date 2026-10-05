@@ -21,6 +21,7 @@ class GridShader implements hlwgpu.hxsl.Shader {
 		var output : { position : Vec4, color : Vec4 };
 
 		@param var shadowMap : Sampler2D;
+		@param var environmentMap : SamplerCube;
 		@param var scene : StorageBuffer<Vec4>;
 		@param var grid : StorageBuffer<Vec4>;
 
@@ -46,6 +47,31 @@ class GridShader implements hlwgpu.hxsl.Shader {
 			return 1. - min(min(g.x / deriv.x, g.y / deriv.y), 1.);
 		}
 
+		/** The share of the light reaching the ground at `at` that the first light gives, weighed as ashui's mesh shader weighs it: how dark that light's shadow is there. **/
+		function keyShare(at : Vec3) : Float {
+			var up = vec3(0., 1., 0.);
+			var luma = vec3(0.2126, 0.7152, 0.0722);
+			var key = 0.;
+			var rest = 0.;
+			var count = lightCount();
+			var i = 0;
+			while (i < 8) {
+				if (i < count) {
+					var falling = dot(lightRadiance(i, at), luma) * max(dot(up, lightDirection(i, at)), 0.) / 3.14159265;
+					if (i == 0)
+						key = falling;
+					else
+						rest += falling;
+				}
+				i++;
+			}
+			if (hasEnvironment())
+				rest += dot(textureLod(environmentMap, up, environmentLevels()).rgb * environmentIntensity(), luma);
+			else
+				rest += dot(ambientLight() * 1.1, luma);
+			return key / max(key + rest, 0.0001);
+		}
+
 		function fragment() {
 			var spacing = grid[0];
 			var hit = world.xz;
@@ -65,8 +91,8 @@ class GridShader implements hlwgpu.hxsl.Shader {
 				color = mix(color, vec3(0.25, 0.4, 0.9), zAxis);
 				alpha = max(alpha, max(xAxis, zAxis) * 0.85);
 			}
-			// Shadows fall on the ground as darkness, the lines over it.
-			var shade = 1. - shadowLight(world);
+			// Shadows fall on the ground as darkness, the lines over it, as dark as the light they keep off is strong against the rest.
+			var shade = (1. - shadowLight(world)) * keyShare(world);
 			var cover = max(alpha, shade);
 			var fade = 1. - smoothstep(spacing.z, spacing.w, length(hit - cameraEye().xz));
 			if (cover * fade < 0.01)

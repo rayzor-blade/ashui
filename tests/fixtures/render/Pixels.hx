@@ -728,6 +728,37 @@ class Pixels {
 		if (!(dark * 2 < lit))
 			failures++;
 
+		// On the ground grid a shadow is as dark as the light it keeps off is strong against the rest: a second light on the floor lifts it.
+		var catcher = new ashui.canvaskit.GroundGrid({minorAlpha: 0, majorAlpha: 0, axes: false, fadeNear: 50, fadeFar: 60});
+		var post = ashui.canvaskit.Geometry.box(0.4, 0.6, 0.4, new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true}));
+		var keyOnly = [ashui.draw3d.Light.Directional(new ashui.math.Vec3(1, -1, 0), 0xffffff, 3)];
+		var catcherLights = ashui.reactive.Signal.make(keyOnly);
+		var catcherTree = new LayoutTree();
+		var catcherRoot:Div = ashui.reactive.Owner.root(catcherTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2),
+						new ashui.canvaskit.LightRig(catcherLights.get(), 0xffffff, 0.05, null, 1, {strength: 1}), null, 0xffffff, 1));
+					ctx.drawPass(catcher);
+					ctx.drawMesh(post, ashui.math.Mat4.translation(new ashui.math.Vec3(-0.3, 0.3, 0)));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		// The post's shadow falls from x = -0.1 to 0.5; x = 0.1 is in it.
+		var inShadow = 32 + Std.int(0.1 * unit) + 1;
+		pixels = offscreen.renderToRgba8(catcherRoot, SIZE, SIZE);
+		var keyAlone = brightness(inShadow, 32), open = brightness(32 + Std.int(1.2 * unit), 32);
+		catcherLights.set(keyOnly.concat([ashui.draw3d.Light.Directional(new ashui.math.Vec3(0, -1, 0), 0xffffff, 3)]));
+		pixels = offscreen.renderToRgba8(catcherRoot, SIZE, SIZE);
+		var withFill = brightness(inShadow, 32);
+		var catches = keyAlone * 2 < open && withFill > keyAlone + 90;
+		Sys.println('${catches ? "ok  " : "FAIL"} shadows: the grid darkens under the key light alone, $keyAlone against $open in the open, less with a second light, $withFill');
+		if (!catches)
+			failures++;
+
 		// One's own GPU drawing in a scene: a pass's quad and a mesh share depth, each hiding the other where it is in front.
 		var front = new TestQuadPass(0.5), back = new TestQuadPass(-0.5);
 		var passMesh = ashui.draw3d.MeshData.build([-0.4, -0.4, 0, 0.4, -0.4, 0, 0.4, 0.4, 0, -0.4, 0.4, 0], [0, 1, 2, 0, 2, 3], null, null, null,
