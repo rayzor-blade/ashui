@@ -150,6 +150,9 @@ class CanvasKit extends Component<CanvasKitProps> {
 			viewport.fit(x0, y0, x1 - x0, y1 - y0, width, height, seconds);
 	}
 
+	/** The background when none is given, made the first time one is needed. **/
+	static var defaultBackground:Null<Background2D> = null;
+
 	function render():Element {
 		viewport = props.viewport != null ? props.viewport : new Viewport2D();
 		selection = props.selection != null ? props.selection : new Selection2D();
@@ -163,7 +166,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 				var a = viewport.screenToContent(0, 0), b = viewport.screenToContent(ctx.width, ctx.height);
 				ctx.pushClipRect(0, 0, ctx.width, ctx.height);
 				ctx.pushTransform(viewport.transform());
-				var bg = read(props.background, Background2D.dots());
+				var bg = read(props.background, defaultBackground != null ? defaultBackground : (defaultBackground = Background2D.dots()));
 				if (bg != null)
 					bg.draw(ctx, a.x, a.y, b.x, b.y, z);
 				// Regions are registered afresh as the content draws.

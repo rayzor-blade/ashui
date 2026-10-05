@@ -7,6 +7,7 @@ import ashui.canvaskit.Viewport2D;
 import ashui.components.Button;
 import ashui.components.Select;
 import ashui.components.ToggleSwitch;
+import ashui.draw.Path;
 import ashui.draw.Stroke;
 import ashui.layout.Element;
 import ashui.reactive.Computed;
@@ -23,7 +24,7 @@ typedef Card = {id:String, x:Float, y:Float, w:Float, h:Float, title:String, col
 	board to pan (or with the Select tool, to draw a selection box), the
 	wheel to zoom about the pointer, Shift-wheel or a trackpad to pan.
 	Click a card to select it, Shift- or Cmd-click to add, drag the
-	selection to move it, snapped to the grid when snapping is on. Lines
+	selection to move it, snapped to the grid when snapping is on. Curves
 	join cards that follow each other. A floating toolbar sets the tool,
 	the background and snapping, and fits the board in view.
 
@@ -46,30 +47,50 @@ class Canvas2D {
 		var snapping = Signal.make(true);
 		var kit:Null<CanvasKit> = null;
 
+		// Brushes are made once: each is a native value, and the board draws every frame it moves.
+		var shadow = Brush.solid(0x000000, 0.18);
+		var face = Brush.solid(0x1e293b);
+		var titleInk = Brush.solid(0xf1f5f9);
+		var noteInk = Brush.solid(0x94a3b8);
+		var wire = Brush.solid(0x94a3b8, 0.6);
+		var chosenEdge = Brush.solid(0x60a5fa);
+		var bands = [for (c in colors) c => Brush.solid(c)];
+		var titleStyle:ashui.draw.GlyphOutlines.TextStyle = {size: 16, weight: 600};
+		var noteStyle:ashui.draw.GlyphOutlines.TextStyle = {size: 12};
+
 		function draw(ctx:ashui.draw.DrawContext, k:CanvasKit) {
 			kit = k;
 			moved.get();
 			var z = viewport.zoom.get();
-			// The connections first, under the cards: each card to the next.
+			// The connections first, under the cards: each card's right side to the next one's left, as a curve.
 			var line = new Stroke(2 / z);
 			for (i in 0...cards.length - 1) {
 				var a = cards[i], b = cards[i + 1];
-				ctx.line(a.x + a.w / 2, a.y + a.h / 2, b.x + b.w / 2, b.y + b.h / 2, line, Brush.solid(0x94a3b8, 0.6));
+				var x0 = a.x + a.w, y0 = a.y + a.h / 2, x1 = b.x, y1 = b.y + b.h / 2;
+				var reach = Math.max(40, Math.abs(x1 - x0) / 2);
+				ctx.strokePath(new Path().moveTo(x0, y0).cubicTo(x0 + reach, y0, x1 - reach, y1, x1, y1), line, wire);
 			}
 			for (c in cards) {
 				if (!k.visible(c.x - 10, c.y - 10, c.w + 20, c.h + 20))
 					continue;
-				var chosen = selection.has(c.id);
-				ctx.fillRect(c.x + 2 / z, c.y + 4 / z, c.w, c.h, Brush.solid(0x000000, 0.18), 12);
-				ctx.fillRect(c.x, c.y, c.w, c.h, Brush.solid(0x1e293b), 12);
-				ctx.fillRect(c.x, c.y, c.w, 8, Brush.solid(c.color), 4);
-				ctx.text(c.title, c.x + 14, c.y + 40, Brush.solid(0xf1f5f9), {size: 16, weight: 600});
-				ctx.text('${Math.round(c.x)}, ${Math.round(c.y)}', c.x + 14, c.y + 70, Brush.solid(0x94a3b8), {size: 12});
-				if (chosen)
-					ctx.strokeRect(c.x - 3 / z, c.y - 3 / z, c.w + 6 / z, c.h + 6 / z, new Stroke(2 / z), Brush.solid(0x60a5fa), 14);
+				ctx.fillRect(c.x + 2 / z, c.y + 4 / z, c.w, c.h, shadow, 12);
+				ctx.fillRect(c.x, c.y, c.w, c.h, face, 12);
+				ctx.fillRect(c.x, c.y, c.w, 8, bands.get(c.color), 4);
+				ctx.text(c.title, c.x + 14, c.y + 40, titleInk, titleStyle);
+				ctx.text('${Math.round(c.x)}, ${Math.round(c.y)}', c.x + 14, c.y + 70, noteInk, noteStyle);
+				if (selection.has(c.id))
+					ctx.strokeRect(c.x - 3 / z, c.y - 3 / z, c.w + 6 / z, c.h + 6 / z, new Stroke(2 / z), chosenEdge, 14);
 				k.region(c.id, c.x, c.y, c.w, c.h);
 			}
 		}
+
+		// Made once, so changing the background does not make a new native brush each time.
+		var backgrounds = [
+			"dots" => Background2D.dots(0x64748b, 20),
+			"grid" => Background2D.grid(0x64748b, 20),
+			"crosshatch" => Background2D.crosshatch(0x64748b, 20),
+			"none" => new Background2D(None)
+		];
 
 		function page():Element {
 			var choices:Array<Element> = [
@@ -83,12 +104,7 @@ class Canvas2D {
 				<canvas-kit widthPercent={1} heightPercent={1} viewport={viewport} selection={selection}
 					tool={Computed.make(() -> tool.get() == "select" ? Select : Pan)}
 					snap={Computed.make(() -> snapping.get() ? 20.0 : 0.0)}
-					background={Computed.make(() -> switch pattern.get() {
-						case "grid": Background2D.grid(0x64748b, 20);
-						case "crosshatch": Background2D.crosshatch(0x64748b, 20);
-						case "none": new Background2D(None);
-						case _: Background2D.dots(0x64748b, 20);
-					})}
+					background={Computed.make(() -> backgrounds.get(pattern.get()))}
 					draw={draw}
 					onDrag={(ids, dx, dy) -> {
 						for (c in cards)
