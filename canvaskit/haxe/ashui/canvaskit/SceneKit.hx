@@ -38,11 +38,21 @@ typedef SceneKitProps = {
 	/** What is drawn behind the scene: an environment, blurred or not, or colours (see `Skybox`). **/
 	?skybox:IntoReactive<Null<Skybox>>,
 
+	/** The air the scene fades into with distance, its sky's horizon too (see `Fog`); none by default. **/
+	?fog:IntoReactive<ashui.draw3d.Fog>,
+
 	/** Whether the first light, if directional, casts shadows. **/
 	?shadows:IntoReactive<Bool>,
 
 	/** How much of the first light its shadows keep off, 0 to 1; 0.7 by default. The rest of the light, ambient and sky, still reaches into them. **/
 	?shadowStrength:IntoReactive<Float>,
+
+	/**
+		How far round the camera's target the shadows reach, for a scene too
+		wide for one shadow map to cover sharply; the whole scene by default,
+		or at 0.
+	**/
+	?shadowReach:IntoReactive<Float>,
 
 	/** A ground grid under the scene, `GroundGrid.studio()` or one's own (see `GroundGrid`). **/
 	?grid:IntoReactive<Null<GroundGrid>>,
@@ -109,8 +119,9 @@ class SceneKit extends Component<SceneKitProps> {
 			onSceneFrame: props.fps != null ? frameCounter(props.fps) : null,
 			draw: ctx -> {
 				var rig = new LightRig(read(props.lights, defaultLights), read(props.ambient, 0xffffff), read(props.ambientStrength, 0.25),
-					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {strength: read(props.shadowStrength, 0.7)} : null);
-				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0)));
+					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {strength: read(props.shadowStrength, 0.7), reach: read(props.shadowReach, 0.0) > 0 ? read(props.shadowReach, 0.0) : null, focus: camera.target.get()} : null);
+				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0),
+					read(props.fog, null)));
 				sky.skybox = read(props.skybox, null);
 				if (sky.skybox != null)
 					ctx.drawPass(sky);

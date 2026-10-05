@@ -16,18 +16,27 @@ import ashui.draw3d.SceneLighting;
 	`size` pixels square (2048 by default), `strength` dark (0.7), with
 	`bias` keeping surfaces from shadowing themselves.
 **/
+/**
+	How the first light's shadows are made: the map `size` pixels square
+	(2048), how much light they keep off (`strength`, 0.7), the `bias` that
+	keeps surfaces from shadowing themselves (0.004), and, for a scene too
+	wide for one map to cover sharply, only the part within `reach` of
+	`focus` casting and catching them.
+**/
+typedef ShadowOptions = {?size:Int, ?strength:Float, ?bias:Float, ?reach:Float, ?focus:ashui.math.Vec3};
+
 class LightRig implements SceneLighting {
 	public final rig:Array<Light>;
 	public final ambient:Int;
 	public final strength:Float;
 	public final sky:Null<Environment>;
 	public final skyIntensity:Float;
-	public final shadowOptions:Null<{?size:Int, ?strength:Float, ?bias:Float}>;
+	public final shadowOptions:Null<ShadowOptions>;
 
 	var settled:Null<ShadowSettings> = null;
 
 	public function new(lights:Array<Light>, ambient = 0xffffff, ambientStrength = 0.25, ?environment:Environment, environmentIntensity = 1.0,
-			?shadows:{?size:Int, ?strength:Float, ?bias:Float}) {
+			?shadows:ShadowOptions) {
 		shadowOptions = shadows;
 		rig = lights;
 		this.ambient = ambient;
@@ -48,10 +57,27 @@ class LightRig implements SceneLighting {
 	public function shadows():Null<ShadowSettings>
 		return settled;
 
-	/** The first light's shadows, its view an orthographic box round `min` to `max` along its direction; null without a directional first light. **/
+	/**
+		The first light's shadows, its view an orthographic box round `min` to
+		`max` along its direction, or round the part of them within the
+		options' `reach` of their `focus`; null without a directional first
+		light.
+	**/
 	function fitShadows(min:ashui.math.Vec3, max:ashui.math.Vec3):Null<ShadowSettings> {
 		if (shadowOptions == null || rig.length == 0)
 			return null;
+		var reach = shadowOptions.reach, focus = shadowOptions.focus;
+		if (reach != null && focus != null) {
+			// The scene's box cut down to the reach round the focus; the reach alone where they do not meet.
+			var lo = new ashui.math.Vec3(Math.max(min.x, focus.x - reach), Math.max(min.y, focus.y - reach), Math.max(min.z, focus.z - reach));
+			var hi = new ashui.math.Vec3(Math.min(max.x, focus.x + reach), Math.min(max.y, focus.y + reach), Math.min(max.z, focus.z + reach));
+			if (lo.x > hi.x || lo.y > hi.y || lo.z > hi.z) {
+				lo = focus.sub(new ashui.math.Vec3(reach, reach, reach));
+				hi = focus.add(new ashui.math.Vec3(reach, reach, reach));
+			}
+			min = lo;
+			max = hi;
+		}
 		var direction = switch rig[0] {
 			case Directional(d, _, _): d.normalize();
 			case _: return null;

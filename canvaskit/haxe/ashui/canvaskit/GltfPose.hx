@@ -183,10 +183,11 @@ class GltfPose {
 
 	/**
 		Draws the meshes of visible nodes without a skin where this pose puts
-		them, all placed by `transform` too when it is given; morph targets are not
-		applied. A skinned mesh is the game's to draw.
+		them, all placed by `transform` too when it is given, each in the
+		material `material` gives for its own when that is given; morph
+		targets are not applied. A skinned mesh is the game's to draw.
 	**/
-	public function draw(ctx:DrawContext, ?transform:Mat4):Void {
+	public function draw(ctx:DrawContext, ?transform:Mat4, ?material:ashui.draw3d.Material->ashui.draw3d.Material):Void {
 		update();
 		for (i in 0...scene.nodes.length) {
 			var n = scene.nodes[i];
@@ -195,7 +196,7 @@ class GltfPose {
 			var w = readMat4(matrices, i * MATRIX_BYTES);
 			var m = transform != null ? transform.mul(w) : w;
 			for (p in scene.meshes[n.mesh].primitives)
-				ctx.drawMesh(p.mesh, m);
+				ctx.drawMesh(p.mesh, m, material != null ? material(p.mesh.material) : null);
 		}
 	}
 

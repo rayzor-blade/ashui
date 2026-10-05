@@ -69,7 +69,7 @@ class GridShader implements hlwgpu.hxsl.Shader {
 			// Shadows fall on the ground as darkness, the lines over it, as dark as the light they keep off is strong against the rest.
 			var shade = grid[3].z > 0.5 ? groundShadow(world) : 0.;
 			var cover = max(alpha, shade);
-			var fade = 1. - smoothstep(spacing.z, spacing.w, length(hit - cameraEye().xz));
+			var fade = (1. - smoothstep(spacing.z, spacing.w, length(hit - cameraEye().xz))) * (1. - fogAmount(world));
 			if (cover * fade < 0.01)
 				discard;
 			output.color = vec4(color * (alpha / max(cover, 0.0001)), cover * fade);

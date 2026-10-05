@@ -410,10 +410,28 @@ private class Reader {
 				case _: Opaque;
 			},
 			alphaCutoff: m.alphaCutoff != null ? m.alphaCutoff : 0.5,
-			doubleSided: m.doubleSided == true
+			doubleSided: m.doubleSided == true,
+			textureTransform: textureTransform([pbr.baseColorTexture, m.normalTexture, pbr.metallicRoughnessTexture, m.emissiveTexture, m.occlusionTexture])
 		});
 		materials.set(index, made);
 		return made;
+	}
+
+	/**
+		A material's `KHR_texture_transform`: the first of its textures' that
+		has one, the base colour's first. ashui places all of a material's
+		textures by one transform, as Blinc does; glTF lets each have its own.
+	**/
+	static function textureTransform(infos:Array<Dynamic>):Null<ashui.draw3d.TextureTransform> {
+		for (info in infos) {
+			var t:Dynamic = info != null && info.extensions != null ? Reflect.field(info.extensions, "KHR_texture_transform") : null;
+			if (t == null)
+				continue;
+			var offset:Array<Float> = t.offset != null ? t.offset : [0, 0];
+			var scale:Array<Float> = t.scale != null ? t.scale : [1, 1];
+			return new ashui.draw3d.TextureTransform(scale[0], scale[1], t.rotation != null ? t.rotation : 0, offset[0], offset[1]);
+		}
+		return null;
 	}
 
 	function texture(info:Dynamic):Null<Bitmap> {

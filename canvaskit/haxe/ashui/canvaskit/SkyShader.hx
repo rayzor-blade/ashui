@@ -63,6 +63,9 @@ class SkyShader implements hlwgpu.hxsl.Shader {
 			if (sky[5].x < 1.5)
 				c = textureLod(environmentMap, d, sky[5].y).rgb;
 			c *= sky[5].z * (1. - shade);
+			// With fog, the sky at the horizon fades into it, so the ground's far edge meets the sky in the fog.
+			if (scene[6].w > 0.)
+				c = mix(c, fogColor(), 1. - smoothstep(0., 0.3, d.y));
 			output.color = vec4(linearToSrgb(toneMapAces(c * sceneExposure())), 1.);
 		}
 	};

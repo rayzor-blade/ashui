@@ -88,6 +88,69 @@ class Geometry {
 		return MeshData.build(p, idx, n, uv, null, material);
 	}
 
+	/**
+		Ground `width` by `depth`, centred on the origin, raised by
+		`heightMap`: its brightness 0 at the plane, `height` at white, in
+		`divisions` each way, each vertex the map's pixel there. Its texture
+		coordinates run 0 to 1 across, so a material's `textureTransform`
+		repeats a texture over it. For a terrain's map of heights, or a
+		material's displacement map.
+	**/
+	public static function terrain(heightMap:ashui.types.Bitmap, width = 10.0, depth = 10.0, height = 1.0, divisions = 256,
+			?material:Material):MeshData {
+		var d = Std.int(Math.max(1, divisions));
+		var px = heightMap.pixels(d + 1, d + 1);
+		if (px == null)
+			throw "terrain: the height map's pixels are freed";
+		return heightField(width, depth, d, (i, j) -> {
+			// Past the edge, the edge's own height.
+			i = i < 0 ? 0 : i > d ? d : i;
+			j = j < 0 ? 0 : j > d ? d : j;
+			var at = (j * (d + 1) + i) * 4;
+			(px.get(at) + px.get(at + 1) + px.get(at + 2)) / (3 * 255) * height;
+		}, material);
+	}
+
+	/**
+		Ground `width` by `depth`, centred on the origin, in `divisions` each
+		way, each vertex `heightAt(i, j)` above the plane, `i` across and `j`
+		into the scene, both 0 to `divisions`; normals from the heights'
+		slopes, texture coordinates 0 to 1 across. `heightAt` is asked one
+		step past each edge too, for the slopes there: ground made in pieces
+		side by side, each asked the heights of one surface, meets without a
+		seam in its shading.
+	**/
+	public static function heightField(width:Float, depth:Float, divisions:Int, heightAt:(i:Int, j:Int) -> Float, ?material:Material):MeshData {
+		var d = Std.int(Math.max(1, divisions)), w = d + 1, ring = d + 3;
+		// Heights from -1 to d + 1 each way: a ring past the edges.
+		var h = [for (j in -1...d + 2) for (i in -1...d + 2) heightAt(i, j)];
+		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
+		var dx = width / d, dz = depth / d;
+		inline function at(i:Int, j:Int)
+			return h[(j + 1) * ring + i + 1];
+		for (j in 0...w)
+			for (i in 0...w) {
+				p.push((i / d - 0.5) * width);
+				p.push(at(i, j));
+				p.push((j / d - 0.5) * depth);
+				// The slope each way, by the neighbours on either side; the normal leans away from it.
+				var sx = (at(i + 1, j) - at(i - 1, j)) / (2 * dx), sz = (at(i, j + 1) - at(i, j - 1)) / (2 * dz);
+				var len = Math.sqrt(sx * sx + 1 + sz * sz);
+				n.push(-sx / len);
+				n.push(1 / len);
+				n.push(-sz / len);
+				uv.push(i / d);
+				uv.push(j / d);
+			}
+		for (j in 0...d)
+			for (i in 0...d) {
+				var a = j * w + i, b = a + w;
+				for (k in [a, b, a + 1, a + 1, b, b + 1])
+					idx.push(k);
+			}
+		return MeshData.build(p, idx, n, uv, null, material);
+	}
+
 	/** An upright cylinder of `radius` and `height`, closed at both ends, in `segments` round. **/
 	public static function cylinder(radius = 0.5, height = 1.0, segments = 48, ?material:Material):MeshData {
 		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
