@@ -107,8 +107,11 @@ class SceneKit extends Component<SceneKitProps> {
 				if (sky.skybox != null)
 					ctx.drawPass(sky);
 				var grid = read(props.grid, null);
-				if (grid != null)
+				if (grid != null) {
+					// One floor catches the shadows: a grounded sky's when there is one, the grid's otherwise.
+					grid.catchesShadows = sky.skybox == null || !sky.skybox.match(Grounded(_, _, _, _, _, _));
 					ctx.drawPass(grid);
+				}
 				if (props.draw != null)
 					props.draw(ctx);
 			}

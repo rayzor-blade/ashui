@@ -771,6 +771,30 @@ class Pixels {
 		if (!catches)
 			failures++;
 
+		// A grounded sky's floor catches the shadows where no grid does.
+		var studio = ashui.canvaskit.Environment.gradient(0x909090, 0x909090, 0x909090, 1, 16);
+		var groundedSky = new ashui.canvaskit.SkyboxPass(Grounded(studio, 1.5, 20, 0));
+		var groundedTree = new LayoutTree();
+		var groundedRoot:Div = ashui.reactive.Owner.root(groundedTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2),
+						new ashui.canvaskit.LightRig(keyOnly, 0xffffff, 0.05, studio, 1, {strength: 1}), null, 0x000000, 1));
+					ctx.drawPass(groundedSky);
+					ctx.drawMesh(post, ashui.math.Mat4.translation(new ashui.math.Vec3(-0.3, 0.3, 0)));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(groundedRoot, SIZE, SIZE);
+		var onFloor = brightness(inShadow, 32), openFloor = brightness(32 + Std.int(1.2 * unit), 32);
+		var caught = onFloor < openFloor * 0.75;
+		Sys.println('${caught ? "ok  " : "FAIL"} shadows: the floor of a grounded sky darkens under the post, $onFloor against $openFloor in the open');
+		if (!caught)
+			failures++;
+
 		// A material marked blended but solid hides what is behind it: its solid fragments are drawn with the opaque meshes, writing depth.
 		// The quad in front is wide, so its middle is further from the eye and it is sorted to be drawn first.
 		function blendQuad(x0:Float, x1:Float, z:Float, color:Int)

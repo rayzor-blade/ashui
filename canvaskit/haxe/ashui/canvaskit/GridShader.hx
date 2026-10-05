@@ -10,7 +10,7 @@ package ashui.canvaskit;
 	on it as darkness under the lines. It sees the scene through
 	ashui's `Scene` module, and reads its own settings from `grid`: size,
 	subdivisions, fade start and end; minor and major colours (sRGB, with
-	alpha); height and whether it draws axes. Ported from Blinc's canvas
+	alpha); height, whether it draws axes and whether it catches shadows. Ported from Blinc's canvas
 	kit grid, there a full-screen pass without depth.
 **/
 class GridShader implements hlwgpu.hxsl.Shader {
@@ -47,31 +47,6 @@ class GridShader implements hlwgpu.hxsl.Shader {
 			return 1. - min(min(g.x / deriv.x, g.y / deriv.y), 1.);
 		}
 
-		/** The share of the light reaching the ground at `at` that the first light gives, weighed as ashui's mesh shader weighs it: how dark that light's shadow is there. **/
-		function keyShare(at : Vec3) : Float {
-			var up = vec3(0., 1., 0.);
-			var luma = vec3(0.2126, 0.7152, 0.0722);
-			var key = 0.;
-			var rest = 0.;
-			var count = lightCount();
-			var i = 0;
-			while (i < 8) {
-				if (i < count) {
-					var falling = dot(lightRadiance(i, at), luma) * max(dot(up, lightDirection(i, at)), 0.) / 3.14159265;
-					if (i == 0)
-						key = falling;
-					else
-						rest += falling;
-				}
-				i++;
-			}
-			if (hasEnvironment())
-				rest += dot(textureLod(environmentMap, up, environmentLevels()).rgb * environmentIntensity(), luma);
-			else
-				rest += dot(ambientLight() * 1.1, luma);
-			return key / max(key + rest, 0.0001);
-		}
-
 		function fragment() {
 			var spacing = grid[0];
 			var hit = world.xz;
@@ -92,7 +67,7 @@ class GridShader implements hlwgpu.hxsl.Shader {
 				alpha = max(alpha, max(xAxis, zAxis) * 0.85);
 			}
 			// Shadows fall on the ground as darkness, the lines over it, as dark as the light they keep off is strong against the rest.
-			var shade = (1. - shadowLight(world)) * keyShare(world);
+			var shade = grid[3].z > 0.5 ? groundShadow(world) : 0.;
 			var cover = max(alpha, shade);
 			var fade = 1. - smoothstep(spacing.z, spacing.w, length(hit - cameraEye().xz));
 			if (cover * fade < 0.01)

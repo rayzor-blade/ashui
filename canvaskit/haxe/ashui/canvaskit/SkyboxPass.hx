@@ -74,6 +74,8 @@ class SkyboxPass implements ScenePass {
 		var bindings = new gpu.GpuBindings();
 		bindings.texture(cube);
 		bindings.sampler(frame.environmentSampler);
+		bindings.texture(frame.shadowMap);
+		bindings.sampler(frame.shadowSampler);
 		bindings.buffer(frame.sceneBuffer);
 		bindings.buffer(settings);
 		group = frame.device.bindGroup(pipeline, 0, bindings);

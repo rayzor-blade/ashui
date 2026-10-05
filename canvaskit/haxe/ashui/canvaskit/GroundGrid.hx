@@ -44,6 +44,9 @@ class GroundGrid implements ScenePass {
 	public final axes:Bool;
 	public final fadeNear:Float;
 	public final fadeFar:Float;
+
+	/** Whether the scene's shadows darken it; `<scene-kit>` turns this off while a grounded sky's floor catches them. **/
+	public var catchesShadows = true;
 	public final height:Float;
 
 	public function new(?o:GroundGridOptions) {
@@ -96,7 +99,7 @@ class GroundGrid implements ScenePass {
 		row(0, size, Math.max(1, subdivisions), fadeNear, fadeFar);
 		row(1, (minor >> 16 & 0xff) / 255, (minor >> 8 & 0xff) / 255, (minor & 0xff) / 255, minorAlpha);
 		row(2, (major >> 16 & 0xff) / 255, (major >> 8 & 0xff) / 255, (major & 0xff) / 255, majorAlpha);
-		row(3, height, axes ? 1 : 0, 0, 0);
+		row(3, height, axes ? 1 : 0, catchesShadows ? 1 : 0, 0);
 		frame.device.queue().writeBuffer(settings, 0, b, 64);
 		// The scene's buffer, shadow map and environment are made again as scenes change: the group follows them.
 		var shadow = (frame.shadowMap : Int), environment = (frame.environment : Int);
