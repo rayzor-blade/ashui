@@ -69,7 +69,8 @@ typedef CssLoader = (path:String, from:Null<String>) -> Null<{source:String, fil
 	properties its `:root` rules declare, and its `@keyframes`.
 
 	`Stylesheet.parse` reads CSS text at run time, and the same parser runs
-	in macros, so a sheet can be checked when the program is compiled. A
+	in macros, so a sheet can be checked when the program is compiled, or
+	parsed then entirely (see `CompiledCss`). A
 	malformed rule is skipped and reported in `diagnostics` with its line
 	and column; the rest of the sheet still applies.
 **/
@@ -86,6 +87,20 @@ class Stylesheet {
 	public final diagnostics:Array<Diagnostic> = [];
 
 	public function new() {}
+
+	/** A sheet made of what was parsed already: what `CompiledCss` builds at run time. **/
+	public static function of(rules:Array<StyleRule>, variables:Map<String, String>, keyframes:Map<String, Keyframes>, imports:Array<String>):Stylesheet {
+		var sheet = new Stylesheet();
+		for (r in rules)
+			sheet.rules.push(r);
+		for (k => v in variables)
+			sheet.variables.set(k, v);
+		for (k => v in keyframes)
+			sheet.keyframes.set(k, v);
+		for (i in imports)
+			sheet.imports.push(i);
+		return sheet;
+	}
 
 	/**
 		`source` parsed; `file` names it in diagnostics and is where an

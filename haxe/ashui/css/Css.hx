@@ -247,13 +247,14 @@ class Css {
 		Puts a component library's sheet in force once, under the name
 		`name`: after the user-agent sheet and libraries before it, before
 		every sheet the page loads, so a page's CSS restyles a library's
-		components as it does built-in elements. Returns the sheet.
+		components as it does built-in elements. Returns the sheet. A
+		library compiles its sheet with `CompiledCss.file`, so it is not
+		parsed at run time.
 	**/
-	public static function useLibrary(name:String, css:String):Stylesheet {
+	public static function useLibrary(name:String, sheet:Stylesheet):Stylesheet {
 		var known = libraries.get(name);
 		if (known != null)
 			return known;
-		var sheet = Stylesheet.parse(css, name + ".css");
 		unknown(sheet);
 		libraries.set(name, sheet);
 		var at = 0;
@@ -282,12 +283,13 @@ class Css {
 	/**
 		Puts the user-agent stylesheet (`UserAgent.CSS`) in force, first, so
 		every other sheet's rule of equal specificity wins over it, as a
-		browser's defaults lose to the page's. Built-in elements call it.
+		browser's defaults lose to the page's. Built-in elements call it. The
+		sheet was parsed when the program was compiled.
 	**/
 	public static function useUserAgent():Void {
 		if (userAgent != null)
 			return;
-		userAgent = Stylesheet.parse(UserAgent.CSS, "user-agent.css");
+		userAgent = CompiledCss.userAgent();
 		unknown(userAgent);
 		sheets.unshift(userAgent);
 		changed();

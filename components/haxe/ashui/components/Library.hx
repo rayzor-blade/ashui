@@ -30,12 +30,9 @@ import ashui.ui.Div;
 	user-agent stylesheet's are.
 **/
 class Library {
-	/** The library's stylesheet, read from `components/css/components.css` when the program is compiled. **/
-	public static final CSS:String = LibraryCss.read();
-
-	/** Puts the library's stylesheet in force, once, under the page's sheets. **/
+	/** Puts the library's stylesheet, `components/css/components.css`, parsed when the program is compiled, in force once, under the page's sheets. **/
 	public static function use():Void
-		ashui.css.Css.useLibrary("ashui-components", CSS);
+		ashui.css.Css.useLibrary("ashui-components", ashui.css.CompiledCss.file("../../../css/components.css"));
 
 	/**
 		A part's element: a box of HTML type `tag` (`div` unless given), of

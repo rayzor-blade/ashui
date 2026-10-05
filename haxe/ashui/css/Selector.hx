@@ -63,6 +63,22 @@ class Compound {
 
 	public function new() {}
 
+	/** A compound made of what was parsed already: what `CompiledCss` builds at run time. **/
+	public static function of(type:Null<String>, id:Null<String>, classes:Array<String>, attributes:Array<{name:String, op:Null<String>, value:Null<String>}>,
+			pseudos:Array<Pseudo>, pseudoElement:Null<String>):Compound {
+		var c = new Compound();
+		c.type = type;
+		c.id = id;
+		for (x in classes)
+			c.classes.push(x);
+		for (x in attributes)
+			c.attributes.push(x);
+		for (x in pseudos)
+			c.pseudos.push(x);
+		c.pseudoElement = pseudoElement;
+		return c;
+	}
+
 	public function toString():String {
 		var out = type == null ? "" : type;
 		if (id != null)
