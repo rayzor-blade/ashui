@@ -84,6 +84,14 @@ private class SceneLayer {
 	public var glow:Null<GpuTexture> = null;
 	public var glowView:Null<GpuTextureView> = null;
 
+	/** The glow pass's own depth, at its half size, which the meshes write as they draw. **/
+	public var glowDepth:Null<GpuTexture> = null;
+	public var glowDepthView:Null<GpuTextureView> = null;
+
+	/** The glow pass's size: half the layer's each way, as glow and velocities need no finer detail. **/
+	public var glowWidth = 0;
+	public var glowHeight = 0;
+
 	/** For motion blur: how far each pixel moved on screen since the previous frame, drawn with the glow. **/
 	public var velocity:Null<GpuTexture> = null;
 	public var velocityView:Null<GpuTextureView> = null;
@@ -144,6 +152,12 @@ private class SceneLayer {
 			velocity.destroy();
 		velocity = null;
 		velocityView = null;
+		if (glowDepthView != null)
+			glowDepthView.destroy();
+		if (glowDepth != null)
+			glowDepth.destroy();
+		glowDepth = null;
+		glowDepthView = null;
 		lensVelocity = null;
 		for (l in bloomLevels)
 			l.destroy();
@@ -545,11 +559,10 @@ class ScenePainter {
 			depth.viewTextureView(layer.depthView);
 			depth.depthClearValue(1);
 			depth.depthLoadOp(Clear);
-			// The glow pass tests against this depth, so it is kept when there is bloom.
 			var blooming = scene.bloom != null && scene.bloom.strength > 0;
 			// The second pass draws both the glow and the velocities: for bloom, motion blur, or both.
 			var glowing = blooming || scene.motionBlur > 0;
-			depth.depthStoreOp(glowing ? Store : Discard);
+			depth.depthStoreOp(Discard);
 			var pass = new GpuRenderPassDescriptor();
 			pass.addColorAttachments(color);
 			pass.depthStencilAttachment(depth);
@@ -586,9 +599,10 @@ class ScenePainter {
 	var bloomDown:Null<GpuPipeline> = null;
 
 	/**
-		The glow pass. It draws each opaque mesh a second time, with its own
-		material's shader, into the layer's glow texture, testing against the
-		depth the scene left so that only visible surfaces glow. The instance
+		The glow pass, at half the layer's size. It draws each opaque mesh a
+		second time, with its own material's shader, into the glow and velocity
+		textures, with a depth buffer of its own so that only the nearest
+		surfaces count. The instance
 		index is raised by the draw count, which tells the mesh shader to write
 		untone-mapped light. Then each `GlowCaster` pass draws its own glow.
 	**/
@@ -596,8 +610,12 @@ class ScenePainter {
 			groups:Array<GpuBindGroup>, firstBlended:Int, passes:Array<ashui.draw3d.ScenePass>, passFrame:ScenePassFrame):Void {
 		var device = frame.device;
 		if (layer.glow == null) {
-			var size = new GpuExtent3D(layer.width);
-			size.height(layer.height);
+			layer.glowWidth = Std.int(Math.max(1, layer.width >> 1));
+			layer.glowHeight = Std.int(Math.max(1, layer.height >> 1));
+			var size = new GpuExtent3D(layer.glowWidth);
+			size.height(layer.glowHeight);
+			layer.glowDepth = device.texture(new GpuTextureDescriptor(size, DEPTH_FORMAT, GpuFlags.TEXTURE_RENDER_ATTACHMENT));
+			layer.glowDepthView = layer.glowDepth.createView(new GpuTextureViewDescriptor());
 			layer.glow = device.texture(new GpuTextureDescriptor(size, Rgba16float, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
 			layer.glowView = layer.glow.createView(new GpuTextureViewDescriptor());
 			layer.velocity = device.texture(new GpuTextureDescriptor(size, Rgba16float, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
@@ -610,8 +628,9 @@ class ScenePainter {
 		moved.viewTextureView(layer.velocityView);
 		moved.clearValue(new GpuColor(0, 0, 0, 0));
 		var depth = new GpuRenderPassDepthStencilAttachment();
-		depth.viewTextureView(layer.depthView);
-		depth.depthLoadOp(Load);
+		depth.viewTextureView(layer.glowDepthView);
+		depth.depthClearValue(1);
+		depth.depthLoadOp(Clear);
 		depth.depthStoreOp(Discard);
 		var pass = new GpuRenderPassDescriptor();
 		pass.addColorAttachments(color);
@@ -710,7 +729,7 @@ class ScenePainter {
 		}
 		// Down: each level is made from the one above it; the first keeps only what passes the threshold.
 		for (i in 0...levels.length) {
-			var srcW = i == 0 ? layer.width : levels[i - 1].width, srcH = i == 0 ? layer.height : levels[i - 1].height;
+			var srcW = i == 0 ? layer.glowWidth : levels[i - 1].width, srcH = i == 0 ? layer.glowHeight : levels[i - 1].height;
 			settings(levels[i].downSettings, 1 / srcW, 1 / srcH, i == 0 ? 0 : 1, bloom.threshold);
 			pass(levels[i].view, false, bloomDown, levels[i].downGroup);
 		}
@@ -922,10 +941,10 @@ class ScenePainter {
 		builder.attribute(Float32x2, MeshData.UV_OFFSET, MeshShader.INPUT_uv);
 		builder.attribute(Float32x4, MeshData.TANGENT_OFFSET, MeshShader.INPUT_tangent);
 		if (glow) {
-			// The glow pass redraws visible surfaces at the depth they left: LessEqual, no blending, no depth writes.
+			// The glow pass draws into its own half-size depth: tested and written, no blending.
 			builder.target(ScenePassFrame.GLOW_FORMAT, GpuFlags.COLOR_WRITE_ALL);
 			builder.target(ScenePassFrame.VELOCITY_FORMAT, GpuFlags.COLOR_WRITE_ALL);
-			builder.depth(DEPTH_FORMAT, false, LessEqual);
+			builder.depth(DEPTH_FORMAT, true, Less);
 		} else {
 			builder.target(frame.format, GpuFlags.COLOR_WRITE_ALL);
 			// Premultiplied into the layer, as it is composited.

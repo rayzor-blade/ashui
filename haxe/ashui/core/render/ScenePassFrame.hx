@@ -112,8 +112,9 @@ class ScenePassFrame {
 
 	/**
 		A pipeline builder for a `GlowCaster`'s glow pass: it draws into the
-		half-float glow target, unblended, and tests against the scene's depth
-		with LessEqual without writing it, so only what is visible glows.
+		half-float glow target at half the layer's size, unblended, and tests
+		against the depth the glow pass's meshes left there with LessEqual,
+		without writing it, so only what is visible glows.
 		The pass also has a velocity target for motion blur, which this
 		builder leaves unwritten, so a pass's own drawing is not blurred.
 		Triangles are not culled. Add vertex buffers and attributes, then
