@@ -108,6 +108,23 @@ fn record_text(node: LayoutNodeId, write: impl FnOnce(&mut TextMeasureContext) +
         .push((node, Box::new(write)));
 }
 
+/// The identity of each backdrop colour filter: brightness, contrast,
+/// grayscale, hue-rotate, invert, saturate, sepia.
+pub const BACKDROP_IDENTITY: [f32; 7] = [1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+
+/// A backdrop colour filter's change: the node, which filter (an index into `BACKDROP_IDENTITY`), its value.
+static PENDING_BACKDROP: Mutex<Vec<(LayoutNodeId, usize, f32)>> = Mutex::new(Vec::new());
+
+fn record_backdrop(node: LayoutNodeId, filter: usize, value: f32) {
+    PENDING_BACKDROP.lock().unwrap_or_else(|e| e.into_inner()).push((node, filter, value));
+}
+
+/// Backdrop filter changes recorded since the last call, oldest first. Blinc's
+/// render props have no backdrop filter, so ashui keeps them beside the tree.
+pub fn take_pending_backdrop() -> Vec<(LayoutNodeId, usize, f32)> {
+    std::mem::take(&mut *PENDING_BACKDROP.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
 /// Text changes recorded since the last call, oldest first.
 pub fn take_pending_text() -> Vec<(LayoutNodeId, TextWrite)> {
     std::mem::take(&mut *PENDING_TEXT.lock().unwrap_or_else(|e| e.into_inner()))
@@ -313,6 +330,11 @@ fn side_write(node: LayoutNodeId, raw: i32) -> Option<(PropertyId, Write<f32>)> 
         47 => (P::Width, layout(|s, v: f32| s.aspect_ratio = if v.is_finite() && v > 0.0 { Some(v) } else { None })?),
         // Whether text breaks lines at its width, as CSS's white-space: 0 keeps it to one line.
         48 => (P::TextAlign, render(move |_, v: f32| record_text(node, move |c| c.wrap = v != 0.0))?),
+        // The backdrop's colour filters, in BACKDROP_IDENTITY's order.
+        49..=55 => {
+            let filter = (raw - SIDES_BASE - 49) as usize;
+            (P::Background, render(move |_, v: f32| record_backdrop(node, filter, v))?)
+        }
         _ => return None,
     })
 }
@@ -942,6 +964,10 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
         89 => ren(P::Filter, Box::new(|p| p.mask_image = None)),
         90 => lay(P::Width, Box::new(|s| s.aspect_ratio = None)),
         91 => ren(P::TextAlign, Box::new(move |_| record_text(node, |c| c.wrap = true))),
+        92..=98 => {
+            let filter = (raw - 92) as usize;
+            ren(P::Background, Box::new(move |_| record_backdrop(node, filter, BACKDROP_IDENTITY[filter])))
+        }
         _ => {}
     }
 }

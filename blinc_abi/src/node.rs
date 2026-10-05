@@ -9,7 +9,7 @@
 //! or disposing it removes them.
 
 use crate::hl::{handle_mut, into_handle, opt_string_from, string_from, take_handle};
-use crate::layout_router::take_pending_text;
+use crate::layout_router::{take_pending_backdrop, take_pending_text, BACKDROP_IDENTITY};
 use crate::reactive::collect_released;
 use blinc_layout::binding::unregister_node;
 use blinc_layout::div::GenericFont;
@@ -43,6 +43,8 @@ pub struct Tree {
     pub(crate) pass_through: std::collections::HashSet<LayoutNodeId>,
     /// Nodes drawn as a notch: signed corner radii, then the top and bottom edges' modifiers.
     pub(crate) notches: HashMap<LayoutNodeId, [[f32; 4]; 3]>,
+    /// Each node's backdrop colour filters, in `BACKDROP_IDENTITY`'s order; none for the identity.
+    pub(crate) backdrop_filters: HashMap<LayoutNodeId, [f32; 7]>,
     /// Nodes drawn away from their layout while a layout animation runs:
     /// moved by (dx, dy), and at size (w, h) when w is not negative.
     pub(crate) visuals: HashMap<LayoutNodeId, [f32; 4]>,
@@ -85,6 +87,7 @@ fn shared() -> &'static mut Tree {
             scrolls: HashMap::new(),
             pass_through: std::collections::HashSet::new(),
             notches: HashMap::new(),
+            backdrop_filters: HashMap::new(),
             visuals: HashMap::new(),
         })
     }
@@ -160,6 +163,8 @@ fn forget(tree: &mut Tree, nodes: &[LayoutNodeId]) {
     for node in nodes {
         unregister_node(*node);
         tree.owners.remove(node);
+        tree.notches.remove(node);
+        tree.backdrop_filters.remove(node);
     }
 }
 
@@ -524,6 +529,14 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
         }
     }
     // Recorded by the render writes above, so applied after them.
+    for (node, filter, value) in take_pending_backdrop() {
+        let filters = tree.backdrop_filters.entry(node).or_insert(BACKDROP_IDENTITY);
+        filters[filter] = value;
+        if *filters == BACKDROP_IDENTITY {
+            tree.backdrop_filters.remove(&node);
+        }
+        painted = true;
+    }
     for (node, write) in take_pending_text() {
         needs_layout |= tree.layout.update_text(node, |c| {
             write(c);

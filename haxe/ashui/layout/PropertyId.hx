@@ -135,6 +135,14 @@ enum abstract PropertyId(Int) from Int to Int {
     // CSS's aspect-ratio: width over height, which sizes a box given only one of them; NaN for none.
     var AspectRatio = 90;
     var TextWrap = 91;
+    // CSS backdrop-filter's colour filters, over what is behind an element with a backdrop (a blur or glass background); as the Filter ones.
+    var BackdropBrightness = 92;
+    var BackdropContrast = 93;
+    var BackdropGrayscale = 94;
+    var BackdropHueRotate = 95;
+    var BackdropInvert = 96;
+    var BackdropSaturate = 97;
+    var BackdropSepia = 98;
 
     /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
@@ -155,7 +163,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
                  Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
-                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft | FilterBrightness | FilterContrast | FilterGrayscale | FilterHueRotate | FilterInvert | FilterSaturate | FilterSepia | FilterBlur | AspectRatio | TextWrap:
+                 FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft | FilterBrightness | FilterContrast | FilterGrayscale | FilterHueRotate | FilterInvert | FilterSaturate | FilterSepia | FilterBlur | AspectRatio | TextWrap | BackdropBrightness | BackdropContrast | BackdropGrayscale | BackdropHueRotate | BackdropInvert | BackdropSaturate | BackdropSepia:
                 TypeF32;
 
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)

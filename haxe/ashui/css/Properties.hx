@@ -24,7 +24,7 @@ typedef ApplyContext = {
 	/** What `currentcolor` is: the element's `color`. **/
 	final currentColor:CssColor;
 
-	/** The element's `backdrop-filter: blur()`, which its background frosts over; 0 or none for none. **/
+	/** The element's `backdrop-filter` blur, which its background frosts over: 0 when it has colour filters alone, -1 or null for no backdrop filter. **/
 	final ?backdropBlur:Float;
 
 	/** Whether the element has a `background` too, which then writes the frosted brush. **/
@@ -306,8 +306,8 @@ class Properties {
 		});
 		h.set("background-color", (n, v, c) -> {
 			var col = colorOf(CssValue.color(v), c);
-			var blur = c.backdropBlur == null ? 0.0 : c.backdropBlur;
-			write(n, Prop.Background, blur > 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha));
+			var blur = c.backdropBlur == null ? -1.0 : c.backdropBlur;
+			write(n, Prop.Background, blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha));
 			[Node.field(Prop.Background)];
 		});
 		h.set("background-image", (n, v, c) -> {
@@ -318,11 +318,11 @@ class Properties {
 		h.set("background-size", (_, _, _) -> []);
 		h.set("background", (n, v, c) -> {
 			var t = StringTools.trim(v);
-			var blur = c.backdropBlur == null ? 0.0 : c.backdropBlur;
-			var brush = if (t.toLowerCase() == "none") blur > 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (CssValue.call(t) != null
+			var blur = c.backdropBlur == null ? -1.0 : c.backdropBlur;
+			var brush = if (t.toLowerCase() == "none") blur >= 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (CssValue.call(t) != null
 				&& CssValue.call(t).name.indexOf("gradient") >= 0 || CssValue.call(t) != null && CssValue.call(t).name == "url") image(t, c) else {
 				var col = colorOf(CssValue.color(t), c);
-				blur > 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
+				blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
 			}
 			write(n, Prop.Background, brush);
 			[Node.field(Prop.Background)];
@@ -503,13 +503,23 @@ class Properties {
 			}
 			out;
 		});
-		// What is behind the box blurred under its background; the background writes it when there is one.
+		// What is behind the box blurred and colour-filtered, under its background; the background writes the brush when there is one.
 		h.set("backdrop-filter", (n, v, c) -> {
 			var r = backdropBlur(v, c);
-			if (c.hasBackground == true)
-				return [];
-			write(n, Prop.Background, r > 0 ? Brush.blur(r) : Brush.solid(0, 0));
-			[Node.field(Prop.Background)];
+			var props:Array<Prop<Single>> = [
+				Prop.BackdropBrightness, Prop.BackdropContrast, Prop.BackdropGrayscale, Prop.BackdropHueRotate, Prop.BackdropInvert, Prop.BackdropSaturate,
+				Prop.BackdropSepia
+			];
+			var values = backdropColors(v);
+			var out = [for (i => p in props) {
+				write(n, p, values[i]);
+				Node.field(p);
+			}];
+			if (c.hasBackground != true) {
+				write(n, Prop.Background, r >= 0 ? Brush.blur(r) : Brush.solid(0, 0));
+				out.push(Node.field(Prop.Background));
+			}
+			out;
 		});
 		h.set("clip-path", (n, v, _) -> {
 			var path = try ashui.types.ClipPath.parse(v) catch (e:String) throw e;
@@ -601,17 +611,41 @@ class Properties {
 
 	// --- Helpers ---
 
-	/** The radius of `backdrop-filter`'s `blur()`; 0 for none. Throws for any other filter. **/
-	public static function backdropBlur(v:String, c:ApplyContext):Float {
-		if (StringTools.trim(v).toLowerCase() == "none")
-			return 0;
+	/**
+		The radius of `backdrop-filter`'s `blur()`: 0 when it has colour
+		filters alone, -1 for `none`. Throws for a filter a backdrop does not
+		take: `opacity()` and `drop-shadow()`.
+	**/
+	public static function backdropBlur(v:Null<String>, c:ApplyContext):Float {
+		if (v == null || StringTools.trim(v).toLowerCase() == "none")
+			return -1;
 		var r = 0.0;
 		for (f in CssValue.filters(v))
 			switch f {
 				case Blur(l): r = pixels(l, c);
-				case _: throw "backdrop-filter takes blur() alone";
+				case Opacity(_) | DropShadow(_): throw "backdrop-filter takes blur() and the colour filters, not opacity() or drop-shadow()";
+				case _:
 			}
 		return r;
+	}
+
+	/** `backdrop-filter`'s colour filters, in the backdrop properties' order, each its identity unless given. **/
+	static function backdropColors(v:String):Array<Float> {
+		var values = [1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+		if (StringTools.trim(v).toLowerCase() == "none")
+			return values;
+		for (f in CssValue.filters(v))
+			switch f {
+				case Brightness(x): values[0] = x;
+				case Contrast(x): values[1] = x;
+				case Grayscale(x): values[2] = clamp01(x);
+				case HueRotate(r): values[3] = r * 180 / Math.PI;
+				case Invert(x): values[4] = clamp01(x);
+				case Saturate(x): values[5] = x;
+				case Sepia(x): values[6] = clamp01(x);
+				case _:
+			}
+		return values;
 	}
 
 	static inline function write<T>(n:Node, prop:Prop<T>, value:T):Void

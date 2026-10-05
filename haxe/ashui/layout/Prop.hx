@@ -41,6 +41,19 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var FilterInvert:Prop<Single> = cast PropertyId.FilterInvert;
 	public static inline var FilterSaturate:Prop<Single> = cast PropertyId.FilterSaturate;
 	public static inline var FilterSepia:Prop<Single> = cast PropertyId.FilterSepia;
+	/**
+		CSS `backdrop-filter`'s colour filters, applied to what is behind an
+		element whose background is a backdrop (`Brush.blur` or
+		`Brush.glass`), before the background's tint is painted over it. The
+		values are as the `Filter` properties take them.
+	**/
+	public static inline var BackdropBrightness:Prop<Single> = cast PropertyId.BackdropBrightness;
+	public static inline var BackdropContrast:Prop<Single> = cast PropertyId.BackdropContrast;
+	public static inline var BackdropGrayscale:Prop<Single> = cast PropertyId.BackdropGrayscale;
+	public static inline var BackdropHueRotate:Prop<Single> = cast PropertyId.BackdropHueRotate;
+	public static inline var BackdropInvert:Prop<Single> = cast PropertyId.BackdropInvert;
+	public static inline var BackdropSaturate:Prop<Single> = cast PropertyId.BackdropSaturate;
+	public static inline var BackdropSepia:Prop<Single> = cast PropertyId.BackdropSepia;
 	/** CSS's `blur()`: the element and everything inside it blurred, this standard deviation in layout units. **/
 	public static inline var FilterBlur:Prop<Single> = cast PropertyId.FilterBlur;
 	/** CSS's `drop-shadow()`: the first layer of a `Shadow`, cast by what the element and its children draw rather than by its box. **/

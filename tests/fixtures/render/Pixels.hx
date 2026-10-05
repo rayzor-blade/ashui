@@ -406,6 +406,30 @@ class Pixels {
 		probe("outside the box it stays sharp", 32, 10, near(0x000000));
 		ashui.css.Css.remove(frostSheet);
 
+		// Backdrop colour filters: a red stripe turns grey under a box with backdrop-filter: grayscale(1), with no blur, and stays red outside it.
+		var greySheet = ashui.css.Css.load('.grey { backdrop-filter: grayscale(1); } .grey-tinted { backdrop-filter: invert(1); background: rgba(0, 0, 255, 0.5); }');
+		var greyTree = new LayoutTree();
+		var redStripe = new Div({position: Position.Absolute, left: 0, top: 20, width: SIZE, height: 12, bg: Brush.solid(0xff0000)}, greyTree);
+		var greyBox = new Div({classes: ["grey"], position: Position.Absolute, left: 8, top: 8, width: 20, height: 40}, greyTree);
+		var invertBox = new Div({classes: ["grey-tinted"], position: Position.Absolute, left: 36, top: 8, width: 20, height: 40}, greyTree);
+		var greyRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [redStripe, greyBox, invertBox], greyTree);
+		pixels = offscreen.renderToRgba8(greyRoot, SIZE, SIZE);
+		label = "backdrop colour filters: ";
+		probe("grayscale(1) turns the red under it grey", 16, 26, (r, g, b) -> Math.abs(r - g) < 4 && Math.abs(g - b) < 4 && r > 30 && r < 120);
+		probe("and leaves the white round it white", 16, 12, near(0xffffff));
+		probe("red stays red outside it", 32, 26, near(0xff0000));
+		// invert(1) makes red cyan, then half blue is painted over: the filter applies before the background's tint.
+		probe("invert(1) under a tint: the filter first, the tint over it", 46, 26, (r, g, b) -> r < 30 && g > 100 && g < 160 && b > 220);
+		ashui.css.Css.remove(greySheet);
+		// Tw's backdrop classes: backdrop-invert with no blur class turns the red behind cyan.
+		var twTree = new LayoutTree();
+		var twStripe = new Div({position: Position.Absolute, left: 0, top: 20, width: SIZE, height: 12, bg: Brush.solid(0xff0000)}, twTree);
+		var twBox = new Div({position: Position.Absolute, left: 8, top: 8, width: 20, height: 40, style: ashui.style.Tw.tw("backdrop-invert")}, twTree);
+		var twRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [twStripe, twBox], twTree);
+		pixels = offscreen.renderToRgba8(twRoot, SIZE, SIZE);
+		probe("Tw's backdrop-invert, with no blur class, inverts the red behind", 16, 26, near(0x00ffff));
+		probe("and the white round it", 16, 12, near(0x000000));
+
 		var dropTree = new LayoutTree();
 		var disc = new Div({position: Position.Absolute, left: 8, top: 8, width: 16, height: 16, bg: Brush.solid(0xff0000),
 			cornerRadius: CornerRadius.all(8)}, dropTree);

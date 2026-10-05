@@ -546,7 +546,7 @@ class Css {
 		};
 		// The background frosts over a backdrop-filter's blur, so each reads whether the other is there.
 		if (resolved.exists("backdrop-filter")) {
-			var blur = try Properties.backdropBlur(resolved.get("backdrop-filter"), ctx) catch (_:String) 0.0;
+			var blur = try Properties.backdropBlur(resolved.get("backdrop-filter"), ctx) catch (_:String) -1.0;
 			ctx = {
 				viewportWidth: ctx.viewportWidth,
 				viewportHeight: ctx.viewportHeight,

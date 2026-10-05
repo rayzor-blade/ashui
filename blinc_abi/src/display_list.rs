@@ -818,7 +818,24 @@ pub fn append(
         // filtered, in place of a fill; the border still draws, over nothing.
         let behind = props.background.as_ref().and_then(backdrop_of);
         if let Some((blur, matrix, liquid)) = &behind {
-            let (blur, matrix) = (*blur, *matrix);
+            let blur = *blur;
+            // CSS's backdrop colour filters apply to what is behind, before the background's tint is painted over it.
+            let matrix = match tree.backdrop_filters.get(&node) {
+                Some(f) => {
+                    let css = blinc_layout::element_style::CssFilter {
+                        brightness: f[0],
+                        contrast: f[1],
+                        grayscale: f[2],
+                        hue_rotate: f[3],
+                        invert: f[4],
+                        saturate: f[5],
+                        sepia: f[6],
+                        ..Default::default()
+                    };
+                    then(filter_matrix(&css), *matrix)
+                }
+                None => *matrix,
+            };
             let scale = (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
             let mut b = Primitive::new(PRIM_BACKDROP, local, radii);
             b.shape_from(props, &glyphs.shapes);

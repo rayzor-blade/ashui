@@ -30,7 +30,10 @@ import haxe.macro.Type;
 	- a backdrop blur, `backdrop-blur-xs` … `backdrop-blur-3xl`
 	  (`backdrop-blur` is `-sm`): what is behind the box blurred, under the
 	  box's background colour, so `bg-white/30 backdrop-blur-md` is frosted
-	  glass;
+	  glass; and backdrop colour filters at Tailwind's scales,
+	  `backdrop-brightness-`, `-contrast-`, `-saturate-`, `-hue-rotate-`,
+	  `backdrop-grayscale`, `-invert`, `-sepia`, which filter what is behind
+	  with or without a blur;
 	- borders, `border`, `border-0` … `border-8`, and one side or two over
 	  it, `border-t`, `border-x-2`, `border-b-0` …, each side in the
 	  border's colour or its own, `border-t-primary`, `border-x-error` …;
@@ -149,6 +152,8 @@ class Tw {
 		var variant = VARIANT;
 		// A backdrop blur and the background colour class it is painted under, merged after the loop.
 		var backdrop:Null<{radius:Float, pos:Position}> = null;
+		// Where the first backdrop colour filter class is, which needs a backdrop even with no blur class.
+		var backdropColor:Null<Position> = null;
 		var background:Null<{name:String, alpha:Float}> = null;
 		var bgColor = ~/^bg-([a-z0-9-]+?)(?:\/(\d{1,3}))?$/;
 		var start = 0;
@@ -186,6 +191,15 @@ class Tw {
 				backdrop = {radius: radius, pos: pos};
 				continue;
 			}
+			// A backdrop colour filter: what is behind filtered, unblurred unless a backdrop-blur class blurs it too.
+			var filter = BACKDROP_COLORS.get(word);
+			if (filter != null) {
+				var key = filter.prop, value = filter.value;
+				out.push(macro @:pos(pos) $node.set(ashui.layout.Prop.$key, ($v{value} : Single)));
+				if (backdropColor == null)
+					backdropColor = pos;
+				continue;
+			}
 			if (bgColor.match(word) && (colors.exists(bgColor.matched(1)) || fixedColor(bgColor.matched(1)) != null)) {
 				var percent = bgColor.matched(2);
 				background = {name: bgColor.matched(1), alpha: percent == null ? 1.0 : Std.parseInt(percent) / 100};
@@ -221,6 +235,8 @@ class Tw {
 			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : "")
 				+ (Context.definedValue("ashui_css") == null ? "" : ", or a class of the CSS in -D ashui_css"), pos);
 		}
+		if (backdrop == null && backdropColor != null)
+			backdrop = {radius: 0.0, pos: backdropColor};
 		if (backdrop != null) {
 			if (variants.exists("Background"))
 				Context.error("tw: a state variant of the background would replace the backdrop blur; vary something else", backdrop.pos);
@@ -646,7 +662,7 @@ class Tw {
 
 		refused = [
 			{pattern: ~/^-/, why: "only translate, rotate, skew and hue-rotate take a minus sign"},
-			{pattern: ~/^backdrop-/, why: "of the backdrop filters only backdrop-blur is drawn yet"},
+			{pattern: ~/^backdrop-opacity/, why: "backdrop-opacity is not drawn; tint the background with bg-*/opacity instead"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},
@@ -655,6 +671,28 @@ class Tw {
 		known = v;
 		return v;
 	}
+
+	/** Tailwind's backdrop colour filters, at its scales: the backdrop property each sets, and the value. **/
+	static final BACKDROP_COLORS:Map<String, {prop:String, value:Float}> = {
+		var m = new Map<String, {prop:String, value:Float}>();
+		m.set("backdrop-grayscale", {prop: "BackdropGrayscale", value: 1});
+		m.set("backdrop-grayscale-0", {prop: "BackdropGrayscale", value: 0});
+		m.set("backdrop-sepia", {prop: "BackdropSepia", value: 1});
+		m.set("backdrop-sepia-0", {prop: "BackdropSepia", value: 0});
+		m.set("backdrop-invert", {prop: "BackdropInvert", value: 1});
+		m.set("backdrop-invert-0", {prop: "BackdropInvert", value: 0});
+		for (p in [0, 50, 75, 90, 95, 100, 105, 110, 125, 150, 200])
+			m.set('backdrop-brightness-$p', {prop: "BackdropBrightness", value: p / 100});
+		for (p in [0, 50, 75, 100, 125, 150, 200])
+			m.set('backdrop-contrast-$p', {prop: "BackdropContrast", value: p / 100});
+		for (p in [0, 50, 100, 150, 200])
+			m.set('backdrop-saturate-$p', {prop: "BackdropSaturate", value: p / 100});
+		for (d in [0, 15, 30, 60, 90, 180]) {
+			m.set('backdrop-hue-rotate-$d', {prop: "BackdropHueRotate", value: d});
+			m.set('-backdrop-hue-rotate-$d', {prop: "BackdropHueRotate", value: -d});
+		}
+		m;
+	};
 
 	/** Tailwind's backdrop blur sizes, in pixels of deviation. **/
 	static final BACKDROP_BLUR:Map<String, Float> = [
