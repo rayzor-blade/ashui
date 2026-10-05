@@ -47,6 +47,12 @@ typedef SceneKitProps = {
 	/** How much the scene's edges and corners are darkened, from 0 (the default, none) to 1. **/
 	?vignette:IntoReactive<Float>,
 
+	/** Film grain, from 0 (the default, none) to 1 (heavy). It hides banding in dark gradients. **/
+	?grain:IntoReactive<Float>,
+
+	/** Chromatic aberration: colour fringes towards the edges, from 0 (the default, none) to 1 (strong). **/
+	?aberration:IntoReactive<Float>,
+
 	/** Bloom: bright parts of the scene glow onto their surroundings (see `Bloom`). There is none by default. **/
 	?bloom:IntoReactive<ashui.draw3d.Bloom>,
 
@@ -131,7 +137,7 @@ class SceneKit extends Component<SceneKitProps> {
 					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {strength: read(props.shadowStrength, 0.7), reach: read(props.shadowReach, 0.0) > 0 ? read(props.shadowReach, 0.0) : null, focus: camera.target.get()} : null);
 				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0),
 					read(props.fog, null), read(props.lens, 0.0), read(props.bloom, null),
-					read(props.vignette, 0.0)));
+					read(props.vignette, 0.0), read(props.grain, 0.0), read(props.aberration, 0.0)));
 				sky.skybox = read(props.skybox, null);
 				if (sky.skybox != null)
 					ctx.drawPass(sky);

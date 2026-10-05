@@ -345,7 +345,7 @@ class ScenePainter {
 		// up to twice on a standard display, and at most 1.25 times on a high-density one, whose pixels are small enough already.
 		if (scene.lens > 0)
 			ss = Math.max(ss, Math.min(frame.pixelRatio >= 2 ? 1.25 : 2, 1 + scene.lens * 2));
-		layer.lens = scene.lens > 0 || scene.vignette > 0 ? Math.max(scene.lens, 0.0001) : 0;
+		layer.lens = finishing(scene) ? Math.max(scene.lens, 0.0001) : 0;
 		var w = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.width * frame.scale * ss))));
 		var h = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.height * frame.scale * ss))));
 		var resized = w != layer.width || h != layer.height || layer.color == null;
@@ -539,8 +539,8 @@ class ScenePainter {
 				drawGlow(frame, encoder, layer, draws, order, groups, firstBlended, passes, passFrame);
 				glow(frame, encoder, layer, scene.bloom);
 			}
-			if (scene.lens > 0 || scene.vignette > 0)
-				bend(frame, encoder, layer, scene.lens, scene.vignette);
+			if (finishing(scene))
+				bend(frame, encoder, layer, scene.lens, scene.vignette, scene.grain, scene.aberration);
 		});
 	}
 
@@ -681,8 +681,12 @@ class ScenePainter {
 		pass(layer.colorView, true, bloomOnto, layer.bloomAdd.group);
 	}
 
-	/** The finishing pass: draws the rendered layer into the layer's lens texture, bent by the fish-eye (`strength`) and darkened by the vignette. **/
-	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float, vignette:Float):Void {
+	/** Whether the scene needs the finishing pass: a fish-eye, vignette, grain or chromatic aberration. **/
+	static function finishing(scene:Scene3D):Bool
+		return scene.lens > 0 || scene.vignette > 0 || scene.grain > 0 || scene.aberration > 0;
+
+	/** The finishing pass: draws the rendered layer into the layer's lens texture through the fish-eye (`strength`), with chromatic aberration, vignette and grain. **/
+	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float, vignette:Float, grain:Float, aberration:Float):Void {
 		var device = frame.device;
 		if (lensPipeline == null) {
 			var builder = device.pipeline();
@@ -696,7 +700,7 @@ class ScenePainter {
 			size.height(layer.height);
 			layer.lensColor = device.texture(new GpuTextureDescriptor(size, frame.format, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
 			layer.lensView = layer.lensColor.createView(new GpuTextureViewDescriptor());
-			layer.lensSettings = device.createBuffer(new GpuBufferDescriptor(16, GpuFlags.BUFFER_STORAGE | GpuFlags.BUFFER_COPY_DST));
+			layer.lensSettings = device.createBuffer(new GpuBufferDescriptor(32, GpuFlags.BUFFER_STORAGE | GpuFlags.BUFFER_COPY_DST));
 			var bindings = new GpuBindings();
 			bindings.texture(layer.colorView);
 			bindings.sampler(compositeSampler(frame));
@@ -705,12 +709,16 @@ class ScenePainter {
 			bindings.destroy();
 		}
 		var aspect = layer.width / Math.max(1, layer.height);
-		var b = haxe.io.Bytes.alloc(16);
+		var b = haxe.io.Bytes.alloc(32);
 		b.setFloat(0, strength);
 		b.setFloat(4, aspect);
 		b.setFloat(8, aspect * aspect + 1);
 		b.setFloat(12, vignette);
-		device.queue().writeBuffer(layer.lensSettings, 0, b, 16);
+		b.setFloat(16, grain);
+		b.setFloat(20, aberration);
+		b.setFloat(24, ashui.animation.AnimationScheduler.main.clock % 1000);
+		b.setFloat(28, layer.width);
+		device.queue().writeBuffer(layer.lensSettings, 0, b, 32);
 		var color = new GpuRenderPassColorAttachment(Clear, Store);
 		color.viewTextureView(layer.lensView);
 		color.clearValue(new GpuColor(0, 0, 0, 0));
