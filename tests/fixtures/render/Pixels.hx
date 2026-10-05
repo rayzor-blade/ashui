@@ -666,6 +666,32 @@ class Pixels {
 		probe("made again and drawn when it comes back", 32, 32, (r, g, b) -> g > 200 && r < 60);
 		ashui.core.render.ScenePainter.idleRelease = 1;
 
+		// A ground grid seen from above: its major lines where whole units fall, nothing between them, hidden where a mesh is in front.
+		var gridTree = new LayoutTree();
+		var gridBlock = ashui.draw3d.MeshData.build([-0.3, 0.2, -0.3, 0.3, 0.2, -0.3, 0.3, 0.2, 0.3, -0.3, 0.2, 0.3], [0, 2, 1, 0, 3, 2], null, null, null,
+			new ashui.draw3d.Material({baseColor: 0x0000ff, unlit: true}));
+		var gridRoot:Div = ashui.reactive.Owner.root(gridTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					// Straight down at the origin, a little off so the view keeps a direction for up.
+					ctx.setScene(ashui.draw3d.Scene3D.DEFAULT.with(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 3, 0.001), ashui.math.Vec3.ZERO, null, 1.2), [],
+						null, null, null, 0x000000, 1, null, null, null,
+						new ashui.draw3d.GroundGrid({size: 1, subdivisions: 1, major: 0xffffff, majorAlpha: 1, axes: false, fadeNear: 50, fadeFar: 60})));
+					ctx.drawMesh(gridBlock);
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(gridRoot, SIZE, SIZE);
+		label = "grid: ";
+		// From 3 up with a 1.2 radian view the canvas spans about ±2 units: x = 1 lies about a quarter of the way in from its right.
+		var lineX = 8 + 24 + Std.int(24 / (3 * Math.tan(0.6)));
+		probe("a major line at x = 1, a pixel wide", lineX, 14, (r, g, b) -> r > 80 && g > 80 && b > 80);
+		probe("nothing between the lines", lineX - 6, 14, (r, g, b) -> r < 60 && g < 60 && b < 60);
+		probe("hidden by the mesh in front of it, at the origin", 32, 32, (r, g, b) -> b > 200 && r < 60);
+
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
 		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);

@@ -9,6 +9,7 @@ import ashui.components.Slider;
 import ashui.components.Spinner;
 import ashui.components.ToggleSwitch;
 import ashui.draw3d.Light;
+import ashui.draw3d.GroundGrid;
 import ashui.draw3d.Skybox;
 import ashui.layout.Element;
 import ashui.math.Vec3;
@@ -22,7 +23,7 @@ import ashui.types.Style;
 	`<scene-kit>`, lit by and reflecting Rogland's clear night sky (Poly
 	Haven, CC0), beside a panel that sets the exposure, the key light's
 	strength and height and the sky's, shows the sky behind it, sharp or
-	blurred, turns the fill light on and off, and puts the camera back. Drag to turn round the helmet,
+	blurred, and a studio grid under it, turns the fill light on and off, and puts the camera back. Drag to turn round the helmet,
 	Shift-drag or right-drag to move across, scroll to come nearer.
 
 		tools/demo/run.sh Studio3D.hx
@@ -48,6 +49,9 @@ class Studio3D {
 		var showSky = Signal.make(true);
 		var blur = Signal.make(0.35);
 		var fill = Signal.make(true);
+		var showGrid = Signal.make(true);
+		// The helmet stands on the grid: the grid at the bottom of its box.
+		var floor = GroundGrid.studio(helmet.min.y);
 		// True until the helmet's textures are in place: the viewport shows a spinner meanwhile.
 		var loading = Signal.make(true);
 		var rig = Computed.make(() -> {
@@ -59,7 +63,7 @@ class Studio3D {
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
 		function page():Element return <div flexDirection={Row} width={1100} height={720} padding={16} gap={16}>
 			<div width={760} height={688}>
-				<scene-kit loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} width={760} height={688} />
+				<scene-kit loading={loading} camera={camera} lights={rig} exposure={exposure} environment={night} environmentIntensity={skyLight} grid={Computed.make(() -> showGrid.get() ? floor : null)} skybox={Computed.make(() -> showSky.get() && night.get() != null ? Sky(night.get(), blur.get(), skyLight.get()) : null)} draw={ctx -> helmet.draw(ctx)} width={760} height={688} />
 				<if {loading.get()}>
 					<div position={Absolute} left={0} top={0} width={760} height={688} flexDirection={Column} gap={12} alignItems={Center} justifyContent={Justify.Center}>
 						<spinner />
@@ -77,6 +81,7 @@ class Studio3D {
 						<slider label="Sky light" value={skyLight} min={0} max={4} step={0.05} format={percent} />
 						<slider label="Sky blur" value={blur} min={0} max={1} step={0.05} format={percent} />
 						<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={showSky} /><text>Show the sky</text></div>
+						<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={showGrid} /><text>Show the grid</text></div>
 						<div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={fill} /><text>Blue fill light</text></div>
 						<button variant={Outline} onClick={_ -> camera.reset()}>Reset camera</button>
 					</div>

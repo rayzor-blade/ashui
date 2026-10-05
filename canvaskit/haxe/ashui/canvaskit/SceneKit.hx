@@ -38,6 +38,9 @@ typedef SceneKitProps = {
 	/** What is drawn behind the scene: an environment, blurred or not, or colours (see `Skybox`). **/
 	?skybox:IntoReactive<Null<ashui.draw3d.Skybox>>,
 
+	/** A ground grid under the scene, `GroundGrid.studio()` or one's own (see `GroundGrid`). **/
+	?grid:IntoReactive<Null<ashui.draw3d.GroundGrid>>,
+
 	/** Whether dragging and scrolling move the camera; true by default. **/
 	?controls:Bool,
 
@@ -81,7 +84,7 @@ class SceneKit extends Component<SceneKitProps> {
 				ctx.setScene(new Scene3D(camera.camera(), read(props.lights, base.lights), read(props.ambient, base.ambient),
 					read(props.ambientStrength, base.ambientStrength), read(props.exposure, base.exposure), read(props.background, base.background),
 					read(props.backgroundAlpha, base.backgroundAlpha), read(props.environment, null), read(props.environmentIntensity, 1.0),
-					read(props.skybox, null)));
+					read(props.skybox, null), read(props.grid, null)));
 				if (props.draw != null)
 					props.draw(ctx);
 			}

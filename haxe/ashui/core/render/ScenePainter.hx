@@ -352,6 +352,14 @@ class ScenePainter {
 			writeDraw(bytes, slot * ashui.shaders.MeshDraw.ROWS * 16, draws[order[slot]]);
 		device.queue().writeBuffer(drawBuffer, 0, bytes, bytes.length);
 		var groups = [for (i in order) materialGroup(frame, draws[i].mesh.material, environment)];
+		var grid = scene.grid != null ? gridBinding(frame) : null;
+		// The grid goes over what is opaque and under what is blended: before the first blended draw.
+		var firstBlended = order.length;
+		for (slot in 0...order.length)
+			if (blended(order[slot])) {
+				firstBlended = slot;
+				break;
+			}
 		var sky = switch scene.skybox {
 			case null: null;
 			case Sky(e, _, _): skyBinding(frame, e);
@@ -377,7 +385,14 @@ class ScenePainter {
 				encoder.renderSetBindGroup(0, sky.group);
 				encoder.renderDraw(3, 1);
 			}
-			for (slot in 0...order.length) {
+			for (slot in 0...order.length + 1) {
+				if (slot == firstBlended && grid != null) {
+					encoder.renderSetPipeline(grid.pipeline);
+					encoder.renderSetBindGroup(0, grid.group);
+					encoder.renderDraw(6, 1);
+				}
+				if (slot == order.length)
+					break;
 				var d = draws[order[slot]];
 				var gpu = meshes.get(d.mesh);
 				encoder.renderSetPipeline(pipeline(frame, d.mesh.material, d.opacity));
@@ -472,6 +487,34 @@ class ScenePainter {
 		bindings.destroy();
 		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: environment, textures: MeshTextures.revision});
 		return group;
+	}
+
+	var gridPipeline:Null<GpuPipeline> = null;
+	var gridGroup:Null<GpuBindGroup> = null;
+	var gridGroupBuffers = -1;
+
+	/** The grid's pipeline, blended over what is drawn and hidden by what is in front, and its bind group. **/
+	function gridBinding(frame:CanvasFrame):{pipeline:GpuPipeline, group:GpuBindGroup} {
+		var device = frame.device;
+		if (gridPipeline == null) {
+			var builder = device.pipeline();
+			builder.shader(device.createShader(GridShader.WGSL), "vertex", "fragment");
+			builder.target(frame.format, GpuFlags.COLOR_WRITE_ALL);
+			builder.blend(SrcAlpha, OneMinusSrcAlpha, Add, One, OneMinusSrcAlpha, Add);
+			builder.depth(DEPTH_FORMAT, false, Less);
+			builder.primitive(TriangleList, None, Ccw);
+			gridPipeline = builder.build();
+		}
+		if (gridGroup == null || gridGroupBuffers != buffers) {
+			if (gridGroup != null)
+				gridGroup.destroy();
+			var bindings = new GpuBindings();
+			bindings.buffer(sceneBuffer);
+			gridGroup = device.bindGroup(gridPipeline, 0, bindings);
+			bindings.destroy();
+			gridGroupBuffers = buffers;
+		}
+		return {pipeline: gridPipeline, group: gridGroup};
 	}
 
 	/** The sky pass's pipeline and its bind group for `environment`. **/
@@ -633,6 +676,15 @@ class ScenePainter {
 		(inverse != null ? inverse : Mat4.IDENTITY).write(out, 7 * 16);
 		function color(at:Int, c:Int)
 			row(out, at, linear(c >> 16 & 0xff), linear(c >> 8 & 0xff), linear(c & 0xff), 0);
+		var g = scene.grid;
+		if (g != null) {
+			inline function srgb(c:Int, a:Float, at:Int)
+				row(out, at, (c >> 16 & 0xff) / 255, (c >> 8 & 0xff) / 255, (c & 0xff) / 255, a);
+			row(out, 15, g.size, Math.max(1, g.subdivisions), g.fadeNear, g.fadeFar);
+			srgb(g.minor, g.minorAlpha, 16);
+			srgb(g.major, g.majorAlpha, 17);
+			row(out, 18, g.height, g.axes ? 1 : 0, 0, 0);
+		}
 		switch scene.skybox {
 			case null:
 			case Sky(e, blur, intensity):
