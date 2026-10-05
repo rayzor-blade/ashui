@@ -86,6 +86,12 @@ class WindowedApp {
 		path != null && path != "" ? sys.io.File.write(path, false) : null;
 	};
 
+	/** `ASHUI_WINDOW_SECONDS=<n>` closes the window after that many seconds, for benches and scripted runs; off when unset. **/
+	final closeAfter:Float = {
+		var s = Std.parseFloat(Sys.getEnv("ASHUI_WINDOW_SECONDS"));
+		Math.isNaN(s) || s <= 0 ? 0.0 : s;
+	};
+
 	/** `ASHUI_MOTION=overlay` draws motion trails over the frames, `stream` also writes each burst of motion out for review (see `ashui.debug.MotionStream`). **/
 	var motion:Null<ashui.debug.MotionStream> = null;
 
@@ -226,7 +232,10 @@ class WindowedApp {
 		var presented = opened;
 		if (frameLog != null)
 			frameLog.writeString("frame\tat_ms\tsince_last_frame\twait\tevents\tn_events\ttick\tflush\tdraw_flush\tlayout\tlist\tgpu\tpresent\tprimitives\n");
+		var closeAt = closeAfter > 0 ? haxe.Timer.stamp() + closeAfter : 0.0;
 		while (!quitting) {
+			if (closeAt > 0 && haxe.Timer.stamp() >= closeAt)
+				break;
 			// No wait when a frame is due; after a present, until its redraw;
 			// short ones while something animates; otherwise the loop sleeps
 			// on the window. Never past the next timer.
@@ -244,6 +253,8 @@ class WindowedApp {
 				timeout = Math.min(timeout, RETRY_FRAME - (t0 - refusedAt));
 			if (timer != null)
 				timeout = Math.min(timeout, timer);
+			if (closeAt > 0)
+				timeout = Math.max(0, Math.min(timeout, closeAt - t0));
 			var event = due ? window.poll() : window.wait(timeout);
 			var t1 = haxe.Timer.stamp();
 			var handled = 0;
