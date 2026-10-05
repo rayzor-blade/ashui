@@ -338,15 +338,23 @@ class Studio3D {
 		var fps = Signal.make(0.0);
 		// Where the clip is; in flight, ticking with it.
 		var clipTime = Signal.make(0.0);
+		// How far the key light is turned round the vertical from where the example puts it, in degrees.
+		var lightAngle = Signal.make(0.0);
+		new Watch(() -> example.get(), _ -> lightAngle.set(0));
 		var rig = Computed.make(() -> {
-			// From where the example says its light comes from, when it does; its height still the slider's.
-			// In flight it turns with the drone, as the chase camera does, so the side the camera sees stays lit.
+			// The key light comes from where the example says, or from the front left by default, turned round the
+			// vertical by the Key angle slider. Its height is the Key height slider's.
+			// In flight it also turns with the drone, as the chase camera does, so the side the camera sees stays lit.
 			var from = example.get().light.from;
+			if (from == null)
+				from = new Vec3(0.4, 0, 0.3);
+			var angle = lightAngle.get() * Math.PI / 180;
 			clipTime.get();
 			var f = current.get().flight;
-			if (from != null && f != null)
-				from = new Vec3(from.x * Math.cos(f.heading) + from.z * Math.sin(f.heading), from.y, -from.x * Math.sin(f.heading) + from.z * Math.cos(f.heading));
-			var way = from != null ? new Vec3(-from.x, -height.get(), -from.z) : new Vec3(-0.4, -height.get(), -0.3);
+			if (f != null)
+				angle += f.heading;
+			from = new Vec3(from.x * Math.cos(angle) + from.z * Math.sin(angle), 0, -from.x * Math.sin(angle) + from.z * Math.cos(angle));
+			var way = new Vec3(-from.x, -height.get(), -from.z);
 			var color = example.get().light.color;
 			var lights = [Directional(way, color != null ? color : 0xffffff, key.get())];
 			if (fill.get())
@@ -459,7 +467,7 @@ class Studio3D {
 			var azimuth = f != null ? camera.azimuth.get() - f.heading : camera.azimuth.get();
 			Sys.println('view: {azimuth: ${r(azimuth)}, elevation: ${r(camera.elevation.get())}, distance: ${r(camera.distance.get())}, fov: ${r(camera.fovY.get())}, '
 				+ 'offset: [${r(chaseOffset.x)}, ${r(chaseOffset.y)}, ${r(chaseOffset.z)}]},');
-			Sys.println('light: {key: ${r(key.get())}, fill: ${fill.get()}, sky: ${r(skyLight.get())}, exposure: ${r(exposure.get())}, height: ${r(height.get())}}, '
+			Sys.println('light: {key: ${r(key.get())}, fill: ${fill.get()}, sky: ${r(skyLight.get())}, exposure: ${r(exposure.get())}, height: ${r(height.get())}, angle: ${r(lightAngle.get())}}, '
 				+ 'shadowStrength: ${r(shadowStrength.get())}, tiles: ${r(tiles.get())}, turn: ${r(turn.get())}');
 		}
 		function page():Element {
@@ -521,6 +529,7 @@ class Studio3D {
 									<slider label="Bloom" value={bloomStrength} min={0} max={2} step={0.05} format={percent} />
 									<slider label="Bloom threshold" value={bloomThreshold} min={0} max={3} step={0.05} />
 									<slider label="Key light" value={key} min={0} max={6} step={0.1} />
+									<slider label="Key angle" value={lightAngle} min={-180} max={180} step={1} format={v -> '${Math.round(v)}°'} />
 									<slider label="Key height" value={height} min={0.1} max={2} step={0.05} />
 									{toggle(fill, "Blue fill light")}
 								</div>
