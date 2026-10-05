@@ -27,15 +27,19 @@ import ashui.types.Style;
 
 /**
 	One of the studio's examples: a glTF model and the HDR sky it stands
-	under, blurred by `blur` to begin with; `grounded` for a sky whose floor
-	is laid under the model. It starts lit as `light` says: the key light's
-	strength, the blue fill or none, the sky's strength and the exposure, 1
-	unless given, with the grid
-	shown or not. The nodes named in `hide` are not drawn. With `terrain`,
-	the model stands on ground raised by that height map, or on endless
-	procedural ground without one, made of the model's material or the
-	first of the glTF at `rock`, repeated `tiles` times across by a texture
-	transform. With `flight`, it takes off and flies on over the ground.
+	under.
+
+	- `blur` is the sky's starting blur. `grounded` projects the sky's floor
+	  under the model. `panorama` is an image shown as the visible sky.
+	- `light` sets the starting key light strength, whether the blue fill is
+	  on, the sky light's strength, and the exposure (1 if not given).
+	- `grid` says whether the studio grid starts shown.
+	- Nodes named in `hide` are not drawn.
+	- With `terrain`, the model stands on ground. Given a `heightMap`, the
+	  ground is raised by it; without one, it is endless procedural ground.
+	  The ground uses the model's material, or the first material of the
+	  glTF at `rock`, repeated `tiles` times across by a texture transform.
+	- With `flight`, the model takes off and flies over the ground.
 **/
 typedef Example = {
 	id:String,
@@ -43,6 +47,9 @@ typedef Example = {
 	model:String,
 	?sky:String,
 	?makeSky:Void->Environment,
+	?panorama:String,
+	?lens:Float,
+	?view:{azimuth:Float, elevation:Float, distance:Float, fov:Float, offset:Array<Float>},
 	?fog:ashui.draw3d.Fog,
 	?shadowReach:Float,
 	blur:Float,
@@ -54,7 +61,7 @@ typedef Example = {
 	?flight:Bool
 };
 
-/** An example once chosen: its model and sky as the worker thread reads them, and what is made from them. **/
+/** The loaded state of an example: its model and sky, which the worker thread reads, and what the studio builds from them. **/
 private class Loaded {
 	public final model = Signal.make((null : Gltf));
 	public final sky = Signal.make((null : Environment));
@@ -64,30 +71,33 @@ private class Loaded {
 	public var terrainAt:ashui.math.Mat4 = ashui.math.Mat4.IDENTITY;
 	public var endless:Null<EndlessTerrain> = null;
 	public var flight:Null<Flight> = null;
+	/** The example's panorama, once read. **/
+	public final panorama = Signal.make((null : ashui.types.Bitmap));
 	public var started = false;
 
 	public function new() {}
 }
 
 /**
-	A 3D studio: a `<scene-kit>` filling the window, and a frosted panel
-	over it. The panel chooses an example, each a glTF model under its own
-	HDR sky, which lights it and shows behind it, sharp or blurred, its
-	floor laid under the model where the sky has one, with a studio grid
-	under it catching its shadow. Its sections, each opening and
-	closing, play the model's animation and scrub it, and set the lighting,
-	the sky, and the floor and shadows; a corner shows the frames a second
-	the scene renders at. Drag to turn round the model,
-	Shift-drag or right-drag to move across, scroll to come nearer.
+	A 3D studio: a `<scene-kit>` fills the window, with a frosted control
+	panel floating over it. The panel chooses an example; each is a glTF
+	model under its own sky, which lights the model and shows behind it.
+	Collapsible sections play and scrub the model's animation and adjust the
+	lighting, post-processing, sky, floor and shadows. A corner shows how
+	many frames a second the scene renders. Drag to orbit the model,
+	Shift-drag or right-drag to pan, and scroll to zoom.
 
-	The examples: Khronos' DamagedHelmet (CC BY-NC, theblueturtle_) under
-	Rogland's clear night sky; Blinc's Buster Drone (LaVADraGoN,
-	CC-BY-4.0), read from Blinc's checkout beside this one, playing its clip
-	in a photo studio's grey cove; Blinc's marble cliff (Amal Kumar, CC0),
-	its rock repeated by glTF's KHR_texture_transform, standing on terrain
-	its displacement map raises; and the drone taking off and flying on
-	for ever over procedural ground of that rock, both under the night sky.
-	The skies and the map are Poly Haven's, CC0.
+	The examples:
+	- Khronos' DamagedHelmet (CC BY-NC, theblueturtle_) under Rogland's
+	  clear night sky.
+	- Blinc's Buster Drone (LaVADraGoN, CC-BY-4.0), read from Blinc's
+	  checkout beside this one, playing its animation in a photo studio.
+	- Blinc's marble cliff (Amal Kumar, CC0), its rock repeated with glTF's
+	  KHR_texture_transform, standing on terrain raised by its displacement
+	  map.
+	- The drone taking off and flying endlessly over procedural ground made
+	  of that rock, under MozillaHubs' Milky Way panorama.
+	The HDR skies and the displacement map come from Poly Haven (CC0).
 
 		tools/demo/run.sh Studio3D.hx
 **/
@@ -136,18 +146,24 @@ class Studio3D {
 			model: "../../../../Blinc/examples/blinc_app_examples/examples/assets/3d/buster_drone/scene.gltf",
 			// Another world's night: its own sky, moonlight from over the camera's shoulder, fog where the ground ends.
 			makeSky: AlienSky.make,
-			fog: new ashui.draw3d.Fog(AlienSky.HAZE, 40, 135),
+			// The sky sphere's picture, shown as it is and as the sphere lays it round; the sky made from it lights the scene.
+			panorama: AlienSky.PANORAMA,
+			// Far ground fades into the haze toward the horizon.
+			// Whole before the curve's horizon, a few hundred units out, so the far ground ends in haze, not an edge.
+			// Seen through: the curved horizon and far ridges show faintly in it.
+			fog: new ashui.draw3d.Fog(AlienSky.HAZE, 40, 420, 0.7),
 			// The ground is far too wide for one shadow map: it covers the drone's surroundings, sharply.
 			shadowReach: 14,
 			blur: 0,
 			grounded: false,
 			// Moonlight: weak and nearly white, no blue fill; the sky's own light the rest.
-			light: {key: 1.5, fill: false, sky: 1.0, exposure: 0.85, height: AlienSky.LIGHT.y, from: AlienSky.LIGHT, color: 0xf2f0ea},
+			light: {key: 1.4, fill: false, sky: 1.0, exposure: 1.3, height: AlienSky.LIGHT.y, from: AlienSky.LIGHT, color: 0xf4f0e8},
 			grid: false,
 			hide: ["Scheibe_Boden_0"],
 			// Procedural ground of the marble cliff's rock, its texture repeated once a chunk.
-			terrain: {rock: "../../../../Blinc/examples/blinc_app_examples/examples/assets/3d/marble_cliff_02_2k.gltf/marble_cliff_02_2k.gltf", tiles: 2},
-			flight: true
+			terrain: {rock: "../../../../Blinc/examples/blinc_app_examples/examples/assets/3d/marble_cliff_02_2k.gltf/marble_cliff_02_2k.gltf", tiles: 3},
+			flight: true,
+			lens: 0.35
 		}
 	];
 
@@ -170,7 +186,7 @@ class Studio3D {
 		// Those whose files are here: the drone needs Blinc's checkout.
 		var examples = EXAMPLES.filter(e -> sys.FileSystem.exists(e.model) && (e.sky == null || sys.FileSystem.exists(e.sky)));
 		var loaded = [for (e in examples) e.id => new Loaded()];
-		var chosen = Signal.make(examples[0].id);
+		var chosen = Signal.make(examples[examples.length - 1].id);
 		var example = Computed.make(() -> examples.filter(e -> e.id == chosen.get())[0]);
 		var current = Computed.make(() -> loaded.get(chosen.get()));
 		// An example's model and sky are read on the worker thread the first time it is chosen.
@@ -191,7 +207,7 @@ class Studio3D {
 					l.terrainAt = made.terrain.at;
 				}
 				if (e.terrain != null && e.terrain.heightMap == null) {
-					l.endless = new EndlessTerrain(made.rock.with({doubleSided: false}));
+					l.endless = new EndlessTerrain(made.rock.with({doubleSided: false, shader: CurvedGround.WGSL}));
 					l.endless.around(0, 0);
 				}
 				if (e.flight == true)
@@ -204,6 +220,12 @@ class Studio3D {
 				l.floor = GroundGrid.studio(m.min.y);
 				l.model.set(m);
 			});
+			if (e.panorama != null)
+				ashui.core.Worker.run(() -> ashui.types.Bitmap.fromBytes(sys.io.File.getBytes(e.panorama)), image -> {
+					// Its pixels are freed once its texture is on the GPU.
+					image.gpuOnly = true;
+					l.panorama.set(image);
+				});
 			ashui.core.Worker.run(() -> e.makeSky != null ? e.makeSky() : Environment.fromHdr(sys.io.File.getBytes(e.sky)), sky -> {
 				trace('${e.id}: model and sky in ${Math.round((haxe.Timer.stamp() - started) * 1000)}ms, off the main thread');
 				l.sky.set(sky);
@@ -217,10 +239,33 @@ class Studio3D {
 		});
 
 		var camera = new OrbitCamera(0.4, 0.15, 3, null, 0.7);
+		// The drone's heading the chase camera last turned to, where it last put the camera's target,
+		// and that target's offset from the drone in the drone's own frame: right, up, ahead. A pan moves the offset.
+		var chased = 0.0;
+		var chaseTarget:Null<Vec3> = null;
+		var chaseOffset = new Vec3(0, 0, 0);
+		inline function turnedBy(v:Vec3, heading:Float)
+			return new Vec3(v.x * Math.cos(heading) + v.z * Math.sin(heading), v.y, -v.x * Math.sin(heading) + v.z * Math.cos(heading));
 		// Framed afresh as each model comes in.
 		new Watch(() -> model.get(), m -> if (m != null) {
+			// A panorama looks like a sky through a wide lens; through a narrow one its picture is magnified past its resolution.
+			camera.fovY.set(example.get().panorama != null ? 1.2 : 0.7);
+			// In flight the camera starts behind the drone, a little to its right, looking the way it goes.
+			if (example.get().flight == true) {
+				var v = example.get().view;
+				// Beside the drone, a little behind, looking at its flank.
+				camera.azimuth.set(v != null ? v.azimuth : Math.PI / 2 + 0.25);
+				if (v != null) {
+					camera.elevation.set(v.elevation);
+					camera.distance.set(v.distance);
+					camera.fovY.set(v.fov);
+				}
+				chaseOffset = v != null ? new Vec3(v.offset[0], v.offset[1], v.offset[2]) : new Vec3(0, 0, 0);
+				chaseTarget = null;
+				chased = 0;
+			}
 			camera.frame(m.min, m.max);
-			camera.zoom(example.get().flight == true ? 1.4 : example.get().terrain != null ? 1.6 : m.animations.length > 0 ? 0.9 : 0.8);
+			camera.zoom(example.get().flight == true ? 0.85 : example.get().terrain != null ? 1.6 : m.animations.length > 0 ? 0.9 : 0.8);
 		});
 		var exposure = Signal.make(1.0);
 		var key = Signal.make(2.5);
@@ -228,6 +273,16 @@ class Studio3D {
 		var skyLight = Signal.make(1.5);
 		var showSky = Signal.make(true);
 		var blur = Signal.make(0.35);
+		// How far across the sky's sphere the camera sits, from its centre (0) to almost its wall (1):
+		// further out, the far wall is further off, its stars smaller, and orbiting shows more depth.
+		var skyDepth = Signal.make(0.85);
+		// The fish-eye's bend, 0 none.
+		var lens = Signal.make(0.0);
+		// How strongly bright parts glow, and from how bright.
+		// As modern engines default to: a low threshold and a gentle strength, so everything glows in proportion to its brightness.
+		var bloomStrength = Signal.make(0.3);
+		var bloomThreshold = Signal.make(0.2);
+		new Watch(() -> example.get(), e -> lens.set(e.lens != null ? (e.lens : Float) : 0.0));
 		// A grounded sky's camera height over the floor and the floor's reach, in the model's units, from its size as it comes in.
 		var groundHeight = Signal.make(1.0);
 		var groundRadius = Signal.make(10.0);
@@ -281,9 +336,16 @@ class Studio3D {
 		var loading = Signal.make(true);
 		// The frames a second the scene is rendered at, shown in the corner.
 		var fps = Signal.make(0.0);
+		// Where the clip is; in flight, ticking with it.
+		var clipTime = Signal.make(0.0);
 		var rig = Computed.make(() -> {
 			// From where the example says its light comes from, when it does; its height still the slider's.
+			// In flight it turns with the drone, as the chase camera does, so the side the camera sees stays lit.
 			var from = example.get().light.from;
+			clipTime.get();
+			var f = current.get().flight;
+			if (from != null && f != null)
+				from = new Vec3(from.x * Math.cos(f.heading) + from.z * Math.sin(f.heading), from.y, -from.x * Math.sin(f.heading) + from.z * Math.cos(f.heading));
 			var way = from != null ? new Vec3(-from.x, -height.get(), -from.z) : new Vec3(-0.4, -height.get(), -0.3);
 			var color = example.get().light.color;
 			var lights = [Directional(way, color != null ? color : 0xffffff, key.get())];
@@ -294,7 +356,6 @@ class Studio3D {
 
 		// The clip, played on the demo's own clock: it ticks while the clip plays, once the model and its textures are in, and stops with it.
 		var playing = Signal.make(true);
-		var clipTime = Signal.make(0.0);
 		var ticking = false;
 		new Watch(() -> clip.get(), _ -> clipTime.set(0));
 		new Watch(() -> clip.get() != null && playing.get() && !loading.get(), run -> if (run && !ticking) {
@@ -310,7 +371,15 @@ class Studio3D {
 					l.endless.around(f.x, f.z);
 					// The camera goes with the drone, turned and as far off as it was left.
 					var m = model.get();
-					camera.target.set(new Vec3(f.x, f.ground - m.min.y + (m.max.y - m.min.y) * 0.6, f.z));
+					var anchor = new Vec3(f.x, f.ground + f.climb - m.min.y + (m.max.y - m.min.y) * 0.6, f.z);
+					// Panned since the last tick: the pan becomes the offset, kept as the drone flies on.
+					if (chaseTarget != null && camera.target.get().distance(chaseTarget) > 1e-6)
+						chaseOffset = turnedBy(camera.target.get().sub(chaseTarget.sub(turnedBy(chaseOffset, chased))), -chased);
+					chaseTarget = anchor.add(turnedBy(chaseOffset, f.heading));
+					camera.target.set(chaseTarget);
+					// A chase camera: turned as the drone turns, on top of whatever turn a drag gave it.
+					camera.azimuth.set(camera.azimuth.get() + f.heading - chased);
+					chased = f.heading;
 				} else
 					clipTime.set((clipTime.get() + dt) % c.duration);
 				return true;
@@ -320,13 +389,22 @@ class Studio3D {
 			var e = sky.get(), m = model.get();
 			if (!showSky.get() || e == null)
 				(null : Skybox);
+			else if (current.get().panorama.get() != null)
+				// As the sky sphere lays its picture: upside down, turned a little over a quarter of the way round.
+				// On a sphere round the drone, the camera within it: orbiting, its near wall slides past its far one.
+				Panorama(current.get().panorama.get(), {
+					turn: AlienSky.TURN,
+					upsideDown: true,
+					centre: camera.target.get(),
+					radius: camera.distance.get() / skyDepth.get()
+				});
 			else if (example.get().grounded && m != null)
 				Grounded(e, groundHeight.get(), groundRadius.get(), m.min.y, blur.get(), skyLight.get());
 			else
 				Sky(e, blur.get(), skyLight.get());
 		});
 		// In flight, the drone's controller held as the hover starts, so the clip's own turns and sways do not fight the way it flies.
-		var held:Null<{node:Int, t:Vec3, r:ashui.math.Quat}> = null;
+		var held:Null<{node:Int, t:Vec3, r:ashui.math.Quat, yaw:Float}> = null;
 		function hold(l:Loaded, c:GltfAnimation) {
 			if (held == null) {
 				var node = -1;
@@ -336,8 +414,14 @@ class Studio3D {
 				if (node < 0)
 					return;
 				var probe = new GltfPose(l.pose.scene);
+				probe.play(c, Flight.LIFT);
+				var before = probe.world()[node];
 				probe.play(c, Flight.HOVER);
-				held = {node: node, t: probe.translations[node], r: probe.rotations[node]};
+				var after = probe.world()[node];
+				// How far round the clip has turned the drone by the hover: the way its side points, then and at take-off.
+				inline function way(m:ashui.math.Mat4)
+					return Math.atan2(m.get(0, 0), m.get(0, 2));
+				held = {node: node, t: probe.translations[node], r: probe.rotations[node], yaw: way(after) - way(before)};
 			}
 			l.pose.translations[held.node] = held.t;
 			l.pose.rotations[held.node] = held.r;
@@ -356,8 +440,9 @@ class Studio3D {
 			var f = l.flight;
 			if (f != null) {
 				hold(l, c);
-				var placed = ashui.math.Mat4.translation(new Vec3(f.x, f.ground - m.min.y, f.z))
-					.mul(ashui.math.Mat4.rotation(ashui.math.Quat.axisAngle(Vec3.UP, f.heading)))
+				// Turned back by the clip's own turn, so it faces its way once the hover starts, and flies nose first.
+				var placed = ashui.math.Mat4.translation(new Vec3(f.x, f.ground + f.climb - m.min.y, f.z))
+					.mul(ashui.math.Mat4.rotation(ashui.math.Quat.axisAngle(Vec3.UP, f.heading - (held != null ? held.yaw : 0))))
 					.mul(ashui.math.Mat4.rotation(ashui.math.Quat.axisAngle(new Vec3(1, 0, 0), f.pitch())));
 				l.pose.draw(ctx, placed, transformOn.get() ? null : plain);
 			} else
@@ -367,11 +452,21 @@ class Studio3D {
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
 		function toggle(checked:Signal<Bool>, label:String):Element
 			return <div flexDirection={Row} gap={10} alignItems={Center}><toggle-switch checked={checked} /><text>${label}</text></div>;
+		// The camera and light as they are, written to the terminal as an example's settings: the camera relative to the drone in flight.
+		function printView() {
+			var f = current.get().flight;
+			var r = (v:Float) -> Math.round(v * 1000) / 1000;
+			var azimuth = f != null ? camera.azimuth.get() - f.heading : camera.azimuth.get();
+			Sys.println('view: {azimuth: ${r(azimuth)}, elevation: ${r(camera.elevation.get())}, distance: ${r(camera.distance.get())}, fov: ${r(camera.fovY.get())}, '
+				+ 'offset: [${r(chaseOffset.x)}, ${r(chaseOffset.y)}, ${r(chaseOffset.z)}]},');
+			Sys.println('light: {key: ${r(key.get())}, fill: ${fill.get()}, sky: ${r(skyLight.get())}, exposure: ${r(exposure.get())}, height: ${r(height.get())}}, '
+				+ 'shadowStrength: ${r(shadowStrength.get())}, tiles: ${r(tiles.get())}, turn: ${r(turn.get())}');
+		}
 		function page():Element {
 			// The select reads its options from its own children, so they are made here and spliced in.
 			var choices:Array<Element> = [for (e in examples) <select-item value={e.id}>${e.title}</select-item>];
 			return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
+			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
 			<if {loading.get() || model.get() == null}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} alignItems={Center} justifyContent={Justify.Center}>
 					<div class="flex flex-col items-center gap-3 px-5 py-4 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md">
@@ -422,6 +517,9 @@ class Studio3D {
 							<accordion-content>
 								<div flexDirection={Column} gap={14} paddingBottom={8}>
 									<slider label="Exposure" value={exposure} min={0.2} max={3} step={0.05} />
+									<slider label="Fish-eye" value={lens} min={0} max={1} step={0.01} format={percent} />
+									<slider label="Bloom" value={bloomStrength} min={0} max={2} step={0.05} format={percent} />
+									<slider label="Bloom threshold" value={bloomThreshold} min={0} max={3} step={0.05} />
 									<slider label="Key light" value={key} min={0} max={6} step={0.1} />
 									<slider label="Key height" value={height} min={0.1} max={2} step={0.05} />
 									{toggle(fill, "Blue fill light")}
@@ -435,6 +533,9 @@ class Studio3D {
 									<slider label="Sky light" value={skyLight} min={0} max={4} step={0.05} format={percent} />
 									<slider label="Sky blur" value={blur} min={0} max={1} step={0.05} format={percent} />
 									{toggle(showSky, "Show the sky")}
+									<if {example.get().panorama != null}>
+										<slider label="Sky depth" value={skyDepth} min={0} max={0.97} step={0.01} format={v -> '${Math.round(v * 100)}%'} />
+									</if>
 									<if {example.get().grounded && model.get() != null}>
 										<div flexDirection={Column} gap={14}>
 											<slider label="Ground height" value={groundHeight} min={0} max={(model.get().max.y - model.get().min.y) * 6} step={0.01} />
@@ -456,7 +557,10 @@ class Studio3D {
 						</accordion-item>
 					</accordion>
 				</scroll-area>
-				<button variant={Outline} onClick={_ -> camera.reset()}>Reset camera</button>
+				<div flexDirection={Row} gap={8}>
+					<button variant={Outline} flexGrow={1} onClick={_ -> camera.reset()}>Reset camera</button>
+					<button variant={Outline} flexGrow={1} onClick={_ -> printView()}>Print view</button>
+				</div>
 			</div>
 		</div>;
 		}
@@ -465,81 +569,114 @@ class Studio3D {
 }
 
 /**
-	Ground without end, made as it is needed: square chunks round a point,
-	`RANGE` each way, each built on the worker thread from `height`, and
-	those that fall behind let go. Heights come from layers of smooth noise,
-	the same for the same place every time, so chunks made apart meet. Each
-	chunk's texture transform is moved by where the chunk is, so a texture
-	repeated across them runs on without a seam whatever its rotation.
+	Endless ground, built as it is needed out to the horizon. It is made of
+	rings of square chunks around a point. Each ring's chunks are four
+	times as wide as the previous ring's and more coarsely divided, so
+	nearby ground is detailed and distant ground is cheap.
+
+	Each chunk is built on the worker thread from `height`, and chunks left
+	behind are released. Heights come from layers of smooth noise that give
+	the same value for the same place every time, so separately built
+	chunks meet exactly. The outer rings skip the finest noise layer, which
+	they are too coarse to show, and sit slightly lower so that the inner
+	ring covers them where they overlap. Each chunk's texture transform is
+	offset and scaled by its position and size, so the rock continues
+	without a seam across chunks and rings.
 **/
 private class EndlessTerrain {
-	public static inline var CHUNK = 32.0;
-	public static inline var RANGE = 4;
-	public static inline var DIVISIONS = 48;
+	/** The rings, nearest first: their chunks' width, divisions each way, how many chunks out each way, and how far below. **/
+	static final RINGS:Array<{chunk:Float, divisions:Int, range:Int, drop:Float}> = [
+		{chunk: 32, divisions: 48, range: 3, drop: 0},
+		{chunk: 128, divisions: 32, range: 3, drop: 0.5},
+		{chunk: 512, divisions: 24, range: 3, drop: 2.0}
+	];
 
 	/** Bumped as chunks come in or go: what draws the ground reads it. **/
 	public final revision = Signal.make(0);
 
 	final rock:ashui.draw3d.Material;
-	final chunks = new Map<String, {mesh:ashui.draw3d.MeshData, cx:Int, cz:Int, ?made:{base:ashui.draw3d.TextureTransform, material:ashui.draw3d.Material}}>();
+	final chunks = new Map<String, {mesh:ashui.draw3d.MeshData, ring:Int, cx:Int, cz:Int, ?made:{base:ashui.draw3d.TextureTransform, material:ashui.draw3d.Material}}>();
 	final pending = new Map<String, Bool>();
-	var centreX = 0x7fffffff;
-	var centreZ = 0x7fffffff;
+	final centreX = [for (_ in RINGS) 0x7fffffff];
+	final centreZ = [for (_ in RINGS) 0x7fffffff];
 
 	public function new(rock:ashui.draw3d.Material)
 		this.rock = rock;
 
-	/** The ground's height at `x`, `z`: rolling hills, broken ground on them. **/
-	public static function height(x:Float, z:Float):Float
-		return 9 * fbm(x / 90, z / 90, 4) + 1.6 * fbm(x / 9 + 17, z / 9 - 5, 3);
+	/**
+		The ground's height at `x`, `z`: ridged mountains far apart, rolling
+		hills, and broken ground on them unless `fine` is false.
+	**/
+	public static function height(x:Float, z:Float, fine = true):Float {
+		var ridge = 1 - Math.abs(fbm(x / 1400 + 41, z / 1400 - 13, 3) * 2);
+		var h = 110 * ridge * ridge * ridge - 30 + 22 * fbm(x / 160, z / 160, 4);
+		return fine ? h + 1.6 * fbm(x / 9 + 17, z / 9 - 5, 3) : h;
+	}
 
-	/** Makes the chunks round `x`, `z` and lets go of those further than a chunk past them. **/
+	/** Makes the chunks of every ring round `x`, `z` and lets go of those further than a chunk past them. **/
 	public function around(x:Float, z:Float):Void {
-		var cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
-		if (cx == centreX && cz == centreZ)
-			return;
-		centreX = cx;
-		centreZ = cz;
 		var changed = false;
-		for (key => c in chunks)
-			if (Std.int(Math.abs(c.cx - cx)) > RANGE + 1 || Std.int(Math.abs(c.cz - cz)) > RANGE + 1) {
-				chunks.remove(key);
-				changed = true;
-			}
-		for (dz in -RANGE...RANGE + 1)
-			for (dx in -RANGE...RANGE + 1) {
-				var x0 = cx + dx, z0 = cz + dz, key = '$x0,$z0';
-				if (chunks.exists(key) || pending.exists(key))
-					continue;
-				pending.set(key, true);
-				var material = rock;
-				ashui.core.Worker.run(() -> ashui.canvaskit.Geometry.heightField(CHUNK, CHUNK, DIVISIONS,
-					(i, j) -> height((x0 + i / DIVISIONS) * CHUNK, (z0 + j / DIVISIONS) * CHUNK), material), mesh -> {
-						pending.remove(key);
-						chunks.set(key, {mesh: mesh, cx: x0, cz: z0});
-						revision.set(revision.get() + 1);
-					});
-			}
+		for (r in 0...RINGS.length) {
+			var ring = RINGS[r];
+			var cx = Math.floor(x / ring.chunk), cz = Math.floor(z / ring.chunk);
+			if (cx == centreX[r] && cz == centreZ[r])
+				continue;
+			centreX[r] = cx;
+			centreZ[r] = cz;
+			for (key => c in chunks)
+				if (c.ring == r && (Std.int(Math.abs(c.cx - cx)) > ring.range + 1 || Std.int(Math.abs(c.cz - cz)) > ring.range + 1)) {
+					chunks.remove(key);
+					changed = true;
+				}
+			for (dz in -ring.range...ring.range + 1)
+				for (dx in -ring.range...ring.range + 1) {
+					var x0 = cx + dx, z0 = cz + dz, key = '$r:$x0,$z0';
+					if (chunks.exists(key) || pending.exists(key) || inside(r, x0, z0))
+						continue;
+					pending.set(key, true);
+					var material = rock, size = ring.chunk, d = ring.divisions, fine = r == 0;
+					ashui.core.Worker.run(() -> ashui.canvaskit.Geometry.heightField(size, size, d,
+						(i, j) -> height((x0 + i / d) * size, (z0 + j / d) * size, fine), material), mesh -> {
+							pending.remove(key);
+							chunks.set(key, {mesh: mesh, ring: r, cx: x0, cz: z0});
+							revision.set(revision.get() + 1);
+						});
+				}
+		}
 		if (changed)
 			revision.set(revision.get() + 1);
 	}
 
-	/** Draws the chunks, each repeating the rock by `t` as though the ground were one piece. **/
+	/** Whether chunk `cx`, `cz` of ring `r` lies wholly within the ground the ring inside it draws. **/
+	function inside(r:Int, cx:Int, cz:Int):Bool {
+		if (r == 0)
+			return false;
+		var inner = RINGS[r - 1], size = RINGS[r].chunk;
+		var lo = (centreX[r - 1] - inner.range) * inner.chunk, hi = (centreX[r - 1] + inner.range + 1) * inner.chunk;
+		var loZ = (centreZ[r - 1] - inner.range) * inner.chunk, hiZ = (centreZ[r - 1] + inner.range + 1) * inner.chunk;
+		return cx * size >= lo && (cx + 1) * size <= hi && cz * size >= loZ && (cz + 1) * size <= hiZ;
+	}
+
+	/** Draws the chunks, each repeating the rock by `t` as though the ground were one piece, `t`'s scale being the rock's repeats a nearest chunk. **/
 	public function draw(ctx:ashui.draw.DrawContext, t:ashui.draw3d.TextureTransform):Void {
 		revision.get();
 		var m = t.matrix();
 		for (c in chunks) {
-			// The ring past the range is kept for coming back to, not drawn.
-			if (Std.int(Math.abs(c.cx - centreX)) > RANGE || Std.int(Math.abs(c.cz - centreZ)) > RANGE)
+			var ring = RINGS[c.ring];
+			// The ring past the range is kept for coming back to, not drawn; nor what the ring inside covers.
+			if (Std.int(Math.abs(c.cx - centreX[c.ring])) > ring.range || Std.int(Math.abs(c.cz - centreZ[c.ring])) > ring.range
+				|| inside(c.ring, c.cx, c.cz))
 				continue;
-			// The chunk's corner, in chunks, carried through the transform: its texture starts where its neighbour's ends.
+			// The chunk's corner, in nearest chunks, carried through the transform, and its texture as many times wider as
+			// the chunk is: its texture starts where its neighbour's ends, at the same size in every ring.
 			// Made again only as `t` changes, so a chunk keeps its material, and its GPU binding, from frame to frame.
 			if (c.made == null || c.made.base != t) {
-				var offset = new ashui.draw3d.TextureTransform(t.scaleX, t.scaleY, t.rotation, t.offsetX + m.a * c.cx + m.b * c.cz,
-					t.offsetY + m.c * c.cx + m.d * c.cz);
+				var wide = ring.chunk / RINGS[0].chunk, ux = c.cx * wide, uz = c.cz * wide;
+				var offset = new ashui.draw3d.TextureTransform(t.scaleX * wide, t.scaleY * wide, t.rotation, t.offsetX + m.a * ux + m.b * uz,
+					t.offsetY + m.c * ux + m.d * uz);
 				c.made = {base: t, material: c.mesh.material.with({textureTransform: offset})};
 			}
-			ctx.drawMesh(c.mesh, ashui.math.Mat4.translation(new Vec3((c.cx + 0.5) * CHUNK, 0, (c.cz + 0.5) * CHUNK)), c.made.material);
+			ctx.drawMesh(c.mesh, ashui.math.Mat4.translation(new Vec3((c.cx + 0.5) * ring.chunk, -ring.drop, (c.cz + 0.5) * ring.chunk)), c.made.material);
 		}
 	}
 
@@ -573,17 +710,21 @@ private class EndlessTerrain {
 }
 
 /**
-	The drone's flight: it takes off where it stands, playing its clip from
-	`LIFT` to `HOVER`, then flies on for ever, looping the clip's hover
-	from `HOVER` to `HOVER_END`, along a slowly winding way, keeping its
-	height over the ground ahead. Its controller node is held as it is at
-	`HOVER`, so the clip's own turns do not fight the way it flies.
+	The drone's flight. It takes off from where it stands, playing its clip
+	from `LIFT` to `HOVER`. It then flies forever along a slowly winding
+	course, looping the clip's hover section from `HOVER` to `HOVER_END`
+	and keeping its height above the ground ahead. Its controller node is
+	held at its `HOVER` pose, so the clip's own turns do not fight the
+	direction of flight.
 **/
 private class Flight {
 	public static inline var LIFT = 5.0;
 	public static inline var HOVER = 19.2;
 	public static inline var HOVER_END = 24.4;
-	public static inline var SPEED = 9.0;
+	public static inline var SPEED = 14.0;
+
+	/** How high over the ground it cruises, climbing to it as the hover starts. **/
+	public static inline var CRUISE = 16.0;
 
 	public var x = 0.0;
 	public var z = 0.0;
@@ -591,6 +732,9 @@ private class Flight {
 	public var ground:Float;
 	public var elapsed = 0.0;
 	public var travelled = 0.0;
+
+	/** How far over the ground it has climbed. **/
+	public var climb = 0.0;
 
 	public function new()
 		ground = EndlessTerrain.height(0, 0);
@@ -602,17 +746,20 @@ private class Flight {
 		// Up to speed over four seconds as the take-off ends.
 		var speed = flying <= 0 ? 0 : SPEED * Math.min(1, flying / 4);
 		travelled += speed * dt;
-		heading = 0.6 * Math.sin(travelled / 70);
+		// Round in a wide curve, weaving as it goes: in a couple of minutes it has faced every way, the whole sky passing over.
+		heading = travelled / 160 + 0.5 * Math.sin(travelled / 70);
 		x += Math.sin(heading) * speed * dt;
 		z += Math.cos(heading) * speed * dt;
-		// The highest ground a little way ahead, followed smoothly, so it rises before a hill.
+		// The highest ground a good way ahead, followed smoothly, so it rises before a hill; and its climb to cruising height.
 		var ahead = -1e9;
-		for (k in 0...4) {
-			var d = k * 4;
+		for (k in 0...6) {
+			var d = k * 8;
 			ahead = Math.max(ahead, EndlessTerrain.height(x + Math.sin(heading) * d, z + Math.cos(heading) * d));
 		}
 		if (speed > 0)
-			ground += (ahead - ground) * Math.min(1, dt * 1.5);
+			ground += (ahead - ground) * Math.min(1, dt * 1.2);
+		var t = Math.max(0, Math.min(1, flying / 6));
+		climb = CRUISE * t * t * (3 - 2 * t);
 	}
 
 	/** Where its clip is: the take-off once, then the hover over and over. **/
@@ -628,8 +775,9 @@ private class Flight {
 
 /**
 	The night sky of another world: MozillaHubs' Milky Way panorama
-	(CC-BY-NC-SA-4.0) and a faint haze round the horizon, `HAZE`, which the
-	scene's fog matches, so the ground's far edge melts into it.
+	(CC-BY-NC-SA-4.0), with a faint haze, `HAZE`, around the horizon. The
+	scene's fog uses the same colour, so the ground's far edge blends into
+	the sky.
 **/
 private class AlienSky {
 	public static inline var PANORAMA = "../../snapshot/assets/3d/sky_pano_-_milkyway/textures/lambert1_emissive.jpeg";
@@ -638,10 +786,16 @@ private class AlienSky {
 		Where the moonlight comes from: over the camera's shoulder, as a film
 		lights a night shot, so what the camera sees of the drone is lit.
 	**/
-	public static final LIGHT = new Vec3(0.5, 0.55, 0.65).normalize();
+	public static final LIGHT = new Vec3(0.8, 0.55, -0.25).normalize();
 
-	/** The horizon's colour, `0xRRGGBB`, for the fog. **/
-	public static inline var HAZE = 0x10141c;
+	/** The moonlit rock's light, linear: its brown as the ground shows it. **/
+	static final ROCK = new Vec3(0.11, 0.058, 0.032);
+
+	/** The panorama's own colour round its horizon, averaged, `0xRRGGBB`: the fog's, so the ground's far edge fades into the sky behind it. **/
+	public static inline var HAZE = 0x1f1917;
+
+	/** How far the sky sphere turns its picture round: 0.27 of the way, in radians. **/
+	public static inline var TURN = 1.696;
 
 	static inline var WIDTH = 2048;
 	static inline var HEIGHT = 1024;
@@ -657,17 +811,144 @@ private class AlienSky {
 
 	static function radiance(d:Vec3, px:haxe.io.Bytes, linear:Array<Float>):Vec3 {
 		// The panorama as an HDR sky is laid round: across by the way round, down by the angle from overhead.
-		var u = 0.5 + Math.atan2(d.x, -d.z) / (2 * Math.PI);
-		var v = Math.acos(Math.max(-1, Math.min(1, d.y))) / Math.PI;
+		var u = 0.5 + Math.atan2(d.x, -d.z) / (2 * Math.PI) + TURN / (2 * Math.PI);
+		u -= Math.floor(u);
+		// Upside down, as the sky sphere lays it.
+		var v = 1 - Math.acos(Math.max(-1, Math.min(1, d.y))) / Math.PI;
 		var x = Std.int(u * WIDTH) % WIDTH, y = Std.int(Math.min(HEIGHT - 1, v * HEIGHT));
 		var o = (y * WIDTH + x) * 4;
 		var c = new Vec3(linear[px.get(o)], linear[px.get(o + 1)], linear[px.get(o + 2)]).scale(1.6);
 		// Haze thickening toward the horizon; below it, the ground's darkness.
-		var haze = new Vec3(0.0055, 0.0075, 0.012);
+		var haze = new Vec3(linear[HAZE >> 16 & 0xff], linear[HAZE >> 8 & 0xff], linear[HAZE & 0xff]);
 		var low = 1 - Math.min(1, Math.abs(d.y) * 5);
-		c = c.lerp(haze, low * 0.85);
+		c = c.lerp(haze, low * 0.5);
+		// Below the level, the moonlit rock the drone flies over, warm brown, fading into the haze toward the horizon:
+		// what its metal reflects underneath, and what lights it from below.
 		if (d.y < 0)
-			c = c.scale(Math.max(0, 1 + d.y * 4));
+			c = haze.lerp(ROCK, Math.min(1, -d.y * 3));
 		return c;
 	}
+}
+
+/**
+	The shader for the endless ground. It curves the ground away like a
+	planet's surface: each vertex is lowered by the square of its distance
+	from the camera divided by twice `RADIUS`, so the ground falls away to
+	a curved horizon instead of ending at an edge. It also samples the rock
+	so that its repeats do not form a visible grid.
+**/
+class CurvedGround implements hlwgpu.hxsl.Shader {
+	public static inline var RADIUS = 4000.0;
+
+	static var SRC = {
+		@:extends ashui.core.render.MeshShader;
+
+		function bend(world : Vec3) : Vec3 {
+			var away = world.xz - cameraEye().xz;
+			return world - vec3(0., dot(away, away) / (2. * 4000.), 0.);
+		}
+
+		/** Smooth noise 0 to 1 over the ground: a random value at each whole point, eased between. **/
+		function groundNoise(p : Vec2) : Float {
+			var i = floor(p);
+			var f = p - i;
+			var u = f * f * (vec2(3., 3.) - f * 2.);
+			var a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453);
+			var b = fract(sin(dot(i + vec2(1., 0.), vec2(127.1, 311.7))) * 43758.5453);
+			var c = fract(sin(dot(i + vec2(0., 1.), vec2(127.1, 311.7))) * 43758.5453);
+			var d = fract(sin(dot(i + vec2(1., 1.), vec2(127.1, 311.7))) * 43758.5453);
+			return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+		}
+
+		/** A random value 0 to 1 for each corner of the hex grid, two of them. **/
+		function cornerHash(v : Vec2) : Vec2 {
+			return fract(sin(vec2(dot(v, vec2(127.1, 311.7)), dot(v, vec2(269.5, 183.3)))) * 43758.5453);
+		}
+
+		/** `uv` turned by the angle `h.x` names and moved by `h.y`: where a hex corner reads the rock. **/
+		function cornerUv(uv : Vec2, h : Vec2) : Vec2 {
+			var a = h.x * 6.2831853;
+			var c = cos(a);
+			var s = sin(a);
+			return vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y) + vec2(h.y, fract(h.y * 7.31));
+		}
+
+		/** A normal map's slope read at a corner turned by `h.x`'s angle, turned back to the ground's way. **/
+		function cornerSlope(n : Vec2, h : Vec2) : Vec2 {
+			var a = h.x * 6.2831853;
+			var c = cos(a);
+			var s = sin(a);
+			return vec2(c * n.x + s * n.y, -s * n.x + c * n.y);
+		}
+
+		/**
+			The rock without a repeat, by hex tiling (Mikkelsen, "Practical
+			Real-Time Hex-Tiling", 2022): the ground's texture coordinates are
+			cut into a grid of triangles, and each corner reads the rock turned
+			and moved its own random way; every point blends the three corners
+			round it, by how near it is to each, sharpened, so no seam shows and
+			no copy lines up with, or points the same way as, its neighbour.
+			Steeper ground is darker and greyer, as weathered slopes are. Mip
+			levels come from the coordinates before turning, as turning keeps
+			their scale. The rock is 2048 texels square.
+		**/
+		function surface() {
+			var settings = drawSurface(drawIndex);
+			// Two hexes a repeat of the rock.
+			var g = texcoord * 3.4641016;
+			var sk = vec2(g.x - 0.57735027 * g.y, 1.15470054 * g.y);
+			var base = floor(sk);
+			var fr = sk - base;
+			var tz = 1. - fr.x - fr.y;
+			var s = tz < 0. ? 1. : 0.;
+			var s2 = 2. * s - 1.;
+			var w1 = -tz * s2;
+			var w2 = s - fr.y * s2;
+			var w3 = s - fr.x * s2;
+			var h1 = cornerHash(base + vec2(s, s));
+			var h2 = cornerHash(base + vec2(s, 1. - s));
+			var h3 = cornerHash(base + vec2(1. - s, s));
+			var u1 = cornerUv(texcoord, h1);
+			var u2 = cornerUv(texcoord, h2);
+			var u3 = cornerUv(texcoord, h3);
+			// Sharpened toward the nearest corner, so blends are narrow and the rock keeps its contrast.
+			w1 = w1 * w1 * w1 * w1;
+			w2 = w2 * w2 * w2 * w2;
+			w3 = w3 * w3 * w3 * w3;
+			var total = max(w1 + w2 + w3, 0.0001);
+			w1 /= total;
+			w2 /= total;
+			w3 /= total;
+			var lod = max(0., log2(max(fwidth(texcoord.x), fwidth(texcoord.y)) * 2048.));
+			var c = textureLod(baseColorMap, u1, lod).rgb * w1 + textureLod(baseColorMap, u2, lod).rgb * w2 + textureLod(baseColorMap, u3, lod).rgb * w3;
+			var flat = normalize(worldNormal);
+			var steep = smoothstep(0.92, 0.6, flat.y);
+			var tint = 0.8 + 0.4 * groundNoise(worldPos.xz * 0.006 + vec2(7., 3.));
+			var grey = vec3(1., 1., 1.) * dot(c, vec3(0.2126, 0.7152, 0.0722));
+			c = mix(c, grey, steep * 0.35) * tint * (1. - 0.3 * steep);
+			surfaceColor = vec4(c, 1.) * drawBaseColor(drawIndex);
+			var mr = textureLod(metalRoughMap, u1, lod) * w1 + textureLod(metalRoughMap, u2, lod) * w2 + textureLod(metalRoughMap, u3, lod) * w3;
+			surfaceMetallic = clamp(settings.x * mr.b, 0., 1.);
+			surfaceRoughness = clamp(settings.y * mr.g, 0.04, 1.);
+			var n = flat;
+			if (drawFlags(drawIndex).x > 0.5) {
+				var n1 = cornerSlope(textureLod(normalMap, u1, lod).xy * 2. - vec2(1., 1.), h1);
+				var n2 = cornerSlope(textureLod(normalMap, u2, lod).xy * 2. - vec2(1., 1.), h2);
+				var n3 = cornerSlope(textureLod(normalMap, u3, lod).xy * 2. - vec2(1., 1.), h3);
+				var nxy = n1 * w1 + n2 * w2 + n3 * w3;
+				var tn = vec3(nxy * settings.z, sqrt(max(1. - dot(nxy, nxy), 0.)));
+				var t = worldTangent.xyz - n * dot(n, worldTangent.xyz);
+				if (dot(t, t) > 0.00000001) {
+					t = normalize(t);
+					var bt = cross(n, t) * worldTangent.w;
+					n = normalize(t * tn.x + bt * tn.y + n * tn.z);
+				}
+			}
+			surfaceNormal = n;
+			surfaceEmission = vec3(0., 0., 0.);
+			var occ = textureLod(occlusionMap, u1, lod).r * w1 + textureLod(occlusionMap, u2, lod).r * w2 + textureLod(occlusionMap, u3, lod).r * w3;
+			surfaceOcclusion = mix(1., occ, settings.w);
+			toEye = normalize(cameraEye() - worldPos);
+		}
+	};
 }
