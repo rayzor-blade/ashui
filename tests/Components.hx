@@ -157,6 +157,147 @@ class Components {
 		check("a shift-drag moves the target, not the turn", orbit.target.get().distance(before) > 0, orbit.target.get());
 	}
 
+	/** ashui-canvaskit's glTF: a skinned, morphed, animated file read whole, and a pose played from it. **/
+	static function gltf() {
+		var b = haxe.io.Bytes.alloc(420);
+		var o = 0;
+		function f(v:Float) {
+			b.setFloat(o, v);
+			o += 4;
+		}
+		function u(v:Int) {
+			b.setUInt16(o, v);
+			o += 2;
+		}
+		for (v in [0.0, 0, 0, 1, 0, 0, 0, 1, 0]) f(v); // positions, at 0
+		for (_ in 0...3) for (j in [0, 1, 0, 0]) u(j); // joints, at 36
+		for (_ in 0...3) for (w in [0.5, 0.5, 0, 0]) f(w); // weights, at 60
+		for (m in [ashui.math.Mat4.IDENTITY, ashui.math.Mat4.translation(new ashui.math.Vec3(0, -1, 0))]) for (c in 0...4) for (r in 0...4) f(m.get(c, r)); // inverse binds, at 108
+		for (t in [0.0, 1]) f(t); // times, at 236
+		for (v in [0.0, 1, 0, 2, 1, 0]) f(v); // the tip's translation, at 244
+		var s = Math.sin(Math.PI / 4), c = Math.cos(Math.PI / 4);
+		for (v in [0.0, 0, 0, 1, 0, s, 0, c]) f(v); // the root's turn to a quarter about y, at 268
+		for (v in [0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0]) f(v); // a cubic spline from 0 to 4 in x, flat tangents, at 300
+		for (v in [1.0, 1, 1, 3, 3, 3]) f(v); // stepped scale, at 372
+		u(2); u(0); // the sparse target's index, at 396
+		for (v in [0.0, 0, 5]) f(v); // and its value, at 400
+		for (v in [0.0, 1]) f(v); // the morph weight, at 412
+		var json = {
+			asset: {version: "2.0"},
+			scene: 0,
+			scenes: [{nodes: [0, 1, 3]}],
+			nodes: ([
+				{name: "body", mesh: 0, skin: 0},
+				{name: "root", children: [2]},
+				{name: "tip", translation: [0, 1, 0]},
+				{name: "prop", mesh: 1}
+			] : Array<Dynamic>),
+			meshes: ([
+				{primitives: [{attributes: {POSITION: 0, JOINTS_0: 1, WEIGHTS_0: 2}, targets: [{POSITION: 9}]}]},
+				{primitives: [{attributes: {POSITION: 0}}]}
+			] : Array<Dynamic>),
+			skins: [{joints: [1, 2], inverseBindMatrices: 3}],
+			animations: [{
+				name: "wave",
+				samplers: ([
+					{input: 4, output: 5},
+					{input: 4, output: 6},
+					{input: 4, output: 7, interpolation: "CUBICSPLINE"},
+					{input: 4, output: 8, interpolation: "STEP"},
+					{input: 4, output: 10}
+				] : Array<Dynamic>),
+				channels: ([
+					{sampler: 0, target: {node: 2, path: "translation"}},
+					{sampler: 1, target: {node: 1, path: "rotation"}},
+					{sampler: 2, target: {node: 3, path: "translation"}},
+					{sampler: 3, target: {node: 3, path: "scale"}},
+					{sampler: 4, target: {node: 0, path: "weights"}}
+				] : Array<Dynamic>)
+			}],
+			buffers: [{byteLength: 420, uri: "data:application/octet-stream;base64," + haxe.crypto.Base64.encode(b)}],
+			bufferViews: [{buffer: 0, byteLength: 420}],
+			accessors: ([
+				{bufferView: 0, byteOffset: 0, componentType: 5126, count: 3, type: "VEC3"},
+				{bufferView: 0, byteOffset: 36, componentType: 5123, count: 3, type: "VEC4"},
+				{bufferView: 0, byteOffset: 60, componentType: 5126, count: 3, type: "VEC4"},
+				{bufferView: 0, byteOffset: 108, componentType: 5126, count: 2, type: "MAT4"},
+				{bufferView: 0, byteOffset: 236, componentType: 5126, count: 2, type: "SCALAR"},
+				{bufferView: 0, byteOffset: 244, componentType: 5126, count: 2, type: "VEC3"},
+				{bufferView: 0, byteOffset: 268, componentType: 5126, count: 2, type: "VEC4"},
+				{bufferView: 0, byteOffset: 300, componentType: 5126, count: 6, type: "VEC3"},
+				{bufferView: 0, byteOffset: 372, componentType: 5126, count: 2, type: "VEC3"},
+				{componentType: 5126, count: 3, type: "VEC3", sparse: {count: 1, indices: {bufferView: 0, byteOffset: 396, componentType: 5123}, values: {bufferView: 0, byteOffset: 400}}},
+				{bufferView: 0, byteOffset: 412, componentType: 5126, count: 2, type: "SCALAR"}
+			] : Array<Dynamic>)
+		};
+		var scene = ashui.canvaskit.Gltf.parse(haxe.io.Bytes.ofString(haxe.Json.stringify(json)), _ -> null);
+		inline function near(a:ashui.math.Vec3, x:Float, y:Float, z:Float)
+			return a.distance(new ashui.math.Vec3(x, y, z)) < 1e-5;
+		check("glTF: the node tree, a child knowing its parent", scene.nodes.length == 4 && scene.nodes[2].parent == 1 && scene.nodes[1].parent == -1
+			&& scene.roots.join(",") == "0,1,3", [for (n in scene.nodes) n.parent]);
+		var body = scene.meshes[0].primitives[0];
+		check("glTF: each vertex's joints and weights", body.joints != null && body.joints[1] == 1 && body.weights[0] == 0.5,
+			body.joints != null ? [body.joints[0], body.joints[1]] : null);
+		check("glTF: a skin's joints and inverse bind matrices", scene.skins[0].joints.join(",") == "1,2"
+			&& near(scene.skins[0].inverseBindMatrices[1].position(), 0, -1, 0), scene.skins[0].inverseBindMatrices[1].position());
+		var target = body.targets[0].positions;
+		check("glTF: a sparse morph target, zero but where it lists", target != null && target[5] == 0 && target[8] == 5 && scene.meshes[0].weights.length == 1,
+			target != null ? [for (i in 0...9) target[i]] : null);
+		var wave = scene.animation("wave");
+		check("glTF: an animation's channels and its length", wave != null && wave.channels.length == 5 && wave.duration == 1, wave);
+		check("glTF: drawn at rest, every mesh where its node is", scene.draws.length == 2, scene.draws.length);
+
+		var pose = new ashui.canvaskit.GltfPose(scene);
+		pose.play(wave, 0.5);
+		check("pose: linear translation halfway", near(pose.translations[2], 1, 1, 0), pose.translations[2]);
+		var half = pose.rotations[1];
+		check("pose: a rotation slerped halfway, an eighth of a turn",
+			Math.abs(half.y - Math.sin(Math.PI / 8)) < 1e-5 && Math.abs(half.w - Math.cos(Math.PI / 8)) < 1e-5, half);
+		check("pose: a step keeps the keyframe before", near(pose.scales[3], 1, 1, 1), pose.scales[3]);
+		check("pose: the morph weight halfway", Math.abs(pose.weights[0][0] - 0.5) < 1e-6, pose.weights[0]);
+		pose.play(wave, 0.25);
+		check("pose: a cubic spline eases, flat tangents giving 0.625 of the way at a quarter", near(pose.translations[3], 0.625, 0, 0), pose.translations[3]);
+		pose.play(wave, 1.5);
+		check("pose: past the end, the last keyframe", near(pose.scales[3], 3, 3, 3) && near(pose.translations[3], 4, 0, 0), [pose.scales[3], pose.translations[3]]);
+		var world = pose.world();
+		check("pose: a child in the scene through its parent's turn", near(world[2].position(), 0, 1, -2), world[2].position());
+		pose.reset();
+		var joints = pose.joints(0);
+		check("pose: at rest each joint matrix is the identity", near(joints[1].position(), 0, 0, 0) && near(joints[0].position(), 0, 0, 0),
+			[joints[0].position(), joints[1].position()]);
+		var buffer = haxe.io.Bytes.alloc(2 * ashui.canvaskit.GltfPose.MATRIX_BYTES);
+		pose.play(wave, 1);
+		pose.update();
+		pose.palette(0, buffer);
+		check("pose: a skin's palette, ready to upload, the tip's joint turned and moved", Math.abs(buffer.getFloat(64 + 48) - 0) < 1e-5
+			&& Math.abs(buffer.getFloat(64 + 52) - 0) < 1e-5 && Math.abs(buffer.getFloat(64 + 56) + 2) < 1e-5,
+			[for (k in 12...15) buffer.getFloat(64 + k * 4)]);
+		#if (ash_simd && hl)
+		// Through ash-simd and through plain Haxe, the same numbers.
+		var same = true;
+		for (ch in wave.channels)
+			for (step in 0...11) {
+				var a = [0.0, 0, 0, 0], b = [0.0, 0, 0, 0];
+				@:privateAccess ch.sampler.blend(step / 10, a, ch.path == Rotation, true);
+				@:privateAccess ch.sampler.blend(step / 10, b, ch.path == Rotation, false);
+				for (k in 0...ch.sampler.width)
+					if (Math.abs(a[k] - b[k]) > 1e-6)
+						same = false;
+			}
+		var ma = haxe.io.Bytes.alloc(64), mb = haxe.io.Bytes.alloc(64), sa = haxe.io.Bytes.alloc(64), sb = haxe.io.Bytes.alloc(64);
+		for (k in 0...16) {
+			ma.setFloat(k * 4, Math.sin(k + 1));
+			mb.setFloat(k * 4, Math.cos(k * 3));
+		}
+		@:privateAccess ashui.canvaskit.GltfPose.multiply(ma, 0, mb, 0, sa, 0, true);
+		@:privateAccess ashui.canvaskit.GltfPose.multiply(ma, 0, mb, 0, sb, 0, false);
+		for (k in 0...16)
+			if (Math.abs(sa.getFloat(k * 4) - sb.getFloat(k * 4)) > 1e-5)
+				same = false;
+		check("glTF sampling and matrix products are the same through ash-simd as through plain Haxe", same);
+		#end
+	}
+
 	static function main() {
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Light);
 		var tree = new LayoutTree();
@@ -1209,6 +1350,7 @@ class Components {
 			[tyBox("tyLead").height, tyBox("tyLarge").height, tyBox("tyMuted").height]);
 
 		canvasKit();
+		gltf();
 
 		// A labelled slider is 300 wide by default, and no wider than what holds it.
 		var narrowTree = new LayoutTree();
