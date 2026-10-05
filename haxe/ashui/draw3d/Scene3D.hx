@@ -10,8 +10,10 @@ import ashui.math.Vec3;
 	any, the strength of the fish-eye `lens` it is seen through (0 for no
 	lens; larger values bend more), its `bloom`, if any, its `vignette`
 	(how much the edges and corners are darkened, from 0 for none to 1),
-	its film `grain` (0 for none, 1 for heavy), and its chromatic
-	`aberration` (0 for none, 1 for strong colour fringes at the edges). Immutable; `with` makes a changed copy.
+	its film `grain` (0 for none, 1 for heavy), its chromatic `aberration`
+	(0 for none, 1 for strong colour fringes at the edges), its colour
+	`grade`, if any, and whether its edges are smoothed by FXAA
+	(`antialias`). Immutable; `with` makes a changed copy.
 **/
 class Scene3D {
 	public static final DEFAULT = new Scene3D(new Camera(new Vec3(0, 1.5, 4), Vec3.ZERO),
@@ -28,9 +30,11 @@ class Scene3D {
 	public final vignette:Float;
 	public final grain:Float;
 	public final aberration:Float;
+	public final grade:Null<ColorGrade>;
+	public final antialias:Bool;
 
 	public function new(camera:Camera, lighting:SceneLighting, exposure = 1.0, background = 0x000000, backgroundAlpha = 0.0, ?fog:Fog, lens = 0.0, ?bloom:Bloom, vignette = 0.0,
-			grain = 0.0, aberration = 0.0) {
+			grain = 0.0, aberration = 0.0, ?grade:ColorGrade, antialias = false) {
 		this.camera = camera;
 		this.lighting = lighting;
 		this.exposure = exposure;
@@ -42,13 +46,16 @@ class Scene3D {
 		this.vignette = vignette;
 		this.grain = grain;
 		this.aberration = aberration;
+		this.grade = grade;
+		this.antialias = antialias;
 	}
 
 	public function with(?camera:Camera, ?lighting:SceneLighting, ?exposure:Float, ?background:Int, ?backgroundAlpha:Float, ?fog:Fog,
-			?lens:Float, ?bloom:Bloom, ?vignette:Float, ?grain:Float, ?aberration:Float):Scene3D
+			?lens:Float, ?bloom:Bloom, ?vignette:Float, ?grain:Float, ?aberration:Float, ?grade:ColorGrade, ?antialias:Bool):Scene3D
 		return new Scene3D(camera != null ? camera : this.camera, lighting != null ? lighting : this.lighting, exposure != null ? exposure : this.exposure,
 			background != null ? background : this.background, backgroundAlpha != null ? backgroundAlpha : this.backgroundAlpha,
 			fog != null ? fog : this.fog, lens != null ? lens : this.lens,
 			bloom != null ? bloom : this.bloom, vignette != null ? vignette : this.vignette, grain != null ? grain : this.grain,
-			aberration != null ? aberration : this.aberration);
+			aberration != null ? aberration : this.aberration, grade != null ? grade : this.grade,
+			antialias != null ? antialias : this.antialias);
 }

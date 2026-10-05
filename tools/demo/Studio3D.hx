@@ -285,6 +285,9 @@ class Studio3D {
 		// Film grain and colour fringing, both subtle.
 		var grain = Signal.make(0.35);
 		var aberration = Signal.make(0.3);
+		// Smoothed edges, and how much of the night colour grade.
+		var antialias = Signal.make(true);
+		var gradeStrength = Signal.make(0.5);
 		var bloomStrength = Signal.make(0.3);
 		var bloomThreshold = Signal.make(0.2);
 		new Watch(() -> example.get(), e -> lens.set(e.lens != null ? (e.lens : Float) : 0.0));
@@ -479,7 +482,7 @@ class Studio3D {
 			// The select reads its options from its own children, so they are made here and spliced in.
 			var choices:Array<Element> = [for (e in examples) <select-item value={e.id}>${e.title}</select-item>];
 			return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} vignette={vignette} grain={grain} aberration={aberration} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
+			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} vignette={vignette} grain={grain} aberration={aberration} antialias={antialias} grade={Computed.make(() -> gradeStrength.get() > 0 ? ashui.draw3d.ColorGrade.NIGHT.at(gradeStrength.get()) : null)} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
 			<if {loading.get() || model.get() == null}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} alignItems={Center} justifyContent={Justify.Center}>
 					<div class="flex flex-col items-center gap-3 px-5 py-4 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md">
@@ -534,6 +537,8 @@ class Studio3D {
 									<slider label="Vignette" value={vignette} min={0} max={1} step={0.01} format={percent} />
 									<slider label="Film grain" value={grain} min={0} max={1} step={0.01} format={percent} />
 									<slider label="Chromatic aberration" value={aberration} min={0} max={1} step={0.01} format={percent} />
+									<slider label="Night colour grade" value={gradeStrength} min={0} max={1} step={0.01} format={percent} />
+									{toggle(antialias, "Anti-aliasing (FXAA)")}
 									<slider label="Bloom" value={bloomStrength} min={0} max={2} step={0.05} format={percent} />
 									<slider label="Bloom threshold" value={bloomThreshold} min={0} max={3} step={0.05} />
 									<slider label="Key light" value={key} min={0} max={6} step={0.1} />

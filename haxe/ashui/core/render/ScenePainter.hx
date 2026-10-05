@@ -540,7 +540,7 @@ class ScenePainter {
 				glow(frame, encoder, layer, scene.bloom);
 			}
 			if (finishing(scene))
-				bend(frame, encoder, layer, scene.lens, scene.vignette, scene.grain, scene.aberration);
+				bend(frame, encoder, layer, scene.lens, scene.vignette, scene.grain, scene.aberration, scene.grade, scene.antialias);
 		});
 	}
 
@@ -681,12 +681,13 @@ class ScenePainter {
 		pass(layer.colorView, true, bloomOnto, layer.bloomAdd.group);
 	}
 
-	/** Whether the scene needs the finishing pass: a fish-eye, vignette, grain or chromatic aberration. **/
+	/** Whether the scene needs the finishing pass: a fish-eye, vignette, grain, chromatic aberration, colour grade or anti-aliasing. **/
 	static function finishing(scene:Scene3D):Bool
-		return scene.lens > 0 || scene.vignette > 0 || scene.grain > 0 || scene.aberration > 0;
+		return scene.lens > 0 || scene.vignette > 0 || scene.grain > 0 || scene.aberration > 0 || scene.grade != null || scene.antialias;
 
-	/** The finishing pass: draws the rendered layer into the layer's lens texture through the fish-eye (`strength`), with chromatic aberration, vignette and grain. **/
-	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float, vignette:Float, grain:Float, aberration:Float):Void {
+	/** The finishing pass: draws the rendered layer into the layer's lens texture through the fish-eye (`strength`), with anti-aliasing, chromatic aberration, a colour grade, vignette and grain. **/
+	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float, vignette:Float, grain:Float, aberration:Float,
+			grade:Null<ashui.draw3d.ColorGrade>, antialias:Bool):Void {
 		var device = frame.device;
 		if (lensPipeline == null) {
 			var builder = device.pipeline();
@@ -700,7 +701,7 @@ class ScenePainter {
 			size.height(layer.height);
 			layer.lensColor = device.texture(new GpuTextureDescriptor(size, frame.format, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
 			layer.lensView = layer.lensColor.createView(new GpuTextureViewDescriptor());
-			layer.lensSettings = device.createBuffer(new GpuBufferDescriptor(32, GpuFlags.BUFFER_STORAGE | GpuFlags.BUFFER_COPY_DST));
+			layer.lensSettings = device.createBuffer(new GpuBufferDescriptor(80, GpuFlags.BUFFER_STORAGE | GpuFlags.BUFFER_COPY_DST));
 			var bindings = new GpuBindings();
 			bindings.texture(layer.colorView);
 			bindings.sampler(compositeSampler(frame));
@@ -709,7 +710,7 @@ class ScenePainter {
 			bindings.destroy();
 		}
 		var aspect = layer.width / Math.max(1, layer.height);
-		var b = haxe.io.Bytes.alloc(32);
+		var b = haxe.io.Bytes.alloc(80);
 		b.setFloat(0, strength);
 		b.setFloat(4, aspect);
 		b.setFloat(8, aspect * aspect + 1);
@@ -718,7 +719,21 @@ class ScenePainter {
 		b.setFloat(20, aberration);
 		b.setFloat(24, ashui.animation.AnimationScheduler.main.clock % 1000);
 		b.setFloat(28, layer.width);
-		device.queue().writeBuffer(layer.lensSettings, 0, b, 32);
+		// A tint changes colour, not brightness: each is divided by its own luminance.
+		inline function tint(c:Int, at:Int) {
+			var r = linear(c >> 16 & 0xff), g = linear(c >> 8 & 0xff), bl = linear(c & 0xff);
+			var l = Math.max(0.0001, r * 0.299 + g * 0.587 + bl * 0.114);
+			b.setFloat(at, r / l);
+			b.setFloat(at + 4, g / l);
+			b.setFloat(at + 8, bl / l);
+		}
+		tint(grade != null ? grade.shadows : 0xffffff, 32);
+		b.setFloat(44, grade != null ? grade.contrast : 1);
+		tint(grade != null ? grade.highlights : 0xffffff, 48);
+		b.setFloat(60, grade != null ? grade.saturation : 1);
+		b.setFloat(64, grade != null ? grade.strength : 0);
+		b.setFloat(68, antialias ? 1 : 0);
+		device.queue().writeBuffer(layer.lensSettings, 0, b, 80);
 		var color = new GpuRenderPassColorAttachment(Clear, Store);
 		color.viewTextureView(layer.lensView);
 		color.clearValue(new GpuColor(0, 0, 0, 0));
