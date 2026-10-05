@@ -71,6 +71,9 @@ class CanvasPainter {
 	/** Called as its 3D draws start or stop waiting for their textures. **/
 	public var onLoading:Bool->Void = _ -> {};
 
+	/** Called after each frame in which its 3D draws were rendered afresh. **/
+	public var onSceneFrame:Void->Void = () -> {};
+
 	public function new() {}
 
 	/** Frees what its 3D draws uploaded. **/
@@ -95,6 +98,7 @@ class CanvasPainter {
 			if (step.match(Meshes(_)) && scenes == null) {
 				scenes = new ScenePainter(() -> repaint());
 				scenes.onLoading = v -> onLoading(v);
+				scenes.onRendered = () -> onSceneFrame();
 			}
 		if (scenes != null)
 			scenes.beginFrame();

@@ -205,6 +205,11 @@ class ScenePainter {
 	/** Called with `loading` as it changes, on the main thread after the frame. **/
 	public var onLoading:Bool->Void = _ -> {};
 
+	/** Called after each frame in which it rendered a scene afresh, rather than showing what it rendered before. **/
+	public var onRendered:Void->Void = () -> {};
+
+	var renderedNow = false;
+
 	function texturesReady(frame:CanvasFrame, mesh:MeshData):Bool {
 		var m = mesh.material;
 		for (pair in [
@@ -221,6 +226,10 @@ class ScenePainter {
 
 	/** After the canvas's runs: frees meshes, materials and textures no run drew this frame. **/
 	public function endFrame():Void {
+		if (renderedNow) {
+			renderedNow = false;
+			onRendered();
+		}
 		if (loadingNow != loading) {
 			loading = loadingNow;
 			// Told after the frame: a signal set while painting would change what is being drawn.
@@ -277,6 +286,7 @@ class ScenePainter {
 				animated = true;
 		if (resized || animated || layer.madeFor != draws || layer.textures != MeshTextures.revision) {
 			render(frame, layer, draws, passes, scene);
+			renderedNow = true;
 			layer.madeFor = draws;
 			layer.textures = MeshTextures.revision;
 		}

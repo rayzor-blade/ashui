@@ -66,6 +66,13 @@ typedef SceneKitProps = {
 	**/
 	?loading:ashui.reactive.Signal<Bool>,
 
+	/**
+		Set to the frames a second the scene is rendered at, once a second
+		while it renders; 0 a second after it stops, as it does when nothing
+		in it moves or changes.
+	**/
+	?fps:ashui.reactive.Signal<Float>,
+
 	?id:String
 }
 
@@ -99,6 +106,7 @@ class SceneKit extends Component<SceneKitProps> {
 			id: props.id,
 			animate: props.animate,
 			onLoading: loading != null ? v -> loading.set(v) : null,
+			onSceneFrame: props.fps != null ? frameCounter(props.fps) : null,
 			draw: ctx -> {
 				var rig = new LightRig(read(props.lights, defaultLights), read(props.ambient, 0xffffff), read(props.ambientStrength, 0.25),
 					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {strength: read(props.shadowStrength, 0.7)} : null);
@@ -119,6 +127,46 @@ class SceneKit extends Component<SceneKitProps> {
 		if (props.controls != false)
 			new OrbitInput(camera).attach(canvas.node);
 		return canvas;
+	}
+
+	/**
+		Counts frames into `fps`: the rate over each second they come in, set
+		as the second ends, and 0 once a second goes by with none. Only a
+		timer waiting on the last frame runs, so an idle scene costs nothing.
+	**/
+	static function frameCounter(fps:ashui.reactive.Signal<Float>):Void->Void {
+		var frames = 0, since = -1.0, last = 0.0;
+		var waiting = false;
+		// Set after the frame: a signal set while painting would change what is being drawn.
+		function report(v:Float)
+			ashui.animation.AnimationScheduler.main.after(0, () -> fps.set(v));
+		function idle() {
+			var quiet = haxe.Timer.stamp() - last;
+			if (quiet < 1) {
+				ashui.animation.AnimationScheduler.main.after(1 - quiet, idle);
+				return;
+			}
+			waiting = false;
+			frames = 0;
+			since = -1;
+			report(0);
+		}
+		return () -> {
+			var now = haxe.Timer.stamp();
+			last = now;
+			if (since < 0)
+				since = now;
+			frames++;
+			if (now - since >= 1) {
+				report(Math.round(frames / (now - since) * 10) / 10);
+				frames = 0;
+				since = now;
+			}
+			if (!waiting) {
+				waiting = true;
+				ashui.animation.AnimationScheduler.main.after(1, idle);
+			}
+		};
 	}
 
 	/** A prop's value now, followed when it is a signal or computed; `fallback` when it is not given. **/

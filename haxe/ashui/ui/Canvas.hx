@@ -45,6 +45,9 @@ typedef CanvasProps = {
 	**/
 	?onLoading:Bool->Void,
 
+	/** Called after each frame in which its 3D scene was rendered afresh: what a frame counter counts. **/
+	?onSceneFrame:Void->Void,
+
 	?id:String
 }
 
@@ -83,6 +86,8 @@ class Canvas extends Component<CanvasProps> {
 		painter.repaint = () -> repaint();
 		if (props.onLoading != null)
 			painter.onLoading = props.onLoading;
+		if (props.onSceneFrame != null)
+			painter.onSceneFrame = props.onSceneFrame;
 		#end
 		var box = new Div({tag: "canvas", id: props.id});
 		var slot = nextSlot++;
