@@ -157,6 +157,28 @@ class Components {
 		check("a shift-drag moves the target, not the turn", orbit.target.get().distance(before) > 0, orbit.target.get());
 	}
 
+	/** ashui-canvaskit's glTF texture cap: the helmet's 2048-pixel textures read at 512 or under, the same shape. **/
+	static function gltfTextureCap() {
+		var path = "../../tools/snapshot/assets/3d/DamagedHelmet/DamagedHelmet.gltf";
+		function sizes(scene:ashui.canvaskit.Gltf):Array<String> {
+			var out = [];
+			for (d in scene.draws) {
+				var m = d.mesh.material;
+				for (b in [m.baseColorTexture, m.normalTexture, m.metallicRoughnessTexture, m.emissiveTexture, m.occlusionTexture])
+					if (b != null)
+						out.push('${b.width}x${b.height}');
+			}
+			return out;
+		}
+		var full = sizes(ashui.canvaskit.Gltf.load(path));
+		var capped = sizes(ashui.canvaskit.Gltf.load(path, {maxTextureSize: 512}));
+		check("glTF texture cap: the helmet's textures are 2048 pixels uncapped", full.length > 0 && full.filter(s -> s == "2048x2048").length == full.length, full);
+		check("glTF texture cap: read at 512 with the cap, as many of them", capped.length == full.length && capped.filter(s -> s == "512x512").length == capped.length, capped);
+		var wide = ashui.types.Bitmap.fromBytes(ashui.core.render.Png.encode(1000, 300, haxe.io.Bytes.alloc(1000 * 300 * 4)));
+		wide.shrink(512);
+		check("glTF texture cap: a wide image keeps its shape, each side a multiple of 4", wide.width == 512 && wide.height == 152, [wide.width, wide.height]);
+	}
+
 	/** ashui-canvaskit's glTF: a skinned, morphed, animated file read whole, and a pose played from it. **/
 	static function gltf() {
 		var b = haxe.io.Bytes.alloc(420);
@@ -1361,6 +1383,7 @@ class Components {
 
 		canvasKit();
 		gltf();
+		gltfTextureCap();
 
 		// A labelled slider is 300 wide by default, and no wider than what holds it.
 		var narrowTree = new LayoutTree();

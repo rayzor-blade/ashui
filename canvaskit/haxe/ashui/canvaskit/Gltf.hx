@@ -15,6 +15,14 @@ import haxe.io.UInt16Array;
 /** A mesh of a glTF scene and where its node places it. **/
 typedef GltfDraw = {mesh:MeshData, transform:Mat4};
 
+/**
+	How a glTF file is loaded. `maxTextureSize` shrinks any image with a
+	side longer than that many pixels as it is read, keeping its shape, so
+	large textures take less memory and load faster. Use it for models
+	with many 4K textures, or ones shown small.
+**/
+typedef GltfOptions = {?maxTextureSize:Int};
+
 /** A node of the scene's tree: where it sits in its parent, as the file gives it, and what it holds. **/
 class GltfNode {
 	public final name:Null<String>;
@@ -202,10 +210,10 @@ class Gltf {
 			ctx.drawMesh(d.mesh, transform != null ? transform.mul(d.transform) : d.transform);
 
 	#if sys
-	/** The `.gltf` or `.glb` file at `path`, its buffers and images read from beside it. **/
-	public static function load(path:String):Gltf {
+	/** The `.gltf` or `.glb` file at `path`, its buffers and images read from beside it, as `options` say. **/
+	public static function load(path:String, ?options:GltfOptions):Gltf {
 		var dir = haxe.io.Path.directory(path);
-		return parse(sys.io.File.getBytes(path), uri -> sys.io.File.getBytes(dir == "" ? uri : haxe.io.Path.join([dir, uri])));
+		return parse(sys.io.File.getBytes(path), uri -> sys.io.File.getBytes(dir == "" ? uri : haxe.io.Path.join([dir, uri])), options);
 	}
 	#end
 
@@ -213,7 +221,7 @@ class Gltf {
 		A scene from the bytes of a `.gltf` or `.glb`; `read` gives the bytes
 		of a file it names by a relative `uri`. Throws when it is not glTF 2.0.
 	**/
-	public static function parse(file:Bytes, read:String->Bytes):Gltf {
+	public static function parse(file:Bytes, read:String->Bytes, ?options:GltfOptions):Gltf {
 		var json:Dynamic, bin:Null<Bytes> = null;
 		if (file.length >= 12 && file.getInt32(0) == 0x46546C67) {
 			// GLB: a header, a JSON chunk, then the binary chunk the first buffer is.
@@ -233,7 +241,7 @@ class Gltf {
 			json = haxe.Json.parse(file.toString());
 		if (json.asset == null || !StringTools.startsWith(Std.string(json.asset.version), "2"))
 			throw "not glTF 2.0";
-		return new Reader(json, bin, read).scene();
+		return new Reader(json, bin, read, options != null ? options : {}).scene();
 	}
 }
 
@@ -245,11 +253,13 @@ private class Reader {
 	final buffers = new Map<Int, Bytes>();
 	final images = new Map<Int, Bitmap>();
 	final materials = new Map<Int, Material>();
+	final options:GltfOptions;
 
-	public function new(json:Dynamic, bin:Null<Bytes>, read:String->Bytes) {
+	public function new(json:Dynamic, bin:Null<Bytes>, read:String->Bytes, options:GltfOptions) {
 		this.json = json;
 		this.bin = bin;
 		this.read = read;
+		this.options = options;
 	}
 
 	public function scene():Gltf {
@@ -446,6 +456,8 @@ private class Reader {
 		var image:Dynamic = list(json.images)[t.source];
 		var bytes = if (image.bufferView != null) view(image.bufferView) else uri(image.uri);
 		var made = Bitmap.fromBytes(bytes);
+		if (options.maxTextureSize != null)
+			made.shrink(options.maxTextureSize);
 		// Drawn only on meshes: once on the GPU, its decoded pixels are freed.
 		made.gpuOnly = true;
 		images.set(t.source, made);

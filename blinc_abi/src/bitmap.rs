@@ -20,6 +20,7 @@ static BITMAPS: Mutex<Vec<Option<Bitmap>>> = Mutex::new(Vec::new());
 /// stretched (2, CSS's `fill`; 3, a tile, is stretched for now).
 const FIT_COVER: i32 = 0;
 const FIT_CONTAIN: i32 = 1;
+const FIT_FILL: i32 = 2;
 
 /// Decodes `len` bytes of PNG or JPEG; its slot, or -1 when they are not one.
 #[unsafe(no_mangle)]
@@ -86,6 +87,33 @@ pub unsafe extern "C" fn hl_blinc_bitmap_resample(slot: i32, width: i32, height:
     true
 }
 define_prim!(hlp_blinc_bitmap_resample, hl_blinc_bitmap_resample, "iiiiB_b");
+
+/// Shrinks the bitmap in `slot` so that neither side is over `max_side`,
+/// keeping its shape, each side rounded to a multiple of 4 (so the texture
+/// made of it can be block-compressed); its full-size pixels are freed.
+/// False when there is no such bitmap or it is small enough already.
+#[unsafe(no_mangle)]
+pub extern "C" fn hl_blinc_bitmap_shrink(slot: i32, max_side: i32) -> bool {
+    if max_side < 4 {
+        return false;
+    }
+    let mut all = BITMAPS.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(b) = all.get_mut(slot.max(0) as usize).and_then(|b| b.as_mut()) else {
+        return false;
+    };
+    let longest = b.width.max(b.height);
+    if longest <= max_side as u32 {
+        return false;
+    }
+    let scale = max_side as f32 / longest as f32;
+    let side = |v: u32| ((v as f32 * scale / 4.0).round() as u32 * 4).max(4);
+    let (w, h) = (side(b.width), side(b.height));
+    let mut out = vec![0u8; (w * h * 4) as usize];
+    resample(b, w, h, FIT_FILL, &mut out);
+    *b = Bitmap { pixels: out, width: w, height: h };
+    true
+}
+define_prim!(hlp_blinc_bitmap_shrink, hl_blinc_bitmap_shrink, "ii_b");
 
 /// `b` fitted into `out`, `w` × `h`: the part of `b` each output pixel
 /// covers averaged when shrinking, and interpolated between its four

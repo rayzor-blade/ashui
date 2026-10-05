@@ -43,9 +43,9 @@ class Bitmap {
 	public final slot:Int;
 
 	/** Its size in pixels. **/
-	public final width:Int;
+	public var width(default, null):Int;
 
-	public final height:Int;
+	public var height(default, null):Int;
 
 	/**
 		Frees its decoded pixels once a mesh's texture is made of them, keeping
@@ -109,6 +109,20 @@ class Bitmap {
 	public function pixels(width:Int, height:Int):Null<haxe.io.Bytes> {
 		var out = haxe.io.Bytes.alloc(width * height * 4);
 		return BitmapNative.blinc_bitmap_resample(slot, width, height, (Fill : Brush.ImageFit), out) ? out : null;
+	}
+
+	/**
+		Shrinks it so that neither side is over `maxSide` pixels, keeping its
+		shape, each side rounded to a multiple of 4 so a mesh texture made of
+		it can be block-compressed. Its full-size pixels are freed at once.
+		Call it before it is drawn. False when it was small enough already.
+	**/
+	public function shrink(maxSide:Int):Bool {
+		if (!BitmapNative.blinc_bitmap_shrink(slot, maxSide))
+			return false;
+		width = BitmapNative.blinc_bitmap_size(slot, false);
+		height = BitmapNative.blinc_bitmap_size(slot, true);
+		return true;
 	}
 
 	/** Frees its pixels; it must not be drawn after. **/

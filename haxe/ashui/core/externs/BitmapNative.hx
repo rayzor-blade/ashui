@@ -19,4 +19,7 @@ extern class BitmapNative {
 
 	/** Writes the bitmap fitted by `fit` into `out`, `width` × `height` straight RGBA pixels. **/
 	static function blinc_bitmap_resample(slot:Int, width:Int, height:Int, fit:Int, out:hl.Bytes):Bool;
+
+	/** Shrinks the bitmap so neither side is over `maxSide`, keeping its shape, each side a multiple of 4; false when it was small enough. **/
+	static function blinc_bitmap_shrink(slot:Int, maxSide:Int):Bool;
 }
