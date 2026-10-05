@@ -35,6 +35,18 @@ class Smoke {
 		return Math.abs(a - b) < 0.01;
 
 	static function main() {
+		// First, before any stylesheet loads: Tw's text classes are declarations of the element's own, styled with no sheet at all.
+		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Light);
+		var bareTree = new LayoutTree();
+		var bareRoot:Div = Owner.root(bareTree, _ -> <div flexDirection={Column}><text>Plain</text><text class="text-2xl">Big</text></div>);
+		for (_ in 0...2) {
+			bareTree.flush();
+			bareTree.computeLayout(bareRoot.node, 300, 200);
+		}
+		var bareKids = bareTree.children(bareRoot.node.id);
+		var plainH = bareTree.getBounds(ashui.ui.Text.at(bareKids[0]).node).height, bigH = bareTree.getBounds(ashui.ui.Text.at(bareKids[1]).node).height;
+		var bareStyled = bigH > plainH + 6;
+
 		var tree = new LayoutTree();
 
 		// --- Constant layout ---
@@ -968,6 +980,7 @@ class Smoke {
 		refTree.flush();
 		check("ref= holds the element a template built, is cleared when it goes and set when it comes back, and is followed",
 			boundFirst && clearedAfter && boxRef.get() != null && seen.join(",") == "true,false,true", [boundFirst, clearedAfter, seen]);
+		check("Tw's text classes style the text with no stylesheet loaded: text-2xl is taller than plain", bareStyled);
 		// Tw's text classes on a box reach the text it holds, as inherited CSS does.
 		var twTree = new LayoutTree();
 		var twRoot:Div = Owner.root(twTree, _ -> <div flexDirection={Column}>

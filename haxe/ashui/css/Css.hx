@@ -350,11 +350,14 @@ class Css {
 	/** Called with each element whose styles were applied anew, as text flow measures again when a font changes. **/
 	public static final restyled:Array<Identity->Void> = [];
 
+	@:allow(ashui.css.Identity)
 	static function hook():Void {
 		if (hooked)
 			return;
 		hooked = true;
-		Identity.hooks.push(identity -> if (sheets.length > 0 || applied.exists(identity)) markChanged(identity));
+		// An element with declarations of its own is styled with no sheet loaded, as Tw's text classes are.
+		Identity.hooks.push(identity -> if (sheets.length > 0 || applied.exists(identity) || identity.inlineDeclarations() != null)
+			markChanged(identity));
 		Identity.forgetHooks.push(release);
 		LayoutTree.childrenHooks.push((tree, parent) -> if (sheets.length > 0) markSubtree(tree, parent));
 		LayoutTree.flushHooks.push(flush);

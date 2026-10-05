@@ -54,6 +54,8 @@ class Identity {
 			if (declared.get(name) == value)
 				return this;
 			declared.set(name, value);
+			// The cascade watches elements once a sheet loads; one declared on its own is watched from now.
+			Css.hook();
 		}
 		for (hook in hooks)
 			hook(this);
