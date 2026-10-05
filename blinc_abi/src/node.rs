@@ -929,7 +929,7 @@ pub unsafe extern "C" fn hl_blinc_tree_scroll_extent(h: *mut c_void, node: u64, 
         layout.size.height - b.top - b.bottom,
     );
     let out = out as *mut f32;
-    for (i, v) in [view.0, view.1, layout.content_size.width, layout.content_size.height]
+    for (i, v) in [view.0, view.1, layout.scrollable_overflow_rect.right, layout.scrollable_overflow_rect.bottom]
         .into_iter()
         .enumerate()
     {

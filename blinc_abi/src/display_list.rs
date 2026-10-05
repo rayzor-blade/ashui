@@ -1322,7 +1322,7 @@ fn thumbs(tree: &Tree, node: LayoutNodeId, s: crate::node::Scroll, (x, y): (f32,
         layout.size.width - b.left - b.right,
         layout.size.height - b.top - b.bottom,
     );
-    let (content_w, content_h) = (layout.content_size.width, layout.content_size.height);
+    let (content_w, content_h) = (layout.scrollable_overflow_rect.right, layout.scrollable_overflow_rect.bottom);
     let color = [s.thumb[0], s.thumb[1], s.thumb[2], alpha];
     let mut bar = |rect: [f32; 4]| {
         let mut p = Primitive::new(PRIM_RECT, [0.0, 0.0, rect[2], rect[3]], [THUMB / 2.0; 4]);

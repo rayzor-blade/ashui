@@ -5,7 +5,7 @@
 //! keeps its default.
 
 use taffy::prelude::*;
-use taffy::{GridTrackRepetition, MaxTrackSizingFunction, MinTrackSizingFunction};
+use taffy::{CheapCloneStr, GridTemplateComponent, MaxTrackSizingFunction, MinTrackSizingFunction, RepetitionCount};
 
 /// Splits `s` at top-level occurrences of `sep`, leaving parentheses whole.
 fn split_top(s: &str, sep: char) -> Vec<&str> {
@@ -39,57 +39,57 @@ fn number(s: &str, unit: &str) -> Option<f32> {
     s.strip_suffix(unit)?.trim().parse().ok()
 }
 
-fn length_percentage(s: &str) -> Option<LengthPercentage> {
+/// A length or percentage as `px` and `percent` make it: percentages are fractions.
+fn fixed<T>(s: &str, px: fn(f32) -> T, percent: fn(f32) -> T) -> Option<T> {
     if let Some(p) = number(s, "%") {
-        return Some(LengthPercentage::Percent(p / 100.0));
+        return Some(percent(p / 100.0));
     }
-    number(s, "px").or_else(|| s.parse().ok()).map(LengthPercentage::Length)
+    number(s, "px").or_else(|| s.parse().ok()).map(px)
 }
 
 fn min_track(s: &str) -> Option<MinTrackSizingFunction> {
     Some(match s {
-        "auto" => MinTrackSizingFunction::Auto,
-        "min-content" => MinTrackSizingFunction::MinContent,
-        "max-content" => MinTrackSizingFunction::MaxContent,
-        _ => MinTrackSizingFunction::Fixed(length_percentage(s)?),
+        "auto" => MinTrackSizingFunction::auto(),
+        "min-content" => MinTrackSizingFunction::min_content(),
+        "max-content" => MinTrackSizingFunction::max_content(),
+        _ => fixed(s, MinTrackSizingFunction::length, MinTrackSizingFunction::percent)?,
     })
 }
 
-fn max_track(s: &str) -> Option<MaxTrackSizingFunction> {
+/// A track's maximum, and whether the track is flexible (`fr` or `fit-content`).
+fn max_track(s: &str) -> Option<(MaxTrackSizingFunction, bool)> {
     Some(match s {
-        "auto" => MaxTrackSizingFunction::Auto,
-        "min-content" => MaxTrackSizingFunction::MinContent,
-        "max-content" => MaxTrackSizingFunction::MaxContent,
+        "auto" => (MaxTrackSizingFunction::auto(), false),
+        "min-content" => (MaxTrackSizingFunction::min_content(), false),
+        "max-content" => (MaxTrackSizingFunction::max_content(), false),
         _ => {
             if let Some(f) = number(s, "fr") {
-                MaxTrackSizingFunction::Fraction(f)
+                (MaxTrackSizingFunction::fr(f), true)
             } else if let Some(arg) = call(s, "fit-content") {
-                MaxTrackSizingFunction::FitContent(length_percentage(arg.trim())?)
+                let limit = fixed(arg.trim(), LengthPercentage::length, LengthPercentage::percent)?;
+                (MaxTrackSizingFunction::fit_content(limit), true)
             } else {
-                MaxTrackSizingFunction::Fixed(length_percentage(s)?)
+                (fixed(s, MaxTrackSizingFunction::length, MaxTrackSizingFunction::percent)?, false)
             }
         }
     })
 }
 
 /// One track: a size, `minmax(min, max)` or `fit-content(length)`.
-fn track(s: &str) -> Option<NonRepeatedTrackSizingFunction> {
+fn track(s: &str) -> Option<TrackSizingFunction> {
     if let Some(args) = call(s, "minmax") {
         let parts = split_top(args, ',');
         let [min, max] = parts.as_slice() else { return None };
-        return Some(minmax(min_track(min)?, max_track(max)?));
+        return Some(minmax(min_track(min)?, max_track(max)?.0));
     }
-    let max = max_track(s)?;
+    let (max, flexible) = max_track(s)?;
     // A flexible track's minimum is auto, as CSS has it.
-    let min = match max {
-        MaxTrackSizingFunction::Fraction(_) | MaxTrackSizingFunction::FitContent(_) => MinTrackSizingFunction::Auto,
-        _ => min_track(s)?,
-    };
+    let min = if flexible { MinTrackSizingFunction::auto() } else { min_track(s)? };
     Some(minmax(min, max))
 }
 
 /// `grid-template-columns` or `-rows`: tracks and `repeat(count | auto-fill | auto-fit, tracks)`; `none` is no tracks.
-pub fn template(s: &str) -> Option<Vec<TrackSizingFunction>> {
+pub fn template<S: CheapCloneStr>(s: &str) -> Option<Vec<GridTemplateComponent<S>>> {
     let s = s.trim();
     if s == "none" || s.is_empty() {
         return Some(Vec::new());
@@ -101,18 +101,18 @@ pub fn template(s: &str) -> Option<Vec<TrackSizingFunction>> {
                 let parts = split_top(args, ',');
                 let (count, tracks) = parts.split_first()?;
                 let kind = match *count {
-                    "auto-fill" => GridTrackRepetition::AutoFill,
-                    "auto-fit" => GridTrackRepetition::AutoFit,
-                    n => GridTrackRepetition::Count(n.parse().ok().filter(|&n: &u16| n > 0)?),
+                    "auto-fill" => RepetitionCount::AutoFill,
+                    "auto-fit" => RepetitionCount::AutoFit,
+                    n => RepetitionCount::Count(n.parse().ok().filter(|&n: &u16| n > 0)?),
                 };
                 let list = tracks
                     .iter()
                     .flat_map(|t| split_top(t, ' '))
                     .map(track)
                     .collect::<Option<Vec<_>>>()?;
-                Some(TrackSizingFunction::Repeat(kind, list))
+                Some(repeat(kind, list))
             } else {
-                track(part).map(TrackSizingFunction::Single)
+                track(part).map(GridTemplateComponent::Single)
             }
         })
         .collect()
