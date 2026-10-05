@@ -348,6 +348,19 @@ class CanvasPainter {
 			out.push(c);
 			out.push(d);
 		}
+		var p = brush.repeat;
+		var inverse = p == null ? null : m.inverse();
+		if (p != null && inverse != null) {
+			// The map from a pixel to where in the pattern's space it is, then its colour and shape.
+			four(4, p.kind, opacity, 0);
+			four(inverse.a, inverse.c, inverse.e, 0);
+			four(inverse.b, inverse.d, inverse.f, 0);
+			rgba(brush.solidRgb, brush.solidAlpha);
+			four(p.spacing, p.size, p.coarsen, p.minGap);
+			for (_ in 0...3)
+				four(0, 0, 0, 0);
+			return;
+		}
 		var g = brush.gradient;
 		if (g == null || g.stops.length == 0) {
 			four(0, 1, opacity, 0);

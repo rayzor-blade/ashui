@@ -520,6 +520,37 @@ class Pixels {
 		probe("at half opacity, over the white under it", 14, 40, (r, g, b) -> r > 200 && g > 100 && g < 160 && b > 100 && b < 160);
 		probe("its blue half too", 34, 40, (r, g, b) -> b > 200 && r > 100 && r < 160);
 
+		// A pattern brush: dots every 12 units, 4 pixels across; scaled down, every fourth is kept.
+		function patternRoot(kind:ashui.types.Brush.PatternKind, scale:Float):Div {
+			var tree = new LayoutTree();
+			return ashui.reactive.Owner.root(tree, _ -> {
+				var canvas = new ashui.ui.Canvas({
+					draw: ctx -> {
+						ctx.pushTransform(new ashui.draw.Affine(scale, 0, 0, scale, 0, 0));
+						ctx.fillRect(0, 0, 48 / scale, 48 / scale, Brush.pattern(kind, 0xff0000, 1, 12, 4));
+						ctx.popTransform();
+					}
+				});
+				canvas.node.set(Prop.Width, (48 : Single));
+				canvas.node.set(Prop.Height, (48 : Single));
+				new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+			});
+		}
+		var red = (r, g, b) -> r > 200 && g < 60 && b < 60;
+		pixels = offscreen.renderToRgba8(patternRoot(Dots, 1), SIZE, SIZE);
+		label = "pattern dots: ";
+		probe("a dot at a crossing", 20, 20, red);
+		probe("the next crossing too", 32, 20, red);
+		probe("nothing between them", 26, 26, near(0xffffff));
+		pixels = offscreen.renderToRgba8(patternRoot(Dots, 0.25), SIZE, SIZE);
+		label = "pattern dots scaled down: ";
+		probe("every fourth crossing is kept, the same size", 20, 20, red);
+		probe("and those between are gone", 14, 14, near(0xffffff));
+		pixels = offscreen.renderToRgba8(patternRoot(Lines, 1), SIZE, SIZE);
+		label = "pattern lines: ";
+		probe("on a line", 20, 14, red);
+		probe("between lines", 14, 14, near(0xffffff));
+
 		// A canvas's clips: what is drawn is kept inside them, nested, until each is popped.
 		var canvasClipTree = new LayoutTree();
 		var canvasClipRoot:Div = ashui.reactive.Owner.root(canvasClipTree, _ -> {

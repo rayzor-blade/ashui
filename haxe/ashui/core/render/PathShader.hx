@@ -6,11 +6,14 @@ package ashui.core.render;
 	its coverage and the texel where its paint starts; then its distances
 	inside up to four edges of its shape, in pixels, which cover the pixels
 	just inside an edge by how far inside they are. A paint is eight
-	texels: its kind (0 solid, 1 linear, 2 radial, 3 image), stop count and
-	opacity; its geometry, in layout units; up to four stop offsets; and
-	the stops' colours. An image's paint is its opacity, then the map from
-	a pixel to where in the image it is, 0 to 1 across, as two rows of
-	an affine, then the image's rect in `canvasImages`, the image atlas.
+	texels: its kind (0 solid, 1 linear, 2 radial, 3 image, 4 pattern),
+	stop count and opacity; its geometry, in layout units; up to four stop
+	offsets; and the stops' colours. An image's paint is its opacity, then
+	the map from a pixel to where in the image it is, 0 to 1 across, as two
+	rows of an affine, then the image's rect in `canvasImages`, the image
+	atlas. A pattern's is its shape (1 dots, 2 lines, 3 crosshatch) and
+	opacity, the map from a pixel to the pattern's space, its colour, then
+	its spacing, size in pixels, coarsening and least gap in pixels.
 	A paint's first texel ends with the texel its clip starts at, 0 for
 	none; a clip is four texels, its kind and the clip outside it, and
 	its shape (`CanvasPainter.encodeClip`), up to `CLIP_DEPTH` deep.
@@ -83,11 +86,43 @@ class PathShader implements UiShader {
 			return head.x > 0.5 ? clamp(0.5 - d * head.w, 0., 1.) : 0.;
 		}
 
+		// How much of this pixel a pattern of `kind` every `step` covers at `p`, `unit` of its units to a pixel, `size` pixels across.
+		function patternCoverage(kind : Float, p : Vec2, step : Float, unit : Float, size : Float) : Float {
+			var d = 0.;
+			if (kind < 1.5) {
+				d = length(p - step * floor(p / step + 0.5)) / unit;
+			} else if (kind < 2.5) {
+				var q = abs(p - step * floor(p / step + 0.5)) / unit;
+				d = min(q.x, q.y);
+			} else {
+				var u = vec2(p.x + p.y, p.x - p.y);
+				var q = abs(u - step * floor(u / step + 0.5)) / (unit * 1.41421356);
+				d = min(q.x, q.y);
+			}
+			return clamp(size * 0.5 - d + 0.5, 0., 1.);
+		}
+
 		function fragment() {
 			var at = int(paint + 0.5);
 			var head = canvasTexel(at);
 			var color = canvasTexel(at + 3);
-			if (head.x > 2.5) {
+			if (head.x > 3.5) {
+				var row0 = canvasTexel(at + 1);
+				var row1 = canvasTexel(at + 2);
+				var shape = canvasTexel(at + 4);
+				var p = vec2(dot(row0.xyz, vec3(pixel, 1.)), dot(row1.xyz, vec3(pixel, 1.)));
+				// The pattern's units to a pixel, then its spacing on screen thinned by `coarsen` until it is minGap pixels or more.
+				var unit = max(length(vec2(row0.x, row1.x)), 0.000001);
+				var spacing = shape.x;
+				var coarsen = shape.z;
+				var levels = max(0., ceil(log(shape.w * unit / spacing) / log(coarsen) - 0.0001));
+				var step = spacing * pow(coarsen, levels);
+				var fine = step / coarsen;
+				var fade = levels > 0.5 ? clamp((fine / unit - shape.w) / (shape.w * (coarsen - 1.)), 0., 1.) : 0.;
+				var a = patternCoverage(head.y, p, step, unit, shape.y);
+				var b = patternCoverage(head.y, p, fine, unit, shape.y) * fade;
+				color.a *= max(a, b);
+			} else if (head.x > 2.5) {
 				var row0 = canvasTexel(at + 1);
 				var row1 = canvasTexel(at + 2);
 				var rect = canvasTexel(at + 3);

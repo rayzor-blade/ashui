@@ -37,6 +37,34 @@ typedef BrushGradient = {
 	final stops:Array<BrushStop>;
 }
 
+/** The shape a pattern brush repeats. **/
+enum abstract PatternKind(Int) to Int {
+	/** A dot at every crossing of the grid. **/
+	var Dots = 1;
+
+	/** Lines along the grid. **/
+	var Lines = 2;
+
+	/** Lines at 45° both ways. **/
+	var Crosshatch = 3;
+}
+
+/**
+	A pattern as it was made, for a canvas to draw: `kind` every `spacing`
+	units of the space it is drawn in, its dots `size` pixels across or its
+	lines `size` pixels wide on screen, whatever the scale. Where the
+	pattern would come closer together on screen than `minGap` pixels, only
+	every `coarsen`-th line or dot is kept, and the ones in between fade out
+	as it nears that limit.
+**/
+typedef BrushPattern = {
+	final kind:PatternKind;
+	final spacing:Float;
+	final size:Float;
+	final coarsen:Int;
+	final minGap:Float;
+}
+
 /**
 	What fills a box, as a node's `Prop.Background`: a solid colour, a
 	gradient, an image, or what is behind the box blurred.
@@ -51,6 +79,9 @@ class Brush implements IValue {
 	/** A gradient's description; null for any other brush. **/
 	public var gradient(default, null):Null<BrushGradient> = null;
 
+	/** A pattern's description; null for any other brush. **/
+	public var repeat(default, null):Null<BrushPattern> = null;
+
 	private function new(ptr:hl.Abstract<"blinc_value">) {
 		this.ptr = ptr;
 	}
@@ -60,6 +91,29 @@ class Brush implements IValue {
 		var brush = new Brush(BlincNative.blinc_brush_solid(hex, alpha));
 		brush.solidRgb = hex & 0xFFFFFF;
 		brush.solidAlpha = alpha;
+		return brush;
+	}
+
+	/**
+		A repeating pattern in `hex` at `alpha`, for a canvas: dots, lines or
+		crosshatch every `spacing` units, `size` screen pixels across, thinned
+		as it is scaled down (see `BrushPattern`). The GPU draws it, so a
+		shape filled with it costs the same however many dots or lines it
+		holds. As a node's background it is only the plain colour.
+
+		```haxe
+		ctx.fillRect(0, 0, 2000, 2000, Brush.pattern(Dots, 0x8a8f98, 0.6, 24, 2));
+		```
+	**/
+	public static function pattern(kind:PatternKind, hex:Int, alpha:Single = 1.0, spacing = 24.0, size = 1.5, coarsen = 4, minGap = 8.0):Brush {
+		var brush = solid(hex, alpha);
+		brush.repeat = {
+			kind: kind,
+			spacing: spacing,
+			size: size,
+			coarsen: coarsen < 2 ? 2 : coarsen,
+			minGap: minGap
+		};
 		return brush;
 	}
 
