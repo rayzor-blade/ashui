@@ -811,8 +811,6 @@ a.ui-sidebar-item:hover { background: var(--accent-subtle); color: var(--text-pr
 /* Each avatar over the one before, ringed in the page's colour so the overlap reads; the rest counted in a bubble. */
 .ui-avatar-group { flex-direction: row; align-items: center; align-self: flex-start; flex-shrink: 0; }
 .ui-avatar-group > .ui-avatar, .ui-avatar-group > .ui-avatar-more { border: 2px solid var(--ui-avatar-ring, var(--surface)); }
-/* Shrinkable, so the group's own width counts the overlap: Taffy sizes a non-shrinking item with a negative margin as negative. */
-.ui-avatar-group > .ui-avatar, .ui-avatar-group > .ui-avatar-more { flex-shrink: 1; }
 .ui-avatar-group > * + * { margin-left: -10px; }
 .ui-avatar-more {
 	width: 40px; height: 40px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: var(--radius-full);
