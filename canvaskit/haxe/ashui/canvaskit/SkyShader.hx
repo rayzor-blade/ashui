@@ -5,8 +5,9 @@ package ashui.canvaskit;
 	the sky seen through it from the eye, an environment at the skybox's
 	mip level or a gradient by height, exposed and tone-mapped as the
 	meshes are. Its own settings are in `sky`: the inverse view-projection's
-	columns, the eye, the kind (1 a sky, 2 a gradient), mip level and
-	intensity, then the gradient's zenith, horizon and ground (linear).
+	columns, the eye, the kind (1 a sky, 2 a gradient), mip level,
+	intensity and whether it is grounded, the gradient's zenith, horizon
+	and ground (linear), then a grounded sky's floor, height and radius.
 **/
 class SkyShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
@@ -34,7 +35,22 @@ class SkyShader implements hlwgpu.hxsl.Shader {
 
 		function fragment() {
 			var p = sky[0] * ndc.x + sky[1] * ndc.y + sky[2] + sky[3];
-			var d = normalize(p.xyz / p.w - sky[4].xyz);
+			var eye = sky[4].xyz;
+			var d = normalize(p.xyz / p.w - eye);
+			if (sky[5].w > 0.5) {
+				// Grounded: seen from the sky's camera, `height` above the floor at the origin, a ray meets the floor
+				// within `radius` of it, and beyond, the dome of that radius round the camera.
+				var g = sky[9];
+				var o = eye - vec3(0., g.x + g.y, 0.);
+				var b = dot(o, d);
+				var t = -b + sqrt(max(b * b - dot(o, o) + g.z * g.z, 0.));
+				if (d.y < 0.) {
+					var toFloor = (g.x - eye.y) / d.y;
+					if (toFloor > 0. && toFloor < t)
+						t = toFloor;
+				}
+				d = normalize(o + d * t);
+			}
 			var c = mix(sky[7].rgb, sky[6].rgb, pow(clamp(d.y, 0., 1.), 0.6));
 			if (d.y < 0.)
 				c = mix(sky[7].rgb, sky[8].rgb, clamp(-d.y * 4., 0., 1.));

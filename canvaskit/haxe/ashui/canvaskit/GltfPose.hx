@@ -36,6 +36,9 @@ class GltfPose {
 	/** Each node's mesh's morph target weights. **/
 	public final weights:Array<Array<Float>>;
 
+	/** Whether `draw` draws each node's mesh; all true to begin with. **/
+	public final visible:Array<Bool>;
+
 	/** Bytes to a matrix in `matrices` and `palette`: sixteen 32-bit floats, column by column. **/
 	public static inline var MATRIX_BYTES = 64;
 
@@ -62,6 +65,7 @@ class GltfPose {
 		rotations = [for (n in scene.nodes) n.rotation];
 		scales = [for (n in scene.nodes) n.scale];
 		weights = [for (n in scene.nodes) n.weights.copy()];
+		visible = [for (_ in scene.nodes) true];
 		matrices = Bytes.alloc(scene.nodes.length * MATRIX_BYTES);
 		above = [for (_ in scene.nodes) -1];
 		reached = [for (_ in scene.nodes) false];
@@ -178,15 +182,15 @@ class GltfPose {
 	}
 
 	/**
-		Draws the meshes of nodes without a skin where this pose puts them,
-		all placed by `transform` too when it is given; morph targets are not
+		Draws the meshes of visible nodes without a skin where this pose puts
+		them, all placed by `transform` too when it is given; morph targets are not
 		applied. A skinned mesh is the game's to draw.
 	**/
 	public function draw(ctx:DrawContext, ?transform:Mat4):Void {
 		update();
 		for (i in 0...scene.nodes.length) {
 			var n = scene.nodes[i];
-			if (n.mesh < 0 || n.skin >= 0 || !reached[i])
+			if (n.mesh < 0 || n.skin >= 0 || !reached[i] || !visible[i])
 				continue;
 			var w = readMat4(matrices, i * MATRIX_BYTES);
 			var m = transform != null ? transform.mul(w) : w;

@@ -20,6 +20,9 @@ class SkyboxPass implements ScenePass {
 		return false;
 
 	#if ashui_gpu
+	/** Rows of `SkyShader`'s settings. **/
+	static inline var ROWS = 10;
+
 	var pipeline:Null<gpu.GpuPipeline> = null;
 	var settings:Null<gpu.GpuBuffer> = null;
 	var group:Null<gpu.GpuBindGroup> = null;
@@ -33,9 +36,9 @@ class SkyboxPass implements ScenePass {
 			builder.depth(frame.depthFormat, false, Always);
 			builder.primitive(TriangleList, None, Ccw);
 			pipeline = builder.build();
-			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(9 * 16, ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
+			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(ROWS * 16, ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
 		}
-		var b = haxe.io.Bytes.alloc(9 * 16);
+		var b = haxe.io.Bytes.alloc(ROWS * 16);
 		inline function row(at:Int, x:Float, y:Float, z:Float, w:Float) {
 			b.setFloat(at * 16, x);
 			b.setFloat(at * 16 + 4, y);
@@ -55,6 +58,10 @@ class SkyboxPass implements ScenePass {
 			case Sky(e, blur, intensity):
 				cube = e.upload(frame.device);
 				row(5, 1, (blur != null ? blur : 0) * (e.levels - 1), intensity != null ? intensity : 1, 0);
+			case Grounded(e, height, radius, floor, blur, intensity):
+				cube = e.upload(frame.device);
+				row(5, 1, (blur != null ? blur : 0) * (e.levels - 1), intensity != null ? intensity : 1, 1);
+				row(9, floor != null ? floor : 0, height, radius, 0);
 			case Gradient(zenith, horizon, ground):
 				row(5, 2, 0, 1, 0);
 				row(6, lin(zenith, 16), lin(zenith, 8), lin(zenith, 0), 0);
