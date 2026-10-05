@@ -280,6 +280,8 @@ class Studio3D {
 		var lens = Signal.make(0.0);
 		// How strongly bright parts glow, and from how bright.
 		// As modern engines default to: a low threshold and a gentle strength, so everything glows in proportion to its brightness.
+		// How much the edges darken.
+		var vignette = Signal.make(0.45);
 		var bloomStrength = Signal.make(0.3);
 		var bloomThreshold = Signal.make(0.2);
 		new Watch(() -> example.get(), e -> lens.set(e.lens != null ? (e.lens : Float) : 0.0));
@@ -474,7 +476,7 @@ class Studio3D {
 			// The select reads its options from its own children, so they are made here and spliced in.
 			var choices:Array<Element> = [for (e in examples) <select-item value={e.id}>${e.title}</select-item>];
 			return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
+			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} vignette={vignette} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
 			<if {loading.get() || model.get() == null}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} alignItems={Center} justifyContent={Justify.Center}>
 					<div class="flex flex-col items-center gap-3 px-5 py-4 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md">
@@ -526,6 +528,7 @@ class Studio3D {
 								<div flexDirection={Column} gap={14} paddingBottom={8}>
 									<slider label="Exposure" value={exposure} min={0.2} max={3} step={0.05} />
 									<slider label="Fish-eye" value={lens} min={0} max={1} step={0.01} format={percent} />
+									<slider label="Vignette" value={vignette} min={0} max={1} step={0.01} format={percent} />
 									<slider label="Bloom" value={bloomStrength} min={0} max={2} step={0.05} format={percent} />
 									<slider label="Bloom threshold" value={bloomThreshold} min={0} max={3} step={0.05} />
 									<slider label="Key light" value={key} min={0} max={6} step={0.1} />

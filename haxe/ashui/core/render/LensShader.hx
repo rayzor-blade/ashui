@@ -1,14 +1,17 @@
 package ashui.core.render;
 
 /**
-	A fish-eye lens applied to a rendered 3D layer. Each pixel reads the
-	layer from further out the further the pixel is from the centre, so the
-	centre is magnified and the edges are compressed, while the corners
-	stay at the corners.
+	The finishing pass over a rendered 3D layer: a fish-eye lens and a
+	vignette.
 
-	`lens[0]` holds the strength, the layer's width divided by its height,
-	and the squared distance from the centre to a corner, measured in
-	heights.
+	The fish-eye makes each pixel read the layer from further out the
+	further the pixel is from the centre, so the centre is magnified and
+	the edges are compressed, while the corners stay at the corners. The
+	vignette then darkens the image towards its edges and corners.
+
+	`lens[0]` holds the fish-eye's strength, the layer's width divided by
+	its height, the squared distance from the centre to a corner (measured
+	in heights), and the vignette's strength.
 **/
 class LensShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
@@ -35,7 +38,11 @@ class LensShader implements hlwgpu.hxsl.Shader {
 			// Out from the middle in heights, so the bend is round whatever the shape.
 			var p = vec2((uv.x * 2. - 1.) * s.y, uv.y * 2. - 1.);
 			var q = p * (1. + s.x * dot(p, p)) / (1. + s.x * s.z);
-			output.color = textureLod(lensSource, vec2(q.x / s.y * 0.5 + 0.5, q.y * 0.5 + 0.5), 0.);
+			var c = textureLod(lensSource, vec2(q.x / s.y * 0.5 + 0.5, q.y * 0.5 + 0.5), 0.);
+			// The vignette: full brightness in the middle, falling off smoothly towards the corners.
+			var r = sqrt(dot(p, p) / s.z);
+			var shade = 1. - s.w * smoothstep(0.35, 1.05, r);
+			output.color = vec4(c.rgb * shade, c.a);
 		}
 	};
 }

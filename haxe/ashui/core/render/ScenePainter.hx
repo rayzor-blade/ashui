@@ -345,7 +345,7 @@ class ScenePainter {
 		// up to twice on a standard display, and at most 1.25 times on a high-density one, whose pixels are small enough already.
 		if (scene.lens > 0)
 			ss = Math.max(ss, Math.min(frame.pixelRatio >= 2 ? 1.25 : 2, 1 + scene.lens * 2));
-		layer.lens = scene.lens;
+		layer.lens = scene.lens > 0 || scene.vignette > 0 ? Math.max(scene.lens, 0.0001) : 0;
 		var w = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.width * frame.scale * ss))));
 		var h = Std.int(Math.min(MAX_LAYER, Math.max(1, Math.ceil(frame.height * frame.scale * ss))));
 		var resized = w != layer.width || h != layer.height || layer.color == null;
@@ -539,8 +539,8 @@ class ScenePainter {
 				drawGlow(frame, encoder, layer, draws, order, groups, firstBlended, passes, passFrame);
 				glow(frame, encoder, layer, scene.bloom);
 			}
-			if (scene.lens > 0)
-				bend(frame, encoder, layer, scene.lens);
+			if (scene.lens > 0 || scene.vignette > 0)
+				bend(frame, encoder, layer, scene.lens, scene.vignette);
 		});
 	}
 
@@ -681,8 +681,8 @@ class ScenePainter {
 		pass(layer.colorView, true, bloomOnto, layer.bloomAdd.group);
 	}
 
-	/** Applies the fish-eye lens: bends the rendered layer into the layer's lens texture. `strength` is `Scene3D.lens`. **/
-	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float):Void {
+	/** The finishing pass: draws the rendered layer into the layer's lens texture, bent by the fish-eye (`strength`) and darkened by the vignette. **/
+	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float, vignette:Float):Void {
 		var device = frame.device;
 		if (lensPipeline == null) {
 			var builder = device.pipeline();
@@ -709,6 +709,7 @@ class ScenePainter {
 		b.setFloat(0, strength);
 		b.setFloat(4, aspect);
 		b.setFloat(8, aspect * aspect + 1);
+		b.setFloat(12, vignette);
 		device.queue().writeBuffer(layer.lensSettings, 0, b, 16);
 		var color = new GpuRenderPassColorAttachment(Clear, Store);
 		color.viewTextureView(layer.lensView);

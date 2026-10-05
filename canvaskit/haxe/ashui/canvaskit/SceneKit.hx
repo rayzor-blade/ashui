@@ -44,6 +44,9 @@ typedef SceneKitProps = {
 	/** How strongly the scene is bent by a fish-eye lens. 0, the default, means no lens; 0.2 to 0.6 resembles a wide-angle lens. **/
 	?lens:IntoReactive<Float>,
 
+	/** How much the scene's edges and corners are darkened, from 0 (the default, none) to 1. **/
+	?vignette:IntoReactive<Float>,
+
 	/** Bloom: bright parts of the scene glow onto their surroundings (see `Bloom`). There is none by default. **/
 	?bloom:IntoReactive<ashui.draw3d.Bloom>,
 
@@ -127,7 +130,8 @@ class SceneKit extends Component<SceneKitProps> {
 				var rig = new LightRig(read(props.lights, defaultLights), read(props.ambient, 0xffffff), read(props.ambientStrength, 0.25),
 					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {strength: read(props.shadowStrength, 0.7), reach: read(props.shadowReach, 0.0) > 0 ? read(props.shadowReach, 0.0) : null, focus: camera.target.get()} : null);
 				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0),
-					read(props.fog, null), read(props.lens, 0.0), read(props.bloom, null)));
+					read(props.fog, null), read(props.lens, 0.0), read(props.bloom, null),
+					read(props.vignette, 0.0)));
 				sky.skybox = read(props.skybox, null);
 				if (sky.skybox != null)
 					ctx.drawPass(sky);
