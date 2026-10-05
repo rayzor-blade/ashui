@@ -28,6 +28,7 @@ typedef MaterialOptions = {
 	?alphaCutoff:Float,
 	?unlit:Bool,
 	?doubleSided:Bool,
+	?shader:String,
 }
 
 /**
@@ -39,7 +40,9 @@ typedef MaterialOptions = {
 	red darkens the light that reaches into creases, and `normalTexture`
 	bends the surface's normals for detail the triangles do not have.
 	Colours are `0xRRGGBB` as `Brush` takes them. `unlit` shows the base
-	colour as it is, unshaded.
+	colour as it is, unshaded. `shader` is the WGSL of a shader that
+	extends ashui's mesh shader (`@:extends ashui.core.render.MeshShader`)
+	to light or present the surface its own way; ashui's own by default.
 **/
 class Material {
 	public static final DEFAULT = new Material();
@@ -61,6 +64,7 @@ class Material {
 	public final alphaCutoff:Float;
 	public final unlit:Bool;
 	public final doubleSided:Bool;
+	public final shader:Null<String>;
 
 	public function new(?o:MaterialOptions) {
 		if (o == null)
@@ -82,5 +86,6 @@ class Material {
 		alphaCutoff = o.alphaCutoff != null ? o.alphaCutoff : 0.5;
 		unlit = o.unlit == true;
 		doubleSided = o.doubleSided == true;
+		shader = o.shader;
 	}
 }

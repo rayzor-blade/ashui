@@ -98,7 +98,8 @@ class ScenePainter {
 
 	static var environmentSampler:Null<GpuSampler> = null;
 
-	final pipelines = new Map<Int, GpuPipeline>();
+	/** Pipelines, by shader, culling and blending. **/
+	final pipelines = new Map<String, GpuPipeline>();
 	var defaults:Null<{white:Uploaded, flat:Uploaded}> = null;
 	var sampler:Null<GpuSampler> = null;
 	var layerSampler:Null<GpuSampler> = null;
@@ -433,14 +434,72 @@ class ScenePainter {
 	/** The pipeline for a material: culled unless double-sided, writing depth unless blended. **/
 	function pipeline(frame:CanvasFrame, material:Material, opacity:Float):GpuPipeline {
 		var blended = material.alphaMode == Blend || opacity < 1;
-		var key = (material.doubleSided ? 1 : 0) | (blended ? 2 : 0);
+		var wgsl = material.shader != null ? material.shader : MeshShader.WGSL;
+		var key = '${(material.doubleSided ? 1 : 0) | (blended ? 2 : 0)}' + wgsl;
 		var made = pipelines.get(key);
 		if (made != null)
 			return made;
+		made = buildPipeline(frame, wgsl, material.doubleSided, blended, sharedLayout(frame));
+		pipelines.set(key, made);
+		return made;
+	}
+
+	/** The one binding layout every mesh pipeline has, so a material's group binds under any of them. **/
+	var meshLayout:Null<gpu.GpuPipelineLayout> = null;
+
+	/**
+		Every binding the mesh shader declares, by the numbers HXSL gave
+		them: an inferred layout holds only those a shader reads, fewer for a
+		shader extending it that reads less.
+	**/
+	function sharedLayout(frame:CanvasFrame):gpu.GpuPipelineLayout {
+		if (meshLayout == null) {
+			var both = gpu.ShaderStage.VERTEX | gpu.ShaderStage.FRAGMENT;
+			var entries = new gpu.GpuBindGroupLayoutDescriptor();
+			function texture(binding:Int, dimension:gpu.TextureViewDimension) {
+				var t = new gpu.GpuTextureBindingLayout();
+				t.sampleType(Float);
+				t.viewDimension(dimension);
+				var e = new gpu.GpuBindGroupLayoutEntry(binding, both);
+				e.texture(t);
+				entries.addEntries(e);
+				var sampled = new gpu.GpuSamplerBindingLayout();
+				sampled.type(Filtering);
+				var s = new gpu.GpuBindGroupLayoutEntry(binding + 1, both);
+				s.sampler(sampled);
+				entries.addEntries(s);
+			}
+			function buffer(binding:Int) {
+				var b = new gpu.GpuBufferBindingLayout();
+				b.type(ReadOnlyStorage);
+				var e = new gpu.GpuBindGroupLayoutEntry(binding, both);
+				e.buffer(b);
+				entries.addEntries(e);
+			}
+			for (binding in [
+				MeshShader.TEXTURE_baseColorMap,
+				MeshShader.TEXTURE_normalMap,
+				MeshShader.TEXTURE_metalRoughMap,
+				MeshShader.TEXTURE_emissiveMap,
+				MeshShader.TEXTURE_occlusionMap
+			])
+				texture(binding, D2d);
+			texture(MeshShader.TEXTURE_environmentMap, Cube);
+			buffer(MeshShader.BUFFER_scene);
+			buffer(MeshShader.BUFFER_draws);
+			var descriptor = new gpu.GpuPipelineLayoutDescriptor();
+			descriptor.addBindGroupLayouts(frame.device.createBindGroupLayout(entries));
+			meshLayout = frame.device.createPipelineLayout(descriptor);
+		}
+		return meshLayout;
+	}
+
+	function buildPipeline(frame:CanvasFrame, wgsl:String, doubleSided:Bool, blended:Bool, layout:Null<gpu.GpuPipelineLayout>):GpuPipeline {
 		var device = frame.device;
-		var shader = device.createShader(MeshShader.WGSL);
 		var builder = device.pipeline();
-		builder.shader(shader, "vertex", "fragment");
+		builder.shader(device.createShader(wgsl), "vertex", "fragment");
+		if (layout != null)
+			builder.layout(layout);
 		builder.vertexBuffer(MeshData.STRIDE, Vertex);
 		builder.attribute(Float32x3, MeshData.POSITION_OFFSET, MeshShader.INPUT_position);
 		builder.attribute(Float32x3, MeshData.NORMAL_OFFSET, MeshShader.INPUT_normal);
@@ -450,11 +509,10 @@ class ScenePainter {
 		// Premultiplied into the layer, as it is composited.
 		builder.blend(SrcAlpha, OneMinusSrcAlpha, Add, One, OneMinusSrcAlpha, Add);
 		builder.depth(DEPTH_FORMAT, !blended, Less);
-		builder.primitive(TriangleList, material.doubleSided ? None : Back, Ccw);
-		made = builder.build();
-		pipelines.set(key, made);
-		return made;
+		builder.primitive(TriangleList, doubleSided ? None : Back, Ccw);
+		return builder.build();
 	}
+
 
 	/** Its textures, the environment, the scene and the draws: a material's bind group, made for its pipeline. **/
 	function materialGroup(frame:CanvasFrame, material:Material, environment:GpuTextureView):GpuBindGroup {
@@ -486,7 +544,8 @@ class ScenePainter {
 		bindings.sampler(environmentSampler);
 		bindings.buffer(sceneBuffer);
 		bindings.buffer(drawBuffer);
-		var group = frame.device.bindGroup(pipeline(frame, material, 1), 0, bindings);
+		// Under the shared layout: the default pipeline's group binds under an extension's too.
+		var group = frame.device.bindGroup(pipeline(frame, Material.DEFAULT, 1), 0, bindings);
 		bindings.destroy();
 		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: (environment : Int), textures: MeshTextures.revision});
 		return group;

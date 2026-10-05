@@ -8,6 +8,29 @@ package ashui.core.render;
 	Built from `ashui.shaders`: `Scene` for the camera and lights,
 	`MeshDraw` for each draw's transform and material, `Pbr` and
 	`ColorSpace`.
+
+	It is three steps a shader can extend and replace, as a material of
+	one's own does (`Material.shader`): `surface` reads the material and
+	its textures into `surfaceColor`, `surfaceMetallic`,
+	`surfaceRoughness`, `surfaceNormal`, `surfaceEmission` and
+	`surfaceOcclusion`; `shade` lights them, linear; `present` exposes,
+	tone-maps and writes sRGB. A toon shader:
+
+	```haxe
+	class Toon implements hlwgpu.hxsl.Shader {
+		static var SRC = {
+			@:extends ashui.core.render.MeshShader;
+			function shade() : Vec3 {
+				var l = dot(surfaceNormal, lightDirection(0, worldPos));
+				return surfaceColor.rgb * (l > 0.5 ? 1. : l > 0. ? 0.6 : 0.3);
+			}
+		};
+	}
+	new Material({baseColor: 0xe05030, shader: Toon.WGSL});
+	```
+
+	An extension keeps every parameter and binding as they are, so it adds
+	none of its own; what needs its own data draws with a `ScenePass`.
 **/
 class MeshShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
@@ -44,68 +67,107 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			output.position = worldToClip(w);
 		}
 
+		// What `surface` reads and `shade` lights: linear colours.
+		var surfaceColor : Vec4;
+		var surfaceMetallic : Float;
+		var surfaceRoughness : Float;
+		var surfaceNormal : Vec3;
+		var surfaceEmission : Vec3;
+		var surfaceOcclusion : Float;
+		var toEye : Vec3;
+
+		/** The surface where this pixel is: its material's settings times its textures, its normal bent by its normal texture. **/
+		function surface() {
+			var settings = drawSurface(drawIndex);
+			surfaceColor = texture(baseColorMap, texcoord) * drawBaseColor(drawIndex);
+			var mr = texture(metalRoughMap, texcoord);
+			surfaceMetallic = clamp(settings.x * mr.b, 0., 1.);
+			surfaceRoughness = clamp(settings.y * mr.g, 0.04, 1.);
+			var n = normalize(worldNormal);
+			if (!frontFacing)
+				n = -n;
+			if (drawFlags(drawIndex).x > 0.5) {
+				// x and y from the texture; z worked out from them, as a two-channel (BC5) normal map stores none.
+				var nxy = texture(normalMap, texcoord).xy * 2. - vec2(1., 1.);
+				var tn = vec3(nxy * settings.z, sqrt(max(1. - dot(nxy, nxy), 0.)));
+				var t = worldTangent.xyz - n * dot(n, worldTangent.xyz);
+				if (dot(t, t) > 0.00000001) {
+					t = normalize(t);
+					var b = cross(n, t) * worldTangent.w;
+					n = normalize(t * tn.x + b * tn.y + n * tn.z);
+				}
+			}
+			surfaceNormal = n;
+			surfaceEmission = drawEmissive(drawIndex).rgb * texture(emissiveMap, texcoord).rgb;
+			surfaceOcclusion = mix(1., texture(occlusionMap, texcoord).r, settings.w);
+			toEye = normalize(cameraEye() - worldPos);
+		}
+
+		/** The light the surface sends to the eye, linear: each light by `Pbr`, the environment or ambient light, its own glow. **/
+		function shade() : Vec3 {
+			var n = surfaceNormal;
+			var v = toEye;
+			var albedo = surfaceColor.rgb;
+			var lit = vec3(0., 0., 0.);
+			var count = lightCount();
+			var i = 0;
+			while (i < 8) {
+				if (i < count)
+					lit += directLight(n, v, lightDirection(i, worldPos), lightRadiance(i, worldPos), albedo, surfaceMetallic, surfaceRoughness);
+				i++;
+			}
+			var r = reflect(-v, n);
+			var sky = vec3(0., 0., 0.);
+			var around = vec3(0., 0., 0.);
+			if (hasEnvironment()) {
+				// The environment, blurred for the roughness along the reflection, and at its blurriest round the normal.
+				var levels = environmentLevels();
+				sky = textureLod(environmentMap, r, surfaceRoughness * levels).rgb * environmentIntensity();
+				around = textureLod(environmentMap, n, levels).rgb * environmentIntensity();
+			} else {
+				// Ambient: brighter from the sky than the ground.
+				var ambient = ambientLight();
+				sky = ambient * mix(0.35, 1.25, clamp(r.y * 0.5 + 0.5, 0., 1.));
+				around = ambient * mix(0.6, 1.1, clamp(n.y * 0.5 + 0.5, 0., 1.));
+			}
+			var f0 = reflectance(albedo, surfaceMetallic);
+			lit += (around * albedo * (1. - surfaceMetallic) + sky * environmentBrdf(f0, surfaceRoughness, max(dot(n, v), 0.0001))) * surfaceOcclusion;
+			return lit + surfaceEmission;
+		}
+
+		/** Linear light as the screen shows it: exposed, tone-mapped, sRGB. **/
+		function present(lit : Vec3) : Vec3 {
+			return linearToSrgb(toneMapAces(lit * sceneExposure()));
+		}
+
+		/**
+			Every texture and buffer it binds, read once: the compiler drops
+			bindings a shader does not read and numbers the rest, so a shader
+			extending this one that reads fewer would bind differently.
+			`fragment` reads them where it never runs; an extension that
+			replaces `fragment` calls it the same way.
+		**/
+		function everyBinding() : Vec4 {
+			return texture(baseColorMap, texcoord) + texture(normalMap, texcoord) + texture(metalRoughMap, texcoord) + texture(emissiveMap, texcoord)
+				+ texture(occlusionMap, texcoord) + textureLod(environmentMap, vec3(0., 1., 0.), 0.) + scene[0] + draws[0];
+		}
+
 		function fragment() {
-			var surface = drawSurface(drawIndex);
-			var em = drawEmissive(drawIndex);
+			surface();
 			var flags = drawFlags(drawIndex);
-			var albedo = texture(baseColorMap, texcoord) * drawBaseColor(drawIndex);
-			var alpha = albedo.a;
+			var alpha = surfaceColor.a;
 			if (flags.z > 0.5 && flags.z < 1.5) {
-				if (alpha < em.w)
+				if (alpha < drawEmissive(drawIndex).w)
 					discard;
 				alpha = 1.;
 			}
 			if (flags.z < 0.5)
 				alpha = 1.;
-			var color = albedo.rgb;
-			if (flags.y < 0.5) {
-				var mr = texture(metalRoughMap, texcoord);
-				var metallic = clamp(surface.x * mr.b, 0., 1.);
-				var roughness = clamp(surface.y * mr.g, 0.04, 1.);
-				var n = normalize(worldNormal);
-				if (!frontFacing)
-					n = -n;
-				if (flags.x > 0.5) {
-					// x and y from the texture; z worked out from them, as a two-channel (BC5) normal map stores none.
-					var nxy = texture(normalMap, texcoord).xy * 2. - vec2(1., 1.);
-					var tn = vec3(nxy * surface.z, sqrt(max(1. - dot(nxy, nxy), 0.)));
-					var t = worldTangent.xyz - n * dot(n, worldTangent.xyz);
-					if (dot(t, t) > 0.00000001) {
-						t = normalize(t);
-						var b = cross(n, t) * worldTangent.w;
-						n = normalize(t * tn.x + b * tn.y + n * tn.z);
-					}
-				}
-				var v = normalize(cameraEye() - worldPos);
-				var lit = vec3(0., 0., 0.);
-				var count = lightCount();
-				var i = 0;
-				while (i < 8) {
-					if (i < count)
-						lit += directLight(n, v, lightDirection(i, worldPos), lightRadiance(i, worldPos), albedo.rgb, metallic, roughness);
-					i++;
-				}
-				var r = reflect(-v, n);
-				var sky = vec3(0., 0., 0.);
-				var around = vec3(0., 0., 0.);
-				if (hasEnvironment()) {
-					// The environment, blurred for the roughness along the reflection, and at its blurriest round the normal.
-					var levels = environmentLevels();
-					sky = textureLod(environmentMap, r, roughness * levels).rgb * environmentIntensity();
-					around = textureLod(environmentMap, n, levels).rgb * environmentIntensity();
-				} else {
-					// Ambient: brighter from the sky than the ground.
-					var ambient = ambientLight();
-					sky = ambient * mix(0.35, 1.25, clamp(r.y * 0.5 + 0.5, 0., 1.));
-					around = ambient * mix(0.6, 1.1, clamp(n.y * 0.5 + 0.5, 0., 1.));
-				}
-				var occlusion = mix(1., texture(occlusionMap, texcoord).r, surface.w);
-				var f0 = reflectance(albedo.rgb, metallic);
-				lit += (around * albedo.rgb * (1. - metallic) + sky * environmentBrdf(f0, roughness, max(dot(n, v), 0.0001))) * occlusion;
-				lit += em.rgb * texture(emissiveMap, texcoord).rgb;
-				color = toneMapAces(lit * sceneExposure());
-			}
-			output.color = vec4(linearToSrgb(color), alpha * flags.w);
+			var color = flags.y > 0.5 ? linearToSrgb(surfaceColor.rgb) : present(shade());
+			// Never true (opacity is not negative): it keeps every binding, for shaders extending this one.
+			if (flags.w < -1.)
+				color += everyBinding().rgb;
+			output.color = vec4(color, alpha * flags.w);
 		}
 	};
 }

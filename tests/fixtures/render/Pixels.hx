@@ -723,6 +723,29 @@ class Pixels {
 		pixels = offscreen.renderToRgba8(passRoot, SIZE, SIZE);
 		probe("in front of the mesh, the pass's quad hides it", 32, 32, (r, g, b) -> g > 200 && r < 60);
 
+		// A material with a shader of its own, extending ashui's mesh shader: its colour as it is, where ashui's own lights and tone-maps it.
+		function redQuad(x:Float, shader:Null<String>)
+			return ashui.draw3d.MeshData.build([x - 0.45, -0.45, 0, x + 0.45, -0.45, 0, x + 0.45, 0.45, 0, x - 0.45, 0.45, 0], [0, 1, 2, 0, 2, 3], null, null,
+				null, new ashui.draw3d.Material({baseColor: 0xff0000, shader: shader}));
+		var ownShaded = redQuad(-0.5, FlatShade.WGSL), coreShaded = redQuad(0.5, null);
+		var shadeTree = new LayoutTree();
+		var shadeRoot:Div = ashui.reactive.Owner.root(shadeTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					ctx.setCamera(new ashui.draw3d.Camera(new ashui.math.Vec3(0, 0, 2.2), ashui.math.Vec3.ZERO, null, 1.0));
+					ctx.drawMesh(ownShaded);
+					ctx.drawMesh(coreShaded);
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(shadeRoot, SIZE, SIZE);
+		label = "extended shader: ";
+		probe("its own shade and present draw the colour as it is", 23, 32, (r, g, b) -> r == 255 && g == 0 && b == 0);
+		probe("beside ashui's own, lit and tone-mapped", 41, 32, (r, g, b) -> r > 60 && r < 250 && g < 60);
+
 		// An image under two clips, the outer a squircle: where the inner clip cuts its corners away, it clips square, at full coverage.
 		var nestTree = new LayoutTree();
 		var nestedImage = new ashui.ui.Image(pair, {width: 16, height: 16}, nestTree);
@@ -961,6 +984,21 @@ class TestQuadShader implements hlwgpu.hxsl.Shader {
 
 		function fragment() {
 			output.color = vec4(0., 1., 0., 1.);
+		}
+	};
+}
+
+/** ashui's mesh shader with its colour as it is: `shade` and `present` replaced, everything else inherited. **/
+class FlatShade implements hlwgpu.hxsl.Shader {
+	static var SRC = {
+		@:extends ashui.core.render.MeshShader;
+
+		function shade() : Vec3 {
+			return surfaceColor.rgb;
+		}
+
+		function present(lit : Vec3) : Vec3 {
+			return linearToSrgb(lit);
 		}
 	};
 }
