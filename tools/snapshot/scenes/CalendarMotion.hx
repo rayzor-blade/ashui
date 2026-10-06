@@ -22,7 +22,7 @@ class CalendarMotion {
 		var chosen = Signal.make((null : Null<CalendarDay>));
 		var build = () -> hxx('
 			<div padding={32} width={380} height={400}>
-				<calendar value={chosen} today={{year: 2026, month: 9, day: 4}} />
+				<calendar value={chosen} today={{year: 2026, month: 9, day: 4}} minYear={2024} maxYear={2028} />
 			</div>
 		');
 		function key(k:window.Key, code:window.KeyCode):window.KeyEvent

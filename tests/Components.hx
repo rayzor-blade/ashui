@@ -1083,9 +1083,36 @@ class Components {
 		var monthBounds = calTree.getBounds(new ashui.layout.Node(monthPickerId));
 		var yearBounds = calTree.getBounds(new ashui.layout.Node(yearPickerId));
 		clickCalendarPart("ui-calendar-month-picker");
+		function calendarListbox():ashui.css.Identity
+			return Lambda.find([for (id in calTree.order()) identity2(calTree, id)], i -> i != null && i.types.indexOf("listbox") >= 0);
+		var monthListShadow = ashui.css.Css.computed(calendarListbox(), "box-shadow");
+		var monthListPadding = ashui.css.Css.computed(calendarListbox(), "padding");
 		ashui.input.Keyboard.input(calTree, key(Named(End), End));
 		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter));
 		calFrames(5);
+		clickCalendarPart("ui-calendar-year-picker");
+		var shownYearOptions = [for (id in calTree.order()) if (identity2(calTree, id) != null && identity2(calTree, id).types.indexOf("option") >= 0
+			&& calTree.getBounds(new ashui.layout.Node(id)) != null && calTree.getBounds(new ashui.layout.Node(id)).height > 0) id];
+		check("the Calendar year select lays out only the visible options", shownYearOptions.length > 0 && shownYearOptions.length < 20,
+			shownYearOptions.length);
+		check("the Calendar year list keeps the Select popup styling",
+			ashui.css.Css.computed(calendarListbox(), "box-shadow") == monthListShadow
+			&& ashui.css.Css.computed(calendarListbox(), "padding") == monthListPadding,
+			[monthListShadow, ashui.css.Css.computed(calendarListbox(), "box-shadow"), monthListPadding,
+				ashui.css.Css.computed(calendarListbox(), "padding")]);
+		var yearList = calendarListbox();
+		var yearListBounds = calTree.getBounds(yearList.node);
+		ashui.input.Pointer.move(calTree, yearListBounds.x + yearListBounds.width / 2, yearListBounds.y + yearListBounds.height / 2);
+		ashui.input.Pointer.wheel(calTree, 0, -165);
+		calFrames(2);
+		check("the Calendar year list scrolls its visible options", ashui.input.Scroll.at(yearList.node.id).y.get() > 0
+			&& [for (id in calTree.order()) if (identity2(calTree, id) != null && identity2(calTree, id).types.indexOf("option") >= 0
+				&& calTree.getBounds(new ashui.layout.Node(id)) != null && calTree.getBounds(new ashui.layout.Node(id)).height > 0) id].length < 20);
+		ashui.input.Keyboard.text(calTree, "2124");
+		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter));
+		calFrames(5);
+		check("the Calendar year Select keeps typeahead", ashui.ui.Select.at(yearPickerId).value.get() == "2124",
+			ashui.ui.Select.at(yearPickerId).value.get());
 		clickCalendarPart("ui-calendar-year-picker");
 		ashui.input.Keyboard.input(calTree, key(Named(End), End));
 		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter));
@@ -1104,6 +1131,60 @@ class Components {
 		calFrames(5);
 		var recenteredYear = ashui.ui.Select.at(calendarPart("ui-calendar-year-picker")).value.get();
 		check("the Calendar year picker recentres beyond its initial range", recenteredYear == "2127", recenteredYear);
+
+		var limitedTree = new LayoutTree();
+		var limitedValue = Signal.make((null : Null<ashui.components.Calendar.CalendarDay>));
+		var limitedRoot:Div = Owner.root(limitedTree, _ -> hxx('<div width={400} height={400}><calendar value={limitedValue} today={{year: 2022, month: 0, day: 1}} minYear={2024} maxYear={2026} /></div>'));
+		function limitedFrames(n:Int)
+			for (_ in 0...n) {
+				limitedTree.flush();
+				limitedTree.computeLayout(limitedRoot.node, 400, 400);
+				limitedTree.flush();
+			}
+		function limitedPart(name:String, ?step:String):haxe.Int64
+			return Lambda.find(limitedTree.order(), id -> {
+				var i = identity2(limitedTree, id);
+				return i != null && i.hasClass(name) && (step == null || i.attribute("data-step") == step);
+			});
+		function limitedClick(id:haxe.Int64) {
+			var b = limitedTree.getBounds(new ashui.layout.Node(id));
+			ashui.input.Pointer.move(limitedTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(limitedTree);
+			ashui.input.Pointer.release(limitedTree);
+			limitedFrames(2);
+		}
+		limitedFrames(2);
+		var limitedYear = limitedPart("ui-calendar-year-picker");
+		var limitedMonth = limitedPart("ui-calendar-month-picker");
+		var earliest = ashui.ui.Select.at(limitedYear).value.get() == "2024" && ashui.ui.Select.at(limitedMonth).value.get() == "0";
+		var prev = limitedPart("ui-calendar-nav", "prev");
+		var outsideDay = Lambda.find(limitedTree.order(), id -> {
+			var i = identity2(limitedTree, id);
+			return i != null && i.hasClass("ui-calendar-day") && i.attribute("data-outside") != null;
+		});
+		var lowerDisabled = ashui.input.Interaction.byId(limitedTree, prev).disabled.get()
+			&& ashui.input.Interaction.byId(limitedTree, outsideDay).disabled.get();
+		limitedClick(prev);
+		check("Calendar minYear clamps the initial view and blocks earlier dates",
+			earliest && lowerDisabled && ashui.ui.Select.at(limitedYear).value.get() == "2024" && limitedValue.get() == null,
+			[earliest, lowerDisabled, ashui.ui.Select.at(limitedYear).value.get(), limitedValue.get()]);
+		limitedClick(limitedYear);
+		var yearOptionCount = [for (id in limitedTree.order()) if (identity2(limitedTree, id) != null
+			&& identity2(limitedTree, id).hasClass("ui-select-item")) id].length;
+		check("Calendar year options stop at its configured bounds", yearOptionCount == 3, yearOptionCount);
+		ashui.input.Keyboard.input(limitedTree, key(Named(End), End));
+		ashui.input.Keyboard.input(limitedTree, key(Named(Enter), Enter));
+		limitedFrames(3);
+		limitedClick(limitedMonth);
+		ashui.input.Keyboard.input(limitedTree, key(Named(End), End));
+		ashui.input.Keyboard.input(limitedTree, key(Named(Enter), Enter));
+		limitedFrames(3);
+		var next = limitedPart("ui-calendar-nav", "next");
+		var upperDisabled = ashui.input.Interaction.byId(limitedTree, next).disabled.get();
+		limitedClick(next);
+		check("Calendar maxYear ends its picker and blocks navigation past December",
+			upperDisabled && ashui.ui.Select.at(limitedYear).value.get() == "2026" && ashui.ui.Select.at(limitedMonth).value.get() == "11",
+			[upperDisabled, ashui.ui.Select.at(limitedYear).value.get(), ashui.ui.Select.at(limitedMonth).value.get()]);
 
 		// --- Charts: the tooltip shows the values at the label under the pointer; new values are moved to, not jumped to ---
 		var chTree = new LayoutTree();

@@ -21,6 +21,9 @@ typedef SelectProps = {
 
 	?name:String,
 
+	/** Lays out only nearby options in a long, ungrouped list. Each option must have this fixed height, including padding. **/
+	?virtualRowHeight:Single,
+
 	/**
 		Shown while the value is none of its options', which it may then
 		stay rather than choosing the first: "Choose a fruit…". The select
@@ -166,6 +169,10 @@ class Select extends Component<SelectProps> {
 		if (b == null)
 			return;
 		var owner = new Owner(tree, @:privateAccess this.owner);
+		if (props.virtualRowHeight != null && props.virtualRowHeight > 0 && !Lambda.exists(choices, c -> c.group != null)) {
+			showVirtual(tree, b, owner, props.virtualRowHeight);
+			return;
+		}
 		var rows:Array<{interaction:Interaction, choice:Choice, row:Div}> = [];
 		var picker = owner.run(() -> {
 			var items:Array<Element> = [];
@@ -275,6 +282,124 @@ class Select extends Component<SelectProps> {
 			Focus.set(chosen.interaction, Focus.byKeyboard);
 		else if (first != null)
 			Focus.set(first.interaction, Focus.byKeyboard);
+	}
+
+	/** The same select and option behaviour with a fixed-height window of rows. **/
+	function showVirtual(tree:ashui.layout.LayoutTree, b:ashui.layout.Bounds, owner:Owner, rowHeight:Single):Void {
+		var rootBounds = tree.root == null ? null : tree.getBounds(tree.root);
+		var maxHeight = rootBounds == null ? 320.0 : Math.max(0, Math.max(rootBounds.height - b.y - b.height, b.y) - LIST_MARGIN);
+		var count = choices.length;
+		var visibleCount = Std.int(Math.min(count, Math.ceil(maxHeight / rowHeight) + 2));
+		var start = Signal.make(0);
+		var active = Signal.make(-1);
+		var rows = new Map<Int, Interaction>();
+		var listInteraction:Null<Interaction> = null;
+		var picker = owner.run(() -> {
+			var before = new Div({height: Computed.make(() -> (start.get() * rowHeight : Single)), flexShrink: 0});
+			var window = new For(() -> [for (i in start.get()...start.get() + visibleCount) i], i -> {
+				var c = choices[i];
+				var row = new Div({tag: "option", height: rowHeight, flexShrink: 0}, [new Text(c.option.labelText())]);
+				var own = ashui.css.Identity.of(tree, c.option.node.id);
+				if (own != null && own.classes().length > 0)
+					ashui.css.Identity.of(tree, row.node.id).addClasses(own.classes());
+				var ri = Interaction.of(row.node).setFocusable(true);
+				if (c.disabled)
+					ri.setDisabled(true);
+				ri.checked.set(c.option.valueText() == value.get());
+				ri.onClick(_ -> choose(c.option.valueText()));
+				ri.onPointerEnter(_ -> if (!c.disabled) Focus.set(ri, false));
+				ri.onFocus(_ -> active.set(i));
+				rows.set(i, ri);
+				Owner.onCleanup(() -> {
+					rows.remove(i);
+					if (open != null && ri.focused.get() && listInteraction != null)
+						Focus.set(listInteraction, true);
+				});
+				row;
+			});
+			var after = new Div({height: Computed.make(() -> ((count - start.get() - visibleCount) * rowHeight : Single)), flexShrink: 0});
+			new Div({tag: "listbox", padding: 0}, [before, window, after]);
+		});
+		picker.node.set(ashui.layout.Prop.MaxHeight, (maxHeight : Single));
+		picker.node.set(ashui.layout.Prop.Overflow, ashui.types.Style.Overflow.Scroll);
+		var scroll = owner.run(() -> ashui.input.Scroll.attach(picker.node, false, true));
+		listInteraction = Interaction.of(picker.node).setFocusable(true);
+		function windowAt(y:Float):Void
+			start.set(Std.int(Math.max(0, Math.min(count - visibleCount, Math.floor(y / rowHeight) - 1))));
+		owner.run(() -> new Watch(() -> scroll.y.get(), windowAt));
+		var pending:Null<Int> = null;
+		function focusIndex(i:Int):Void {
+			if (i < 0 || i >= count || choices[i].disabled)
+				return;
+			active.set(i);
+			var y = scroll.y.get();
+			var bounds = tree.getBounds(picker.node);
+			var height = bounds == null || bounds.height <= 0 ? maxHeight : bounds.height;
+			var target = i * rowHeight < y ? i * rowHeight : (i + 1) * rowHeight > y + height ? (i + 1) * rowHeight - height : y;
+			windowAt(target);
+			scroll.jumpTo(0, target);
+			var row = rows.get(i);
+			if (row != null)
+				Focus.set(row, true);
+			else
+				pending = i;
+		}
+		var enabled = [for (i in 0...count) if (!choices[i].disabled) i];
+		listInteraction.onKeyDown(e -> {
+			var at = enabled.indexOf(active.get());
+			switch e.key {
+				case Named(ArrowDown):
+					e.preventDefault();
+					if (enabled.length > 0) focusIndex(enabled[at < 0 ? 0 : Std.int(Math.min(at + 1, enabled.length - 1))]);
+				case Named(ArrowUp):
+					e.preventDefault();
+					if (enabled.length > 0) focusIndex(enabled[at < 0 ? 0 : Std.int(Math.max(at - 1, 0))]);
+				case Named(Home):
+					e.preventDefault();
+					if (enabled.length > 0) focusIndex(enabled[0]);
+				case Named(End):
+					e.preventDefault();
+					if (enabled.length > 0) focusIndex(enabled[enabled.length - 1]);
+				case Named(Enter):
+					e.preventDefault();
+					if (active.get() >= 0) choose(choices[active.get()].option.valueText());
+				case Named(Tab):
+					e.preventDefault();
+					open.close();
+				case _:
+			}
+		});
+		listInteraction.onTextInput(e -> {
+			var match = typeahead(e.text, [for (i in enabled) choices[i]]);
+			if (match != null)
+				focusIndex(choices.indexOf(match));
+		});
+		var afterLayout = (t:ashui.layout.LayoutTree) -> {
+			if (t == tree && pending != null) {
+				var row = rows.get(pending);
+				if (row != null) {
+					pending = null;
+					Focus.set(row, true);
+				}
+			}
+			false;
+		};
+		ashui.layout.LayoutTree.layoutHooks.push(afterLayout);
+		var identity = ashui.css.Identity.of(tree, button.node.id);
+		identity.setAttribute("open", "");
+		open = TopLayer.open(tree, picker, Below(b.x, b.y, b.width, b.height), null, () -> {
+			ashui.layout.LayoutTree.layoutHooks.remove(afterLayout);
+			identity.setAttribute("open", null);
+			open = null;
+			owner.dispose();
+			Focus.set(interaction, Focus.byKeyboard);
+		});
+		Focus.set(listInteraction, Focus.byKeyboard);
+		var chosen = Lambda.find(enabled, i -> choices[i].option.valueText() == value.get());
+		if (chosen != null)
+			focusIndex(chosen);
+		else if (enabled.length > 0)
+			focusIndex(enabled[0]);
 	}
 
 	/** Whether its list of options is open. **/

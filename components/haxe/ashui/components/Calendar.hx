@@ -21,6 +21,10 @@ typedef CalendarProps = {
 	?today:CalendarDay,
 	/** The first day of the week: 0 for Sunday (the default), 1 for Monday. **/
 	?weekStart:Int,
+	/** Earliest year available for navigation and selection, inclusive. **/
+	?minYear:Int,
+	/** Latest year available for navigation and selection, inclusive. **/
+	?maxYear:Int,
 	?onChange:CalendarDay->Void,
 	?id:String
 }
@@ -53,6 +57,13 @@ class Calendar extends Component<CalendarProps> {
 	];
 
 	function render():Element {
+		var minYear = props.minYear, maxYear = props.maxYear;
+		if (minYear != null && maxYear != null && minYear > maxYear)
+			throw "Calendar minYear must not exceed maxYear";
+		function allowed(year:Int):Bool
+			return (minYear == null || year >= minYear) && (maxYear == null || year <= maxYear);
+		function clampYear(year:Int):Int
+			return minYear != null && year < minYear ? minYear : maxYear != null && year > maxYear ? maxYear : year;
 		value = switch props.value {
 			case null: Signal.make((null : Null<CalendarDay>));
 			case Const(v): Signal.make(v);
@@ -66,7 +77,10 @@ class Calendar extends Component<CalendarProps> {
 		var today = props.today != null ? props.today : {year: now.getFullYear(), month: now.getMonth(), day: now.getDate()};
 		var start = props.weekStart == null ? 0 : props.weekStart;
 		var v = value;
-		var first = v.get() != null ? v.get() : today;
+		var initial = v.get() != null ? v.get() : today;
+		var initialYear = clampYear(initial.year);
+		var initialDays = DateTools.getMonthDays(new Date(initialYear, initial.month, 1, 0, 0, 0));
+		var first = {year: initialYear, month: initial.month, day: Std.int(Math.min(initial.day, initialDays))};
 		// The month shown, and the day the keys are on.
 		var shown = Signal.make({year: first.year, month: first.month});
 		var focused = Signal.make(key(first));
@@ -75,6 +89,8 @@ class Calendar extends Component<CalendarProps> {
 		var pages = Signal.make([new Page(first.year, first.month, null)]);
 		// Turns to `m`, the new month sliding in from the side it is on and the one shown sliding out the other.
 		function turn(m:{year:Int, month:Int}) {
+			if (!allowed(m.year))
+				return;
 			var now = shown.get();
 			if (m.year == now.year && m.month == now.month)
 				return;
@@ -92,6 +108,8 @@ class Calendar extends Component<CalendarProps> {
 		}
 		// Keep the date the keys are on in the month picked, without choosing a day.
 		function jump(m:{year:Int, month:Int}) {
+			if (!allowed(m.year))
+				return;
 			var at = parse(focused.get());
 			var days = DateTools.getMonthDays(new Date(m.year, m.month, 1, 0, 0, 0));
 			focused.set(key({year: m.year, month: m.month, day: Std.int(Math.min(at.day, days))}));
@@ -109,23 +127,37 @@ class Calendar extends Component<CalendarProps> {
 		monthIdentity.addClasses(["ui-calendar-month-picker"]);
 		monthIdentity.setAttribute("aria-label", "Month");
 		// Recenter the year list if navigation reaches either end of its 201-year window.
-		var yearStart = Signal.make(first.year - 100);
-		new Watch(() -> shown.get().year, year -> if (year < yearStart.get() || year > yearStart.get() + 200) yearStart.set(year - 100));
+		function windowStart(year:Int):Int {
+			var at = year - 100;
+			if (minYear != null)
+				at = Std.int(Math.max(at, minYear));
+			if (maxYear != null)
+				at = Std.int(Math.min(at, maxYear - 200));
+			if (minYear != null)
+				at = Std.int(Math.max(at, minYear));
+			return at;
+		}
+		var yearStart = Signal.make(windowStart(first.year));
+		new Watch(() -> shown.get().year, year -> if (year < yearStart.get() || year > yearStart.get() + 200) yearStart.set(windowStart(year)));
 		var yearPicker = new For(() -> [yearStart.get()], startYear -> {
-			var options:Array<Element> = [for (i in 0...201) new SelectItem({value: Std.string(startYear + i)}, [new ashui.ui.Text(Std.string(startYear + i))])];
-			var picker = new Select({value: pickedYear, onChange: year -> jump({year: Std.parseInt(year), month: shown.get().month})}, options);
+			var count = maxYear == null ? 201 : Std.int(Math.min(201, maxYear - startYear + 1));
+			var options:Array<Element> = [for (i in 0...count) new SelectItem({value: Std.string(startYear + i)}, [new ashui.ui.Text(Std.string(startYear + i))])];
+			var picker = new Select({value: pickedYear, virtualRowHeight: 33, onChange: year -> jump({year: Std.parseInt(year), month: shown.get().month})}, options);
 			var identity = ashui.css.Identity.of(picker.tree, picker.node.id);
 			identity.addClasses(["ui-calendar-year-picker"]);
 			identity.setAttribute("aria-label", "Year");
 			picker;
 		});
 		var caption = Library.part("ui-calendar-caption", null, null, [monthPicker, yearPicker]);
-		var header = Library.part("ui-calendar-header", null, null, [nav("prev", () -> turn(shift(shown.get(), -1))), caption,
-			nav("next", () -> turn(shift(shown.get(), 1)))]);
+		var header = Library.part("ui-calendar-header", null, null,
+			[nav("prev", () -> turn(shift(shown.get(), -1)), Computed.make(() -> !allowed(shift(shown.get(), -1).year))), caption,
+				nav("next", () -> turn(shift(shown.get(), 1)), Computed.make(() -> !allowed(shift(shown.get(), 1).year)))]);
 		var weekdays = Library.part("ui-calendar-weekdays", null, null,
 			[for (i in 0...7) Library.part("ui-calendar-weekday", null, null, [new ashui.ui.Text(WEEKDAYS[(i + start) % 7])])]);
 
 		var choose = (d:CalendarDay) -> {
+			if (!allowed(d.year))
+				return;
 			v.set(d);
 			turn({year: d.year, month: d.month});
 			focused.set(key(d));
@@ -144,6 +176,8 @@ class Calendar extends Component<CalendarProps> {
 				], [new ashui.ui.Text(Std.string(d.day))]);
 				ashui.css.Identity.of(cell.tree, cell.node.id).setAttribute("type", "button");
 				var i = Interaction.of(cell.node).setFocusable(true);
+				if (!allowed(d.year))
+					i.setDisabled(true);
 				i.onClick(_ -> choose(d));
 				// Focus follows the day the keys are on, while focus is in the days, or was as the month turned; a leaving month's days let it go.
 				new Watch(() -> focused.get(), f -> if (f == k && page.leaving.get() == null && body != null && (refocus || hasFocusIn(body))) {
@@ -172,6 +206,8 @@ class Calendar extends Component<CalendarProps> {
 			if (next == null)
 				return;
 			e.preventDefault();
+			if (!allowed(next.year))
+				return;
 			if (next.month != shown.get().month || next.year != shown.get().year) {
 				// The month's days are made anew; the focused one takes focus as it is made.
 				refocus = true;
@@ -186,10 +222,10 @@ class Calendar extends Component<CalendarProps> {
 	/** Set as the keys turn the month, so the day they are on takes focus once its cell is made. **/
 	var refocus = false;
 
-	function nav(kind:String, run:Void->Void):Element {
+	function nav(kind:String, run:Void->Void, disabled:IntoReactive<Bool>):Element {
 		var b = Library.part("ui-calendar-nav", "button", ["step" => kind], [new ashui.ui.Svg(ARROWS.get(kind), {width: 16, height: 16})]);
 		ashui.css.Identity.of(b.tree, b.node.id).setAttribute("type", "button");
-		Interaction.of(b.node).setFocusable(true).onClick(_ -> run());
+		Interaction.of(b.node).setFocusable(true).setDisabled(disabled).onClick(_ -> run());
 		return b;
 	}
 
