@@ -14,6 +14,7 @@ use std::{env, fs, path::PathBuf};
 const SYMBOLS: &[&str] = &[
     "_hl_add_root",
     "_hl_alloc_bytes",
+    "_hl_blocking",
     "_hl_dyn_call",
     "_hl_gc_alloc_gen",
     "_hl_remove_root",

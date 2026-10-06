@@ -29,6 +29,7 @@ unsafe extern "C" {
     fn hl_add_root(slot: *mut c_void);
     fn hl_remove_root(slot: *mut c_void);
     fn hl_dyn_call(c: *mut vclosure, args: *mut *mut vdynamic, nargs: i32) -> *mut vdynamic;
+    fn hl_blocking(enter: bool);
 }
 
 fn abstract_type() -> *mut hl_type {
@@ -172,6 +173,26 @@ impl Drop for Rooted {
 /// `closure` must be a live `Void->Void` closure.
 pub unsafe fn call_void(closure: *mut c_void) {
     unsafe { hl_dyn_call(closure.cast(), ptr::null_mut(), 0) };
+}
+
+/// This thread marked as blocking while the value lives, so a collection goes
+/// ahead without waiting for it. Only for long work that allocates nothing on
+/// the GC heap and touches no GC object but byte buffers its caller keeps
+/// alive. Make it before taking any lock the work holds, so the lock is
+/// released before the thread stops blocking.
+pub struct Blocking(());
+
+impl Blocking {
+    pub fn enter() -> Self {
+        unsafe { hl_blocking(true) };
+        Blocking(())
+    }
+}
+
+impl Drop for Blocking {
+    fn drop(&mut self) {
+        unsafe { hl_blocking(false) };
+    }
 }
 
 // ============================================================================

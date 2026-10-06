@@ -28,6 +28,7 @@ pub unsafe extern "C" fn hl_blinc_bitmap_decode(bytes: *const vbyte, len: i32) -
     if bytes.is_null() || len <= 0 {
         return -1;
     }
+    let _blocking = crate::hl::Blocking::enter();
     let data = unsafe { std::slice::from_raw_parts(bytes as *const u8, len as usize) };
     let Ok(image) = blinc_image::DecoderRegistry::with_builtins().decode(data, None) else {
         return -1;
@@ -64,6 +65,8 @@ define_prim!(hlp_blinc_bitmap_size, hl_blinc_bitmap_size, "ib_i");
 /// Frees the bitmap in `slot`, whose slot may then name another.
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_bitmap_release(slot: i32) {
+    // A large bitmap's pixels take a while to give back, so they are dropped while blocking.
+    let _blocking = crate::hl::Blocking::enter();
     let mut all = BITMAPS.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(b) = all.get_mut(slot.max(0) as usize) {
         *b = None;
@@ -78,6 +81,7 @@ pub unsafe extern "C" fn hl_blinc_bitmap_resample(slot: i32, width: i32, height:
     if width <= 0 || height <= 0 || out.is_null() {
         return false;
     }
+    let _blocking = crate::hl::Blocking::enter();
     let all = BITMAPS.lock().unwrap_or_else(|e| e.into_inner());
     let Some(b) = all.get(slot.max(0) as usize).and_then(|b| b.as_ref()) else {
         return false;
@@ -97,6 +101,7 @@ pub extern "C" fn hl_blinc_bitmap_shrink(slot: i32, max_side: i32) -> bool {
     if max_side < 4 {
         return false;
     }
+    let _blocking = crate::hl::Blocking::enter();
     let mut all = BITMAPS.lock().unwrap_or_else(|e| e.into_inner());
     let Some(b) = all.get_mut(slot.max(0) as usize).and_then(|b| b.as_mut()) else {
         return false;
