@@ -19,3 +19,10 @@ pub mod reactive;
 pub mod svg;
 pub mod text;
 pub mod types;
+
+/// Tells Ash this library never stores a GC pointer into a GC object itself:
+/// it keeps Haxe objects only through roots (`hl::Rooted`) and writes numbers
+/// into byte buffers. Ash's card-marking write barrier is then safe with it
+/// loaded.
+#[unsafe(no_mangle)]
+pub static ash_hdll_barrier_aware: u8 = 1;
