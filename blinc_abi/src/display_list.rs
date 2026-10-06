@@ -842,7 +842,8 @@ pub fn append(
             b.notch = notch;
             // Deviation in target pixels; how far the row pass reaches past the box, in layout units,
             // further for liquid glass, whose rim samples up to LIQUID_REACH outside it.
-            let reach = 3.0 * blur * scale + if liquid.is_some() { LIQUID_REACH * scale } else { 0.0 };
+            let aberration = tree.glass_aberration.get(&node).copied().unwrap_or(0.0);
+            let reach = 3.0 * blur * scale + if liquid.is_some() { LIQUID_REACH * (1.0 + 0.12 * aberration) * scale } else { 0.0 };
             // The third: a glass's grain, as Blinc's frosted noise; the fourth, the opacity it is drawn at.
             let noise = match &props.background {
                 Some(Brush::Glass(g)) => g.noise.max(0.0),
@@ -855,6 +856,8 @@ pub fn append(
             if let Some(l) = liquid {
                 // gradient: liquid, refraction, the rim line's width, the light's angle; via: tint; the top side's colour: border.
                 b.gradient = [1.0, 1.0, l.edge, -std::f32::consts::FRAC_PI_4];
+                // The gradient-stop offsets are unused by backdrops; x carries rim dispersion.
+                b.offsets[0] = aberration;
                 b.via = l.tint;
                 b.side_colors[0] = l.border;
             }

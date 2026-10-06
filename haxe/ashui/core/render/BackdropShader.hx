@@ -14,6 +14,11 @@ package ashui.core.render;
 	edge (`gradient.z` wide) catches light from the angle `gradient.w`, or is
 	drawn in the top side's colour when that has any alpha; a faint shadow
 	lies inside it; and a little of the tint in `via` is mixed over.
+	`stops.x` separates red further out and blue further in along that
+	normal, strongest at the edge and zero past the bevel. Zero keeps the
+	three channels together; one separates each by 12% of the refraction.
+	The rim's light separates by the same strength, including over a
+	transparent window where there is no backdrop texture to refract.
 
 	Where nothing is drawn behind it, as in a transparent window over the
 	desktop, it draws the tint and the rim's light over what shows through,
@@ -42,6 +47,15 @@ class BackdropShader implements UiShader {
 			var f = fract(p);
 			var u = f * f * (3. - 2. * f);
 			return mix(mix(hash(i), hash(i + vec2(1., 0.)), u.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), u.x), u.y);
+		}
+
+		function rimLine(inner : Float, width : Float) : Float {
+			return smoothstep(0., width * 0.3, inner) * (1. - smoothstep(width, width * 1.5, inner));
+		}
+
+		function rimLens(inner : Float, rim : Float) : Float {
+			var bevel = 1. - clamp(inner / rim, 0., 1.);
+			return bevel * bevel;
 		}
 		var place : Vec4;
 
@@ -81,6 +95,7 @@ class BackdropShader implements UiShader {
 			var normal = vec2(0., 0.);
 			var offset = vec2(0., 0.);
 			var lens = 0.;
+			var rim = min(25., min(box.x, box.y) * 0.2);
 			if (liquid) {
 				var e = 0.5;
 				var gx = boxDistance(local + vec2(e, 0.), box, radius, shape, nc, nt, nb) - boxDistance(local - vec2(e, 0.), box, radius, shape, nc, nt, nb);
@@ -88,29 +103,40 @@ class BackdropShader implements UiShader {
 				var m = primitive.affine;
 				var g = vec2(m.x * gx + m.z * gy, m.y * gx + m.w * gy);
 				normal = g / max(length(g), 0.0001);
-				var rim = min(25., min(box.x, box.y) * 0.2);
-				var bevel = 1. - clamp(inner / rim, 0., 1.);
-				lens = bevel * bevel;
+				lens = rimLens(inner, rim);
 				// Layout units to target pixels.
 				var k = size.x / viewport.x * length(m.xy);
-				offset = normal * bevel * bevel * 60. * primitive.gradient.y * k;
+				offset = normal * lens * 60. * primitive.gradient.y * k;
 			}
 			var sigma = max(primitive.color.x, 0.0001);
+			var split = offset * (primitive.stops.x * 0.12);
+			var disperse = dot(split, split) > 0.000001;
 			// Texels three deviations each side, two at a time: one filtered read between
 			// a pair, at the ratio of their weights, is their weighted sum.
 			var reach = ceil(sigma * 3.);
 			var sum = vec4(0., 0., 0., 0.);
+			var red = vec2(0., 0.);
+			var blue = vec2(0., 0.);
 			var weights = 0.;
 			var i = -reach;
 			while (i <= reach) {
 				var w0 = exp(-i * i / (2. * sigma * sigma));
 				var w1 = exp(-(i + 1.) * (i + 1.) / (2. * sigma * sigma));
 				var w = w0 + w1;
-				sum += textureLod(layer, vec2(fragCoord.x + offset.x, fragCoord.y + offset.y + i + w1 / w) / size, 0.) * w;
+				var at = vec2(fragCoord.x + offset.x, fragCoord.y + offset.y + i + w1 / w);
+				sum += textureLod(layer, at / size, 0.) * w;
+				if (disperse) {
+					var r = textureLod(layer, (at + split) / size, 0.);
+					var b = textureLod(layer, (at - split) / size, 0.);
+					red += vec2(r.r, r.a) * w;
+					blue += vec2(b.b, b.a) * w;
+				}
 				weights += w;
 				i += 2.;
 			}
 			var texel = sum / weights;
+			if (disperse)
+				texel = vec4(red.x, sum.g, blue.x, max(sum.a, max(red.y, blue.y))) / weights;
 			var rgb = vec3(0., 0., 0.);
 			if (texel.a > 0.0001)
 				rgb = texel.rgb / texel.a;
@@ -122,9 +148,12 @@ class BackdropShader implements UiShader {
 			var tintAlpha = clamp(1. - (primitive.color2.x + primitive.border.y + primitive.borderColor.z) / 3., 0., 1.);
 			if (liquid) {
 				var width = primitive.gradient.z;
-				var line = smoothstep(0., width * 0.3, inner) * (1. - smoothstep(width, width * 1.5, inner));
+				var line = rimLine(inner, width);
+				var lightShift = primitive.stops.x * width * 0.75;
 				var light = vec2(cos(primitive.gradient.w), sin(primitive.gradient.w));
-				var lit = line * 0.6 * (0.2 + 0.8 * max(0., dot(normal, -light)));
+				var litRgb = vec3(rimLine(inner + lightShift, width), line, rimLine(inner - lightShift, width))
+					* (0.6 * (0.2 + 0.8 * max(0., dot(normal, -light))));
+				var lit = max(litRgb.r, max(litRgb.g, litRgb.b));
 				var edge = primitive.borderTop;
 				var s0 = width * 2.5;
 				var s1 = width * 8.;
@@ -136,8 +165,8 @@ class BackdropShader implements UiShader {
 					tint = tint * (1. - k) + edge.rgb * k;
 					tintAlpha = k + tintAlpha * (1. - k);
 				} else {
-					rgb = rgb + vec3(lit, lit, lit);
-					tint = tint * (1. - lit) + vec3(lit, lit, lit);
+					rgb = rgb + litRgb;
+					tint = tint * (1. - lit) + litRgb;
 					tintAlpha = lit + tintAlpha * (1. - lit);
 				}
 				rgb = rgb - vec3(shade, shade, shade);
@@ -149,8 +178,11 @@ class BackdropShader implements UiShader {
 				var band = lens * (1. - lens) * 4. * 0.12;
 				tint = tint * (1. - band);
 				tintAlpha = band + tintAlpha * (1. - band);
-				var spec = lens * lens * (0.85 * max(0., dot(normal, -light)) + 0.35 * max(0., dot(normal, light)));
-				tint = tint * (1. - spec) + vec3(spec, spec, spec);
+				var specShift = primitive.stops.x * 3.;
+				var spectrum = vec3(rimLens(inner + specShift, rim), lens, rimLens(inner - specShift, rim));
+				var specRgb = spectrum * spectrum * (0.85 * max(0., dot(normal, -light)) + 0.35 * max(0., dot(normal, light)));
+				var spec = max(specRgb.r, max(specRgb.g, specRgb.b));
+				tint = tint * (1. - spec) + specRgb;
 				tintAlpha = spec + tintAlpha * (1. - spec);
 				// Enough of it that the system blurs what is behind even a clear one.
 				tintAlpha = max(tintAlpha, 0.04);

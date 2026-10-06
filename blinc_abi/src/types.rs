@@ -18,6 +18,8 @@ pub enum Value {
     #[default]
     None,
     Brush(Brush),
+    /// Glass and its rim's chromatic aberration, which Blinc's GlassStyle does not carry.
+    Glass(GlassStyle, f32),
     Color(Color),
     Radius(CornerRadius),
     Transform(Transform),
@@ -134,13 +136,22 @@ pub extern "C" fn hl_blinc_brush_glass(
         .tint(hex_color(tint_hex, tint_alpha))
         .with_simple(simple != 0)
         .noise(noise);
-    value(Value::Brush(Brush::Glass(glass)))
+    value(Value::Glass(glass, 0.3))
 }
 define_prim!(
     hlp_blinc_brush_glass,
     hl_blinc_brush_glass,
     "Pfififf_Xblinc_value_"
 );
+
+/// Set while constructing the brush, before it is assigned to a node or signal.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_brush_glass_aberration(brush: *mut c_void, strength: f32) {
+    if let Some(Value::Glass(_, aberration)) = unsafe { handle_mut::<Value>(brush) } {
+        *aberration = if strength.is_finite() { strength.clamp(0.0, 1.0) } else { 0.0 };
+    }
+}
+define_prim!(hlp_blinc_brush_glass_aberration, hl_blinc_brush_glass_aberration, "PXblinc_value_f_v");
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_brush_blur(radius: f32, tint_hex: i32, tint_alpha: f32) -> *mut c_void {

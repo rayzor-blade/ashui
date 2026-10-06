@@ -34,6 +34,12 @@ import haxe.macro.Type;
 	  `backdrop-brightness-`, `-contrast-`, `-saturate-`, `-hue-rotate-`,
 	  `backdrop-grayscale`, `-invert`, `-sepia`, which filter what is behind
 	  with or without a blur;
+	- liquid glass, `bg-glass`, with `glass-blur-2` (pixels),
+	  `glass-tint-white/20` (fixed or theme colours), `glass-aberration-30`
+	  and `glass-noise-3` (percent), and `glass-frosted` or `glass-liquid`.
+	  These declare CSS's `background: glass` and `glass-*` settings, so
+	  variables, stylesheets and state variants use the same brush. Defaults:
+	  12px blur, white/10 tint, 30% aberration, no noise, liquid mode;
 	- borders, `border`, `border-0` … `border-8`, and one side or two over
 	  it, `border-t`, `border-x-2`, `border-b-0` …, each side in the
 	  border's colour or its own, `border-t-primary`, `border-x-error` …;
@@ -237,7 +243,20 @@ class Tw {
 		}
 		if (backdrop == null && backdropColor != null)
 			backdrop = {radius: 0.0, pos: backdropColor};
-		if (backdrop != null) {
+		var glassBackground = Lambda.exists(out, e -> {
+			var kv = keyValue(e);
+			kv != null && kv.key == "css:background" && switch kv.value.expr {
+				case EConst(CString("glass", _)): true;
+				case _: false;
+			};
+		});
+		if (glassBackground && backdrop != null) {
+			// Keep the glass brush when a backdrop blur or colour filter accompanies it.
+			if (backdropColor == null || backdrop.radius != 0) {
+				var value = 'blur(${backdrop.radius}px)';
+				out.push(macro ashui.css.Identity.declare($node, "backdrop-filter", $v{value}));
+			}
+		} else if (backdrop != null) {
 			if (variants.exists("Background"))
 				Context.error("tw: a state variant of the background would replace the backdrop blur; vary something else", backdrop.pos);
 			var set = Lambda.find(out, e -> {
@@ -334,8 +353,14 @@ class Tw {
 				pick = macro $test ? ${read(name)} : $pick;
 			}
 			// One block: the values are made before the computed that reads them, not inside it.
+			var apply = if (StringTools.startsWith(key, "css:")) {
+				var name = key.substr(4);
+				macro new ashui.reactive.Watch(() -> $pick, value -> ashui.css.Identity.declare($node, $v{name}, value));
+			} else {
+				macro $node.set(ashui.layout.Prop.$key, ashui.reactive.Computed.make(() -> $pick));
+			}
 			out.push({
-				expr: EBlock(lets.concat([macro $node.set(ashui.layout.Prop.$key, ashui.reactive.Computed.make(() -> $pick))])),
+				expr: EBlock(lets.concat([apply])),
 				pos: at
 			});
 		}
@@ -362,6 +387,11 @@ class Tw {
 		malformed one is a compile error at `pos`; null if neither.
 	**/
 	static function lookup(vocabulary:Map<String, Expr->Array<Expr>>, word:String, pos:Position):Null<Expr->Array<Expr>> {
+		var glass = glassCss(word, pos);
+		if (glass != null) {
+			var name = glass.name, value = glass.value;
+			return node -> [macro ashui.css.Identity.declare($node, $v{name}, $v{value})];
+		}
 		var known = vocabulary.get(word);
 		if (known != null)
 			return known;
@@ -441,6 +471,7 @@ class Tw {
 	static function keyValue(e:Expr):Null<{key:String, value:Expr}> {
 		return switch e.expr {
 			case ECall({expr: EField(_, "set", _)}, [{expr: EField(_, key, _)}, value]): {key: key, value: value};
+			case ECall({expr: EField(_, "declare", _)}, [_, {expr: EConst(CString(name, _))}, value]): {key: 'css:$name', value: value};
 			case _: null;
 		}
 	}
@@ -519,6 +550,14 @@ class Tw {
 				var made = colorSetter(target, name, 1.0);
 				v.set('${target.prefix}-$name', made);
 			}
+		// The glass utilities are CSS declarations, composed by the same background handler as a stylesheet.
+		for (word in ["bg-glass", "glass-liquid", "glass-frosted"].concat([for (name in colorNames()) 'glass-tint-$name'])
+			.concat([for (i in 0...101) 'glass-blur-$i']).concat([for (i in 0...101) 'glass-aberration-$i'])
+			.concat([for (i in 0...101) 'glass-noise-$i'])) {
+			var declaration = glassCss(word, Context.currentPos());
+			var name = declaration.name, value = declaration.value;
+			v.set(word, node -> [macro ashui.css.Identity.declare($node, $v{name}, $v{value})]);
+		}
 
 		// Corners, from RadiusToken: Default is bare `rounded`.
 		for (token in tokenNames("ashui.theme.RadiusToken")) {
@@ -666,7 +705,7 @@ class Tw {
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
 			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},
-			{pattern: ~/\[.*\]/, why: "arbitrary values are not supported but for [clip-path:…]; use a token or an attribute"}
+			{pattern: ~/\[.*\]/, why: "arbitrary values are supported for [clip-path:…] and [glass-*:…]; use a token or an attribute otherwise"}
 		];
 		known = v;
 		return v;
@@ -763,6 +802,36 @@ class Tw {
 				return null;
 			return {name: "color", value: percent == null ? base : 'color-mix(in srgb, $base $percent%, transparent)'};
 		}
+		return null;
+	}
+
+	/** A glass utility's CSS property and value, including arbitrary glass settings. **/
+	static function glassCss(word:String, pos:Position):Null<{name:String, value:String}> {
+		if (word == "bg-glass")
+			return {name: "background", value: "glass"};
+		if (word == "glass-liquid" || word == "glass-frosted")
+			return {name: "glass-mode", value: word.substr(6)};
+		var amount = ~/^glass-(blur|aberration|noise)-(\d+(?:\.\d+)?)$/;
+		if (amount.match(word)) {
+			var property = amount.matched(1), value = amount.matched(2);
+			if (property != "blur" && Std.parseFloat(value) > 100)
+				Context.error('tw: $word: $property is 0 to 100', pos);
+			return {name: 'glass-$property', value: value + (property == "blur" ? "px" : "%")};
+		}
+		var tint = ~/^glass-tint-([a-z0-9-]+?)(?:\/(\d{1,3}))?$/;
+		if (tint.match(word)) {
+			var name = tint.matched(1), percent = tint.matched(2);
+			var fixed = fixedColor(name);
+			var base = fixed != null ? (fixed.alpha == 0 ? "transparent" : '#${StringTools.hex(fixed.hex, 6)}') : colors.exists(name) ? 'var(--$name)' : null;
+			if (base == null)
+				return null;
+			if (percent != null && Std.parseInt(percent) > 100)
+				Context.error('tw: $word: an opacity is 0 to 100', pos);
+			return {name: "glass-tint", value: percent == null ? base : 'color-mix(in srgb, $base $percent%, transparent)'};
+		}
+		var arbitrary = ~/^\[(glass-(?:blur|tint|aberration|noise|mode)):(.+)\]$/;
+		if (arbitrary.match(word))
+			return {name: arbitrary.matched(1), value: StringTools.replace(arbitrary.matched(2), "_", " ")};
 		return null;
 	}
 

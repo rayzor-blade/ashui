@@ -125,6 +125,17 @@ pub fn take_pending_backdrop() -> Vec<(LayoutNodeId, usize, f32)> {
     std::mem::take(&mut *PENDING_BACKDROP.lock().unwrap_or_else(|e| e.into_inner()))
 }
 
+/// Kept beside render props because Blinc's glass style has no dispersion field.
+static PENDING_GLASS: Mutex<Vec<(LayoutNodeId, f32)>> = Mutex::new(Vec::new());
+
+fn record_glass(node: LayoutNodeId, aberration: f32) {
+    PENDING_GLASS.lock().unwrap_or_else(|e| e.into_inner()).push((node, aberration));
+}
+
+pub fn take_pending_glass() -> Vec<(LayoutNodeId, f32)> {
+    std::mem::take(&mut *PENDING_GLASS.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
 /// Text changes recorded since the last call, oldest first.
 pub fn take_pending_text() -> Vec<(LayoutNodeId, TextWrite)> {
     std::mem::take(&mut *PENDING_TEXT.lock().unwrap_or_else(|e| e.into_inner()))
@@ -651,12 +662,22 @@ define_prim!(
 // ============================================================================
 
 /// A value of the wrong variant for the property is ignored.
-fn value_write(prop: PropertyId) -> Option<Write<Value>> {
+fn value_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<Value>> {
     use PropertyId as P;
     match prop {
-        P::Background => render(|p, v| match v {
-            Value::Brush(b) => p.background = Some(b),
-            Value::Color(c) => p.background = Some(c.into()),
+        P::Background => render(move |p, v| match v {
+            Value::Glass(g, aberration) => {
+                record_glass(node, if g.simple { 0.0 } else { aberration });
+                p.background = Some(blinc_core::Brush::Glass(g));
+            }
+            Value::Brush(b) => {
+                record_glass(node, 0.0);
+                p.background = Some(b);
+            }
+            Value::Color(c) => {
+                record_glass(node, 0.0);
+                p.background = Some(c.into());
+            }
             _ => {}
         }),
         P::BorderColor => render(|p, v| {
@@ -714,7 +735,7 @@ pub unsafe extern "C" fn hl_blinc_apply_value(
         own
     } else {
         let Some(prop) = property(prop) else { return };
-        let Some(write) = value_write(prop) else {
+        let Some(write) = value_write(LayoutNodeId::from_raw(node), prop) else {
             return;
         };
         (prop, write)
@@ -836,7 +857,10 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
     };
     use PropertyId as P;
     match raw {
-        0 => ren(P::Background, Box::new(|p| p.background = None)),
+        0 => ren(P::Background, Box::new(move |p| {
+            record_glass(node, 0.0);
+            p.background = None;
+        })),
         1 => ren(P::BorderColor, Box::new(|p| p.border_color = None)),
         2 => ren(P::BorderWidth, Box::new(|p| p.border_width = RenderProps::default().border_width)),
         3 => ren(P::CornerRadius, Box::new(|p| {

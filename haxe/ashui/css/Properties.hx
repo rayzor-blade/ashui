@@ -32,6 +32,9 @@ typedef ApplyContext = {
 
 	/** The element's `background-size`, which a `url()` image in its background is fitted by. **/
 	final ?backgroundSize:String;
+
+	/** Resolved glass-* declarations, read together when `background: glass` builds its brush. **/
+	final ?glassProperties:Map<String, String>;
 }
 
 /**
@@ -316,10 +319,16 @@ class Properties {
 		});
 		// Read by `background`'s `url()` images, through the context; nothing of its own to write.
 		h.set("background-size", (_, _, _) -> []);
+		// These settings belong to the glass background; they have no separate native field.
+		for (name in ["glass-blur", "glass-tint", "glass-aberration", "glass-noise", "glass-mode"])
+			h.set(name, (_, v, c) -> {
+				validateGlass(name, v, c);
+				[];
+			});
 		h.set("background", (n, v, c) -> {
 			var t = StringTools.trim(v);
 			var blur = c.backdropBlur == null ? -1.0 : c.backdropBlur;
-			var brush = if (t.toLowerCase() == "none") blur >= 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (CssValue.call(t) != null
+			var brush = if (t.toLowerCase() == "glass") glass(c) else if (t.toLowerCase() == "none") blur >= 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (CssValue.call(t) != null
 				&& CssValue.call(t).name.indexOf("gradient") >= 0 || CssValue.call(t) != null && CssValue.call(t).name == "url") image(t, c) else {
 				var col = colorOf(CssValue.color(t), c);
 				blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
@@ -727,6 +736,45 @@ class Properties {
 			if (p != "auto" && !Patterns.RE4.match(p) && !Patterns.RE5.match(p))
 				throw 'expected a line, span n or auto, not "$p"';
 		return parts.join(" / ");
+	}
+
+	/**
+		`background: glass` defaults to liquid glass with 12px blur, white/10 tint,
+		0.3 aberration and no noise. The glass-* properties override those settings.
+	**/
+	static function glass(c:ApplyContext):Brush {
+		function setting(name:String, fallback:String):String {
+			var value = c.glassProperties == null ? null : c.glassProperties.get(name);
+			if (value == null)
+				return fallback;
+			// A bad setting is reported by its own handler, and leaves this setting at its default.
+			return try {
+				validateGlass(name, value, c);
+				value;
+			} catch (_:String) fallback;
+		}
+		var tint = colorOf(CssValue.color(setting("glass-tint", "rgba(255,255,255,0.1)")), c);
+		var blur = c.backdropBlur != null && c.backdropBlur >= 0 ? '${c.backdropBlur}px' : "12px";
+		return Brush.glass(pixels(CssValue.length(setting("glass-blur", blur)), c), tint.rgb, tint.alpha,
+			StringTools.trim(setting("glass-mode", "liquid")).toLowerCase() == "frosted",
+			CssValue.amount(setting("glass-noise", "0")), CssValue.amount(setting("glass-aberration", "0.3")));
+	}
+
+	static function validateGlass(name:String, value:String, c:ApplyContext):Void {
+		switch name {
+			case "glass-blur":
+				var blur = pixels(CssValue.length(value), c);
+				if (!Math.isFinite(blur) || blur < 0)
+					throw "expected a nonnegative length";
+			case "glass-tint": CssValue.color(value);
+			case "glass-aberration" | "glass-noise":
+				var amount = CssValue.amount(value);
+				if (!Math.isFinite(amount) || amount < 0 || amount > 1)
+					throw "expected 0 to 1, or 0% to 100%";
+			case "glass-mode":
+				if (["liquid", "frosted"].indexOf(StringTools.trim(value).toLowerCase()) < 0)
+					throw "expected liquid or frosted";
+		}
 	}
 
 	static function pixels(l:CssLength, c:ApplyContext):Float {

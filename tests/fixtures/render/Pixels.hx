@@ -430,6 +430,105 @@ class Pixels {
 		probe("Tw's backdrop-invert, with no blur class, inverts the red behind", 16, 26, near(0x00ffff));
 		probe("and the white round it", 16, 12, near(0x000000));
 
+		// Liquid glass's colour split follows the bevel, responds to a bound brush,
+		// and leaves its centre, what is outside, and plain frosted glass alone.
+		var glassTree = new LayoutTree();
+		var glassBrush = ashui.reactive.Signal.make(Brush.glass(1, 0xffffff, 0.05, false, 0, 0));
+		var checker:Array<ashui.layout.Element> = [];
+		for (y in 0...8)
+			for (x in 0...12)
+				checker.push(new Div({position: Position.Absolute, left: x * 16, top: y * 16, width: 16, height: 16,
+					bg: Brush.solid((x + y) % 2 == 0 ? 0x202020 : 0xffffff)}, glassTree));
+		checker.push(new Div({position: Position.Absolute, left: 32, top: 16, width: 128, height: 96,
+			cornerRadius: CornerRadius.all(24), bg: glassBrush}, glassTree));
+		var glassRoot = new Div({width: 192, height: 128}, checker, glassTree);
+		function glassCheck(name:String, ok:Bool, ?detail:Dynamic) {
+			if (!ok)
+				failures++;
+			Sys.println('${ok ? "ok  " : "FAIL"} liquid glass: $name' + (detail == null ? "" : ': $detail'));
+		}
+		function chroma(p:haxe.io.Bytes):Int {
+			var total = 0;
+			for (y in 16...112)
+				for (x in 32...160) {
+					var i = (y * 192 + x) * 4;
+					total += Std.int(Math.abs(p.get(i) - p.get(i + 1)) + Math.abs(p.get(i + 2) - p.get(i + 1)));
+				}
+			return total;
+		}
+		function glassDifference(a:haxe.io.Bytes, b:haxe.io.Bytes, left:Int, top:Int, right:Int, bottom:Int):Int {
+			var total = 0;
+			for (y in top...bottom)
+				for (x in left...right)
+					for (c in 0...4) {
+						var i = (y * 192 + x) * 4 + c;
+						total += Std.int(Math.abs(a.get(i) - b.get(i)));
+					}
+			return total;
+		}
+		var unsplit = offscreen.renderToRgba8(glassRoot, 192, 128);
+		glassBrush.set(Brush.glass(1, 0xffffff, 0.05));
+		var subtle = offscreen.renderToRgba8(glassRoot, 192, 128);
+		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, false, 0, 1));
+		var strong = offscreen.renderToRgba8(glassRoot, 192, 128);
+		glassCheck("0 disables the split; the default adds colour, and 1 increases it", chroma(unsplit) == 0
+			&& chroma(subtle) > 1000 && chroma(strong) > chroma(subtle), [chroma(unsplit), chroma(subtle), chroma(strong)]);
+		glassCheck("the split stays in the bevel", glassDifference(unsplit, strong, 64, 48, 128, 80) == 0
+			&& glassDifference(unsplit, strong, 0, 0, 24, 128) == 0);
+		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, true, 0, 0));
+		var frosted = offscreen.renderToRgba8(glassRoot, 192, 128);
+		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, true, 0, 1));
+		glassCheck("simple frosted glass ignores aberration", frosted.compare(offscreen.renderToRgba8(glassRoot, 192, 128)) == 0);
+		var clearTree = new LayoutTree();
+		var clearBrush = ashui.reactive.Signal.make(Brush.glass(1, 0xffffff, 0.05, false, 0, 0));
+		var clearGlass = new Div({position: Position.Absolute, left: 32, top: 16, width: 128, height: 96,
+			cornerRadius: CornerRadius.all(24), bg: clearBrush}, clearTree);
+		var clearRoot = new Div({width: 192, height: 128}, [clearGlass], clearTree);
+		var clearUnsplit = offscreen.renderToRgba8(clearRoot, 192, 128);
+		clearBrush.set(Brush.glass(1, 0xffffff, 0.05, false, 0, 1));
+		var clearSplit = offscreen.renderToRgba8(clearRoot, 192, 128);
+		glassCheck("a transparent window's rim highlights also disperse", chroma(clearUnsplit) == 0 && chroma(clearSplit) > 1000,
+			[chroma(clearUnsplit), chroma(clearSplit)]);
+		// A class and a stylesheet must produce the same pixels as the brush API,
+		// and change the existing panel when a state or CSS variable changes.
+		function styledGlass(?style:ashui.style.Style, ?classes:ashui.layout.IntoReactive<Array<String>>) {
+			var styledTree = new LayoutTree();
+			var backdrop:Array<ashui.layout.Element> = [];
+			for (y in 0...8)
+				for (x in 0...12)
+					backdrop.push(new Div({position: Position.Absolute, left: x * 16, top: y * 16, width: 16, height: 16,
+						bg: Brush.solid((x + y) % 2 == 0 ? 0x202020 : 0xffffff)}, styledTree));
+			var panel = new Div({position: Position.Absolute, left: 32, top: 16, width: 128, height: 96,
+				cornerRadius: CornerRadius.all(24), style: style, classes: classes}, styledTree);
+			backdrop.push(panel);
+			return {root: new Div({width: 192, height: 128}, backdrop, styledTree), panel: panel};
+		}
+		var twGlass = styledGlass(ashui.style.Tw.tw("bg-glass glass-blur-1 glass-tint-white/5 glass-aberration-0 hover:glass-aberration-100"));
+		glassCheck("bg-glass utilities match the brush", unsplit.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
+		ashui.input.Interaction.of(twGlass.panel.node).hovered.set(true);
+		glassCheck("a hover utility changes the existing glass bevel", strong.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
+		ashui.input.Interaction.of(twGlass.panel.node).hovered.set(false);
+		glassCheck("leaving hover restores its base aberration", unsplit.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
+		var glassSheet = ashui.css.Css.load('
+			.css-glass { background: glass; glass-blur: 1px; glass-tint: rgba(255,255,255,0.05); glass-aberration: var(--split, 0); glass-noise: 0; glass-mode: liquid; }
+			.css-glass.strong { --split: 100%; }
+			.css-glass.frosted { glass-mode: frosted; }
+		');
+		var glassClasses = ashui.reactive.Signal.make(["css-glass"]);
+		var cssGlass = styledGlass(null, glassClasses);
+		glassCheck("CSS glass settings match the brush", unsplit.compare(offscreen.renderToRgba8(cssGlass.root, 192, 128)) == 0);
+		glassClasses.set(["css-glass", "strong"]);
+		glassCheck("CSS class and variable updates change the bevel", strong.compare(offscreen.renderToRgba8(cssGlass.root, 192, 128)) == 0);
+		glassClasses.set(["css-glass", "strong", "frosted"]);
+		glassCheck("CSS can switch to frosted glass", frosted.compare(offscreen.renderToRgba8(cssGlass.root, 192, 128)) == 0);
+		ashui.css.Css.remove(glassSheet);
+		var frostedUtility = styledGlass(ashui.style.Tw.tw("bg-glass glass-frosted glass-blur-1 glass-tint-white/5 glass-aberration-100"));
+		glassCheck("glass-frosted uses the existing frosted brush", frosted.compare(offscreen.renderToRgba8(frostedUtility.root, 192, 128)) == 0);
+		var arbitraryGlass = styledGlass(ashui.style.Tw.tw("bg-glass [glass-blur:1px] [glass-tint:rgba(255,255,255,0.05)] [glass-aberration:1]"));
+		glassCheck("arbitrary glass settings share the CSS path", strong.compare(offscreen.renderToRgba8(arbitraryGlass.root, 192, 128)) == 0);
+		var backdropGlass = styledGlass(ashui.style.Tw.tw("bg-glass backdrop-blur-none glass-blur-1 glass-tint-white/5 glass-aberration-100"));
+		glassCheck("backdrop utilities preserve the glass brush and explicit blur", strong.compare(offscreen.renderToRgba8(backdropGlass.root, 192, 128)) == 0);
+
 		var dropTree = new LayoutTree();
 		var disc = new Div({position: Position.Absolute, left: 8, top: 8, width: 16, height: 16, bg: Brush.solid(0xff0000),
 			cornerRadius: CornerRadius.all(8)}, dropTree);
