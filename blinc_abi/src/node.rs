@@ -45,8 +45,8 @@ pub struct Tree {
     pub(crate) notches: HashMap<LayoutNodeId, [[f32; 4]; 3]>,
     /// Each node's backdrop colour filters, in `BACKDROP_IDENTITY`'s order; none for the identity.
     pub(crate) backdrop_filters: HashMap<LayoutNodeId, [f32; 7]>,
-    /// Each liquid glass node's chromatic aberration; absent when disabled.
-    pub(crate) glass_aberration: HashMap<LayoutNodeId, f32>,
+    /// Each liquid glass node's dispersion, bevel strength and curvature.
+    pub(crate) glass_effects: HashMap<LayoutNodeId, crate::types::GlassEffects>,
     /// Nodes drawn away from their layout while a layout animation runs:
     /// moved by (dx, dy), and at size (w, h) when w is not negative.
     pub(crate) visuals: HashMap<LayoutNodeId, [f32; 4]>,
@@ -90,7 +90,7 @@ fn shared() -> &'static mut Tree {
             pass_through: std::collections::HashSet::new(),
             notches: HashMap::new(),
             backdrop_filters: HashMap::new(),
-            glass_aberration: HashMap::new(),
+            glass_effects: HashMap::new(),
             visuals: HashMap::new(),
         })
     }
@@ -168,7 +168,7 @@ fn forget(tree: &mut Tree, nodes: &[LayoutNodeId]) {
         tree.owners.remove(node);
         tree.notches.remove(node);
         tree.backdrop_filters.remove(node);
-        tree.glass_aberration.remove(node);
+        tree.glass_effects.remove(node);
     }
 }
 
@@ -541,11 +541,11 @@ pub unsafe extern "C" fn hl_blinc_tree_flush(h: *mut c_void) -> bool {
         }
         painted = true;
     }
-    for (node, aberration) in take_pending_glass() {
-        if aberration > 0.0 {
-            tree.glass_aberration.insert(node, aberration);
+    for (node, effects) in take_pending_glass() {
+        if let Some(effects) = effects {
+            tree.glass_effects.insert(node, effects);
         } else {
-            tree.glass_aberration.remove(&node);
+            tree.glass_effects.remove(&node);
         }
         painted = true;
     }

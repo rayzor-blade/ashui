@@ -1584,6 +1584,47 @@ class Components {
 		var sb = narrowTree.getBounds(narrowSlider.node);
 		check("a labelled slider in a column narrower than it shrinks to fit", sb != null && sb.width <= 180 + 0.5, sb == null ? null : sb.width);
 
+		// A vertical slider retains the range's drag and keys, including a press on its HXX icon child.
+		var verticalTree = new LayoutTree();
+		var verticalValue = Signal.make(25.0);
+		var verticalRoot:Div = Owner.root(verticalTree, _ -> <div width={200} height={200}>
+			<slider id="verticalRange" value={verticalValue} min={0} max={100} step={1} orientation="vertical" width={24} height={160}>
+				<div class="absolute" left={8} bottom={8} width={8} height={8}>
+					<svg width={8} height={8} viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor" /></svg>
+				</div>
+			</slider>
+		</div>);
+		verticalTree.flush();
+		verticalTree.computeLayout(verticalRoot.node, 200, 200);
+		var verticalId = Lambda.find(verticalTree.order(), n -> identity2(verticalTree, n).id == "verticalRange");
+		var verticalNode = new ashui.layout.Node(verticalId);
+		var verticalParts = verticalTree.children(verticalId);
+		var vb = verticalTree.getBounds(verticalNode);
+		var vf = verticalTree.getBounds(new ashui.layout.Node(verticalParts[0]));
+		var vt = verticalTree.getBounds(new ashui.layout.Node(verticalParts[1]));
+		var vi = verticalTree.getBounds(new ashui.layout.Node(verticalParts[3]));
+		check("a vertical slider fills from the bottom and retains its HXX content",
+			identity2(verticalTree, verticalId).attribute("data-orientation") == "vertical" && verticalParts.length == 4
+			&& Math.abs(vf.height - (vb.height - vt.height) * 0.25) < 0.5
+			&& Math.abs(vf.y + vf.height - vb.y - vb.height) < 0.5, [vb, vf]);
+		ashui.input.Pointer.move(verticalTree, vi.x + vi.width / 2, vi.y + vi.height / 2);
+		ashui.input.Pointer.press(verticalTree);
+		var iconPress = verticalValue.get();
+		var iconExpected = Math.round((vb.y + vb.height - vi.y - vi.height / 2 - vt.height / 2) / (vb.height - vt.height) * 100);
+		ashui.input.Pointer.move(verticalTree, vb.x + 200, vb.y + vb.height - vt.height / 2 - (vb.height - vt.height) * 0.75);
+		var verticalDrag = verticalValue.get();
+		ashui.input.Pointer.release(verticalTree);
+		ashui.input.Pointer.move(verticalTree, vb.x + vb.width / 2, vb.y + vt.height / 2);
+		check("a vertical slider can start on its icon, drag sideways out of its bounds, and stop on release",
+			iconPress == iconExpected && verticalDrag == 75 && verticalValue.get() == 75, [iconPress, iconExpected, verticalDrag]);
+		ashui.input.Keyboard.input(verticalTree, key(Named(ArrowUp), ArrowUp));
+		var increased = verticalValue.get();
+		ashui.input.Keyboard.input(verticalTree, key(Named(End), End));
+		var atTop = verticalValue.get();
+		ashui.input.Keyboard.input(verticalTree, key(Named(Home), Home));
+		check("a vertical slider keeps Arrow Up, End and Home",
+			increased == 76 && atTop == 100 && verticalValue.get() == 0, [increased, atTop, verticalValue.get()]);
+
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

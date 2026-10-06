@@ -13,6 +13,7 @@
 #                             ASHUI_MOTION=overlay draws the motion overlay.
 #
 # A scene is a class whose main calls Snapshot.scene; see scenes/Demo.hx.
+# A .css file beside the scene is declared for HXX's class checking and watched too.
 # Needs ../hlwgpu (and ../hlwindow for --window) beside this repository, built here as needed, and a built ../ash.
 set -e
 watch=0
@@ -27,6 +28,9 @@ done
 [ -n "$1" ] || { echo "usage: run.sh [--watch] [--window] Scene.hx" >&2; exit 2; }
 scene="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 name="$(basename "$scene" .hx)"
+scene_css="${scene%.hx}.css"
+css="$scene_css"
+[ -f "$css" ] || css=""
 
 cd "$(dirname "$0")"
 repo="$(cd ../.. && pwd)"
@@ -74,7 +78,7 @@ render() {
 	fi
 	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" --class-path "$vib/ash/haxelib/ash-simd" -D ash_simd \
-		--macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' $defines \
+		--macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' -D "ashui_css=$css" $defines \
 		--class-path "$(dirname "$scene")" -main "$name" -hl "bin/$name.hl" 2>&1); then
 		echo "error $name does not compile: $(echo "$out" | grep -v Warning | head -1)" >> "$events"
 		echo "$out" >&2
@@ -100,7 +104,7 @@ touch "$stamp"
 render || true
 echo "watching $scene; Ctrl-C stops" >&2
 while sleep 0.5; do
-	if [ -n "$(find "$scene" "$repo/haxe" "$repo/blinc_abi/src" -newer "$stamp" \( -name '*.hx' -o -name '*.rs' \) 2>/dev/null | head -1)" ]; then
+	if [ -n "$(find "$scene" "$scene_css" "$repo/haxe" "$repo/blinc_abi/src" -newer "$stamp" \( -name '*.hx' -o -name '*.css' -o -name '*.rs' \) 2>/dev/null | head -1)" ]; then
 		touch "$stamp"
 		render || true
 	fi

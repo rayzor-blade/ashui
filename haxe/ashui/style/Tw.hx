@@ -36,7 +36,8 @@ import haxe.macro.Type;
 	  with or without a blur;
 	- liquid glass, `bg-glass`, with `glass-blur-2` (pixels),
 	  `glass-tint-white/20` (fixed or theme colours), `glass-aberration-30`
-	  and `glass-noise-3` (percent), and `glass-frosted` or `glass-liquid`.
+	  and `glass-noise-3` (percent), `glass-bevel-35`, `glass-inset` or
+	  `glass-outset`, and `glass-frosted` or `glass-liquid`.
 	  These declare CSS's `background: glass` and `glass-*` settings, so
 	  variables, stylesheets and state variants use the same brush. Defaults:
 	  12px blur, white/10 tint, 30% aberration, no noise, liquid mode;
@@ -551,9 +552,9 @@ class Tw {
 				v.set('${target.prefix}-$name', made);
 			}
 		// The glass utilities are CSS declarations, composed by the same background handler as a stylesheet.
-		for (word in ["bg-glass", "glass-liquid", "glass-frosted"].concat([for (name in colorNames()) 'glass-tint-$name'])
+		for (word in ["bg-glass", "glass-liquid", "glass-frosted", "glass-inset", "glass-outset"].concat([for (name in colorNames()) 'glass-tint-$name'])
 			.concat([for (i in 0...101) 'glass-blur-$i']).concat([for (i in 0...101) 'glass-aberration-$i'])
-			.concat([for (i in 0...101) 'glass-noise-$i'])) {
+			.concat([for (i in 0...101) 'glass-noise-$i']).concat([for (i in 0...101) 'glass-bevel-$i'])) {
 			var declaration = glassCss(word, Context.currentPos());
 			var name = declaration.name, value = declaration.value;
 			v.set(word, node -> [macro ashui.css.Identity.declare($node, $v{name}, $v{value})]);
@@ -811,7 +812,9 @@ class Tw {
 			return {name: "background", value: "glass"};
 		if (word == "glass-liquid" || word == "glass-frosted")
 			return {name: "glass-mode", value: word.substr(6)};
-		var amount = ~/^glass-(blur|aberration|noise)-(\d+(?:\.\d+)?)$/;
+		if (word == "glass-inset" || word == "glass-outset")
+			return {name: "glass-curvature", value: word.substr(6)};
+		var amount = ~/^glass-(blur|aberration|noise|bevel)-(\d+(?:\.\d+)?)$/;
 		if (amount.match(word)) {
 			var property = amount.matched(1), value = amount.matched(2);
 			if (property != "blur" && Std.parseFloat(value) > 100)
@@ -829,7 +832,7 @@ class Tw {
 				Context.error('tw: $word: an opacity is 0 to 100', pos);
 			return {name: "glass-tint", value: percent == null ? base : 'color-mix(in srgb, $base $percent%, transparent)'};
 		}
-		var arbitrary = ~/^\[(glass-(?:blur|tint|aberration|noise|mode)):(.+)\]$/;
+		var arbitrary = ~/^\[(glass-(?:blur|tint|aberration|bevel|curvature|noise|mode)):(.+)\]$/;
 		if (arbitrary.match(word))
 			return {name: arbitrary.matched(1), value: StringTools.replace(arbitrary.matched(2), "_", " ")};
 		return null;

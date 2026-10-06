@@ -15,7 +15,7 @@
 
 use crate::hl::{handle_ref, opt_string_from};
 use crate::reactive::{AnyComputed, AnySignal, Slot};
-use crate::types::Value;
+use crate::types::{GlassEffects, Value};
 use blinc_core::CornerShape;
 use blinc_layout::binding::{
     register_typed, register_typed_computed, register_typed_layout, register_typed_layout_computed,
@@ -125,14 +125,14 @@ pub fn take_pending_backdrop() -> Vec<(LayoutNodeId, usize, f32)> {
     std::mem::take(&mut *PENDING_BACKDROP.lock().unwrap_or_else(|e| e.into_inner()))
 }
 
-/// Kept beside render props because Blinc's glass style has no dispersion field.
-static PENDING_GLASS: Mutex<Vec<(LayoutNodeId, f32)>> = Mutex::new(Vec::new());
+/// Kept beside render props because Blinc's glass style has no configurable bevel or dispersion.
+static PENDING_GLASS: Mutex<Vec<(LayoutNodeId, Option<GlassEffects>)>> = Mutex::new(Vec::new());
 
-fn record_glass(node: LayoutNodeId, aberration: f32) {
-    PENDING_GLASS.lock().unwrap_or_else(|e| e.into_inner()).push((node, aberration));
+fn record_glass(node: LayoutNodeId, effects: Option<GlassEffects>) {
+    PENDING_GLASS.lock().unwrap_or_else(|e| e.into_inner()).push((node, effects));
 }
 
-pub fn take_pending_glass() -> Vec<(LayoutNodeId, f32)> {
+pub fn take_pending_glass() -> Vec<(LayoutNodeId, Option<GlassEffects>)> {
     std::mem::take(&mut *PENDING_GLASS.lock().unwrap_or_else(|e| e.into_inner()))
 }
 
@@ -666,16 +666,16 @@ fn value_write(node: LayoutNodeId, prop: PropertyId) -> Option<Write<Value>> {
     use PropertyId as P;
     match prop {
         P::Background => render(move |p, v| match v {
-            Value::Glass(g, aberration) => {
-                record_glass(node, if g.simple { 0.0 } else { aberration });
+            Value::Glass(g, effects) => {
+                record_glass(node, if g.simple { None } else { Some(effects) });
                 p.background = Some(blinc_core::Brush::Glass(g));
             }
             Value::Brush(b) => {
-                record_glass(node, 0.0);
+                record_glass(node, None);
                 p.background = Some(b);
             }
             Value::Color(c) => {
-                record_glass(node, 0.0);
+                record_glass(node, None);
                 p.background = Some(c.into());
             }
             _ => {}
@@ -858,7 +858,7 @@ pub unsafe extern "C" fn hl_blinc_unset(node: u64, raw: i32) {
     use PropertyId as P;
     match raw {
         0 => ren(P::Background, Box::new(move |p| {
-            record_glass(node, 0.0);
+            record_glass(node, None);
             p.background = None;
         })),
         1 => ren(P::BorderColor, Box::new(|p| p.border_color = None)),

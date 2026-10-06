@@ -18,8 +18,8 @@ pub enum Value {
     #[default]
     None,
     Brush(Brush),
-    /// Glass and its rim's chromatic aberration, which Blinc's GlassStyle does not carry.
-    Glass(GlassStyle, f32),
+    /// Glass and the rim settings which Blinc's GlassStyle does not carry.
+    Glass(GlassStyle, GlassEffects),
     Color(Color),
     Radius(CornerRadius),
     Transform(Transform),
@@ -29,6 +29,19 @@ pub enum Value {
     CornerShape([f32; 4], bool),
     /// A CSS `clip-path` shape.
     ClipPath(blinc_core::ClipPath),
+}
+
+#[derive(Clone, Copy)]
+pub struct GlassEffects {
+    pub aberration: f32,
+    pub bevel: f32,
+    pub inset: bool,
+}
+
+impl Default for GlassEffects {
+    fn default() -> Self {
+        Self { aberration: 0.3, bevel: 1.0, inset: false }
+    }
 }
 
 /// `0xRRGGBB` plus a separate alpha, as the Haxe API spells colors.
@@ -136,7 +149,7 @@ pub extern "C" fn hl_blinc_brush_glass(
         .tint(hex_color(tint_hex, tint_alpha))
         .with_simple(simple != 0)
         .noise(noise);
-    value(Value::Glass(glass, 0.3))
+    value(Value::Glass(glass, GlassEffects::default()))
 }
 define_prim!(
     hlp_blinc_brush_glass,
@@ -147,11 +160,21 @@ define_prim!(
 /// Set while constructing the brush, before it is assigned to a node or signal.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hl_blinc_brush_glass_aberration(brush: *mut c_void, strength: f32) {
-    if let Some(Value::Glass(_, aberration)) = unsafe { handle_mut::<Value>(brush) } {
-        *aberration = if strength.is_finite() { strength.clamp(0.0, 1.0) } else { 0.0 };
+    if let Some(Value::Glass(_, effects)) = unsafe { handle_mut::<Value>(brush) } {
+        effects.aberration = if strength.is_finite() { strength.clamp(0.0, 1.0) } else { 0.0 };
     }
 }
 define_prim!(hlp_blinc_brush_glass_aberration, hl_blinc_brush_glass_aberration, "PXblinc_value_f_v");
+
+/// Set while constructing the brush; zero removes the bevel, and inset reverses its curvature.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hl_blinc_brush_glass_bevel(brush: *mut c_void, strength: f32, inset: bool) {
+    if let Some(Value::Glass(_, effects)) = unsafe { handle_mut::<Value>(brush) } {
+        effects.bevel = if strength.is_finite() { strength.clamp(0.0, 1.0) } else { 1.0 };
+        effects.inset = inset;
+    }
+}
+define_prim!(hlp_blinc_brush_glass_bevel, hl_blinc_brush_glass_bevel, "PXblinc_value_fb_v");
 
 #[unsafe(no_mangle)]
 pub extern "C" fn hl_blinc_brush_blur(radius: f32, tint_hex: i32, tint_alpha: f32) -> *mut c_void {

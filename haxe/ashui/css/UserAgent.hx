@@ -207,6 +207,11 @@ class UserAgent {
 		}
 		input[type="range"]:hover > .thumb { transform: scale(1.1); box-shadow: var(--shadow-md); border-color: var(--primary-hover); }
 		input[type="range"]:active > .thumb { transform: scale(1.2); }
+		input[type="range"][data-orientation="vertical"] { flex-direction: column-reverse; width: 20px; height: 160px; }
+		input[type="range"][data-orientation="vertical"] > .fill,
+		input[type="range"][data-orientation="vertical"] > .rest { width: 4px; height: auto; min-height: 0; }
+		input[type="range"][data-orientation="vertical"] > .fill { border-radius: 0 0 var(--radius-full) var(--radius-full); }
+		input[type="range"][data-orientation="vertical"] > .rest { border-radius: var(--radius-full) var(--radius-full) 0 0; }
 
 		/* Progress and meters: a track, filled to the value, easing to a new one. */
 		progress, meter { flex-direction: row; width: 160px; height: 8px; border-radius: var(--radius-full); background: var(--border); overflow: hidden; }

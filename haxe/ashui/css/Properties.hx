@@ -320,7 +320,7 @@ class Properties {
 		// Read by `background`'s `url()` images, through the context; nothing of its own to write.
 		h.set("background-size", (_, _, _) -> []);
 		// These settings belong to the glass background; they have no separate native field.
-		for (name in ["glass-blur", "glass-tint", "glass-aberration", "glass-noise", "glass-mode"])
+		for (name in ["glass-blur", "glass-tint", "glass-aberration", "glass-bevel", "glass-curvature", "glass-noise", "glass-mode"])
 			h.set(name, (_, v, c) -> {
 				validateGlass(name, v, c);
 				[];
@@ -740,7 +740,7 @@ class Properties {
 
 	/**
 		`background: glass` defaults to liquid glass with 12px blur, white/10 tint,
-		0.3 aberration and no noise. The glass-* properties override those settings.
+		0.3 aberration, a full outward bevel and no noise. The glass-* properties override those settings.
 	**/
 	static function glass(c:ApplyContext):Brush {
 		function setting(name:String, fallback:String):String {
@@ -757,7 +757,8 @@ class Properties {
 		var blur = c.backdropBlur != null && c.backdropBlur >= 0 ? '${c.backdropBlur}px' : "12px";
 		return Brush.glass(pixels(CssValue.length(setting("glass-blur", blur)), c), tint.rgb, tint.alpha,
 			StringTools.trim(setting("glass-mode", "liquid")).toLowerCase() == "frosted",
-			CssValue.amount(setting("glass-noise", "0")), CssValue.amount(setting("glass-aberration", "0.3")));
+			CssValue.amount(setting("glass-noise", "0")), CssValue.amount(setting("glass-aberration", "0.3")),
+			CssValue.amount(setting("glass-bevel", "1")), StringTools.trim(setting("glass-curvature", "outset")).toLowerCase() == "inset");
 	}
 
 	static function validateGlass(name:String, value:String, c:ApplyContext):Void {
@@ -767,13 +768,16 @@ class Properties {
 				if (!Math.isFinite(blur) || blur < 0)
 					throw "expected a nonnegative length";
 			case "glass-tint": CssValue.color(value);
-			case "glass-aberration" | "glass-noise":
+			case "glass-aberration" | "glass-noise" | "glass-bevel":
 				var amount = CssValue.amount(value);
 				if (!Math.isFinite(amount) || amount < 0 || amount > 1)
 					throw "expected 0 to 1, or 0% to 100%";
 			case "glass-mode":
 				if (["liquid", "frosted"].indexOf(StringTools.trim(value).toLowerCase()) < 0)
 					throw "expected liquid or frosted";
+			case "glass-curvature":
+				if (["inset", "outset"].indexOf(StringTools.trim(value).toLowerCase()) < 0)
+					throw "expected inset or outset";
 		}
 	}
 

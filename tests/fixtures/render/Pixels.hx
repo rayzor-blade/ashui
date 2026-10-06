@@ -475,10 +475,35 @@ class Pixels {
 			&& chroma(subtle) > 1000 && chroma(strong) > chroma(subtle), [chroma(unsplit), chroma(subtle), chroma(strong)]);
 		glassCheck("the split stays in the bevel", glassDifference(unsplit, strong, 64, 48, 128, 80) == 0
 			&& glassDifference(unsplit, strong, 0, 0, 24, 128) == 0);
+		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, false, 0, 1, 0.35));
+		var reduced = offscreen.renderToRgba8(glassRoot, 192, 128);
+		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, false, 0, 1, 0.35, true));
+		var inset = offscreen.renderToRgba8(glassRoot, 192, 128);
+		glassCheck("reducing the bevel narrows dispersion without changing the centre", chroma(reduced) < chroma(strong)
+			&& glassDifference(reduced, strong, 64, 48, 128, 80) == 0, [chroma(reduced), chroma(strong)]);
+		glassCheck("inset curvature changes the rim while preserving the centre", glassDifference(reduced, inset, 32, 16, 160, 112) > 1000
+			&& glassDifference(reduced, inset, 64, 48, 128, 80) == 0);
+		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, false, 0, 1, 0));
+		glassCheck("zero bevel removes dispersion", chroma(offscreen.renderToRgba8(glassRoot, 192, 128)) == 0);
 		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, true, 0, 0));
 		var frosted = offscreen.renderToRgba8(glassRoot, 192, 128);
 		glassBrush.set(Brush.glass(1, 0xffffff, 0.05, true, 0, 1));
 		glassCheck("simple frosted glass ignores aberration", frosted.compare(offscreen.renderToRgba8(glassRoot, 192, 128)) == 0);
+		// Control Center blurs its backdrop before drawing a narrow glass bevel.
+		// Even a uniform backdrop and an opaque state tint must show dispersion:
+		// changing a setting alone does not establish that a user can see hover.
+		var uniformTree = new LayoutTree();
+		var uniformBrush = ashui.reactive.Signal.make(Brush.glass(5, 0xffffff, 1, false, 0, 0, 0.35, true));
+		var uniformPanel = new Div({position: Position.Absolute, left: 32, top: 16, width: 128, height: 96,
+			cornerRadius: CornerRadius.all(24), bg: uniformBrush}, uniformTree);
+		var uniformRoot = new Div({width: 192, height: 128, bg: Brush.solid(0x202020)}, [uniformPanel], uniformTree);
+		var uniformUnsplit = offscreen.renderToRgba8(uniformRoot, 192, 128);
+		uniformBrush.set(Brush.glass(5, 0xffffff, 1, false, 0, 1, 0.35, true));
+		var uniformSplit = offscreen.renderToRgba8(uniformRoot, 192, 128);
+		glassCheck("full dispersion remains visible on a narrow rim over a uniform backdrop and opaque tint",
+			chroma(uniformUnsplit) == 0 && chroma(uniformSplit) > 1000, [chroma(uniformUnsplit), chroma(uniformSplit)]);
+		glassCheck("strong reflected dispersion leaves the tinted centre alone",
+			glassDifference(uniformUnsplit, uniformSplit, 64, 48, 128, 80) == 0);
 		var clearTree = new LayoutTree();
 		var clearBrush = ashui.reactive.Signal.make(Brush.glass(1, 0xffffff, 0.05, false, 0, 0));
 		var clearGlass = new Div({position: Position.Absolute, left: 32, top: 16, width: 128, height: 96,
@@ -489,6 +514,20 @@ class Pixels {
 		var clearSplit = offscreen.renderToRgba8(clearRoot, 192, 128);
 		glassCheck("a transparent window's rim highlights also disperse", chroma(clearUnsplit) == 0 && chroma(clearSplit) > 1000,
 			[chroma(clearUnsplit), chroma(clearSplit)]);
+		// The synthetic environment belongs only to the transparent bevel, with partial alpha.
+		var rimAlpha = clearSplit.get((64 * 192 + 36) * 4 + 3);
+		var centreAlpha = clearSplit.get((64 * 192 + 96) * 4 + 3);
+		glassCheck("the simulated bevel keeps the desktop visible", rimAlpha > centreAlpha && rimAlpha < 255
+			&& Math.abs(centreAlpha - 13) <= 1 && clearSplit.get((4 * 192 + 4) * 4 + 3) == 0, [rimAlpha, centreAlpha]);
+		glassCheck("dispersion leaves the transparent centre alone", glassDifference(clearUnsplit, clearSplit, 64, 48, 128, 80) == 0);
+		glassCheck("a clear bevel bends the procedural light bands", Math.abs(clearUnsplit.get((48 * 192 + 40) * 4)
+			- clearUnsplit.get((80 * 192 + 40) * 4)) > 5);
+		clearBrush.set(Brush.glass(1, 0xff0000, 0.5, false, 0, 0));
+		var tinted = offscreen.renderToRgba8(clearRoot, 192, 128);
+		var centre = (64 * 192 + 96) * 4;
+		glassCheck("liquid glass uses the requested tint opacity", Math.abs(tinted.get(centre + 3) - 128) <= 1
+			&& Math.abs(tinted.get(centre) - 128) <= 1 && tinted.get(centre + 1) == 0 && tinted.get(centre + 2) == 0,
+			[tinted.get(centre), tinted.get(centre + 1), tinted.get(centre + 2), tinted.get(centre + 3)]);
 		// A class and a stylesheet must produce the same pixels as the brush API,
 		// and change the existing panel when a state or CSS variable changes.
 		function styledGlass(?style:ashui.style.Style, ?classes:ashui.layout.IntoReactive<Array<String>>) {
@@ -509,16 +548,23 @@ class Pixels {
 		glassCheck("a hover utility changes the existing glass bevel", strong.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
 		ashui.input.Interaction.of(twGlass.panel.node).hovered.set(false);
 		glassCheck("leaving hover restores its base aberration", unsplit.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
+		var insetUtility = styledGlass(ashui.style.Tw.tw("bg-glass glass-blur-1 glass-tint-white/5 glass-aberration-100 glass-bevel-35 glass-inset hover:glass-outset"));
+		glassCheck("bevel and inset utilities match the brush", inset.compare(offscreen.renderToRgba8(insetUtility.root, 192, 128)) == 0);
+		ashui.input.Interaction.of(insetUtility.panel.node).hovered.set(true);
+		glassCheck("a state utility can reverse curvature", reduced.compare(offscreen.renderToRgba8(insetUtility.root, 192, 128)) == 0);
 		var glassSheet = ashui.css.Css.load('
 			.css-glass { background: glass; glass-blur: 1px; glass-tint: rgba(255,255,255,0.05); glass-aberration: var(--split, 0); glass-noise: 0; glass-mode: liquid; }
 			.css-glass.strong { --split: 100%; }
 			.css-glass.frosted { glass-mode: frosted; }
+			.css-glass.inset { glass-bevel: 35%; glass-curvature: inset; }
 		');
 		var glassClasses = ashui.reactive.Signal.make(["css-glass"]);
 		var cssGlass = styledGlass(null, glassClasses);
 		glassCheck("CSS glass settings match the brush", unsplit.compare(offscreen.renderToRgba8(cssGlass.root, 192, 128)) == 0);
 		glassClasses.set(["css-glass", "strong"]);
 		glassCheck("CSS class and variable updates change the bevel", strong.compare(offscreen.renderToRgba8(cssGlass.root, 192, 128)) == 0);
+		glassClasses.set(["css-glass", "strong", "inset"]);
+		glassCheck("CSS can narrow and inset the bevel", inset.compare(offscreen.renderToRgba8(cssGlass.root, 192, 128)) == 0);
 		glassClasses.set(["css-glass", "strong", "frosted"]);
 		glassCheck("CSS can switch to frosted glass", frosted.compare(offscreen.renderToRgba8(cssGlass.root, 192, 128)) == 0);
 		ashui.css.Css.remove(glassSheet);

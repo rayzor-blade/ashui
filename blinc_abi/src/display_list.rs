@@ -842,8 +842,12 @@ pub fn append(
             b.notch = notch;
             // Deviation in target pixels; how far the row pass reaches past the box, in layout units,
             // further for liquid glass, whose rim samples up to LIQUID_REACH outside it.
-            let aberration = tree.glass_aberration.get(&node).copied().unwrap_or(0.0);
-            let reach = 3.0 * blur * scale + if liquid.is_some() { LIQUID_REACH * (1.0 + 0.12 * aberration) * scale } else { 0.0 };
+            let effects = tree.glass_effects.get(&node).copied().unwrap_or(crate::types::GlassEffects { aberration: 0.0, ..Default::default() });
+            let aberration = effects.aberration;
+            // Match BackdropShader's dispersion: subtle at the low end, pronounced at full strength.
+            let dispersion = 0.12 * aberration + 0.38 * aberration * aberration * aberration;
+            // Dispersion's strength is independent of bevel width; a zero bevel has no lens.
+            let reach = 3.0 * blur * scale + if liquid.is_some() && effects.bevel > 0.0 { LIQUID_REACH * (effects.bevel + dispersion) * scale } else { 0.0 };
             // The third: a glass's grain, as Blinc's frosted noise; the fourth, the opacity it is drawn at.
             let noise = match &props.background {
                 Some(Brush::Glass(g)) => g.noise.max(0.0),
@@ -854,8 +858,8 @@ pub fn append(
             b.border = matrix[1];
             b.border_color = matrix[2];
             if let Some(l) = liquid {
-                // gradient: liquid, refraction, the rim line's width, the light's angle; via: tint; the top side's colour: border.
-                b.gradient = [1.0, 1.0, l.edge, -std::f32::consts::FRAC_PI_4];
+                // gradient: liquid, signed bevel strength (negative is inset), rim line width, light angle.
+                b.gradient = [1.0, if effects.inset { -effects.bevel } else { effects.bevel }, l.edge, -std::f32::consts::FRAC_PI_4];
                 // The gradient-stop offsets are unused by backdrops; x carries rim dispersion.
                 b.offsets[0] = aberration;
                 b.via = l.tint;
@@ -1131,7 +1135,7 @@ struct Liquid {
 /// A glass or blur brush's blur, in layout units, and the colour filter it
 /// puts what is behind the box through, with liquid glass's rim when the
 /// glass is not simple. Blinc's frosted glass saturates, brightens and adds
-/// half its tint; its liquid glass mixes in a little of its tint after the
+/// half its tint; its liquid glass mixes in its tint at the requested alpha after the
 /// rim's light, in the shader; a blur brush mixes its tint over.
 fn backdrop_of(brush: &Brush) -> Option<(f32, ColorMatrix, Option<Liquid>)> {
     match brush {

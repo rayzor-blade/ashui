@@ -13,6 +13,8 @@ typedef SliderProps = {
 	?min:Float,
 	?max:Float,
 	?step:Float,
+	/** Horizontal by default; vertical increases from bottom to top. **/
+	?orientation:String,
 	/** A label over it, its value shown at the other end. **/
 	?label:String,
 	/** How the value is shown beside the label; to two decimals by default. **/
@@ -28,6 +30,8 @@ typedef SliderProps = {
 	end. CSS: `.ui-slider-field`, `.ui-slider-header`, `.ui-slider-label`,
 	`.ui-slider-value`, `.ui-slider` (the range, its `.fill`, `.rest`,
 	`.thumb`, `:disabled`).
+	Children decorate the range itself; position an icon absolutely so it
+	does not take space from the track. A press on it still seeks the range.
 **/
 class Slider extends Component<SliderProps> {
 	public var value(default, null):Signal<Float>;
@@ -49,10 +53,11 @@ class Slider extends Component<SliderProps> {
 			min: props.min,
 			max: props.max,
 			step: props.step,
+			orientation: props.orientation,
 			disabled: props.disabled,
 			name: props.name,
 			id: props.id
-		});
+		}, children);
 		ashui.css.Identity.of(range.tree, range.node.id).addClasses(["ui-slider"]);
 		if (props.label == null)
 			return range;

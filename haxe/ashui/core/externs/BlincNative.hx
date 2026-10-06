@@ -98,6 +98,7 @@ extern class BlincNative {
 	static function blinc_brush_solid(hex:Int, alpha:Single):hl.Abstract<"blinc_value">;
 	static function blinc_brush_glass(blur:Single, tintHex:Int, tintAlpha:Single, simple:Int, noise:Single):hl.Abstract<"blinc_value">;
 	static function blinc_brush_glass_aberration(brush:hl.Abstract<"blinc_value">, strength:Single):Void;
+	static function blinc_brush_glass_bevel(brush:hl.Abstract<"blinc_value">, strength:Single, inset:Bool):Void;
 	static function blinc_brush_blur(radius:Single, tintHex:Int, tintAlpha:Single):hl.Abstract<"blinc_value">;
 	static function blinc_brush_image(src:hl.Bytes, fit:Int):hl.Abstract<"blinc_value">;
 	static function blinc_brush_linear_gradient(sx:Single, sy:Single, ex:Single, ey:Single, fromHex:Int, fromAlpha:Single, toHex:Int,

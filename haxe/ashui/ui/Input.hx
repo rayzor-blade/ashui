@@ -37,6 +37,9 @@ typedef InputProps = {
 	?max:Float,
 	?step:Float,
 
+	/** A range's axis: horizontal (the default) or vertical, increasing from bottom to top. **/
+	?orientation:String,
+
 	/** Shown, dimmed, while a text input or a number is empty; CSS's `:placeholder-shown` meanwhile. **/
 	?placeholder:String,
 
@@ -474,6 +477,9 @@ class Input extends Component<InputProps> {
 
 	/** A range: a slider, its `.fill` and `.rest` either side of its `.thumb`, grown in proportion to the value. **/
 	function range():Element {
+		var vertical = props.orientation == "vertical";
+		if (props.orientation != null && props.orientation != "horizontal" && !vertical)
+			throw 'input: orientation is horizontal or vertical';
 		var min = props.min != null ? props.min : 0.0;
 		var max = props.max != null ? props.max : 100.0;
 		if (max < min)
@@ -490,9 +496,11 @@ class Input extends Component<InputProps> {
 		// Grown in proportion, the two together taking all the room the thumb leaves.
 		fill.node.set(Prop.FlexGrow, Computed.make(() -> (fraction.get() : Single)));
 		rest.node.set(Prop.FlexGrow, Computed.make(() -> (1 - fraction.get() : Single)));
-		var box = new Div({tag: "input", id: props.id}, [fill, thumb, rest]);
+		var parts:Array<Element> = [fill, thumb, rest];
+		var box = new Div({tag: "input", id: props.id}, parts.concat(children));
 		var identity = ashui.css.Identity.of(box.tree, box.node.id);
 		identity.setAttribute("type", "range");
+		identity.setAttribute("data-orientation", vertical ? "vertical" : "horizontal");
 		if (props.name != null)
 			identity.setAttribute("name", props.name);
 		interaction = Interaction.of(box.node).setFocusable(true);
@@ -507,13 +515,14 @@ class Input extends Component<InputProps> {
 			if (props.onInput != null)
 				props.onInput(formatNumber(v));
 		}
-		// The value under window x: the thumb's centre travels from one end less half its width to the other.
-		function seek(x:Float) {
+		// The thumb's centre travels along the axis, with vertical values increasing upward.
+		function seek(x:Float, y:Float) {
 			var b = tree.getBounds(box.node), t = tree.getBounds(thumb.node);
 			if (b == null || t == null)
 				return;
-			var travel = b.width - t.width;
-			set(min + (travel > 0 ? (x - b.x - t.width / 2) / travel : 0) * (max - min));
+			var travel = vertical ? b.height - t.height : b.width - t.width;
+			var along = vertical ? b.y + b.height - y - t.height / 2 : x - b.x - t.width / 2;
+			set(min + (travel > 0 ? along / travel : 0) * (max - min));
 		}
 		// A drag follows the pointer until the button comes up, wherever the pointer goes.
 		var drag:Null<LayoutTree->Void> = null;
@@ -523,11 +532,11 @@ class Input extends Component<InputProps> {
 			drag = null;
 		}
 		interaction.onPointerDown(p -> {
-			seek(p.x);
+			seek(p.x, p.y);
 			stopDrag();
 			drag = t -> if (t == tree) {
 				var at = Pointer.at(tree);
-				if (at.pressed) seek(at.x) else stopDrag();
+				if (at.pressed) seek(at.x, at.y) else stopDrag();
 			}
 			Pointer.hooks.push(drag);
 		});
