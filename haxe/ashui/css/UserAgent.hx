@@ -259,7 +259,7 @@ class UserAgent {
 		select[open] > .chevron { transform: rotate(180deg); }
 		listbox {
 			flex-direction: column; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-default);
-			background: var(--surface-elevated); box-shadow: var(--shadow-lg);
+			background: var(--surface-elevated); box-shadow: var(--shadow-lg); overflow-y: auto;
 			animation: ashui-list-in ${ENTER};
 		}
 		listbox[closing] { animation: ashui-list-out ${EXIT}; }

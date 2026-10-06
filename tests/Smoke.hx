@@ -1160,14 +1160,17 @@ class Smoke {
 		var shown = Signal.make(false);
 		var fruitSelect:Null<ashui.ui.Select> = null;
 		var page:Div = Owner.root(layerTree, _ -> {
-			fruitSelect = new ashui.ui.Select({value: fruit}, [
+			var fruitOptions:Array<ashui.layout.Element> = [
 				new ashui.ui.Option({value: "apple"}, [new ashui.ui.Text("Apple")]),
 				new ashui.ui.Option({value: "pear"}, [new ashui.ui.Text("Pear")]),
 				new ashui.ui.Optgroup({label: "Citrus"}, [
 					new ashui.ui.Option({value: "lemon", disabled: true}, [new ashui.ui.Text("Lemon")]),
 					new ashui.ui.Option({value: "lime"}, [new ashui.ui.Text("Lime")])
 				])
-			]);
+			];
+			for (n in 0...25)
+				fruitOptions.push(new ashui.ui.Option({value: 'extra$n'}, [new ashui.ui.Text('Extra $n')]));
+			fruitSelect = new ashui.ui.Select({value: fruit}, fruitOptions);
 			hxx('
 				<div width={400} height={400} flexDirection={Column} alignItems={Start} gap={8}>
 					{fruitSelect}
@@ -1208,6 +1211,20 @@ class Smoke {
 		ashui.input.Keyboard.input(layerTree, key(Named(Escape), Escape));
 		settle();
 		check("Escape closes the list without choosing", reopened && !fruitSelect.isOpen() && fruit.get() == "lime");
+		ashui.input.Keyboard.input(layerTree, key(Named(ArrowDown), ArrowDown));
+		settle();
+		var layers = layerTree.children(page.node.id);
+		var longShade = layers[layers.length - 1];
+		var longListbox = layerTree.children(layerTree.children(longShade)[1])[0];
+		ashui.input.Keyboard.input(layerTree, key(Named(End), End));
+		settle();
+		var longBounds = layerTree.getBounds(new ashui.layout.Node(longListbox));
+		var longScroll = ashui.input.Scroll.at(longListbox);
+		check("a long select list is limited to the viewport and scrolls its focused option into view",
+			longBounds != null && longBounds.height <= 392.5 && longScroll != null && longScroll.y.get() > 0,
+			[longBounds == null ? null : longBounds.height, longScroll == null ? null : longScroll.y.get()]);
+		ashui.input.Keyboard.input(layerTree, key(Named(Escape), Escape));
+		settle();
 		ashui.input.Keyboard.text(layerTree, "a");
 		check("typing chooses by label while closed", fruit.get() == "apple", fruit.get());
 

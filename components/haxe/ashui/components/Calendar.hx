@@ -4,6 +4,7 @@ import ashui.input.Focus;
 import ashui.input.Interaction;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
+import ashui.components.Select.SelectItem;
 import ashui.reactive.Computed;
 import ashui.reactive.Signal;
 import ashui.reactive.Watch;
@@ -25,14 +26,15 @@ typedef CalendarProps = {
 }
 
 /**
-	A month to pick a day from: its name between buttons to the months
-	before and after, the days of the week, and six weeks of days, those of
+	A month to pick a day from: month and year selects between buttons to
+	the months before and after, the days of the week, and six weeks of days, those of
 	the months around it muted. Today is marked; the chosen day is filled.
 	A press chooses a day (one of another month moves to it); turning the
 	month slides the new one in from the side it is on. The arrows move
 	a day or a week, Page Up and Page Down a month, Home and End to the week's
 	ends, and Enter or Space chooses. CSS: `.ui-calendar`,
-	`.ui-calendar-header`, `.ui-calendar-caption`, `.ui-calendar-nav`
+	`.ui-calendar-header`, `.ui-calendar-caption`, `.ui-calendar-month-picker`,
+	`.ui-calendar-year-picker`, `.ui-calendar-nav`
 	(`[data-step]`), `.ui-calendar-body`, `.ui-calendar-weekdays`,
 	`.ui-calendar-weekday`, `.ui-calendar-months`, `.ui-calendar-grid` (a
 	month's days: `[data-enter]` and `[data-leaving]`, `next` or `prev`, as
@@ -69,7 +71,6 @@ class Calendar extends Component<CalendarProps> {
 		var shown = Signal.make({year: first.year, month: first.month});
 		var focused = Signal.make(key(first));
 
-		var caption = Library.part("ui-calendar-caption", null, null, [new ashui.ui.Text(Computed.make(() -> '${MONTHS[shown.get().month]} ${shown.get().year}'))]);
 		// The months on screen: the one shown, and one leaving while it slides away.
 		var pages = Signal.make([new Page(first.year, first.month, null)]);
 		// Turns to `m`, the new month sliding in from the side it is on and the one shown sliding out the other.
@@ -89,6 +90,36 @@ class Calendar extends Component<CalendarProps> {
 			var identity = leaving.element == null ? null : ashui.css.Identity.of(leaving.element.tree, leaving.element.node.id);
 			ashui.css.Animations.whenPlayed([identity], seconds, () -> pages.set(pages.get().filter(p -> p != leaving)));
 		}
+		// Keep the date the keys are on in the month picked, without choosing a day.
+		function jump(m:{year:Int, month:Int}) {
+			var at = parse(focused.get());
+			var days = DateTools.getMonthDays(new Date(m.year, m.month, 1, 0, 0, 0));
+			focused.set(key({year: m.year, month: m.month, day: Std.int(Math.min(at.day, days))}));
+			turn(m);
+		}
+		var pickedMonth = Signal.make(Std.string(first.month));
+		var pickedYear = Signal.make(Std.string(first.year));
+		new Watch(() -> shown.get(), m -> {
+			pickedMonth.set(Std.string(m.month));
+			pickedYear.set(Std.string(m.year));
+		});
+		var monthOptions:Array<Element> = [for (i in 0...12) new SelectItem({value: Std.string(i)}, [new ashui.ui.Text(MONTHS[i])])];
+		var monthPicker = new Select({value: pickedMonth, onChange: month -> jump({year: shown.get().year, month: Std.parseInt(month)})}, monthOptions);
+		var monthIdentity = ashui.css.Identity.of(monthPicker.tree, monthPicker.node.id);
+		monthIdentity.addClasses(["ui-calendar-month-picker"]);
+		monthIdentity.setAttribute("aria-label", "Month");
+		// Recenter the year list if navigation reaches either end of its 201-year window.
+		var yearStart = Signal.make(first.year - 100);
+		new Watch(() -> shown.get().year, year -> if (year < yearStart.get() || year > yearStart.get() + 200) yearStart.set(year - 100));
+		var yearPicker = new For(() -> [yearStart.get()], startYear -> {
+			var options:Array<Element> = [for (i in 0...201) new SelectItem({value: Std.string(startYear + i)}, [new ashui.ui.Text(Std.string(startYear + i))])];
+			var picker = new Select({value: pickedYear, onChange: year -> jump({year: Std.parseInt(year), month: shown.get().month})}, options);
+			var identity = ashui.css.Identity.of(picker.tree, picker.node.id);
+			identity.addClasses(["ui-calendar-year-picker"]);
+			identity.setAttribute("aria-label", "Year");
+			picker;
+		});
+		var caption = Library.part("ui-calendar-caption", null, null, [monthPicker, yearPicker]);
 		var header = Library.part("ui-calendar-header", null, null, [nav("prev", () -> turn(shift(shown.get(), -1))), caption,
 			nav("next", () -> turn(shift(shown.get(), 1)))]);
 		var weekdays = Library.part("ui-calendar-weekdays", null, null,

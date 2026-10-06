@@ -166,7 +166,7 @@ class Select extends Component<SelectProps> {
 		if (b == null)
 			return;
 		var owner = new Owner(tree, @:privateAccess this.owner);
-		var rows:Array<{interaction:Interaction, choice:Choice}> = [];
+		var rows:Array<{interaction:Interaction, choice:Choice, row:Div}> = [];
 		var picker = owner.run(() -> {
 			var items:Array<Element> = [];
 			var heading:Null<String> = null;
@@ -187,7 +187,7 @@ class Select extends Component<SelectProps> {
 				var choice = c;
 				ri.onClick(_ -> choose(choice.option.valueText()));
 				ri.onPointerEnter(_ -> if (!choice.disabled) Focus.set(ri, false));
-				rows.push({interaction: ri, choice: c});
+				rows.push({interaction: ri, choice: c, row: row});
 				items.push(row);
 			}
 			new Div({tag: "listbox"}, items);
@@ -227,9 +227,42 @@ class Select extends Component<SelectProps> {
 					if (r.choice == match)
 						Focus.set(r.interaction, true);
 		});
+		// As tall as the room below the select or above it, whichever is more; past that it scrolls.
+		var rootBounds = tree.root == null ? null : tree.getBounds(tree.root);
+		if (rootBounds != null)
+			picker.node.set(ashui.layout.Prop.MaxHeight, (Math.max(0, Math.max(rootBounds.height - b.y - b.height, b.y) - LIST_MARGIN) : Single));
+		picker.node.set(ashui.layout.Prop.Overflow, ashui.types.Style.Overflow.Scroll);
+		var scroll = owner.run(() -> ashui.input.Scroll.attach(picker.node, false, true));
+		// The row to keep in view: the focused one, revealed once layout has placed it.
+		var wanted:Null<Div> = null;
+		function reveal():Bool {
+			var row = wanted;
+			var list = tree.getBounds(picker.node), at = row == null ? null : tree.getBounds(row.node);
+			if (row == null || list == null || at == null || list.height <= 0)
+				return false;
+			wanted = null;
+			var top = at.y - list.y, bottom = top + at.height, y = scroll.y.get();
+			if (top < y)
+				scroll.scrollTo(0, top);
+			else if (bottom > y + list.height)
+				scroll.scrollTo(0, bottom - list.height);
+			return false;
+		}
+		owner.run(() -> {
+			for (r in rows) {
+				var row = r;
+				new Watch(() -> row.interaction.focused.get(), f -> if (f) {
+					wanted = row.row;
+					reveal();
+				});
+			}
+		});
+		var revealAfterLayout = (t:ashui.layout.LayoutTree) -> t == tree && wanted != null ? reveal() : false;
+		ashui.layout.LayoutTree.layoutHooks.push(revealAfterLayout);
 		var identity = ashui.css.Identity.of(tree, button.node.id);
 		identity.setAttribute("open", "");
 		open = TopLayer.open(tree, picker, Below(b.x, b.y, b.width, b.height), null, () -> {
+			ashui.layout.LayoutTree.layoutHooks.remove(revealAfterLayout);
 			identity.setAttribute("open", null);
 			open = null;
 			owner.dispose();
@@ -247,6 +280,9 @@ class Select extends Component<SelectProps> {
 	/** Whether its list of options is open. **/
 	public function isOpen():Bool
 		return open != null;
+
+	/** Gap the open list keeps from the window's edge. **/
+	static inline var LIST_MARGIN = 8.0;
 
 	static final CHEVRON = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>);
 }

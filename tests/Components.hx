@@ -1068,6 +1068,42 @@ class Components {
 		calFrames(20);
 		check("turning the month slides the next one in and the shown one out, which then goes", turning == "null/next,next/null" && calGrids().length == 1,
 			[turning, calGrids().length]);
+		function calendarPart(name:String):haxe.Int64
+			return Lambda.find(calTree.order(), id -> identity2(calTree, id) != null && identity2(calTree, id).hasClass(name));
+		function clickCalendarPart(name:String) {
+			var b = calTree.getBounds(new ashui.layout.Node(calendarPart(name)));
+			ashui.input.Pointer.move(calTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(calTree);
+			ashui.input.Pointer.release(calTree);
+			calFrames(2);
+		}
+		var monthPickerId = calendarPart("ui-calendar-month-picker");
+		var yearPickerId = calendarPart("ui-calendar-year-picker");
+		var monthAfterNav = ashui.ui.Select.at(monthPickerId).value.get();
+		var monthBounds = calTree.getBounds(new ashui.layout.Node(monthPickerId));
+		var yearBounds = calTree.getBounds(new ashui.layout.Node(yearPickerId));
+		clickCalendarPart("ui-calendar-month-picker");
+		ashui.input.Keyboard.input(calTree, key(Named(End), End));
+		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter));
+		calFrames(5);
+		clickCalendarPart("ui-calendar-year-picker");
+		ashui.input.Keyboard.input(calTree, key(Named(End), End));
+		ashui.input.Keyboard.input(calTree, key(Named(Enter), Enter));
+		calFrames(5);
+		var chosenMonth = ashui.ui.Select.at(monthPickerId).value.get();
+		var chosenYear = ashui.ui.Select.at(yearPickerId).value.get();
+		check("Calendar month and year pickers turn the page without choosing a new day",
+			monthBounds.width <= 107 && yearBounds.width <= 73 && monthAfterNav == "10" && chosenMonth == "11" && chosenYear == "2126" && day.get().year == 2026,
+			[monthBounds.width, yearBounds.width, monthAfterNav, chosenMonth, chosenYear, day.get()]);
+		// The next arrow takes December 2126 into 2127, beyond the initial year list.
+		var nextNav = Lambda.find(calTree.order(), id -> identity2(calTree, id) != null && identity2(calTree, id).attribute("data-step") == "next");
+		var nextBounds = calTree.getBounds(new ashui.layout.Node(nextNav));
+		ashui.input.Pointer.move(calTree, nextBounds.x + nextBounds.width / 2, nextBounds.y + nextBounds.height / 2);
+		ashui.input.Pointer.press(calTree);
+		ashui.input.Pointer.release(calTree);
+		calFrames(5);
+		var recenteredYear = ashui.ui.Select.at(calendarPart("ui-calendar-year-picker")).value.get();
+		check("the Calendar year picker recentres beyond its initial range", recenteredYear == "2127", recenteredYear);
 
 		// --- Charts: the tooltip shows the values at the label under the pointer; new values are moved to, not jumped to ---
 		var chTree = new LayoutTree();

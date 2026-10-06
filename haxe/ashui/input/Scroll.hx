@@ -105,6 +105,7 @@ class Scroll {
 			return known;
 		var s = new Scroll(node, alongX, alongY);
 		byNode.set(node, s);
+		ashui.reactive.Owner.onCleanup(() -> byNode.remove(node));
 		return s;
 	}
 
