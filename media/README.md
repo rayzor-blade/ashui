@@ -1,6 +1,6 @@
 # ashui media
 
-Optional playback components, codecs and bounded streams backed by **hlavi**.
+Optional playback components, equalization, codecs and bounded streams backed by **hlavi**.
 Native playback owns audio output, decoding and the audio/video clock. Video
 frames upload to reusable GPU textures through **CanvasKit**, with ashui's
 transforms, clipping, rounded corners and opacity.
@@ -35,7 +35,7 @@ return <div class="flex flex-col gap-4">
 </div>;
 ```
 
-Both tags accept reactive `src`, `autoplay`, `loop`, `volume` (0–1), `muted`,
+Both tags accept reactive `src`, `autoplay`, `loop`, `volume` (0–1), `muted`, `equalizer`,
 and `controls`, plus `onReady`, `onEnded`, `onError`, and `id`. Default controls
 are optional: **`controls={false}`** renders the surface and supplied children.
 `Video.fit` accepts `Contain`, `Cover` or `Fill` and can change reactively.
@@ -89,7 +89,7 @@ reports the auto-hide state.
 
 ## Controller API
 
-`new Player(?path, ?options)` accepts `autoplay`, `loop`, `volume`, `muted`
+`new Player(?path, ?options)` accepts `autoplay`, `loop`, `volume`, `muted`, `equalizer`
 and an optional animation scheduler. It works independently of UI owners.
 
 | Method | Behavior |
@@ -99,12 +99,13 @@ and an optional animation scheduler. It works independently of UI owners.
 | `seek(seconds)` | Bound the seek to the file; update a paused video frame |
 | `setVolume(value)`, `setMuted(value)` | Control volume while preserving the unmuted level |
 | `setLoop(value)` | Restart playback at EOF |
+| `setEqualizer(equalizer)`, `clearEqualizer()` | Attach shared settings or restore flat playback |
 | `currentFrame()` | Clone the latest video frame; **caller must close it** |
 | `update()` | Poll on the opening thread; normally the UI scheduler does this |
 | `close()` / `dispose()` | Terminal, idempotent release of player and frames |
 
 Signals expose `source`, `state`, `error`, `position`, `duration`, `volume`,
-`muted`, `looping`, `videoWidth`, `videoHeight`, and `frameVersion`. Read them
+`muted`, `looping`, `equalizer`, `videoWidth`, `videoHeight`, and `frameVersion`. Read them
 to build UI; change playback through methods. Times are **seconds**. The FSM
 owns `Opening`, `Seeking`, `Buffering` and the stable playback states, with
 opening/seek timers canceled on transitions and disposal. `stateName()`
@@ -115,6 +116,61 @@ Drive playback on the **main event-loop thread**. Native playback uses real
 time, independently of animation steps. A standalone host must pump its
 platform event loop as the framework's window loop does. Paused playback
 stops polling after its preview/seek settles; audio labels update at 10 Hz.
+
+## Equalizer
+
+`ashui.media.Equalizer` wraps hlavi's native peaking-band DSP for both playback
+and decoded PCM. Developers can build their own controls using its reactive
+settings and methods. The default five bands are **60, 250, 1000, 4000 and 12000 Hz**,
+enabled at zero gain and Q=1. Supply 1–16 frequencies for another arrangement.
+
+```haxe
+import ashui.media.Equalizer;
+import ashui.media.Audio;
+
+var eq = new Equalizer();
+eq.setGain(0, 4);
+eq.setGain(4, 2);
+eq.setPreamp(-6);
+return <audio src={audioPath} equalizer={eq} />;
+```
+
+`<video equalizer={eq} />` accepts the same controller. `equalizer` can be a
+signal or expression; replacing it detaches the previous controller, and null
+restores flat playback. A controller can be shared by several players.
+Settings edits update all attached players immediately, including paused
+players, and persist across source reloads. Each player owns its independent
+filter history. Passing an equalizer does not change volume, mute or playback
+state.
+
+| Method | Behavior |
+| --- | --- |
+| `new Equalizer(?frequencies)` | Create flat, enabled bands with the given center frequencies |
+| `setBand(index, frequency, gainDb, q)` | Configure and enable a band; Hz 1–96000, gain −24…+24 dB, Q 0.1–20 |
+| `setGain(index, gainDb)` | Change gain and enable the band, preserving its frequency and Q |
+| `disableBand(index)` | Bypass one band while retaining its settings |
+| `setPreamp(gainDb)` | Set input headroom, −60…0 dB |
+| `setBypass(value)` | Bypass both bands and preamp, preserving the settings |
+| `flatten()` | Restore zero gains and preamp, retaining frequencies, Q and bypass |
+| `process(audioData)` | Borrow PCM input and return owned interleaved F32 output |
+| `reset()` | Clear the controller's PCM processing history, preserving settings |
+| `close()` / `dispose()` | Release DSP and detach every attached player; terminal and idempotent |
+
+Read `bands[index].get()` for `{frequency, gainDb, q, enabled}`, `preamp.get()`
+and `bypassed.get()` to observe settings. Change settings through the
+methods. `revision` changes on settings edits or close; `disposed` is also
+reactive. Invalid settings throw and preserve the current configuration.
+Boosted bands may need negative preamp to avoid clipping at native playback's
+output. The native DSP smooths settings changes over 10 ms; frequencies at or
+above half the input sample rate are inactive.
+
+An equalizer created under an Owner closes on cleanup. Standalone callers must
+close it. Players never close a caller-owned equalizer; closing the equalizer
+restores flat playback for its attached players. `process` keeps history across
+contiguous PCM blocks and resets on timing or format changes. Use one controller
+per PCM stream and close every returned block; the input remains caller-owned.
+Output preserves timestamps, sample rate and channel count. For raw native
+handles without reactive integration, `media.AudioEqualizer` remains available.
 
 ## Native data API
 
@@ -234,6 +290,7 @@ by hlavi and are not exercised by this repository's macOS run.
 tools/demo/run.sh tools/demo/MediaPlayback.hx
 tools/snapshot/run.sh tools/demo/MediaPlayback.hx
 tools/snapshot/run.sh tools/snapshot/scenes/MediaPlaybackTest.hx
+tools/snapshot/run.sh tools/snapshot/scenes/MediaEqualizerTest.hx
 tools/demo/run.sh tools/demo/MediaEncoding.hx
 tools/snapshot/run.sh tools/demo/MediaEncoding.hx
 tools/snapshot/run.sh tools/snapshot/scenes/MediaCodecTest.hx
@@ -257,3 +314,7 @@ opening/seeking complete. It never advances playback with a simulated clock.
 and native H.264 encoder, writes an MP4, then uses the existing HXX video
 component to play it. `MediaCodecTest` verifies native AAC/H.264 encode/decode,
 MP4 export/demux, backpressure, EOF, ownership and reactive channel failures.
+
+`MediaEqualizerTest` checks native gain/preamp/bypass against actual PCM,
+live settings changes, shared controllers, reactive HXX bindings, source
+reloads and native cleanup.

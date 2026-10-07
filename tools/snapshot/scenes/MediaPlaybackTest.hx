@@ -162,6 +162,8 @@ class MediaPlaybackTest {
 		function click(node:Node) {
 			layout(); var b = tree.getBounds(node);
 			Pointer.move(tree, b.x + b.width / 2, b.y + b.height / 2);
+			// The window loop flushes revealed controls and refreshes their hit target before the next button event.
+			tree.flush(); Pointer.refresh(tree);
 			Pointer.press(tree); Pointer.release(tree); layout();
 		}
 		function key(k:window.Key, code:window.KeyCode, pressed = true):Void
@@ -192,7 +194,7 @@ class MediaPlaybackTest {
 		var thumb = tree.getBounds(new Node(tree.children(slider.id)[1]));
 		function dragTo(fraction:Float) {
 			Pointer.move(tree, bounds.x + thumb.width / 2 + (bounds.width - thumb.width) * fraction, bounds.y + bounds.height / 2);
-			tree.flush();
+			tree.flush(); Pointer.refresh(tree);
 		}
 		dragTo(0.2); Pointer.press(tree);
 		for (fraction in [0.65, 0.4, 0.75, 0.35]) { tick(tree); dragTo(fraction); }

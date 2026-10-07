@@ -37,6 +37,8 @@ typedef PlayerOptions = {
 	?loop:Bool,
 	?volume:Float,
 	?muted:Bool,
+	/** Shared settings; the player does not own or close the equalizer. **/
+	?equalizer:Equalizer,
 	/** Usually the UI frame scheduler. Native playback still uses its own real-time clock. **/
 	?scheduler:AnimationScheduler
 }
@@ -59,6 +61,7 @@ class Player {
 	public final volume = Signal.make(1.0);
 	public final muted = Signal.make(false);
 	public final looping = Signal.make(false);
+	public final equalizer = Signal.make((null : Null<Equalizer>));
 	public final videoWidth = Signal.make(0);
 	public final videoHeight = Signal.make(0);
 	/** Changes on each new frame and whenever the retained frame is cleared. **/
@@ -75,6 +78,7 @@ class Player {
 	var updateAt = 0.0;
 	var autoplay = false;
 	final playIntent = Signal.make(false);
+	var detachEqualizer:Null<Void->Void> = null;
 
 	public function new(?source:String, ?options:PlayerOptions) {
 		if (options == null) options = {};
@@ -105,6 +109,7 @@ class Player {
 		looping.set(options.loop == true);
 		if (options.volume != null) volume.set(level(options.volume));
 		muted.set(options.muted == true);
+		if (options.equalizer != null) setEqualizer(options.equalizer);
 		if (source != null && source != "") load(source);
 	}
 
@@ -123,6 +128,8 @@ class Player {
 		try {
 			native = MediaPlayer.open(path);
 			native.setVolume(muted.get() ? 0 : volume.get());
+			var eq = equalizer.get();
+			if (eq != null) native.setEqualizer(eq.handle());
 			machine.send(Open);
 			if (this.autoplay) native.play();
 			wake();
@@ -195,6 +202,20 @@ class Player {
 		looping.set(value);
 	}
 
+	/** Attach shared settings. Later edits apply immediately, including while paused. Null restores flat playback. **/
+	public function setEqualizer(value:Null<Equalizer>):Void {
+		checkOpen();
+		if (value != null) value.handle(); // Validate before replacing a working equalizer.
+		if (detachEqualizer != null) { detachEqualizer(); detachEqualizer = null; }
+		equalizer.set(value);
+		if (value != null) detachEqualizer = value.listen(() -> {
+			if (value.disposed) clearEqualizer(); else applyEqualizer();
+		});
+		applyEqualizer();
+	}
+
+	public inline function clearEqualizer():Void setEqualizer(null);
+
 	/** A clone of the latest frame; null for audio or before the first video frame. **/
 	public function currentFrame():Null<VideoFrame>
 		return frame == null ? null : frame.clone();
@@ -234,6 +255,8 @@ class Player {
 	/** Releases the native player and retained frame. Terminal and idempotent. **/
 	public function close():Void {
 		if (disposed) return;
+		if (detachEqualizer != null) { detachEqualizer(); detachEqualizer = null; }
+		equalizer.set(null);
 		disposed = true;
 		machine.send(Dispose);
 		machine.dispose();
@@ -272,6 +295,14 @@ class Player {
 
 	function applyVolume():Void {
 		if (native != null) try native.setVolume(muted.get() ? 0 : volume.get()) catch (e:Dynamic) fail(e);
+	}
+
+	function applyEqualizer():Void {
+		if (native == null) return;
+		try {
+			var eq = equalizer.get();
+			if (eq == null) native.clearEqualizer(); else native.setEqualizer(eq.handle());
+		} catch (e:Dynamic) fail(e);
 	}
 
 	function release():Void {

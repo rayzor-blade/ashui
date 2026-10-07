@@ -13,6 +13,8 @@ typedef PlaybackProps = {
 	?loop:IntoReactive<Bool>,
 	?muted:IntoReactive<Bool>,
 	?volume:IntoReactive<Float>,
+	/** Optional caller-owned equalizer; null restores flat playback. **/
+	?equalizer:IntoReactive<Null<Equalizer>>,
 	/** Standard playback controls, true by default. **/
 	?controls:IntoReactive<Bool>,
 	?onReady:Player->Void,
@@ -29,6 +31,7 @@ class PlaybackBinding {
 		if (props.loop != null) new Watch(() -> read(props.loop, false), player.setLoop);
 		if (props.muted != null) new Watch(() -> read(props.muted, false), player.setMuted);
 		if (props.volume != null) new Watch(() -> read(props.volume, 1.0), player.setVolume);
+		if (props.equalizer != null) new Watch(() -> read(props.equalizer, (null : Null<Equalizer>)), player.setEqualizer);
 		if (props.src != null) new Watch(() -> read(props.src, ""), src -> player.load(src, read(props.autoplay, false)));
 		if (props.autoplay != null) new Watch(() -> read(props.autoplay, false), playing -> {
 			if (playing) player.play(); else player.pause();

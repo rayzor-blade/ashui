@@ -5,6 +5,7 @@ import ashui.css.CompiledCss;
 import ashui.css.Css;
 import ashui.layout.Element;
 import ashui.media.Audio;
+import ashui.media.Equalizer;
 import ashui.media.Player;
 import ashui.media.Video;
 import ashui.media.VideoFit;
@@ -50,6 +51,7 @@ class MediaPlayback {
 			styled = true;
 		}
 		var controls = Signal.make(true);
+		var equalizer = new Equalizer();
 		var video = new Player(videoPath(), {muted: true, volume: 0.7});
 		var audioPath = Sys.getEnv("ASHUI_AUDIO");
 		var audio = new Player(audioPath == null || audioPath == "" ? videoPath() : audioPath);
@@ -65,7 +67,7 @@ class MediaPlayback {
 				</div>
 				<badge variant={Secondary} appearance={Outline}>1920 × 1080</badge>
 			</div>
-			<video id="media-video" player={video} controls={controls} fit={VideoFit.Cover} class="mp-video" />
+			<video id="media-video" player={video} equalizer={equalizer} controls={controls} fit={VideoFit.Cover} class="mp-video" />
 			<div class="mp-caption">
 				<div class="flex flex-col gap-2">
 					<text class="mp-title">Handpan in the open air</text>
@@ -76,7 +78,7 @@ class MediaPlayback {
 					<toggle-switch checked={controls} size={Sm} />
 				</div>
 			</div>
-			<audio id="media-audio" player={audio} controls={false} class="mp-audio">
+			<audio id="media-audio" player={audio} equalizer={equalizer} controls={false} class="mp-audio">
 				<div class="mp-art">
 					<svg viewBox="0 0 48 48" width={40} height={40} fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
 						<circle cx="24" cy="24" r="18" /><circle cx="24" cy="24" r="5" />
