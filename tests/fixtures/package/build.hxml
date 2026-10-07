@@ -1,0 +1,13 @@
+-lib ashui
+-lib ashui-components
+-lib ashui-canvaskit
+-lib ashui-media
+
+-D hlwgpu_no_hdll
+-D hlwindow_no_hdll
+-D hlavi_no_hdll
+-D ashui_css=tests/fixtures/package/consumer.css
+
+-cp tests/fixtures/package
+-main Consumer
+-hl tests/bin/package-consumer.hl

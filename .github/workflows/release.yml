@@ -1,9 +1,21 @@
 name: release
+run-name: release ${{ github.event_name == 'schedule' && 'nightly' || inputs.release_tag || github.ref_name }}
 
 on:
   push:
     tags: ['v*']
+  schedule:
+    - cron: '47 3 * * *'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'v<version> or nightly to publish; leave empty to validate only'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -13,28 +25,54 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  version:
+  plan:
+    name: validate packaging and version
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      build: ${{ steps.version.outputs.build }}
     steps:
       - uses: actions/checkout@v7
       - name: Check release packaging
         run: python3 tests/package_haxelib_test.py
       - id: version
         env:
-          REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$REF_TYPE" = tag ]; then
-            version=$(python3 -c 'import sys; sys.path.insert(0, "scripts"); from package_haxelib import version_of; print(version_of(sys.argv[1]))' "$REF_NAME")
+          case "$EVENT" in
+            schedule) tag=nightly ;;
+            push) tag=$REF_NAME ;;
+            *) tag=$INPUT_TAG ;;
+          esac
+          if [ -n "$tag" ] && [ "$tag" != nightly ]; then
+            version=$(python3 -c 'import sys; sys.path.insert(0, "scripts"); from package_haxelib import version_of; print(version_of(sys.argv[1]))' "$tag")
           else
             version=$(python3 -c 'import json; print(json.load(open("haxelib.json"))["version"])')
           fi
+          build=true
+          if [ "$EVENT" = schedule ]; then
+            current=$(gh api "repos/$GITHUB_REPOSITORY/commits/nightly" --jq .sha 2>/dev/null || true)
+            # A failed publication can leave a tag behind. Only skip when a
+            # nightly workflow also finished successfully for that commit.
+            completed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?status=success&per_page=30" \
+              --jq '[.workflow_runs[] | select(.display_title == "release nightly")][0].head_sha // ""' 2>/dev/null || true)
+            if [ "$current" = "$GITHUB_SHA" ] && [ "$completed" = "$GITHUB_SHA" ]; then
+              build=false
+            fi
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "publishing '${tag:-nothing}', building: $build"
 
   native:
-    needs: version
+    name: ${{ matrix.platform }}
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -54,6 +92,14 @@ jobs:
         with:
           shared-key: release-${{ matrix.platform }}
 
+      - name: Install native headers
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev \
+            libxi-dev libxcursor-dev
+
       - name: Build the Windows runtime import library
         if: startsWith(matrix.os, 'windows')
         shell: bash
@@ -66,6 +112,7 @@ jobs:
           cmake --build /tmp/hashlink/build --config Release --target libhl
           libdir=$(dirname "$(find /tmp/hashlink/build -name 'libhl.lib' | head -1)")
           test -f "$libdir/libhl.lib"
+          libdir=$(cygpath -w "$libdir")
           echo "HL_LIB_DIR=$libdir" >> "$GITHUB_ENV"
 
       - name: Build the native library
@@ -86,10 +133,10 @@ jobs:
           if-no-files-found: error
 
   package:
-    needs: [version, native]
+    name: package and validate Haxelibs
+    needs: [plan, native]
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -100,10 +147,35 @@ jobs:
 
       - name: Package the core and optional Haxelibs
         env:
-          VERSION: ${{ needs.version.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           python3 scripts/package_haxelib.py release --check
           python3 scripts/package_haxelib.py release --version "$VERSION"
+
+      - uses: ./.github/actions/setup-haxe
+
+      - name: Install the release packages
+        run: |
+          for name in ashui ashui-components ashui-canvaskit ashui-media; do
+            haxelib install "release/$name.zip" --always --skip-dependencies
+          done
+
+      - name: Compile a consumer and check automatic native staging
+        run: |
+          haxe tests/fixtures/package/build.hxml
+          cmp release/blinc_abi-linux-x86_64.hdll tests/bin/blinc_abi.hdll
+
+      - name: Describe the packages
+        run: |
+          {
+            echo '## Haxelib packages'
+            echo
+            echo 'Validated: ashui, ashui-components, ashui-canvaskit and ashui-media.'
+            echo
+            echo 'Bundled native platforms: Linux x86_64/aarch64, macOS x86_64/aarch64 and Windows x86_64.'
+            echo
+            echo 'The installed packages compile HXX and stage the host blinc_abi.hdll automatically.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -111,11 +183,38 @@ jobs:
           path: release/*.zip
           if-no-files-found: error
 
-      - uses: softprops/action-gh-release@v3
-        if: github.ref_type == 'tag'
+  publish:
+    name: publish release
+    needs: [plan, package]
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.tag != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
-          tag_name: ${{ github.ref_name }}
+          name: haxelib-packages
+          path: release
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: hdll-*
+          path: release
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
           files: |
             release/*.zip
             release/*.hdll
           generate_release_notes: true
+          prerelease: ${{ env.TAG == 'nightly' }}
+          make_latest: ${{ env.TAG == 'nightly' && 'false' || 'true' }}
+      - name: Point the nightly tag at the published build
+        if: env.TAG == 'nightly'
+        run: |
+          git tag --force nightly "$GITHUB_SHA"
+          git push --force origin refs/tags/nightly

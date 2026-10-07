@@ -144,12 +144,16 @@ mod tests {
 
     #[test]
     fn templates() {
-        assert_eq!(template("repeat(3, 1fr)").unwrap().len(), 1);
-        assert_eq!(template("120px 1fr minmax(0, 2fr) auto 25%").unwrap().len(), 5);
-        assert!(matches!(template("repeat(auto-fill, minmax(100px, 1fr))").unwrap()[0], TrackSizingFunction::Repeat(GridTrackRepetition::AutoFill, _)));
-        assert!(template("1fr nonsense").is_none());
-        assert!(template("repeat(0, 1fr)").is_none());
-        assert_eq!(template("none").unwrap().len(), 0);
+        let parse = template::<String>;
+        assert_eq!(parse("repeat(3, 1fr)").unwrap().len(), 1);
+        assert_eq!(parse("120px 1fr minmax(0, 2fr) auto 25%").unwrap().len(), 5);
+        assert!(matches!(
+            &parse("repeat(auto-fill, minmax(100px, 1fr))").unwrap()[0],
+            GridTemplateComponent::Repeat(repetition) if repetition.count == RepetitionCount::AutoFill
+        ));
+        assert!(parse("1fr nonsense").is_none());
+        assert!(parse("repeat(0, 1fr)").is_none());
+        assert_eq!(parse("none").unwrap().len(), 0);
     }
 
     #[test]

@@ -1,0 +1,39 @@
+name: Set up Haxe package dependencies
+description: Install Haxe and the public bindings used to compile ashui consumers.
+runs:
+  using: composite
+  steps:
+    - uses: krdlab/setup-haxe@v2
+      with:
+        haxe-version: 4.3.6
+
+    # Keep binding revisions fixed so unrelated upstream edits cannot change
+    # which API a release was checked against.
+    - uses: actions/checkout@v7
+      with:
+        repository: rayzor-blade/hlwgpu
+        ref: 8c330296253235bea752cc444c96a6c7cd6114bc
+        path: .ci-deps/hlwgpu
+    - uses: actions/checkout@v7
+      with:
+        repository: rayzor-blade/hlwindow
+        ref: c353c78a89a2187bd40010ae167c994dfb5e30ea
+        path: .ci-deps/hlwindow
+    - uses: actions/checkout@v7
+      with:
+        repository: rayzor-blade/hlavi
+        ref: af47541f6fd9c46d46ffbf558d36e7013dd6624a
+        path: .ci-deps/hlavi
+
+    - name: Install Haxelib dependencies
+      shell: bash
+      run: |
+        haxelib newrepo
+        haxelib install hashlink --always
+        haxelib install tink_hxx --always
+        curl -fsSL https://github.com/rayzor-blade/ash/releases/download/v0.1.5/ash-future-0.1.1.zip \
+          -o "$RUNNER_TEMP/ash-future.zip"
+        haxelib install "$RUNNER_TEMP/ash-future.zip" --always --skip-dependencies
+        haxelib dev hlwgpu "$GITHUB_WORKSPACE/.ci-deps/hlwgpu"
+        haxelib dev hlwindow "$GITHUB_WORKSPACE/.ci-deps/hlwindow"
+        haxelib dev hlavi "$GITHUB_WORKSPACE/.ci-deps/hlavi"

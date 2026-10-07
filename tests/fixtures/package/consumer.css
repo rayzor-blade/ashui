@@ -1,0 +1,5 @@
+.consumer {
+	flex-direction: column;
+	background: var(--background);
+	color: var(--text-primary);
+}

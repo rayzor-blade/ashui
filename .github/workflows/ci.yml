@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  packages:
+    name: Haxelib archive contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 tests/package_haxelib_test.py
+
+  native:
+    name: native build and tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-native
+      - name: Install native headers and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev \
+            libxi-dev libxcursor-dev fonts-dejavu-core
+      - name: Check every native target
+        run: cargo check --locked --workspace --all-targets
+      - name: Run native tests
+        run: cargo test --locked --workspace
+
+  haxe:
+    name: CSS, drawing and package API
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-haxe
+      - name: Register the framework packages
+        run: |
+          haxelib dev ashui "$PWD"
+          haxelib dev ashui-components "$PWD/components"
+          haxelib dev ashui-canvaskit "$PWD/canvaskit"
+          haxelib dev ashui-media "$PWD/media"
+      - name: Parse CSS and test native drawing data
+        run: |
+          haxe -cp haxe -cp tests -main CssParse --interp
+          haxe -cp haxe -cp tests -main CssValues --interp
+          haxe -cp haxe -cp tests -main Draw --interp
+      - name: Compile all four packages through Haxelib
+        # Source CI has no built native library; the release workflow checks
+        # the same consumer with the actual packaged HDLL and installer.
+        run: haxe tests/fixtures/package/build.hxml -D ashui_no_hdll
