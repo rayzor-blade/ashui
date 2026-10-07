@@ -1,6 +1,6 @@
 package ashui.media;
 
-/** Optional media components. Add media/haxe and hlavi/haxe to the build. **/
+/** Optional media components. Add -lib ashui-media to the build. **/
 class Library {
 	static var used = false;
 

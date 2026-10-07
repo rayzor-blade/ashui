@@ -1,0 +1,121 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check release packaging
+        run: python3 tests/package_haxelib_test.py
+      - id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_TYPE" = tag ]; then
+            version=$(python3 -c 'import sys; sys.path.insert(0, "scripts"); from package_haxelib import version_of; print(version_of(sys.argv[1]))' "$REF_NAME")
+          else
+            version=$(python3 -c 'import json; print(json.load(open("haxelib.json"))["version"])')
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  native:
+    needs: version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest,     platform: macos-aarch64,  target: aarch64-apple-darwin,      prefix: lib, ext: dylib }
+          - { os: macos-latest,     platform: macos-x86_64,   target: x86_64-apple-darwin,       prefix: lib, ext: dylib }
+          - { os: ubuntu-24.04,     platform: linux-x86_64,   target: x86_64-unknown-linux-gnu,  prefix: lib, ext: so }
+          - { os: ubuntu-24.04-arm, platform: linux-aarch64,  target: aarch64-unknown-linux-gnu, prefix: lib, ext: so }
+          - { os: windows-2022,     platform: windows-x86_64, target: x86_64-pc-windows-msvc,    prefix: '', ext: dll }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.platform }}
+
+      - name: Build the Windows runtime import library
+        if: startsWith(matrix.os, 'windows')
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/HaxeFoundation/hashlink.git /tmp/hashlink
+          cmake -S /tmp/hashlink -B /tmp/hashlink/build -DWITH_VM=ON \
+            -DWITH_FMT=OFF -DWITH_HEAPS=OFF -DWITH_OPENAL=OFF -DWITH_SDL=OFF \
+            -DWITH_SQLITE=OFF -DWITH_SSL=OFF -DWITH_UI=OFF -DWITH_UV=OFF \
+            -DWITH_VIDEO=OFF
+          cmake --build /tmp/hashlink/build --config Release --target libhl
+          libdir=$(dirname "$(find /tmp/hashlink/build -name 'libhl.lib' | head -1)")
+          test -f "$libdir/libhl.lib"
+          echo "HL_LIB_DIR=$libdir" >> "$GITHUB_ENV"
+
+      - name: Build the native library
+        shell: bash
+        run: cargo build --locked --release --target ${{ matrix.target }} -p blinc_abi
+
+      - name: Collect the release asset
+        shell: bash
+        run: |
+          mkdir -p out
+          cp "target/${{ matrix.target }}/release/${{ matrix.prefix }}blinc_abi.${{ matrix.ext }}" \
+            "out/blinc_abi-${{ matrix.platform }}.hdll"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hdll-${{ matrix.platform }}
+          path: out/
+          if-no-files-found: error
+
+  package:
+    needs: [version, native]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: hdll-*
+          path: release
+          merge-multiple: true
+
+      - name: Package the core and optional Haxelibs
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python3 scripts/package_haxelib.py release --check
+          python3 scripts/package_haxelib.py release --version "$VERSION"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: haxelib-packages
+          path: release/*.zip
+          if-no-files-found: error
+
+      - uses: softprops/action-gh-release@v3
+        if: github.ref_type == 'tag'
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            release/*.zip
+            release/*.hdll
+          generate_release_notes: true

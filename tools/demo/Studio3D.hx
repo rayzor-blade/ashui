@@ -1,5 +1,11 @@
+#if ashui_window
 import ashui.app.WindowConfig;
 import ashui.app.WindowedApp;
+#else
+import ashui.core.render.Snapshot;
+import ashui.reactive.Owner;
+import ashui.theme.ThemeState;
+#end
 import ashui.canvaskit.Environment;
 import ashui.canvaskit.Gltf;
 import ashui.canvaskit.GltfAnimation;
@@ -100,6 +106,7 @@ private class Loaded {
 	The HDR skies and the displacement map come from Poly Haven (CC0).
 
 		tools/demo/run.sh Studio3D.hx
+		tools/snapshot/run.sh tools/demo/Studio3D.hx
 **/
 class Studio3D {
 	static final ASSETS = "../../snapshot/assets/3d/";
@@ -500,7 +507,7 @@ class Studio3D {
 				<card-header><card-title>Studio</card-title><card-description>Drag to turn, Shift-drag to move, scroll to zoom</card-description></card-header>
 				<select value={chosen} widthPercent={1}>{choices}</select>
 				<scroll-area flexGrow={1} flexBasis={0} minHeight={0}>
-					<accordion type="multiple" value={["animation", "texture", "lighting", "sky", "floor"]}>
+					<accordion type="multiple" value={[]}>
 						<accordion-item value="animation">
 							<accordion-trigger>Animation</accordion-trigger>
 							<accordion-content>
@@ -589,7 +596,36 @@ class Studio3D {
 			</div>
 		</div>;
 		}
+		#if ashui_window
 		WindowedApp.run(new WindowConfig().title("3D studio").size(1200, 820).theme(DefaultTheme.bundle()), page);
+		#else
+		ThemeState.init(DefaultTheme.bundle(), Dark);
+		var background = ThemeState.get().color(Background);
+		Snapshot.renderer();
+		var tree = new ashui.layout.LayoutTree();
+		var cleanup:Void->Void = null;
+		var root = Owner.root(tree, dispose -> { cleanup = dispose; return page(); });
+		// Deliver the worker's model and HDR sky before capturing the studio.
+		var until = Sys.time() + 30;
+		while (model.get() == null || sky.get() == null) {
+			Sys.sleep(0.01);
+			ashui.core.render.Offscreen.advance(0.01);
+			tree.flush();
+			if (Sys.time() > until) {
+				cleanup();
+				throw "Studio assets did not load for the snapshot";
+			}
+		}
+		// The first draw uploads textures; let the loading overlay settle away.
+		tree.flush(); tree.computeLayout(root.node, 1200, 820);
+		Snapshot.capture("Studio3D", tree, root.node, 1200, 820, background.rgb(), background.a, 2.0);
+		for (_ in 0...30) {
+			ashui.core.render.Offscreen.advance(1 / 60);
+			tree.flush();
+		}
+		Snapshot.capture("Studio3D", tree, root.node, 1200, 820, background.rgb(), background.a, 2.0);
+		cleanup();
+		#end
 	}
 }
 

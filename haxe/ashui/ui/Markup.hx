@@ -25,6 +25,8 @@ using haxe.macro.ExprTools;
 **/
 class Markup {
 	#if macro
+	static var enabled = false;
+
 	/** Packages whose classes hold no templates: the standard library and the compiler's own. **/
 	static final SKIPPED = ["haxe", "sys", "hl", "cpp", "js", "jvm", "eval", "neko", "php", "python", "cs", "java", "lua", "flash", "tink"];
 
@@ -46,8 +48,12 @@ class Markup {
 	}
 
 	/** Lowers inline markup in every class the build types from here on. **/
-	public static function enable():Void
+	public static function enable():Void {
+		if (enabled)
+			return;
+		enabled = true;
 		Compiler.addGlobalMetadata("", "@:build(ashui.ui.Markup.build())", true, true, false);
+	}
 
 	/** The class's fields with each inline markup expression made the `hxx` of it; null when it has none, so the class is left alone. **/
 	public static function build():Null<Array<Field>> {

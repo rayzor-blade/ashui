@@ -7,7 +7,7 @@ import ashui.ui.Div;
 /**
 	ashui.components: composed components in the manner of shadcn/ui, on
 	ashui's built-in elements, for an app to take or leave. Add the library
-	with `--class-path components/haxe` and import what you use; an
+	with `-lib ashui-components` and import what you use; an
 	imported `Button` is `<button>` in hxx, in place of the built-in.
 
 	Every look is CSS, in `components/css/components.css`, which is put in

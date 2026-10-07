@@ -3,6 +3,7 @@ name = "blinc_abi"
 version = "0.1.0"
 edition = "2024"
 description = "ABI for the Blinc UI"
+license = "Apache-2.0"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

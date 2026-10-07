@@ -1,0 +1,25 @@
+{
+  "name": "ashui-media",
+  "url": "https://github.com/rayzor-blade/ashui",
+  "license": "Apache",
+  "tags": [
+    "ui",
+    "audio",
+    "video",
+    "media",
+    "ashui"
+  ],
+  "description": "Reactive audio and video playback, codecs, streams and equalization for ashui.",
+  "contributors": [
+    "darmie"
+  ],
+  "version": "0.1.0",
+  "releasenote": "Initial release.",
+  "classPath": "haxe",
+  "dependencies": {
+    "ashui": "",
+    "ashui-components": "",
+    "ashui-canvaskit": "",
+    "hlavi": ""
+  }
+}

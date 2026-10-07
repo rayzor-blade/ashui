@@ -1,0 +1,21 @@
+{
+  "name": "ashui-components",
+  "url": "https://github.com/rayzor-blade/ashui",
+  "license": "Apache",
+  "tags": [
+    "ui",
+    "components",
+    "hxx",
+    "ashui"
+  ],
+  "description": "Reusable HXX controls for ashui, with CSS styling and keyboard and pointer behaviors.",
+  "contributors": [
+    "darmie"
+  ],
+  "version": "0.1.0",
+  "releasenote": "Initial release.",
+  "classPath": "haxe",
+  "dependencies": {
+    "ashui": ""
+  }
+}

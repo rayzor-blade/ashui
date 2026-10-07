@@ -23,6 +23,14 @@ const SYMBOLS: &[&str] = &[
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-env-changed=HL_LIB_DIR");
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        if let Ok(directory) = env::var("HL_LIB_DIR") {
+            println!("cargo:rustc-link-search=native={directory}");
+        }
+        println!("cargo:rustc-link-lib=dylib=libhl");
+        return;
+    }
     if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
     }

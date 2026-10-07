@@ -1,5 +1,10 @@
+#if ashui_window
 import ashui.app.WindowConfig;
 import ashui.app.WindowedApp;
+#else
+import ashui.core.render.Snapshot;
+import ashui.theme.ThemeState;
+#end
 import ashui.canvaskit.Background2D;
 import ashui.canvaskit.CanvasKit;
 import ashui.canvaskit.Selection2D;
@@ -29,6 +34,7 @@ typedef Card = {id:String, x:Float, y:Float, w:Float, h:Float, title:String, col
 	the background and snapping, and fits the board in view.
 
 		tools/demo/run.sh Canvas2D.hx
+		tools/snapshot/run.sh tools/demo/Canvas2D.hx
 **/
 class Canvas2D {
 	static function main() {
@@ -125,6 +131,19 @@ class Canvas2D {
 				</div>
 			</div>;
 		}
+		#if ashui_window
 		WindowedApp.run(new WindowConfig().title("Canvas kit").size(1100, 720).theme(DefaultTheme.bundle()), page);
+		#else
+		ThemeState.init(DefaultTheme.bundle(), Dark);
+		var background = ThemeState.get().color(Background);
+		// Frame the whole board for the documentation capture.
+		var right = 0.0, bottom = 0.0;
+		for (card in cards) {
+			right = Math.max(right, card.x + card.w);
+			bottom = Math.max(bottom, card.y + card.h);
+		}
+		viewport.fit(0, 0, right, bottom, 1100, 720, 0.0);
+		Snapshot.scene("canvas-2d", 1100, 720, page, background.rgb(), background.a, 2.0, 1.0);
+		#end
 	}
 }

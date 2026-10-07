@@ -1,26 +1,30 @@
-# ashui media
+# ashui-media
 
-Optional playback components, equalization, codecs and bounded streams backed by **hlavi**.
+Audio/video playback components, equalization, codecs and bounded streams backed by **hlavi**.
+Install `ashui-media` in applications that need media support.
 Native playback owns audio output, decoding and the audio/video clock. Video
 frames upload to reusable GPU textures through **CanvasKit**, with ashui's
 transforms, clipping, rounded corners and opacity.
 
-## Build
+## Setup
 
-Compose `media.hxml` with the application's ashui build and enable direct HXX:
+Install with haxelib:
 
 ```sh
-haxe build.hxml media.hxml --macro 'ashui.ui.Markup.enable()' \
-  --class-path src -main Main -hl bin/main.hl
+haxelib install ashui-media
 ```
 
-The source setup expects the sibling `../hlavi` checkout, like `../hlwgpu`.
-For an installed hlavi package, replace its class path with `-lib hlavi`.
-Its native installer stages `xavi.hdll` beside the bytecode. Source checkouts
-can build it with `python3 ../hlavi/scripts/build.py --release`; an existing
-binary can be selected with `-D hlavi_hdll=/absolute/path/to/xavi.hdll`.
-Audio-only controller use requires `media/haxe`, hlavi, ash-future and ashui;
-the UI components additionally use components and canvaskit.
+Add `-lib ashui-media` to your app's [build.hxml](https://github.com/rayzor-blade/ashui/blob/main/README.md#quick-setup).
+Haxelib installs ashui, components, canvaskit and hlavi as dependencies.
+The packages enable HXX and stage the native libraries beside the bytecode;
+run it with [Ash](https://ash.rayzor.tech/#setup).
+
+## Playback example
+
+The existing [MediaPlayback demo](https://github.com/rayzor-blade/ashui/blob/main/tools/demo/MediaPlayback.hx)
+uses the default video controls over a blurred overlay, alongside a custom HXX audio player.
+
+![Video playback and a custom audio player](../docs/images/media-playback.png)
 
 ## HXX tags
 
@@ -184,7 +188,8 @@ Use hlavi's existing typed `media` package directly alongside `ashui.media`:
 
 Timestamps and durations on buffers/chunks are **Int64 microseconds**. Close
 each owned data handle and each `PlaneLayouts` returned by `copyTo`. Garbage
-collection does not release native media handles. See `hlavi/examples/MediaData.hx`.
+collection does not release native media handles. See hlavi's
+[MediaData example](https://github.com/rayzor-blade/hlavi/blob/main/examples/MediaData.hx).
 
 ## Encoding, decoding and streams
 
@@ -265,7 +270,8 @@ not add a network transport or streaming container parser.
 
 ## Styling and rendering
 
-`media/css/media.css` loads below application CSS. Parts are `.ui-media-video`,
+The package's [media stylesheet](https://github.com/rayzor-blade/ashui/blob/main/media/css/media.css)
+loads below application CSS. Parts are `.ui-media-video`,
 `.ui-media-surface`, `.ui-media-audio`, `.ui-media-controls`, `.ui-media-timeline`,
 `.ui-media-toolbar`, `.ui-media-time`, `.ui-media-volume-control` and `.ui-media-error`.
 Roots expose `[data-state]`; video also exposes `[data-controls="visible"|"hidden"]`.
@@ -284,7 +290,11 @@ Native file/codec/platform support follows hlavi (Apple, Windows, Android and
 Linux). Verification here is on macOS; other platform backends are provided
 by hlavi and are not exercised by this repository's macOS run.
 
-## Demo and verification
+## Repository demos and verification
+
+The [source repository](https://github.com/rayzor-blade/ashui) contains these
+development runners and scenes. Run the following from a configured framework
+checkout; these scripts are not included in the haxelib package.
 
 ```sh
 tools/demo/run.sh tools/demo/MediaPlayback.hx
@@ -306,7 +316,7 @@ The test generates a silent WAV, checks real audio playback, pause, seeking,
 looping, EOF/restart, failures, source replacement and native ownership. It
 also checks timeline clicks/drags/keys against decoded frame timestamps,
 auto-hide/hover/focus behavior, volume changes and control alignment, then
-captures contain/cover/fill video and controls in `.ashui/snapshots`.
+captures contain/cover/fill video and controls offscreen.
 Offscreen verification pumps a hidden native window so asynchronous platform
 opening/seeking complete. It never advances playback with a simulated clock.
 
@@ -318,3 +328,5 @@ MP4 export/demux, backpressure, EOF, ownership and reactive channel failures.
 `MediaEqualizerTest` checks native gain/preamp/bypass against actual PCM,
 live settings changes, shared controllers, reactive HXX bindings, source
 reloads and native cleanup.
+
+Licensed under [Apache 2.0](https://github.com/rayzor-blade/ashui/blob/main/LICENSE).

@@ -1,0 +1,25 @@
+{
+  "name": "ashui",
+  "url": "https://github.com/rayzor-blade/ashui",
+  "license": "Apache",
+  "tags": [
+    "ui",
+    "native",
+    "reactive",
+    "hashlink",
+    "ash"
+  ],
+  "description": "Native reactive UI for Haxe, with typed HXX, CSS, themes and animation.",
+  "contributors": [
+    "darmie"
+  ],
+  "version": "0.1.0",
+  "releasenote": "Initial release.",
+  "classPath": "haxe",
+  "dependencies": {
+    "hashlink": "",
+    "tink_hxx": "",
+    "hlwgpu": "",
+    "hlwindow": ""
+  }
+}

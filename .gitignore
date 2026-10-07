@@ -5,3 +5,6 @@ tests/fixtures/**/bin/
 .ashui/
 tools/**/bin/
 .DS_Store
+/native/*/
+/release/
+__pycache__/

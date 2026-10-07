@@ -29,6 +29,8 @@ import hlwgpu.hxsl.Extensions;
 	ashui.core.render.UiFramework.register()`.
 **/
 class UiFramework extends Extension {
+	static var registered = false;
+
 	/** The record's fields, a row each, in `DisplayList`'s order. **/
 	public static final FIELDS = [
 		"bounds", "cornerRadius", "color", "color2", "border", "borderColor", "shadow", "shadowColor", "clipBounds", "clipRadius", "gradient",
@@ -42,6 +44,9 @@ class UiFramework extends Extension {
 		renderer, a canvas's paint, types its GPU parts by it.
 	**/
 	public static function register() {
+		if (registered)
+			return;
+		registered = true;
 		haxe.macro.Compiler.define("ashui_gpu");
 		Extensions.register(new UiFramework(), "ashui.core.render.UiShader");
 	}

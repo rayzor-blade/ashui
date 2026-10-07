@@ -1,0 +1,21 @@
+{
+  "name": "ashui-canvaskit",
+  "url": "https://github.com/rayzor-blade/ashui",
+  "license": "Apache",
+  "tags": [
+    "ui",
+    "canvas",
+    "3d",
+    "ashui"
+  ],
+  "description": "Interactive 2D canvases and 3D scenes for ashui.",
+  "contributors": [
+    "darmie"
+  ],
+  "version": "0.1.0",
+  "releasenote": "Initial release.",
+  "classPath": "haxe",
+  "dependencies": {
+    "ashui": ""
+  }
+}

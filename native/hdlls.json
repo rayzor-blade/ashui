@@ -1,0 +1,22 @@
+{
+  "linux-x86_64": {
+    "releaseAsset": "blinc_abi-linux-x86_64.hdll",
+    "packagePath": "native/linux-x86_64/blinc_abi.hdll"
+  },
+  "linux-aarch64": {
+    "releaseAsset": "blinc_abi-linux-aarch64.hdll",
+    "packagePath": "native/linux-aarch64/blinc_abi.hdll"
+  },
+  "macos-aarch64": {
+    "releaseAsset": "blinc_abi-macos-aarch64.hdll",
+    "packagePath": "native/macos-aarch64/blinc_abi.hdll"
+  },
+  "macos-x86_64": {
+    "releaseAsset": "blinc_abi-macos-x86_64.hdll",
+    "packagePath": "native/macos-x86_64/blinc_abi.hdll"
+  },
+  "windows-x86_64": {
+    "releaseAsset": "blinc_abi-windows-x86_64.hdll",
+    "packagePath": "native/windows-x86_64/blinc_abi.hdll"
+  }
+}

@@ -1,0 +1,3 @@
+--macro ashui.core.render.UiFramework.register()
+--macro ashui.ui.Markup.enable()
+--macro ashui.macro.NativeInstall.stage()
