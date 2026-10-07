@@ -64,9 +64,10 @@ render() {
 	fi
 	rm -f bin/xgpu.hdll
 	cp "$vib/hlwgpu/target/release/libhlwgpu.$ext" bin/xgpu.hdll
-	# A window needs hlwindow's library and the window build of ashui.
+	# Media snapshots also pump a hidden native window's event loop, so native
+	# opening and seeking complete before their offscreen frames are captured.
 	defines=""
-	if [ $window -eq 1 ]; then
+	if [ $window -eq 1 ] || [ "${ASHUI_MEDIA:-0}" = 1 ] || grep -q 'ashui\.media' "$scene"; then
 		if ! out=$(cargo build --release --manifest-path "$vib/hlwindow/Cargo.toml" 2>&1); then
 			echo "error $name hlwindow failed to build: $(echo "$out" | grep -m1 '^error')" >> "$events"
 			echo "$out" >&2
@@ -74,10 +75,25 @@ render() {
 		fi
 		rm -f bin/xwindow.hdll
 		cp "$vib/hlwindow/target/release/libhlwindow.$ext" bin/xwindow.hdll
-		defines="-D ashui_window"
+		if [ $window -eq 1 ]; then defines="-D ashui_window"; fi
 	fi
-	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
+	media_args=""
+	if [ "${ASHUI_MEDIA:-0}" = 1 ] || grep -q 'ashui\.media' "$scene"; then
+		if [ -z "${HLAVI_HDLL:-}" ]; then
+			if ! out=$(cargo build --release --manifest-path "$vib/hlavi/Cargo.toml" 2>&1); then
+				echo "error $name hlavi failed to build" >> "$events"
+				echo "$out" >&2
+				return 1
+			fi
+			media_hdll="$vib/hlavi/target/release/libhlavi.$ext"
+		else
+			media_hdll="$HLAVI_HDLL"
+		fi
+		media_args="--macro hlavi.macro.NativeInstall.stage()"
+	fi
+	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" --class-path "$repo/media/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" --class-path "$vib/ash/haxelib/ash-simd" -D ash_simd \
+		--class-path "$vib/hlavi/haxe" -D "hlavi_hdll=${media_hdll:-}" $media_args \
 		--macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' -D "ashui_css=$css" $defines \
 		--class-path "$(dirname "$scene")" -main "$name" -hl "bin/$name.hl" 2>&1); then
 		echo "error $name does not compile: $(echo "$out" | grep -v Warning | head -1)" >> "$events"
@@ -104,7 +120,7 @@ touch "$stamp"
 render || true
 echo "watching $scene; Ctrl-C stops" >&2
 while sleep 0.5; do
-	if [ -n "$(find "$scene" "$scene_css" "$repo/haxe" "$repo/blinc_abi/src" -newer "$stamp" \( -name '*.hx' -o -name '*.css' -o -name '*.rs' \) 2>/dev/null | head -1)" ]; then
+	if [ -n "$(find "$scene" "$scene_css" "$repo/haxe" "$repo/components" "$repo/canvaskit" "$repo/media" "$repo/blinc_abi/src" -newer "$stamp" \( -name '*.hx' -o -name '*.css' -o -name '*.rs' \) 2>/dev/null | head -1)" ]; then
 		touch "$stamp"
 		render || true
 	fi

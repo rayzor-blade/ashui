@@ -20,6 +20,8 @@ typedef SliderProps = {
 	/** How the value is shown beside the label; to two decimals by default. **/
 	?format:Float->String,
 	?disabled:IntoReactive<Bool>,
+	/** Called on pointer or keyboard edits; changes to the bound value do not call it. **/
+	?onChange:Float->Void,
 	?name:String,
 	?id:String
 }
@@ -55,6 +57,7 @@ class Slider extends Component<SliderProps> {
 			step: props.step,
 			orientation: props.orientation,
 			disabled: props.disabled,
+			onInput: props.onChange == null ? null : v -> props.onChange(Std.parseFloat(v)),
 			name: props.name,
 			id: props.id
 		}, children);

@@ -22,6 +22,12 @@ enum CanvasTool {
 }
 
 typedef CanvasKitProps = {
+	/** GPU content at this canvas's place in paint order, under its clips and opacity. **/
+	?paint:ashui.ui.Canvas.CanvasPaint,
+
+	/** Whether the kit handles pan, zoom and selection input; true by default. **/
+	?interactive:Bool,
+
 	/**
 		Draws the content, in content coordinates: the view's pan and zoom
 		are applied already. Register what can be clicked, selected and
@@ -121,6 +127,11 @@ class CanvasKit extends Component<CanvasKitProps> {
 	public function region(id:String, x:Float, y:Float, width:Float, height:Float):Void
 		index.set(id, x, y, width, height);
 
+	/** Asks for a frame after content drawn by `paint` changes. **/
+	public function repaint():Void {
+		if (canvas != null) canvas.repaint();
+	}
+
 	/** Whether the content rect is at least partly in view: draw only what is, for large scenes. **/
 	public function visible(x:Float, y:Float, w:Float, h:Float):Bool {
 		var a = viewport.screenToContent(0, 0), b = viewport.screenToContent(width, height);
@@ -158,6 +169,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 		selection = props.selection != null ? props.selection : new Selection2D();
 		var c = new Canvas({
 			id: props.id,
+			paint: props.paint,
 			animate: props.animate,
 			draw: ctx -> {
 				width = ctx.width;
@@ -180,7 +192,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 			}
 		});
 		canvas = c;
-		attachInput(c.node);
+		if (props.interactive != false) attachInput(c.node);
 		return c;
 	}
 

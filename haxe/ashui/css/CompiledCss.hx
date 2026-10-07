@@ -35,6 +35,7 @@ class CompiledCss {
 		var source = sys.io.File.getContent(full);
 		var sheet = Stylesheet.parse(source, full);
 		report(sheet, full, source);
+		DeclaredCss.include(sheet);
 		Context.registerModuleDependency(Context.getLocalModule(), full);
 		for (imported in sheet.imports)
 			Context.registerModuleDependency(Context.getLocalModule(), imported);

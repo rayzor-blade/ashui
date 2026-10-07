@@ -38,8 +38,20 @@ rm -f bin/xgpu.hdll
 cp "$vib/hlwgpu/target/release/libhlwgpu.$ext" bin/xgpu.hdll
 rm -f bin/xwindow.hdll
 cp "$vib/hlwindow/target/release/libhlwindow.$ext" bin/xwindow.hdll
-haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
+# Media stays optional. Imported media tags opt a demo in; ASHUI_MEDIA=1 also
+# enables demos that reach them through another module. HLAVI_HDLL uses an
+# existing local or packaged binary, otherwise build the sibling checkout.
+media_args=""
+if [ "${ASHUI_MEDIA:-0}" = 1 ] || grep -q 'ashui\.media' "$demo"; then
+	if [ -z "${HLAVI_HDLL:-}" ]; then
+		cargo build --release --manifest-path "$vib/hlavi/Cargo.toml"
+		HLAVI_HDLL="$vib/hlavi/target/release/libhlavi.$ext"
+	fi
+	media_args="--macro hlavi.macro.NativeInstall.stage()"
+fi
+haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" --class-path "$repo/media/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 	--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" --class-path "$vib/ash/haxelib/ash-simd" -D ash_simd \
+	--class-path "$vib/hlavi/haxe" -D "hlavi_hdll=${HLAVI_HDLL:-}" $media_args \
 	-D ashui_window -D "ashui_css=$css" --macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' \
 	--class-path "$(dirname "$demo")" -main "$name" -hl "bin/$name.hl"
 cd bin && exec "$vib/ash/target/release/ash" --mode "${ASH_MODE:-hybrid}" "$PWD/$name.hl"

@@ -105,12 +105,12 @@ class Hxx {
 					ones.push(e);
 				case Many(e):
 					if (ones.length > 0)
-						append(macro $a{ones});
+						append(macro ($a{ones} : Array<ashui.layout.Element>));
 					ones = [];
 					append(e);
 			}
 		if (ones.length > 0 || result == null)
-			append(macro $a{ones});
+			append(macro ($a{ones} : Array<ashui.layout.Element>));
 		return result;
 	}
 
@@ -573,6 +573,7 @@ class Hxx {
 	/** A prop's value: reactive when the prop takes `IntoReactive<T>`. **/
 	static function propValue(value:Expr, propType:Type):Expr {
 		return switch propType {
+			case TAbstract(_.get() => {pack: [], name: 'Null'}, [inner]): propValue(value, inner);
 			case TAbstract(_.get() => {pack: ['ashui', 'layout'], name: 'IntoReactive'}, [inner]): bindable(value, inner);
 			case TType(_, _) | TLazy(_): propValue(value, Context.follow(propType, true));
 			case _: value;

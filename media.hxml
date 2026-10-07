@@ -1,0 +1,7 @@
+
+--class-path ./media/haxe
+--class-path ../hlavi/haxe
+--class-path ./canvaskit/haxe
+--class-path ./components/haxe
+--class-path ./haxe
+--macro hlavi.macro.NativeInstall.stage()

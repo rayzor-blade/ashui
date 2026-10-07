@@ -1,0 +1,22 @@
+.mp-page {
+	padding: 28px; display: flex; flex-direction: column; gap: 22px;
+	background: linear-gradient(150deg, #171e29, #0c111a 65%); color: #edf1f8;
+	--primary: #92ddc8; --accent: #92ddc8; --text-inverse: #101b18;
+	--ui-slider-fill: #92ddc8; --ui-switch-track-on: #92ddc8;
+}
+.mp-header { flex-direction: row; align-items: center; justify-content: space-between; padding: 2px 2px 8px; }
+.mp-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 2px; color: #92ddc8; }
+.mp-heading { font-size: 32px; font-weight: 600; letter-spacing: -1px; }
+.mp-video { width: 864px; height: 486px; --ui-media-radius: 20px; }
+.mp-caption { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 2px; }
+.mp-title { font-size: 16px; font-weight: 600; }
+.mp-subtitle { font-size: 12px; color: #94a3b8; }
+.mp-control-toggle { flex-direction: row; align-items: center; gap: 12px; }
+.mp-audio {
+	flex-direction: row; align-items: center; gap: 14px; padding: 14px 16px;
+	background: #19212f; border: 1px solid #2b3648; border-radius: 18px;
+}
+.mp-audio-copy { flex-direction: column; gap: 8px; }
+.mp-art { width: 56px; height: 56px; align-items: center; justify-content: center; border-radius: 12px;
+	background: linear-gradient(135deg, #47666b, #283844); color: #cef5e9; }
+.mp-audio-play { --ui-button-radius: 999px; --ui-button-bg: #92ddc8; --ui-button-bg-hover: #b1ecdd; --ui-button-fg: #10201b; }

@@ -15,12 +15,21 @@ import haxe.macro.Expr;
 **/
 class DeclaredCss {
 	static var cached:Null<Map<String, Bool>> = null;
+	static final compiled = new Map<String, Bool>();
+
+	/** Classes from a CompiledCss sheet are available to the HXX that uses it. **/
+	public static function include(sheet:Stylesheet):Void {
+		for (name in sheet.classNames()) {
+			compiled.set(name, true);
+			if (cached != null) cached.set(name, true);
+		}
+	}
 
 	/** The class names of the declared sheets, reading them the first time. **/
 	public static function classes():Map<String, Bool> {
 		if (cached != null)
 			return cached;
-		var out = new Map<String, Bool>();
+		var out = compiled.copy();
 		var listed = Context.definedValue("ashui_css");
 		if (listed != null)
 			for (path in listed.split(",").map(StringTools.trim).filter(p -> p != "")) {

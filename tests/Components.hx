@@ -1584,6 +1584,26 @@ class Components {
 		var sb = narrowTree.getBounds(narrowSlider.node);
 		check("a labelled slider in a column narrower than it shrinks to fit", sb != null && sb.width <= 180 + 0.5, sb == null ? null : sb.width);
 
+		// Optional reactive component props bind expressions through Null<T> too.
+		var ready = Signal.make(false);
+		var enabledTree = new LayoutTree();
+		var changed = 0;
+		var enabledValue = Signal.make(0.5);
+		var enabledRange = new ashui.ui.Ref<Slider>();
+		var enabledRoot:Div = Owner.root(enabledTree, _ -> <div width={200} height={50}>
+			<slider ref={enabledRange} value={enabledValue} disabled={!ready.get()} onChange={_ -> changed++} />
+		</div>);
+		enabledTree.flush();
+		var enabledInteraction = ashui.input.Interaction.of(enabledRange.get().node);
+		var initiallyDisabled = enabledInteraction.disabled.get();
+		ready.set(true); enabledTree.flush();
+		check("an optional disabled expression follows the signal it reads", initiallyDisabled && !enabledInteraction.disabled.get());
+		enabledValue.set(0.75); enabledTree.flush();
+		check("programmatic slider updates do not emit user changes", changed == 0);
+		ashui.input.Focus.set(enabledInteraction, true);
+		ashui.input.Keyboard.input(enabledTree, key(Named(ArrowUp), ArrowUp));
+		check("slider keyboard edits emit one user change", changed == 1);
+
 		// A vertical slider retains the range's drag and keys, including a press on its HXX icon child.
 		var verticalTree = new LayoutTree();
 		var verticalValue = Signal.make(25.0);
