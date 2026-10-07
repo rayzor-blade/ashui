@@ -34,7 +34,7 @@ abstract ShadowTokens(ShadowTokensData) from ShadowTokensData to ShadowTokensDat
 		return [shadow];
 	}
 
-	/** One black layer per step, on Tailwind's offsets and blurs, for light surfaces. **/
+	/** One black layer per step, offsets and blurs, for light surfaces. **/
 	public static function light():ShadowTokens {
 		return ladder([0.05, 0.1, 0.1, 0.1, 0.1, 0.25, 0.05]);
 	}

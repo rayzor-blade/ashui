@@ -76,7 +76,7 @@ abstract TypographyTokens(TypographyTokensData) from TypographyTokensData to Typ
 		}
 	}
 
-	/** System font stacks on a Tailwind-like size scale: what a theme starts from. **/
+	/** System font stacks on a size scale: what a theme starts from. **/
 	public static function defaults():TypographyTokens {
 		return {
 			fontSans: FontFamily.systemSans(),

@@ -24,7 +24,7 @@ abstract RadiusTokens(RadiusTokensData) from RadiusTokensData to RadiusTokensDat
 		return token.of(this);
 	}
 
-	/** Tailwind's radius scale. **/
+	/** Radius scale. **/
 	public static function defaults():RadiusTokens {
 		return {
 			radiusNone: 0,

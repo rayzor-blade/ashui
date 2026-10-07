@@ -45,7 +45,7 @@ abstract AnimationTokens(AnimationTokensData) from AnimationTokensData to Animat
 		return get(token) / 1000;
 	}
 
-	/** Tailwind-like durations, easing out by default. **/
+	/** Animation durations, easing out by default. **/
 	public static function defaults():AnimationTokens {
 		return {
 			durationFastest: 75,
