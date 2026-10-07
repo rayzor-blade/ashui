@@ -1,3 +1,7 @@
+<p align="center">
+<img style="display: block;" src="./docs/images/ashui-logo.png" alt="Ashui Logo" width="250"/>
+</p>
+
 # ashui
 
 ashui is a native, reactive UI framework for Haxe. Build interfaces with typed
