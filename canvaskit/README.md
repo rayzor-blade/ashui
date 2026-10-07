@@ -24,7 +24,7 @@ to run the compiled app. Save this as `build.hxml`:
 
 Save as `CanvasDemo.hx`, then run `haxe build.hxml` and `ash bin/canvas.hl`:
 
-```haxe
+```tsx
 import ashui.app.WindowedApp;
 import ashui.canvaskit.CanvasKit;
 import ashui.reactive.Reactive;
@@ -72,7 +72,7 @@ and `kit.fitContent()` to ease the view around all or selected regions.
 
 Inside your app's UI builder:
 
-```haxe
+```tsx
 import ashui.canvaskit.Geometry;
 import ashui.canvaskit.SceneKit;
 

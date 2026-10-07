@@ -24,7 +24,7 @@ to run the compiled app. Save this as `build.hxml`:
 
 Save as `ComponentsDemo.hx`, then run `haxe build.hxml` and `ash bin/components.hl`:
 
-```haxe
+```tsx
 import ashui.app.WindowedApp;
 import ashui.components.Button;
 import ashui.components.Card;
@@ -94,10 +94,16 @@ shows fields, switches, sliders, radio groups, selects and progress in the defau
 | --- | --- |
 | ![Form components in the dark theme](../docs/images/forms-dark.png) | ![Form components in the light theme](../docs/images/forms-light.png) |
 
-[AccordionMotion](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/AccordionMotion.hx)
-records content expansion and the layout movement of the following items:
+The accordion section of
+[ComponentsGallery](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/ComponentsGallery.hx)
+shows single and multiple open sections in both schemes:
 
-![Accordion layout animation](../docs/images/accordion-motion.gif)
+![Single and multiple accordions in light and dark themes](../docs/images/accordion-themes.png)
+
+The same gallery at a compact width, scrolled to its accordion section,
+records content expansion, chevron rotation and the movement of the following items:
+
+![Single and multiple accordion layout animations in a compact view](../docs/images/accordion-motion.gif)
 
 Browse [ComponentsGallery](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/ComponentsGallery.hx)
 for buttons, badges, cards, alerts, tabs and loading states.

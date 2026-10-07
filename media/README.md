@@ -28,7 +28,7 @@ uses the default video controls over a blurred overlay, alongside a custom HXX a
 
 ## HXX tags
 
-```haxe
+```tsx
 import ashui.media.Video;
 import ashui.media.Audio;
 import ashui.media.VideoFit;
@@ -52,7 +52,7 @@ controller through `.player`.
 
 ## Custom playback UI
 
-```haxe
+```tsx
 import ashui.components.Button;
 import ashui.media.Player;
 import ashui.media.Video;
@@ -128,7 +128,7 @@ and decoded PCM. Developers can build their own controls using its reactive
 settings and methods. The default five bands are **60, 250, 1000, 4000 and 12000 Hz**,
 enabled at zero gain and Q=1. Supply 1–16 frequencies for another arrangement.
 
-```haxe
+```tsx
 import ashui.media.Equalizer;
 import ashui.media.Audio;
 

@@ -2,14 +2,15 @@
 
 ashui is a native, reactive UI framework for Haxe. Build interfaces with typed
 HXX elements and reusable controls, style them with CSS or Tailwind-style
-classes, and add themes and animations. Optional libraries provide 2D/3D
+classes, and add animations. Three built-in themes coordinate color, shape
+and motion. Optional libraries provide 2D/3D
 canvases and audio/video APIs.
 
 ## Usage
 
 Save this as `Hello.hx` in your app directory:
 
-```haxe
+```tsx
 import ashui.app.WindowedApp;
 import ashui.components.Button;
 import ashui.reactive.Reactive;
@@ -87,7 +88,7 @@ light and dark schemes.
 Tailwind-style classes put layout, spacing, colors and effects directly in
 HXX, with state variants and compile-time checking:
 
-```haxe
+```tsx
 <div class="flex flex-col gap-3 p-6 rounded-2xl border border-border bg-surface hover:bg-surface-elevated">
     <text class="text-lg font-semibold">Styled in HXX</text>
     <text class="text-sm text-secondary">Theme colors follow the active scheme.</text>
@@ -99,6 +100,55 @@ Load application CSS with `Css.add(CompiledCss.file("app.css"))` from
 names with `-D ashui_css=app.css` in `build.hxml`. Utility classes and explicit
 element attributes take precedence over stylesheet rules. Components load
 their base CSS automatically, below application styles.
+
+See the [CSS guide](https://github.com/rayzor-blade/ashui/blob/main/docs/css.md)
+for the cascade, compiled stylesheets, reusable styles and how theme tokens
+generate Tailwind-style utilities.
+
+## Themes and HIG
+
+ashui ships three **Universal** themes, each with light and dark schemes.
+Their human interface guidelines (HIG) use typography and spacing to make
+hierarchy clear, semantic colors to communicate state, and elevation to
+separate surfaces. Focus and interaction feedback come from the reusable
+controls; motion makes state and navigation changes easier to follow.
+
+| Theme | Design principles |
+| --- | --- |
+| [Restrained](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/theme/themes/RestrainedTheme.hx) | Apple HIG inspired: quiet surfaces, subtle shadows, strongly smoothed squircle corners, quick feedback and gentle spring and sheet motion. |
+| [Hybrid](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/theme/themes/HybridTheme.hx) **(default)** | Balances Apple's restraint with Material's color and depth: moderate elevation, smoothed corners, balanced navigation easing and spring motion. |
+| [Expressive](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/theme/themes/ExpressiveTheme.hx) | Material inspired: bolder color, accent tinted shadows, larger corner radii, emphasized easing and more pronounced spring motion. |
+
+All three share Noto typography and a spacing scale. Their character also
+comes from coordinated animation and shape tokens:
+
+- **Animation:** [AnimationTokens](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/theme/AnimationTokens.hx)
+  defines seven duration steps, selected by `AnimationToken`, and easing
+  curves selected by `EasingToken`. Separate `State`, `Nav`, `Spring` and
+  `Sheet` curves give interaction feedback, navigation, popovers and drawers
+  the theme's pace and degree of overshoot.
+- **Shape:** `RadiusTokens` sets corner sizes;
+  [ShapeTokens](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/theme/ShapeTokens.hx)
+  controls corner smoothing, the superellipse exponent and the minimum
+  radius at which smoothing applies. Together they give Restrained stronger
+  squircle corners, Hybrid moderate smoothing and Expressive larger, more
+  circular corners.
+
+| Theme | Normal duration | Default radius | Corner smoothing (0–1) |
+| --- | --- | --- | --- |
+| Restrained | 200 ms | 12 px | 0.65 |
+| Hybrid | 240 ms | 12 px | 0.40 |
+| Expressive | 280 ms | 16 px | 0.20 |
+
+Utilities such as `rounded` and `transition duration-normal ease-spring`
+use the active theme's tokens, keeping application surfaces and motion in
+step with its controls.
+
+See the [theme guide](https://github.com/rayzor-blade/ashui/blob/main/docs/themes.md)
+for setup, extending a built-in theme, custom token bundles and runtime
+switching. `DefaultTheme` is an alias for `HybridTheme`. Windows follow the
+system's light or dark appearance; theme bindings and CSS variables update
+reactively.
 
 ## Reactive state
 
@@ -139,7 +189,7 @@ Import `ashui.reactive.Reactive` for these shortcuts. Components can also use
 
 ## Showcase
 
-### Default theme
+### Default theme: Hybrid
 
 The same [chart gallery](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/ChartsGallery.hx)
 with themed cards, typography and charts in both schemes:
@@ -151,11 +201,11 @@ with themed cards, typography and charts in both schemes:
 ### Motion
 
 Native captures of the existing demos: drawer transitions and spring return,
-plus accordion layout expansion and chevron rotation.
+plus the component gallery's single and multiple accordions in a compact view.
 
-| [DrawerMotion](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/DrawerMotion.hx) | [AccordionMotion](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/AccordionMotion.hx) |
+| [DrawerMotion](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/DrawerMotion.hx) | [ComponentsGallery](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/ComponentsGallery.hx) |
 | --- | --- |
-| ![Drawer opening, springing back after a drag, and dismissing](docs/images/drawer-motion.gif) | ![Accordion expanding while the following rows move down](docs/images/accordion-motion.gif) |
+| ![Drawer opening, springing back after a drag, and dismissing](docs/images/drawer-motion.gif) | ![Single and multiple accordions expanding in a compact gallery view](docs/images/accordion-motion.gif) |
 
 ### Canvas and media
 
