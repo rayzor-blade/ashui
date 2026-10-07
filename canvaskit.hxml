@@ -1,0 +1,3 @@
+--class-path ./haxe
+--class-path ./canvaskit/haxe
+--class-path ../hlwgpu/haxe
