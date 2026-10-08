@@ -23,8 +23,10 @@ def release_readme(readme: Path) -> str:
         relative = source.relative_to(ROOT).as_posix()
         return match[1] + README_IMAGE_BASE + relative + match[3]
 
-    return re.sub(r"(!\[[^\n]*?\]\()((?:\.\./)?docs/images/[^)\s]+)(\))",
-                  image_url, readme.read_text())
+    contents = re.sub(r"(!\[[^\n]*?\]\()((?:\./|\.\./)?docs/images/[^)\s]+)(\))",
+                      image_url, readme.read_text())
+    return re.sub(r"(<img\b[^>]*?\bsrc\s*=\s*[\"'])((?:\./|\.\./)?docs/images/[^\"'\s]+)([\"'])",
+                  image_url, contents, flags=re.IGNORECASE)
 
 
 def version_of(tag: str) -> str:

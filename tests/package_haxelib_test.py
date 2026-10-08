@@ -46,8 +46,8 @@ class PackageTest(unittest.TestCase):
                     lib = json.loads(archive.read("haxelib.json"))
                     self.assertEqual(lib["version"], "2026.10.7")
                     self.assertEqual(lib["license"], "Apache")
-                    self.assertTrue(archive.read("README.md").startswith(f"# {path.stem}\n".encode()))
                     packaged_readme = archive.read("README.md").decode()
+                    self.assertRegex(packaged_readme, rf"(?m)^# {re.escape(path.stem)}$")
                     source_root = ROOT if path.stem == "ashui" else ROOT / path.stem.removeprefix("ashui-")
                     source_readme = (source_root / "README.md").read_text()
                     images = re.findall(r"!\[[^\n]*?\]\(([^)]+)\)", source_readme)
@@ -59,6 +59,13 @@ class PackageTest(unittest.TestCase):
                         published = "https://raw.githubusercontent.com/rayzor-blade/ashui/main/" + source.relative_to(ROOT).as_posix()
                         self.assertIn(f"]({published})", packaged_readme)
                         self.assertNotIn(f"]({image})", packaged_readme)
+                    for image in re.findall(r"<img\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)[\"']", source_readme,
+                                            flags=re.IGNORECASE):
+                        source = (source_root / image).resolve()
+                        self.assertTrue(source.is_file(), f"missing local image: {source}")
+                        published = PACKAGER.README_IMAGE_BASE + source.relative_to(ROOT).as_posix()
+                        self.assertIn(f'src="{published}"', packaged_readme)
+                        self.assertNotIn(f'src="{image}"', packaged_readme)
                     self.assertIn("Apache License", archive.read("LICENSE").decode())
                     self.assertFalse(any(name.startswith(("tools/", "tests/", "target/"))
                                          for name in archive.namelist()))
