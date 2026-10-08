@@ -1,0 +1,166 @@
+name: publish Haxelib stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      ash_tag:
+        description: Ash release containing ash-future and ash-simd
+        type: string
+        default: v0.1.5
+      hlwgpu_tag:
+        description: hlwgpu release tag
+        type: string
+        default: v0.1.0
+      hlwindow_tag:
+        description: hlwindow release tag
+        type: string
+        default: v0.2.0
+      hlavi_tag:
+        description: hlavi release tag
+        type: string
+        default: v0.1.0
+      ashui_tag:
+        description: ashui release tag
+        type: string
+        default: v0.1.0
+      publish:
+        description: Submit all nine packages to Haxelib
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: haxelib-stack
+  cancel-in-progress: false
+
+jobs:
+  ash:
+    uses: rayzor-blade/ash/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.ash_tag }}
+      publish: false
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  hlwgpu:
+    needs: ash
+    uses: rayzor-blade/hlwgpu/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.hlwgpu_tag }}
+      publish: false
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  hlwindow:
+    needs: ash
+    uses: rayzor-blade/hlwindow/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.hlwindow_tag }}
+      publish: false
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  hlavi:
+    needs: ash
+    uses: rayzor-blade/hlavi/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.hlavi_tag }}
+      publish: false
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  ashui:
+    needs: [hlwgpu, hlwindow, hlavi]
+    uses: ./.github/workflows/publish.yml
+    with:
+      release_tag: ${{ inputs.ashui_tag }}
+      publish: false
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  consumer:
+    name: install and compile the complete release stack
+    needs: ashui
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: krdlab/setup-haxe@v2
+        with:
+          haxe-version: 4.3.6
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: validated-haxelibs-*
+          path: release
+          merge-multiple: true
+      - name: Install every release package
+        run: |
+          haxelib newrepo
+          haxelib install hashlink --always
+          haxelib install tink_hxx --always
+          for name in ash-future ash-simd hlwgpu hlwindow hlavi ashui ashui-components ashui-canvaskit ashui-media; do
+            case "$name" in
+              ash-future|ash-simd) archives=("release/$name-"*.zip) ;;
+              *) archives=("release/$name.zip") ;;
+            esac
+            for archive in "${archives[@]}"; do
+              haxelib install "$archive" --always --skip-dependencies
+            done
+          done
+      - name: Compile HXX and check every native install macro
+        run: |
+          haxe tests/fixtures/package/native.hxml -D hlavi_cache="$RUNNER_TEMP/hlavi"
+          for name in blinc_abi xgpu xwindow xavi ash_future simd; do
+            test -s "tests/bin/$name.hdll"
+          done
+
+  submit-ash:
+    needs: consumer
+    if: inputs.publish
+    uses: rayzor-blade/ash/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.ash_tag }}
+      publish: true
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  submit-hlwgpu:
+    needs: submit-ash
+    if: inputs.publish
+    uses: rayzor-blade/hlwgpu/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.hlwgpu_tag }}
+      publish: true
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  submit-hlwindow:
+    needs: submit-ash
+    if: inputs.publish
+    uses: rayzor-blade/hlwindow/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.hlwindow_tag }}
+      publish: true
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  submit-hlavi:
+    needs: submit-ash
+    if: inputs.publish
+    uses: rayzor-blade/hlavi/.github/workflows/publish.yml@main
+    with:
+      release_tag: ${{ inputs.hlavi_tag }}
+      publish: true
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}
+
+  submit-ashui:
+    needs: [submit-hlwgpu, submit-hlwindow, submit-hlavi]
+    if: inputs.publish
+    uses: ./.github/workflows/publish.yml
+    with:
+      release_tag: ${{ inputs.ashui_tag }}
+      publish: true
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}

@@ -1,0 +1,11 @@
+-lib ashui
+-lib ashui-components
+-lib ashui-canvaskit
+-lib ashui-media
+-lib ash-simd
+
+-D ash_future_stock
+-D ashui_css=tests/fixtures/package/consumer.css
+-cp tests/fixtures/package
+-main Consumer
+-hl tests/bin/package-consumer.hl

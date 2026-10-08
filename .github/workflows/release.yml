@@ -218,3 +218,13 @@ jobs:
         run: |
           git tag --force nightly "$GITHUB_SHA"
           git push --force origin refs/tags/nightly
+
+  publish-haxelib:
+    name: Publish Haxelibs
+    needs: [plan, publish]
+    if: needs.plan.outputs.tag != '' && needs.plan.outputs.tag != 'nightly'
+    uses: ./.github/workflows/publish.yml
+    with:
+      release_tag: ${{ needs.plan.outputs.tag }}
+    secrets:
+      HAXELIB_PASSWORD: ${{ secrets.HAXELIB_PASSWORD }}

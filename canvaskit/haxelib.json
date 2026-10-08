@@ -10,6 +10,7 @@
   ],
   "description": "Interactive 2D canvases and 3D scenes for ashui.",
   "contributors": [
+    "rayzor",
     "darmie"
   ],
   "version": "0.1.0",

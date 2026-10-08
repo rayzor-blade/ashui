@@ -11,6 +11,7 @@
   ],
   "description": "Reactive audio and video playback, codecs, streams and equalization for ashui.",
   "contributors": [
+    "rayzor",
     "darmie"
   ],
   "version": "0.1.0",

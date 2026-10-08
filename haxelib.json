@@ -11,6 +11,7 @@
   ],
   "description": "Native reactive UI for Haxe, with typed HXX, CSS, themes and animation.",
   "contributors": [
+    "rayzor",
     "darmie"
   ],
   "version": "0.1.0",

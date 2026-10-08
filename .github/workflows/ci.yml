@@ -23,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: python3 tests/package_haxelib_test.py
+      - run: python3 tests/publish_haxelib_test.py
 
   native:
     name: native build and tests

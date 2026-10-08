@@ -10,6 +10,7 @@
   ],
   "description": "Reusable HXX controls for ashui, with CSS styling and keyboard and pointer behaviors.",
   "contributors": [
+    "rayzor",
     "darmie"
   ],
   "version": "0.1.0",
