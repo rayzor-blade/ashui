@@ -117,7 +117,7 @@ jobs:
 
       - name: Build the native library
         shell: bash
-        run: cargo build --locked --release --target ${{ matrix.target }} -p blinc_abi
+        run: cargo build --locked --release --target ${{ matrix.target }} -p ashui-native
 
       - name: Collect the release asset
         shell: bash

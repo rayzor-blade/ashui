@@ -12,8 +12,8 @@ import ashui.core.externs.LayoutTreeNative;
 	records sit in `bytes`, which a renderer uploads as it is, as rows of a
 	float texture the UI shaders read (see `RecordLayout`).
 
-	Each field is listed in blinc_abi/src/display_list.rs, which packs the
-	records natively. A record is a subset of Blinc's `GpuPrimitive`.
+	Each field is listed in project-blinc/blinc_abi's src/display_list.rs,
+	which packs the records natively. A record is a subset of Blinc's `GpuPrimitive`.
 **/
 class DisplayList {
 	/** The floats in a record. **/

@@ -5,7 +5,7 @@
 #
 #   run.sh Scene.hx           render once
 #   run.sh --watch Scene.hx   render again whenever the scene, ashui's Haxe
-#                             or blinc_abi's Rust changes
+#                             or the resolved blinc_abi dependency changes
 #   ASH=path run.sh ...       run on that ash binary rather than ../ash's
 #                             release build
 #   run.sh --window Scene.hx  open the scene in a window instead, live; a
@@ -48,12 +48,22 @@ Darwin) ext=dylib ;;
 *) ext=so ;;
 esac
 
+abi_source=""
+
 render() {
+	if [ $watch -eq 1 ]; then
+		# Follow Cargo's actual dependency, including a contributor's local patch.
+		abi_source=$(cargo metadata --locked --format-version 1 --manifest-path "$repo/Cargo.toml" | python3 -c '
+import json, pathlib, sys
+package = next(p for p in json.load(sys.stdin)["packages"] if p["name"] == "blinc_abi")
+print(pathlib.Path(package["manifest_path"]).parent / "src")')
+	fi
 	if ! out=$(cargo build --release --manifest-path "$repo/Cargo.toml" 2>&1); then
 		echo "error $name blinc_abi failed to build: $(echo "$out" | grep -m1 '^error')" >> "$events"
 		echo "$out" >&2
 		return 1
 	fi
+
 	rm -f bin/blinc_abi.hdll
 	cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
 	# hlwgpu's and, for a window, hlwindow's libraries, built when missing or out of date.
@@ -120,7 +130,7 @@ touch "$stamp"
 render || true
 echo "watching $scene; Ctrl-C stops" >&2
 while sleep 0.5; do
-	if [ -n "$(find "$scene" "$scene_css" "$repo/haxe" "$repo/components" "$repo/canvaskit" "$repo/media" "$repo/blinc_abi/src" -newer "$stamp" \( -name '*.hx' -o -name '*.css' -o -name '*.rs' \) 2>/dev/null | head -1)" ]; then
+	if [ -n "$(find "$scene" "$scene_css" "$repo/haxe" "$repo/components" "$repo/canvaskit" "$repo/media" "$repo/native" "$abi_source" "$repo/Cargo.toml" "$repo/Cargo.lock" -newer "$stamp" \( -name '*.hx' -o -name '*.css' -o -name '*.rs' -o -name '*.toml' -o -name '*.lock' \) 2>/dev/null | head -1)" ]; then
 		touch "$stamp"
 		render || true
 	fi

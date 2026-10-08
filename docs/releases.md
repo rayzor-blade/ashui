@@ -5,6 +5,20 @@ pushes to `main`, pull requests and manual dispatch. It checks Haxelib archive
 contents, builds and tests the native library, runs the CSS and drawing tests,
 and compiles a consumer of all four framework packages through Haxelib.
 
+## Native dependency
+
+The native implementation lives in
+[project-blinc/blinc_abi](https://github.com/project-blinc/blinc_abi).
+Ashui pins its Git revision in `Cargo.toml` and `Cargo.lock`. The local
+`ashui-native` target only re-exports that crate to preserve the library name
+`blinc_abi.hdll` used by the Haxe bindings and release archives.
+
+Demo, test and snapshot runners build this same target. Snapshot watch mode
+resolves the dependency's source directory through Cargo metadata, so it also
+follows a contributor's local Cargo patch. Updating the pinned revision requires
+the Haxe integration tests and offscreen snapshot checks before a new milestone
+commit.
+
 ## Nightly
 
 The [release workflow](https://github.com/rayzor-blade/ashui/actions/workflows/release.yml)

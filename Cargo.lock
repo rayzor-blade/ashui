@@ -53,6 +53,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
+name = "ashui-native"
+version = "0.1.0"
+dependencies = [
+ "blinc_abi",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -79,6 +86,7 @@ checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 [[package]]
 name = "blinc_abi"
 version = "0.1.0"
+source = "git+https://github.com/project-blinc/blinc_abi?rev=5d0c73c6532e1a066d49ae2933db806fac86cd5c#5d0c73c6532e1a066d49ae2933db806fac86cd5c"
 dependencies = [
  "blinc_core",
  "blinc_image",

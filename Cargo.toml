@@ -1,7 +1,21 @@
+[package]
+name = "ashui-native"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+description = "Native library packaging for Ashui"
+
+[lib]
+name = "blinc_abi"
+path = "native/lib.rs"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "5d0c73c6532e1a066d49ae2933db806fac86cd5c", default-features = false, features = ["hashlink"] }
+
 [workspace]
 resolver = "3"
-members = ["blinc_abi"]
-
 
 # Smaller and faster: one optimisation unit across all crates, no symbols. A panic aborts:
 # none is caught, and one crossing into HashLink would abort regardless.
