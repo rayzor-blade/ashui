@@ -4,6 +4,7 @@
 #   run.sh [Demo.hx]   defaults to Interactions.hx
 # Accepts a filename in tools/demo, a path relative to the caller, or an absolute path.
 # A .css file beside the demo is declared for HXX's class checking.
+# ASHUI_HIT_MAP=1 shows native hit targets, input state and handler paths.
 set -e
 runner="$(cd "$(dirname "$0")" && pwd)"
 demo="${1:-$runner/Interactions.hx}"

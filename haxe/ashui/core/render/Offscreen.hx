@@ -52,6 +52,8 @@ class Offscreen {
 
 	/** Drawn over every frame, in order, after the UI: a debugger's overlays. **/
 	public final overlays:Array<FrameOverlay> = [];
+	/** Opt-in native hit-map debugger, enabled by `ASHUI_HIT_MAP=1`. **/
+	public final hitMap:Null<ashui.debug.HitOverlay> = ashui.debug.HitOverlay.fromEnvironment();
 
 	final overlayList = new DisplayList();
 
@@ -69,6 +71,8 @@ class Offscreen {
 		this.device = device;
 		this.format = format;
 		renderer = new Renderer(device, format);
+		if (hitMap != null)
+			overlays.push(hitMap);
 	}
 
 	/** An offscreen renderer on a device of its own. **/

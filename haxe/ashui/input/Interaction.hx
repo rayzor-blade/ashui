@@ -272,6 +272,14 @@ class Interaction {
 		return list != null && list.length > 0;
 	}
 
+	/** The debugger reads existing handlers without creating an interaction. **/
+	@:allow(ashui.debug)
+	function handlerKinds():Array<String> {
+		var kinds = [for (kind => list in handlers) if (list.length > 0) kind];
+		kinds.sort(Reflect.compare);
+		return kinds;
+	}
+
 	/** Calls its handlers of `kind` with `event`; false when it has none. **/
 	@:allow(ashui.input)
 	function fire(kind:String, event:InputEvent):Bool {

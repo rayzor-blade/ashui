@@ -230,4 +230,7 @@ captures PNGs offscreen; `--watch` captures again when a scene,
 styles or framework change. These development tools live in the source
 repository, rather than the installed packages.
 
+[Visual debugging](docs/debugging.md) includes native hit maps, exact
+pointer paths, motion trails, easing curves and filmstrips.
+
 Licensed under [Apache 2.0](https://github.com/rayzor-blade/ashui/blob/main/LICENSE).

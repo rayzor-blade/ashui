@@ -30,6 +30,7 @@ import ashui.ui.Text;
 	offscreen.overlays.push(new MotionOverlay(MotionTrace.start()));
 	```
 **/
+@:allow(ashui.debug.HitOverlay)
 class MotionOverlay implements FrameOverlay {
 	/** A colour per track, by id. **/
 	public static final PALETTE = [0xff4d6d, 0x3ddc97, 0x4cc9f0, 0xffb703, 0xb388ff, 0xff8fab, 0x80ed99, 0x00bbf9];

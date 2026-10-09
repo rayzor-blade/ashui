@@ -11,6 +11,7 @@
 #   run.sh --window Scene.hx  open the scene in a window instead, live; a
 #                             motion scene plays its scripted input first.
 #                             ASHUI_MOTION=overlay draws the motion overlay.
+#                             ASHUI_HIT_MAP=1 shows native hit targets and paths.
 #
 # A scene is a class whose main calls Snapshot.scene; see scenes/Demo.hx.
 # A .css file beside the scene is declared for HXX's class checking and watched too.

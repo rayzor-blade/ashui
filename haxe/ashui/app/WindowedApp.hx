@@ -284,6 +284,8 @@ class WindowedApp {
 				polling += haxe.Timer.stamp() - p0;
 			}
 			applyPointer();
+			if (offscreen.hitMap != null && offscreen.hitMap.pointerChanged(tree))
+				dirty = true;
 			if (committed) {
 				committed = false;
 				composing = false;
