@@ -2831,6 +2831,26 @@ class Smoke {
 		} catch (e:haxe.Exception) e.message;
 		check("a watch made inside a computed is still refused with a reason", refused.indexOf("while a computed or watch evaluated") >= 0, refused);
 
+		// A watch that stops itself while it reads still ends what it began, so later writes reach other watches.
+		var watchTree = new LayoutTree();
+		var flag = Signal.make(0), other = Signal.make(0);
+		var selfStopping:Null<ashui.reactive.Watch<Int>> = null;
+		selfStopping = new ashui.reactive.Watch(() -> {
+			var v = flag.get();
+			if (v == 1 && selfStopping != null)
+				selfStopping.stop();
+			v;
+		}, _ -> {});
+		var seenOther = [];
+		new ashui.reactive.Watch(() -> other.get(), v -> seenOther.push(v));
+		flag.set(1);
+		watchTree.flush();
+		other.set(5);
+		watchTree.flush();
+		other.set(6);
+		watchTree.flush();
+		check("a watch that stops itself as it reads leaves later writes working", seenOther.join(",") == "0,5,6", seenOther);
+
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}
