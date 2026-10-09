@@ -19,7 +19,7 @@ class ShadowShader implements UiShader {
 
 		function vertex() {
 			var s = primitive.shadow;
-			var grow = s.z * 3. + abs(s.x) + abs(s.y);
+			var grow = s.z * 3. + abs(s.x) + abs(s.y) + max(s.w, 0.) + 1.;
 			var b = primitive.bounds;
 			local = quadCorner(vertexID) * (b.zw + vec2(grow, grow) * 2.) - vec2(grow, grow);
 			pixel = placed(b.xy, primitive.affine, local);
@@ -51,26 +51,32 @@ class ShadowShader implements UiShader {
 					inner = sdShapedRect(p, origin + s.xy + spread, max(size - spread * 2., vec2(0., 0.)),
 						max(primitive.cornerRadius - vec4(s.w, s.w, s.w, s.w), vec4(0., 0., 0., 0.)), primitive.cornerShape);
 				var shade = 0.;
+				// No blur: a hard edge, antialiased over a pixel.
 				if (s.z < 0.001) {
-					if (inner > 0.)
-						shade = 1.;
+					shade = clamp(0.5 + inner, 0., 1.);
 				} else {
 					shade = 0.5 * (1. + erf(inner / (0.5 * sqrt(2.) * s.z)));
 				}
 				result = primitive.shadowColor * shade;
 				where = 1. - where;
-			} else if (s.z > 0. || s.w != 0.) {
+			} else {
 				var spread = vec2(s.w, s.w);
 				var d = 0.;
 				if (notched)
 					d = sdNotch(p - s.xy, size, primitive.notchCorners, primitive.notchTop, primitive.notchBottom) - s.w;
-				else
-					d = sdShapedRect(p, origin + s.xy - spread, size + spread * 2., primitive.cornerRadius + vec4(s.w, s.w, s.w, s.w),
-						primitive.cornerShape);
+				else {
+					// CSS's spread radius: a corner grows by the spread as far as it is already round, so a square one stays square.
+					var r = primitive.cornerRadius;
+					var grown = max(r + vec4(s.w, s.w, s.w, s.w), vec4(0., 0., 0., 0.));
+					if (s.w > 0.) {
+						var u = min(r / s.w, vec4(1., 1., 1., 1.)) - vec4(1., 1., 1., 1.);
+						grown = r + (vec4(1., 1., 1., 1.) + u * u * u) * s.w;
+					}
+					d = sdShapedRect(p, origin + s.xy - spread, size + spread * 2., grown, primitive.cornerShape);
+				}
 				var alpha = 0.;
 				if (s.z < 0.001) {
-					if (d < 0.)
-						alpha = 1.;
+					alpha = clamp(0.5 - d, 0., 1.);
 				} else {
 					alpha = 0.5 * (1. + erf(-d / (0.5 * sqrt(2.) * s.z)));
 				}
