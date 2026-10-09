@@ -123,14 +123,27 @@ class Offscreen {
 	public function renderToTexture(root:Element, width:Int, height:Int):GpuTexture {
 		var texture = createTexture(width, height);
 		var view = texture.createView(new GpuTextureViewDescriptor());
-		render(root, view, width, height);
+		try {
+			render(root, view, width, height);
+		} catch (e:Dynamic) {
+			view.destroy();
+			texture.destroy();
+			throw e;
+		}
+		view.destroy();
 		return texture;
 	}
 
 	/** `root` drawn as by `render`, read back as `width * height * 4` RGBA bytes. **/
 	public function renderToRgba8(root:Element, width:Int, height:Int):haxe.io.Bytes {
 		var texture = renderToTexture(root, width, height);
-		var pixels = readRgba8(texture, width, height);
+		var pixels:haxe.io.Bytes;
+		try {
+			pixels = readRgba8(texture, width, height);
+		} catch (e:Dynamic) {
+			texture.destroy();
+			throw e;
+		}
 		texture.destroy();
 		return pixels;
 	}

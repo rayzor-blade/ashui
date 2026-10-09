@@ -108,19 +108,28 @@ class Snapshot {
 		var pixelWidth = Math.round(width * scale);
 		var pixelHeight = Math.round(height * scale);
 		var texture = offscreen.createTexture(pixelWidth, pixelHeight);
-		offscreen.renderTree(tree, root, texture.createView(new GpuTextureViewDescriptor()), width, height);
-		// Meshes whose textures are being compressed are held back: wait for them, up to ten seconds, and draw again.
-		if (MeshTextures.busy()) {
-			var waited = 0;
-			while (MeshTextures.busy() && waited < 1000) {
-				Sys.sleep(0.01);
-				ashui.animation.AnimationScheduler.main.tick(0);
-				waited++;
+		var view = texture.createView(new GpuTextureViewDescriptor());
+		var pixels:haxe.io.Bytes;
+		try {
+			offscreen.renderTree(tree, root, view, width, height);
+			// Meshes whose textures are being compressed are held back: wait for them, up to ten seconds, and draw again.
+			if (MeshTextures.busy()) {
+				var waited = 0;
+				while (MeshTextures.busy() && waited < 1000) {
+					Sys.sleep(0.01);
+					ashui.animation.AnimationScheduler.main.tick(0);
+					waited++;
+				}
+				tree.flush();
+				offscreen.renderTree(tree, root, view, width, height);
 			}
-			tree.flush();
-			offscreen.renderTree(tree, root, texture.createView(new GpuTextureViewDescriptor()), width, height);
+			pixels = offscreen.readRgba8(texture, pixelWidth, pixelHeight);
+		} catch (e:Dynamic) {
+			view.destroy();
+			texture.destroy();
+			throw e;
 		}
-		var pixels = offscreen.readRgba8(texture, pixelWidth, pixelHeight);
+		view.destroy();
 		texture.destroy();
 		width = pixelWidth;
 		height = pixelHeight;
