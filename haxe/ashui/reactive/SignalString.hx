@@ -18,5 +18,6 @@ class SignalString implements ISignal<String> {
 	public function set(val:String):Void {
 		BlincNative.blinc_signal_set_string(ptr, Utf8.encode(val));
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }

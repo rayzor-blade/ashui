@@ -102,6 +102,10 @@ window)
 		--class-path fixtures/window -main WindowDemo -hl bin/window.hl
 	mkdir -p ../.ashui/snapshots
 	run window.hl "$(cd ../.ashui/snapshots && pwd)"
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/window -main IdleWake -hl bin/idle-wake.hl
+	ASHUI_WINDOW_SECONDS=8 run idle-wake.hl
 	;;
 render-caribou)
 	# The pixel test on caribou's runtime and its GPU plugin, needing a built

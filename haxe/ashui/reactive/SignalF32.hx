@@ -17,5 +17,6 @@ class SignalF32 implements ISignal<Single> {
 	public function set(val:Single):Void {
 		BlincNative.blinc_signal_set_f32(ptr, val);
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }

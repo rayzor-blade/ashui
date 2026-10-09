@@ -170,6 +170,7 @@ class WindowedApp {
 	/** Closes the window after the frame being drawn. **/
 	public function quit():Void {
 		quitting = true;
+		ashui.core.Work.notify();
 	}
 
 	/**
@@ -203,6 +204,7 @@ class WindowedApp {
 	/** Draws a frame at the next chance, for a change the app knows of and the tree does not. **/
 	public function invalidate():Void {
 		dirty = true;
+		ashui.core.Work.notify();
 	}
 
 	/** Width and height in logical pixels, which the UI is laid out in. **/
@@ -213,11 +215,14 @@ class WindowedApp {
 		return Math.round(window.height() / window.scaleFactor());
 
 	function loop(build:Void->Element, onFrame:Null<(Int, Float) -> Void>):Void {
+		ashui.core.Work.listen(() -> { Window.wake(); });
+		var last = haxe.Timer.stamp();
+		scheduler.useRealtime(motion == null);
 		var theme = ThemeState.get();
 		// The window's own scheme first, before there is a scheduler, so it applies at once rather than as a transition.
 		WindowTheme.follow(window);
 		theme.setScheduler(scheduler);
-		ThemeState.setRedrawCallback(() -> dirty = true);
+		ThemeState.setRedrawCallback(invalidate);
 		ashui.input.WindowState.active.set(window.hasFocus());
 		// The input method is on while text has focus, its candidates by the caret.
 		new ashui.reactive.Watch(() -> ashui.input.WindowState.textCaret.get(), area -> {
@@ -232,7 +237,6 @@ class WindowedApp {
 		configure();
 		root = Owner.root(tree, _ -> build());
 		opened = haxe.Timer.stamp();
-		var last = opened;
 		var presented = opened;
 		if (frameLog != null)
 			frameLog.writeString("frame\tat_ms\tsince_last_frame\twait\tevents\tn_events\ttick\tflush\tdraw_flush\tlayout\tlist\tgpu\tpresent\tprimitives\n");
@@ -252,14 +256,18 @@ class WindowedApp {
 			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame && t0 - refusedAt >= RETRY_FRAME;
 			// While a frame is awaited the wait ends with its redraw; animation steps when it comes.
 			// Animations that changed nothing drawn last turn, as those out of view, step slower, until one does or input comes.
-			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : 1 / 120) : 0.1;
+			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : 1 / 120) : Math.POSITIVE_INFINITY;
+			#if ashui_hot_reload
+			// File watching uses a deadline only in builds that enable hot reload.
+			timeout = Math.min(timeout, 0.1);
+			#end
 			if (dirty && t0 - refusedAt < RETRY_FRAME)
 				timeout = Math.min(timeout, RETRY_FRAME - (t0 - refusedAt));
 			if (timer != null)
 				timeout = Math.min(timeout, timer);
 			if (closeAt > 0)
 				timeout = Math.max(0, Math.min(timeout, closeAt - t0));
-			var event = due ? window.poll() : window.wait(timeout);
+			var event = due ? window.poll() : window.wait(timeout == Math.POSITIVE_INFINITY ? -1 : timeout);
 			var t1 = haxe.Timer.stamp();
 			var handled = 0;
 			var polling = 0.0;
@@ -570,6 +578,8 @@ class WindowedApp {
 	}
 
 	function close(instance:GpuInstance):Void {
+		ashui.core.Work.listen(null);
+		scheduler.useRealtime(false);
 		if (current == this)
 			current = null;
 		surface.destroy();

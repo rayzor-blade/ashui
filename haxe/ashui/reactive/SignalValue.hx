@@ -28,5 +28,6 @@ class SignalValue<T:IValue> implements ISignal<T> {
 		current = val;
 		BlincNative.blinc_signal_set_value(ptr, val == null ? null : val.ptr);
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }

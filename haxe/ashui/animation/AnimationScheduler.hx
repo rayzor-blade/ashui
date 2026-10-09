@@ -21,6 +21,8 @@ class AnimationScheduler {
 	var nextId = 1;
 	var running = false;
 	final timers:Array<Timer> = [];
+	var realtime = false;
+	var tickedAt = 0.0;
 	#if target.threaded
 	final lock = new sys.thread.Mutex();
 	#end
@@ -44,12 +46,14 @@ class AnimationScheduler {
 
 	/** Starts advancing `spring`; its id, for reading and retargeting it. **/
 	public function register(spring:Spring):Int {
-		return locked(() -> {
+		var id = locked(() -> {
 			var id = nextId++;
 			springs.set(id, spring);
 			traceSpring(id, spring);
 			id;
 		});
+		ashui.core.Work.notify();
+		return id;
 	}
 
 	/** `id`'s value, or null once it has settled and been dropped. **/
@@ -70,6 +74,7 @@ class AnimationScheduler {
 			}
 			null;
 		});
+		ashui.core.Work.notify();
 	}
 
 	/** Stops advancing `id`'s spring and forgets it: `value` gives null after. **/
@@ -111,13 +116,27 @@ class AnimationScheduler {
 
 	/** Calls `callback` once `seconds` from now, at the first tick after. **/
 	public function after(seconds:Float, callback:Void->Void):Timer {
-		var timer = new Timer(clock + seconds, callback);
-		locked(() -> {
+		var timer = locked(() -> {
+			var timer = new Timer(time() + seconds, callback);
 			timers.push(timer);
-			null;
+			timer;
 		});
+		ashui.core.Work.notify();
 		return timer;
 	}
+
+	/** A native loop enables this so timers created while it sleeps start now. Offscreen ticks stay deterministic. **/
+	public function useRealtime(enabled:Bool):Void {
+		locked(() -> {
+			realtime = enabled;
+			tickedAt = haxe.Timer.stamp();
+			null;
+		});
+	}
+
+	/** Called under the scheduler lock. **/
+	inline function time():Float
+		return clock + (realtime ? Math.max(0, haxe.Timer.stamp() - tickedAt) : 0);
 
 	/** Seconds until the next timer is due, at least 0; null with none waiting. **/
 	public function untilNextTimer():Null<Float> {
@@ -126,7 +145,7 @@ class AnimationScheduler {
 			for (t in timers)
 				if (!t.cancelled && (soonest == null || t.at < soonest))
 					soonest = t.at;
-			soonest == null ? null : Math.max(0, soonest - clock);
+			soonest == null ? null : Math.max(0, soonest - time());
 		});
 	}
 
@@ -141,6 +160,7 @@ class AnimationScheduler {
 			tickers.push(ticker);
 			null;
 		});
+		ashui.core.Work.notify();
 	}
 
 	/**
@@ -158,8 +178,10 @@ class AnimationScheduler {
 		woke for is due.
 	**/
 	public function tick(dt:Float, ?elapsed:Float):Void {
-		clock += elapsed == null ? dt : elapsed;
 		locked(() -> {
+			clock += elapsed == null ? dt : elapsed;
+			if (realtime)
+				tickedAt = haxe.Timer.stamp();
 			var settled = [];
 			for (id => spring in springs) {
 				spring.step(dt);
@@ -243,5 +265,6 @@ class Timer {
 
 	public function cancel():Void {
 		cancelled = true;
+		ashui.core.Work.notify();
 	}
 }

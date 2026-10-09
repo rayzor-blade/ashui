@@ -310,6 +310,7 @@ class Node {
 				BlincNative.blinc_apply_f32(id, prop, KIND_COMPUTED, 0, null, c.ptr);
 		}
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 
 	/** Binds an `Int` property, enums included. **/
@@ -323,6 +324,7 @@ class Node {
 				BlincNative.blinc_apply_i32(id, prop, KIND_COMPUTED, 0, null, c.ptr);
 		}
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 
 	/** Binds a style-value property: brushes, colours, radii, transforms, shadows and clip paths. **/
@@ -336,6 +338,7 @@ class Node {
 				BlincNative.blinc_apply_value(id, prop, KIND_COMPUTED, null, null, c.ptr);
 		}
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 
 	/** Binds a `String` property. **/
@@ -349,5 +352,6 @@ class Node {
 				BlincNative.blinc_apply_string(id, prop, KIND_COMPUTED, null, null, c.ptr);
 		}
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }

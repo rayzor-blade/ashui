@@ -17,5 +17,6 @@ class SignalBool implements ISignal<Bool> {
 	public function set(val:Bool):Void {
 		BlincNative.blinc_signal_set_bool(ptr, val ? 1 : 0);
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }

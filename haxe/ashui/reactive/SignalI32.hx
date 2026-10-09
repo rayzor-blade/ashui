@@ -17,5 +17,6 @@ class SignalI32 implements ISignal<Int> {
 	public function set(val:Int):Void {
 		BlincNative.blinc_signal_set_i32(ptr, val);
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }

@@ -373,6 +373,7 @@ class Css {
 		if (nodes == null)
 			pending.set(tree, nodes = new Map());
 		nodes.set(haxe.Int64.toStr(identity.node.id), identity);
+		ashui.core.Work.notify();
 	}
 
 	/**

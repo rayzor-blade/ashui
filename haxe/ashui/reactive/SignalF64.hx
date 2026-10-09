@@ -17,5 +17,6 @@ class SignalF64 implements ISignal<Float> {
 	public function set(val:Float):Void {
 		BlincNative.blinc_signal_set_f64(ptr, val);
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }

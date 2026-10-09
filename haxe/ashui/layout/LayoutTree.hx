@@ -133,6 +133,7 @@ class LayoutTree {
 		var list = fragmentOrPlaced(parent, isFragment(child));
 		if (list == null) {
 			LayoutTreeNative.blinc_tree_add_child(this.ptr, parent, child);
+			ashui.core.Work.notify();
 			return;
 		}
 		list.push(child);
@@ -153,6 +154,7 @@ class LayoutTree {
 			childrenChanged(parent);
 		unplace(node);
 		LayoutTreeNative.blinc_tree_remove_node(this.ptr, node);
+		ashui.core.Work.notify();
 	}
 
 	/** Deletes `node` and everything below it, a fragment's items included. **/
@@ -169,6 +171,7 @@ class LayoutTree {
 		placed.remove(key(node));
 		unplace(node);
 		LayoutTreeNative.blinc_tree_remove_subtree(this.ptr, node);
+		ashui.core.Work.notify();
 	}
 
 	/** Puts `next` where `old` is in its parent; `old` is detached, not deleted. **/
@@ -179,6 +182,7 @@ class LayoutTree {
 		var parent = placedIn.get(key(old.id));
 		if (parent == null) {
 			LayoutTreeNative.blinc_tree_replace_node(this.ptr, old.id, next.id);
+			ashui.core.Work.notify();
 			return;
 		}
 		var list = listOf(parent);
@@ -290,6 +294,7 @@ class LayoutTree {
 	function setNative(parent:haxe.Int64, children:Array<haxe.Int64>, detach:Bool):Void {
 		if (children.length == 0 && !detach) {
 			LayoutTreeNative.blinc_tree_clear_children(this.ptr, parent);
+			ashui.core.Work.notify();
 			return;
 		}
 		// Little-endian 64-bit ids, as the native side reads them.
@@ -302,6 +307,7 @@ class LayoutTree {
 			LayoutTreeNative.blinc_tree_set_children(this.ptr, parent, ids, children.length);
 		else
 			LayoutTreeNative.blinc_tree_replace_children(this.ptr, parent, ids, children.length);
+		ashui.core.Work.notify();
 	}
 
 	function nativeChildren(node:haxe.Int64):Array<haxe.Int64>
@@ -364,8 +370,10 @@ class LayoutTree {
 	var drawnChanged = false;
 
 	/** Something drawn changed outside the queued property writes: the next `flush` reports a change, so a frame is drawn. **/
-	public function markDrawn():Void
+	public function markDrawn():Void {
 		drawnChanged = true;
+		ashui.core.Work.notify();
+	}
 
 	/**
 		Whether any of `node`'s box is on screen: inside the root, and inside
@@ -419,12 +427,14 @@ class LayoutTree {
 	public function setVisual(node:haxe.Int64, dx:Float, dy:Float, width:Float = -1, height:Float = -1):Void {
 		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, dx, dy, width, height, false);
 		drawnChanged = true;
+		ashui.core.Work.notify();
 	}
 
 	/** Draws `node` where layout puts it again. **/
 	public function clearVisual(node:haxe.Int64):Void {
 		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, 0, 0, -1, -1, true);
 		drawnChanged = true;
+		ashui.core.Work.notify();
 	}
 
 	/** Draws `node` as `notch`, or as its box again with null. **/
@@ -432,6 +442,7 @@ class LayoutTree {
 		drawnChanged = true;
 		if (notch == null) {
 			LayoutTreeNative.blinc_tree_set_notch(this.ptr, node, null);
+			ashui.core.Work.notify();
 			return;
 		}
 		var values = notch.encode();
@@ -439,6 +450,7 @@ class LayoutTree {
 		for (i => v in values)
 			bytes.setF32(i * 4, v);
 		LayoutTreeNative.blinc_tree_set_notch(this.ptr, node, bytes);
+		ashui.core.Work.notify();
 	}
 
 	/** Makes `hitTest` pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/

@@ -29,5 +29,6 @@ class SignalDynamic<T> implements ISignal<T> {
 		current = val;
 		BlincNative.blinc_signal_set_i32(ptr, ++version);
 		Guard.check();
+		ashui.core.Work.notify();
 	}
 }
