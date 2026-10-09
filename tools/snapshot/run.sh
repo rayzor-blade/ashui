@@ -112,11 +112,11 @@ print(pathlib.Path(package["manifest_path"]).parent / "src")')
 	fi
 	# A window stays open until it is closed.
 	if [ $window -eq 1 ]; then
-		(cd bin && ASHUI_WINDOW=1 "$ash" "$PWD/$name.hl")
+		(cd bin && ASHUI_WINDOW=1 "$ash" --mode "${ASH_MODE:-hybrid}" --preset application "$PWD/$name.hl")
 		return
 	fi
 	# Snapshot logs its own errors; this catches a crash or hang.
-	(cd bin && perl -e 'alarm 120; exec @ARGV' "$ash" "$PWD/$name.hl") ||
+	(cd bin && perl -e 'alarm 120; exec @ARGV' "$ash" --mode "${ASH_MODE:-hybrid}" --preset application "$PWD/$name.hl") ||
 		{ status=$?; grep -q "^error $name " "$events" 2>/dev/null || echo "error $name exited with status $status" >> "$events"; return 1; }
 }
 

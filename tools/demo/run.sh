@@ -1,5 +1,5 @@
 #!/bin/sh
-# Opens the interactions demo in a window, on Ash, in its default hybrid mode;
+# Opens the interactions demo in a window, on Ash's application preset in hybrid mode;
 # ASH_MODE picks another. Needs ../hlwgpu, ../hlwindow and a built ../ash checkout; the libraries are built as needed.
 #   run.sh [Demo.hx]   defaults to Interactions.hx
 # Accepts a filename in tools/demo, a path relative to the caller, or an absolute path.
@@ -54,4 +54,4 @@ haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path
 	--class-path "$vib/hlavi/haxe" -D "hlavi_hdll=${HLAVI_HDLL:-}" $media_args \
 	-D ashui_window -D "ashui_css=$css" --macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' \
 	--class-path "$(dirname "$demo")" -main "$name" -hl "bin/$name.hl"
-cd bin && exec "$vib/ash/target/release/ash" --mode "${ASH_MODE:-hybrid}" "$PWD/$name.hl"
+cd bin && exec "$vib/ash/target/release/ash" --mode "${ASH_MODE:-hybrid}" --preset application "$PWD/$name.hl"

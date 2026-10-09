@@ -65,7 +65,7 @@ Compile and run:
 
 ```sh
 haxe build.hxml
-ash bin/hello.hl
+ash --preset application bin/hello.hl
 ```
 
 HXX is part of the framework: `<div>`, `<text>` and imported component tags

@@ -69,7 +69,7 @@ Use this `build.hxml`:
 -hl bin/app.hl
 ```
 
-Run `haxe build.hxml`, then `ash bin/app.hl`.
+Run `haxe build.hxml`, then `ash --preset application bin/app.hl`.
 
 `-D ashui_css=app.css` declares the stylesheet's class names to the compiler,
 including classes in imported files. HXX accepts them alongside utilities

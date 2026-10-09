@@ -48,4 +48,4 @@ touch bin/.reload-stamp
 ) &
 watcher=$!
 trap 'kill $watcher 2>/dev/null' EXIT INT TERM
-cd bin && "$vib/ash/target/release/ash" --mode "${ASH_MODE:-hybrid}" --hot-reload "$PWD/$name.hl"
+cd bin && "$vib/ash/target/release/ash" --mode "${ASH_MODE:-hybrid}" --preset application --hot-reload "$PWD/$name.hl"
