@@ -38,7 +38,7 @@ class ImageAtlas {
 	public var revision(default, null) = 0;
 
 	/** An empty atlas on `device`, `size` pixels square until it grows. **/
-	public function new(device:GpuDevice, size = 1024) {
+	public function new(device:GpuDevice, size = 256) {
 		this.device = device;
 		this.size = size;
 		allocate();
@@ -90,19 +90,27 @@ class ImageAtlas {
 			}
 			if (size >= MAX_SIZE)
 				return null;
-			grow();
+			var needed = width + GAP;
+			if (nextY + height + GAP > needed)
+				needed = nextY + height + GAP;
+			grow(needed);
 		}
 	}
 
-	/** Doubles the texture, keeping what it holds where it is. **/
-	function grow():Void {
+	/** Grows once to fit the pending image, keeping existing images in place. **/
+	function grow(minSize:Int):Void {
 		var old = texture;
 		var oldSize = size;
-		size *= 2;
+		do {
+			size *= 2;
+		} while (size < minSize && size < MAX_SIZE);
+		if (size > MAX_SIZE)
+			size = MAX_SIZE;
 		allocate();
 		var encoder = device.encoder();
 		encoder.copyTextureToTexture(old, texture, oldSize, oldSize);
 		encoder.submit(device.queue());
+		encoder.destroy();
 		old.destroy();
 	}
 

@@ -90,6 +90,7 @@ import ashui.canvaskit.Skybox;
 
 @:access(ashui.core.render.Renderer)
 @:access(ashui.core.render.Offscreen)
+@:access(ashui.core.render.ImageAtlas)
 class Pixels {
 	static inline var SIZE = 64;
 	static inline var ROW = SIZE * 4;
@@ -1175,6 +1176,30 @@ class Pixels {
 		pixels = offscreen.renderToRgba8(new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [outerClip], nestTree), SIZE, SIZE);
 		label = "nested clips: ";
 		probe("an image inside a square clip inside a squircle one is drawn whole", 25, 32, (r, g, b) -> r > 230 && g < 20 && b < 40);
+
+		// An oversized image grows the atlas once and preserves earlier uploads.
+		var growingAtlas = new ashui.core.render.ImageAtlas(offscreen.device, 32);
+		function fillImage(hex:Int, data:haxe.io.Bytes):Bool {
+			for (i in 0...Std.int(data.length / 4)) {
+				data.set(i * 4, hex >> 16 & 255);
+				data.set(i * 4 + 1, hex >> 8 & 255);
+				data.set(i * 4 + 2, hex & 255);
+				data.set(i * 4 + 3, 255);
+			}
+			return true;
+		}
+		var retained = growingAtlas.get("retained", 16, 16, data -> fillImage(0xff0000, data));
+		var oversized = growingAtlas.get("oversized", 1290, 3, data -> fillImage(0x0000ff, data));
+		if (retained == null || oversized == null || growingAtlas.size != 2048 || growingAtlas.revision != 2)
+			throw "atlas did not grow once to fit the oversized image";
+		if (growingAtlas.get("retained", 16, 16, _ -> throw "cached image rasterized again") != retained)
+			throw "atlas growth changed the existing image rectangle";
+		pixels = offscreen.readRgba8(growingAtlas.texture, SIZE, SIZE);
+		label = "atlas growth: ";
+		probe("keeps the earlier image", retained.x + 5, retained.y + 5, near(0xff0000));
+		probe("uploads the oversized image", oversized.x + 5, oversized.y + 1, near(0x0000ff));
+		growingAtlas.view.destroy();
+		growingAtlas.texture.destroy();
 
 		var svgTree = new LayoutTree();
 		var maskDoc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>');
