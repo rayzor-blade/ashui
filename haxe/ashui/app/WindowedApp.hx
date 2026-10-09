@@ -308,21 +308,23 @@ class WindowedApp {
 			// A ticker that changed nothing drawn, an animation out of view, draws nothing.
 			if (theme.tick() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0)))
 				dirty = true;
-			if (awaitingFrame && dirty)
+			if (awaitingFrame && dirty) {
+				coalescePointer();
 				continue;
+			}
 			var t2 = haxe.Timer.stamp();
 			var changed = tree.flush();
 			idleTicks = animating && !changed && !dirty;
-			if (changed) {
+			if (changed)
 				dirty = true;
-				// Layout may have moved something under a still pointer.
-				ashui.input.Pointer.refresh(tree);
-			}
 			var t3 = haxe.Timer.stamp();
 			// A hidden window draws nothing; what changes waits for it to show again.
 			if (dirty && !quitting && ashui.input.WindowState.visible.get() && haxe.Timer.stamp() - refusedAt >= RETRY_FRAME) {
 				dirty = false;
 				if (draw()) {
+					// Hit-test the new layout, including a still pointer. Hover
+					// changes can require another frame after this one.
+					if (ashui.input.Pointer.refresh(tree)) dirty = true;
 					frames++;
 					var t4 = haxe.Timer.stamp();
 					if (frameLog != null) {
@@ -343,6 +345,7 @@ class WindowedApp {
 						onFrame(frames, haxe.Timer.stamp() - opened);
 				}
 			}
+			coalescePointer();
 		}
 		if (frameLog != null)
 			frameLog.close();
@@ -352,6 +355,14 @@ class WindowedApp {
 
 	/** Applies the batch's last pointer position, then its summed wheel delta. **/
 	function applyPointer():Void {
+		// Quiet native moves stay out of the event queue. Consume the latest
+		// position and clear the filter before input or application work.
+		switch window.takeCursorMove() {
+			case CursorMoved(x, y, _):
+				var scale = window.scaleFactor();
+				pendingMove = {x: x / scale, y: y / scale};
+			case _:
+		}
 		if (pendingMove != null) {
 			var at = pendingMove;
 			pendingMove = null;
@@ -363,6 +374,17 @@ class WindowedApp {
 			pendingWheelX = pendingWheelY = 0;
 			ashui.input.Pointer.wheel(tree, dx, dy);
 		}
+	}
+
+	function coalescePointer():Void {
+		var region = ashui.input.Pointer.quietRegion(tree);
+		if (region == null) {
+			window.coalesceCursorMoves(0, 0, 0, 0);
+			return;
+		}
+		var scale = window.scaleFactor();
+		window.coalesceCursorMoves(Math.max(0, region.left * scale), Math.max(0, region.top * scale),
+			Math.min(window.width(), region.right * scale), Math.min(window.height(), region.bottom * scale));
 	}
 
 	function handle(event:window.Event):Void {

@@ -53,6 +53,10 @@ class PointerQueries {
 				tracker.stopped = true;
 				trackers.remove(identity);
 			}
+			if (hooked && !trackers.keys().hasNext()) {
+				ashui.input.Pointer.hooks.remove(moved);
+				hooked = false;
+			}
 			return;
 		}
 		if (!hooked) {

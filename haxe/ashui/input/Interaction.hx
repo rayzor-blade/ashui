@@ -259,7 +259,17 @@ class Interaction {
 		if (list == null)
 			handlers.set(kind, list = []);
 		list.push(cast handler);
+		if (kind == "pointermove" && node.tree != null) {
+			node.tree.invalidateHits();
+			ashui.core.Work.notify();
+		}
 		return this;
+	}
+
+	@:allow(ashui.input)
+	function hasMoveHandler():Bool {
+		var list = handlers.get("pointermove");
+		return list != null && list.length > 0;
 	}
 
 	/** Calls its handlers of `kind` with `event`; false when it has none. **/

@@ -25,6 +25,15 @@ class LayoutTree {
 	/** The native tree, for the functions in `ashui.core.externs` that take one. **/
 	public var ptr(default, null):hl.Abstract<"blinc_tree">;
 
+	/** Invalidates pointer hit regions when layout, drawing or handlers change. **/
+	@:noCompletion public var hitRevision(default, null) = 0;
+	var hitCapacity = 32;
+	var hitBytes:Null<hl.Bytes>;
+
+	@:noCompletion public function invalidateHits():Void {
+		hitRevision++;
+	}
+
 	/** The node `computeLayout` last laid out from, which input is hit-tested under. **/
 	public var root(default, null):Null<Node>;
 
@@ -39,6 +48,9 @@ class LayoutTree {
 		tree do nothing.
 	**/
 	public function dispose():Void {
+		invalidateHits();
+		root = null;
+		hitBytes = null;
 		LayoutTreeNative.blinc_tree_dispose(this.ptr);
 	}
 
@@ -89,6 +101,7 @@ class LayoutTree {
 	public static final childrenHooks:Array<(LayoutTree, haxe.Int64) -> Void> = [];
 
 	function childrenChanged(parent:haxe.Int64):Void {
+		invalidateHits();
 		if (childrenHooks.length == 0)
 			return;
 		var at:Null<haxe.Int64> = parent;
@@ -149,6 +162,7 @@ class LayoutTree {
 
 	/** Deletes `node` alone; `removeSubtree` deletes what is below it too. **/
 	public function removeNode(node:haxe.Int64):Void {
+		invalidateHits();
 		var parent = parentOf(node);
 		if (parent != null)
 			childrenChanged(parent);
@@ -159,6 +173,7 @@ class LayoutTree {
 
 	/** Deletes `node` and everything below it, a fragment's items included. **/
 	public function removeSubtree(node:haxe.Int64):Void {
+		invalidateHits();
 		var parent = parentOf(node);
 		if (parent != null)
 			childrenChanged(parent);
@@ -176,6 +191,7 @@ class LayoutTree {
 
 	/** Puts `next` where `old` is in its parent; `old` is detached, not deleted. **/
 	public function replaceNode(old:Node, next:Node):Void {
+		invalidateHits();
 		var changed = parentOf(old.id);
 		if (changed != null)
 			childrenChanged(changed);
@@ -363,7 +379,10 @@ class LayoutTree {
 		}
 		var drawn = drawnChanged;
 		drawnChanged = false;
-		return reacted || relayout || drawn;
+		var changed = reacted || relayout || drawn;
+		if (changed)
+			invalidateHits();
+		return changed;
 	}
 
 	/** Set by what changes the drawing outside the queued writes, as a scroll or a layout animation's visual does. **/
@@ -371,6 +390,7 @@ class LayoutTree {
 
 	/** Something drawn changed outside the queued property writes: the next `flush` reports a change, so a frame is drawn. **/
 	public function markDrawn():Void {
+		invalidateHits();
 		drawnChanged = true;
 		ashui.core.Work.notify();
 	}
@@ -388,6 +408,7 @@ class LayoutTree {
 		and makes `root` the node input is hit-tested under.
 	**/
 	public function computeLayout(root:Node, width:Single, height:Single):Void {
+		invalidateHits();
 		this.root = root;
 		LayoutTreeNative.blinc_tree_compute_layout(this.ptr, root.id, width, height);
 		// What sizes itself from the layout, as text flow from its width, lays out again until nothing does.
@@ -425,6 +446,7 @@ class LayoutTree {
 		and `hitTest` finds it there. Layout is not touched.
 	**/
 	public function setVisual(node:haxe.Int64, dx:Float, dy:Float, width:Float = -1, height:Float = -1):Void {
+		invalidateHits();
 		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, dx, dy, width, height, false);
 		drawnChanged = true;
 		ashui.core.Work.notify();
@@ -432,6 +454,7 @@ class LayoutTree {
 
 	/** Draws `node` where layout puts it again. **/
 	public function clearVisual(node:haxe.Int64):Void {
+		invalidateHits();
 		LayoutTreeNative.blinc_tree_set_visual(this.ptr, node, 0, 0, -1, -1, true);
 		drawnChanged = true;
 		ashui.core.Work.notify();
@@ -454,8 +477,10 @@ class LayoutTree {
 	}
 
 	/** Makes `hitTest` pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
-	public function setPassThrough(node:haxe.Int64, through:Bool):Void
+	public function setPassThrough(node:haxe.Int64, through:Bool):Void {
 		LayoutTreeNative.blinc_tree_set_pass_through(this.ptr, node, through);
+		markDrawn();
+	}
 
 	/** `node`'s padding as laid out, and whether it paints a box of its own: a background, a border or a shadow. **/
 	public function boxEdges(node:haxe.Int64):Null<{top:Float, right:Float, bottom:Float, left:Float, painted:Bool}> {
@@ -469,20 +494,29 @@ class LayoutTree {
 		The nodes under `(x, y)` as they are drawn, through transforms and
 		inside clips: the topmost first, then each of its ancestors up to
 		`root`, each with the point in its own coordinates.
+
+		With `region`, also writes four F32s (left, top, right, bottom) where
+		the hit path stays the same until `hitRevision` changes. Zero bounds
+		mean the point needs an exact hit test, as near a transformed edge.
 	**/
-	public function hitTest(x:Float, y:Float):Array<Hit> {
-		if (root == null)
+	public function hitTest(x:Float, y:Float, ?region:hl.Bytes):Array<Hit> {
+		if (root == null) {
+			if (region != null)
+				for (i in 0...4)
+					region.setF32(i * 4, 0);
 			return [];
-		var capacity = 32;
+		}
+		if (hitBytes == null)
+			hitBytes = new hl.Bytes(hitCapacity * 16);
 		while (true) {
-			var out = new hl.Bytes(capacity * 16);
-			var n = LayoutTreeNative.blinc_tree_hit_test(this.ptr, root.id, x, y, out, capacity);
-			if (n <= capacity)
-				return [
-					for (i in 0...n)
-						new Hit(haxe.Int64.make(out.getI32(i * 16 + 4), out.getI32(i * 16)), out.getF32(i * 16 + 8), out.getF32(i * 16 + 12))
-				];
-			capacity = n;
+			var n = region == null
+				? LayoutTreeNative.blinc_tree_hit_test(this.ptr, root.id, x, y, hitBytes, hitCapacity)
+				: LayoutTreeNative.blinc_tree_hit_test_region(this.ptr, root.id, x, y, hitBytes, hitCapacity, region);
+			if (n <= hitCapacity)
+				return [for (i in 0...n) new Hit(haxe.Int64.make(hitBytes.getI32(i * 16 + 4), hitBytes.getI32(i * 16)),
+					hitBytes.getF32(i * 16 + 8), hitBytes.getF32(i * 16 + 12))];
+			hitCapacity = n;
+			hitBytes = new hl.Bytes(hitCapacity * 16);
 		}
 	}
 

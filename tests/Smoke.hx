@@ -2027,6 +2027,7 @@ class Smoke {
 		ashui.css.Css.remove(motionSheet);
 
 		// --- CSS pointer queries: a property reads env(pointer-x) ---
+		var pointerHooksBefore = ashui.input.Pointer.hooks.length;
 		var pointerSheet = ashui.css.Css.load('
 			.tilt { width: 100px; height: 100px; background: #ff0000; pointer-origin: top-left; pointer-range: 0 1;
 				opacity: calc(0.25 + env(pointer-x) * 0.5); }
@@ -2053,6 +2054,7 @@ class Smoke {
 		tilt.remove();
 		@:privateAccess check("a removed element leaves the stylesheet engine", tracked && !ashui.css.Css.applied.exists(tiltIdentity)
 			&& !ashui.css.PointerQueries.trackers.exists(tiltIdentity));
+		check("removing the last pointer query releases its move hook", ashui.input.Pointer.hooks.length == pointerHooksBefore);
 		ashui.css.Css.remove(pointerSheet);
 
 		// --- CSS files: loaded, and read again when they change ---
@@ -2303,13 +2305,15 @@ class Smoke {
 		scrollTree.flush();
 		var scrollList = new ashui.layout.DisplayList();
 		scrollList.update(scrollTree, scroller.node);
-		var firstRowY = scrollList.get(0, 1);
+		var firstVisibleRowY = scrollList.get(0, 1);
 		for (r in 0...scrollList.count)
 			if (scrollList.kind(r) == 0 && scrollList.get(r, 3) == 30) {
-				firstRowY = scrollList.get(r, 1);
+				firstVisibleRowY = scrollList.get(r, 1);
 				break;
 			}
-		check("scroll: the wheel moves the offset and the content with it", outerScroll.y.get() == 45 && firstRowY == -45, [outerScroll.y.get(), firstRowY]);
+		// The first row is wholly clipped at -45; the next is visible at -15.
+		check("scroll: the wheel moves content and culls rows outside the clip", outerScroll.y.get() == 45 && firstVisibleRowY == -15,
+			[outerScroll.y.get(), firstVisibleRowY]);
 		clicked = -1;
 		ashui.input.Pointer.move(scrollTree, 50, 20);
 		ashui.input.Pointer.press(scrollTree);

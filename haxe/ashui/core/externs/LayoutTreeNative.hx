@@ -67,6 +67,7 @@ extern class LayoutTreeNative {
 		and the point in that node's coordinates as two F32s. At most
 		`capacity`; returns how many there are.
 	**/
+	static function blinc_tree_hit_test_region(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int, region:hl.Bytes):Int;
 	static function blinc_tree_hit_test(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int):Int;
 
 	/** Writes the visible nodes under `root` in document order as 64-bit ids, at most `capacity`; returns how many there are. **/

@@ -17,7 +17,7 @@ runs:
     - uses: actions/checkout@v7
       with:
         repository: rayzor-blade/hlwindow
-        ref: c353c78a89a2187bd40010ae167c994dfb5e30ea
+        ref: b7f5bb3eccf24da3b1c096744ff75dc542658a58
         path: .ci-deps/hlwindow
     - uses: actions/checkout@v7
       with:
