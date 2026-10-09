@@ -77,6 +77,17 @@ extern class BlincNative {
 	/** Stops the effect; it is removed at the next flush. **/
 	static function blinc_effect_release(effect:hl.Abstract<"blinc_effect">):Void;
 
+	// --- Host-run effects: Haxe runs the body, and what it reads between begin and end is what it depends on ---
+	/** A new host effect's slot; it starts due, and its first run is the caller's. **/
+	static function blinc_host_effect_new():Int;
+	/** Writes up to `capacity` due slots into `out`, as 32-bit ints; how many. **/
+	static function blinc_host_effects_due(out:hl.Bytes, capacity:Int):Int;
+	static function blinc_host_effect_begin(slot:Int):Bool;
+	/** Ends the body and applies the signal writes it made; called on every way out of it. **/
+	static function blinc_host_effect_end(slot:Int):Void;
+	/** Stops the effect; the slot may name another, and it is removed from the graph at the next flush. **/
+	static function blinc_host_effect_release(slot:Int):Void;
+
 	// --- Property routers: kind 0 applies `constant`, 1 binds `sig`, 2 binds `comp` ---
 	static function blinc_apply_f32(node:haxe.Int64, prop:Int, kind:Int, constant:Single, sig:hl.Abstract<"blinc_signal">,
 		comp:hl.Abstract<"blinc_computed">):Void;

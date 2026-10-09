@@ -367,9 +367,9 @@ class LayoutTree {
 			hook(this);
 		var relayout = LayoutTreeNative.blinc_tree_flush(this.ptr);
 		Guard.check();
-		// The native flush runs watches' `read`s, so watches it queued there,
-		// and what their reactions write, are applied now rather than a frame
-		// later.
+		// The native flush applies what reactions wrote, which may make more
+		// watches due; those run, and what they write is applied, now rather
+		// than a frame later.
 		while (Watch.runQueued()) {
 			reacted = true;
 			for (hook in flushHooks)
@@ -424,6 +424,8 @@ class LayoutTree {
 		}
 		for (hook in settledHooks)
 			hook(this);
+		// What watches read from the layout, as a canvas's size, is read now, before the frame is drawn.
+		Watch.readDue();
 	}
 
 	/** Passes after the first that `layoutHooks` may ask for; text flow needs one when a width changes. **/
