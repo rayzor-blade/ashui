@@ -107,6 +107,8 @@ class ImageAtlas {
 	}
 
 	function allocate():Void {
+		if (revision > 0)
+			view.destroy();
 		var extent = new GpuExtent3D(size);
 		extent.height(size);
 		texture = device.texture(new GpuTextureDescriptor(extent, TextureFormat.Rgba8unorm,

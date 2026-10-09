@@ -65,23 +65,33 @@ class Renderer {
 	final device:GpuDevice;
 	final frame:GpuBuffer;
 	final frameBytes:haxe.io.Bytes;
-	final boxes:Pass;
-	final shadows:Pass;
-	final text:Pass;
-	final atlas:GlyphAtlas;
-	final colorAtlas:GlyphAtlas;
+	var boxes(get, never):Pass;
+	var _boxes:Null<Pass> = null;
+	var shadows(get, never):Pass;
+	var _shadows:Null<Pass> = null;
+	var text(get, never):Pass;
+	var _text:Null<Pass> = null;
+	var atlas:Null<GlyphAtlas> = null;
+	var colorAtlas:Null<GlyphAtlas> = null;
 	final glyphSampler:GpuSampler;
-	final images:Pass;
-	final imageAtlas:ImageAtlas;
-	final layerPass:Pass;
+	var images(get, never):Pass;
+	var _images:Null<Pass> = null;
+	var imageAtlas:Null<ImageAtlas> = null;
+	var layerPass(get, never):Pass;
+	var _layerPass:Null<Pass> = null;
 	/** The first pass of a layer's blur, written as it is: blending off. **/
-	final blurPass:Pass;
+	var blurPass(get, never):Pass;
+	var _blurPass:Null<Pass> = null;
 	/** The first pass of a layer's drop shadow, its alpha blurred along its rows, blending off. **/
-	final shadowPass:Pass;
+	var shadowPass(get, never):Pass;
+	var _shadowPass:Null<Pass> = null;
 	/** A backdrop filter's two passes, and the copy of a frame drawn offscreen onto its target. **/
-	final backdropRowsPass:Pass;
-	final backdropPass:Pass;
-	final blitPass:Pass;
+	var backdropRowsPass(get, never):Pass;
+	var _backdropRowsPass:Null<Pass> = null;
+	var backdropPass(get, never):Pass;
+	var _backdropPass:Null<Pass> = null;
+	var blitPass(get, never):Pass;
+	var _blitPass:Null<Pass> = null;
 	/** The frame drawn offscreen, when a backdrop filter must read what is drawn under it. **/
 	var frameLayer:Null<Layer> = null;
 	final format:TextureFormat;
@@ -113,25 +123,44 @@ class Renderer {
 		this.device = device;
 		frameBytes = haxe.io.Bytes.alloc(BoxShader.FRAME_SIZE);
 		frame = device.createBuffer(new GpuBufferDescriptor(BoxShader.FRAME_SIZE, GpuFlags.BUFFER_UNIFORM | GpuFlags.BUFFER_COPY_DST));
-		boxes = pass(BoxShader.WGSL, format);
-		shadows = pass(ShadowShader.WGSL, format);
-		atlas = new GlyphAtlas(device, false);
-		colorAtlas = new GlyphAtlas(device, true);
 		var sampler = new GpuSamplerDescriptor();
 		sampler.magFilter(Linear);
 		sampler.minFilter(Linear);
 		glyphSampler = device.sampler(sampler);
-		text = pass(TextShader.WGSL, format, false);
-		imageAtlas = new ImageAtlas(device);
-		images = pass(ImageShader.WGSL, format, false);
-		layerPass = pass(LayerShader.WGSL, format, false);
-		blurPass = pass(LayerBlurShader.WGSL, format, false, false);
-		shadowPass = pass(LayerShadowShader.WGSL, format, false, false);
-		backdropRowsPass = pass(BackdropRowsShader.WGSL, format, false, false);
-		backdropPass = pass(BackdropShader.WGSL, format, false);
-		blitPass = pass(BlitShader.WGSL, format, false, false);
 		this.format = format;
 	}
+
+	// Compile each shader once, when a display list first needs it. WGSL is a
+	// generated static final string; these getters never construct shader source.
+	inline function get_boxes():Pass
+		return _boxes != null ? _boxes : (_boxes = pass(BoxShader.WGSL, format));
+
+	inline function get_shadows():Pass
+		return _shadows != null ? _shadows : (_shadows = pass(ShadowShader.WGSL, format));
+
+	inline function get_text():Pass
+		return _text != null ? _text : (_text = pass(TextShader.WGSL, format, false));
+
+	inline function get_images():Pass
+		return _images != null ? _images : (_images = pass(ImageShader.WGSL, format, false));
+
+	inline function get_layerPass():Pass
+		return _layerPass != null ? _layerPass : (_layerPass = pass(LayerShader.WGSL, format, false));
+
+	inline function get_blurPass():Pass
+		return _blurPass != null ? _blurPass : (_blurPass = pass(LayerBlurShader.WGSL, format, false, false));
+
+	inline function get_shadowPass():Pass
+		return _shadowPass != null ? _shadowPass : (_shadowPass = pass(LayerShadowShader.WGSL, format, false, false));
+
+	inline function get_backdropRowsPass():Pass
+		return _backdropRowsPass != null ? _backdropRowsPass : (_backdropRowsPass = pass(BackdropRowsShader.WGSL, format, false, false));
+
+	inline function get_backdropPass():Pass
+		return _backdropPass != null ? _backdropPass : (_backdropPass = pass(BackdropShader.WGSL, format, false));
+
+	inline function get_blitPass():Pass
+		return _blitPass != null ? _blitPass : (_blitPass = pass(BlitShader.WGSL, format, false, false));
 
 	function pass(wgsl:String, format:TextureFormat, bind = true, blend = true):Pass {
 		var shader = device.createShader(wgsl);
@@ -143,7 +172,14 @@ class Renderer {
 			BlendOperation.Add);
 		builder.primitive(PrimitiveTopology.TriangleList, CullMode.None, FrontFace.Ccw);
 		var pipeline = builder.build();
-		failOnError('building a pipeline: ${shader.messages()}');
+		var error = device.takeError();
+		var messages = error != null ? shader.messages() : null;
+		// Pipelines retain what they need; the integer shader handle is not GC-owned.
+		shader.destroy();
+		if (error != null) {
+			pipeline.destroy();
+			throw 'gpu error building a pipeline: $messages: $error';
+		}
 		// An inferred layout is the pipeline's own, so each pipeline gets its own group.
 		var group:Null<GpuBindGroup> = null;
 		if (bind) {
@@ -154,8 +190,12 @@ class Renderer {
 		}
 		var made:Pass = {pipeline: pipeline, group: group, records: null};
 		// Only a shader that reads records gets their bind group: the blit reads none.
-		if (wgsl.indexOf("var records") >= 0)
+		if (wgsl.indexOf("var records") >= 0) {
 			passes.push(made);
+			// First use can follow an earlier frame that allocated records.
+			if (records != null)
+				bindRecords(made);
+		}
 		return made;
 	}
 
@@ -184,17 +224,17 @@ class Renderer {
 	/** A pipeline for a canvas's `UiShader`: alpha-blended into the frame's targets, the frame uniforms and records bound; made once. **/
 	public function uiPass(wgsl:String):Pass {
 		var made = canvasPasses.get(wgsl);
-		if (made == null) {
+		if (made == null)
 			canvasPasses.set(wgsl, made = pass(wgsl, format));
-			// Its records bind group, made now for a texture already there; `reserve` remakes it with the texture.
-			if (records != null)
-				bindRecords(made);
-		}
 		return made;
 	}
 
 	/** Uploads changed atlases, and binds the text pass to their current views. **/
 	function syncText():Void {
+		if (atlas == null) {
+			atlas = new GlyphAtlas(device, false);
+			colorAtlas = new GlyphAtlas(device, true);
+		}
 		atlas.sync();
 		colorAtlas.sync();
 		var revisions = '${atlas.revision}/${colorAtlas.revision}';
@@ -214,8 +254,16 @@ class Renderer {
 		textRevisions = revisions;
 	}
 
+	/** Shared by display-list images and canvases, either of which may be drawn first. **/
+	function ensureImageAtlas():ImageAtlas {
+		if (imageAtlas == null)
+			imageAtlas = new ImageAtlas(device);
+		return imageAtlas;
+	}
+
 	/** Rasterizes the list's new images, and binds the image pass to the atlas's current view. **/
 	function syncImages(list:DisplayList):Void {
+		ensureImageAtlas();
 		Images.resolve(list, imageAtlas);
 		if (imageAtlas.revision == imageRevision)
 			return;
@@ -244,8 +292,18 @@ class Renderer {
 		frameBytes.setFloat(BoxShader.FRAME_viewport, width);
 		frameBytes.setFloat(BoxShader.FRAME_viewport + 4, height);
 		queue.writeBuffer(frame, 0, frameBytes, frameBytes.length);
-		syncText();
-		syncImages(list);
+		var offscreen = false, hasText = false, hasImages = false;
+		for (i in 0...list.count)
+			switch list.kind(i) {
+				case DisplayList.PRIM_BACKDROP: offscreen = true;
+				case DisplayList.PRIM_TEXT: hasText = true;
+				case DisplayList.PRIM_IMAGE: hasImages = true;
+				default:
+			}
+		if (hasText)
+			syncText();
+		if (hasImages)
+			syncImages(list);
 		if (list.count > 0) {
 			// Whole rows: the list's bytes hold whole rows of records, so the last is complete.
 			var rows = Math.ceil(list.stored / DisplayList.RECORDS_PER_ROW);
@@ -255,12 +313,6 @@ class Renderer {
 		var encoder = device.encoder();
 		// A backdrop filter reads what is drawn under it, which a window's surface does not allow:
 		// such a frame is drawn into a texture of its own and copied to `view` at the end.
-		var offscreen = false;
-		for (i in 0...list.count)
-			if (list.kind(i) == DisplayList.PRIM_BACKDROP) {
-				offscreen = true;
-				break;
-			}
 		// Drawn over a frame already there, it draws straight into the view: a frame texture of its own would start empty.
 		if (keep)
 			offscreen = false;
@@ -280,6 +332,10 @@ class Renderer {
 					// What is under the box so far, blurred along its rows into the target's second
 					// texture, then down its columns and filtered as it is drawn back over the box.
 					var under = depth == 0 ? frameLayer : layers[depth - 1];
+					if (under.backdropRowsGroup == null)
+						under.backdropRowsGroup = layerGroup(backdropRowsPass, BackdropRowsShader.FRAME_GROUP, under.view);
+					if (under.backdropGroup == null)
+						under.backdropGroup = layerGroup(backdropPass, BackdropShader.FRAME_GROUP, under.rowsView);
 					encoder.renderEnd();
 					beginPass(encoder, under.rowsView, true, 0, 0, 0, 0);
 					encoder.renderSetPipeline(backdropRowsPass.pipeline);
@@ -310,6 +366,8 @@ class Renderer {
 					var inner = layers[depth - 1];
 					var blurred = list.get(start, BLUR_FIELD) > 0;
 					if (list.get(start, SHADOW_ALPHA_FIELD) > 0) {
+						if (inner.shadowPassGroup == null)
+							inner.shadowPassGroup = layerGroup(shadowPass, LayerShadowShader.FRAME_GROUP, inner.view);
 						beginPass(encoder, inner.shadowView, true, 0, 0, 0, 0);
 						encoder.renderSetPipeline(shadowPass.pipeline);
 						encoder.renderSetBindGroup(LayerShadowShader.FRAME_GROUP, inner.shadowPassGroup);
@@ -318,6 +376,8 @@ class Renderer {
 						encoder.renderEnd();
 					}
 					if (blurred) {
+						if (inner.blurGroup == null)
+							inner.blurGroup = layerGroup(blurPass, LayerBlurShader.FRAME_GROUP, inner.view);
 						beginPass(encoder, inner.rowsView, true, 0, 0, 0, 0);
 						encoder.renderSetPipeline(blurPass.pipeline);
 						encoder.renderSetBindGroup(LayerBlurShader.FRAME_GROUP, inner.blurGroup);
@@ -327,6 +387,17 @@ class Renderer {
 					}
 					depth--;
 					beginPass(encoder, depth == 0 ? base : layers[depth - 1].view, false, 0, 0, 0, 0);
+					if (inner.shadowGroup == null) {
+						var bindings = new GpuBindings();
+						bindings.texture(inner.shadowView);
+						bindings.sampler(glyphSampler);
+						inner.shadowGroup = device.bindGroup(layerPass.pipeline, LayerShader.TEXTURE_shadow_GROUP, bindings);
+						bindings.destroy();
+					}
+					if (blurred && inner.rowsGroup == null)
+						inner.rowsGroup = layerGroup(layerPass, LayerShader.FRAME_GROUP, inner.rowsView);
+					if (!blurred && inner.group == null)
+						inner.group = layerGroup(layerPass, LayerShader.FRAME_GROUP, inner.view);
 					encoder.renderSetPipeline(layerPass.pipeline);
 					encoder.renderSetBindGroup(LayerShader.FRAME_GROUP, blurred ? inner.rowsGroup : inner.group);
 					encoder.renderSetBindGroup(LayerShader.TEXTURE_shadow_GROUP, inner.shadowGroup);
@@ -354,6 +425,8 @@ class Renderer {
 		}
 		encoder.renderEnd();
 		if (offscreen) {
+			if (frameLayer.blitGroup == null)
+				frameLayer.blitGroup = layerGroup(blitPass, BlitShader.FRAME_GROUP, frameLayer.view, false);
 			beginPass(encoder, view, true, r, g, b, a);
 			encoder.renderSetPipeline(blitPass.pipeline);
 			encoder.renderSetBindGroup(BlitShader.FRAME_GROUP, frameLayer.blitGroup);
@@ -445,7 +518,11 @@ class Renderer {
 		for (g in [
 			at.group, at.rowsGroup, at.blurGroup, at.shadowPassGroup, at.shadowGroup, at.backdropRowsGroup, at.backdropGroup, at.blitGroup
 		])
-			g.destroy();
+			if (g != null)
+				g.destroy();
+		at.view.destroy();
+		at.rowsView.destroy();
+		at.shadowView.destroy();
 		at.texture.destroy();
 		at.rows.destroy();
 		at.shadow.destroy();
@@ -457,54 +534,52 @@ class Renderer {
 		size.height(height);
 		function target():GpuTexture
 			return device.texture(new GpuTextureDescriptor(size, format, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
-		// A pass that blurs reads its texture through the linear sampler, two texels a read; the blit only fetches.
-		function group(pass:Pass, frameGroup:Int, of:GpuTextureView, sampled = true):GpuBindGroup {
-			var bindings = new GpuBindings();
-			bindings.buffer(frame);
-			bindings.texture(of);
-			if (sampled)
-				bindings.sampler(glyphSampler);
-			var made = device.bindGroup(pass.pipeline, frameGroup, bindings);
-			bindings.destroy();
-			return made;
-		}
 		var texture = target();
 		var view = texture.createView(new GpuTextureViewDescriptor());
 		var rows = target();
 		var rowsView = rows.createView(new GpuTextureViewDescriptor());
 		var shadow = target();
 		var shadowView = shadow.createView(new GpuTextureViewDescriptor());
-		var shadowBindings = new GpuBindings();
-		shadowBindings.texture(shadowView);
-		shadowBindings.sampler(glyphSampler);
-		var shadowGroup = device.bindGroup(layerPass.pipeline, LayerShader.TEXTURE_shadow_GROUP, shadowBindings);
-		shadowBindings.destroy();
 		return {
 			texture: texture,
 			view: view,
-			group: group(layerPass, LayerShader.FRAME_GROUP, view),
+			group: null,
 			rows: rows,
 			rowsView: rowsView,
-			rowsGroup: group(layerPass, LayerShader.FRAME_GROUP, rowsView),
-			blurGroup: group(blurPass, LayerBlurShader.FRAME_GROUP, view),
+			rowsGroup: null,
+			blurGroup: null,
 			shadow: shadow,
 			shadowView: shadowView,
-			shadowPassGroup: group(shadowPass, LayerShadowShader.FRAME_GROUP, view),
-			shadowGroup: shadowGroup,
-			backdropRowsGroup: group(backdropRowsPass, BackdropRowsShader.FRAME_GROUP, view),
-			backdropGroup: group(backdropPass, BackdropShader.FRAME_GROUP, rowsView),
-			blitGroup: group(blitPass, BlitShader.FRAME_GROUP, view, false),
+			shadowPassGroup: null,
+			shadowGroup: null,
+			backdropRowsGroup: null,
+			backdropGroup: null,
+			blitGroup: null,
 			width: width,
 			height: height
 		};
+	}
+
+	/** Bind a layer only when its effect is first drawn; inferred layouts belong to one pipeline. **/
+	function layerGroup(pass:Pass, frameGroup:Int, view:GpuTextureView, sampled = true):GpuBindGroup {
+		var bindings = new GpuBindings();
+		bindings.buffer(frame);
+		bindings.texture(view);
+		if (sampled)
+			bindings.sampler(glyphSampler);
+		var made = device.bindGroup(pass.pipeline, frameGroup, bindings);
+		bindings.destroy();
+		return made;
 	}
 
 	/** Grows the records texture to `rows` rows, and binds each pass to it. **/
 	function reserve(rows:Int):Void {
 		if (rows <= recordRows)
 			return;
-		if (records != null)
+		if (records != null) {
+			recordsView.destroy();
 			records.destroy();
+		}
 		recordRows = rows + (rows >> 1) + 1;
 		var size = new GpuExtent3D(DisplayList.ROW_TEXELS);
 		size.height(recordRows);
@@ -536,22 +611,22 @@ private typedef Layer = {
 	final texture:GpuTexture;
 	final view:GpuTextureView;
 	/** `layerPass`'s bindings of the layer itself. **/
-	final group:GpuBindGroup;
+	var group:Null<GpuBindGroup>;
 	/** The layer blurred along its rows, the first pass of a blur. **/
 	final rows:GpuTexture;
 	final rowsView:GpuTextureView;
 	/** `layerPass`'s bindings of `rows`, and `blurPass`'s of the layer. **/
-	final rowsGroup:GpuBindGroup;
-	final blurGroup:GpuBindGroup;
+	var rowsGroup:Null<GpuBindGroup>;
+	var blurGroup:Null<GpuBindGroup>;
 	/** The layer's alpha blurred along its rows for its drop shadow, `shadowPass`'s bindings of the layer, and `layerPass`'s of the shadow. **/
 	final shadow:GpuTexture;
 	final shadowView:GpuTextureView;
-	final shadowPassGroup:GpuBindGroup;
-	final shadowGroup:GpuBindGroup;
+	var shadowPassGroup:Null<GpuBindGroup>;
+	var shadowGroup:Null<GpuBindGroup>;
 	/** A backdrop filter's bindings: of the target itself for its rows, and of its rows for the columns; and the blit's. **/
-	final backdropRowsGroup:GpuBindGroup;
-	final backdropGroup:GpuBindGroup;
-	final blitGroup:GpuBindGroup;
+	var backdropRowsGroup:Null<GpuBindGroup>;
+	var backdropGroup:Null<GpuBindGroup>;
+	var blitGroup:Null<GpuBindGroup>;
 	final width:Int;
 	final height:Int;
 }

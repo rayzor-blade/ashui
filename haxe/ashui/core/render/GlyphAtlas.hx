@@ -89,8 +89,10 @@ class GlyphAtlas {
 	}
 
 	function allocate(width:Int, height:Int):Void {
-		if (texture != null)
+		if (texture != null) {
+			view.destroy();
 			texture.destroy();
+		}
 		var size = new GpuExtent3D(width);
 		size.height(height);
 		texture = device.texture(new GpuTextureDescriptor(size, color ? TextureFormat.Rgba8unorm : TextureFormat.R8unorm,

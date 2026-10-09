@@ -93,7 +93,7 @@ class CanvasFrame {
 	public var images(get, never):ImageAtlas;
 
 	inline function get_images():ImageAtlas
-		return @:privateAccess renderer.imageAtlas;
+		return @:privateAccess renderer.ensureImageAtlas();
 
 	/** The sampler images are drawn through: linear between texels. **/
 	public var imageSampler(get, never):gpu.GpuSampler;

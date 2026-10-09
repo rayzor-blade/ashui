@@ -88,6 +88,8 @@ import gpu.TextureUsage;
 **/
 import ashui.canvaskit.Skybox;
 
+@:access(ashui.core.render.Renderer)
+@:access(ashui.core.render.Offscreen)
 class Pixels {
 	static inline var SIZE = 64;
 	static inline var ROW = SIZE * 4;
@@ -116,8 +118,20 @@ class Pixels {
 		size.height(SIZE);
 		var target = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba8unorm, ashui.core.render.GpuFlags.TEXTURE_RENDER_ATTACHMENT | ashui.core.render.GpuFlags.TEXTURE_COPY_SRC));
 		var offscreen = new Offscreen(device, TextureFormat.Rgba8unorm);
+		// A simple UI must not compile effect shaders or allocate image/text atlases.
+		if (offscreen.renderer.passes.length != 0 || offscreen.renderer.atlas != null || offscreen.renderer.imageAtlas != null)
+			throw "renderer allocated unused pipelines or atlases at construction";
 		offscreen.render(root, target.createView(new GpuTextureViewDescriptor()), SIZE, SIZE);
 		var shared = offscreen.readRgba8(target, SIZE, SIZE);
+		if (offscreen.renderer.passes.length != 2 || offscreen.renderer.atlas != null || offscreen.renderer.imageAtlas != null)
+			throw "box/shadow frame allocated unrelated pipelines or atlases";
+		// Rebind existing passes after a record texture grows, then reuse their pipelines.
+		var firstPipeline = offscreen.renderer.passes[0].pipeline;
+		offscreen.renderer.reserve(offscreen.renderer.recordRows + 8);
+		var repeated = offscreen.renderToRgba8(root, SIZE, SIZE);
+		if (shared.compare(repeated) != 0 || offscreen.renderer.passes.length != 2 || offscreen.renderer.passes[0].pipeline != firstPipeline)
+			throw "cached pipelines changed pixels after record texture growth";
+		Sys.println("ok   on-demand pipelines, unused atlases, and record texture growth");
 		target.destroy();
 		// Read back from a BGRA target, which must come out RGBA.
 		var bgra = new Offscreen(device, TextureFormat.Bgra8unorm).renderToRgba8(root, SIZE, SIZE);
