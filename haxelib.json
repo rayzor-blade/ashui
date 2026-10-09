@@ -14,13 +14,13 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.0",
-  "releasenote": "Initial release.",
+  "version": "0.1.1",
+  "releasenote": "Lower idle CPU and renderer memory, lazy GPU resources, shared effect targets, cached hit regions, and visual hit-map debugging.",
   "classPath": "haxe",
   "dependencies": {
     "hashlink": "",
     "tink_hxx": "",
-    "hlwgpu": "",
-    "hlwindow": ""
+    "hlwgpu": "0.1.1",
+    "hlwindow": "0.2.1"
   }
 }

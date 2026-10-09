@@ -10,11 +10,11 @@ on:
       hlwgpu_tag:
         description: hlwgpu release tag
         type: string
-        default: v0.1.0
+        default: v0.1.1
       hlwindow_tag:
         description: hlwindow release tag
         type: string
-        default: v0.2.0
+        default: v0.2.1
       hlavi_tag:
         description: hlavi release tag
         type: string
@@ -22,7 +22,7 @@ on:
       ashui_tag:
         description: ashui release tag
         type: string
-        default: v0.1.0
+        default: v0.1.1
       publish:
         description: Submit all nine packages to Haxelib
         type: boolean
