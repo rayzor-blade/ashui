@@ -30,7 +30,7 @@ cp "$root/target/debug/$lib" bin/blinc_abi.hdll
 ash="${ASH:-$(cd $root/../ash/target/release && pwd)/ash}"
 
 build() {
-	haxe --class-path $root/haxe --class-path $root/../hlwindow/haxe --class-path . --class-path "$1" -lib hashlink -lib tink_hxx -w -WDeprecated -main Main -hl bin/hot.hl
+	haxe --class-path $root/haxe --class-path $root/../hlwindow/haxe --class-path . --class-path "$1" -lib hashlink -lib tink_hxx -w -WDeprecated -D ashui_hot_reload -main Main -hl bin/hot.hl
 }
 
 build v1

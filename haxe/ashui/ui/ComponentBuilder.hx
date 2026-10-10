@@ -11,7 +11,9 @@ import haxe.macro.Expr;
 	  `x` reads the signal, so a computed, watch or template attribute that
 	  reads it follows it, and assigning `x` sets the signal.
 	  `__takeState` hands the signals to the instance a hot reload builds in
-	  this one's place, so its state carries over.
+	  this one's place, so its state carries over. Built with
+	  `-D ashui_hot_reload`, a state field a reload added reads as its
+	  initial value on an instance built before it, which has no signal yet.
 	- `function render() '<template>'` becomes `return hxx('<template>')`.
 **/
 class ComponentBuilder {
@@ -38,7 +40,8 @@ class ComponentBuilder {
 	static function takeState(signals:Array<String>):Field {
 		var self = Context.toComplexType(Context.getLocalType());
 		var pos = Context.currentPos();
-		var copies = [for (s in signals) macro $i{s} = from.$s];
+		// An old instance built before a reload added a state field has none of it: this one keeps its own.
+		var copies = [for (s in signals) macro if (from.$s != null) $i{s} = from.$s];
 		return {
 			name: '__takeState',
 			pos: pos,
@@ -65,6 +68,13 @@ class ComponentBuilder {
 				if (init == null)
 					Context.error('@:state ${field.name} needs an initial value', pos);
 				var signal = '${field.name}__state';
+				// Under hot reload, an instance built before a reload added this field reads it as null,
+				// so the getter and setter make it from the initial value on first use.
+				var read = Context.defined("ashui_hot_reload") ? macro {
+					if ($i{signal} == null)
+						$i{signal} = ashui.reactive.Signal.make(($init : $type));
+					$i{signal};
+				} : macro $i{signal};
 				[
 					{
 						name: signal,
@@ -84,7 +94,7 @@ class ComponentBuilder {
 						name: 'get_${field.name}',
 						pos: pos,
 						access: [APrivate, AInline],
-						kind: FFun({args: [], ret: type, expr: macro return $i{signal}.get()}),
+						kind: FFun({args: [], ret: type, expr: macro return $read.get()}),
 					},
 					{
 						name: 'set_${field.name}',
@@ -94,7 +104,7 @@ class ComponentBuilder {
 							args: [{name: 'value', type: type}],
 							ret: type,
 							expr: macro {
-								$i{signal}.set(value);
+								$read.set(value);
 								return value;
 							},
 						}),
