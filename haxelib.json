@@ -14,8 +14,8 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.1",
-  "releasenote": "Lower idle CPU and renderer memory, lazy GPU resources, shared effect targets, cached hit regions, and visual hit-map debugging.",
+  "version": "0.1.2",
+  "releasenote": "Native CSS engine: matching, cascade, media and queries run in blinc_abi, restyling only what a change reaches; CSS compiled at build time with imports and the blinc-css compiler bundled; borders take layout space; inset, zero-blur and notched shadows drawn as CSS does.",
   "classPath": "haxe",
   "dependencies": {
     "hashlink": "",

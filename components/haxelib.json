@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.1",
-  "releasenote": "Use ashui 0.1.1 with quieter input handling and reduced renderer memory.",
+  "version": "0.1.2",
+  "releasenote": "Use ashui 0.1.2: components styled by the native CSS engine from a sheet compiled at build time.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.1.1"
+    "ashui": "0.1.2"
   }
 }

@@ -22,7 +22,7 @@ on:
       ashui_tag:
         description: ashui release tag
         type: string
-        default: v0.1.1
+        default: v0.1.2
       publish:
         description: Submit all nine packages to Haxelib
         type: boolean

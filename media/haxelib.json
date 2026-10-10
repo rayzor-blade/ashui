@@ -14,13 +14,13 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.1",
-  "releasenote": "Use the ashui 0.1.1 rendering and input improvements with matching components and canvas packages.",
+  "version": "0.1.2",
+  "releasenote": "Use ashui 0.1.2 with the native CSS engine and matching components and canvas packages.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.1.1",
-    "ashui-components": "0.1.1",
-    "ashui-canvaskit": "0.1.1",
+    "ashui": "0.1.2",
+    "ashui-components": "0.1.2",
+    "ashui-canvaskit": "0.1.2",
     "hlavi": "0.1.0"
   }
 }

@@ -43,7 +43,7 @@ Open the release workflow and choose **Run workflow**:
 - Leave `release_tag` empty to build and validate, with downloadable workflow
   artifacts.
 - Enter `nightly` to publish a nightly immediately.
-- Enter a version tag such as `v0.1.1` to publish that version from the selected
+- Enter a version tag such as `v0.1.2` to publish that version from the selected
   ref. Pushing a `v*` tag also starts a versioned release automatically.
 
 Version tags are normalized to Haxelib versions; for example,
