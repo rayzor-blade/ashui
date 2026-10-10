@@ -146,7 +146,7 @@ class MotionRecorder {
 					if (shot == null)
 						sys.io.File.saveContent(haxe.io.Path.join([dir, "tree-first.json"]), next.json());
 					else {
-						var d = TreeSnapshot.lines(TreeSnapshot.diff(shot, next));
+						var d = TreeSnapshot.lines(TreeSnapshot.diff(shot, next), tree);
 						if (d != "")
 							changes.add('frame $i (${Math.round((MotionTrace.clock() - trace.started) * 1000)}ms)\n$d\n');
 					}

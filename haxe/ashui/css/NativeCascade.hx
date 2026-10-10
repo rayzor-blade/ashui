@@ -1,6 +1,7 @@
 package ashui.css;
 
 import ashui.core.externs.CssNative;
+import ashui.css.Css.CssOrigin;
 import ashui.layout.LayoutTree;
 
 /**
@@ -186,6 +187,33 @@ class NativeCascade {
 				return [for (i in 0...n) haxe.Int64.make(out.getI32(i * 8 + 4), out.getI32(i * 8))];
 			capacity = n;
 		}
+	}
+
+	/** Every declaration that applies to `identity`, where it came from and whether it wins, in cascade order. **/
+	public static function explain(identity:Identity):Array<CssOrigin> {
+		var bySheet = new Map<Int, Stylesheet>();
+		for (sheet => id in ids)
+			bySheet.set(id, sheet);
+		var out:Array<CssOrigin> = [];
+		var text = text(CssNative.blinc_css_explain(css(), identity.tree.ptr, identity.node.id));
+		if (text == "")
+			return out;
+		for (record in text.split(RECORD)) {
+			var f = record.split(PAIR);
+			if (f.length < 7)
+				continue;
+			var sheet = Std.parseInt(f[2]);
+			out.push({
+				name: f[0],
+				value: f[1],
+				sheet: sheet == null || sheet < 0 ? null : bySheet.get(sheet),
+				selector: f[3],
+				line: Std.parseInt(f[4]),
+				important: f[5] == "1",
+				wins: f[6] == "1"
+			});
+		}
+		return out;
 	}
 
 	/** `identity`'s style as the engine computed it. **/

@@ -100,6 +100,9 @@ extern class LayoutTreeNative {
 	/** Writes absolute x, y, width, height as four F32s into `out`. **/
 	static function blinc_tree_get_bounds(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
 
+	/** Writes padding, border and margin, each top, right, bottom and left, as twelve F32s into `out`. **/
+	static function blinc_tree_get_box(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;
+
 	/** Whether any of `node`'s box is on screen, inside the root and every box clipping it, scrolled as they are. **/
 	static function blinc_tree_in_view(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Bool;
 }

@@ -20,29 +20,28 @@ typedef Inspected = {
 	y:Float,
 	w:Float,
 	h:Float,
-	/** Margin, border and padding as CSS gave them, in layout units: top, right, bottom, left. **/
+	/** Margin, border and padding as layout resolved them, in layout units: top, right, bottom, left. **/
 	margin:Array<Float>,
 	border:Array<Float>,
 	padding:Array<Float>,
 	states:Array<String>,
 	handlers:Array<String>,
-	/** Its computed CSS, `var()`s replaced, less what it only inherited and custom properties. **/
-	style:Array<{name:String, value:String}>
+	/** The CSS declarations that win for it, `var()`s replaced, each with where it came from; custom properties left out. **/
+	style:Array<{name:String, value:String, from:String}>,
+	/** How many declarations that match it were overridden. **/
+	overridden:Int
 }
 
 /**
 	The element under the pointer, as a browser's inspector shows it: its
 	margin, border, padding and content boxes shaded over the UI, and a
 	panel with its place in the tree, its size, its interaction states and
-	handlers, and its computed CSS.
+	handlers, and the CSS declarations that win for it with the rule and
+	line each came from.
 
 	Set `ASHUI_INSPECT=1`, or add `new InspectorOverlay()` to
 	`Offscreen.overlays`. `pin` holds it on one element. Like the other
 	overlays, its elements live in a tree of their own.
-
-	The box model is read from the computed CSS, so margin, padding and
-	border an element sets in code rather than by a stylesheet or Tw class
-	show only in its border box.
 **/
 class InspectorOverlay implements FrameOverlay {
 	/** The most properties the panel lists. **/
@@ -97,20 +96,20 @@ class InspectorOverlay implements FrameOverlay {
 			return null;
 		var identity = Identity.of(tree, id);
 		var up = tree.ancestors(id);
-		var parent = up.length == 0 ? null : Identity.of(tree, up[0]);
-		var values = computed(identity);
-		var inherited = computed(parent);
-		var style = [];
-		var names = [for (k in values.keys()) k];
-		names.sort(Reflect.compare);
-		for (name in names) {
-			if (StringTools.startsWith(name, "--"))
-				continue;
-			var v = values.get(name);
-			if (INHERITED.exists(name) && inherited.get(name) == v)
-				continue;
-			style.push({name: name, value: v});
-		}
+		var style = [], overridden = 0;
+		if (identity != null)
+			for (o in ashui.css.Css.explain(identity)) {
+				if (!o.wins) {
+					overridden++;
+					continue;
+				}
+				if (StringTools.startsWith(o.name, "--"))
+					continue;
+				var v = o.value.indexOf("var(") >= 0 ? ashui.css.Css.resolve(identity, o.value) : o.value;
+				style.push({name: o.name, value: v, from: ashui.css.Css.where(o)});
+			}
+		var box = tree.getBox(new Node(id));
+		var none = [0.0, 0.0, 0.0, 0.0];
 		var input = Interaction.byId(tree, id);
 		var path = [for (a in up) MotionTrace.describe(tree, a)];
 		path.reverse();
@@ -122,85 +121,14 @@ class InspectorOverlay implements FrameOverlay {
 			y: b.y,
 			w: b.width,
 			h: b.height,
-			margin: sides(values, "margin", "margin-", ""),
-			border: borders(values),
-			padding: sides(values, "padding", "padding-", ""),
+			margin: box == null ? none : box.margin,
+			border: box == null ? none : box.border,
+			padding: box == null ? none : box.padding,
 			states: TreeSnapshot.states(tree, id),
 			handlers: input == null ? [] : input.handlerKinds(),
-			style: style
+			style: style,
+			overridden: overridden
 		};
-	}
-
-	static function computed(identity:Null<Identity>):Map<String, String> {
-		var out = new Map<String, String>();
-		if (identity == null)
-			return out;
-		var applied = @:privateAccess ashui.css.Css.applied.get(identity);
-		if (applied != null)
-			for (k => v in applied.values)
-				out.set(k, v.indexOf("var(") >= 0 ? ashui.css.Css.resolve(identity, v) : v);
-		return out;
-	}
-
-	/** A box side set in pixels, longhands over the shorthand: top, right, bottom, left. **/
-	static function sides(values:Map<String, String>, shorthand:String, prefix:String, suffix:String):Array<Float> {
-		var out = [0.0, 0.0, 0.0, 0.0];
-		var all = values.get(shorthand);
-		if (all != null) {
-			var parts = [for (p in all.split(" ")) if (p != "") px(p)];
-			switch parts.length {
-				case 1: out = [parts[0], parts[0], parts[0], parts[0]];
-				case 2: out = [parts[0], parts[1], parts[0], parts[1]];
-				case 3: out = [parts[0], parts[1], parts[2], parts[1]];
-				case n if (n >= 4): out = parts.slice(0, 4);
-				case _:
-			}
-		}
-		for (i => side in ["top", "right", "bottom", "left"]) {
-			var v = values.get(prefix + side + suffix);
-			if (v != null)
-				out[i] = px(v);
-		}
-		return out;
-	}
-
-	/** Border widths: `border` and each side's shorthand by the length among their words, then `border-width` and the longhands. **/
-	static function borders(values:Map<String, String>):Array<Float> {
-		var out = [0.0, 0.0, 0.0, 0.0];
-		var all = values.get("border");
-		if (all != null)
-			out = [for (_ in 0...4) width(all)];
-		for (i => side in ["top", "right", "bottom", "left"]) {
-			var v = values.get('border-$side');
-			if (v != null)
-				out[i] = width(v);
-		}
-		var longhands = sides(values, "border-width", "border-", "-width");
-		for (i => side in ["top", "right", "bottom", "left"])
-			if (values.exists("border-width") || values.exists('border-$side-width'))
-				out[i] = longhands[i];
-		return out;
-	}
-
-	/** The width in a border shorthand: its length in pixels, or a keyword's. **/
-	static function width(v:String):Float {
-		for (word in v.split(" ")) {
-			switch word {
-				case "thin": return 1;
-				case "medium": return 3;
-				case "thick": return 5;
-				case _:
-			}
-			var d = ashui.css.CssValue.dimension(word);
-			if (d != null && d.unit == "px")
-				return d.value;
-		}
-		return 0;
-	}
-
-		static function px(v:String):Float {
-		var d = ashui.css.CssValue.dimension(StringTools.trim(v));
-		return d == null || (d.unit != "px" && d.unit != "") ? 0 : d.value;
 	}
 
 	public function draw(tree:LayoutTree, root:Node, width:Int, height:Int, paint:Element->Void):Void {
@@ -242,7 +170,7 @@ class InspectorOverlay implements FrameOverlay {
 	function panel(own:LayoutTree, e:Inspected, width:Int, height:Int, out:Array<Element>):Void {
 		var w = Math.min(360, Math.max(0, width - 16));
 		var count = Std.int(Math.min(e.style.length, maxProperties));
-		var h = 112 + count * 15 + (e.style.length > count ? 15 : 0);
+		var h = 112 + count * 28 + (e.style.length > count ? 15 : 0);
 		// Beside the element where there is room, so it does not cover it; in the bottom corner for one that fills the view.
 		var x = e.x + e.w + 8 + w <= width ? e.x + e.w + 8 : e.x - w - 8 >= 0 ? e.x - w - 8 : width - w - 8;
 		var y = Math.max(8, Math.min(e.y, height - h - 8));
@@ -257,13 +185,14 @@ class InspectorOverlay implements FrameOverlay {
 		out.push(MotionOverlay.text(own, x + 10, y + 60, shorten('states ${e.states.length == 0 ? "none" : e.states.join(", ")}', w - 20, 10), 0xd0d5e0, 1, 10));
 		out.push(MotionOverlay.text(own, x + 10, y + 76, shorten('handlers ${e.handlers.length == 0 ? "none" : e.handlers.join(", ")}', w - 20, 10), 0xd0d5e0,
 			1, 10));
-		out.push(MotionOverlay.text(own, x + 10, y + 94, "computed", dim, 1, 10));
+		out.push(MotionOverlay.text(own, x + 10, y + 94, e.overridden > 0 ? 'css · ${e.overridden} overridden' : "css", dim, 1, 10));
 		for (i in 0...count) {
 			var s = e.style[i];
-			out.push(MotionOverlay.text(own, x + 10, y + 110 + i * 15, shorten('${s.name}: ${s.value}', w - 20, 10), 0x93c47d, 1, 10));
+			out.push(MotionOverlay.text(own, x + 10, y + 110 + i * 28, shorten('${s.name}: ${s.value}', w - 20, 10), 0x93c47d, 1, 10));
+			out.push(MotionOverlay.text(own, x + 18, y + 123 + i * 28, shorten(s.from, w - 28, 9), dim, 1, 9));
 		}
 		if (e.style.length > count)
-			out.push(MotionOverlay.text(own, x + 10, y + 110 + count * 15, '+${e.style.length - count} more', dim, 1, 10));
+			out.push(MotionOverlay.text(own, x + 10, y + 110 + count * 28, '+${e.style.length - count} more', dim, 1, 10));
 	}
 
 	static function list(sides:Array<Float>):String
@@ -281,14 +210,4 @@ class InspectorOverlay implements FrameOverlay {
 	static inline var BORDER = 0xffe599;
 	static inline var PADDING = 0x93c47d;
 	static inline var CONTENT = 0x6fa8dc;
-
-	/** The properties CSS inherits: a child showing its parent's value for one of these only inherited it. **/
-	static final INHERITED = [
-		for (n in [
-			"color", "font", "font-family", "font-size", "font-style", "font-weight", "font-variant", "line-height", "letter-spacing", "word-spacing",
-			"text-align", "text-indent", "text-transform", "text-shadow", "white-space", "word-break", "overflow-wrap", "visibility", "cursor", "direction",
-			"list-style", "list-style-type", "caret-color", "accent-color", "color-scheme", "tab-size", "hyphens", "quotes"
-		])
-			n => true
-	];
 }

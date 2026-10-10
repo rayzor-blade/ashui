@@ -553,6 +553,16 @@ class LayoutTree {
 	static function ids(out:hl.Bytes, n:Int):Array<haxe.Int64>
 		return [for (i in 0...n) haxe.Int64.make(out.getI32(i * 8 + 4), out.getI32(i * 8))];
 
+	/** The node's padding, border and margin as layout resolved them, each top, right, bottom and left; null before it has been laid out. **/
+	public function getBox(node:Node):Null<{padding:Array<Float>, border:Array<Float>, margin:Array<Float>}> {
+		var out = new hl.Bytes(48);
+		if (!LayoutTreeNative.blinc_tree_get_box(this.ptr, node.id, out))
+			return null;
+		inline function side(at:Int):Array<Float>
+			return [for (i in 0...4) (out.getF32((at + i) * 4) : Float)];
+		return {padding: side(0), border: side(4), margin: side(8)};
+	}
+
 	/** The node's absolute rectangle, or null before it has been laid out. **/
 	public function getBounds(node:Node):Null<Bounds> {
 		var out = new hl.Bytes(16);

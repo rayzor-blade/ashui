@@ -272,8 +272,17 @@ class Motion {
 		check("the inspector shows the element under the pointer: its box model, states, handlers and own CSS", seen != null && seen.label == "div.hov"
 			&& seen.margin.join(",") == "2,3,2,3" && seen.padding.join(",") == "4,4,4,6" && seen.border.join(",") == "1,1,1,1"
 			&& seen.states.indexOf("hover") >= 0 && seen.handlers.indexOf("click") >= 0 && seen.path.length == 1
-			&& Lambda.exists(seen.style, x -> x.name == "background" && x.value == "#ffffff"),
+			&& Lambda.exists(seen.style, x -> x.name == "background" && x.value == "#ffffff" && StringTools.startsWith(x.from, ".hov:hover ("))
+			&& seen.overridden >= 1,
 			seen == null ? null : [seen.label, seen.margin, seen.padding, seen.border, seen.states, seen.handlers, seen.path]);
+		var hovIdentity = ashui.css.Identity.of(shotTree, shotTree.children(shotRoot.node.id)[0]);
+		var backgrounds = ashui.css.Css.explain(hovIdentity).filter(o -> o.name == "background");
+		check("explain lists each background that matched, the hover rule's winning", backgrounds.length == 2 && !backgrounds[0].wins
+			&& backgrounds[1].wins && backgrounds[1].selector == ".hov:hover" && backgrounds[1].line == 1,
+			[for (o in backgrounds) '${o.selector} ${o.line} ${o.wins}']);
+		check("a diff line names the rule a restyled value came from",
+			ashui.debug.TreeSnapshot.lines(d, shotTree).indexOf("background: #000000 -> #ffffff  [.hov:hover (sheet:1)]") >= 0,
+			ashui.debug.TreeSnapshot.lines(d, shotTree));
 		check("a snapshot reads back as JSON", (haxe.Json.parse(second.json()).elements : Array<Dynamic>).length == 3);
 
 		// --- PNG decoding and frame regression ---

@@ -13,6 +13,21 @@ private typedef Applied = {
 	final fields:Array<Int>;
 }
 
+/** A declaration that applies to an element, and where it came from. **/
+typedef CssOrigin = {
+	name:String,
+	value:String,
+	/** The sheet of the rule it is in; null for the element's own declarations. **/
+	sheet:Null<Stylesheet>,
+	/** The selector that matched, as written; empty for its own. **/
+	selector:String,
+	/** The rule's line in its sheet; 0 for its own. **/
+	line:Int,
+	important:Bool,
+	/** Whether it is the value the cascade gave its property, rather than one a later or stronger declaration overrode. **/
+	wins:Bool
+}
+
 /**
 	The stylesheets in force and how they reach elements.
 
@@ -293,6 +308,26 @@ class Css {
 	public static function query(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
 		hook();
 		return NativeCascade.select(tree, root, selectors);
+	}
+
+	/**
+		Every declaration that applies to `identity` itself and where it came
+		from, in cascade order, as a browser's inspector lists the rules: each
+		matching rule's with its sheet, selector and line, then the element's
+		own, ahead of `!important` ones. Overridden ones are there, not winning;
+		inherited values are not listed.
+	**/
+	public static function explain(identity:Identity):Array<CssOrigin> {
+		hook();
+		return NativeCascade.explain(identity);
+	}
+
+	/** Where `origin` came from, as a line: `.card:hover (Theme.css:12)`, or `own` for the element's own, from its style or Tw classes. **/
+	public static function where(origin:CssOrigin):String {
+		if (origin.sheet == null)
+			return "own";
+		var file = origin.sheet == userAgent ? "user agent" : origin.sheet.file != null ? haxe.io.Path.withoutDirectory(origin.sheet.file) : "sheet";
+		return '${origin.selector} ($file:${origin.line})';
 	}
 
 	/** `text` with its `var()`s replaced as `identity` would read them: its own and inherited custom properties, `:root`'s, the theme's. **/

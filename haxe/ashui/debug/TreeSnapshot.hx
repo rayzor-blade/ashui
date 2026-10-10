@@ -156,8 +156,12 @@ class TreeSnapshot {
 	static function r(v:Float):String
 		return Std.string(Math.round(v * 10) / 10);
 
-	/** A diff as lines: `+` an element added, `-` removed, `~` changed, with what changed indented under it. **/
-	public static function lines(d:TreeDiff):String {
+	/**
+		A diff as lines: `+` an element added, `-` removed, `~` changed, with
+		what changed indented under it. Given the `tree` the second snapshot
+		was taken of, each restyled value also names the rule it came from.
+	**/
+	public static function lines(d:TreeDiff, ?tree:LayoutTree):String {
 		var out = [];
 		for (e in d.added)
 			out.push('+ ${e.label} #${e.id}');
@@ -169,10 +173,21 @@ class TreeSnapshot {
 				out.push('    box: ${c.box.from} -> ${c.box.to}');
 			if (c.states != null)
 				out.push('    states: [${c.states.from.join(" ")}] -> [${c.states.to.join(" ")}]');
-			for (s in c.style)
-				out.push('    ${s.name}: ${s.from == null ? "(none)" : s.from} -> ${s.to == null ? "(none)" : s.to}');
+			var origins = tree == null || c.style.length == 0 ? null : winners(tree, c.id);
+			for (s in c.style) {
+				var from = origins == null ? null : origins.get(s.name);
+				out.push('    ${s.name}: ${s.from == null ? "(none)" : s.from} -> ${s.to == null ? "(none)" : s.to}' + (from == null ? "" : '  [$from]'));
+			}
 		}
 		return out.join("\n");
+	}
+
+	/** Where each winning declaration of element `id` came from, by property. **/
+	static function winners(tree:LayoutTree, id:String):Null<Map<String, String>> {
+		var identity = ashui.css.Identity.of(tree, haxe.Int64.parseString(id));
+		if (identity == null)
+			return null;
+		return [for (o in ashui.css.Css.explain(identity)) if (o.wins) o.name => ashui.css.Css.where(o)];
 	}
 
 	/** The snapshot as JSON, for a debugger or a script to read. **/

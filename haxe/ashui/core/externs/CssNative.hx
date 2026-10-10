@@ -76,4 +76,7 @@ extern class CssNative {
 
 	/** Three records: resolved declarations and values as name-value items, then the font size in pixels. **/
 	static function blinc_css_style(css:hl.Abstract<"blinc_css">, node:haxe.Int64):hl.Bytes;
+
+	/** Every declaration that applies to `node`, in cascade order: records of name, value, sheet id (-1 its own), selector, line, important and wins. **/
+	static function blinc_css_explain(css:hl.Abstract<"blinc_css">, tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):hl.Bytes;
 }
