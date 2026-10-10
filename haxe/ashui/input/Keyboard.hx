@@ -13,6 +13,8 @@ import window.Modifiers;
 class Keyboard {
 	/** A key went down or up, as hlwindow reports it. **/
 	public static function input(tree:LayoutTree, event:window.KeyEvent, ?modifiers:Modifiers):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Key(event, modifiers));
 		var mods = modifiers != null ? modifiers : InputEvent.NO_MODIFIERS;
 		switch event {
 			case Input(physical, key, _, location, state, repeat, _):
@@ -41,6 +43,8 @@ class Keyboard {
 
 	/** `text` was typed or committed by an input method. **/
 	public static function text(tree:LayoutTree, text:String, ?modifiers:Modifiers):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Text(text, modifiers));
 		var focused = Focus.of(tree);
 		if (focused == null || text == "")
 			return;
@@ -54,6 +58,8 @@ class Keyboard {
 
 	/** An input method's composition is now `text`, its caret at `cursor` (-1 for none); empty when it ends. **/
 	public static function composition(tree:LayoutTree, text:String, cursor:Int):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Composition(text, cursor));
 		var focused = Focus.of(tree);
 		if (focused == null)
 			return;

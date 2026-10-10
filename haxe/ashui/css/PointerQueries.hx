@@ -176,7 +176,7 @@ private class Tracker {
 				ty = mid + (v - 0.5) * span;
 		}
 		var over = p.inside && p.x >= own.x && p.x < own.x + own.width && p.y >= own.y && p.y < own.y + own.height;
-		var now = haxe.Timer.stamp();
+		var now = ashui.input.InputClock.now();
 		if (over && entered < 0)
 			entered = now;
 		else if (!over)
@@ -230,7 +230,7 @@ private class Tracker {
 			case "pointer-inside": inside;
 			case "pointer-active": active ? 1 : 0;
 			case "pointer-pressure": pressure;
-			case "pointer-hover-duration": entered < 0 ? 0 : haxe.Timer.stamp() - entered;
+			case "pointer-hover-duration": entered < 0 ? 0 : ashui.input.InputClock.now() - entered;
 			case "pointer-touch-count": 0;
 			case _: null;
 		}

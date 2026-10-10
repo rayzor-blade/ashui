@@ -46,6 +46,8 @@ class Pointer {
 
 	/** The pointer moved to `(x, y)`. **/
 	public static function move(tree:LayoutTree, x:Float, y:Float, ?modifiers:Modifiers):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Move(x, y, modifiers));
 		var s = state(tree);
 		var reuse = quiet(tree, s) && x >= s.left && y >= s.top && x < s.right && y < s.bottom;
 		s.x = x;
@@ -62,6 +64,8 @@ class Pointer {
 
 	/** The pointer left the window: nothing is hovered. **/
 	public static function leave(tree:LayoutTree):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Leave);
 		var s = state(tree);
 		s.inside = false;
 		s.quiet = false;
@@ -71,6 +75,8 @@ class Pointer {
 
 	/** `button` went down where the pointer is. **/
 	public static function press(tree:LayoutTree, button:MouseButton = Left):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Press(button));
 		refresh(tree);
 		Focus.note(false);
 		var s = state(tree);
@@ -78,7 +84,7 @@ class Pointer {
 		moved(tree);
 		var blocked = disabledIn(tree, s.chain);
 		if (button.match(Left)) {
-			var now = haxe.Timer.stamp();
+			var now = ashui.input.InputClock.now();
 			var near = Math.abs(s.x - s.lastX) <= MULTI_CLICK_SLOP && Math.abs(s.y - s.lastY) <= MULTI_CLICK_SLOP;
 			s.clicks = now - s.lastPress <= MULTI_CLICK_TIME && near ? s.clicks + 1 : 1;
 			s.lastPress = now;
@@ -112,6 +118,8 @@ class Pointer {
 		clicked.
 	**/
 	public static function release(tree:LayoutTree, button:MouseButton = Left):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Release(button));
 		refresh(tree);
 		var s = state(tree);
 		s.pressed = false;
@@ -137,6 +145,8 @@ class Pointer {
 
 	/** A wheel or trackpad scrolled by `(dx, dy)` layout units where the pointer is. **/
 	public static function wheel(tree:LayoutTree, dx:Float, dy:Float):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Wheel(dx, dy));
 		refresh(tree);
 		var s = state(tree);
 		bubble(tree, s, s.chain, 0, "wheel", null, dx, dy);
@@ -144,6 +154,8 @@ class Pointer {
 
 	/** The modifier keys now held, for the events that follow. **/
 	public static function modifiers(tree:LayoutTree, modifiers:Modifiers):Void {
+		if (ashui.debug.InputLog.current != null)
+			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.ModifiersChanged(modifiers));
 		state(tree).modifiers = modifiers;
 	}
 

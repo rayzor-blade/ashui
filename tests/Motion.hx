@@ -201,6 +201,50 @@ class Motion {
 		check("the trace reads back as JSON, samples and expected values included", json.tracks.length == trace.tracks.length
 			&& json.tracks[0].samples.length > 0 && json.tracks[0].samples[0].expected != null);
 
+		// --- An input log: recorded at the input entry points, replayed into a fresh tree frame by frame ---
+		function pad(into:LayoutTree, counts:Array<Int>, typed:Array<String>):Div {
+			var target:Div = Owner.root(into, _ -> new Div({width: 100, height: 40, focusable: true, onClick: e -> counts.push(e.clickCount)}, null, into));
+			ashui.input.Interaction.of(target.node).onTextInput(e -> typed.push(e.text));
+			into.flush();
+			into.computeLayout(target.node, 100, 40);
+			return target;
+		}
+		ashui.input.InputClock.source = () -> scheduler.clock;
+		var liveTree = new LayoutTree(), liveCounts = [], liveTyped = [];
+		pad(liveTree, liveCounts, liveTyped);
+		var log = ashui.debug.InputLog.start();
+		function clickAt(x:Float) {
+			ashui.input.Pointer.move(liveTree, x, 20);
+			ashui.input.Pointer.press(liveTree);
+			ashui.input.Pointer.release(liveTree);
+		}
+		clickAt(50);
+		scheduler.tick(0.1);
+		clickAt(51);
+		scheduler.tick(1);
+		clickAt(50);
+		ashui.input.Keyboard.text(liveTree, "hi");
+		log.stop();
+		ashui.input.InputClock.source = null;
+		var path = "bin/input-log/session.hxs";
+		log.save(path);
+		var loaded = ashui.debug.InputLog.load(path);
+		check("an input log records each input with its time, and reads back as written", log.entries.length == 10 && loaded.entries.length == 10
+			&& Math.abs(loaded.entries[3].time - 0.1) < 1e-9 && Std.string(loaded.entries[9].record) == Std.string(log.entries[9].record)
+			&& sys.FileSystem.exists("bin/input-log/session.txt"), loaded.lines());
+		var replayTree = new LayoutTree(), replayCounts = [], replayTyped = [];
+		var replayRoot = pad(replayTree, replayCounts, replayTyped);
+		var play = loaded.player();
+		for (i in 0...80) {
+			play(i, replayTree, replayRoot);
+			scheduler.tick(1 / 60);
+		}
+		ashui.input.InputClock.source = null;
+		check("a replay sends the same input at the same times: a double-click stays one, a click a second later does not",
+			liveCounts.join(",") == "1,2,1" && replayCounts.join(",") == liveCounts.join(",") && replayTyped.join("") == "hi",
+			[liveCounts, replayCounts, replayTyped]);
+		check("nothing records while no log is", ashui.debug.InputLog.current == null);
+
 		var skewed = MotionTrace.start();
 		var off = MotionTrace.begin(Keyframes, null, null, "@keyframes off (width)", "10px", "10px", 0, 0.2, Linear, null, "skewer");
 		off.keyframes = [{offset: 0, easing: EaseIn}, {offset: 0.5, easing: Linear}, {offset: 1, easing: Linear}];

@@ -92,6 +92,9 @@ class WindowedApp {
 		Math.isNaN(s) || s <= 0 ? 0.0 : s;
 	};
 
+	/** `ASHUI_INPUT_LOG=<path>` records the window's input and writes it to the path when the loop ends (see `ashui.debug.InputLog`). **/
+	final inputLog:Null<String> = Sys.getEnv("ASHUI_INPUT_LOG");
+
 	/** `ASHUI_MOTION=overlay` draws motion trails over the frames, `stream` also writes each burst of motion out for review (see `ashui.debug.MotionStream`). **/
 	var motion:Null<ashui.debug.MotionStream> = null;
 
@@ -224,6 +227,7 @@ class WindowedApp {
 		theme.setScheduler(scheduler);
 		ThemeState.setRedrawCallback(invalidate);
 		ashui.input.WindowState.active.set(window.hasFocus());
+		var log = inputLog != null && inputLog != "" ? ashui.debug.InputLog.start() : null;
 		// The input method is on while text has focus, its candidates by the caret.
 		new ashui.reactive.Watch(() -> ashui.input.WindowState.textCaret.get(), area -> {
 			var on = area != null;
@@ -351,6 +355,10 @@ class WindowedApp {
 		}
 		if (frameLog != null)
 			frameLog.close();
+		if (log != null) {
+			log.stop();
+			log.save(inputLog);
+		}
 		ThemeState.setRedrawCallback(null);
 		theme.setScheduler(null);
 	}
@@ -406,6 +414,8 @@ class WindowedApp {
 			case ThemeChanged(_):
 				WindowTheme.handle(event);
 			case Focused(on):
+				if (ashui.debug.InputLog.current != null)
+					ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.WindowFocus(on));
 				if (ashui.input.WindowState.active.get() != on)
 					ashui.input.WindowState.active.set(on);
 			case Occluded(hidden):

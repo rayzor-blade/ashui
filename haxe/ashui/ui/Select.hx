@@ -189,7 +189,7 @@ class Select extends Component<SelectProps> implements FormControl {
 
 	/** The choice whose label starts with what was typed in the last second, `text` added; null if none. **/
 	function typeahead(text:String, among:Array<Choice>):Null<Choice> {
-		var now = haxe.Timer.stamp();
+		var now = ashui.input.InputClock.now();
 		typed = (now - typedAt > 1.0 ? "" : typed) + text.toLowerCase();
 		typedAt = now;
 		return Lambda.find(among, c -> StringTools.startsWith(c.option.labelText().toLowerCase(), typed));
