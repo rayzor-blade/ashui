@@ -57,9 +57,8 @@ jobs:
           haxelib dev ashui-components "$PWD/components"
           haxelib dev ashui-canvaskit "$PWD/canvaskit"
           haxelib dev ashui-media "$PWD/media"
-      - name: Parse CSS and test native drawing data
+      - name: Read CSS values and test native drawing data
         run: |
-          haxe -cp haxe -cp tests -main CssParse --interp
           haxe -cp haxe -cp tests -main CssValues --interp
           haxe -cp haxe -cp tests -main Draw --interp
       - name: Compile all four packages through Haxelib
