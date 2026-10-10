@@ -6,8 +6,10 @@
 #   run.sh [panel-dir] [ash flags...]   panel-dir defaults to v2
 #
 #   v2  body-only template edit: the panel renders the new code, state kept
-#   v3  adds a reactive attribute, so a new function: not a body-only change
+#   v3  adds a reactive attribute, so new functions: reloads on an Ash that adds them
 #   v4  body-only, but the string literals change length
+#
+# ASH names the ash binary to run, ../ash's release build by default.
 set -e
 cd "$(dirname "$0")"
 next="${1:-v2}"
@@ -21,7 +23,7 @@ Darwin) lib=libblinc_abi.dylib ;;
 esac
 rm -f bin/blinc_abi.hdll
 cp "$root/target/debug/$lib" bin/blinc_abi.hdll
-ash="$(cd $root/../ash/target/release && pwd)/ash"
+ash="${ASH:-$(cd $root/../ash/target/release && pwd)/ash}"
 
 build() {
 	haxe --class-path $root/haxe --class-path $root/../hlwindow/haxe --class-path . --class-path "$1" -lib hashlink -lib tink_hxx -w -WDeprecated -main Main -hl bin/hot.hl
