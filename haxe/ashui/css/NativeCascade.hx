@@ -4,11 +4,10 @@ import ashui.core.externs.CssNative;
 import ashui.layout.LayoutTree;
 
 /**
-	The cascade run by the native CSS engine (`CssNative`), with
-	`-D ashui_native_css`: the sheets in force, every element's names and
-	states, the theme's variables and what `@media` asks about go to it, and
-	it answers which elements' styles changed and what they are. `Css`
-	applies those as it applies its own.
+	The cascade, run by the native CSS engine (`CssNative`): the sheets in
+	force, every element's names and states, the theme's variables and what
+	`@media` asks about go to it, and it answers which elements' styles
+	changed and what they are. `Css` applies those.
 **/
 class NativeCascade {
 	static var handle:Null<hl.Abstract<"blinc_css">> = null;

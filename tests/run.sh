@@ -36,7 +36,7 @@ if [ -x ../../ash/target/release/ash ]; then
 fi
 runtime="${HL:-$runtime}"
 
-# tink's own sources use deprecated metadata. ASHUI_HAXE_FLAGS adds compiler flags, as -D ashui_native_css.
+# tink's own sources use deprecated metadata. ASHUI_HAXE_FLAGS adds compiler flags.
 haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated --macro ashui.ui.Markup.enable() ${ASHUI_HAXE_FLAGS:-}"
 
 # The sibling libraries' release builds are used when there are any, the debug ones otherwise.

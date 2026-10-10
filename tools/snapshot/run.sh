@@ -6,7 +6,7 @@
 #   run.sh Scene.hx           render once
 #   run.sh --watch Scene.hx   render again whenever the scene, ashui's Haxe
 #                             or the resolved blinc_abi dependency changes
-#   ASHUI_HAXE_FLAGS=...      adds compiler flags, as -D ashui_native_css
+#   ASHUI_HAXE_FLAGS=...      adds compiler flags
 #   ASH=path run.sh ...       run on that ash binary rather than ../ash's
 #                             release build
 #   run.sh --window Scene.hx  open the scene in a window instead, live; a
