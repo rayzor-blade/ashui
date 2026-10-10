@@ -31,8 +31,10 @@ typedef Track = {
 class Recording {
 	public final dir:String;
 	public final name:String;
-	/** Each frame's PNG, in order. **/
+	/** Each frame's PNG, in order, with the motion overlay's gizmos drawn on it. **/
 	public final frames:Array<String>;
+	/** Each frame without the gizmos, when the recording kept them; empty otherwise. **/
+	public final plain:Array<String>;
 	/** Each frame's time. **/
 	public final times:Array<Float>;
 	public final width:Int;
@@ -46,6 +48,7 @@ class Recording {
 	/** `regression.txt`, when it was checked against a baseline. **/
 	public final regression:Null<String>;
 	final bitmaps:Map<Int, Bitmap> = [];
+	final plainBitmaps:Map<Int, Bitmap> = [];
 
 	public function new(dir:String) {
 		this.dir = dir;
@@ -53,6 +56,9 @@ class Recording {
 		frames = [for (f in sys.FileSystem.readDirectory(dir)) if (StringTools.startsWith(f, "frame-") && StringTools.endsWith(f, ".png")) f];
 		frames.sort(Reflect.compare);
 		frames = [for (f in frames) haxe.io.Path.join([dir, f])];
+		plain = [for (f in frames) StringTools.replace(f, "frame-", "plain-")];
+		if (plain.length == 0 || !sys.FileSystem.exists(plain[0]))
+			plain = [];
 		var meta:Dynamic = read("frames.json", s -> haxe.Json.parse(s));
 		times = meta != null ? (meta.times : Array<Float>) : [for (i in 0...frames.length) i / 60];
 		width = meta != null ? meta.width : 0;
@@ -113,11 +119,13 @@ class Recording {
 		return dir != null && dir != "" ? dir : ".ashui/snapshots";
 	}
 
-	/** Frame `i`'s image, read the first time it is asked for. **/
-	public function bitmap(i:Int):Bitmap {
-		var b = bitmaps.get(i);
+	/** Frame `i`'s image, with its gizmos or, when the recording kept one, without; read the first time it is asked for. **/
+	public function bitmap(i:Int, gizmos = true):Bitmap {
+		var bare = !gizmos && plain.length > i;
+		var cache = bare ? plainBitmaps : bitmaps;
+		var b = cache.get(i);
 		if (b == null)
-			bitmaps.set(i, b = Bitmap.load(frames[i]));
+			cache.set(i, b = Bitmap.load(bare ? plain[i] : frames[i]));
 		return b;
 	}
 

@@ -7,7 +7,8 @@ own.
 It opens a recording made by `ashui.debug.MotionRecorder` and plays it back:
 
 - the recorded frames, with transport controls to play, pause, step a
-  frame at a time, scrub, slow down and repeat;
+  frame at a time, scrub, slow down and repeat, and to turn the gizmos
+  (the motion overlay's outlines, trails, labels and bars) on and off;
 - a timeline of every animation in the recording: its element and
   property, a bar from when it began to when it ended, marked when its
   checks found a problem. Selecting one outlines its element on the frame
@@ -39,7 +40,8 @@ ASHUI_HAXE_FLAGS="--class-path $PWD/debugger/haxe" tools/snapshot/run.sh debugge
 
 `RECORDING` picks the recording; `ASHUI_DEBUGGER_TAB` (`timeline`, `tree`,
 `report`), `ASHUI_DEBUGGER_AT` (seconds) and `ASHUI_DEBUGGER_TRACK` (a track
-id) pick what the page shows.
+id) pick what the page shows, and `ASHUI_DEBUGGER_GIZMOS=0` shows frames
+without their gizmos.
 
 ## Building on it
 

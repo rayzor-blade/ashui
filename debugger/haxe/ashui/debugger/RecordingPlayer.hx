@@ -18,6 +18,8 @@ class RecordingPlayer {
 	public final looping = Signal.make(false);
 	/** How fast it plays: 1 in real time, 0.25 at a quarter of it. **/
 	public final rate = Signal.make(1.0);
+	/** Whether frames show their gizmos: the motion overlay's outlines, trails, labels and bars, and the selected track's outline. **/
+	public final gizmos = Signal.make(true);
 	/** The track picked in the timeline, by id; -1 for none. **/
 	public final selected = Signal.make(-1);
 	/** The frame at the playhead. **/

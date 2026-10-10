@@ -39,8 +39,10 @@ class Debugger {
 			player.seek(Std.parseFloat(Sys.getEnv("ASHUI_DEBUGGER_AT")));
 		if (Sys.getEnv("ASHUI_DEBUGGER_TRACK") != null)
 			player.selected.set(Std.parseInt(Sys.getEnv("ASHUI_DEBUGGER_TRACK")));
+		if (Sys.getEnv("ASHUI_DEBUGGER_GIZMOS") == "0")
+			player.gizmos.set(false);
 		return <div class="flex flex-col gap-3 p-4 bg-background" width={width} height={height}>
-				<div class="flex flex-row items-center gap-3">
+				<div class="ui-debugger-header">
 					<text class="text-lg font-semibold">ashui debugger</text>
 					<select value={chosen} width={320}>
 						${[for (dir in dirs) <select-item value={dir}>${haxe.io.Path.withoutDirectory(dir)}</select-item>]}

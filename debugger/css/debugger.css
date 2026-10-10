@@ -1,5 +1,9 @@
 /* The debugger's views. Colours come from the theme's variables. */
 
+/* The header: everything in it on one centre line, badges included, which sit at the top of a row by default. */
+.ui-debugger-header { display: flex; flex-direction: row; align-items: center; gap: 12px; flex-shrink: 0; }
+.ui-debugger-header .ui-badge { align-self: center; }
+
 .ui-debugger-frame {
 	display: flex;
 	flex-grow: 1;
@@ -84,7 +88,7 @@ input.ui-debugger-scrubber { flex-grow: 1; flex-basis: 0; min-width: 24px; align
 .ui-debugger-changes { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-primary); }
 .ui-debugger-change-added { color: var(--success); }
 .ui-debugger-change-removed { color: var(--error); }
-.ui-debugger-change-detail { color: var(--text-secondary); padding-left: 16px; }
+.ui-debugger-change-detail { color: var(--text-secondary); margin-left: 16px; }
 .ui-debugger-report { font-size: 12px; color: var(--text-primary); white-space: pre; }
 .ui-debugger-rate { min-width: 44px; }
 

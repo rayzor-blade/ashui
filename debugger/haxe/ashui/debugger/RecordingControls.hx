@@ -17,7 +17,7 @@ typedef RecordingControlsProps = {
 	`<recording-controls player={player} />`: a recording's transport, as
 	`ashui.media`'s playback controls are: a frame back, play or pause, a
 	frame on, a scrubber over the whole recording, the time and frame at
-	the playhead, and its speed and repeat. Built from `Button` and `Slider`,
+	the playhead, its speed and repeat, and whether frames show gizmos. Built from `Button` and `Slider`,
 	with their keyboard, focus and pointer behaviour.
 	CSS: `.ui-debugger-controls`.
 **/
@@ -25,7 +25,7 @@ class RecordingControls extends Component<RecordingControlsProps> {
 	function render():Element {
 		Library.use();
 		var player = props.player;
-		var play = new Ref<Button>(), back = new Ref<Button>(), on = new Ref<Button>(), scrub = new Ref<Slider>();
+		var play = new Ref<Button>(), back = new Ref<Button>(), on = new Ref<Button>(), scrub = new Ref<Slider>(), gizmos = new Ref<Button>();
 		var progress = Signal.make(0.0);
 		new Watch(() -> player.duration.get() > 0 ? player.position.get() / player.duration.get() : 0.0, v -> progress.set(Math.max(0, Math.min(1, v))));
 		var root:Element = <div id={props.id} class="ui-debugger-controls">
@@ -54,11 +54,14 @@ class RecordingControls extends Component<RecordingControlsProps> {
 				${player.rate.get() + "×"}
 			</button>
 			<button type="button" variant={player.looping.get() ? Secondary : Ghost} size={Sm} onClick={_ -> player.looping.set(!player.looping.get())}>Repeat</button>
+			<button ref={gizmos} type="button" variant={player.gizmos.get() ? Secondary : Ghost} size={Sm} onClick={_ -> player.gizmos.set(!player.gizmos.get())}>Gizmos</button>
 		</div>;
 		label(play.get(), null, player);
 		label(back.get(), "Previous frame");
 		label(on.get(), "Next frame");
 		label(scrub.get(), "Playhead");
+		ashui.css.Identity.of(gizmos.get().tree, gizmos.get().node.id)
+			.bindAttribute("aria-pressed", ashui.reactive.Computed.make(() -> player.gizmos.get() ? "true" : "false"));
 		return root;
 	}
 

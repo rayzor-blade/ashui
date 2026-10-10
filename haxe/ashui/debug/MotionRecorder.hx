@@ -27,6 +27,8 @@ typedef MotionRecordOptions = {
 	?minFrames:Int,
 	/** Whether the frames show the motion overlay; true by default. **/
 	?overlay:Bool,
+	/** Whether, with the overlay, each frame is also written without it, as `plain-NNN.png`, so a viewer can turn it off; true by default. **/
+	?plain:Bool,
 	/** Frames in the filmstrip, picked evenly; 12 by default. **/
 	?thumbs:Int,
 	/** The page colour frames are cleared to. **/
@@ -51,7 +53,8 @@ typedef MotionRecording = {
 	overlay drawn over every frame, and writes to
 	`<snapshot dir>/motion/<name>/`:
 
-	- `frame-000.png` …, each frame with its trails, bars and curves;
+	- `frame-000.png` …, each frame with its trails, bars and curves, and
+	  `plain-000.png` …, each frame without them;
 	- `filmstrip.png`, a contact sheet of frames picked evenly, each with
 	  its number and time, to see a whole animation in one image;
 	- `curves.png`, every track's curve as declared and as it ran;
@@ -130,6 +133,14 @@ class MotionRecorder {
 				if (overlay == null)
 					trace.observe(tree);
 				var png = capture(offscreen, tree, root, width, height, scale);
+				if (overlay != null && o.plain != false) {
+					// The same frame without the overlay; the other overlays stay, in their places.
+					var at = offscreen.overlays.indexOf(overlay);
+					offscreen.overlays.remove(overlay);
+					sys.io.File.saveBytes(haxe.io.Path.join([dir, 'plain-${StringTools.lpad(Std.string(i), "0", 3)}.png']),
+						capture(offscreen, tree, root, width, height, scale));
+					offscreen.overlays.insert(at, overlay);
+				}
 				if (shots) {
 					var next = TreeSnapshot.take(tree, root.node.id);
 					if (shot == null)

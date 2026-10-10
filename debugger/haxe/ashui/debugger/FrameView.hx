@@ -17,7 +17,8 @@ typedef FrameViewProps = {
 /**
 	`<frame-view player={player} />`: the recorded frame at the playhead,
 	fitted whole into its box, with the selected track's element outlined
-	where it was drawn then. One canvas repaints as the playhead moves, as
+	where it was drawn then. With the player's `gizmos` off it shows the
+	frame as the UI drew it, without the motion overlay or the outline. One canvas repaints as the playhead moves, as
 	a video surface does, rather than an element per frame.
 	CSS: `.ui-debugger-frame`.
 **/
@@ -32,6 +33,7 @@ class FrameView extends Component<FrameViewProps> {
 		new Watch(() -> {
 			player.recording.get();
 			player.selected.get();
+			player.gizmos.get();
 			return player.position.get();
 		}, _ -> if (canvas.get() != null) canvas.get().repaint());
 		return root;
@@ -41,12 +43,15 @@ class FrameView extends Component<FrameViewProps> {
 		var r = player.recording.get();
 		if (r == null || r.frames.length == 0)
 			return;
-		var bitmap = r.bitmap(player.frame.get());
+		var gizmos = player.gizmos.get();
+		var bitmap = r.bitmap(player.frame.get(), gizmos);
 		var w = r.width > 0 ? r.width : bitmap.width, h = r.height > 0 ? r.height : bitmap.height;
 		// Contained: the whole frame, centred, at the largest size that fits.
 		var scale = Math.min(ctx.width / w, ctx.height / h);
 		var x = (ctx.width - w * scale) / 2, y = (ctx.height - h * scale) / 2;
 		ctx.image(bitmap, x, y, w * scale, h * scale);
+		if (!gizmos)
+			return;
 		var id = player.selected.get();
 		var track = Lambda.find(r.tracks, t -> t.id == id);
 		var at = track == null ? null : Recording.rectAt(track, player.position.get());
