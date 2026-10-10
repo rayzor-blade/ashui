@@ -55,6 +55,101 @@ class Markup {
 		Compiler.addGlobalMetadata("", "@:build(ashui.ui.Markup.build())", true, true, false);
 	}
 
+	/**
+		The embedded `{expr}` of markup `source` at `pos` that holds the
+		display position, up to it, parsed where it stands in the file, so
+		the compiler's display request lands in it; null when the cursor is
+		in no expression, as in a tag's name or text.
+	**/
+	static function displayed(pos:Position, source:String):Null<Expr> {
+		var at = Compiler.getDisplayPos();
+		if (at == null)
+			return null;
+		var info = Context.getPosInfos(pos);
+		// The markup's text starts where its position does.
+		var offset = at.pos - info.min;
+		if (offset < 0 || offset > source.length)
+			return null;
+		var start = -1, depth = 0, i = offset - 1;
+		while (i >= 0) {
+			var c = source.charAt(i);
+			if (c == "}")
+				depth++;
+			else if (c == "{") {
+				if (depth == 0) {
+					start = i;
+					break;
+				}
+				depth--;
+			}
+			i--;
+		}
+		if (start < 0)
+			return null;
+		var end = closing(source, offset);
+		var focus = parseAt(source, start + 1, end, info);
+		// After a dot, what follows the cursor is the word being typed, which an inline parse does not read past:
+		// cut there, and an editor filters by that word itself.
+		if (focus == null)
+			focus = parseAt(source, start + 1, offset, info);
+		if (focus == null)
+			return null;
+		// Inside <for {x in xs}>, the loop's variables are in scope.
+		// Innermost loop first, so each outer one wraps it.
+		var heads = loopHeads(source, start);
+		heads.reverse();
+		for (head in heads) {
+			var it = parseAt(source, head.start, head.end, info);
+			if (it != null)
+				focus = {expr: EFor(it, focus), pos: focus.pos};
+		}
+		return focus;
+	}
+
+	/** Where the `{` … `}` around `offset` closes, or the end of `source` when it does not. **/
+	static function closing(source:String, offset:Int):Int {
+		var depth = 0;
+		for (i in offset...source.length) {
+			var c = source.charAt(i);
+			if (c == "{")
+				depth++;
+			else if (c == "}") {
+				if (depth == 0)
+					return i;
+				depth--;
+			}
+		}
+		return source.length;
+	}
+
+	/** `source` from `start` to `end` parsed as an expression where it stands in the file; null when it does not parse. **/
+	static function parseAt(source:String, start:Int, end:Int, info:{file:String, min:Int, max:Int}):Null<Expr> {
+		var p = Context.makePosition({file: info.file, min: info.min + start, max: info.min + end});
+		return try Context.parseInlineString(source.substring(start, end), p) catch (_:Dynamic) null;
+	}
+
+	/** The heads of the `<for {…}>` tags still open at `before`, outermost first: where each head's text starts and ends. **/
+	static function loopHeads(source:String, before:Int):Array<{start:Int, end:Int}> {
+		var open:Array<{start:Int, end:Int}> = [];
+		var tag = ~/<(\/?)for\b/g;
+		var at = 0;
+		while (at < before && tag.matchSub(source, at, before - at)) {
+			var m = tag.matchedPos();
+			at = m.pos + m.len;
+			if (tag.matched(1) == "/") {
+				open.pop();
+				continue;
+			}
+			var brace = source.indexOf("{", at);
+			if (brace < 0 || brace >= before)
+				break;
+			var end = closing(source, brace + 1);
+			open.push({start: brace + 1, end: end});
+			at = end;
+		}
+		return open;
+	}
+
 	/** The class's fields with each inline markup expression made the `hxx` of it; null when it has none, so the class is left alone. **/
 	public static function build():Null<Array<Field>> {
 		var cls = Context.getLocalClass();
@@ -67,6 +162,16 @@ class Markup {
 		var found = false;
 		function lower(e:Expr):Expr {
 			return switch e.expr {
+				case EMeta({name: ":markup"}, {expr: EConst(CString(source, _))}) if (Context.containsDisplayPosition(e.pos)):
+					// The compiler answers a display request inside a macro's arguments without running the macro, for the
+					// markup as a whole: the expression under the cursor is typed first, so the request is answered there.
+					found = true;
+					var lowered = macro @:pos(e.pos) ashui.ui.Hxx.hxx($e);
+					var focus = displayed(e.pos, source);
+					focus == null ? lowered : macro @:pos(e.pos) {
+						$focus;
+						$lowered;
+					};
 				case EMeta({name: ":markup"}, _):
 					found = true;
 					macro @:pos(e.pos) ashui.ui.Hxx.hxx($e);

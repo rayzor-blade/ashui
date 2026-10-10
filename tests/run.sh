@@ -75,6 +75,30 @@ compile_fixtures() {
 	return $status
 }
 
+# Editor requests inside inline markup: each asks the compiler at the byte just past `text` in
+# fixtures/display/MarkupDisplay.hx and looks for `want` in its answer.
+display_fixtures() {
+	status=0
+	f=fixtures/display/MarkupDisplay.hx
+	ask() {
+		at=$(( $(grep -boF -- "$2" "$f" | head -1 | cut -d: -f1) + ${#2} ))
+		out=$($haxe_ui --class-path fixtures/display -main MarkupDisplay -hl bin/display.hl --no-output --display "$f@$at$3" 2>&1)
+		case "$out" in
+		*"$4"*) echo "ok   display: $1" ;;
+		*)
+			echo "FAIL display: $1: expected \"$4\", got:"
+			echo "$out" | head -3
+			status=1
+			;;
+		esac
+	}
+	ask "a field of a signal in an attribute" 'width={count.' "" 'n="get"'
+	ask "a field of a loop variable" '{n.' "" 'n="charAt"'
+	ask "the type of a name in a child" '<text>{co' "@type" 'Signal&lt;Int&gt;'
+	ask "the definition of a name in a child" '<text>{co' "@position" 'MarkupDisplay.hx:8:'
+	return $status
+}
+
 case "${1:-}" in
 render)
 	# hlwgpu's library, built when missing or out of date.
@@ -155,7 +179,9 @@ memory)
 	haxe --class-path ../haxe --class-path . -main Draw --interp || css=$?
 	compile=0
 	compile_fixtures || compile=$?
-	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ]
+	display=0
+	display_fixtures || display=$?
+	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2
