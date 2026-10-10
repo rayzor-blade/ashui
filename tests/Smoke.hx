@@ -1638,6 +1638,24 @@ class Smoke {
 		check("the flow's own nodes are not counted by :first-child", leadStrong.types.indexOf("strong") >= 0
 			&& ashui.css.Css.computed(leadStrong, "opacity") == "0.5", ashui.css.Css.computed(leadStrong, "opacity"));
 
+		// An empty line is as tall as the paragraph's own text, whatever the run before it.
+		var strutTree = new LayoutTree();
+		var strutRoot:Div = Owner.root(strutTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Start} width={300}>
+				<p><strong class="text-3xl">Big</strong><br/><br/>small</p>
+				<p><strong class="text-3xl">Big</strong><br/>small</p>
+				<p>small</p>
+			</div>
+		'));
+		for (_ in 0...2) {
+			strutTree.flush();
+			strutTree.computeLayout(strutRoot.node, 300, 600);
+		}
+		var strutKids = strutTree.children(strutRoot.node.id);
+		var strutHeights = [for (k in strutKids) strutTree.getBounds(new ashui.layout.Node(k)).height];
+		check("an empty line takes the paragraph's strut, not a larger run's", Math.abs((strutHeights[0] - strutHeights[1]) - strutHeights[2]) < 1,
+			strutHeights);
+
 		// --- Built-in forms: constraints, :user-invalid, submit and reset ---
 		var formTree2 = new LayoutTree();
 		var email = Signal.make("");

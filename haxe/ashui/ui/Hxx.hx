@@ -276,7 +276,7 @@ class Hxx {
 
 	/** HTML's elements built in as boxes of their type, with no behaviour of their own. **/
 	static final BOX_TAGS = [
-		"button", "hr", "legend", "blockquote", "caption", "thead", "tbody", "tfoot", "tr", "dl", "dt", "dd", "figure", "figcaption"
+		"button", "hr", "br", "legend", "blockquote", "caption", "thead", "tbody", "tfoot", "tr", "dl", "dt", "dd", "figure", "figcaption"
 	];
 
 	/** Elements whose text and inline elements are laid out as one flow (see `ashui.text.InlineFlow`). **/

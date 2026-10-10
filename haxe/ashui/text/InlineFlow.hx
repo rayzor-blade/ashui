@@ -622,8 +622,11 @@ class InlineFlow {
 						l.below = Math.max(l.below, atom.height - atom.above);
 					case Break:
 				}
-		// An empty line is as tall as the text around it.
-		var strut = runs.length > 0 ? runs[0] : null;
+		// An empty line takes the root's strut, as CSS's: the metrics of text set directly in the root,
+		// whose font and line height are the root's own; failing that, the first run's.
+		var strut = Lambda.find(runs, r -> r.parent == root.node.id);
+		if (strut == null && runs.length > 0)
+			strut = runs[0];
 		for (l in out)
 			if (l.above + l.below == 0 && strut != null) {
 				l.above = strut.above;
