@@ -61,6 +61,10 @@ typedef MotionRecording = {
 	  last frames drew it, and `tree.txt`, what changed in it frame by
 	  frame: elements added, removed, moved, restyled and their states.
 
+	With `ASHUI_BASELINE` set, the frames are also checked against a
+	baseline (see `FrameRegression`): `regression.txt` and a `diff-NNN.png`
+	for each frame that changed.
+
 	A line goes to `events.log` naming the directory and how many tracks had
 	problems, for an agent tailing it to read the report and look at the
 	filmstrip.
@@ -163,6 +167,9 @@ class MotionRecorder {
 			sys.io.File.saveContent(haxe.io.Path.join([dir, "tree.txt"]), changes.toString());
 		}
 
+		var baseline = Sys.getEnv("ASHUI_BASELINE");
+		if (baseline != null && baseline != "")
+			FrameRegression.check(name, pngs, haxe.io.Path.join([baseline, name]), dir, Sys.getEnv("ASHUI_BASELINE_UPDATE") == "1", Snapshot.event);
 		var written = write(name, dir, offscreen, trace, pngs, times, width, height, o.thumbs == null ? 12 : o.thumbs);
 		return {
 			dir: sys.FileSystem.absolutePath(dir),

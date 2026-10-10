@@ -226,12 +226,12 @@ class Motion {
 		ashui.input.Keyboard.text(liveTree, "hi");
 		log.stop();
 		ashui.input.InputClock.source = null;
-		var path = "bin/input-log/session.hxs";
+		var path = "input-log/session.hxs";
 		log.save(path);
 		var loaded = ashui.debug.InputLog.load(path);
 		check("an input log records each input with its time, and reads back as written", log.entries.length == 10 && loaded.entries.length == 10
 			&& Math.abs(loaded.entries[3].time - 0.1) < 1e-9 && Std.string(loaded.entries[9].record) == Std.string(log.entries[9].record)
-			&& sys.FileSystem.exists("bin/input-log/session.txt"), loaded.lines());
+			&& sys.FileSystem.exists("input-log/session.txt"), loaded.lines());
 		var replayTree = new LayoutTree(), replayCounts = [], replayTyped = [];
 		var replayRoot = pad(replayTree, replayCounts, replayTyped);
 		var play = loaded.player();
@@ -275,6 +275,34 @@ class Motion {
 			&& Lambda.exists(seen.style, x -> x.name == "background" && x.value == "#ffffff"),
 			seen == null ? null : [seen.label, seen.margin, seen.padding, seen.border, seen.states, seen.handlers, seen.path]);
 		check("a snapshot reads back as JSON", (haxe.Json.parse(second.json()).elements : Array<Dynamic>).length == 3);
+
+		// --- PNG decoding and frame regression ---
+		var filtered = ashui.core.render.Png.decode(sys.io.File.getBytes("../fixtures/png/filters.png"));
+		check("a PNG whose rows use the Sub, Up and Paeth filters decodes to its pixels", filtered.width == 3 && filtered.height == 3
+			&& [for (i in 0...filtered.pixels.length) filtered.pixels.get(i)].join(",")
+				== "0,200,50,255,3,180,50,248,6,160,50,241,10,200,90,255,13,180,90,248,16,160,90,241,20,200,130,255,23,180,130,248,26,160,130,241");
+		function frameOf(mark:Int):haxe.io.Bytes {
+			var pixels = haxe.io.Bytes.alloc(8 * 8 * 4);
+			pixels.fill(0, pixels.length, 200);
+			for (y in 2...4)
+				for (x in 3...6)
+					pixels.set((y * 8 + x) * 4, mark);
+			return ashui.core.render.Png.encode(8, 8, pixels);
+		}
+		var regressionDir = "regression-out", baselineDir = "regression-baseline/frames";
+		for (d in [regressionDir, baselineDir])
+			sys.FileSystem.createDirectory(d);
+		for (f in sys.FileSystem.readDirectory(baselineDir))
+			sys.FileSystem.deleteFile(baselineDir + "/" + f);
+		var first = ashui.debug.FrameRegression.check("frames", [frameOf(200), frameOf(200)], baselineDir, regressionDir);
+		var same = ashui.debug.FrameRegression.check("frames", [frameOf(201), frameOf(200)], baselineDir, regressionDir);
+		var moved = ashui.debug.FrameRegression.check("frames", [frameOf(200), frameOf(90), frameOf(200)], baselineDir, regressionDir);
+		var changedFrame = moved.frames[1];
+		check("a baseline is recorded first, matched within tolerance, and a changed frame found with its box and diff image",
+			first.recorded && !same.recorded && same.failed == 0 && moved.failed == 1 && moved.frames[2] == null && changedFrame != null
+			&& changedFrame.changed == 6 && changedFrame.box.x == 3 && changedFrame.box.y == 2 && changedFrame.box.w == 3 && changedFrame.box.h == 2
+			&& sys.FileSystem.exists(regressionDir + "/diff-001.png"),
+			sys.io.File.getContent(regressionDir + "/regression.txt"));
 
 		var skewed = MotionTrace.start();
 		var off = MotionTrace.begin(Keyframes, null, null, "@keyframes off (width)", "10px", "10px", 0, 0.2, Linear, null, "skewer");
