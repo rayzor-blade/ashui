@@ -153,8 +153,8 @@ class UserAgent {
 		input[type="checkbox"]:checked:hover, input[type="checkbox"]:indeterminate:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 		input[type="radio"]:checked { border-color: var(--primary); }
 		input[type="checkbox"] > svg {
-			/* Both marks in the same place, centred in the box whatever its size. */
-			position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: auto; opacity: 0; transform: scale(0.4);
+			/* Both marks in the same place, centred by the alignment of the box; auto margins over insets would centre them on the border box. */
+			position: absolute; opacity: 0; transform: scale(0.4);
 			transition: opacity ${STATE}, transform ${POP};
 		}
 		input[type="checkbox"]:checked:not(:indeterminate) > .check, input[type="checkbox"]:indeterminate > .dash { opacity: 1; transform: scale(1); }
