@@ -1,0 +1,17 @@
+--class-path haxe
+--class-path ../haxe
+--class-path ../components/haxe
+--class-path ../../hlwgpu/haxe
+--class-path ../../hlwindow/haxe
+--class-path ../../ash/haxelib/ash-future
+--class-path ../../ash/haxelib/ash-simd
+-D ash_simd
+-lib hashlink
+-lib tink_hxx
+# tink's own sources use deprecated metadata
+-w -WDeprecated
+-D ashui_window
+--macro ashui.core.render.UiFramework.register()
+--macro ashui.ui.Markup.enable()
+-main DebuggerApp
+-hl bin/debugger.hl

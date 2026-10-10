@@ -56,7 +56,8 @@ typedef MotionRecording = {
 	  its number and time, to see a whole animation in one image;
 	- `curves.png`, every track's curve as declared and as it ran;
 	- `report.txt`, `MotionCheck`'s verdict on every track, and
-	  `trace.json`, the whole trace;
+	  `trace.json`, the whole trace, and `frames.json`, each frame's time
+	  into it;
 	- `tree-first.json` and `tree-last.json`, the tree as the first and
 	  last frames drew it, and `tree.txt`, what changed in it frame by
 	  frame: elements added, removed, moved, restyled and their states.
@@ -190,6 +191,7 @@ class MotionRecorder {
 			width:Int, height:Int, thumbs:Int):{report:String, filmstrip:String, curves:Null<String>} {
 		var report = MotionCheck.report(trace);
 		sys.io.File.saveContent(haxe.io.Path.join([dir, "report.txt"]), report);
+		sys.io.File.saveContent(haxe.io.Path.join([dir, "frames.json"]), haxe.Json.stringify({width: width, height: height, times: times}));
 		sys.io.File.saveContent(haxe.io.Path.join([dir, "trace.json"]), MotionCheck.json(trace));
 		var strip = filmstrip(offscreen, pngs, times, width, height, thumbs, haxe.io.Path.join([dir, "filmstrip.png"]));
 		var curves = trace.tracks.length == 0 ? null : curveSheet(offscreen, trace, haxe.io.Path.join([dir, "curves.png"]));

@@ -4,6 +4,7 @@ tests/bin/
 tests/fixtures/**/bin/
 .ashui/
 tools/**/bin/
+debugger/bin/
 .DS_Store
 /native/*/
 /release/

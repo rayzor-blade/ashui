@@ -1,0 +1,95 @@
+/* The debugger's views. Colours come from the theme's variables. */
+
+.ui-debugger-frame {
+	display: flex;
+	flex-grow: 1;
+	flex-shrink: 1;
+	min-height: 0;
+	min-width: 0;
+	background: var(--ui-debugger-stage, #090d14);
+	border-radius: var(--radius-lg, 12px);
+	overflow: hidden;
+}
+.ui-debugger-surface { flex-grow: 1; flex-shrink: 1; min-width: 0; min-height: 0; height: 100%; }
+
+.ui-debugger-controls {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 8px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg, 12px);
+	flex-shrink: 0;
+}
+input.ui-debugger-scrubber { flex-grow: 1; flex-basis: 0; min-width: 24px; align-self: center; margin: 0 8px; }
+.ui-debugger-time { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; margin: 0 6px; flex-shrink: 0; color: var(--text-primary); }
+.ui-debugger-frame-number { color: var(--text-secondary); font-size: 11px; }
+
+.ui-debugger-timeline { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.ui-debugger-lanes { display: flex; flex-direction: column; gap: 2px; }
+.ui-debugger-empty, .ui-debugger-muted { color: var(--text-secondary); font-size: 12px; }
+
+.ui-debugger-lane {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	height: 30px;
+	padding: 0 6px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+.ui-debugger-lane:hover { background: var(--surface-elevated); }
+.ui-debugger-lane[data-selected] { background: var(--accent-subtle); }
+.ui-debugger-lane-label { display: flex; flex-direction: column; width: 220px; flex-shrink: 0; overflow: hidden; }
+.ui-debugger-lane-name { font-size: 12px; color: var(--text-primary); }
+.ui-debugger-lane-property { font-size: 11px; color: var(--text-secondary); }
+
+.ui-debugger-lane-area {
+	position: relative;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	flex-grow: 1;
+	flex-basis: 0;
+	height: 18px;
+	border-radius: 4px;
+	background: var(--surface);
+}
+.ui-debugger-gap { flex-basis: 0; flex-shrink: 1; min-width: 0; }
+.ui-debugger-bar { flex-basis: 0; flex-shrink: 1; min-width: 2px; height: 10px; border-radius: 3px; background: var(--primary); }
+.ui-debugger-lane[data-issues] .ui-debugger-bar { background: var(--error); }
+
+.ui-debugger-playhead-row { position: absolute; left: 0; right: 0; top: -4px; bottom: -4px; display: flex; flex-direction: row; pointer-events: none; }
+.ui-debugger-playhead { width: 2px; flex-shrink: 0; background: var(--warning); }
+
+.ui-debugger-details { display: flex; flex-direction: column; }
+.ui-debugger-details-body {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface);
+	font-size: 12px;
+	color: var(--text-primary);
+}
+.ui-debugger-details-title { font-weight: 600; }
+.ui-debugger-issue { color: var(--error); }
+.ui-debugger-ok { color: var(--success); }
+
+.ui-debugger-changes { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-primary); }
+.ui-debugger-change-added { color: var(--success); }
+.ui-debugger-change-removed { color: var(--error); }
+.ui-debugger-change-detail { color: var(--text-secondary); padding-left: 16px; }
+.ui-debugger-report { font-size: 12px; color: var(--text-primary); white-space: pre; }
+.ui-debugger-rate { min-width: 44px; }
+
+/* The side panel: its tabs fill it, and the active tab's content scrolls. */
+.ui-debugger-panel { display: flex; flex-direction: column; min-height: 0; flex-shrink: 0; }
+.ui-debugger-panel .ui-tabs { flex-grow: 1; min-height: 0; }
+.ui-debugger-panel .ui-tabs-content { min-height: 0; flex-shrink: 1; }
+.ui-debugger-panel .ui-scroll-area { flex-grow: 1; flex-shrink: 1; min-height: 0; flex-basis: 0; }
