@@ -1,7 +1,7 @@
 import ashui.ui.View;
 
-// Adds a reactive attribute: its computed is a new function, so this is not
-// a body-only change. Ash does not support it; the fixture shows what happens.
+// Adds a reactive attribute: its computed is a new function, which a reload
+// adds to the running program.
 class Panel extends View {
 	@:state public var count:Int = 1;
 
