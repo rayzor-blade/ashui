@@ -206,33 +206,35 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			// Each piece added to the body reaches this far into it, hidden there, so no point near where they meet
 			// is near an edge of both: the union's distance inside is to the outline, and a border follows only that.
 			var into = min(innerSize.x, innerSize.y) * 0.5;
+			// A flare needs only a short reach: a long one's far end, inside the body, still bends the gradient glass refracts along.
+			var flareInto = min(8., into);
 			// A flare too tall for the box squashes into an ellipse rather than overflowing.
 			var room = max(size.y - topOffset - bottomOffset, 0.);
 			var sharp = vec4(0., 0., 0., 0.);
 			var round = vec4(1., 1., 1., 1.);
 			if (tlC) {
 				var ry = min(r.x, room);
-				var flare = max(sdShapedRect(p, vec2(0., innerOrigin.y), vec2(left + into, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(0., innerOrigin.y), vec2(left + flareInto, ry), sharp, round),
 					-sdEllipseAt(p, vec2(0., innerOrigin.y + ry), vec2(left, ry)));
 				d = min(d, flare);
 			}
 			if (trC) {
 				var ry = min(r.y, room);
 				var w = size.x - innerRight;
-				var flare = max(sdShapedRect(p, vec2(innerRight - into, innerOrigin.y), vec2(w + into, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(innerRight - flareInto, innerOrigin.y), vec2(w + flareInto, ry), sharp, round),
 					-sdEllipseAt(p, vec2(size.x, innerOrigin.y + ry), vec2(w, ry)));
 				d = min(d, flare);
 			}
 			if (brC) {
 				var ry = min(r.z, room);
 				var w = size.x - innerRight;
-				var flare = max(sdShapedRect(p, vec2(innerRight - into, innerBottom - ry), vec2(w + into, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(innerRight - flareInto, innerBottom - ry), vec2(w + flareInto, ry), sharp, round),
 					-sdEllipseAt(p, vec2(size.x, innerBottom - ry), vec2(w, ry)));
 				d = min(d, flare);
 			}
 			if (blC) {
 				var ry = min(r.w, room);
-				var flare = max(sdShapedRect(p, vec2(0., innerBottom - ry), vec2(left + into, ry), sharp, round),
+				var flare = max(sdShapedRect(p, vec2(0., innerBottom - ry), vec2(left + flareInto, ry), sharp, round),
 					-sdEllipseAt(p, vec2(0., innerBottom - ry), vec2(left, ry)));
 				d = min(d, flare);
 			}
