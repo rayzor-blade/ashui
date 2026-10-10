@@ -272,7 +272,11 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 				} else if (m.x < 2.5) {
 					// Bulge: the cap of a disk through the edge's ends and its apex, out from the baseline.
 					var rb = (halfW * halfW + h * h) / max(2. * h, 0.001);
-					var cap = max(max(length(q - vec2(cx, rb - h)) - rb, q.y - into), abs(q.x - cx) - halfW);
+					// Inside the body it is kept to its width at the edge; outside, a tall one's circle keeps its full width.
+					var side = abs(q.x - cx) - halfW;
+					if (q.y < 0.)
+						side = -100000.;
+					var cap = max(max(length(q - vec2(cx, rb - h)) - rb, q.y - into), side);
 					result = smin(d, cap, max(m.w, 0.001));
 				} else if (m.x < 3.5) {
 					result = smax(d, -sdTriangle(q, vec2(cx - halfW, 0.), vec2(cx, h), vec2(cx + halfW, 0.)), 1.5);
