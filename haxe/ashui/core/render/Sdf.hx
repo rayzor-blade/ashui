@@ -201,7 +201,8 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			var d = sdShapedRect(p, innerOrigin, innerSize, innerRadii, vec4(1., 1., 1., 1.));
 			var innerRight = innerOrigin.x + innerSize.x;
 			var innerBottom = innerOrigin.y + innerSize.y;
-			var k = 1.5;
+			// A flare's edge lies along the body's and its curve meets the body's side
+			// tangentially, so it joins with a plain min: a smooth one would bulge the shared edge.
 			// Each piece added to the body reaches this far into it, hidden there, so no point near where they meet
 			// is near an edge of both: the union's distance inside is to the outline, and a border follows only that.
 			var into = min(innerSize.x, innerSize.y) * 0.5;
@@ -213,27 +214,27 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 				var ry = min(r.x, room);
 				var flare = max(sdShapedRect(p, vec2(0., innerOrigin.y), vec2(left + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(0., innerOrigin.y + ry), vec2(left, ry)));
-				d = smin(d, flare, k);
+				d = min(d, flare);
 			}
 			if (trC) {
 				var ry = min(r.y, room);
 				var w = size.x - innerRight;
 				var flare = max(sdShapedRect(p, vec2(innerRight - into, innerOrigin.y), vec2(w + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(size.x, innerOrigin.y + ry), vec2(w, ry)));
-				d = smin(d, flare, k);
+				d = min(d, flare);
 			}
 			if (brC) {
 				var ry = min(r.z, room);
 				var w = size.x - innerRight;
 				var flare = max(sdShapedRect(p, vec2(innerRight - into, innerBottom - ry), vec2(w + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(size.x, innerBottom - ry), vec2(w, ry)));
-				d = smin(d, flare, k);
+				d = min(d, flare);
 			}
 			if (blC) {
 				var ry = min(r.w, room);
 				var flare = max(sdShapedRect(p, vec2(0., innerBottom - ry), vec2(left + into, ry), sharp, round),
 					-sdEllipseAt(p, vec2(0., innerBottom - ry), vec2(left, ry)));
-				d = smin(d, flare, k);
+				d = min(d, flare);
 			}
 			d = notchEdge(p, d, size.x * 0.5, innerOrigin.y, top, 1., into);
 			d = notchEdge(p, d, size.x * 0.5, innerBottom, bottom, -1., into);
