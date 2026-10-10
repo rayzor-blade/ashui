@@ -246,7 +246,7 @@ class Motion {
 		check("nothing records while no log is", ashui.debug.InputLog.current == null);
 
 		// --- Tree snapshots and their diff ---
-		ashui.css.Css.load(".hov { width: 20px; height: 20px; background: #000000; } .hov:hover { background: #ffffff; }");
+		ashui.css.Css.load(".hov { width: 20px; height: 20px; background: #000000; margin: 2px 3px; padding: 4px; padding-left: 6px; border: 1px solid #000000; } .hov:hover { background: #ffffff; }");
 		var shotTree = new LayoutTree();
 		var shotRoot:Div = Owner.root(shotTree, _ -> new Div({width: 100, height: 100}, [new Div({classes: ["hov"], onClick: _ -> {}}, shotTree)], shotTree));
 		function settle() {
@@ -267,6 +267,13 @@ class Motion {
 			first.elements.length == 2 && d.added.length == 1 && d.removed.length == 0 && hovered != null && hovered.states != null
 			&& hovered.states.to.indexOf("hover") >= 0 && Lambda.exists(hovered.style, x -> x.name == "background" && x.to == "#ffffff"),
 			ashui.debug.TreeSnapshot.lines(d));
+		var inspector = new ashui.debug.InspectorOverlay();
+		var seen = inspector.inspect(shotTree, inspector.target(shotTree));
+		check("the inspector shows the element under the pointer: its box model, states, handlers and own CSS", seen != null && seen.label == "div.hov"
+			&& seen.margin.join(",") == "2,3,2,3" && seen.padding.join(",") == "4,4,4,6" && seen.border.join(",") == "1,1,1,1"
+			&& seen.states.indexOf("hover") >= 0 && seen.handlers.indexOf("click") >= 0 && seen.path.length == 1
+			&& Lambda.exists(seen.style, x -> x.name == "background" && x.value == "#ffffff"),
+			seen == null ? null : [seen.label, seen.margin, seen.padding, seen.border, seen.states, seen.handlers, seen.path]);
 		check("a snapshot reads back as JSON", (haxe.Json.parse(second.json()).elements : Array<Dynamic>).length == 3);
 
 		var skewed = MotionTrace.start();

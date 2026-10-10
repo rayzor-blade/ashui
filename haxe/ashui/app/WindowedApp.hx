@@ -290,6 +290,8 @@ class WindowedApp {
 			applyPointer();
 			if (offscreen.hitMap != null && offscreen.hitMap.pointerChanged(tree))
 				dirty = true;
+			if (offscreen.inspector != null && offscreen.inspector.pointerChanged(tree))
+				dirty = true;
 			if (committed) {
 				committed = false;
 				composing = false;

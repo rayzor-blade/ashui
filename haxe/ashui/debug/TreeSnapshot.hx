@@ -98,7 +98,8 @@ class TreeSnapshot {
 			visit(tree, child, id, out);
 	}
 
-	static function states(tree:LayoutTree, node:haxe.Int64):Array<String> {
+	/** `node`'s interaction states that hold: `hover`, `active`, `focus`, `focus-visible`, `disabled`. **/
+	public static function states(tree:LayoutTree, node:haxe.Int64):Array<String> {
 		var i = ashui.input.Interaction.byId(tree, node);
 		if (i == null)
 			return [];
