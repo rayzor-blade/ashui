@@ -165,6 +165,30 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			(kind, width, height, corner radius): 1 a scoop, 2 a bulge, 3 a cut,
 			4 a peak. Ported from Blinc's `sd_notch`.
 		**/
+		/** A notch's body: the box less what concave corners and outward modifiers take, as x, y, width, height (see `sdNotch`). **/
+		function notchBody(size : Vec2, corners : Vec4, top : Vec4, bottom : Vec4) : Vec4 {
+			var r = abs(corners);
+			var tl = 0.;
+			if (corners.x < 0.) tl = r.x;
+			var tr = 0.;
+			if (corners.y < 0.) tr = r.y;
+			var br = 0.;
+			if (corners.z < 0.) br = r.z;
+			var bl = 0.;
+			if (corners.w < 0.) bl = r.w;
+			var topH = 0.;
+			if ((top.x > 1.5 && top.x < 2.5) || (top.x > 3.5 && top.x < 4.5))
+				topH = top.z;
+			var botH = 0.;
+			if ((bottom.x > 1.5 && bottom.x < 2.5) || (bottom.x > 3.5 && bottom.x < 4.5))
+				botH = bottom.z;
+			var left = max(tl, bl);
+			var right = max(tr, br);
+			var topOffset = max(max(tl, tr), topH);
+			var bottomOffset = max(max(bl, br), botH);
+			return vec4(left, topOffset, max(size.x - left - right, 0.001), max(size.y - topOffset - bottomOffset, 0.001));
+		}
+
 		function sdNotch(p : Vec2, size : Vec2, corners : Vec4, top : Vec4, bottom : Vec4) : Float {
 			var r = abs(corners);
 			var tlC = corners.x < 0.;

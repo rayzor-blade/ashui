@@ -181,11 +181,67 @@ class BoxShader implements UiShader {
 				discard;
 			var fill = fillAt(p, primitive.color, primitive.color2, primitive.via, primitive.stops, primitive.gradient, fillType);
 			if (notched) {
-				// A notch's border follows its outline at one width, the top side's, in the top side's colour.
+				// A notch's border follows its outline. Where the sides differ, its body's edges split it as a box's do: a flare
+				// beside the body is the top's or the bottom's, and elsewhere the nearest edge for its width takes the point,
+				// so a modifier at the top or bottom is that side's.
 				var width = primitive.border.x;
+				var color = primitive.borderTop;
+				var b = primitive.border;
+				// How much of the band a point beside the body keeps: within its side's width of that side's edge.
+				var keep = 1.;
+				var differ = abs(b.y - b.x) + abs(b.z - b.x) + abs(b.w - b.x) + length(primitive.borderRight - color)
+					+ length(primitive.borderBottom - color) + length(primitive.borderLeft - color);
+				if (differ > 0.0001) {
+					var body = notchBody(size, primitive.notchCorners, primitive.notchTop, primitive.notchBottom);
+					var half = body.zw * 0.5;
+					var rel = p - (body.xy + half);
+					var side = 0;
+					if (abs(rel.x) > half.x) {
+						if (rel.y > 0.)
+							side = 2;
+					} else {
+						var nearest = (rel.y + half.y) / max(b.x, 0.0001);
+						var toRight = (half.x - rel.x) / max(b.y, 0.0001);
+						if (toRight < nearest) {
+							nearest = toRight;
+							side = 1;
+						}
+						var toBottom = (half.y - rel.y) / max(b.z, 0.0001);
+						if (toBottom < nearest) {
+							nearest = toBottom;
+							side = 2;
+						}
+						if ((rel.x + half.x) / max(b.w, 0.0001) < nearest)
+							side = 3;
+					}
+					var own = rel.y + half.y;
+					if (side == 1) {
+						width = b.y;
+						color = primitive.borderRight;
+						own = half.x - rel.x;
+					} else if (side == 2) {
+						width = b.z;
+						color = primitive.borderBottom;
+						own = half.y - rel.y;
+					} else if (side == 3) {
+						width = b.w;
+						color = primitive.borderLeft;
+						own = rel.x + half.x;
+					}
+					// A scoop or cut carved into the top or bottom is that side's over its whole span.
+					var carve = vec4(0., 0., 0., 0.);
+					if (side == 0)
+						carve = primitive.notchTop;
+					else if (side == 2)
+						carve = primitive.notchBottom;
+					var carved = (carve.x > 0.5 && carve.x < 1.5) || (carve.x > 2.5 && carve.x < 3.5);
+					var over = carved && abs(p.x - size.x * 0.5) <= carve.y * 0.5 + width;
+					if (abs(rel.x) <= half.x && !over)
+						keep = smoothstep(-aa, aa, width - own);
+				}
 				if (width > 0.) {
-					var ring = smoothstep(-aa, aa, d + width);
-					fill = mix(fill, vec4(primitive.borderTop.rgb, primitive.borderTop.a), ring * primitive.borderTop.a);
+					var ring = smoothstep(-aa, aa, d + width) * keep;
+					fill = mix(fill, vec4(color.rgb, color.a), ring * color.a);
 				}
 			} else
 				fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
