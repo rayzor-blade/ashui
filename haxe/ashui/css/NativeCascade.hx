@@ -262,6 +262,9 @@ class NativeCascade {
 		return states != 0;
 	}
 
+	/** A form control's states, which its `Interaction` keeps by name. **/
+	static final FORM_STATES = ["placeholder-shown", "valid", "invalid", "user-valid", "user-invalid", "required", "optional"];
+
 	static function stateSignal(identity:Identity, name:String):ashui.reactive.Signal<Bool> {
 		var interaction = ashui.input.Interaction.of(identity.node);
 		return switch name {
@@ -272,7 +275,7 @@ class NativeCascade {
 			case "focus-within": interaction.focusWithin;
 			case "checked": interaction.checked;
 			case "indeterminate": interaction.indeterminate;
-			case n if (Selector.FORM_STATES.indexOf(n) >= 0): interaction.formState(n);
+			case n if (FORM_STATES.indexOf(n) >= 0): interaction.formState(n);
 			case _: interaction.disabled;
 		}
 	}

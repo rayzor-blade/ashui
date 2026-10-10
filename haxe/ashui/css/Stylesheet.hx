@@ -14,20 +14,6 @@ typedef Declaration = {
 	final column:Int;
 }
 
-/** A style rule: what its selectors match takes its declarations, while its media conditions hold. **/
-typedef StyleRule = {
-	final selectors:Array<Selector>;
-	final declarations:Array<Declaration>;
-
-	/** The `@media` query lists it is inside, each of which must hold; null outside any. **/
-	final media:Null<Array<Array<Media.MediaQuery>>>;
-
-	/** Its place among the sheet's rules, from 0, for ties in specificity. **/
-	final order:Int;
-
-	final line:Int;
-}
-
 /** One step of a `@keyframes`: the offsets it stands at, 0 to 1, and its declarations. **/
 typedef Keyframe = {
 	final offsets:Array<Float>;
@@ -59,30 +45,13 @@ typedef Diagnostic = {
 }
 
 /**
-	Reads an `@import`ed file: `path` as written, `from` the file importing
-	it (null for CSS text with no file). Null when there is no such file.
-**/
-typedef CssLoader = (path:String, from:Null<String>) -> Null<{source:String, file:String}>;
-
-/**
-	A parsed CSS stylesheet. A malformed rule is skipped and reported in
+	A CSS stylesheet, parsed by the native CSS engine, which keeps it:
+	`Stylesheet.parse` reads CSS text, and `CompiledCss` compiles a sheet
+	with the program. A malformed rule is skipped and reported in
 	`diagnostics` with its line and column; the rest of the sheet still
 	applies.
-
-	At run time on HashLink, `Stylesheet.parse` reads CSS text with the
-	native CSS engine, which keeps the sheet; `rules`, `variables` and
-	`keyframes` stay empty, and `diagnostics` and `imports` are filled.
-	`CompiledCss` compiles one with the program. Under the interpreter,
-	`CssParser` reads it into `rules`, `variables` and `keyframes`.
 **/
 class Stylesheet {
-	public final rules:Array<StyleRule> = [];
-
-	/** `:root`'s custom properties, by name without the `--`, in source order. **/
-	public final variables:Map<String, String> = [];
-
-	public final keyframes:Map<String, Keyframes> = [];
-
 	/** The files it imported, directly or through another, in the order read. **/
 	public final imports:Array<String> = [];
 	public final diagnostics:Array<Diagnostic> = [];
@@ -144,9 +113,8 @@ class Stylesheet {
 	}
 	#end
 
-	public function new() {}
+	function new() {}
 
-	/** A sheet made of what was parsed already: what `CompiledCss` builds at run time. **/
 	/** The sheet `CompiledCss` compiled into program resource `name`, decoded natively when first used. **/
 	public static function fromResource(name:String, file:String):Stylesheet {
 		var sheet = new Stylesheet();
@@ -163,50 +131,16 @@ class Stylesheet {
 		return sheet;
 	}
 
-	public static function of(rules:Array<StyleRule>, variables:Map<String, String>, keyframes:Map<String, Keyframes>, imports:Array<String>, ?source:String,
-			?file:String):Stylesheet {
-		var sheet = new Stylesheet();
-		sheet.source = source;
-		sheet.file = file;
-		for (r in rules)
-			sheet.rules.push(r);
-		for (k => v in variables)
-			sheet.variables.set(k, v);
-		for (k => v in keyframes)
-			sheet.keyframes.set(k, v);
-		for (i in imports)
-			sheet.imports.push(i);
-		return sheet;
-	}
-
 	/**
 		`source` parsed; `file` names it in diagnostics and is where an
-		`@import` is found from. `load` reads imported files, by default
-		from the file system relative to the importing file.
+		`@import` is read from, relative to it.
 	**/
-	public static function parse(source:String, ?file:String, ?load:CssLoader):Stylesheet {
-		#if (hl && !macro)
+	public static function parse(source:String, ?file:String):Stylesheet {
 		var sheet = compiled(source, file);
+		#if (hl && !macro)
 		sheet.native();
-		return sheet;
-		#else
-		var sheet = CssParser.parse(source, file, load == null ? readFile : load);
-		sheet.source = source;
-		sheet.file = file;
-		return sheet;
 		#end
-	}
-
-	/** Reads `path` relative to the directory of `from`, or as it is. **/
-	public static function readFile(path:String, from:Null<String>):Null<{source:String, file:String}> {
-		#if sys
-		var file = from == null || haxe.io.Path.isAbsolute(path) ? path : haxe.io.Path.join([haxe.io.Path.directory(from), path]);
-		if (!sys.FileSystem.exists(file))
-			return null;
-		return {source: sys.io.File.getContent(file), file: file};
-		#else
-		return null;
-		#end
+		return sheet;
 	}
 
 	/** The errors and warnings, one a line, as `file:line:column: message`. **/
@@ -216,27 +150,5 @@ class Stylesheet {
 			for (d in diagnostics)
 				'${d.file != null ? d.file + ":" : where}${d.line}:${d.column}: ${d.severity == Error ? "error" : "warning"}: ${d.message}'
 		].join("\n");
-	}
-
-	/** The CSS class names any of its selectors mentions. **/
-	public function classNames():Array<String> {
-		var seen = new Map<String, Bool>();
-		function visit(selectors:Array<Selector>) {
-			for (s in selectors)
-				for (c in s.compounds) {
-					for (name in c.classes)
-						seen.set(name, true);
-					for (p in c.pseudos)
-						switch p {
-							case Not(inner) | Is(inner) | Where(inner) | Has(inner): visit(inner);
-							case _:
-						}
-				}
-		}
-		for (r in rules)
-			visit(r.selectors);
-		var out = [for (name in seen.keys()) name];
-		out.sort(Reflect.compare);
-		return out;
 	}
 }

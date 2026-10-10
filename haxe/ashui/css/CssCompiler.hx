@@ -35,6 +35,15 @@ class CssCompiler {
 		return {bytes: sys.io.File.getBytes(out), imports: manifest.imports, classes: manifest.classes};
 	}
 
+	/** Why the comma-separated `selectors` do not read, or null when they do. **/
+	public static function selectorError(selectors:String):Null<String> {
+		var p = new sys.io.Process(tool(), ["--selector", selectors]);
+		var stderr = StringTools.trim(p.stderr.readAll().toString());
+		var code = p.exitCode();
+		p.close();
+		return code == 0 ? null : stderr;
+	}
+
 	/** Each diagnostic, `file:line:column: severity: message`, at its place; errors after warnings, the first ending the build. **/
 	static function report(stderr:String, file:String, ?shownAs:String):Void {
 		var line = ~/^(.*):([0-9]+):([0-9]+): (error|warning): (.*)$/;

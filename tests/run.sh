@@ -150,7 +150,6 @@ memory)
 	run motion.hl || motion=$?
 	# Pure Haxe, so the interpreter runs it.
 	css=0
-	haxe --class-path ../haxe --class-path . -main CssParse --interp || css=$?
 	haxe --class-path ../haxe --class-path . -main CssValues --interp || css=$?
 	# ashui.draw's vector core: flattening and the triangles of fills and strokes.
 	haxe --class-path ../haxe --class-path . -main Draw --interp || css=$?

@@ -64,7 +64,9 @@ class Query {
 				Context.error('query: a selector needs where to look, an element or a tree: query("#save", page)', target.pos);
 			switch target.expr {
 				case EConst(CString(text, _)):
-					try ashui.css.CssParser.selectors(text) catch (e:String) Context.error('query: $e', target.pos);
+					var error = ashui.css.CssCompiler.selectorError(text);
+					if (error != null)
+						Context.error('query: $error', target.pos);
 				case _:
 			}
 			var whereType = Context.typeof(within);

@@ -1,7 +1,6 @@
 package ashui.css;
 
 import ashui.css.CssValue;
-import ashui.css.Selector;
 import ashui.css.Stylesheet;
 import ashui.layout.LayoutTree;
 
@@ -88,7 +87,7 @@ class Css {
 		mediaChanged();
 	}
 
-	static function environment():Media.MediaEnvironment {
+	static function environment():{width:Float, height:Float, dark:Bool} {
 		var theme = ashui.theme.ThemeState.tryGet();
 		return {width: viewportWidth, height: viewportHeight, dark: theme != null && theme.scheme() == Dark};
 	}
@@ -287,13 +286,10 @@ class Css {
 	}
 
 	/**
-		The elements under `root` in `tree`, `root` included, that one of
-		`selectors` matches, in document order: `querySelectorAll`.
+		The elements under `root` in `tree`, `root` included, that one of the
+		comma-separated `selectors` matches, in document order:
+		`querySelectorAll`. Throws for selectors that do not read.
 	**/
-	public static function select(tree:LayoutTree, root:haxe.Int64, selectors:Array<Selector>):Array<haxe.Int64>
-		return query(tree, root, [for (s in selectors) s.toString()].join(", "));
-
-	/** As `select`, of selectors written as CSS text; throws for text that does not read. **/
 	public static function query(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
 		hook();
 		return NativeCascade.select(tree, root, selectors);
