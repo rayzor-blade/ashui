@@ -10,6 +10,8 @@
 #   v4  body-only, but the string literals change length
 #   v5  adds a child component, a class the running program lacks
 #   v6  a template starts calling a standard library static (Math.round)
+#   v7  the panel gains a private helper method its render calls
+#   v8  the panel gains a @:state field, so a field and its accessors
 #
 # ASH names the ash binary to run, ../ash's release build by default.
 set -e
