@@ -13,8 +13,9 @@ import haxe.macro.Expr;
 
 	The tool is found in this order: the `BLINC_CSS` environment variable;
 	the one a release package bundles for this platform (see
-	`NativeInstall`); or, in a checkout of the repository, one built once with
-	`cargo install` from the blinc_abi revision `Cargo.toml` pins, into
+	`NativeInstall`); or, in a checkout of the repository, one built from the
+	blinc_abi `Cargo.toml` names: from its local checkout when it is a path,
+	else once with `cargo install` from the revision it pins, into
 	`.ashui/blinc-css/<revision>`.
 **/
 class CssCompiler {
@@ -104,6 +105,19 @@ class CssCompiler {
 		if (bundled != null)
 			return found = bundled;
 		var manifest = sys.io.File.getContent(haxe.io.Path.join([root(), "Cargo.toml"]));
+		// blinc_abi from a local checkout, as when working on both: the tool built there, again when it changed.
+		var local = ~/blinc_abi"?,? *path *= *"([^"]+)"/;
+		if (local.match(manifest)) {
+			var checkout = haxe.io.Path.join([root(), local.matched(1)]);
+			var code = Sys.command("cargo", [
+				"build", "--quiet", "--release", "--manifest-path", haxe.io.Path.join([checkout, "Cargo.toml"]), "--bin", "blinc-css",
+				"--no-default-features", "--features", "css-cli"
+			]);
+			var built = haxe.io.Path.join([checkout, "target", "release", exe]);
+			if (code != 0 || !sys.FileSystem.exists(built))
+				Context.fatalError('blinc-css: cargo build in $checkout failed; set BLINC_CSS to the tool', Context.currentPos());
+			return found = built;
+		}
 		var pin = ~/blinc_abi"?,? *git *= *"([^"]+)", *rev *= *"([0-9a-f]+)"/;
 		if (!pin.match(manifest))
 			Context.fatalError("blinc-css: no blinc_abi revision in Cargo.toml; set BLINC_CSS to the tool", Context.currentPos());
