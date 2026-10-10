@@ -10,6 +10,9 @@ enum ClipShape {
 	Xywh(x:ClipLength, y:ClipLength, width:ClipLength, height:ClipLength, round:Float);
 	Polygon(points:Array<{x:ClipLength, y:ClipLength}>);
 	Path(d:String);
+
+	/** A polygon or path filled by the even-odd rule rather than nonzero, CSS's default. **/
+	EvenOdd(shape:ClipShape);
 }
 
 /**
@@ -64,8 +67,8 @@ class ClipPathCss {
 				name == "rect" ? Rect(v[0], v[1], v[2], v[3], r.round) : Xywh(v[0], v[1], v[2], v[3], r.round);
 			case "polygon":
 				var items = [for (p in body.split(",")) StringTools.trim(p)];
-				fillRule(items);
-				Polygon([
+				var evenOdd = fillRule(items);
+				var polygon = Polygon([
 					for (p in items) {
 						var xy = words(p);
 						if (xy.length != 2)
@@ -73,11 +76,13 @@ class ClipPathCss {
 						{x: length(xy[0]), y: length(xy[1])};
 					}
 				]);
+				evenOdd ? EvenOdd(polygon) : polygon;
 			case "path":
 				var items = body.split(",");
+				var evenOdd = false;
 				if (items.length > 1) {
 					var rule = [StringTools.trim(items[0])];
-					fillRule(rule);
+					evenOdd = fillRule(rule);
 					if (rule.length != 0)
 						throw 'path() takes a fill rule and a string, not "$body"';
 					body = StringTools.trim(items.slice(1).join(","));
@@ -85,22 +90,24 @@ class ClipPathCss {
 				var quoted = ~/^(["'])([\s\S]*)\1$/;
 				if (!quoted.match(body))
 					throw 'path() takes its path data as a quoted string, not "$body"';
-				Path(quoted.matched(2));
+				evenOdd ? EvenOdd(Path(quoted.matched(2))) : Path(quoted.matched(2));
 			case other:
 				throw 'clip-path "$other()" is not circle, ellipse, inset, rect, xywh, polygon or path';
 		}
 	}
 
-	/** Takes a leading fill rule off `items`: nonzero, CSS's default, is the one there is yet. **/
-	static function fillRule(items:Array<String>):Void {
+	/** Takes a leading fill rule off `items`; true for `evenodd`, false for `nonzero`, CSS's default. **/
+	static function fillRule(items:Array<String>):Bool {
 		if (items.length == 0)
-			return;
-		switch items[0] {
+			return false;
+		return switch items[0] {
 			case "nonzero":
 				items.shift();
+				false;
 			case "evenodd":
-				throw "the evenodd fill rule is not supported yet; clip paths fill by nonzero";
-			case _:
+				items.shift();
+				true;
+			case _: false;
 		}
 	}
 

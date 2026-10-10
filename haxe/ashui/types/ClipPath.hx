@@ -87,7 +87,8 @@ class ClipPath implements IValue {
 		`path("M 0 0 L …")`: SVG path data in the element's pixels, curves
 		and arcs cut into short straight steps; each subpath closes. Inside is
 		by the nonzero rule, CSS's default: a hole is a subpath that runs the
-		other way round from the one around it.
+		other way round from the one around it. `evenOdd()` fills it by the
+		even-odd rule instead.
 	**/
 	public static function path(d:String):ClipPath {
 		var rings = ashui.svg.PathData.flatten(ashui.svg.PathData.parse(d));
@@ -104,6 +105,17 @@ class ClipPath implements IValue {
 		for (i in 0...flat.length)
 			values.setF32(i * 4, flat[i]);
 		return fromPolygon(BlincNative.blinc_clip_polygon(values, null, Std.int(flat.length / 2), true));
+	}
+
+	/**
+		This polygon or path filled by the even-odd rule: a point is inside
+		when a ray from it crosses the outline an odd number of times, so a
+		ring inside another is a hole whichever way it runs. A new clip path;
+		another shape is returned as it is.
+	**/
+	public function evenOdd():ClipPath {
+		var marked = BlincNative.blinc_clip_even_odd(ptr);
+		return marked == null ? this : fromPolygon(marked);
 	}
 
 	/** Between two rings of a path's points, a point at this x and y. **/
@@ -134,6 +146,7 @@ class ClipPath implements IValue {
 			case Xywh(x, y, w, h, round): xywh(x, y, w, h, round);
 			case Polygon(points): polygon(points);
 			case Path(d): path(d);
+			case EvenOdd(inner): of(inner).evenOdd();
 		}
 	}
 

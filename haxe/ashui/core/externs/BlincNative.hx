@@ -134,6 +134,8 @@ extern class BlincNative {
 
 	/** A polygon clip path, `count` points of x and y in `values`, each a percentage where its byte in `percent` is 1; a path's are pixels, rings apart by a 1e30 point. **/
 	static function blinc_clip_polygon(values:hl.Bytes, percent:hl.Bytes, count:Int, path:Bool):hl.Abstract<"blinc_value">;
+	/** A clip-path value filling by the even-odd rule, from a polygon or path one; null for another shape. **/
+	static function blinc_clip_even_odd(clip:hl.Abstract<"blinc_value">):hl.Abstract<"blinc_value">;
 	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int,
 		alpha:Single, inset:Bool):Void;
 }

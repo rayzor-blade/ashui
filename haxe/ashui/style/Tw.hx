@@ -445,6 +445,9 @@ class Tw {
 				// Checked now, so a mistake in the path data is a compile error too.
 				try ashui.svg.PathData.parse(d) catch (e:haxe.Exception) Context.error('tw: path data: ${e.message}', pos);
 				macro ashui.types.ClipPath.path($v{d});
+			case EvenOdd(inner):
+				var made = clipExpr(inner, pos);
+				macro $made.evenOdd();
 		}
 	}
 

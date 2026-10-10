@@ -74,11 +74,15 @@ class UiFramework extends Extension {
 				return __texel(recordIndex * $v{ashui.layout.RecordLayout.RECORD_ROWS} + row);
 			}
 			// How much of the point `q` the polygon of `count` points from texel `first`, two to a texel, covers,
-			// by the nonzero rule, CSS's default; `aa` is half a pixel. A point at 1e30 or past it parts two rings.
+			// by the nonzero rule, CSS's default, or by the even-odd rule when `evenOdd` is 1; `aa` is half a pixel. A point at 1e30 or past it parts two rings.
 			// The winding is also taken at four points around `q`: all four inside is covered whatever edge is
 			// near, so the crossings inside a self-crossing polygon leave no seam, and only where they differ, at
 			// the outline, does the distance to the nearest edge smooth it.
-			function __polygonCoverage(q : Vec2, first : Int, count : Int, aa : Float) : Float {
+			function __inside(w : Int, evenOdd : Float) : Bool {
+				var odd = w - (w / 2) * 2;
+				return evenOdd > 0.5 ? odd != 0 : w != 0;
+			}
+			function __polygonCoverage(q : Vec2, first : Int, count : Int, aa : Float, evenOdd : Float) : Float {
 				var d = 1e20;
 				var s = aa * 0.7;
 				var w0 = 0;
@@ -108,16 +112,16 @@ class UiFramework extends Extension {
 					i++;
 				}
 				var inside = 0;
-				if (w1 != 0)
+				if (__inside(w1, evenOdd))
 					inside++;
-				if (w2 != 0)
+				if (__inside(w2, evenOdd))
 					inside++;
-				if (w3 != 0)
+				if (__inside(w3, evenOdd))
 					inside++;
-				if (w4 != 0)
+				if (__inside(w4, evenOdd))
 					inside++;
 				var dist = sqrt(d);
-				if (w0 != 0)
+				if (__inside(w0, evenOdd))
 					dist = -dist;
 				var cover = 1. - smoothstep(-aa, aa, dist);
 				if (inside == 4)
@@ -171,7 +175,7 @@ class UiFramework extends Extension {
 				var aa = halfPixel(q);
 				var alpha = 1.;
 				if (rest.z > 2.5) {
-					alpha = __polygonCoverage(q, int(shape.x), int(shape.y), aa);
+					alpha = __polygonCoverage(q, int(shape.x), int(shape.y), aa, shape.z);
 				} else if (rest.z > 1.5) {
 					alpha = 1. - smoothstep(-aa, aa, sdShapedRect(q, shape.xy, shape.zw, vec4(rest.w, rest.w, rest.w, rest.w), vec4(1., 1., 1., 1.)));
 				} else if (rest.z > 0.5) {

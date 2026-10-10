@@ -2664,6 +2664,16 @@ class Smoke {
 			shapeOf("inset(8px 12px round 16px)"));
 		check("clip-path css: polygon points and a bare zero", shapeOf("polygon(nonzero, 50% 0, 100% 100%, 0 100%)").indexOf("{x : Percent(50), y : Px(0)}") >= 0,
 			shapeOf("polygon(nonzero, 50% 0, 100% 100%, 0 100%)"));
+		check("clip-path css: evenodd marks a polygon and a path", StringTools.startsWith(shapeOf("polygon(evenodd, 50% 0, 100% 100%, 0 100%)"), "EvenOdd(Polygon(")
+			&& shapeOf('path(evenodd, "M0 0 H10 V10 Z")') == 'EvenOdd(Path(M0 0 H10 V10 Z))', [shapeOf("polygon(evenodd, 50% 0, 100% 100%, 0 100%)"), shapeOf('path(evenodd, "M0 0 H10 V10 Z")')]);
+		var evenOddList = new ashui.layout.DisplayList();
+		var evenOddTree = new LayoutTree();
+		var evenOdd:Div = Owner.root(evenOddTree, _ -> new Div({width: 40, height: 40, clipPath: ashui.types.ClipPath.parse("polygon(evenodd, 50% 0, 100% 100%, 0 100%)"), bg: ashui.types.Brush.solid(0x2563eb)}, evenOddTree));
+		evenOddTree.flush();
+		evenOddTree.computeLayout(evenOdd.node, 100, 100);
+		evenOddList.update(evenOddTree, evenOdd.node);
+		check("clip-path: an even-odd polygon's record says so", evenOddList.get(evenOddList.count - 1, 94) == 3 && evenOddList.get(evenOddList.count - 1, 98) == 1,
+			[evenOddList.get(evenOddList.count - 1, 94), evenOddList.get(evenOddList.count - 1, 98)]);
 		var unitless = try {
 			ashui.types.ClipPathCss.parse("circle(10)");
 			"";
