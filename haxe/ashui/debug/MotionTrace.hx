@@ -75,12 +75,18 @@ class MotionTrace {
 		if (trace == null)
 			return null;
 		var name = label != null ? label : describe(tree, node);
+		var now = clock();
 		var track = new MotionTrack(trace.nextId++, kind, tree, node, name, property, from, to, delay, duration, easing, curveText(easing, spring),
-			spring, clock());
+			spring, now);
 		var key = track.key();
-		for (t in trace.tracks)
-			if (t.running && t.key() == key)
-				t.finish(Interrupted);
+		// A move retargeted the instant it began never ran: it is replaced, as a frame's style changes are one change.
+		for (t in trace.tracks.copy())
+			if (t.running && t.key() == key) {
+				if (t.began == now && t.samples.length == 0)
+					trace.tracks.remove(t);
+				else
+					t.finish(Interrupted);
+			}
 		trace.tracks.push(track);
 		return track;
 	}
