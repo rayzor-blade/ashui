@@ -204,7 +204,7 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			var k = 1.5;
 			// Each piece added to the body reaches this far into it, hidden there, so no point near where they meet
 			// is near an edge of both: the union's distance inside is to the outline, and a border follows only that.
-			var into = min(8., min(innerSize.x, innerSize.y) * 0.5);
+			var into = min(innerSize.x, innerSize.y) * 0.5;
 			// A flare too tall for the box squashes into an ellipse rather than overflowing.
 			var room = max(size.y - topOffset - bottomOffset, 0.);
 			var sharp = vec4(0., 0., 0., 0.);
@@ -245,7 +245,8 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 			`dir` 1 on the top edge and -1 on the bottom, so the body lies the way
 			`dir` points: a scoop carved in with rounded ears, a bulge's arc
 			added, a V cut in, or a V peak added. What is added reaches `into`
-			past the edge into the body, so no seam shows inside.
+			past the edge into the body, no wider there than at the edge, so no
+			seam shows inside.
 		**/
 		function notchEdge(p : Vec2, d : Float, cx : Float, baseY : Float, m : Vec4, dir : Float, into : Float) : Float {
 			var result = d;
@@ -268,14 +269,15 @@ class Sdf implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Sha
 				} else if (m.x < 2.5) {
 					// Bulge: the cap of a disk through the edge's ends and its apex, out from the baseline.
 					var rb = (halfW * halfW + h * h) / max(2. * h, 0.001);
-					var cap = max(length(q - vec2(cx, rb - h)) - rb, q.y - into);
+					var cap = max(max(length(q - vec2(cx, rb - h)) - rb, q.y - into), abs(q.x - cx) - halfW);
 					result = smin(d, cap, max(m.w, 0.001));
 				} else if (m.x < 3.5) {
 					result = smax(d, -sdTriangle(q, vec2(cx - halfW, 0.), vec2(cx, h), vec2(cx + halfW, 0.)), 1.5);
 				} else {
 					// Its sides carried on past the edge, so the V reaches into the body.
 					var spread = halfW * (h + into) / h;
-					result = smin(d, sdTriangle(q, vec2(cx - spread, into), vec2(cx, -h), vec2(cx + spread, into)), 1.5);
+					var peak = max(sdTriangle(q, vec2(cx - spread, into), vec2(cx, -h), vec2(cx + spread, into)), abs(q.x - cx) - halfW);
+					result = smin(d, peak, 1.5);
 				}
 			}
 			return result;
