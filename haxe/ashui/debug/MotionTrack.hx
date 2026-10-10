@@ -32,6 +32,8 @@ typedef MotionSample = {
 	progress:Float,
 	local:Float,
 	?value:String,
+	/** A keyframes run's: where its first property's segment curve put it, 0 at the segment's start and 1 at its end. **/
+	?eased:Float,
 	?dx:Float,
 	?dy:Float,
 	?w:Float,
@@ -74,6 +76,8 @@ class MotionTrack {
 	/** A keyframes run's iterations and direction, as CSS's `animation-iteration-count` and `animation-direction`. **/
 	public var iterations = 1.0;
 	public var direction = "normal";
+	/** A keyframes run's keyframes, for its first property: each one's offset and the curve to the next. **/
+	public var keyframes:Null<Array<{offset:Float, easing:Easing}>> = null;
 	/** A spring's speed when released, in moves per second. **/
 	public var v0 = 0.0;
 	/** The scheduler's clock when it was asked to start. **/
@@ -108,12 +112,14 @@ class MotionTrack {
 		return end == Running;
 
 	/** Records a frame at the scheduler's clock. **/
-	public function sample(progress:Float, local:Float, ?value:String, ?visual:{dx:Float, dy:Float, w:Float, h:Float}):Void {
+	public function sample(progress:Float, local:Float, ?value:String, ?visual:{dx:Float, dy:Float, w:Float, h:Float}, ?eased:Float):Void {
 		if (end != Running)
 			return;
 		var s:MotionSample = {clock: MotionTrace.clock(), progress: progress, local: local};
 		if (value != null)
 			s.value = value;
+		if (eased != null)
+			s.eased = eased;
 		if (visual != null) {
 			s.dx = visual.dx;
 			s.dy = visual.dy;
@@ -141,6 +147,23 @@ class MotionTrack {
 		if (kind == Keyframes)
 			return timeline(clock);
 		return EasingTools.evaluate(easing == null ? Linear : easing, t);
+	}
+
+	/**
+		Where a keyframes run's first property should be within its segment
+		when its timeline is at `at`, by the declared keyframes: the segment
+		and its curve there. Null without keyframes. The timeline's own
+		timing is judged by `expected`.
+	**/
+	public function expectedEased(at:Float):Null<{segment:Int, eased:Float}> {
+		if (keyframes == null || keyframes.length < 2)
+			return null;
+		var k = 0;
+		while (k < keyframes.length - 2 && keyframes[k + 1].offset <= at)
+			k++;
+		var a = keyframes[k], b = keyframes[k + 1];
+		var span = b.offset - a.offset;
+		return {segment: k, eased: EasingTools.evaluate(a.easing, span <= 0 ? 1.0 : (at - a.offset) / span)};
 	}
 
 	/** Where a keyframes run's timeline should be at `clock`, as CSS runs one: iterations repeat, a direction reverses some. **/

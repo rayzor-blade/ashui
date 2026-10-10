@@ -222,6 +222,8 @@ private class Run {
 			if (motion != null) {
 				motion.iterations = spec.iterations;
 				motion.direction = spec.direction;
+				if (first != null)
+					motion.keyframes = [for (f in first) {offset: f.offset, easing: f.easing != null ? f.easing : spec.easing}];
 			}
 		}
 		frame();
@@ -262,7 +264,7 @@ private class Run {
 				progress = reversed(Std.int(last)) ? 1 - at : at;
 				finished = true;
 				if (motion != null) {
-					motion.sample(progress, progress);
+					motion.sample(progress, progress, null, null, firstEased(progress));
 					motion.finish(Completed);
 				}
 				if (!holds()) {
@@ -276,7 +278,7 @@ private class Run {
 			}
 		}
 		if (motion != null && !finished)
-			motion.sample(progress, progress);
+			motion.sample(progress, progress, null, null, firstEased(progress));
 		// Out of view it changes nothing drawn: its clock runs on, and it writes where it is once it is seen again.
 		if (!finished && !identity.tree.inView(identity.node.id))
 			return;
@@ -292,22 +294,37 @@ private class Run {
 		}
 	}
 
+	/** The keyframe `track` is past at `progress`, and where its segment's curve puts it. **/
+	function segment(track:Track, progress:Float):{k:Int, eased:Float} {
+		var k = 0;
+		while (k < track.length - 2 && track[k + 1].offset <= progress)
+			k++;
+		var a = track[k], b = track[k + 1];
+		var span = b.offset - a.offset;
+		var local = span <= 0 ? 1.0 : (progress - a.offset) / span;
+		return {k: k, eased: ashui.theme.Easing.EasingTools.evaluate(a.easing != null ? a.easing : spec.easing, local)};
+	}
+
+	/** The segment curve of the first property by name, as the trace records it. **/
+	function firstEased(progress:Float):Null<Float> {
+		var names = [for (name in tracks.keys()) name];
+		if (names.length == 0)
+			return null;
+		names.sort(Reflect.compare);
+		return segment(tracks.get(names[0]), progress).eased;
+	}
+
 	function write(progress:Float):Void {
 		@:privateAccess ashui.layout.Node.immediate = true;
 		for (name => track in tracks) {
-			var k = 0;
-			while (k < track.length - 2 && track[k + 1].offset <= progress)
-				k++;
-			var a = track[k], b = track[k + 1];
-			var span = b.offset - a.offset;
-			var local = span <= 0 ? 1.0 : (progress - a.offset) / span;
-			var eased = ashui.theme.Easing.EasingTools.evaluate(a.easing != null ? a.easing : spec.easing, local);
+			var at = segment(track, progress);
+			var k = at.k, eased = at.eased;
 			var ready = pairs.get(name);
 			if (ready == null)
 				pairs.set(name, ready = []);
 			var pair = ready[k];
 			if (pair == null)
-				ready[k] = pair = CssMotion.prepare(a.value, b.value);
+				ready[k] = pair = CssMotion.prepare(track[k].value, track[k + 1].value);
 			var value = CssMotion.at(pair, eased);
 			try {
 				for (f in Properties.apply(identity.node, name, value, ctx))

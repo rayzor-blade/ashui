@@ -79,6 +79,19 @@ class MotionCheck {
 				overshoot = Math.max(overshoot, x.progress - 1);
 		}
 
+		// A keyframes run: each segment along its own curve, as its keyframes declare.
+		var segmentError = 0.0, segmentAt = -1;
+		for (x in s) {
+			var e = x.eased == null ? null : track.expectedEased(x.progress);
+			if (e != null && Math.abs(x.eased - e.eased) > segmentError) {
+				segmentError = Math.abs(x.eased - e.eased);
+				segmentAt = e.segment;
+			}
+		}
+		if (segmentError > tolerance) {
+			var k = track.keyframes;
+			issues.push('off its keyframe curve by ${pct(segmentError)} between ${pct(k[segmentAt].offset)} and ${pct(k[segmentAt + 1].offset)}');
+		}
 		if (track.from == track.to && track.kind != Keyframes && track.duration > 0 && track.end != Snapped)
 			issues.push('moved nowhere: from equals to, yet it ran ${ms(ran == null ? 0 : ran)}');
 		// An animation is there to be seen: one spent out of sight is an entrance or exit that never showed. A transition
@@ -233,7 +246,7 @@ class MotionCheck {
 						issues: v.issues,
 						notes: v.notes,
 						maxError: v.maxError,
-						samples: [for (s in t.samples) {clock: s.clock, progress: s.progress, expected: t.expected(s.clock), value: s.value}],
+						samples: [for (s in t.samples) {clock: s.clock, progress: s.progress, expected: t.expected(s.clock), eased: s.eased, value: s.value}],
 						rects: t.rects
 					}
 				}

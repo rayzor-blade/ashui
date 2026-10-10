@@ -123,6 +123,17 @@ class Motion {
 		check("a value changed by the rule that brings its transition moves from where it was", brightened != null && brightened.end == Completed
 			&& brightened.from == "0.5" && brightened.to == "1", brightened == null ? null : [brightened.from, brightened.to, brightened.end]);
 
+		// --- A keyframes run whose segments each have their own curve ---
+		ashui.css.Css.load("@keyframes bob { 0% { width: 10px; animation-timing-function: ease-in; } 50% { width: 60px; animation-timing-function: linear; } 100% { width: 10px; } }
+			.bob { height: 10px; width: 10px; animation: bob 200ms ease-out; }");
+		var bob:Div = Owner.root(tree, _ -> new Div({classes: ["bob"]}, tree));
+		@:privateAccess tree.addChild(root.node.id, bob.node.id);
+		frame(16);
+		var bobbed = Lambda.find(trace.tracks, t -> t.kind == Keyframes && t.node == bob.node.id);
+		var bv = bobbed == null ? null : MotionCheck.check(bobbed, trace);
+		check("a keyframes run records each segment's curve and follows it", bv != null && bobbed.keyframes != null && bobbed.keyframes.length == 3
+			&& bobbed.samples.filter(x -> x.eased != null).length >= 10 && bv.issues.length == 0, bv == null ? null : [bobbed.keyframes, bv.issues]);
+
 		// --- A spring, against the oscillator's closed form ---
 		var spring = new ashui.animation.Spring(ashui.animation.SpringConfig.wobbly(), 0);
 		var id = scheduler.register(spring);
@@ -189,6 +200,22 @@ class Motion {
 		var json:Dynamic = haxe.Json.parse(MotionCheck.json(trace));
 		check("the trace reads back as JSON, samples and expected values included", json.tracks.length == trace.tracks.length
 			&& json.tracks[0].samples.length > 0 && json.tracks[0].samples[0].expected != null);
+
+		var skewed = MotionTrace.start();
+		var off = MotionTrace.begin(Keyframes, null, null, "@keyframes off (width)", "10px", "10px", 0, 0.2, Linear, null, "skewer");
+		off.keyframes = [{offset: 0, easing: EaseIn}, {offset: 0.5, easing: Linear}, {offset: 1, easing: Linear}];
+		// Each frame eased linearly in the first half, which declares ease-in.
+		for (i in 1...13) {
+			scheduler.tick(1 / 60);
+			var p = Math.min(1, i / 12);
+			var local = p < 0.5 ? p / 0.5 : (p - 0.5) / 0.5;
+			off.sample(p, p, null, null, local);
+		}
+		off.finish(Completed);
+		skewed.stop();
+		check("a keyframe segment off its declared curve is reported", MotionCheck.check(off, skewed).issues
+			.filter(i -> StringTools.startsWith(i, "off its keyframe curve") && i.indexOf("between 0% and 50%") > 0).length == 1,
+			MotionCheck.check(off, skewed).issues);
 
 		var jumps = MotionTrace.start();
 		var jumped = MotionTrace.begin(Transition, null, null, "opacity", "0.5", "1", 0, 0.1, Linear, null, "jumper");
