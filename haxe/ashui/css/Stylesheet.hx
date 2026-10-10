@@ -65,14 +65,15 @@ typedef Diagnostic = {
 typedef CssLoader = (path:String, from:Null<String>) -> Null<{source:String, file:String}>;
 
 /**
-	A parsed CSS stylesheet: its style rules in source order, the custom
-	properties its `:root` rules declare, and its `@keyframes`.
+	A parsed CSS stylesheet. A malformed rule is skipped and reported in
+	`diagnostics` with its line and column; the rest of the sheet still
+	applies.
 
-	`Stylesheet.parse` reads CSS text at run time, and the same parser runs
-	in macros, so a sheet can be checked when the program is compiled, or
-	parsed then entirely (see `CompiledCss`). A
-	malformed rule is skipped and reported in `diagnostics` with its line
-	and column; the rest of the sheet still applies.
+	At run time on HashLink, `Stylesheet.parse` reads CSS text with the
+	native CSS engine, which keeps the sheet; `rules`, `variables` and
+	`keyframes` stay empty, and `diagnostics` and `imports` are filled.
+	`CompiledCss` compiles one with the program. Under the interpreter,
+	`CssParser` reads it into `rules`, `variables` and `keyframes`.
 **/
 class Stylesheet {
 	public final rules:Array<StyleRule> = [];
@@ -86,14 +87,82 @@ class Stylesheet {
 	public final imports:Array<String> = [];
 	public final diagnostics:Array<Diagnostic> = [];
 
-	/** The CSS text it was parsed from, and the file it names, for the native engine to read. **/
+	/** The CSS text it was parsed from, and the file it names. **/
 	public var source(default, null):Null<String> = null;
 
 	public var file(default, null):Null<String> = null;
 
+	/** The program resource holding its compiled form, for one `CompiledCss` made. **/
+	var resource:Null<String> = null;
+
+	#if (hl && !macro)
+	/** The sheet as the native engine parsed it; made when first asked for. **/
+	var parsed:Null<hl.Abstract<"blinc_css_sheet">> = null;
+
+	/** The native engine's parse of it, made the first time it is asked for. **/
+	public function native():hl.Abstract<"blinc_css_sheet"> {
+		if (parsed == null) {
+			if (resource != null) {
+				var bytes = haxe.Resource.getBytes(resource);
+				parsed = ashui.core.externs.CssNative.blinc_css_decode(@:privateAccess bytes.b, bytes.length);
+				if (parsed == null)
+					throw 'Stylesheet: the compiled sheet $file does not decode';
+			} else
+				parsed = ashui.core.externs.CssNative.blinc_css_parse(@:privateAccess (source == null ? "" : source).toUtf8(),
+					@:privateAccess (file == null ? "" : file).toUtf8());
+			diagnostics.resize(0);
+			for (record in records(ashui.core.externs.CssNative.blinc_css_sheet_diagnostics(parsed))) {
+				var f = record.split("\x02");
+				diagnostics.push({
+					severity: f[0] == "error" ? Error : Warning,
+					line: Std.parseInt(f[1]),
+					column: Std.parseInt(f[2]),
+					file: f[3] == "" ? null : f[3],
+					message: f[4]
+				});
+			}
+			imports.resize(0);
+			for (record in records(ashui.core.externs.CssNative.blinc_css_sheet_imports(parsed)))
+				imports.push(record);
+		}
+		return parsed;
+	}
+
+	/** Every declaration of its rules: name, line and column. **/
+	public function declared():Array<{name:String, line:Int, column:Int}> {
+		return [
+			for (record in records(ashui.core.externs.CssNative.blinc_css_sheet_declared(native()))) {
+				var f = record.split("\x02");
+				{name: f[0], line: Std.parseInt(f[1]), column: Std.parseInt(f[2])};
+			}
+		];
+	}
+
+	static function records(b:hl.Bytes):Array<String> {
+		var text = b == null ? "" : @:privateAccess String.fromUTF8(b);
+		return text == "" ? [] : text.split("\x01");
+	}
+	#end
+
 	public function new() {}
 
 	/** A sheet made of what was parsed already: what `CompiledCss` builds at run time. **/
+	/** The sheet `CompiledCss` compiled into program resource `name`, decoded natively when first used. **/
+	public static function fromResource(name:String, file:String):Stylesheet {
+		var sheet = new Stylesheet();
+		sheet.resource = name;
+		sheet.file = file;
+		return sheet;
+	}
+
+	/** A sheet of CSS text, parsed natively when first used. **/
+	static function compiled(source:String, file:Null<String>):Stylesheet {
+		var sheet = new Stylesheet();
+		sheet.source = source;
+		sheet.file = file;
+		return sheet;
+	}
+
 	public static function of(rules:Array<StyleRule>, variables:Map<String, String>, keyframes:Map<String, Keyframes>, imports:Array<String>, ?source:String,
 			?file:String):Stylesheet {
 		var sheet = new Stylesheet();
@@ -116,10 +185,16 @@ class Stylesheet {
 		from the file system relative to the importing file.
 	**/
 	public static function parse(source:String, ?file:String, ?load:CssLoader):Stylesheet {
+		#if (hl && !macro)
+		var sheet = compiled(source, file);
+		sheet.native();
+		return sheet;
+		#else
 		var sheet = CssParser.parse(source, file, load == null ? readFile : load);
 		sheet.source = source;
 		sheet.file = file;
 		return sheet;
+		#end
 	}
 
 	/** Reads `path` relative to the directory of `from`, or as it is. **/

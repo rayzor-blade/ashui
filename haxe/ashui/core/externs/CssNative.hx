@@ -16,6 +16,30 @@ extern class CssNative {
 	/** Parses `source` and adds it at `at`; writes its id to `id`, -1 if none, and returns its diagnostics, each `severity, line, column, file, message`. **/
 	static function blinc_css_add(css:hl.Abstract<"blinc_css">, source:hl.Bytes, file:hl.Bytes, at:Int, id:hl.Ref<Int>):hl.Bytes;
 
+	/** CSS text parsed, as a sheet to add; `file` names it and is where its imports are read from. **/
+	static function blinc_css_parse(source:hl.Bytes, file:hl.Bytes):hl.Abstract<"blinc_css_sheet">;
+
+	/** A compiled sheet decoded, as a sheet to add; null for bytes that do not decode. **/
+	static function blinc_css_decode(bytes:hl.Bytes, length:Int):hl.Abstract<"blinc_css_sheet">;
+
+	/** A parsed sheet's diagnostics, as `blinc_css_add` returns them. **/
+	static function blinc_css_sheet_diagnostics(sheet:hl.Abstract<"blinc_css_sheet">):hl.Bytes;
+
+	/** The files a parsed sheet imported, one per record. **/
+	static function blinc_css_sheet_imports(sheet:hl.Abstract<"blinc_css_sheet">):hl.Bytes;
+
+	/** Every declaration of a parsed sheet's rules: name, line and column per record. **/
+	static function blinc_css_sheet_declared(sheet:hl.Abstract<"blinc_css_sheet">):hl.Bytes;
+
+	/** Adds a parsed sheet at `at`, which stays the caller's; its id. **/
+	static function blinc_css_add_parsed(css:hl.Abstract<"blinc_css">, sheet:hl.Abstract<"blinc_css_sheet">, at:Int):Int;
+
+	/** The `@keyframes` named `name`: a record per frame, offsets split by spaces, then its declarations as items of name, U+0004, value; null for none. **/
+	static function blinc_css_keyframes(css:hl.Abstract<"blinc_css">, name:hl.Bytes):hl.Bytes;
+
+	/** `:root`'s custom property `name`, no `--`; null when no sheet declares it. **/
+	static function blinc_css_root_variable(css:hl.Abstract<"blinc_css">, name:hl.Bytes):hl.Bytes;
+
 	/** Adds a compiled sheet at `at`; its id, or -1 for bytes that do not decode. **/
 	static function blinc_css_add_compiled(css:hl.Abstract<"blinc_css">, bytes:hl.Bytes, length:Int, at:Int):Int;
 

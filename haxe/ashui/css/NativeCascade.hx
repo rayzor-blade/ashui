@@ -53,12 +53,37 @@ class NativeCascade {
 		for (at => sheet in sheets) {
 			if (ids.exists(sheet))
 				continue;
-			var id = -1;
-			var source = sheet.source == null ? "" : sheet.source;
-			CssNative.blinc_css_add(css(), utf8(source), utf8(sheet.file == null ? "" : sheet.file), at, id);
-			ids.set(sheet, id);
+			ids.set(sheet, CssNative.blinc_css_add_parsed(css(), sheet.native(), at));
 			order.insert(at, sheet);
 		}
+	}
+
+	/** The `@keyframes` named `name` among the sheets in force, a later sheet's over an earlier's. **/
+	public static function keyframes(name:String):Null<Stylesheet.Keyframes> {
+		var b = CssNative.blinc_css_keyframes(css(), utf8(name));
+		if (b == null)
+			return null;
+		var frames:Array<Stylesheet.Keyframe> = [];
+		for (record in text(b).split(RECORD)) {
+			var at = record.indexOf(PAIR);
+			var offsets = record.substr(0, at), declared = record.substr(at + 1);
+			frames.push({
+				offsets: [for (o in offsets.split(" ")) if (o != "") Std.parseFloat(o)],
+				declarations: [
+					for (item in declared.split(ITEM)) if (item != "") {
+						var split = item.indexOf("\x04");
+						{name: item.substr(0, split), value: item.substr(split + 1), important: false, line: 0, column: 0};
+					}
+				]
+			});
+		}
+		return {name: name, frames: frames};
+	}
+
+	/** `:root`'s custom property `name` (no `--`) among the sheets in force, a later sheet's over an earlier's. **/
+	public static function rootVariable(name:String):Null<String> {
+		var b = CssNative.blinc_css_root_variable(css(), utf8(name));
+		return b == null ? null : text(b);
 	}
 
 	/** The theme's variables, `var()`'s last answer. **/

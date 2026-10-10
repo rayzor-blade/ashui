@@ -190,15 +190,14 @@ class Css {
 	}
 
 	static function unknown(sheet:Stylesheet):Void {
-		for (rule in sheet.rules)
-			for (d in rule.declarations)
-				if (!StringTools.startsWith(d.name, "--") && !Properties.known(d.name) && !MOTION.exists(d.name) && !POINTER.exists(d.name))
-					sheet.diagnostics.push({
-						severity: Warning,
-						message: '${d.name} is not a property this supports',
-						line: d.line,
-						column: d.column
-					});
+		for (d in sheet.declared())
+			if (!StringTools.startsWith(d.name, "--") && !Properties.known(d.name) && !MOTION.exists(d.name) && !POINTER.exists(d.name))
+				sheet.diagnostics.push({
+					severity: Warning,
+					message: '${d.name} is not a property this supports',
+					line: d.line,
+					column: d.column
+				});
 	}
 
 	/** Takes `sheet` out of force; what only it set goes back. **/
@@ -514,15 +513,8 @@ class Css {
 
 	/** The `@keyframes` named `name`, the last sheet's that defines it. **/
 	@:allow(ashui.css.Animations)
-	static function keyframes(name:String):Null<Keyframes> {
-		var found:Null<Keyframes> = null;
-		for (sheet in sheets) {
-			var k = sheet.keyframes.get(name);
-			if (k != null)
-				found = k;
-		}
-		return found;
-	}
+	static function keyframes(name:String):Null<Keyframes>
+		return NativeCascade.keyframes(name);
 
 	/** Matches `identity` again and applies what the cascade gives in full, as when an animation hands its properties back. **/
 	@:allow(ashui.css.Animations)
@@ -590,11 +582,7 @@ class Css {
 				var fallback = comma < 0 ? null : StringTools.trim(args.substr(comma + 1));
 				var found = values.get(name);
 				if (found == null)
-					for (sheet in sheets) {
-						var v = sheet.variables.get(name.substr(2));
-						if (v != null)
-							found = v;
-					}
+					found = NativeCascade.rootVariable(name.substr(2));
 				if (found == null) {
 					found = theme().get(name.substr(2));
 				}
