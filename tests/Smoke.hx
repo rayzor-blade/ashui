@@ -959,6 +959,21 @@ class Smoke {
 		clickAt(plain.node.id);
 		check("a Div built in Haxe binds its handler attributes", plainClicks == 1 && plainEntered && ashui.input.Interaction.of(plain.node).focusable,
 			[plainClicks, plainEntered]);
+		// A branch of several elements is laid out in the element the <if> is in, as one would be.
+		var branchTree = new LayoutTree();
+		var shownBranch = Signal.make(false);
+		var bA = new ashui.ui.Ref<Div>(), bB = new ashui.ui.Ref<Div>(), bC = new ashui.ui.Ref<Div>();
+		var branchRoot:Div = Owner.root(branchTree, _ -> hxx('
+			<div flexDirection={Column} width={120} height={100}>
+				<if {shownBranch.get()}><div height={10} /><else><div ref={bA} height={10} /><div ref={bB} height={10} /></if>
+				<for {i in [1]}><div height={5} /><div ref={bC} height={5} /></for>
+			</div>
+		'));
+		branchTree.flush();
+		branchTree.computeLayout(branchRoot.node, 120, 100);
+		var ba = branchTree.getBounds(bA.get().node), bb = branchTree.getBounds(bB.get().node), bc = branchTree.getBounds(bC.get().node);
+		check("several elements in an <if> branch or a <for> body stack in the column, full width", ba.y == 0 && bb.y == 10 && bc.y == 25
+			&& ba.width == 120 && bc.width == 120, [ba, bb, bc]);
 		// ref= names an element inside a template; under <if> it follows the element there now.
 		var refTree = new LayoutTree();
 		var shownRef = Signal.make(true);

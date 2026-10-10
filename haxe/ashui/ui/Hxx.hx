@@ -84,12 +84,19 @@ class Hxx {
 		}
 	}
 
-	/** The elements of a branch or loop body, wrapped in a `Div` if there are several. **/
+	/** The elements of a branch or loop body, wrapped in a fragment `Div` if there are several. **/
 	static function group(nodes:Array<Piece>, pos:Position):Expr {
 		return switch nodes {
 			case [One(e)]: e;
 			case []: Context.error('hxx: this body is empty', pos);
-			case _: macro @:pos(pos) new ashui.ui.Div(null, ${childArray(nodes)});
+			// A fragment, so the body's elements are laid out in the element it is placed in, as one would be.
+			case _: macro @:pos(pos) {
+					var body = new ashui.ui.Div(null, null);
+					body.tree.makeFragment(body.node.id);
+					for (child in ${childArray(nodes)})
+						body.appendChild(child);
+					body;
+				};
 		}
 	}
 
