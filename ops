@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1791595867,"nonce":"S3WfbyWxEtYPE+arl7CVJ729rzg=","status":2}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791596142,"nonce":"lQU3xCEiUsKlly6Fh8sJ6m7NJd0=","message":"Flares also keep an 8px reach, as the blinc_ts session found: a long flare rect's far end, inside the body, still showed on liquid glass as a wedge. 2dd46ab331f6d7e12cc2836aab709495f7849094.","files":null}]}
