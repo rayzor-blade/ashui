@@ -28,8 +28,8 @@ class CssCompiler {
 		var stderr = p.stderr.readAll().toString();
 		var code = p.exitCode();
 		p.close();
-		if (code > 1)
-			Context.error('blinc-css: $stderr', Context.currentPos());
+		if (code > 1 || StringTools.trim(stdout) == "")
+			Context.fatalError('blinc-css (${tool()}) exited with $code: $stderr', Context.currentPos());
 		report(stderr, file, shownAs);
 		var manifest:{imports:Array<String>, classes:Array<String>} = haxe.Json.parse(stdout);
 		return {bytes: sys.io.File.getBytes(out), imports: manifest.imports, classes: manifest.classes};

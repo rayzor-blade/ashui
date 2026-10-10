@@ -31,7 +31,12 @@ class NativeInstall {
 		if (tool == null)
 			return null;
 		var path = Path.join([root(), tool.packagePath]);
-		return FileSystem.exists(path) ? path : null;
+		if (!FileSystem.exists(path))
+			return null;
+		// haxelib unpacks without file modes: the tool is made executable here.
+		if (Sys.systemName() != "Windows")
+			Sys.command("chmod", ["+x", path]);
+		return path;
 	}
 
 	public static function stage():Void {
