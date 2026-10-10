@@ -101,7 +101,7 @@ typedef InputProps = {
 	`.fill`, `.thumb` and `.rest`; a number's steppers `.steppers` with
 	`.step-up` and `.step-down`.
 **/
-class Input extends Component<InputProps> {
+class Input extends Component<InputProps> implements FormControl {
 	/** Inputs by node, for labels to find. **/
 	static final byNode = new Map<String, Input>();
 
@@ -154,20 +154,8 @@ class Input extends Component<InputProps> {
 	/** Keeps its form states, those CSS reads, as its value and constraints make them. **/
 	function constrain(type:String):Void {
 		var i = interaction;
-		i.formState("required").set(props.required == true);
-		i.formState("optional").set(props.required != true);
 		initial = {text: value != null ? value.get() : null, checked: state.get(), group: props.group != null ? props.group.get() : null};
-		new Watch(() -> {
-			var bad = problem() != null;
-			var user = touched.get();
-			[bad, user];
-		}, v -> {
-			var bad = v[0], user = v[1];
-			i.formState("invalid").set(bad);
-			i.formState("valid").set(!bad);
-			i.formState("user-invalid").set(bad && user);
-			i.formState("user-valid").set(!bad && user);
-		});
+		FormStates.keep(i, props.required == true, problem, touched);
 		if (value != null && props.placeholder != null) {
 			var text = value;
 			new Watch(() -> text.get() == "", empty -> i.formState("placeholder-shown").set(empty));
@@ -214,11 +202,7 @@ class Input extends Component<InputProps> {
 		if (props.pattern != null && !(try new EReg("^(?:" + props.pattern + ")$", "u").match(v) catch (_:Dynamic) true))
 			return "Please match the requested format.";
 		// As a browser, too short only once the user has edited it.
-		if (props.minlength != null && v.length < props.minlength && touched.get())
-			return 'Please lengthen this text to ${props.minlength} characters or more.';
-		if (props.maxlength != null && v.length > props.maxlength)
-			return 'Please shorten this text to ${props.maxlength} characters or less.';
-		return null;
+		return FormStates.lengthProblem(v, props.minlength, props.maxlength, touched.get());
 	}
 
 	/** Whether it is valid now. **/

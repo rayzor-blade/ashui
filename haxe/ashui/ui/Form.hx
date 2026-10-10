@@ -86,51 +86,49 @@ class Form extends Component<FormProps> {
 		return box;
 	}
 
-	/** The inputs and selects in it, in document order. **/
-	function controls():{inputs:Array<Input>, all:Array<{name:Null<String>, value:Void->Null<String>}>} {
-		var inputs = [], all = [];
+	/** The controls in it, in document order: inputs, text areas and selects. **/
+	function controls():Array<FormControl> {
+		var found:Array<FormControl> = [];
 		var tree = node.tree;
 		function walk(n:haxe.Int64) {
 			for (c in tree.children(n)) {
-				var input = Input.at(tree, c);
-				if (input != null) {
-					inputs.push(input);
-					all.push({name: input.name(), value: input.formValue});
-					continue;
-				}
-				var select = Select.at(c);
-				if (select != null) {
-					all.push({name: select.name(), value: () -> select.value.get()});
+				var control:Null<FormControl> = Input.at(tree, c);
+				if (control == null)
+					control = TextArea.at(c);
+				if (control == null)
+					control = Select.at(c);
+				if (control != null) {
+					found.push(control);
 					continue;
 				}
 				walk(c);
 			}
 		}
 		walk(node.id);
-		return {inputs: inputs, all: all};
+		return found;
 	}
 
 	/** Whether every control in it is valid now. **/
 	public function checkValidity():Bool
-		return Lambda.foreach(controls().inputs, i -> i.checkValidity());
+		return Lambda.foreach(controls(), c -> c.checkValidity());
 
 	/** Submits it, as its submit button does: checked first unless `novalidate`. **/
 	public function requestSubmit():Void {
-		var c = controls();
+		var all = controls();
 		if (props.novalidate != true) {
-			var invalid = c.inputs.filter(i -> !i.checkValidity());
+			var invalid = all.filter(c -> !c.checkValidity());
 			if (invalid.length > 0) {
-				for (i in c.inputs)
-					i.touch();
+				for (c in all)
+					c.touch();
 				invalid[0].focus();
 				return;
 			}
 		}
 		var data = new FormData();
-		for (control in c.all) {
-			var v = control.value();
-			if (control.name != null && v != null)
-				data.entries.push({name: control.name, value: v});
+		for (control in all) {
+			var name = control.name(), v = control.formValue();
+			if (name != null && v != null)
+				data.entries.push({name: name, value: v});
 		}
 		if (props.onSubmit != null)
 			props.onSubmit(data);
@@ -138,8 +136,8 @@ class Form extends Component<FormProps> {
 
 	/** Puts each control's first value back, untouched, as its reset button does. **/
 	public function reset():Void {
-		for (i in controls().inputs)
-			i.reset();
+		for (c in controls())
+			c.reset();
 		if (props.onReset != null)
 			props.onReset();
 	}

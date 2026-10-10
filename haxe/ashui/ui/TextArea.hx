@@ -22,7 +22,18 @@ typedef TextAreaProps = {
 	/** Called with the new value after each edit. **/
 	?onInput:String->Void,
 	/** Called with the value on Command+Enter (Control+Enter elsewhere). **/
-	?onSubmit:String->Void
+	?onSubmit:String->Void,
+
+	/** Its name, which a form submits its text under. **/
+	?name:String,
+
+	/** Invalid while empty. **/
+	?required:Bool,
+
+	/** Invalid when shorter, once the user has edited it, or longer, in characters. **/
+	?minlength:Int,
+
+	?maxlength:Int
 }
 
 /**
@@ -33,8 +44,18 @@ typedef TextAreaProps = {
 	to the ends of the line and Command with the arrows to the ends of the
 	line or the text. Command+Enter calls `onSubmit`. A selection is drawn
 	line by line. The caret is kept in view as it moves.
+
+	In a `Form` it submits its text under `name`, and is valid by HTML's
+	constraints `required`, `minlength` and `maxlength`, as `Input` is:
+	CSS's `:valid`, `:invalid`, `:user-invalid` and the rest follow them.
 **/
-class TextArea extends Component<TextAreaProps> {
+class TextArea extends Component<TextAreaProps> implements FormControl {
+	static final byNode = new Map<String, TextArea>();
+
+	/** The text area at `node`, null if it is none, for a form to find. **/
+	public static function at(node:haxe.Int64):Null<TextArea>
+		return byNode.get(haxe.Int64.toStr(node));
+
 	static inline var PADDING = 10.0;
 	static inline var BORDER = 2.0;
 	/** Room kept right of the text for the caret at the end of a full line. **/
@@ -47,13 +68,21 @@ class TextArea extends Component<TextAreaProps> {
 	var box:Div;
 	var text:Text;
 	var scroller:Null<Scroll>;
+	final touched = Signal.make(false);
+	var edited = false;
+	var initial = "";
 
 	function render():Element {
 		var width:Single = props.width != null ? props.width : 320;
 		var height:Single = props.height != null ? props.height : 120;
 		var wrapWidth:Single = width - 2 * (PADDING + BORDER) - CARET_ROOM;
 		var e = editing = new TextEditing(props.value != null ? props.value : Signal.make(""), true, wrapWidth);
-		e.onInput = props.onInput;
+		var onInput = props.onInput;
+		e.onInput = v -> {
+			edited = true;
+			if (onInput != null)
+				onInput(v);
+		};
 		e.onSubmit = props.onSubmit;
 		var value = e.value;
 		var shown = Computed.make(() -> e.display());
@@ -122,6 +151,18 @@ class TextArea extends Component<TextAreaProps> {
 		e.pageLines = () -> e.lineHeight > 0 ? Std.int(Math.max(1, Math.floor((height - 2 * (PADDING + BORDER)) / e.lineHeight) - 1)) : 1;
 		if (props.disabled != null)
 			e.interaction.setDisabled(props.disabled);
+		initial = value.get();
+		FormStates.keep(e.interaction, props.required == true, problem, touched);
+		if (props.placeholder != null)
+			new Watch(() -> value.get() == "", empty -> e.interaction.formState("placeholder-shown").set(empty));
+		// Leaving it after an edit touches it.
+		e.interaction.onBlur(_ -> if (edited) touched.set(true));
+		e.interaction.onFocus(_ -> edited = false);
+		if (props.name != null)
+			ashui.css.Identity.of(box.tree, box.node.id).setAttribute("name", props.name);
+		var key = haxe.Int64.toStr(box.node.id);
+		byNode.set(key, this);
+		ashui.reactive.Owner.onCleanup(() -> byNode.remove(key));
 		// Keeps the caret inside the visible part of the area.
 		new Watch(() -> (caretTop.get() : Float), top -> reveal(top));
 		// The blink stops while the window is in the background or hidden, and starts again on return.
@@ -133,6 +174,39 @@ class TextArea extends Component<TextAreaProps> {
 		});
 		return box;
 	}
+
+	/** Why it is invalid, as a browser says it, or null when it is valid. **/
+	function problem():Null<String> {
+		var v = editing.value.get();
+		if (v == "")
+			return props.required == true ? "Please fill in this field." : null;
+		return FormStates.lengthProblem(v, props.minlength, props.maxlength, touched.get());
+	}
+
+	public function name():Null<String>
+		return props.name;
+
+	public function formValue():Null<String>
+		return editing.value.get();
+
+	public function checkValidity():Bool
+		return problem() == null;
+
+	public function validationMessage():String {
+		var p = problem();
+		return p == null ? "" : p;
+	}
+
+	public function touch():Void
+		touched.set(true);
+
+	public function reset():Void {
+		editing.value.set(initial);
+		touched.set(false);
+	}
+
+	public function focus():Void
+		Focus.set(editing.interaction, true);
 
 	/** The selection as one rect per line it covers, in the text's coordinates. **/
 	function selectionRects(caret:Int, anchor:Int, s:String):Array<{x:Single, y:Single, w:Single, h:Single}> {

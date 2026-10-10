@@ -1714,6 +1714,61 @@ class Smoke {
 		check("a reset button puts each control's first value back", email.get() == "" && nick.get() == "start" && !agreed2.get(),
 			[email.get(), nick.get(), agreed2.get()]);
 
+		// --- Text areas and selects in a form: constraints, submit and reset ---
+		var areaTree = new LayoutTree();
+		var note = Signal.make("");
+		var fruit = Signal.make("");
+		var sent:Null<ashui.ui.Form.FormData> = null;
+		var areaRoot:Div = Owner.root(areaTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Start} width={400}>
+				<form onSubmit={d -> sent = d}>
+					<textarea name="note" value={note} required={true} maxlength={10} />
+					<select name="fruit" value={fruit} required={true} placeholder="Choose a fruit">
+						<option value="apple">Apple</option>
+						<option value="pear">Pear</option>
+					</select>
+					<button type="reset">Reset</button>
+					<button>Send</button>
+				</form>
+			</div>
+		'));
+		function areaSettle() {
+			areaTree.flush();
+			areaTree.computeLayout(areaRoot.node, 400, 600);
+			areaTree.flush();
+		}
+		areaSettle();
+		var areaForm = areaTree.children(areaRoot.node.id)[0];
+		var areaFields = [for (c in areaTree.children(areaForm)) c];
+		function areaClick(n:haxe.Int64) {
+			var b = areaTree.getBounds(new ashui.layout.Node(n));
+			ashui.input.Pointer.move(areaTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(areaTree);
+			ashui.input.Pointer.release(areaTree);
+			areaSettle();
+		}
+		var noteArea = ashui.ui.TextArea.at(areaFields[0]), fruitSelect = ashui.ui.Select.at(areaFields[1]);
+		var noteState = @:privateAccess noteArea.editing.interaction, fruitState = @:privateAccess fruitSelect.interaction;
+		var requiredBoth = noteState.formState("required").get() && fruitState.formState("required").get();
+		areaClick(areaFields[3]);
+		check("a required text area and select stop a submit, and show :user-invalid", sent == null && requiredBoth
+			&& noteState.formState("user-invalid").get() && fruitState.formState("user-invalid").get()
+			&& noteArea.validationMessage() == "Please fill in this field." && fruitSelect.validationMessage() == "Please select an item in the list.",
+			[sent == null, noteArea.validationMessage(), fruitSelect.validationMessage()]);
+		note.set("a note too long");
+		areaSettle();
+		var tooLong = noteArea.validationMessage();
+		note.set("hello");
+		fruit.set("pear");
+		areaSettle();
+		areaClick(areaFields[3]);
+		check("a text area's maxlength is a constraint, and a valid form submits its text and choice", tooLong.indexOf("10") >= 0 && sent != null
+			&& sent.get("note") == "hello" && sent.get("fruit") == "pear" && noteState.formState("valid").get(),
+			[tooLong, sent == null ? null : [for (e in sent.entries) e.name + "=" + e.value]]);
+		areaClick(areaFields[2]);
+		check("reset puts a text area's and a select's first values back", note.get() == "" && fruit.get() == ""
+			&& !noteState.formState("user-invalid").get(), [note.get(), fruit.get()]);
+
 		// --- CSS mask-image ---
 		var maskSheet = ashui.css.Css.load('.faded { mask-image: linear-gradient(to right, black, transparent) } .plain { mask-image: none } .wrong { mask-image: url(x.png) }');
 		check("mask-image takes a gradient or none, and reports anything else", maskSheet.diagnostics.length == 0

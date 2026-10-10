@@ -21,6 +21,9 @@ typedef SelectProps = {
 
 	?name:String,
 
+	/** Invalid while its value is empty, as when a placeholder or an option with `value=""` shows. **/
+	?required:Bool,
+
 	/** Lays out only nearby options in a long, ungrouped list. Each option must have this fixed height, including padding. **/
 	?virtualRowHeight:Single,
 
@@ -55,7 +58,7 @@ private typedef Choice = {
 	the options in it `option` (`:checked` the chosen one, `:focus` the one
 	the keys are on) and the group headings `optgroup`.
 **/
-class Select extends Component<SelectProps> {
+class Select extends Component<SelectProps> implements FormControl {
 	static final byNode = new Map<String, Select>();
 
 	/** The select at `node`, null if it is none, for a form to find. **/
@@ -72,6 +75,8 @@ class Select extends Component<SelectProps> {
 	var choices:Array<Choice> = [];
 	var button:Div;
 	var interaction:Interaction;
+	final touched = Signal.make(false);
+	var initial = "";
 	var open:Null<TopEntry> = null;
 	var typed = "";
 	var typedAt = 0.0;
@@ -131,6 +136,8 @@ class Select extends Component<SelectProps> {
 				choose(match.option.valueText(), false);
 		});
 		Owner.onCleanup(() -> if (open != null) open.close());
+		initial = value.get();
+		FormStates.keep(interaction, props.required == true, problem, touched);
 		var key = haxe.Int64.toStr(button.node.id);
 		byNode.set(key, this);
 		Owner.onCleanup(() -> byNode.remove(key));
@@ -142,9 +149,37 @@ class Select extends Component<SelectProps> {
 		return c == null ? "" : c.option.labelText();
 	}
 
+	/** Why it is invalid, as a browser says it, or null when it is valid. **/
+	function problem():Null<String>
+		return props.required == true && value.get() == "" ? "Please select an item in the list." : null;
+
+	public function formValue():Null<String>
+		return value.get();
+
+	public function checkValidity():Bool
+		return problem() == null;
+
+	public function validationMessage():String {
+		var p = problem();
+		return p == null ? "" : p;
+	}
+
+	public function touch():Void
+		touched.set(true);
+
+	public function reset():Void {
+		value.set(initial);
+		touched.set(false);
+	}
+
+	public function focus():Void
+		Focus.set(interaction, true);
+
 	/** Sets the value, as the user choosing does, and closes the list. **/
 	function choose(v:String, close = true):Void {
 		var changed = value.get() != v;
+		// Choosing is the user changing it: `:user-invalid` may show.
+		touched.set(true);
 		value.set(v);
 		if (changed && props.onChange != null)
 			props.onChange(v);
