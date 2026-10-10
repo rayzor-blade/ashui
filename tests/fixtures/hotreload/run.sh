@@ -8,8 +8,7 @@
 #   v2  body-only template edit: the panel renders the new code, state kept
 #   v3  adds a reactive attribute, so new functions: reloads on an Ash that adds them
 #   v4  body-only, but the string literals change length
-#   v5  adds a child component, a class the running program lacks:
-#       reloading it needs an Ash that adds classes
+#   v5  adds a child component, a class the running program lacks
 #   v6  a template starts calling a standard library static (Math.round)
 #
 # ASH names the ash binary to run, ../ash's release build by default.
