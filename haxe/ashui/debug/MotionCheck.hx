@@ -89,6 +89,8 @@ class MotionCheck {
 			else
 				notes.push("ran where it is not drawn");
 		}
+		if (track.end == Snapped && track.duration > 0)
+			issues.push('snapped: its transition declares ${ms(track.duration)}, yet it changed at once');
 		if (track.duration > 0 && track.kind != Spring && track.end == Completed && s.length <= 1)
 			issues.push("snapped: no frames between its start and end");
 		if (startLag > 0.0005)

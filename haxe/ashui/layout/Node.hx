@@ -48,6 +48,12 @@ class Node {
 	**/
 	var reactives:Null<Map<Int, Dynamic>> = null;
 
+	/**
+		Constants bound with no tween, by property, for properties that can
+		move: a transition arriving later moves the next change from here.
+	**/
+	var settled:Null<Map<Int, Dynamic>> = null;
+
 	/** Puts each reactive binding the transition now covers behind a tween, from where it is. **/
 	function retween():Void {
 		if (transition == null || reactives == null)
@@ -122,12 +128,15 @@ class Node {
 				tween.follow(cast reactive);
 				return;
 			}
-			var from = fresh && restyling ? ashui.animation.Tweened.initial(key) : null;
+			var from = fresh && restyling ? ashui.animation.Tweened.initial(key) : settled != null ? settled.get(key) : null;
 			tween = ashui.animation.Tweened.bind(this, key, timing, cast reactive, from);
 			if (tween != null) {
 				tweens.set(key, tween);
+				if (settled != null)
+					settled.remove(key);
 				return;
 			}
+			traceSnap(key, from, reactive);
 		}
 		// Remembered while it follows a signal or computed, for a transition that arrives later.
 		switch (reactive : ReactiveType<T>) {
@@ -135,9 +144,16 @@ class Node {
 				if (reactives == null)
 					reactives = new Map();
 				reactives.set(key, reactive);
-			case Const(_):
+				if (settled != null)
+					settled.remove(key);
+			case Const(v):
 				if (reactives != null)
 					reactives.remove(key);
+				if (ashui.animation.Tweened.initial(key) != null) {
+					if (settled == null)
+						settled = new Map();
+					settled.set(key, v);
+				}
 		}
 		bind(prop, reactive);
 	}
@@ -265,14 +281,39 @@ class Node {
 		var prop:PropertyId = key;
 		var tween = tweens == null ? null : tweens.get(prop);
 		var initial = ashui.animation.Tweened.initial(prop);
-		if (tween != null && initial != null && transition != null && transition.covers(prop)) {
-			tween.follow(Const(initial));
-			return;
+		if (initial != null && transition != null && transition.covers(prop)) {
+			if (tween != null) {
+				tween.follow(Const(initial));
+				return;
+			}
+			var at = settled != null ? settled.get(key) : null;
+			tween = at == null ? null : ashui.animation.Tweened.bind(this, prop, transition.forProperty(prop), Const(initial), at);
+			if (tween != null) {
+				if (tweens == null)
+					tweens = new Map();
+				tweens.set(key, tween);
+				settled.remove(key);
+				return;
+			}
+			traceSnap(prop, at, Const(initial));
 		}
 		// Forgotten, so a later value starts a tween from where the property is, not from where this one left it.
 		if (tween != null)
 			tweens.remove(prop);
+		if (settled != null)
+			settled.remove(key);
 		BlincNative.blinc_unset(id, key);
+	}
+
+	/** Records, while a motion trace runs, a change a transition covers that took effect with no tween. **/
+	function traceSnap<T>(prop:PropertyId, from:Null<Dynamic>, to:IntoReactive<T>):Void {
+		if (ashui.debug.MotionTrace.current == null || transition == null)
+			return;
+		var timing = transition.forProperty(prop);
+		var t = ashui.debug.MotionTrace.begin(Transition, tree, id, ashui.debug.PropertyNames.name(prop), ashui.animation.Tweened.describe(prop, from),
+			ashui.animation.Tweened.describe(prop, ashui.animation.Tweened.read(cast to)), timing.delay(), timing.seconds(), timing.curve());
+		if (t != null)
+			t.finish(Snapped);
 	}
 
 	/** A corner shape shares the radius's property but switches at once. **/

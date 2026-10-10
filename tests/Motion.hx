@@ -111,6 +111,18 @@ class Motion {
 		check("a binding made before its transition, as a progress bar's width, moves by the transition when it arrives",
 			grew != null && grew.end == Completed && grew.from == "0.2" && grew.to == "0.9", grew == null ? null : [grew.from, grew.to, grew.end]);
 
+		// --- A value set with no transition, then changed by a rule that brings one: it moves, as CSS's after-change style says ---
+		ashui.css.Css.load(".late { width: 10px; height: 10px; opacity: 0.5; } .late.go { opacity: 1; transition: opacity 100ms linear; }");
+		var lateClasses = Signal.make(["late"]);
+		var lateBox:Div = Owner.root(tree, _ -> new Div({classes: lateClasses}, tree));
+		@:privateAccess tree.addChild(root.node.id, lateBox.node.id);
+		frame(2);
+		lateClasses.set(["late", "go"]);
+		frame(8);
+		var brightened = Lambda.find(trace.tracks, t -> t.node == lateBox.node.id && t.property == "opacity");
+		check("a value changed by the rule that brings its transition moves from where it was", brightened != null && brightened.end == Completed
+			&& brightened.from == "0.5" && brightened.to == "1", brightened == null ? null : [brightened.from, brightened.to, brightened.end]);
+
 		// --- A spring, against the oscillator's closed form ---
 		var spring = new ashui.animation.Spring(ashui.animation.SpringConfig.wobbly(), 0);
 		var id = scheduler.register(spring);
@@ -177,6 +189,13 @@ class Motion {
 		var json:Dynamic = haxe.Json.parse(MotionCheck.json(trace));
 		check("the trace reads back as JSON, samples and expected values included", json.tracks.length == trace.tracks.length
 			&& json.tracks[0].samples.length > 0 && json.tracks[0].samples[0].expected != null);
+
+		var jumps = MotionTrace.start();
+		var jumped = MotionTrace.begin(Transition, null, null, "opacity", "0.5", "1", 0, 0.1, Linear, null, "jumper");
+		jumped.finish(Snapped);
+		jumps.stop();
+		check("a change a transition covers that took effect at once is reported", MotionCheck.check(jumped, jumps).issues
+			.filter(i -> StringTools.startsWith(i, "snapped: its transition declares 100ms")).length == 1, MotionCheck.check(jumped, jumps).issues);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

@@ -113,6 +113,7 @@ class Tweened<T> {
 		}
 	}
 
+	@:allow(ashui.layout.Node)
 	static function read<T>(value:IntoReactive<T>):T {
 		return switch (value : ReactiveType<T>) {
 			case Const(v): v;
@@ -204,8 +205,11 @@ class Tweened<T> {
 		}
 	}
 
-	/** A value as the motion report writes it, read by the property's type. **/
-	function text(v:T):String {
+	function text(v:T):String
+		return describe(prop, v);
+
+	/** A value of `prop` as the motion report writes it, read by the property's type. **/
+	public static function describe(prop:PropertyId, v:Dynamic):String {
 		if (v == null)
 			return "none";
 		var d:Dynamic = v;
