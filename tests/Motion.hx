@@ -245,6 +245,30 @@ class Motion {
 			[liveCounts, replayCounts, replayTyped]);
 		check("nothing records while no log is", ashui.debug.InputLog.current == null);
 
+		// --- Tree snapshots and their diff ---
+		ashui.css.Css.load(".hov { width: 20px; height: 20px; background: #000000; } .hov:hover { background: #ffffff; }");
+		var shotTree = new LayoutTree();
+		var shotRoot:Div = Owner.root(shotTree, _ -> new Div({width: 100, height: 100}, [new Div({classes: ["hov"], onClick: _ -> {}}, shotTree)], shotTree));
+		function settle() {
+			ashui.css.Css.update();
+			shotTree.flush();
+			shotTree.computeLayout(shotRoot.node, 100, 100);
+		}
+		settle();
+		var first = ashui.debug.TreeSnapshot.take(shotTree);
+		ashui.input.Pointer.move(shotTree, 5, 5);
+		var extra:Div = Owner.root(shotTree, _ -> new Div({width: 30, height: 10}, shotTree));
+		shotTree.addChild(shotRoot.node.id, extra.node.id);
+		settle();
+		var second = ashui.debug.TreeSnapshot.take(shotTree);
+		var d = ashui.debug.TreeSnapshot.diff(first, second);
+		var hovered = Lambda.find(d.changed, c -> c.label == "div.hov");
+		check("a snapshot diff names the element added and the one hovered, its states and restyled background",
+			first.elements.length == 2 && d.added.length == 1 && d.removed.length == 0 && hovered != null && hovered.states != null
+			&& hovered.states.to.indexOf("hover") >= 0 && Lambda.exists(hovered.style, x -> x.name == "background" && x.to == "#ffffff"),
+			ashui.debug.TreeSnapshot.lines(d));
+		check("a snapshot reads back as JSON", (haxe.Json.parse(second.json()).elements : Array<Dynamic>).length == 3);
+
 		var skewed = MotionTrace.start();
 		var off = MotionTrace.begin(Keyframes, null, null, "@keyframes off (width)", "10px", "10px", 0, 0.2, Linear, null, "skewer");
 		off.keyframes = [{offset: 0, easing: EaseIn}, {offset: 0.5, easing: Linear}, {offset: 1, easing: Linear}];

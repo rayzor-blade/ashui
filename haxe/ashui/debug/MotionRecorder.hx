@@ -30,7 +30,9 @@ typedef MotionRecordOptions = {
 	/** Frames in the filmstrip, picked evenly; 12 by default. **/
 	?thumbs:Int,
 	/** The page colour frames are cleared to. **/
-	?clear:Int
+	?clear:Int,
+	/** Whether it writes the tree each frame and what changed in it; true by default. **/
+	?tree:Bool
 }
 
 /** What a recording wrote, and the trace it made. **/
@@ -54,7 +56,10 @@ typedef MotionRecording = {
 	  its number and time, to see a whole animation in one image;
 	- `curves.png`, every track's curve as declared and as it ran;
 	- `report.txt`, `MotionCheck`'s verdict on every track, and
-	  `trace.json`, the whole trace.
+	  `trace.json`, the whole trace;
+	- `tree-first.json` and `tree-last.json`, the tree as the first and
+	  last frames drew it, and `tree.txt`, what changed in it frame by
+	  frame: elements added, removed, moved, restyled and their states.
 
 	A line goes to `events.log` naming the directory and how many tracks had
 	problems, for an agent tailing it to read the report and look at the
@@ -107,6 +112,9 @@ class MotionRecorder {
 		var paths = [], pngs = [], times = [];
 		var minFrames = o.minFrames == null ? 0 : o.minFrames;
 		var quiet = 0;
+		var shots = o.tree != false;
+		var shot:Null<TreeSnapshot> = null;
+		var changes = new StringBuf();
 		try {
 			for (i in 0...frames) {
 				if (o.before != null)
@@ -117,6 +125,17 @@ class MotionRecorder {
 				if (overlay == null)
 					trace.observe(tree);
 				var png = capture(offscreen, tree, root, width, height, scale);
+				if (shots) {
+					var next = TreeSnapshot.take(tree, root.node.id);
+					if (shot == null)
+						sys.io.File.saveContent(haxe.io.Path.join([dir, "tree-first.json"]), next.json());
+					else {
+						var d = TreeSnapshot.lines(TreeSnapshot.diff(shot, next));
+						if (d != "")
+							changes.add('frame $i (${Math.round((MotionTrace.clock() - trace.started) * 1000)}ms)\n$d\n');
+					}
+					shot = next;
+				}
 				var path = haxe.io.Path.join([dir, 'frame-${StringTools.lpad(Std.string(i), "0", 3)}.png']);
 				sys.io.File.saveBytes(path, png);
 				paths.push(sys.FileSystem.absolutePath(path));
@@ -139,6 +158,10 @@ class MotionRecorder {
 		if (overlay != null)
 			offscreen.overlays.remove(overlay);
 		trace.stop();
+		if (shot != null) {
+			sys.io.File.saveContent(haxe.io.Path.join([dir, "tree-last.json"]), shot.json());
+			sys.io.File.saveContent(haxe.io.Path.join([dir, "tree.txt"]), changes.toString());
+		}
 
 		var written = write(name, dir, offscreen, trace, pngs, times, width, height, o.thumbs == null ? 12 : o.thumbs);
 		return {
