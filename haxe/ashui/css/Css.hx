@@ -105,6 +105,11 @@ class Css {
 	}
 
 	static function mediaChanged():Void {
+		#if ashui_native_css
+		nativeEnvironment();
+		ashui.core.Work.notify();
+		return;
+		#end
 		var env = environment();
 		var state = new StringBuf();
 		for (sheet in sheets)
@@ -298,6 +303,12 @@ class Css {
 	static function changed():Void {
 		hook();
 		mediaState = "";
+		#if ashui_native_css
+		NativeCascade.sync(sheets);
+		NativeCascade.setTheme(theme());
+		nativeEnvironment();
+		ashui.core.Work.notify();
+		#end
 		index = [for (sheet in sheets) indexOf(sheet)];
 		theme();
 		usesHas = Lambda.exists(sheets, s -> Lambda.exists(s.rules, r -> Lambda.exists(r.selectors, hasHas)));
@@ -358,11 +369,31 @@ class Css {
 			return;
 		hooked = true;
 		// An element with declarations of its own is styled with no sheet loaded, as Tw's text classes are.
+		#if ashui_native_css
+		// Every element is described to the engine, those made before now too.
+		for (tree => nodes in @:privateAccess Identity.trees)
+			for (identity in nodes)
+				NativeCascade.describe(identity);
+		Identity.hooks.push(identity -> {
+			NativeCascade.describe(identity);
+			ashui.core.Work.notify();
+		});
+		Identity.forgetHooks.push(identity -> {
+			release(identity);
+			NativeCascade.forget(identity);
+		});
+		LayoutTree.childrenHooks.push((tree, parent) -> {
+			NativeCascade.childrenChanged(tree, parent);
+			ashui.core.Work.notify();
+		});
+		LayoutTree.flushHooks.push(flushNative);
+		#else
 		Identity.hooks.push(identity -> if (sheets.length > 0 || applied.exists(identity) || identity.inlineDeclarations() != null)
 			markChanged(identity));
 		Identity.forgetHooks.push(release);
 		LayoutTree.childrenHooks.push((tree, parent) -> if (sheets.length > 0) markSubtree(tree, parent));
 		LayoutTree.flushHooks.push(flush);
+		#end
 	}
 
 	// --- What to match again ---
@@ -415,6 +446,35 @@ class Css {
 	}
 
 	// --- Applying ---
+
+	#if ashui_native_css
+	static function nativeEnvironment():Void {
+		var env = environment();
+		NativeCascade.setEnvironment(env.width, env.height, env.dark, rootFontSize);
+	}
+
+	/** Restyles through the engine and applies what changed, parents first. **/
+	static function flushNative(tree:LayoutTree):Void {
+		// Marked to apply again, as an animation that ended hands back to the cascade: applied though the engine saw no change.
+		var again = pending.get(tree);
+		pending.remove(tree);
+		// A theme set since the sheets were: its variables go to the engine.
+		if (themeVariables == null && ashui.theme.ThemeState.tryGet() != null)
+			NativeCascade.setTheme(theme());
+		var changed = NativeCascade.restyle(tree);
+		if (again != null)
+			for (identity in again)
+				if (changed.indexOf(identity) < 0 && Identity.of(tree, identity.node.id) == identity)
+					changed.push(identity);
+		for (identity in changed) {
+			var style = NativeCascade.style(identity);
+			var up = identity.tree.ancestors(identity.node.id);
+			var parent = up.length == 0 ? null : Identity.of(identity.tree, up[0]);
+			var fontSize = parent == null ? rootFontSize : NativeCascade.style(parent).fontSize;
+			apply(identity, style.resolved, style.values, fontSize, style.fontSize, new Map(), null);
+		}
+	}
+	#end
 
 	static function flush(tree:LayoutTree):Void {
 		var nodes = pending.get(tree);
@@ -529,6 +589,17 @@ class Css {
 			ownFontSize = pixelsOr(resolved.get("font-size"), fontSize);
 			values.set("font-size", '${ownFontSize}px');
 		}
+		apply(identity, resolved, values, fontSize, ownFontSize, from, walk);
+	}
+
+	/**
+		Applies `identity`'s resolved declarations: `fontSize` is its parent's,
+		`ownFontSize` its own. With `walk`, its children are restyled when
+		what it passes down changed.
+	**/
+	static function apply(identity:Identity, resolved:Map<String, String>, values:Map<String, String>, fontSize:Float, ownFontSize:Float,
+			from:Map<String, Declaration>, walk:Null<TreeWalk>):Void {
+		var node = identity.node.id;
 		var signature = [for (name => v in resolved) '$name:$v'];
 		signature.sort(Reflect.compare);
 		var sig = signature.join(";");
@@ -643,7 +714,7 @@ class Css {
 			hook(identity);
 
 		// Inherited values changed: the children inherit again.
-		if (last == null || inheritedSignature(last.values) != inheritedSignature(values))
+		if (walk != null && (last == null || inheritedSignature(last.values) != inheritedSignature(values)))
 			for (child in walk.children(node)) {
 				var c = Identity.of(identity.tree, child);
 				if (c != null)
@@ -717,6 +788,9 @@ class Css {
 			themeWatched = true;
 			new ashui.reactive.Watch(() -> state.revision.get(), _ -> {
 				themeVariables = null;
+				#if ashui_native_css
+				NativeCascade.setTheme(theme());
+				#end
 				for (d in themeDependents.keys())
 					mark(d);
 				mediaChanged();

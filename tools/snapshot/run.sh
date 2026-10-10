@@ -6,6 +6,7 @@
 #   run.sh Scene.hx           render once
 #   run.sh --watch Scene.hx   render again whenever the scene, ashui's Haxe
 #                             or the resolved blinc_abi dependency changes
+#   ASHUI_HAXE_FLAGS=...      adds compiler flags, as -D ashui_native_css
 #   ASH=path run.sh ...       run on that ash binary rather than ../ash's
 #                             release build
 #   run.sh --window Scene.hx  open the scene in a window instead, live; a
@@ -105,7 +106,7 @@ print(pathlib.Path(package["manifest_path"]).parent / "src")')
 	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" --class-path "$repo/media/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" --class-path "$vib/ash/haxelib/ash-simd" -D ash_simd \
 		--class-path "$vib/hlavi/haxe" -D "hlavi_hdll=${media_hdll:-}" $media_args \
-		--macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' -D "ashui_css=$css" $defines \
+		--macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' -D "ashui_css=$css" $defines ${ASHUI_HAXE_FLAGS:-} \
 		--class-path "$(dirname "$scene")" -main "$name" -hl "bin/$name.hl" 2>&1); then
 		echo "error $name does not compile: $(echo "$out" | grep -v Warning | head -1)" >> "$events"
 		echo "$out" >&2

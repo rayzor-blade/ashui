@@ -30,7 +30,16 @@ class Identity {
 		so they see the elements the author wrote. Its own type and classes
 		still match.
 	**/
-	public var anonymous = false;
+	public var anonymous(default, set) = false;
+
+	function set_anonymous(v:Bool):Bool {
+		if (v != anonymous) {
+			anonymous = v;
+			for (hook in hooks)
+				hook(this);
+		}
+		return v;
+	}
 
 	/** The tree its node is in. **/
 	public var tree(default, null):LayoutTree;

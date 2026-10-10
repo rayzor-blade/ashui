@@ -36,8 +36,8 @@ if [ -x ../../ash/target/release/ash ]; then
 fi
 runtime="${HL:-$runtime}"
 
-# tink's own sources use deprecated metadata.
-haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated --macro ashui.ui.Markup.enable()"
+# tink's own sources use deprecated metadata. ASHUI_HAXE_FLAGS adds compiler flags, as -D ashui_native_css.
+haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated --macro ashui.ui.Markup.enable() ${ASHUI_HAXE_FLAGS:-}"
 
 # The sibling libraries' release builds are used when there are any, the debug ones otherwise.
 # A library copied over an older copy in place keeps a stale code signature
@@ -130,7 +130,7 @@ memory)
 	run memory.hl computed noflush
 	;;
 "")
-	haxe smoke.hxml
+	haxe smoke.hxml ${ASHUI_HAXE_FLAGS:-}
 	smoke=0
 	run smoke.hl || smoke=$?
 	# Quiet pointer motion, invalidation and current coordinates after coalescing.

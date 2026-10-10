@@ -86,11 +86,19 @@ class Stylesheet {
 	public final imports:Array<String> = [];
 	public final diagnostics:Array<Diagnostic> = [];
 
+	/** The CSS text it was parsed from, and the file it names, for the native engine to read. **/
+	public var source(default, null):Null<String> = null;
+
+	public var file(default, null):Null<String> = null;
+
 	public function new() {}
 
 	/** A sheet made of what was parsed already: what `CompiledCss` builds at run time. **/
-	public static function of(rules:Array<StyleRule>, variables:Map<String, String>, keyframes:Map<String, Keyframes>, imports:Array<String>):Stylesheet {
+	public static function of(rules:Array<StyleRule>, variables:Map<String, String>, keyframes:Map<String, Keyframes>, imports:Array<String>, ?source:String,
+			?file:String):Stylesheet {
 		var sheet = new Stylesheet();
+		sheet.source = source;
+		sheet.file = file;
 		for (r in rules)
 			sheet.rules.push(r);
 		for (k => v in variables)
@@ -107,8 +115,12 @@ class Stylesheet {
 		`@import` is found from. `load` reads imported files, by default
 		from the file system relative to the importing file.
 	**/
-	public static function parse(source:String, ?file:String, ?load:CssLoader):Stylesheet
-		return CssParser.parse(source, file, load == null ? readFile : load);
+	public static function parse(source:String, ?file:String, ?load:CssLoader):Stylesheet {
+		var sheet = CssParser.parse(source, file, load == null ? readFile : load);
+		sheet.source = source;
+		sheet.file = file;
+		return sheet;
+	}
 
 	/** Reads `path` relative to the directory of `from`, or as it is. **/
 	public static function readFile(path:String, from:Null<String>):Null<{source:String, file:String}> {

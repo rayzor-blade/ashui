@@ -39,7 +39,7 @@ class CompiledCss {
 		Context.registerModuleDependency(Context.getLocalModule(), full);
 		for (imported in sheet.imports)
 			Context.registerModuleDependency(Context.getLocalModule(), imported);
-		return emit(sheet);
+		return emit(sheet, source, full);
 	}
 
 	/** The user-agent stylesheet, `UserAgent.CSS`, parsed now. **/
@@ -48,7 +48,7 @@ class CompiledCss {
 		for (d in sheet.diagnostics)
 			if (d.severity == Error)
 				Context.error('user-agent.css:${d.line}:${d.column}: ${d.message}', Context.currentPos());
-		return emit(sheet);
+		return emit(sheet, UserAgent.CSS, "user-agent.css");
 	}
 
 	#if macro
@@ -78,7 +78,7 @@ class CompiledCss {
 	}
 
 	/** An expression that builds `sheet` at run time from literals. **/
-	static function emit(sheet:Stylesheet):Expr {
+	static function emit(sheet:Stylesheet, source:String, file:String):Expr {
 		var rules = [for (r in sheet.rules) rule(r)];
 		var variables = [for (k => v in sheet.variables) macro $v{k} => $v{v}];
 		var keyframes = [];
@@ -92,7 +92,7 @@ class CompiledCss {
 		}
 		var variablesExpr = variables.length > 0 ? macro [$a{variables}] : macro new Map<String, String>();
 		var keyframesExpr = keyframes.length > 0 ? macro [$a{keyframes}] : macro new Map<String, ashui.css.Stylesheet.Keyframes>();
-		return macro ashui.css.Stylesheet.of([$a{rules}], $variablesExpr, $keyframesExpr, $v{sheet.imports});
+		return macro ashui.css.Stylesheet.of([$a{rules}], $variablesExpr, $keyframesExpr, $v{sheet.imports}, $v{source}, $v{file});
 	}
 
 	static function rule(r:Stylesheet.StyleRule):Expr {
