@@ -9,9 +9,30 @@ import sys.FileSystem;
 import sys.io.File;
 import sys.io.Process;
 
-/** Copies the bundled host blinc_abi.hdll beside HashLink bytecode. */
+/**
+	The native parts a release package bundles for each platform, listed in
+	`native/hdlls.json`: `blinc_abi.hdll`, copied beside HashLink bytecode,
+	and the build tools macros run, such as the `blinc-css` CSS compiler.
+**/
 class NativeInstall {
 	static var registered = false;
+
+	/** The library's root, where `native/hdlls.json` is. **/
+	public static function root():String {
+		var module = Context.resolvePath("ashui/macro/NativeInstall.hx");
+		return Path.directory(Path.directory(Path.directory(Path.directory(sys.FileSystem.fullPath(module)))));
+	}
+
+	/** This host's bundled tool `name`, or null when the library has none, as a checkout of its repository does. **/
+	public static function tool(name:String):Null<String> {
+		var entry:Dynamic = Reflect.field(Json.parse(File.getContent(Path.join([root(), "native/hdlls.json"]))), hostPlatform());
+		var tools:Dynamic = entry == null ? null : entry.tools;
+		var tool:Dynamic = tools == null ? null : Reflect.field(tools, name);
+		if (tool == null)
+			return null;
+		var path = Path.join([root(), tool.packagePath]);
+		return FileSystem.exists(path) ? path : null;
+	}
 
 	public static function stage():Void {
 		if (registered || !Context.defined("hl") || Context.defined("hlc") || Context.defined("ashui_no_hdll"))
@@ -19,8 +40,7 @@ class NativeInstall {
 		registered = true;
 		Context.onAfterGenerate(() -> {
 			var platform = hostPlatform();
-			var module = Context.resolvePath("ashui/macro/NativeInstall.hx");
-			var root = Path.directory(Path.directory(Path.directory(Path.directory(module))));
+			var root = root();
 			var manifest:Dynamic = Json.parse(File.getContent(Path.join([root, "native/hdlls.json"])));
 			var entry:Dynamic = Reflect.field(manifest, platform);
 			if (entry == null) {
@@ -39,7 +59,7 @@ class NativeInstall {
 		});
 	}
 
-	static function hostPlatform():String {
+	public static function hostPlatform():String {
 		var os = switch (Sys.systemName()) {
 			case "Linux": "linux";
 			case "Mac": "macos";

@@ -5,7 +5,7 @@ import argparse
 import json
 import re
 from pathlib import Path
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,6 +48,10 @@ def package(assets: Path, version: str | None = None, check: bool = False) -> li
                if not (assets / entry["releaseAsset"]).is_file()]
     if missing:
         raise ValueError("missing release HDLLs: " + ", ".join(missing))
+    missing = [tool["releaseAsset"] for entry in platforms.values() for tool in entry.get("tools", {}).values()
+               if not (assets / tool["releaseAsset"]).is_file()]
+    if missing:
+        raise ValueError("missing release tools: " + ", ".join(missing))
     if check:
         return []
 
@@ -75,6 +79,12 @@ def package(assets: Path, version: str | None = None, check: bool = False) -> li
                     archive.write(ROOT / name, name)
                 for entry in platforms.values():
                     archive.write(assets / entry["releaseAsset"], entry["packagePath"])
+                    # The build tools macros run, executable once unpacked.
+                    for tool in entry.get("tools", {}).values():
+                        info = ZipInfo(tool["packagePath"], date_time=(1980, 1, 1, 0, 0, 0))
+                        info.external_attr = 0o755 << 16
+                        info.compress_type = ZIP_DEFLATED
+                        archive.writestr(info, (assets / tool["releaseAsset"]).read_bytes())
         outputs.append(output)
     return outputs
 

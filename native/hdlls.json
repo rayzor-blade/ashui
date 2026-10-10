@@ -1,22 +1,52 @@
 {
   "linux-x86_64": {
     "releaseAsset": "blinc_abi-linux-x86_64.hdll",
-    "packagePath": "native/linux-x86_64/blinc_abi.hdll"
+    "packagePath": "native/linux-x86_64/blinc_abi.hdll",
+    "tools": {
+      "blinc-css": {
+        "releaseAsset": "blinc-css-linux-x86_64",
+        "packagePath": "native/linux-x86_64/blinc-css"
+      }
+    }
   },
   "linux-aarch64": {
     "releaseAsset": "blinc_abi-linux-aarch64.hdll",
-    "packagePath": "native/linux-aarch64/blinc_abi.hdll"
+    "packagePath": "native/linux-aarch64/blinc_abi.hdll",
+    "tools": {
+      "blinc-css": {
+        "releaseAsset": "blinc-css-linux-aarch64",
+        "packagePath": "native/linux-aarch64/blinc-css"
+      }
+    }
   },
   "macos-aarch64": {
     "releaseAsset": "blinc_abi-macos-aarch64.hdll",
-    "packagePath": "native/macos-aarch64/blinc_abi.hdll"
+    "packagePath": "native/macos-aarch64/blinc_abi.hdll",
+    "tools": {
+      "blinc-css": {
+        "releaseAsset": "blinc-css-macos-aarch64",
+        "packagePath": "native/macos-aarch64/blinc-css"
+      }
+    }
   },
   "macos-x86_64": {
     "releaseAsset": "blinc_abi-macos-x86_64.hdll",
-    "packagePath": "native/macos-x86_64/blinc_abi.hdll"
+    "packagePath": "native/macos-x86_64/blinc_abi.hdll",
+    "tools": {
+      "blinc-css": {
+        "releaseAsset": "blinc-css-macos-x86_64",
+        "packagePath": "native/macos-x86_64/blinc-css"
+      }
+    }
   },
   "windows-x86_64": {
     "releaseAsset": "blinc_abi-windows-x86_64.hdll",
-    "packagePath": "native/windows-x86_64/blinc_abi.hdll"
+    "packagePath": "native/windows-x86_64/blinc_abi.hdll",
+    "tools": {
+      "blinc-css": {
+        "releaseAsset": "blinc-css-windows-x86_64.exe",
+        "packagePath": "native/windows-x86_64/blinc-css.exe"
+      }
+    }
   }
 }

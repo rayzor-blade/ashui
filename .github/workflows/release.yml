@@ -119,12 +119,23 @@ jobs:
         shell: bash
         run: cargo build --locked --release --target ${{ matrix.target }} -p ashui-native
 
-      - name: Collect the release asset
+      - name: Build the CSS compiler
+        shell: bash
+        run: |
+          # The blinc_abi revision ashui pins, with the CSS engine alone.
+          rev=$(python3 -c 'import re; print(re.search(r"blinc_abi.*rev = \"([0-9a-f]+)\"", open("Cargo.toml").read()).group(1))')
+          cargo install --locked --git https://github.com/project-blinc/blinc_abi --rev "$rev" blinc_abi \
+            --bin blinc-css --no-default-features --features css-cli --target ${{ matrix.target }} --root tools-out
+
+      - name: Collect the release assets
         shell: bash
         run: |
           mkdir -p out
           cp "target/${{ matrix.target }}/release/${{ matrix.prefix }}blinc_abi.${{ matrix.ext }}" \
             "out/blinc_abi-${{ matrix.platform }}.hdll"
+          exe=""
+          if [ "${{ matrix.ext }}" = dll ]; then exe=.exe; fi
+          cp "tools-out/bin/blinc-css$exe" "out/blinc-css-${{ matrix.platform }}$exe"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -174,7 +185,7 @@ jobs:
             echo
             echo 'Bundled native platforms: Linux x86_64/aarch64, macOS x86_64/aarch64 and Windows x86_64.'
             echo
-            echo 'The installed packages compile HXX and stage the host blinc_abi.hdll automatically.'
+            echo 'The installed packages compile HXX and CSS, and stage the host blinc_abi.hdll, automatically.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v7
@@ -210,6 +221,7 @@ jobs:
           files: |
             release/*.zip
             release/*.hdll
+            release/blinc-css-*
           generate_release_notes: true
           prerelease: ${{ env.TAG == 'nightly' }}
           make_latest: ${{ env.TAG == 'nightly' && 'false' || 'true' }}

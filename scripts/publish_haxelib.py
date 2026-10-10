@@ -79,6 +79,9 @@ def packages_in(directory, names, account, tag, independent_versions=False):
                             raise ValueError(f"{name}: empty native library")
                         if "importPath" in entry and not archive.read(entry["importPath"]):
                             raise ValueError(f"{name}: empty native import library")
+                        for tool in entry.get("tools", {}).values():
+                            if not archive.read(tool["packagePath"]):
+                                raise ValueError(f"{name}: empty native tool")
             selected[name] = (path, metadata)
     missing = set(names) - selected.keys()
     if missing:

@@ -36,6 +36,11 @@ class PackageTest(unittest.TestCase):
             platforms = json.loads((ROOT / "native/hdlls.json").read_text())
             for platform, entry in platforms.items():
                 (assets / entry["releaseAsset"]).write_bytes(platform.encode())
+            with self.assertRaisesRegex(ValueError, "missing release tools"):
+                PACKAGER.package(assets, check=True)
+            for platform, entry in platforms.items():
+                for name, tool in entry["tools"].items():
+                    (assets / tool["releaseAsset"]).write_bytes(f"{name} {platform}".encode())
             PACKAGER.package(assets, check=True)
             self.assertEqual(list(assets.glob("*.zip")), [])
             outputs = PACKAGER.package(assets, "2026.10.7")
@@ -77,6 +82,11 @@ class PackageTest(unittest.TestCase):
                         self.assertIn("haxe/ashui/macro/NativeInstall.hx", archive.namelist())
                         for platform, entry in platforms.items():
                             self.assertEqual(archive.read(entry["packagePath"]), platform.encode())
+                            self.assertIn("blinc-css", entry["tools"])
+                            for name, tool in entry["tools"].items():
+                                self.assertEqual(archive.read(tool["packagePath"]), f"{name} {platform}".encode())
+                                mode = archive.getinfo(tool["packagePath"]).external_attr >> 16
+                                self.assertTrue(mode & 0o111, f"{tool['packagePath']} is not executable")
                     elif path.stem in ("ashui-components", "ashui-media"):
                         name = path.stem.removeprefix("ashui-")
                         self.assertIn(f"css/{name}.css", archive.namelist())
