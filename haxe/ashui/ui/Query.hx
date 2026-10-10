@@ -133,10 +133,9 @@ class Query {
 	}
 
 	@:noCompletion public static function select(selector:String, tree:LayoutTree, root:Null<haxe.Int64>):Query {
-		var list = ashui.css.CssParser.selectors(selector);
 		var start = root != null ? root : tree.root != null ? tree.root.id : null;
 		// Each element's own node, which its Interaction is kept by.
-		var nodes = start == null ? [] : [for (id in ashui.css.Css.select(tree, start, list)) Identity.of(tree, id).node];
+		var nodes = start == null ? [] : [for (id in ashui.css.Css.query(tree, start, selector)) Identity.of(tree, id).node];
 		return new Query(tree, () -> nodes, null);
 	}
 

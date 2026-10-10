@@ -348,6 +348,16 @@ class Css {
 		return out;
 	}
 
+	/** As `select`, of selectors written as CSS text; throws for text that does not read. **/
+	public static function query(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
+		#if ashui_native_css
+		hook();
+		return NativeCascade.select(tree, root, selectors);
+		#else
+		return select(tree, root, CssParser.selectors(selectors));
+		#end
+	}
+
 	/** `text` with its `var()`s replaced as `identity` would read them: its own and inherited custom properties, `:root`'s, the theme's. **/
 	public static function resolve(identity:Identity, text:String):String {
 		var a = applied.get(identity);

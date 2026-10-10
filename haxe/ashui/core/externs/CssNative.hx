@@ -46,6 +46,10 @@ extern class CssNative {
 	/** States selectors began to test: node ids in `nodes`, state bits in `bits`; how many. **/
 	static function blinc_css_take_watched(css:hl.Abstract<"blinc_css">, nodes:hl.Bytes, bits:hl.Bytes, capacity:Int):Int;
 
+	/** The elements under `root` that the selectors match, in document order, as ids in `out`; how many match, or -1 for selectors that do not read. **/
+	static function blinc_css_select(css:hl.Abstract<"blinc_css">, tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, selectors:hl.Bytes, out:hl.Bytes,
+		capacity:Int):Int;
+
 	/** Three records: resolved declarations and values as name-value items, then the font size in pixels. **/
 	static function blinc_css_style(css:hl.Abstract<"blinc_css">, node:haxe.Int64):hl.Bytes;
 }

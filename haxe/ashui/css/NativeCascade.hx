@@ -150,6 +150,20 @@ class NativeCascade {
 		return changed;
 	}
 
+	/** The elements under `root` that `selectors` match, in document order; throws for selectors that do not read. **/
+	public static function select(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
+		var capacity = 256;
+		while (true) {
+			var out = new hl.Bytes(capacity * 8);
+			var n = CssNative.blinc_css_select(css(), tree.ptr, root, utf8(selectors), out, capacity);
+			if (n < 0)
+				throw 'bad selector "$selectors"';
+			if (n <= capacity)
+				return [for (i in 0...n) haxe.Int64.make(out.getI32(i * 8 + 4), out.getI32(i * 8))];
+			capacity = n;
+		}
+	}
+
 	/** `identity`'s style as the engine computed it. **/
 	public static function style(identity:Identity):{resolved:Map<String, String>, values:Map<String, String>, fontSize:Float} {
 		var records = text(CssNative.blinc_css_style(css(), identity.node.id)).split(RECORD);
