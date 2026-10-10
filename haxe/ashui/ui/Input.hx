@@ -72,7 +72,17 @@ typedef InputProps = {
 	?onChange:Bool->Void,
 
 	/** A text input's, a number's or a range's: called with the value as text after each edit, step or drag. **/
-	?onInput:String->Void
+	?onInput:String->Void,
+
+	/** Called when it is checked and found invalid, by its form's submit or a script's `checkValidity`, as HTML's `invalid` event. **/
+	?onInvalid:Void->Void,
+
+	/**
+		A password's: while true it shows its value rather than dots, as a
+		reveal button does; copying stays refused. Not HTML's, which has no
+		such attribute.
+	**/
+	?reveal:IntoReactive<Bool>
 }
 
 /**
@@ -82,7 +92,8 @@ typedef InputProps = {
 	previous radio of its set and check it. Disabled, it takes none of that.
 
 	A text input is a `TextField`: `password` shows dots and refuses copying,
-	and Escape empties a `search`. A `number` is one that takes only what a
+	and Escape empties a `search`. A text input's children are placed inside
+	its box after the text, as a reveal button or an icon is. A `number` is one that takes only what a
 	number is written with; the up and down arrows, or its steppers, move it
 	by `step` within `min` and `max`. A `range` is a slider: pressing or
 	dragging along it sets the value, as do the arrows, Page Up and Page
@@ -92,8 +103,11 @@ typedef InputProps = {
 	and `maxlength`, an `email` or `url` well formed, a `number` within `min`
 	and `max` and on its `step`. CSS reads that as `:valid` and `:invalid`,
 	and as `:user-valid` and `:user-invalid` once the user has changed it and
-	left it, or a form it is in was submitted; `checkValidity` and
-	`validationMessage` read it too. `reset` puts its first value back.
+	left it, or a form it is in was submitted. `checkValidity`,
+	`reportValidity`, `validity` (HTML's `ValidityState` flags) and
+	`validationMessage` read it; `setCustomValidity` adds a rule of the
+	program's own, and `onInvalid` is called when a check finds it invalid.
+	`reset` puts its first value back.
 
 	Its look is the user-agent stylesheet's, through `input[type="..."]`,
 	`:checked`, `:indeterminate`, `:hover`, `:focus`, `:focus-visible` and
@@ -127,6 +141,8 @@ class Input extends Component<InputProps> implements FormControl {
 
 	/** Changed by the user and left, or its form submitted: `:user-invalid` shows from then on. **/
 	final touched = Signal.make(false);
+	/** Its constraints and a script's message, which its form states and `validity` read. **/
+	var validityOf:FormStates.Validity;
 
 	/** Edited since it took focus, so leaving it touches it. **/
 	var edited = false;
@@ -155,7 +171,8 @@ class Input extends Component<InputProps> implements FormControl {
 	function constrain(type:String):Void {
 		var i = interaction;
 		initial = {text: value != null ? value.get() : null, checked: state.get(), group: props.group != null ? props.group.get() : null};
-		FormStates.keep(i, props.required == true, problem, touched);
+		validityOf = new FormStates.Validity(problems);
+		FormStates.keep(i, props.required == true, validityOf, touched);
 		if (value != null && props.placeholder != null) {
 			var text = value;
 			new Watch(() -> text.get() == "", empty -> i.formState("placeholder-shown").set(empty));
@@ -165,55 +182,74 @@ class Input extends Component<InputProps> implements FormControl {
 		i.onFocus(_ -> edited = false);
 	}
 
-	/** Why it is invalid, as a browser says it, or null when it is valid. **/
-	function problem():Null<String> {
+	/** The constraints it breaks now, each with what a browser says of it. **/
+	function problems():Array<FormStates.ValidityProblem> {
 		var type = props.type == null ? "text" : props.type.toLowerCase();
+		inline function one(flag:FormStates.ValidityFlag, message:String):Array<FormStates.ValidityProblem>
+			return [{flag: flag, message: message}];
 		switch type {
 			case "checkbox":
-				return props.required == true && !state.get() ? "Please tick this box if you want to proceed." : null;
+				return props.required == true && !state.get() ? one(ValueMissing, "Please tick this box if you want to proceed.") : [];
 			case "radio":
 				if (props.required != true)
-					return null;
+					return [];
 				var chosen = props.group != null ? props.group.get() != null && props.group.get() != "" : Lambda.exists(set(), r -> r.state.get());
-				return chosen ? null : "Please select one of these options.";
+				return chosen ? [] : one(ValueMissing, "Please select one of these options.");
 			case "range":
-				return null;
+				return [];
 			case _:
 		}
 		var v = value == null ? "" : value.get();
+		// An empty value breaks only `required`, as a browser checks.
 		if (v == "")
-			return props.required == true ? "Please fill in this field." : null;
+			return props.required == true ? one(ValueMissing, "Please fill in this field.") : [];
+		var out:Array<FormStates.ValidityProblem> = [];
 		if (type == "number") {
 			var n = parseNumber(v);
 			if (Math.isNaN(n))
-				return "Please enter a number.";
+				return one(BadInput, "Please enter a number.");
 			if (props.min != null && n < props.min)
-				return 'Value must be greater than or equal to ${formatNumber(props.min)}.';
+				out.push({flag: RangeUnderflow, message: 'Value must be greater than or equal to ${formatNumber(props.min)}.'});
 			if (props.max != null && n > props.max)
-				return 'Value must be less than or equal to ${formatNumber(props.max)}.';
+				out.push({flag: RangeOverflow, message: 'Value must be less than or equal to ${formatNumber(props.max)}.'});
 			if (props.step != null && props.step > 0 && !same(snap(n, props.min, null, props.step), n))
-				return "Please enter a valid value.";
-			return null;
+				out.push({flag: StepMismatch, message: "Please enter a valid value."});
+			return out;
 		}
 		if (type == "email" && !~/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*$/.match(v))
-			return v.indexOf("@") < 0 ? 'Please include an "@" in the email address.' : "Please enter an email address.";
+			out.push({flag: TypeMismatch, message: v.indexOf("@") < 0 ? 'Please include an "@" in the email address.' : "Please enter an email address."});
 		if (type == "url" && !~/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s]+$/.match(v))
-			return "Please enter a URL.";
+			out.push({flag: TypeMismatch, message: "Please enter a URL."});
 		if (props.pattern != null && !(try new EReg("^(?:" + props.pattern + ")$", "u").match(v) catch (_:Dynamic) true))
-			return "Please match the requested format.";
+			out.push({flag: PatternMismatch, message: "Please match the requested format."});
 		// As a browser, too short only once the user has edited it.
-		return FormStates.lengthProblem(v, props.minlength, props.maxlength, touched.get());
+		return out.concat(FormStates.lengthProblems(v, props.minlength, props.maxlength, touched.get()));
 	}
 
-	/** Whether it is valid now. **/
+	/** Whether it is valid now; when it is not, `onInvalid` is called, as HTML fires `invalid`. **/
 	public function checkValidity():Bool
-		return problem() == null;
+		return FormStates.check(this, props.onInvalid);
+
+	/** As `checkValidity`; when it is invalid it is also marked touched and takes focus. **/
+	public function reportValidity():Bool {
+		if (checkValidity())
+			return true;
+		touch();
+		focus();
+		return false;
+	}
+
+	/** Which of its constraints it breaks now, as HTML's `ValidityState` says. **/
+	public function validity():FormStates.ValidityState
+		return validityOf.state();
 
 	/** Why it is invalid, as a browser would say it; empty when it is valid. **/
-	public function validationMessage():String {
-		var p = problem();
-		return p == null ? "" : p;
-	}
+	public function validationMessage():String
+		return validityOf.message();
+
+	/** Makes it invalid with `message`, as HTML's `setCustomValidity` does; empty makes it valid again. **/
+	public function setCustomValidity(message:String):Void
+		validityOf.setCustom(message);
 
 	/** Marks it as the user having changed it, as submitting its form does, so `:user-invalid` shows. **/
 	public function touch():Void
@@ -382,12 +418,13 @@ class Input extends Component<InputProps> implements FormControl {
 			type: type,
 			placeholder: props.placeholder,
 			disabled: props.disabled,
+			reveal: props.reveal,
 			onInput: v -> {
 				edited = true;
 				if (props.onInput != null)
 					props.onInput(v);
 			}
-		}, steppers);
+		}, steppers.concat(children == null ? [] : children));
 		var e = editing = field.editing;
 		interaction = e.interaction;
 		if (type == "number") {

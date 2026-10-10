@@ -5,6 +5,7 @@ import ashui.components.Slider;
 import ashui.components.Alert;
 import ashui.components.Badge;
 import ashui.components.Button;
+import ashui.components.Input;
 import ashui.components.Card;
 import ashui.components.Dialog;
 import ashui.components.DropdownMenu;
@@ -1644,6 +1645,35 @@ class Components {
 		ashui.input.Keyboard.input(verticalTree, key(Named(Home), Home));
 		check("a vertical slider keeps Arrow Up, End and Home",
 			increased == 76 && atTop == 100 && verticalValue.get() == 0, [increased, atTop, verticalValue.get()]);
+
+		// --- A revealable password: its eye button shows the value and hides it again, focus kept in the field ---
+		var pwTree = new LayoutTree();
+		var secret = Signal.make("hunter22");
+		var pwRoot:ashui.ui.Div = Owner.root(pwTree, _ -> <div width={400} height={100}><input type="password" value={secret} revealable={true} /></div>);
+		function pwSettle() {
+			pwTree.flush();
+			pwTree.computeLayout(pwRoot.node, 400, 100);
+			pwTree.flush();
+		}
+		pwSettle();
+		var pwField = ashui.ui.Input.at(pwTree, pwTree.children(pwRoot.node.id)[0]);
+		var eye = ashui.css.Css.query(pwTree, pwRoot.node.id, ".ui-input-reveal")[0];
+		function clickEye() {
+			var b = pwTree.getBounds(new ashui.layout.Node(eye));
+			ashui.input.Pointer.move(pwTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.press(pwTree);
+			ashui.input.Pointer.release(pwTree);
+			pwSettle();
+		}
+		var dotted = pwField.editing.display();
+		clickEye();
+		var shownText = pwField.editing.display();
+		var label = ashui.css.Identity.of(pwTree, eye).attribute("aria-label");
+		var focusedField = ashui.input.Focus.of(pwTree) == pwField.editing.interaction;
+		clickEye();
+		check("a revealable password's eye shows its value and hides it, keeping focus in the field", dotted == "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+			&& shownText == "hunter22" && label == "Hide password" && focusedField && pwField.editing.display() == dotted,
+			[dotted, shownText, label, focusedField]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);

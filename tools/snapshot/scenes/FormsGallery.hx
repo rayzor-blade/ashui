@@ -40,7 +40,8 @@ class FormsGallery {
 						<div flexDirection={Column} gap={12}>
 							<div flexDirection={Column} gap={8}><label>Username</label><input placeholder="Enter username" /></div>
 							<div flexDirection={Column} gap={8}><label required={true}>Email</label><input type="email" placeholder="you@example.com" /></div>
-							<div flexDirection={Column} gap={8}><label>Password</label><input type="password" placeholder="Enter password" /></div>
+							<div flexDirection={Column} gap={8}><label>Password</label><input type="password" value="hunter22" revealable={true} /></div>
+							<div flexDirection={Column} gap={8}><label>Password, shown</label><input type="password" value="hunter22" revealable={true} reveal={true} /></div>
 						</div>
 						<div flexDirection={Column} gap={12}>
 							<div flexDirection={Column} gap={8}><label>Bio</label><textarea placeholder="Tell us about yourself..." /></div>

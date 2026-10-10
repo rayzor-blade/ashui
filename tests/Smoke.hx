@@ -1802,6 +1802,68 @@ class Smoke {
 		check("reset puts a text area's and a select's first values back", note.get() == "" && fruit.get() == ""
 			&& !noteState.formState("user-invalid").get(), [note.get(), fruit.get()]);
 
+		// --- Validity: flags, a script's message, the invalid event, and a password revealed ---
+		var vTree = new LayoutTree();
+		var pw = Signal.make("secret1"), pw2 = Signal.make(""), shownPw = Signal.make(false), amount = Signal.make("");
+		var invalids = 0, vSent:Null<ashui.ui.Form.FormData> = null;
+		var confirm:Null<ashui.ui.Input> = null;
+		var formRef = new ashui.ui.Ref<ashui.ui.Form>();
+		var vRoot:Div = Owner.root(vTree, _ -> hxx('
+			<div flexDirection={Column} alignItems={Start} width={400}>
+				<form ref={formRef} onSubmit={d -> vSent = d}>
+					<input type="password" name="pw" value={pw} reveal={shownPw} />
+					<input type="password" name="pw2" value={pw2} onInvalid={() -> invalids++}
+						onInput={v -> if (confirm != null) confirm.setCustomValidity(v == pw.get() ? "" : "Passwords must match.")} />
+					<input type="number" name="amount" value={amount} min={0} max={10} step={2} />
+					<button>Send</button>
+				</form>
+			</div>
+		'));
+		vTree.flush();
+		vTree.computeLayout(vRoot.node, 400, 600);
+		vTree.flush();
+		var vForm = vTree.children(vRoot.node.id)[0];
+		var vFields = [for (c in vTree.children(vForm)) c];
+		var pwInput = ashui.ui.Input.at(vTree, vFields[0]);
+		confirm = ashui.ui.Input.at(vTree, vFields[1]);
+		var amountInput = ashui.ui.Input.at(vTree, vFields[2]);
+		var hidden = pwInput.editing.display();
+		shownPw.set(true);
+		vTree.flush();
+		var revealedText = pwInput.editing.display();
+		shownPw.set(false);
+		vTree.flush();
+		check("a password reveal shows its value while on and dots again after", hidden == "\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+			&& revealedText == "secret1" && pwInput.editing.display() == hidden, [hidden, revealedText]);
+
+		confirm.setCustomValidity("Passwords must match.");
+		var custom = confirm.validity();
+		var form = formRef.get();
+		form.requestSubmit();
+		vTree.flush();
+		check("a script's message makes a control invalid, stops its form, and calls onInvalid", vSent == null && invalids == 1
+			&& custom.customError && !custom.valid && confirm.validationMessage() == "Passwords must match."
+			&& ashui.input.Focus.of(vTree) == @:privateAccess confirm.interaction, [vSent == null, invalids, confirm.validationMessage()]);
+		confirm.setCustomValidity("");
+		amount.set("11");
+		vTree.flush();
+		var over = amountInput.validity();
+		amount.set("3");
+		vTree.flush();
+		var odd = amountInput.validity();
+		amount.set("x");
+		vTree.flush();
+		var bad = amountInput.validity();
+		check("a number's validity flags say which constraint it breaks, several at once", over.rangeOverflow && over.stepMismatch && !over.valid
+			&& odd.stepMismatch && !odd.rangeOverflow && bad.badInput && confirm.validity().valid,
+			[over, odd, bad]);
+		amount.set("4");
+		vTree.flush();
+		check("reportValidity on a valid form is true, and it then submits", form.reportValidity() && {
+			form.requestSubmit();
+			vSent != null && vSent.get("pw") == "secret1" && vSent.get("amount") == "4";
+		}, vSent == null ? null : [for (e in vSent.entries) e.name + "=" + e.value]);
+
 		// --- CSS mask-image ---
 		var maskSheet = ashui.css.Css.load('.faded { mask-image: linear-gradient(to right, black, transparent) } .plain { mask-image: none } .wrong { mask-image: url(x.png) }');
 		check("mask-image takes a gradient or none, and reports anything else", maskSheet.diagnostics.length == 0

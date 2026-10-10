@@ -108,22 +108,36 @@ class Form extends Component<FormProps> {
 		return found;
 	}
 
-	/** Whether every control in it is valid now. **/
-	public function checkValidity():Bool
-		return Lambda.foreach(controls(), c -> c.checkValidity());
+	/** Whether every control in it is valid now; each that is not has its `onInvalid` called. **/
+	public function checkValidity():Bool {
+		var valid = true;
+		for (c in controls())
+			if (!c.checkValidity())
+				valid = false;
+		return valid;
+	}
+
+	/**
+		As `checkValidity`; when any control is invalid, every control is
+		marked touched, so `:user-invalid` shows, and the first invalid one
+		takes focus, as a submit that fails does.
+	**/
+	public function reportValidity():Bool {
+		var all = controls();
+		var invalid = all.filter(c -> !c.checkValidity());
+		if (invalid.length == 0)
+			return true;
+		for (c in all)
+			c.touch();
+		invalid[0].focus();
+		return false;
+	}
 
 	/** Submits it, as its submit button does: checked first unless `novalidate`. **/
 	public function requestSubmit():Void {
 		var all = controls();
-		if (props.novalidate != true) {
-			var invalid = all.filter(c -> !c.checkValidity());
-			if (invalid.length > 0) {
-				for (c in all)
-					c.touch();
-				invalid[0].focus();
-				return;
-			}
-		}
+		if (props.novalidate != true && !reportValidity())
+			return;
 		var data = new FormData();
 		for (control in all) {
 			var name = control.name(), v = control.formValue();

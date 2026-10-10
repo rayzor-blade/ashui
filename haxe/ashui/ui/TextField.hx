@@ -22,7 +22,9 @@ typedef TextFieldProps = {
 	/** Called with the new value after each edit. **/
 	?onInput:String->Void,
 	/** Called with the value when Enter is pressed. **/
-	?onSubmit:String->Void
+	?onSubmit:String->Void,
+	/** A password's: while true it shows its value rather than dots; copying stays refused. **/
+	?reveal:IntoReactive<Bool>
 }
 
 /**
@@ -56,8 +58,18 @@ class TextField extends Component<TextFieldProps> {
 	function render():Element {
 		var e = editing = new TextEditing(props.value != null ? props.value : Signal.make(""), false, 0);
 		var type = props.type != null ? props.type.toLowerCase() : "text";
-		if (type == "password")
+		if (type == "password") {
 			e.mask = "\u2022";
+			switch (props.reveal : ashui.layout.IntoReactive.ReactiveType<Bool>) {
+				case null:
+				case Const(on):
+					e.revealed.set(on);
+				case Bound(signal):
+					new Watch(() -> signal.get(), on -> e.revealed.set(on));
+				case Derived(computed):
+					new Watch(() -> computed.get(), on -> e.revealed.set(on));
+			}
+		}
 		e.onInput = props.onInput;
 		e.onSubmit = props.onSubmit;
 		var value = e.value;

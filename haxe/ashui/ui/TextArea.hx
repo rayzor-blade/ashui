@@ -33,7 +33,10 @@ typedef TextAreaProps = {
 	/** Invalid when shorter, once the user has edited it, or longer, in characters. **/
 	?minlength:Int,
 
-	?maxlength:Int
+	?maxlength:Int,
+
+	/** Called when it is checked and found invalid, by its form's submit or a script's `checkValidity`, as HTML's `invalid` event. **/
+	?onInvalid:Void->Void
 }
 
 /**
@@ -69,6 +72,7 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 	var text:Text;
 	var scroller:Null<Scroll>;
 	final touched = Signal.make(false);
+	var validityOf:FormStates.Validity;
 	var edited = false;
 	var initial = "";
 
@@ -152,7 +156,8 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 		if (props.disabled != null)
 			e.interaction.setDisabled(props.disabled);
 		initial = value.get();
-		FormStates.keep(e.interaction, props.required == true, problem, touched);
+		validityOf = new FormStates.Validity(problems);
+		FormStates.keep(e.interaction, props.required == true, validityOf, touched);
 		if (props.placeholder != null)
 			new Watch(() -> value.get() == "", empty -> e.interaction.formState("placeholder-shown").set(empty));
 		// Leaving it after an edit touches it.
@@ -175,12 +180,12 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 		return box;
 	}
 
-	/** Why it is invalid, as a browser says it, or null when it is valid. **/
-	function problem():Null<String> {
+	/** The constraints it breaks now, each with what a browser says of it. **/
+	function problems():Array<FormStates.ValidityProblem> {
 		var v = editing.value.get();
 		if (v == "")
-			return props.required == true ? "Please fill in this field." : null;
-		return FormStates.lengthProblem(v, props.minlength, props.maxlength, touched.get());
+			return props.required == true ? [{flag: ValueMissing, message: "Please fill in this field."}] : [];
+		return FormStates.lengthProblems(v, props.minlength, props.maxlength, touched.get());
 	}
 
 	public function name():Null<String>
@@ -189,13 +194,30 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 	public function formValue():Null<String>
 		return editing.value.get();
 
+	/** Whether it is valid now; when it is not, `onInvalid` is called, as HTML fires `invalid`. **/
 	public function checkValidity():Bool
-		return problem() == null;
+		return FormStates.check(this, props.onInvalid);
 
-	public function validationMessage():String {
-		var p = problem();
-		return p == null ? "" : p;
+	/** As `checkValidity`; when it is invalid it is also marked touched and takes focus. **/
+	public function reportValidity():Bool {
+		if (checkValidity())
+			return true;
+		touch();
+		focus();
+		return false;
 	}
+
+	/** Which of its constraints it breaks now, as HTML's `ValidityState` says. **/
+	public function validity():FormStates.ValidityState
+		return validityOf.state();
+
+	/** Why it is invalid, as a browser would say it; empty when it is valid. **/
+	public function validationMessage():String
+		return validityOf.message();
+
+	/** Makes it invalid with `message`, as HTML's `setCustomValidity` does; empty makes it valid again. **/
+	public function setCustomValidity(message:String):Void
+		validityOf.setCustom(message);
 
 	public function touch():Void
 		touched.set(true);

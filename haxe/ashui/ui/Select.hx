@@ -36,7 +36,10 @@ typedef SelectProps = {
 	?placeholder:String,
 
 	/** Called with the new value after the user chooses an option. **/
-	?onChange:String->Void
+	?onChange:String->Void,
+
+	/** Called when it is checked and found invalid, by its form's submit or a script's `checkValidity`, as HTML's `invalid` event. **/
+	?onInvalid:Void->Void
 }
 
 private typedef Choice = {
@@ -76,6 +79,7 @@ class Select extends Component<SelectProps> implements FormControl {
 	var button:Div;
 	var interaction:Interaction;
 	final touched = Signal.make(false);
+	var validityOf:FormStates.Validity;
 	var initial = "";
 	var open:Null<TopEntry> = null;
 	var typed = "";
@@ -137,7 +141,8 @@ class Select extends Component<SelectProps> implements FormControl {
 		});
 		Owner.onCleanup(() -> if (open != null) open.close());
 		initial = value.get();
-		FormStates.keep(interaction, props.required == true, problem, touched);
+		validityOf = new FormStates.Validity(problems);
+		FormStates.keep(interaction, props.required == true, validityOf, touched);
 		var key = haxe.Int64.toStr(button.node.id);
 		byNode.set(key, this);
 		Owner.onCleanup(() -> byNode.remove(key));
@@ -149,20 +154,37 @@ class Select extends Component<SelectProps> implements FormControl {
 		return c == null ? "" : c.option.labelText();
 	}
 
-	/** Why it is invalid, as a browser says it, or null when it is valid. **/
-	function problem():Null<String>
-		return props.required == true && value.get() == "" ? "Please select an item in the list." : null;
+	/** The constraints it breaks now, each with what a browser says of it. **/
+	function problems():Array<FormStates.ValidityProblem>
+		return props.required == true && value.get() == "" ? [{flag: ValueMissing, message: "Please select an item in the list."}] : [];
 
 	public function formValue():Null<String>
 		return value.get();
 
+	/** Whether it is valid now; when it is not, `onInvalid` is called, as HTML fires `invalid`. **/
 	public function checkValidity():Bool
-		return problem() == null;
+		return FormStates.check(this, props.onInvalid);
 
-	public function validationMessage():String {
-		var p = problem();
-		return p == null ? "" : p;
+	/** As `checkValidity`; when it is invalid it is also marked touched and takes focus. **/
+	public function reportValidity():Bool {
+		if (checkValidity())
+			return true;
+		touch();
+		focus();
+		return false;
 	}
+
+	/** Which of its constraints it breaks now, as HTML's `ValidityState` says. **/
+	public function validity():FormStates.ValidityState
+		return validityOf.state();
+
+	/** Why it is invalid, as a browser would say it; empty when it is valid. **/
+	public function validationMessage():String
+		return validityOf.message();
+
+	/** Makes it invalid with `message`, as HTML's `setCustomValidity` does; empty makes it valid again. **/
+	public function setCustomValidity(message:String):Void
+		validityOf.setCustom(message);
 
 	public function touch():Void
 		touched.set(true);

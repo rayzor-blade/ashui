@@ -61,6 +61,8 @@ class TextEditing {
 	public var text:Null<Text>;
 	/** A password's: the character each of the value's is shown and measured as, and copying and cutting are refused; null shows the value. **/
 	public var mask:Null<String> = null;
+	/** While true, a masked value shows as it is, as a password's reveal button makes it; copying stays refused. **/
+	public final revealed = ashui.reactive.Signal.make(false);
 	/** What may be typed or pasted: the inserted text, with anything refused taken out; null takes everything. **/
 	public var accept:Null<String->String> = null;
 	/** Called first with each key going down; true when it handled the key, so editing does not. **/
@@ -257,9 +259,9 @@ class TextEditing {
 		return masked(s.substr(0, r.from) + c + s.substr(r.to));
 	}
 
-	/** `s` as shown: one mask character for each of its, keeping indices, or `s` itself. **/
+	/** `s` as shown: one mask character for each of its, keeping indices, or `s` itself, also while revealed. **/
 	function masked(s:String):String
-		return mask == null ? s : StringTools.lpad("", mask, s.length);
+		return mask == null || revealed.get() ? s : StringTools.lpad("", mask, s.length);
 
 	/** Where the caret is shown in `display()`: in the composition while there is one. **/
 	public function displayCaret():Int {

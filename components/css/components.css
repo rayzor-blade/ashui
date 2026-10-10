@@ -397,6 +397,9 @@ input.ui-input:hover, textarea.ui-textarea:hover { border-color: var(--border-ho
 input.ui-input:focus, textarea.ui-textarea:focus { border-color: var(--border-focus); background: var(--input-bg-focus); outline-width: 2px; }
 input.ui-input:user-invalid, textarea.ui-textarea:user-invalid { border-color: var(--border-error); outline-color: var(--focus-ring-error); }
 input.ui-input:disabled, textarea.ui-textarea:disabled { background: var(--input-bg-disabled); border-color: var(--border); color: var(--text-tertiary); }
+/* A password's reveal button, inside the field after the text, its right edge on the field's padding. */
+input.ui-input > .ui-input-reveal { flex-shrink: 0; align-self: center; width: 28px; height: 28px; margin-left: 4px; margin-right: -6px; color: var(--text-secondary); }
+input.ui-input > .ui-input-reveal:hover { color: var(--text-primary); }
 
 .ui-label { gap: 4px; font-size: 14px; font-weight: 500; color: var(--ui-label-color, var(--text-primary)); }
 .ui-label-text { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
