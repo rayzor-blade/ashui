@@ -267,6 +267,97 @@ class CssLayoutBindings {
 		bitmap.dispose();
 		backgroundImages(context);
 		listAndCursor();
+		ordering(context);
+	}
+	// git-bug: 7977648 / ABI 62aa0b0. Exercise the public CSS, HXX and input paths together.
+	static function ordering(context:ashui.css.Properties.ApplyContext) {
+		var compiled = ashui.css.CompiledCss.file("layout-bindings.css");
+		Css.add(compiled);
+		var sheet = Css.load('#order-a { order: 2; } #order-b { order: -1; }');
+		var tree = new LayoutTree();
+		var root:ashui.ui.Div = Owner.root(tree, _ -> <div width={120} height={30}>
+			<div id="order-a" width={30} height={30} focusable={true} />
+			<div id="order-b" width={30} height={30} focusable={true} />
+			<div id="order-c" width={30} height={30} focusable={true} />
+		</div>);
+		layout(tree, root);
+		var a = child(tree, root.node), b = child(tree, root.node, 1), c = child(tree, root.node, 2);
+		check("CSS order sorts native flex layout stably", near(tree.getBounds(a).x, 60) && near(tree.getBounds(b).x, 0) && near(tree.getBounds(c).x, 30));
+		check("CSS order preserves authored child and selector order", tree.children(root.node.id)[0] == a.id && Css.query(tree, root.node.id, "#order-a:first-child")[0] == a.id);
+		ashui.input.Focus.move(tree);
+		check("Tab focus follows authored order after CSS order changes", ashui.input.Interaction.of(a).focused.get());
+		ashui.input.Focus.move(tree);
+		check("Tab focus advances to the next authored sibling", ashui.input.Interaction.of(b).focused.get());
+		identity(a).setInline("order", "-1"); layout(tree, root);
+		check("equal order values retain authored ties", near(tree.getBounds(a).x, 0) && near(tree.getBounds(b).x, 30));
+		identity(a).setInline("order", "2147483647");
+		identity(b).setInline("order", "2147483646");
+		identity(c).setInline("order", "-2147483648"); layout(tree, root);
+		check("CSS order keeps full signed integer precision", near(tree.getBounds(c).x, 0) && near(tree.getBounds(b).x, 30) && near(tree.getBounds(a).x, 60));
+		for (n in [a,b,c]) identity(n).setInline("order", null);
+		Css.remove(sheet); layout(tree, root);
+		check("removing order declarations restores authored layout", near(tree.getBounds(a).x, 0) && near(tree.getBounds(b).x, 30));
+		identity(a).setClasses(["order-compiled"]); layout(tree, root);
+		check("compiled order uses the same native integer field", near(tree.getBounds(a).x, 60));
+		Css.remove(compiled); layout(tree, root);
+		check("removing compiled order resets the native ordering", near(tree.getBounds(a).x, 0));
+		identity(a).setInline("order", "1");
+		identity(root.node).setInline("display", "block"); layout(tree, root);
+		check("order does not reorder block children", near(tree.getBounds(a).y, 0) && near(tree.getBounds(b).y, 30));
+		identity(root.node).setInline("display", "grid").setInline("grid-template-columns", "30px 30px 30px"); layout(tree, root);
+		check("order sorts grid auto-placement after display changes", near(tree.getBounds(a).x, 60) && near(tree.getBounds(b).x, 0));
+		identity(root.node).setInline("display", "flex").setInline("grid-template-columns", null);
+		var order = Signal.make(2), direction = Signal.make(FlexDirection.Row);
+		var reactive:ashui.ui.Div = Owner.root(tree, _ -> <div width={90} height={30}>
+			<div order={order} flexDirection={direction} width={30} height={30} />
+			<div width={30} height={30} /><div width={30} height={30} />
+		</div>);
+		layout(tree, reactive);
+		var r = child(tree, reactive.node);
+		check("HXX order signal applies its initial native value", near(tree.getBounds(r).x, 60));
+		order.set(-1); direction.set(FlexDirection.Column); layout(tree, reactive);
+		check("reactive order and flex direction bindings coexist", near(tree.getBounds(r).x, 0));
+		identity(r).setInline("order", "100"); layout(tree, reactive);
+		check("typed order ownership wins over stylesheet order", near(tree.getBounds(r).x, 0));
+		var utilities:ashui.ui.Div = Owner.root(tree, _ -> <div width={90} height={30}>
+			<div class="order-last hover:order-first" width={30} height={30} />
+			<div class="-order-2" width={30} height={30} /><div class="order-none" width={30} height={30} />
+		</div>);
+		layout(tree, utilities);
+		var u = child(tree, utilities.node);
+		check("order utilities support positive negative and none", near(tree.getBounds(u).x, 60));
+		ashui.input.Interaction.of(u).hovered.set(true); layout(tree, utilities);
+		check("hover order utility changes layout", near(tree.getBounds(u).x, 0));
+		ashui.input.Interaction.of(u).hovered.set(false); layout(tree, utilities);
+		check("leaving hover restores the base order utility", near(tree.getBounds(u).x, 60));
+		var overlap:ashui.ui.Div = Owner.root(tree, _ -> <div width={60} height={30}>
+			<div id="order-paint-a" class="absolute" bg={ashui.types.Brush.solid(0xff0000)} order={2} width={60} height={30} />
+			<div id="order-paint-b" class="absolute" bg={ashui.types.Brush.solid(0x0000ff)} width={60} height={30} />
+		</div>);
+		layout(tree, overlap);
+		var top = child(tree, overlap.node), bottom = child(tree, overlap.node, 1), list = drawn(tree, overlap);
+		var boxes = [for (i in 0...list.count) if (list.kind(i) == DisplayList.PRIM_RECT) i];
+		check("order sorts overlapping paint and pointer hits together", list.get(boxes[boxes.length-1], 8) > list.get(boxes[0], 8) && tree.hitTest(10, 10)[0].id == top.id);
+		identity(bottom).setInline("z-index", "10"); layout(tree, overlap);
+		check("explicit z-index still takes precedence over order", tree.hitTest(10, 10)[0].id == bottom.id && tree.order()[1] == top.id);
+		Css.add(compiled);
+		var fixed:ashui.ui.Div = Owner.root(tree, _ -> <div width={100} height={50}>
+			<div class="fixed-compiled" width={20} height={20} />
+			<div class="fixed" left={40} top={10} width={20} height={20} />
+			<div position={Fixed} left={70} width={20} height={20} />
+			<div width={20} height={20} />
+		</div>);
+		layout(tree, fixed);
+		check("compiled fixed and utility aliases use parent absolute insets", near(tree.getBounds(child(tree, fixed.node)).x, 10) && near(tree.getBounds(child(tree, fixed.node,1)).x, 40) && near(tree.getBounds(child(tree, fixed.node,2)).x, 70));
+		check("fixed aliases leave normal-flow children in place", near(tree.getBounds(child(tree, fixed.node,3)).x, 0));
+		Css.remove(compiled); layout(tree, fixed);
+		check("fixed CSS removal restores normal flow", near(tree.getBounds(child(tree, fixed.node,3)).x, 20));
+		for (value in ["1.5", "2147483648", "-2147483649", "1px", "NaN"]) {
+			var rejected = false;
+			try ashui.css.Properties.apply(r, "order", value, context) catch (_:String) rejected = true;
+			check("invalid order reports " + value, rejected);
+		}
+		tree.dispose();
 	}
 
 	static function backgroundImages(context:ashui.css.Properties.ApplyContext) {

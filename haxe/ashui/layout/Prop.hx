@@ -103,6 +103,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var OverflowX:Prop<ashui.types.Style.Overflow> = cast PropertyId.OverflowX;
 	public static inline var OverflowY:Prop<ashui.types.Style.Overflow> = cast PropertyId.OverflowY;
 	public static inline var Position:Prop<ashui.types.Style.Position> = cast PropertyId.Position;
+	/** Signed flex/grid item order; authored children and Tab order stay unchanged. git-bug: 7977648. **/
+	public static inline var Order:Prop<Int> = cast PropertyId.Order;
 	/** Sibling stacking order for drawing and hit testing; CSS `auto` uses tree order. **/
 	public static inline var ZIndex:Prop<Int> = cast PropertyId.ZIndex;
 	/** Keeps layout space while suppressing painting and hits for the subtree. **/

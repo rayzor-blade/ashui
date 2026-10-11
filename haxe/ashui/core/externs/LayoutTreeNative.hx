@@ -35,7 +35,7 @@ extern class LayoutTreeNative {
 	/** Writes `node`'s ancestors, the parent first, as 64-bit ids, at most `capacity`; returns how many there are. **/
 	static function blinc_tree_ancestors(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
 
-	/** Writes `node`'s children as 64-bit ids, at most `capacity`; returns how many there are. **/
+	/** Writes authored children as 64-bit ids; CSS order does not change them. git-bug: 7977648 / ABI 62aa0b0. **/
 	static function blinc_tree_children(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
 
 	/** Makes the `len` ids in `children` `parent`'s children, detaching, not deleting, the rest. **/
@@ -60,7 +60,7 @@ extern class LayoutTreeNative {
 	/** Makes `node` draw image `slot`, which the renderer resolves, in its content box; a negative slot stops it. **/
 	static function blinc_tree_set_image(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
 
-	/** Optional bitmap fit and object-position, as fractions of free space plus pixel offsets. **/
+	/** Optional bitmap fit/object-position, free-space fractions plus pixel offsets. git-bug: a8ca996 / ABI 4d9ea6a. **/
 	static function blinc_tree_set_image_mapping(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, fit:Int, x:Single, y:Single,
 		offsetX:Single, offsetY:Single):Void;
 	static function blinc_tree_set_canvas(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
@@ -74,7 +74,7 @@ extern class LayoutTreeNative {
 	static function blinc_tree_hit_test_region(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int, region:hl.Bytes):Int;
 	static function blinc_tree_hit_test(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int):Int;
 
-	/** Writes the visible nodes under `root` in document order as 64-bit ids, at most `capacity`; returns how many there are. **/
+	/** Visible nodes in authored document order, independent of CSS order/z-index. git-bug: 7977648 / ABI 62aa0b0. **/
 	static function blinc_tree_order(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, out:hl.Bytes, capacity:Int):Int;
 
 	/** Writes `node` and its ancestors up to `root` as 64-bit ids, at most `capacity`; 0 when `node` is not under `root`. **/
@@ -82,7 +82,7 @@ extern class LayoutTreeNative {
 
 	/** Scrolls container `node`'s content by `(x, y)` and colours its thumb `thumb`, `0xAARRGGBB`; 0 hides it. **/
 	static function blinc_tree_set_scroll(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, x:Single, y:Single, thumb:Int):Void;
-	/** Overlay scrollbar width and straight-alpha 0xAARRGGBB track color; width zero hides both. **/
+	/** Overlay scrollbar width and 0xAARRGGBB track; zero hides both. git-bug: 4512d6f / ABI a00b6d0. **/
 	static function blinc_tree_set_scrollbar_style(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, width:Single, track:Int):Void;
 
 	/** Writes container `node`'s viewport width and height and its content's width and height as four F32s; false before layout. **/
@@ -94,7 +94,7 @@ extern class LayoutTreeNative {
 	/** `node`'s own text alignment, as `ashui.types.Style.TextAlign`'s codes; -1 when it has none. **/
 	static function blinc_tree_text_align(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Int;
 
-	/** Nearest text limits, two i32s: line count (0 for none), text-overflow (-1 undeclared, 0 clip, 1 ellipsis). **/
+	/** Nearest limits: line count (0 none), overflow (-1 undeclared, 0 clip, 1 ellipsis). git-bug: 6812621. **/
 	static function blinc_tree_text_limits(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Void;
 
 	/** Draws `node` moved by `(dx, dy)` from its layout, at size `(w, h)` when `w` is not negative, its children clipped to it; `clear` puts it back. **/
@@ -103,7 +103,7 @@ extern class LayoutTreeNative {
 	/** Draws `node` as a notch from twelve F32s, or as a box again with null (see `ashui.types.Notch.encode`). **/
 	static function blinc_tree_set_notch(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, data:hl.Bytes):Void;
 
-	/** Makes the hit test pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
+	/** Subtree pointer pass-through; descendants cannot override it. git-bug: 4512d6f / 8780d6b, ABI a00b6d0. **/
 	static function blinc_tree_set_pass_through(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, through:Bool):Void;
 
 	/** Writes absolute x, y, width, height as four F32s into `out`. **/

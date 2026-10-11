@@ -1488,6 +1488,31 @@ class Pixels {
 		probe("half a second later still its own width", 9, 5, near(0xffffff));
 		ashui.css.Css.remove(motionSheet);
 
+		// git-bug: 7977648 / ABI 62aa0b0: pixels follow order and its reactive updates.
+		var orderTree = new LayoutTree(), itemOrder = ashui.reactive.Signal.make(1);
+		var ordered:Div = ashui.reactive.Owner.root(orderTree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+			<div order={itemOrder} width={32} height={32} bg={Brush.solid(0xff0000)} />
+			<div width={32} height={32} bg={Brush.solid(0x0000ff)} />
+		</div>);
+		pixels = offscreen.renderToRgba8(ordered, SIZE, SIZE); label = "order: ";
+		probe("zero-order item is first", 8, 16, near(0x0000ff));
+		probe("positive-order item is last", 48, 16, near(0xff0000));
+		itemOrder.set(-1);
+		pixels = offscreen.renderToRgba8(ordered, SIZE, SIZE);
+		probe("negative reactive order moves the red item first", 8, 16, near(0xff0000));
+		probe("reactive order moves the blue item last", 48, 16, near(0x0000ff));
+		var overlapping:Div = ashui.reactive.Owner.root(orderTree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+			<div class="absolute" order={1} width={32} height={32} bg={Brush.solid(0xff0000)} />
+			<div class="absolute" width={32} height={32} bg={Brush.solid(0x0000ff)} />
+		</div>);
+		pixels = offscreen.renderToRgba8(overlapping, SIZE, SIZE);
+		probe("overlapping items paint in visual order", 16, 16, near(0xff0000));
+		var overlapped = ashui.css.Identity.of(orderTree, orderTree.children(overlapping.node.id)[1]).node;
+		ashui.css.Identity.of(orderTree, overlapped.id).setInline("z-index", "10");
+		pixels = offscreen.renderToRgba8(overlapping, SIZE, SIZE);
+		probe("z-index overrides order for overlapping paint", 16, 16, near(0x0000ff));
+		orderTree.dispose();
+
 		var interactionRoot:Div = ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
 			<div width={24} height={24} visibility={Hidden} bg={Brush.solid(0xff0000)} />
 			<div width={24} height={24} pointerEvents={ashui.types.Style.PointerEvents.None} bg={Brush.solid(0x0000ff)} />

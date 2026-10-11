@@ -66,6 +66,7 @@ typedef DivAttributes = {
 	?display:IntoReactive<Display>,
 	?overflow:IntoReactive<Overflow>,
 	?position:IntoReactive<Position>,
+	?order:IntoReactive<Int>,
 	?top:IntoReactive<Single>,
 	?right:IntoReactive<Single>,
 	?bottom:IntoReactive<Single>,
@@ -246,6 +247,8 @@ class Div extends Element {
 				node.set(Prop.Overflow, attr.overflow);
 			if (attr.position != null)
 				node.set(Prop.Position, attr.position);
+			if (attr.order != null)
+				node.set(Prop.Order, attr.order);
 			if (attr.top != null)
 				node.set(Prop.Top, attr.top);
 			if (attr.right != null)

@@ -1,20 +1,22 @@
 import ashui.components.Badge;
 import ashui.components.Card;
-import ashui.core.render.Snapshot;
+import ashui.debug.MotionRecorder;
 import ashui.css.Css;
 import ashui.input.Scroll;
+import ashui.reactive.Signal;
 import ashui.theme.ThemeState;
 import ashui.theme.themes.DefaultTheme;
 
-/** Before and after scrolling: sticky headings, stacking, and native text truncation. **/
+/** CSS layout milestones: git-bug 6812621, 3a58858 and 7977648 (ordering). **/
 class CssLayout {
 	static function main() {
 		ThemeState.init(DefaultTheme.bundle(), Dark);
+		var order = Signal.make(2);
 		Css.load('
 			#heading { position: sticky; top: 0; z-index: 10; background: var(--surface-elevated); }
 			#summary { line-clamp: 2; margin: 0; font-size: 16px; line-height: 1.5; color: var(--text-secondary); }
 		');
-		Snapshot.sequence("css-layout", 880, 460, () -> <div class="bg-background p-6 flex-col gap-4" width={880} height={460}>
+		MotionRecorder.record("css-layout", 880, 644, () -> <div class="bg-background p-6 flex-col gap-4" width={880} height={644}>
 			<text class="text-2xl font-semibold">CSS layout and text</text>
 			<text class="text-text-secondary">Sticky headings, consistent stacking, and text that fits.</text>
 			<div class="flex-row gap-6">
@@ -47,11 +49,20 @@ class CssLayout {
 					</card-content>
 				</card>
 			</div>
-		</div>, 30, 2, (frame, tree, root) -> {
+			<card width={832}>
+				<card-header><card-title>Visual order, stable identity</card-title><card-description>CSS order moves items. Document order and keyboard focus stay A → B → C.</card-description></card-header>
+				<card-content class="flex-row gap-3">
+					<div order={order} animateLayout={true} class="bg-primary/10 rounded-lg p-3 flex-row items-center gap-3" width={236}><badge>A</badge><text>Reactive order: {order}</text></div>
+					<div animateLayout={true} class="bg-surface-elevated rounded-lg p-3 flex-row items-center gap-3" width={236}><badge appearance={Outline}>B</badge><text>Default order: 0</text></div>
+					<div animateLayout={true} class="bg-surface-elevated rounded-lg p-3 flex-row items-center gap-3" width={236}><badge appearance={Outline}>C</badge><text>Default order: 0</text></div>
+				</card-content>
+			</card>
+		</div>, {fps: 60, frames: 48, minFrames: 20, before: (frame, tree, root) -> {
 			if (frame == 1) {
 				var node = Css.query(tree, root.node.id, "#scroll")[0];
 				Scroll.at(node).scrollTo(0, 110);
+				order.set(-1);
 			}
-		}, ThemeState.get().color(Background).rgb());
+		}, clear: ThemeState.get().color(Background).rgb()});
 	}
 }

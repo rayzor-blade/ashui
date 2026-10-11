@@ -60,6 +60,8 @@ enum abstract Justify(Int) to Int {
 enum abstract Position(Int) to Int {
 	var Relative = 0;
 	var Absolute = 1;
+	/** Parent-relative Absolute alias, not viewport-fixed positioning. git-bug: 7977648 / 8780d6b. **/
+	var Fixed = 1;
 	/** Stays in normal flow, held by its insets at its scroll container's edge. **/
 	var Sticky = 2;
 }
@@ -74,11 +76,11 @@ enum abstract TextOverflow(Int) to Int {
 enum abstract Visibility(Int) to Int {
 	var Visible = 0;
 	var Hidden = 1;
-	/** Currently hides like Hidden; table row/column collapsing is not implemented. **/
+	/** Hides like Hidden; table collapsing remains unimplemented. git-bug: 4512d6f / 8780d6b. **/
 	var Collapse = 2;
 }
 
-/** Native hit testing: None passes through the entire subtree. **/
+/** None passes through the subtree, without descendant overrides. git-bug: 4512d6f / 8780d6b. **/
 enum abstract PointerEvents(Int) to Int {
 	var Auto = 0;
 	var None = 1;

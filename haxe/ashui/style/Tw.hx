@@ -78,7 +78,9 @@ import haxe.macro.Type;
 	  Tailwind;
 	- text limits: `truncate`, `text-ellipsis`, `text-clip`, `whitespace-nowrap`,
 	  `line-clamp-1` … `line-clamp-6` and `line-clamp-none`; and positioning
-	  with `sticky`, `z-0` … `z-50` in steps of ten, including negative forms;
+	  with `sticky`, `fixed` (a parent-relative absolute alias), `z-0` … `z-50`
+	  in steps of ten, including negative forms; flex/grid ordering with
+	  `order-1` … `order-12`, negative forms, `order-first`, `order-last`, `order-none`;
 	- list markers: `list-disc`, `list-circle`, `list-square`, `list-decimal`,
 	  `list-decimal-leading-zero`, `list-lower-alpha`, `list-upper-roman` and
 	  their case counterparts, or `list-none` to remove the marker space;
@@ -675,7 +677,16 @@ class Tw {
 		}
 		keyword("relative", "Position", "Position", "Relative");
 		keyword("absolute", "Position", "Position", "Absolute");
+		keyword("fixed", "Position", "Position", "Fixed");
 		keyword("sticky", "Position", "Position", "Sticky");
+		// git-bug: 7977648. These use the same typed writes for base and state classes.
+		one("order-first", "Order", macro -9999);
+		one("order-last", "Order", macro 9999);
+		one("order-none", "Order", macro 0);
+		for (order in 1...13) {
+			one('order-$order', "Order", macro $v{order});
+			one('-order-$order', "Order", macro $v{-order});
+		}
 		keyword("text-ellipsis", "TextOverflow", "TextOverflow", "Ellipsis");
 		keyword("text-clip", "TextOverflow", "TextOverflow", "Clip");
 		for (z in [0, 10, 20, 30, 40, 50]) {

@@ -188,8 +188,13 @@ class Properties {
 		});
 		h.set("position", (n, v, _) -> [
 			enumWrite(n, Prop.Position, v, ["relative" => Position.Relative, "static" => Position.Relative, "absolute" => Position.Absolute,
-				"sticky" => Position.Sticky])
+				"fixed" => Position.Fixed, "sticky" => Position.Sticky])
 		]);
+		// git-bug: 7977648 / ABI 62aa0b0: keep signed integers on the native i32 path.
+		h.set("order", (n, v, _) -> {
+			write(n, Prop.Order, integer(v, -2147483648.0));
+			[Node.field(Prop.Order)];
+		});
 		h.set("z-index", (n, v, _) -> {
 			if (StringTools.trim(v).toLowerCase() == "auto")
 				n.styleInitial(Prop.ZIndex);

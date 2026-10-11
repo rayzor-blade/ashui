@@ -310,6 +310,18 @@ container's existing watcher; hiding the scrollbar avoids fade timers.
 
 ### Sticky positioning, stacking and text limits
 
+`order` accepts signed 32-bit integers (default `0`). Flex and grid items
+are laid out and painted in ascending order, with equal values keeping their
+authored order. Pointer hits follow that painting order; selectors, child
+queries and Tab navigation keep document order. Reactive `order={signal}`
+uses the existing native binding path. Utilities include `order-1` through
+`order-12`, their negative forms, `order-first`, `order-last` and `order-none`,
+including state variants. Layout animations follow the resulting changes.
+
+`position: fixed`, the `fixed` utility and `Position.Fixed` currently alias
+`absolute`: insets resolve within the parent and the element scrolls with it.
+Viewport-fixed placement remains tracked in git-bug `8780d6b`.
+
 `position: sticky` keeps an element in normal flow and holds it at an inset
 of its nearest scroll container. For example, a heading with `top: 0` stays
 at the top while its section scrolls. It leaves when its containing section

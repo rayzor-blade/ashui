@@ -165,6 +165,9 @@ enum abstract PropertyId(Int) from Int to Int {
     var GapXPercent = 116;
     var GapYPercent = 117;
 
+    /** Stable flex/grid item ordering; git-bug: 7977648 (ABI 62aa0b0). **/
+    var Order = 118;
+
     /** The shadows of the node's text and its descendants', first on top, as CSS's `text-shadow`. **/
     var TextShadow = 119;
 
@@ -206,7 +209,7 @@ enum abstract PropertyId(Int) from Int to Int {
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)
             case FlexDirection | AlignItems | JustifyContent | AlignSelf |
                  FlexWrap | Display | Overflow | OverflowX | OverflowY | Position | AlignContent | JustifyItems | JustifySelf |
-                 FontWeight | FontStyle | TextAlign | Filter | Compound | ZIndex | TextOverflow | LineClamp | Visibility | PointerEvents:
+                 FontWeight | FontStyle | TextAlign | Filter | Compound | Order | ZIndex | TextOverflow | LineClamp | Visibility | PointerEvents:
                 TypeI32;
 
             default:
