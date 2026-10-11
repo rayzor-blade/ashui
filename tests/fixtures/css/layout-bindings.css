@@ -5,3 +5,5 @@
 	place-items: center start;
 	padding-left: 10%;
 }
+
+.fit-compiled { object-fit: contain; }

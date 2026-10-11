@@ -343,6 +343,10 @@ class Properties {
 		});
 		// Read by `background`'s `url()` images, through the context; nothing of its own to write.
 		h.set("background-size", (_, _, _) -> []);
+		h.set("object-fit", (n, v, _) -> {
+			ashui.ui.Image.styleFit(n, ashui.ui.Image.cssFit(v));
+			[];
+		});
 		// These settings belong to the glass background; they have no separate native field.
 		for (name in ["glass-blur", "glass-tint", "glass-aberration", "glass-bevel", "glass-curvature", "glass-noise", "glass-mode"])
 			h.set(name, (_, v, c) -> {

@@ -1,4 +1,6 @@
 import ashui.core.render.Snapshot;
+import ashui.css.CompiledCss;
+import ashui.css.Css;
 import ashui.draw.Affine;
 import ashui.draw.DrawContext;
 import ashui.theme.ThemeState;
@@ -10,7 +12,7 @@ import ashui.types.Style;
 /**
 	Photos, from Blinc's examples (`tools/snapshot/assets`): an album cover,
 	a landscape and an illustration in WebP, an avatar in JPEG. Each drawn
-	by `<img>` in its three fits into one wide box (cover crops, contain
+	by `<img>` with CSS object-fit in one wide box (cover crops, contain
 	letterboxes, fill stretches), rounded and as a circle, the largest from
 	the full 2048-pixel original in Blinc's checkout when it is there; as a box's
 	background; then on a canvas, turned, scaled and faded. Writes
@@ -21,6 +23,7 @@ class ImageGallery {
 		var light = Sys.getEnv("SCHEME") == "light";
 		ThemeState.init(DefaultTheme.bundle(), light ? Light : Dark);
 		var page = ThemeState.get().color(Background);
+		Css.add(CompiledCss.file("ImageGallery.css"));
 		var album = Bitmap.embed("assets/album.webp"), plains = Bitmap.embed("assets/plains.webp");
 		var planet = Bitmap.embed("assets/planet.webp"), avatar = Bitmap.embed("assets/avatar.jpg");
 		// The avatar at its full 2048 by 2048, from Blinc's checkout when it is there: a large photo, resampled to the 96 it is drawn at.
@@ -38,15 +41,15 @@ class ImageGallery {
 		var build = () -> <div flexDirection={Column} padding={32} gap={28} width={760}>
 			<div flexDirection={Row} gap={20}>
 				<div flexDirection={Column} gap={8}>
-					<img src={planet} class="object-cover rounded-xl" width={220} height={140} />
+					<img src={planet} id="fit-cover" class="rounded-xl" width={220} height={140} />
 					<text class="text-xs text-text-secondary">cover: cropped to fill</text>
 				</div>
 				<div flexDirection={Column} gap={8}>
-					<img src={planet} class="object-contain rounded-xl" width={220} height={140} bg={Brush.solid(0x000000, 0.25)} />
+					<img src={planet} id="fit-contain" class="rounded-xl" width={220} height={140} bg={Brush.solid(0x000000, 0.25)} />
 					<text class="text-xs text-text-secondary">contain: whole, letterboxed</text>
 				</div>
 				<div flexDirection={Column} gap={8}>
-					<img src={planet} class="object-fill rounded-xl" width={220} height={140} />
+					<img src={planet} id="fit-fill" class="rounded-xl" width={220} height={140} />
 					<text class="text-xs text-text-secondary">fill: stretched</text>
 				</div>
 			</div>

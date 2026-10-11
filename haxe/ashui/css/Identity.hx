@@ -187,6 +187,16 @@ class Identity {
 		}
 	}
 
+	/** Releases every styling identity before its tree's native memory is disposed. **/
+	public static function forgetTree(tree:LayoutTree):Void {
+		var nodes = trees.get(tree);
+		if (nodes == null) return;
+		trees.remove(tree);
+		for (identity in nodes)
+			for (hook in forgetHooks)
+				hook(identity);
+	}
+
 	/** Drops the identities of `node` and everything below it, when they are removed together. **/
 	public static function forgetSubtree(tree:LayoutTree, node:haxe.Int64):Void {
 		var nodes = trees.get(tree);

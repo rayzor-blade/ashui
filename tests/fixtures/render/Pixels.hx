@@ -623,7 +623,9 @@ class Pixels {
 		// Two pixels: red, then blue.
 		var pair = ashui.types.Bitmap.fromBytes(haxe.crypto.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg=="));
 		var stretched = new ashui.ui.Image(pair, {width: 24, height: 8}, bitmapTree);
-		var letterboxed = new ashui.ui.Image(pair, {width: 16, height: 16, fit: Contain}, bitmapTree);
+		var bitmapFitSheet = ashui.css.Css.load("#bitmap-contain { object-fit: contain; }");
+		var letterboxed = new ashui.ui.Image(pair, {width: 16, height: 16}, bitmapTree);
+		ashui.css.Identity.of(bitmapTree, letterboxed.node.id).setId("bitmap-contain");
 		var cropped = new ashui.ui.Image(pair, {width: 8, height: 16, fit: Cover}, bitmapTree);
 		var backed = new Div({width: 24, height: 24, bg: Brush.bitmap(pair, Fill), cornerRadius: CornerRadius.all(12)}, bitmapTree);
 		var tiled = new Div({width: 24, height: 24, bg: Brush.bitmap(pair, Tile)}, bitmapTree);
@@ -642,6 +644,7 @@ class Pixels {
 		probe("blue in the odd one after", 37, 40, (r, g, b) -> b > 200 && r < 60);
 		probe("and red again a cell on", 38, 40, (r, g, b) -> r > 200 && b < 60);
 		probe("repeated across the box", 47, 44, (r, g, b) -> b > 200 && r < 60);
+		ashui.css.Css.remove(bitmapFitSheet);
 
 		// CSS's url() reads an image file into a background, fitted by background-size.
 		var pairFile = haxe.io.Path.join([Sys.getCwd(), "pixels-pair.png"]);

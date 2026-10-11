@@ -193,6 +193,12 @@ changing or removing it updates the existing scroll container. Typed
 utilities include `overflow-x-auto` and `overflow-y-auto`. Native rectangular
 clipping currently clips both axes when either axis needs clipping.
 
+`object-fit: cover`, `contain` or `fill` styles an `<img>` through the same
+bitmap fitting API as `fit={Cover}` and the `object-cover` utilities. CSS can
+change fitting without decoding or copying the image again. Removing the
+rule restores `fill`; an explicit `fit` attribute or `object-*` utility keeps
+its local setting. `none` and `scale-down` are not supported yet.
+
 ### Sticky positioning, stacking and text limits
 
 `position: sticky` keeps an element in normal flow and holds it at an inset

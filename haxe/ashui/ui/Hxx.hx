@@ -344,14 +344,14 @@ class Hxx {
 	static function lowerImg(node:Node):Expr {
 		var el = '__img${counter++}';
 		var src:Null<Expr> = null;
-		var fit:Expr = macro ashui.types.Brush.ImageFit.Fill;
+		var fit:Null<Expr> = null, authoredFit:Null<Expr> = null;
 		var classes = [], styles = [], own = [];
 		for (a in node.attributes)
 			switch a {
 				case Regular(name, value) if (name.value == 'src'):
 					src = value;
 				case Regular(name, value) if (name.value == 'fit'):
-					fit = value;
+					authoredFit = value;
 				case Regular(name, value) if (name.value == 'class'):
 					var text = switch value.expr {
 						case EConst(CString(s, _)): s;
@@ -376,8 +376,10 @@ class Hxx {
 		if (src == null)
 			Context.error("hxx: <img> needs src={bitmap}", node.name.pos);
 		var sets = classes.concat(styles).concat(own);
+		if (authoredFit != null) fit = authoredFit;
+		var attributes = fit == null ? macro null : macro {fit: $fit};
 		return macro @:pos(node.name.pos) {
-			var $el = new ashui.ui.Image($src, {fit: $fit});
+			var $el = new ashui.ui.Image($src, $attributes);
 			$b{sets};
 			$i{el};
 		};

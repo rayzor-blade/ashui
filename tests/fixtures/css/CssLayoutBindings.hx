@@ -37,6 +37,7 @@ class CssLayoutBindings {
 		return right;
 	}
 	static function glyphs(list:DisplayList):Int return [for (i in 0...list.count) if (list.kind(i) == DisplayList.PRIM_TEXT) i].length;
+	static function imageSlots(list:DisplayList):Array<Int> return [for (i in 0...list.count) if (list.kind(i) == DisplayList.PRIM_IMAGE) Std.int(list.get(i, 40))];
 
 	static function main() {
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Light);
@@ -230,5 +231,38 @@ class CssLayoutBindings {
 			try ashui.css.Properties.apply(text.node, name, "-5%", context) catch (_:String) rejected = true;
 			check("negative percentage " + name + " is rejected", rejected);
 		}
+		var bitmap = ashui.types.Bitmap.fromBytes(haxe.crypto.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg=="));
+		Css.add(compiled);
+		var imageTree = new LayoutTree();
+		var images:ashui.ui.Div = Owner.root(imageTree, _ -> <div width={100} height={24}>
+			<img src={bitmap} class="fit-compiled" width={24} height={24} />
+			<img src={bitmap} class="fit-compiled object-cover" width={24} height={24} />
+			<img src={bitmap} fit={Fill} class="fit-compiled object-cover" width={24} height={24} />
+			<img src={bitmap} class="fit-compiled object-cover" fit={Fill} width={24} height={24} />
+		</div>);
+		layout(imageTree, images);
+		var slots = imageSlots(drawn(imageTree, images));
+		check("compiled object-fit reuses the existing contain bitmap slot", slots[0] == bitmap.slotFor(Contain));
+		check("object utilities keep their fitting over stylesheet rules", slots[1] == bitmap.slotFor(Cover));
+		check("explicit fit wins over utilities in either attribute order", slots[2] == bitmap.slotFor(Fill) && slots[3] == bitmap.slotFor(Fill));
+		var image = child(imageTree, images.node);
+		identity(image).setInline("object-fit", "cover");
+		layout(imageTree, images);
+		check("restyling object-fit selects the same decoded bitmap's cover slot", imageSlots(drawn(imageTree, images))[0] == bitmap.slotFor(Cover));
+		identity(image).setInline("object-fit", null);
+		Css.remove(compiled);
+		layout(imageTree, images);
+		check("removing object-fit restores fill without changing owned fits", imageSlots(drawn(imageTree, images))[0] == bitmap.slotFor(Fill) && imageSlots(drawn(imageTree, images))[1] == bitmap.slotFor(Cover));
+		var rejected = false;
+		try ashui.css.Properties.apply(image, "object-fit", "scale-down", context) catch (_:String) rejected = true;
+		check("unsupported image modes report a diagnostic instead of silently tiling", rejected);
+		images.remove();
+		check("removed images leave no retained CSS image lookup", @:privateAccess ashui.ui.Image.byNode.get(image) == null);
+		var disposableTree = new LayoutTree();
+		var disposable = new ashui.ui.Image(bitmap, null, disposableTree);
+		var disposableNode = disposable.node;
+		disposableTree.dispose();
+		check("disposing an unowned image tree clears its styling lookup and identity", (@:privateAccess ashui.ui.Image.byNode.get(disposableNode)) == null && Identity.of(disposableTree, disposableNode.id) == null);
+		bitmap.dispose();
 	}
 }
