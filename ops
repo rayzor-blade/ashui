@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791730688,"nonce":"sS/SQ/ZJPeNd3wYG90ZovC0oLoA=","message":"Done in c38a7f8 on main, pinning blinc_abi 803aa4e (which carries the stacking test). tools/snapshot/scenes/TextDecorations.hx shows every case.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1791730689,"nonce":"xBquCwnUVY4IHmFHOVgLNTULXzA=","status":2}]}
