@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1791714061,"nonce":"Co2kUNk8EWkdgEC6SZKNfgUG+6M=","message":"Fixed by pinning blinc_abi 5e3e17b in ashui c3e75ba; Bitmaps scene shows the avatar as a circle inside its ring.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1791714061,"nonce":"Rx3+iXCfs+nKshvCJadqS2BxAsQ=","status":2}]}
