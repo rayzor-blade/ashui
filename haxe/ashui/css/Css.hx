@@ -444,7 +444,8 @@ class Css {
 				hasBackground: resolved.exists("background") || resolved.exists("background-color")
 			};
 		}
-		if (resolved.exists("background-size"))
+		var background = try Properties.backgroundImageSettings(resolved.get("background")) catch (_:String) null;
+		if (background != null || resolved.exists("background-size") || resolved.exists("background-repeat") || resolved.exists("background-position"))
 			ctx = {
 				viewportWidth: ctx.viewportWidth,
 				viewportHeight: ctx.viewportHeight,
@@ -453,7 +454,9 @@ class Css {
 				currentColor: ctx.currentColor,
 				backdropBlur: ctx.backdropBlur,
 				hasBackground: ctx.hasBackground,
-				backgroundSize: resolved.get("background-size"),
+				backgroundSize: resolved.exists("background-size") ? resolved.get("background-size") : background == null ? null : background.size,
+				backgroundRepeat: resolved.exists("background-repeat") ? resolved.get("background-repeat") : background == null ? null : background.repeat,
+				backgroundPosition: resolved.exists("background-position") ? resolved.get("background-position") : background == null ? null : background.position,
 				glassProperties: ctx.glassProperties
 			};
 		var fields:Array<Int> = [];
@@ -501,6 +504,8 @@ class Css {
 						backdropBlur: ctx.backdropBlur,
 						hasBackground: ctx.hasBackground,
 						backgroundSize: ctx.backgroundSize,
+						backgroundRepeat: ctx.backgroundRepeat,
+						backgroundPosition: ctx.backgroundPosition,
 						glassProperties: ctx.glassProperties
 					};
 			}

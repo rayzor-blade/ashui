@@ -265,7 +265,61 @@ class CssLayoutBindings {
 		check("disposing an unowned image tree clears its styling lookup and identity", (@:privateAccess ashui.ui.Image.byNode.get(disposableNode)) == null && Identity.of(disposableTree, disposableNode.id) == null);
 		imagePositioning(bitmap, context);
 		bitmap.dispose();
+		backgroundImages(context);
 		listAndCursor();
+	}
+
+	static function backgroundImages(context:ashui.css.Properties.ApplyContext) {
+		var file = haxe.io.Path.join([Sys.getCwd(), "css-background.png"]);
+		sys.io.File.saveBytes(file, haxe.crypto.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg=="));
+		var bitmap = ashui.types.Bitmap.load(file);
+		var sheet = Css.load('#background-first, #background-owned, #background-img { background: url("$file") right bottom / contain no-repeat; } #background-first { background-size: contain; background-position: right bottom; background-repeat: no-repeat; }');
+		var tree = new LayoutTree();
+		var root:ashui.ui.Div = Owner.root(tree, _ -> <div width={100} height={24}>
+			<div id="background-first" width={24} height={24} />
+			<div class="bg-no-repeat bg-right hover:bg-left" width={24} height={24} />
+			<div id="background-owned" bg={ashui.types.Brush.bitmap(bitmap, Fill)} width={24} height={24} />
+			<img id="background-img" class="object-none object-left" src={bitmap} width={24} height={24} />
+		</div>);
+		var box = child(tree, root.node), utility = child(tree, root.node, 1);
+		identity(utility).setInline("background-image", 'url("$file")');
+		function records():Array<Int> { layout(tree, root); var l = drawn(tree, root); return [for (r in 0...l.count) if (l.kind(r) == DisplayList.PRIM_IMAGE) r]; }
+		layout(tree, root);
+		var l = drawn(tree, root), rows = records();
+		check("background shorthand preserves native fit, position and repeat flags", l.get(rows[0], 14) == 1 && l.get(rows[0], 4) == 1 && l.get(rows[0], 5) == 1 && l.get(rows[0], 12) == 0 && l.get(rows[0], 45) == 3);
+		check("background utilities reach the existing native image record", l.get(rows[1], 4) == 1 && l.get(rows[1], 5) == 0.5 && l.get(rows[1], 12) == 0);
+		check("authored background brushes keep ownership over CSS mapping", l.get(rows[2], 45) != 3 && Std.int(l.get(rows[2], 40)) == bitmap.slotFor(Fill));
+		check("background and img content retain separate mappings", l.get(rows[3], 4) == 1 && l.get(rows[3], 14) == 1 && l.get(rows[4], 4) == 0 && l.get(rows[4], 14) == 4);
+		var interaction = ashui.input.Interaction.of(utility);
+		interaction.hovered.set(true);
+		layout(tree, root); l = drawn(tree, root);
+		check("hover background position overrides the base utility", l.get(rows[1], 4) == 0);
+		interaction.hovered.set(false);
+		identity(box).setInline("background-position", "12.5% -0.375px").setInline("background-repeat", "no-repeat repeat");
+		layout(tree, root); l = drawn(tree, root);
+		check("background longhands override shorthand without rounding", l.get(rows[0], 4) == 0.125 && l.get(rows[0], 7) == -0.375 && l.get(rows[0], 12) == 2);
+		identity(box).setInline("background-position", null).setInline("background-repeat", null).setInline("background", 'url("$file")');
+		layout(tree, root); l = drawn(tree, root);
+		check("stronger background shorthand resets position size and repeat longhands", l.get(rows[0], 4) == 0 && l.get(rows[0], 5) == 0 && l.get(rows[0], 12) == 3 && l.get(rows[0], 14) == 3);
+		identity(box).setInline("background", "red");
+		layout(tree, root);
+		check("replacing an image with a solid removes its image record", imageSlots(drawn(tree, root)).length == 4);
+		identity(box).setInline("background", null).setInline("background-position", null).setInline("background-repeat", null);
+		Css.remove(sheet);
+		layout(tree, root);
+		check("removing background CSS drops unowned images and keeps authored brushes", imageSlots(drawn(tree, root)).length == 3);
+		var compiled = ashui.css.CompiledCss.file("layout-bindings.css");
+		Css.add(compiled);
+		identity(box).setId(null).setClasses(["background-compiled"]).setInline("background-image", 'url("$file")');
+		layout(tree, root); l = drawn(tree, root);
+		check("compiled background properties preserve repeat and fractional position", l.get(0, 4) == 0.125 && l.get(0, 7) == -0.375 && l.get(0, 12) == 2 && l.get(0, 14) == 1);
+		Css.remove(compiled);
+		for (v in ["space", "round", "repeat-x no-repeat"]) {
+			var rejected = false;
+			try ashui.css.Properties.imageRepeat(v) catch (_:String) rejected = true;
+			check("unsupported background repeat is diagnosed: " + v, rejected);
+		}
+		root.remove(); tree.dispose(); bitmap.dispose(); sys.FileSystem.deleteFile(file);
 	}
 
 	static function imagePositioning(bitmap:ashui.types.Bitmap, context:ashui.css.Properties.ApplyContext) {

@@ -12,7 +12,7 @@ import ashui.svg.SvgDocument;
 	var y:Float;
 	var width:Float;
 	var height:Float;
-	var tiled:Bool;
+	var repeat:Int;
 }
 
 /**
@@ -54,7 +54,7 @@ class Images {
 			if (image.mode == 3) {
 				list.set(r, MAPPING, image.x); list.set(r, MAPPING + 1, image.y);
 				list.set(r, MAPPING + 2, image.width); list.set(r, MAPPING + 3, image.height);
-				list.set(r, COLOR2 + 2, image.tiled ? 1 : 0);
+				list.set(r, COLOR2 + 2, image.repeat);
 			} else if (image.mode == 2) {
 				list.set(r, COLOR2, image.width); list.set(r, COLOR2 + 1, image.height);
 			}
@@ -67,7 +67,7 @@ class Images {
 		for (r in 0...list.count) {
 			if (list.kind(r) != DisplayList.PRIM_IMAGE) continue;
 			if (atlas.prepared == atlas.resolving.length)
-				atlas.resolving.push({record: 0, rect: null, mode: 0, x: 0, y: 0, width: 0, height: 0, tiled: false});
+				atlas.resolving.push({record: 0, rect: null, mode: 0, x: 0, y: 0, width: 0, height: 0, repeat: 0});
 			var image = atlas.resolving[atlas.prepared++];
 			image.record = r;
 			var slot = Std.int(list.get(r, GRADIENT));
@@ -104,7 +104,7 @@ class Images {
 		image.height = fit == 2 ? h : sh * scale;
 		image.x = (w - image.width) * list.get(r, MAPPING) + list.get(r, MAPPING + 2);
 		image.y = (h - image.height) * list.get(r, MAPPING + 1) + list.get(r, MAPPING + 3);
-		image.tiled = fit == 3;
+		image.repeat = Std.int(list.get(r, COLOR2));
 		return bitmap(slot, image.width, image.height, onScreen, atlas);
 	}
 

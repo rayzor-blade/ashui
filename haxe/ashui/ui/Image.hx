@@ -9,12 +9,7 @@ import ashui.types.Bitmap;
 import ashui.types.ObjectFit;
 
 /** Fractions of the free space, plus pixel offsets; percentages remain exact until drawing. **/
-typedef ImagePosition = {
-	final x:Float;
-	final y:Float;
-	final offsetX:Float;
-	final offsetY:Float;
-}
+typedef ImagePosition = ashui.types.ImagePosition;
 
 typedef ImageAttributes = {
 	/** The size it is laid out at; the bitmap's own by default. **/

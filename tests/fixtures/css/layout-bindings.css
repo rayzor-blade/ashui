@@ -12,3 +12,5 @@
 .cursor-compiled { cursor: crosshair; }
 
 .position-compiled { object-fit: scale-down; object-position: 12.5% 87.5%; }
+
+.background-compiled { background-size: contain; background-position: 12.5% -0.375px; background-repeat: repeat-y; }

@@ -215,6 +215,29 @@ Explicit attributes win over CSS and utilities. Removing a stylesheet restores
 Bitmaps are decoded once; positioned images share size-bucketed atlas entries,
 so changing position reuses the texture.
 
+Bitmap `url()` backgrounds support `background-repeat`: `repeat` (the default),
+`no-repeat`, `repeat-x`, `repeat-y`, or a two-axis `repeat`/`no-repeat` pair.
+`background-position` defaults to `0% 0%` and accepts the same keywords,
+percentages and lengths as `object-position`. Repetition respects rounded
+and squircle clipping. Moving or changing repeat axes reuses the atlas texture.
+
+```css
+.artwork {
+  background: url("artwork.png") right bottom / contain no-repeat;
+}
+.artwork:hover { background-position: left top; }
+```
+
+`background-size` supports `auto` (intrinsic size), `cover`, `contain`, and
+`100% 100%` (stretch). Utilities include `bg-cover`, `bg-contain`, `bg-auto`,
+`bg-no-repeat`, `bg-repeat-x`, `bg-repeat-y`, `bg-center` and `bg-bottom-right`,
+including state variants. A new `background` shorthand resets weaker size,
+repeat and position declarations. Image brushes also accept optional
+`ashui.types.ImagePosition` and `Brush.ImageRepeat` arguments through
+`Brush.bitmap` and `Brush.image`; their existing defaults remain the same.
+Multiple background layers, `space`/`round` repetition and explicit tile sizes
+are currently unsupported.
+
 ### List markers and cursors
 
 `list-style-type` inherits through lists and can be overridden on individual

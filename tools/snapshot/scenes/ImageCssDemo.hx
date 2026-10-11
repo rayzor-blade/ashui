@@ -120,6 +120,15 @@ class ImageCssDemo {
 		var page = ThemeState.get().color(Background);
 		avatar = Bitmap.embed("assets/avatar.jpg");
 		Css.load(STYLESHEET);
+		var tile = Bitmap.embed("assets/plains.webp");
+		tile.shrink(40);
+		var tileUrl = "ashui:bitmap:" + tile.slotFor(ashui.types.Brush.ImageFit.Tile);
+		Css.load('
+			#bg-repeat, #bg-repeat-x, #bg-repeat-y, #bg-no-repeat { width: 100px; height: 100px; border-radius: 16px; background-image: url("$tileUrl"); }
+			#bg-repeat-x { background-repeat: repeat-x; background-position: -12px center; }
+			#bg-repeat-y { background-repeat: repeat-y; background-position: center -12px; }
+			#bg-no-repeat { background-repeat: no-repeat; background-position: right 6px bottom 6px; }
+		');
 		var build = () -> new Div({id: "root", width: 1100}, [
 			new Div({flexDirection: FlexDirection.Column, gap: 4}, [
 				styled("title", "Image CSS Styling Demo"),
@@ -131,7 +140,13 @@ class ImageCssDemo {
 			section("4. Box Shadow", [card("img-shadow-sm", "small"), card("img-shadow-md", "medium (blue)"), card("img-shadow-lg", "large (amber)")]),
 			section("5. CSS Transform", [card("img-rotate", "rotate(12deg)"), card("img-scale", "scale(1.15)"), card("img-skew", "skewX(-8deg)")]),
 			section("6. Hover Transitions (hover over images)", [card("img-hover-scale", "scale + shadow"), card("img-hover-opacity", "opacity + border"), card("img-hover-rotate", "rotate + scale"), card("img-hover-shadow", "glow shadow")]),
-			section("7. Background Image (CSS url())", [new Div({classes: ["card"]}, [new Div({id: "bg-image-card"}), styled("label", "background: url(...)")])]),
+			section("7. Background Images (CSS url(), repetition and positioning)", [
+				<div flexDirection={Column} gap={6} alignItems={Center}><div id="bg-image-card" /><span class="text-xs text-secondary">cover</span></div>,
+				<div flexDirection={Column} gap={6} alignItems={Center}><div id="bg-repeat" /><span class="text-xs text-secondary">repeat</span></div>,
+				<div flexDirection={Column} gap={6} alignItems={Center}><div id="bg-repeat-x" /><span class="text-xs text-secondary">repeat-x · shifted</span></div>,
+				<div flexDirection={Column} gap={6} alignItems={Center}><div id="bg-repeat-y" /><span class="text-xs text-secondary">repeat-y · shifted</span></div>,
+				<div flexDirection={Column} gap={6} alignItems={Center}><div id="bg-no-repeat" /><span class="text-xs text-secondary">no-repeat · inset</span></div>
+			]),
 			section("8. CSS Filters", [card("img-grayscale", "grayscale(100%)"), card("img-sepia", "sepia(100%)"), card("img-invert", "invert(100%)"), card("img-brightness", "brightness(150%)"), card("img-contrast", "contrast(200%)"), card("img-saturate", "saturate(300%)"), card("img-hue-rotate", "hue-rotate(90deg)"), card("img-filter-combo", "combo")]),
 			section("9. Mask Image (CSS Gradients)", [card("img-mask-fade-bottom", "fade bottom"), card("img-mask-fade-right", "fade right"), card("img-mask-radial", "radial reveal"), card("img-mask-diagonal", "diagonal")]),
 			section("10. Mask Transitions (Hover)", [card("img-mask-hover-reveal", "reveal down"), card("img-mask-hover-radial", "radial in"), card("img-mask-hover-fade", "fade right")])

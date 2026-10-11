@@ -37,6 +37,14 @@ typedef BrushGradient = {
 	final stops:Array<BrushStop>;
 }
 
+/** Which axes an image brush repeats along. **/
+enum abstract ImageRepeat(Int) to Int {
+	var NoRepeat = 0;
+	var RepeatX = 1;
+	var RepeatY = 2;
+	var Repeat = 3;
+}
+
 /** The shape a pattern brush repeats. **/
 enum abstract PatternKind(Int) to Int {
 	/** A dot at every crossing of the grid. **/
@@ -147,14 +155,19 @@ class Brush implements IValue {
 		return new Brush(BlincNative.blinc_brush_blur(radius, tintHex, tintAlpha));
 	}
 
-	/** The image at `url` filling the box, fitted by `fit`. **/
-	public static inline function image(url:String, fit:ImageFit = Cover):Brush {
-		return new Brush(BlincNative.blinc_brush_image(Utf8.encode(url), fit));
+	/** The image at `url` filling the box, fitted by `fit`. Bitmap position and repeat use the whole-image atlas mapping. **/
+	public static function image(url:String, fit:ImageFit = Cover, ?position:ImagePosition, ?repeat:ImageRepeat):Brush {
+		var brush = new Brush(BlincNative.blinc_brush_image(Utf8.encode(url), fit));
+		if (position != null || repeat != null) {
+			var p:ImagePosition = position == null ? {x: 0.5, y: 0.5, offsetX: 0.0, offsetY: 0.0} : position;
+			BlincNative.blinc_brush_image_mapping(brush.ptr, p.x, p.y, p.offsetX, p.offsetY, repeat == null ? (fit == Tile ? Repeat : NoRepeat) : repeat);
+		}
+		return brush;
 	}
 
 	/** `bitmap` filling the box, fitted by `fit`, under its border and clipped to its corners, as CSS's `background-image`. **/
-	public static function bitmap(bitmap:Bitmap, fit:ImageFit = Cover):Brush {
-		return new Brush(BlincNative.blinc_brush_image(Utf8.encode("ashui:bitmap:" + bitmap.slotFor(fit)), fit));
+	public static function bitmap(bitmap:Bitmap, fit:ImageFit = Cover, ?position:ImagePosition, ?repeat:ImageRepeat):Brush {
+		return image("ashui:bitmap:" + bitmap.slotFor(fit), fit, position, repeat);
 	}
 
 	/**

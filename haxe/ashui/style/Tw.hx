@@ -880,8 +880,17 @@ class Tw {
 		return null;
 	}
 
-	/** Inherited list markers and native keyword cursors, shared by plain utilities and state variants. **/
+	/** Keyword CSS utilities shared by plain classes and state variants. **/
 	static function keywordCss(word:String):Null<{name:String, value:String}> {
+		if (StringTools.startsWith(word, "bg-")) {
+			var value = word.substr(3);
+			if (["repeat", "no-repeat", "repeat-x", "repeat-y"].indexOf(value) >= 0)
+				return {name: "background-repeat", value: value};
+			if (["auto", "cover", "contain"].indexOf(value) >= 0)
+				return {name: "background-size", value: value};
+			if (["center", "left", "right", "top", "bottom", "left-top", "left-bottom", "right-top", "right-bottom", "top-left", "top-right", "bottom-left", "bottom-right"].indexOf(value) >= 0)
+				return {name: "background-position", value: StringTools.replace(value, "-", " ")};
+		}
 		if (StringTools.startsWith(word, "object-")) {
 			var value = word.substr(7);
 			if (["cover", "contain", "fill", "none", "scale-down"].indexOf(value) >= 0)

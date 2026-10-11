@@ -33,6 +33,8 @@ typedef ApplyContext = {
 
 	/** The element's `background-size`, which a `url()` image in its background is fitted by. **/
 	final ?backgroundSize:String;
+	final ?backgroundRepeat:String;
+	final ?backgroundPosition:String;
 
 	/** Resolved glass-* declarations, read together when `background: glass` builds its brush. **/
 	final ?glassProperties:Map<String, String>;
@@ -66,7 +68,7 @@ class Properties {
 			"inset" => sides.copy(),
 			"gap" => ["row-gap", "column-gap"],
 			"flex" => ["flex-grow", "flex-shrink", "flex-basis"],
-			"background" => ["background-color", "background-image"],
+			"background" => ["background-color", "background-image", "background-size", "background-repeat", "background-position"],
 			"overflow" => ["overflow-x", "overflow-y"],
 			"place-content" => ["align-content", "justify-content"],
 			"place-items" => ["align-items", "justify-items"],
@@ -364,7 +366,9 @@ class Properties {
 			[Node.field(Prop.Background)];
 		});
 		// Read by `background`'s `url()` images, through the context; nothing of its own to write.
-		h.set("background-size", (_, _, _) -> []);
+		h.set("background-size", (_, v, _) -> { backgroundFit(v); []; });
+		h.set("background-repeat", (_, v, _) -> { imageRepeat(v); []; });
+		h.set("background-position", (_, v, c) -> { imagePosition(v, c); []; });
 		h.set("object-fit", (n, v, _) -> {
 			ashui.ui.Image.styleFit(n, ashui.ui.Image.cssFit(v));
 			[];
@@ -382,7 +386,7 @@ class Properties {
 		h.set("background", (n, v, c) -> {
 			var t = StringTools.trim(v);
 			var blur = c.backdropBlur == null ? -1.0 : c.backdropBlur;
-			var brush = if (t.toLowerCase() == "glass") glass(c) else if (t.toLowerCase() == "none") blur >= 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (CssValue.call(t) != null
+			var brush = if (t.toLowerCase() == "glass") glass(c) else if (t.toLowerCase() == "none") blur >= 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (StringTools.startsWith(t.toLowerCase(), "url(")) image(t, c) else if (CssValue.call(t) != null
 				&& CssValue.call(t).name.indexOf("gradient") >= 0 || CssValue.call(t) != null && CssValue.call(t).name == "url") image(t, c) else {
 				var col = colorOf(CssValue.color(t), c);
 				blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
@@ -868,6 +872,47 @@ class Properties {
 		}
 	}
 
+	/** The single bitmap layer’s shorthand settings; longhands in the cascade override these. **/
+	@:noCompletion public static function backgroundImageSettings(v:String):Null<{image:String, size:String, repeat:String, position:String}> {
+		if (v == null || !StringTools.startsWith(StringTools.trim(v).toLowerCase(), "url(")) return null;
+		var slash = CssValue.split(v, "/");
+		if (slash.length > 2) throw "expected a single background image layer";
+		var position = [], size = [], repeat = [], source:String = null;
+		for (side in 0...slash.length) for (word in CssValue.split(slash[side], " ")) {
+			var call = CssValue.call(word);
+			if (call != null && call.name == "url") {
+				if (source != null || side != 0) throw "expected a single background url()";
+				source = word;
+			} else if (["repeat", "no-repeat", "repeat-x", "repeat-y", "space", "round"].indexOf(word.toLowerCase()) >= 0) repeat.push(word);
+			else if (side == 0) position.push(word);
+			else size.push(word);
+		}
+		if (source == null || slash.length == 2 && (position.length == 0 || size.length == 0))
+			throw "background-size in a shorthand needs position / size";
+		return {image: source, size: size.length == 0 ? "auto" : size.join(" "), repeat: repeat.length == 0 ? "repeat" : repeat.join(" "), position: position.length == 0 ? "0% 0%" : position.join(" ")};
+	}
+
+	static function backgroundFit(v:String):ashui.types.Brush.ImageFit {
+		return switch StringTools.trim(v).toLowerCase() {
+			case "cover": Cover;
+			case "contain": Contain;
+			case "100% 100%": Fill;
+			case "auto", "auto auto": Tile;
+			case _: throw "background-size supports auto, cover, contain or 100% 100%";
+		};
+	}
+
+	@:noCompletion public static function imageRepeat(v:String):ashui.types.Brush.ImageRepeat {
+		var words = CssValue.split(v.toLowerCase(), " ");
+		return switch words.join(" ") {
+			case "repeat", "repeat repeat": Repeat;
+			case "no-repeat", "no-repeat no-repeat": NoRepeat;
+			case "repeat-x", "repeat no-repeat": RepeatX;
+			case "repeat-y", "no-repeat repeat": RepeatY;
+			case _: throw "background-repeat supports repeat, no-repeat, repeat-x, repeat-y or a repeat/no-repeat pair";
+		};
+	}
+
 	/** A position expressed as fractions of the free space and pixel offsets. **/
 	@:noCompletion public static function imagePosition(v:String, c:ApplyContext):ashui.ui.Image.ImagePosition {
 		var words = CssValue.split(v.toLowerCase(), " ");
@@ -878,7 +923,7 @@ class Properties {
 			return switch CssValue.length(word) {
 				case Percent(p): {fraction: p / 100, offset: 0};
 				case length:
-					if (word.indexOf("%") >= 0) throw "object-position calc() supports pixel terms only";
+					if (word.indexOf("%") >= 0) throw "image position calc() supports pixel terms only";
 					{fraction: 0, offset: pixels(length, c)};
 			};
 		}
@@ -898,20 +943,20 @@ class Properties {
 				var edge = words[i++];
 				var vertical = edge == "top" || edge == "bottom";
 				if (!vertical && edge != "left" && edge != "right") throw "expected two object-position edges and their offsets";
-				if (vertical ? hasY : hasX) throw "object-position needs one horizontal and one vertical edge";
+				if (vertical ? hasY : hasX) throw "image position needs one horizontal and one vertical edge";
 				var at = axis(edge, vertical);
 				if (i < words.length && ["top", "right", "bottom", "left"].indexOf(words[i]) < 0) {
-					if (words[i].indexOf("%") >= 0) throw "object-position edge offsets support lengths, not percentages";
+					if (words[i].indexOf("%") >= 0) throw "image position edge offsets support lengths, not percentages";
 					var offset = CssValue.length(words[i++]);
-					if (offset.match(Percent(_))) throw "object-position edge offsets support lengths, not percentages";
+					if (offset.match(Percent(_))) throw "image position edge offsets support lengths, not percentages";
 					at.offset = pixels(offset, c) * (edge == "right" || edge == "bottom" ? -1 : 1);
 				}
 				if (vertical) { y = at; hasY = true; } else { x = at; hasX = true; }
 			}
-			if (!hasX || !hasY) throw "object-position needs both axes";
+			if (!hasX || !hasY) throw "image position needs both axes";
 		} else throw "expected an object-position keyword, pair or edge offsets";
 		if (!Math.isFinite(x.fraction) || !Math.isFinite(y.fraction) || !Math.isFinite(x.offset) || !Math.isFinite(y.offset))
-			throw "object-position must be finite";
+			throw "image position must be finite";
 		return {x: x.fraction, y: y.fraction, offsetX: x.offset, offsetY: y.offset};
 	}
 
@@ -1196,26 +1241,23 @@ class Properties {
 		size, repeated, as CSS draws one.
 	**/
 	static function image(v:String, ?c:ApplyContext):Brush {
-		var call = CssValue.call(v);
+		var settings = backgroundImageSettings(v);
+		var call = CssValue.call(settings == null ? v : settings.image);
 		if (call != null && call.name == "url") {
+			var fit = backgroundFit(c.backgroundSize == null ? settings.size : c.backgroundSize);
+			var repeat = imageRepeat(c.backgroundRepeat == null ? settings.repeat : c.backgroundRepeat);
+			var position = imagePosition(c.backgroundPosition == null ? settings.position : c.backgroundPosition, c);
 			var src = StringTools.trim(call.args);
 			if ((StringTools.startsWith(src, '"') || StringTools.startsWith(src, "'")) && src.length >= 2)
 				src = src.substr(1, src.length - 2);
 			#if sys
 			if (~/\.(png|jpe?g|webp)$/i.match(src)) {
-				var size = c == null || c.backgroundSize == null ? "auto" : StringTools.trim(c.backgroundSize).toLowerCase();
-				var fit:ashui.types.Brush.ImageFit = switch size {
-					case "cover": Cover;
-					case "contain": Contain;
-					case "100% 100%": Fill;
-					case _: Tile;
-				}
 				// A file that cannot be read draws nothing, as a browser draws a broken image.
 				var bitmap = try ashui.types.Bitmap.load(src) catch (_:Dynamic) null;
-				return bitmap == null ? Brush.solid(0, 0) : Brush.bitmap(bitmap, fit);
+				return bitmap == null ? Brush.solid(0, 0) : Brush.bitmap(bitmap, fit, position, repeat);
 			}
 			#end
-			return Brush.image(src);
+			return Brush.image(src, fit, position, repeat);
 		}
 		var brush:Brush;
 		var stops:Array<GradientStop>;

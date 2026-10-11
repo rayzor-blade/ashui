@@ -738,6 +738,54 @@ class Pixels {
 		ashui.css.Css.remove(urlSheet);
 		sys.FileSystem.deleteFile(pairFile);
 
+		// Repeat axes and positions share one intrinsic bitmap texture, including after state changes.
+		var repeatData = haxe.io.Bytes.alloc(8 * 4 * 4);
+		for (y in 0...4) for (x in 0...8) {
+			var at = (y * 8 + x) * 4;
+			repeatData.set(at, x < 4 ? 255 : 0); repeatData.set(at + 2, x < 4 ? 0 : 255); repeatData.set(at + 3, 255);
+		}
+		var repeatFile = haxe.io.Path.join([Sys.getCwd(), "pixels-repeat.png"]);
+		sys.io.File.saveBytes(repeatFile, ashui.core.render.Png.encode(8, 4, repeatData));
+		var repeatSheet = ashui.css.Css.load('
+			.repeat { background-image: url("$repeatFile"); }
+			#repeat-x { background-repeat: repeat-x; background-position: -2px 8px; }
+			#repeat-y { background-repeat: no-repeat repeat; background-position: 8px -1px; }
+			#repeat-none { background: url("$repeatFile") right 2px bottom 2px / auto no-repeat; }
+			#repeat-all { background-position: -2px -1px; border-radius: 8px; }
+		');
+		var repeatTree = new LayoutTree();
+		function repeatBox(id:String, x:Single, y:Single):Div return new Div({id: id, classes: ["repeat"], width: 24, height: 24, position: Absolute, left: x, top: y}, repeatTree);
+		var repeatX = repeatBox("repeat-x", 4, 4), repeatY = repeatBox("repeat-y", 36, 4);
+		var repeatNone = repeatBox("repeat-none", 4, 36), repeatAll = repeatBox("repeat-all", 36, 36);
+		var repeatRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [repeatX, repeatY, repeatNone, repeatAll], repeatTree);
+		pixels = offscreen.renderToRgba8(repeatRoot, SIZE, SIZE);
+		label = "background repeat: ";
+		probe("repeat-x wraps through negative offsets", 6, 13, near(0x0000ff));
+		probe("repeat-x continues across the box", 13, 13, near(0xff0000));
+		probe("repeat-x leaves rows above the image transparent", 13, 8, near(0xffffff));
+		probe("repeat-x leaves rows below the image transparent", 13, 20, near(0xffffff));
+		probe("repeat-y repeats vertically", 45, 23, near(0xff0000));
+		probe("repeat-y retains the right half", 50, 23, near(0x0000ff));
+		probe("repeat-y does not repeat horizontally", 39, 23, near(0xffffff));
+		probe("no-repeat uses right and bottom edge offsets", 19, 55, near(0xff0000));
+		probe("no-repeat keeps intrinsic size", 24, 55, near(0x0000ff));
+		probe("no-repeat does not fill the rest of the box", 8, 44, near(0xffffff));
+		probe("repeat on both axes still clips rounded corners", 36, 36, near(0xffffff));
+		probe("repeat on both axes fills the interior", 46, 45, near(0x0000ff));
+		repeatAll.node.set(Prop.CornerShape, ashui.types.CornerShape.squircle());
+		pixels = offscreen.renderToRgba8(repeatRoot, SIZE, SIZE);
+		probe("repetition retains squircle corner coverage", 38, 38, near(0x0000ff));
+		probe("squircle still clips the outer corner", 36, 36, near(0xffffff));
+		var repeatAtlas = @:privateAccess offscreen.renderer.imageAtlas;
+		var beforeRepeat = [for (key in (@:privateAccess repeatAtlas.entries).keys()) key].length;
+		ashui.css.Identity.of(repeatTree, repeatX.node.id).setInline("background-position", "0 12px").setInline("background-repeat", "no-repeat");
+		pixels = offscreen.renderToRgba8(repeatRoot, SIZE, SIZE);
+		probe("restyled nonrepeat uses its new position", 5, 17, near(0xff0000));
+		probe("restyled nonrepeat removes former repetitions", 17, 17, near(0xffffff));
+		check("changing background position and repeat reuses atlas entries", beforeRepeat == [for (key in (@:privateAccess repeatAtlas.entries).keys()) key].length);
+		ashui.css.Css.remove(repeatSheet);
+		repeatRoot.remove(); repeatTree.dispose(); ashui.types.Bitmap.load(repeatFile).dispose(); sys.FileSystem.deleteFile(repeatFile);
+
 		// A canvas draws a bitmap into a rect, resampled for its size on screen, and at an opacity.
 		var canvasImageTree = new LayoutTree();
 		var canvasImageRoot:Div = ashui.reactive.Owner.root(canvasImageTree, _ -> {
