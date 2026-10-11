@@ -57,6 +57,14 @@ enum abstract Justify(Int) to Int {
 enum abstract Position(Int) to Int {
 	var Relative = 0;
 	var Absolute = 1;
+	/** Stays in normal flow, held by its insets at its scroll container's edge. **/
+	var Sticky = 2;
+}
+
+/** How a line wider than its text box ends. Use with `TextWrap` 0 for a single line. **/
+enum abstract TextOverflow(Int) to Int {
+	var Clip = 0;
+	var Ellipsis = 1;
 }
 
 /** CSS's `overflow`: what happens to children that reach past the box. **/

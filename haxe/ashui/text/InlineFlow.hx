@@ -45,6 +45,8 @@ private class Piece {
 	public final left = Signal.make((0 : Single));
 	public final top = Signal.make((0 : Single));
 	public final shown = Signal.make(Display.None);
+	var limited = false;
+	var limitWidth = 0.0;
 
 	public function new(tree:LayoutTree) {
 		text = new Text(content, {wrap: false}, tree);
@@ -53,6 +55,17 @@ private class Piece {
 		text.node.set(Prop.Left, left);
 		text.node.set(Prop.Top, top);
 		text.node.set(Prop.Display, shown);
+	}
+
+	/** Only pieces being truncated need width/overflow writes; ordinary flows allocate no extra bindings. **/
+	public function limit(cut:Bool, room:Float):Bool {
+		if (cut == limited && (!cut || room == limitWidth))
+			return false;
+		limited = cut;
+		limitWidth = room;
+		text.node.set(Prop.Width, (cut ? room : Math.NaN : Single));
+		text.node.set(Prop.TextOverflow, cut ? TextOverflow.Ellipsis : TextOverflow.Clip);
+		return true;
 	}
 }
 
@@ -211,6 +224,10 @@ class InlineFlow {
 	var measureChanged = true;
 	var flowedWidth = -1.0;
 	var placed = "";
+	final limits = new hl.Bytes(8);
+	var lineClamp = 0;
+	var ellipsis = false;
+	var nowrap = false;
 
 	/** Makes `root` a flow; its children are its inline content. **/
 	public static function attach(root:Div):InlineFlow {
@@ -548,7 +565,7 @@ class InlineFlow {
 
 	/** Lines of `list` at `width`: greedy, breaking at spaces, a space at the start of a line dropped. **/
 	function lines(list:Array<Item>, width:Float):Array<Line> {
-		var breaking = breaksWords();
+		var breaking = !nowrap && breaksWords();
 		var out:Array<Line> = [];
 		var line:Line = {items: [], above: 0, below: 0, ends: false};
 		var x = 0.0;
@@ -595,7 +612,7 @@ class InlineFlow {
 				case Box(atom): atom.block;
 				case _: false;
 			}
-			if ((x > 0 && x + w > width + 0.01) || (block && line.items.length > 0))
+			if ((!nowrap && x > 0 && x + w > width + 0.01) || (block && line.items.length > 0))
 				end();
 			line.items.push({item: item, x: x});
 			if (block) {
@@ -640,6 +657,17 @@ class InlineFlow {
 		if (tree.getBounds(spacer.node) == null)
 			return false;
 		var changed = false;
+		ashui.core.externs.LayoutTreeNative.blinc_tree_text_limits(tree.ptr, root.node.id, limits);
+		var clamp = limits.getI32(0), cut = limits.getI32(4) == 1;
+		var whiteSpace = ashui.css.Css.computed(Identity.of(tree, root.node.id), "white-space");
+		var keep = whiteSpace == "nowrap" || whiteSpace == "pre";
+		if (clamp != lineClamp || cut != ellipsis || keep != nowrap) {
+			lineClamp = clamp;
+			ellipsis = cut;
+			nowrap = keep;
+			measureChanged = true;
+			changed = true;
+		}
 		if (structureChanged) {
 			collect();
 			structureChanged = false;
@@ -674,7 +702,7 @@ class InlineFlow {
 			longest = Math.max(longest, x - trailing);
 			changed = set(spacerWidth, Math.ceil(longest)) || changed;
 			// A word that may break sets no minimum: the flow can be as narrow as what holds it.
-			changed = set(spacerMin, breaksWords() ? 0 : Math.ceil(widest)) || changed;
+			changed = set(spacerMin, breaksWords() || nowrap ? 0 : Math.ceil(widest)) || changed;
 		}
 		var s = tree.getBounds(spacer.node), a = tree.getBounds(anchor.node);
 		if (s == null || a == null)
@@ -722,7 +750,8 @@ class InlineFlow {
 	}
 
 	static function set(signal:Signal<Single>, v:Float):Bool {
-		if (signal.get() == v)
+		var current = signal.get();
+		if (current == v || Math.isNaN(current) && Math.isNaN(v))
 			return false;
 		signal.set(v);
 		return true;
@@ -733,7 +762,11 @@ class InlineFlow {
 		var used = new Map<Run, Int>();
 		var sig = new StringBuf();
 		var y = 0.0;
-		for (line in lines) {
+		var limitsChanged = false;
+		var clamped = lineClamp > 0 && lines.length > lineClamp;
+		if (clamped)
+			lines = lines.slice(0, lineClamp);
+		for (lineIndex => line in lines) {
 			// Where the line starts, and what each space between its words gains when it is justified.
 			var natural = 0.0, gaps = 0;
 			// A space stretches unless it is inside a box around text, which keeps its words together.
@@ -752,7 +785,8 @@ class InlineFlow {
 					gaps++;
 			}
 			var free = Math.max(0, width - natural);
-			var justify = align == Justify && !line.ends && gaps > 0;
+			var lastClamped = clamped && lineIndex == lines.length - 1;
+			var justify = align == Justify && !line.ends && !lastClamped && gaps > 0;
 			var shift = switch align {
 				case Center: free / 2;
 				case Right: free;
@@ -794,7 +828,8 @@ class InlineFlow {
 							run.pieces.push(piece);
 						}
 						var piece = run.pieces[n];
-						var text = run.text.substring(start, end);
+						var cut = lastClamped && j == line.items.length || nowrap && ellipsis;
+						var text = run.text.substring(start, end) + (lastClamped && j == line.items.length ? "…" : "");
 						var left = dx + x, top = dy + y + line.above - run.above;
 						if (box != null) {
 							var pad = deco.padding;
@@ -810,6 +845,8 @@ class InlineFlow {
 							top = pad.top;
 						}
 						piece.content.set(text);
+						// Native shaping fits the final piece and its ellipsis to the remaining room.
+						limitsChanged = piece.limit(cut, Math.max(0, width - x)) || limitsChanged;
 						set(piece.left, left);
 						set(piece.top, top);
 						piece.shown.set(Display.Flex);
@@ -840,6 +877,6 @@ class InlineFlow {
 		var s = sig.toString();
 		var moved = s != placed;
 		placed = s;
-		return moved || heightChanged;
+		return moved || heightChanged || limitsChanged;
 	}
 }

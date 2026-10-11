@@ -154,6 +154,38 @@ for part names and customization variables, and
 [`Properties`](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/css/Properties.hx)
 for the supported native properties and values.
 
+### Sticky positioning, stacking and text limits
+
+`position: sticky` keeps an element in normal flow and holds it at an inset
+of its nearest scroll container. For example, a heading with `top: 0` stays
+at the top while its section scrolls. It leaves when its containing section
+ends. `z-index` accepts signed integers or `auto`; drawing and hit testing
+use the same sibling order. Each element stacks its children locally.
+
+```css
+.heading { position: sticky; top: 0; z-index: 10; }
+.title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.summary { line-clamp: 2; }
+```
+
+`text-overflow: ellipsis` fits a single line to its box. `line-clamp` limits
+wrapped text and ends the last visible line with an ellipsis. `line-clamp:
+none` restores all lines; `-webkit-line-clamp` accepts the same values.
+Both work on `<text>` and paragraph flows, including styled inline text.
+
+Utilities include `sticky`, `z-0` through `z-50` in steps of ten (and their
+negative forms), `truncate`, `text-ellipsis`, `text-clip`, `whitespace-nowrap`,
+and `line-clamp-1` through `line-clamp-6` or `line-clamp-none`:
+
+```tsx
+<text class="truncate" width={240}>A title that fits its available width</text>
+<p class="line-clamp-2" width={240}>A longer summary with <strong>styled text</strong>.</p>
+```
+
+HXX also exposes typed `position={Sticky}`, `zIndex={10}`,
+`textOverflow={Ellipsis}` and `lineClamp={2}` attributes. `lineClamp={0}`
+removes the limit. These accept reactive values like other properties.
+
 ## How tokens generate utility classes
 
 [`Tw`](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/style/Tw.hx)

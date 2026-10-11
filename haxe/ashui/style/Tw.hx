@@ -76,6 +76,9 @@ import haxe.macro.Type;
 	  … `text-justify`, `italic` and the `text-` colours are the element's
 	  own CSS declarations, so the text it holds inherits them, as in
 	  Tailwind;
+	- text limits: `truncate`, `text-ellipsis`, `text-clip`, `whitespace-nowrap`,
+	  `line-clamp-1` … `line-clamp-6` and `line-clamp-none`; and positioning
+	  with `sticky`, `z-0` … `z-50` in steps of ten, including negative forms;
 	- transitions, composed into one `ashui.animation.Transition`:
 	  `transition` (colours, opacity, shadow, transform), `transition-colors`,
 	  `-opacity`, `-shadow`, `-transform`, `-all`, `-none`; `duration-fastest`
@@ -636,6 +639,27 @@ class Tw {
 		}
 		keyword("relative", "Position", "Position", "Relative");
 		keyword("absolute", "Position", "Position", "Absolute");
+		keyword("sticky", "Position", "Position", "Sticky");
+		keyword("text-ellipsis", "TextOverflow", "TextOverflow", "Ellipsis");
+		keyword("text-clip", "TextOverflow", "TextOverflow", "Clip");
+		for (z in [0, 10, 20, 30, 40, 50]) {
+			one('z-$z', "ZIndex", macro $v{z});
+			if (z != 0)
+				one('-z-$z', "ZIndex", macro $v{-z});
+		}
+		for (lines in 1...7)
+			one('line-clamp-$lines', "LineClamp", macro $v{lines});
+		one("line-clamp-none", "LineClamp", macro 0);
+		v.set("truncate", node -> [
+			macro ashui.css.Identity.declare($node, "white-space", "nowrap"),
+			set(node, "TextOverflow", macro $style.TextOverflow.Ellipsis),
+			set(node, "TextWrap", macro(0 : Single)),
+			set(node, "Overflow", macro $style.Overflow.Hidden)
+		]);
+		for (entry in ["normal", "nowrap", "pre", "pre-line", "pre-wrap", "break-spaces"]) {
+			var value = entry;
+			v.set('whitespace-$value', node -> [macro ashui.css.Identity.declare($node, "white-space", $v{value})]);
+		}
 		for (entry in [["left", "Left"], ["center", "Center"], ["right", "Right"]])
 			keyword('text-${entry[0]}', "TextAlign", "TextAlign", entry[1]);
 		keyword("italic", "FontStyle", "FontStyle", "Italic");

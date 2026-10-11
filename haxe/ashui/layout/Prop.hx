@@ -96,6 +96,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var Display:Prop<ashui.types.Style.Display> = cast PropertyId.Display;
 	public static inline var Overflow:Prop<ashui.types.Style.Overflow> = cast PropertyId.Overflow;
 	public static inline var Position:Prop<ashui.types.Style.Position> = cast PropertyId.Position;
+	/** Sibling stacking order for drawing and hit testing; CSS `auto` uses tree order. **/
+	public static inline var ZIndex:Prop<Int> = cast PropertyId.ZIndex;
 	public static inline var Top:Prop<Single> = cast PropertyId.Top;
 	public static inline var Right:Prop<Single> = cast PropertyId.Right;
 	public static inline var Bottom:Prop<Single> = cast PropertyId.Bottom;
@@ -130,6 +132,10 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var AspectRatio:Prop<Single> = cast PropertyId.AspectRatio;
 	/** Whether text breaks lines at its width: 1, as it does by default, or 0, kept to one line. **/
 	public static inline var TextWrap:Prop<Single> = cast PropertyId.TextWrap;
+	/** Whether a line wider than its box is clipped or ends with an ellipsis. **/
+	public static inline var TextOverflow:Prop<ashui.types.Style.TextOverflow> = cast PropertyId.TextOverflow;
+	/** Maximum visible lines, ending the last with an ellipsis; 0 removes the clamp. **/
+	public static inline var LineClamp:Prop<Int> = cast PropertyId.LineClamp;
 
 	// --- grid, as CSS writes it: `repeat(3, 1fr) 120px`, `span 2`, `1 / -1` ---
 	public static inline var GridTemplateColumns:Prop<String> = cast PropertyId.GridTemplateColumns;

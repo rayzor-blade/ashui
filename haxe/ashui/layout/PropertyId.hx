@@ -151,6 +151,10 @@ enum abstract PropertyId(Int) from Int to Int {
     /** How the node's text, and its descendants', is decorated, as CSS's `text-decoration`. **/
     var TextDecoration = 120;
 
+    var ZIndex = 121;
+    var TextOverflow = 122;
+    var LineClamp = 123;
+
     /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
         return switch (this) {
@@ -177,7 +181,7 @@ enum abstract PropertyId(Int) from Int to Int {
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)
             case FlexDirection | AlignItems | JustifyContent | AlignSelf |
                  FlexWrap | Display | Overflow | Position |
-                 FontWeight | FontStyle | TextAlign | Filter | Compound:
+                 FontWeight | FontStyle | TextAlign | Filter | Compound | ZIndex | TextOverflow | LineClamp:
                 TypeI32;
 
             default:

@@ -179,8 +179,16 @@ class Properties {
 			];
 		});
 		h.set("position", (n, v, _) -> [
-			enumWrite(n, Prop.Position, v, ["relative" => Position.Relative, "static" => Position.Relative, "absolute" => Position.Absolute])
+			enumWrite(n, Prop.Position, v, ["relative" => Position.Relative, "static" => Position.Relative, "absolute" => Position.Absolute,
+				"sticky" => Position.Sticky])
 		]);
+		h.set("z-index", (n, v, _) -> {
+			if (StringTools.trim(v).toLowerCase() == "auto")
+				n.styleInitial(Prop.ZIndex);
+			else
+				write(n, Prop.ZIndex, integer(v, -2147483648.0));
+			[Node.field(Prop.ZIndex)];
+		});
 
 		// --- Flexbox ---
 		h.set("display", (n, v, _) -> [
@@ -620,6 +628,14 @@ class Properties {
 			write(n, Prop.TextWrap, keep ? 0.0 : 1.0);
 			[Node.field(Prop.TextWrap)];
 		});
+		h.set("text-overflow", (n, v, _) -> [
+			enumWrite(n, Prop.TextOverflow, v, ["clip" => TextOverflow.Clip, "ellipsis" => TextOverflow.Ellipsis])
+		]);
+		for (name in ["line-clamp", "-webkit-line-clamp"])
+			h.set(name, (n, v, _) -> {
+				write(n, Prop.LineClamp, StringTools.trim(v).toLowerCase() == "none" ? 0 : integer(v, 1));
+				[Node.field(Prop.LineClamp)];
+			});
 		h.set("letter-spacing", (n, v, c) -> {
 			var px = v.toLowerCase() == "normal" ? 0.0 : pixels(CssValue.length(v), c);
 			write(n, Prop.LetterSpacing, px);
@@ -831,6 +847,15 @@ class Properties {
 			throw 'expected a number of $min or more, not "$v"';
 		write(n, p, x);
 		return Node.field(p);
+	}
+
+	/** A complete signed 32-bit CSS integer; never silently truncate a fraction or overflow. **/
+	static function integer(v:String, min:Float):Int {
+		var value = StringTools.trim(v);
+		var x = Std.parseFloat(value);
+		if (!~/^[+-]?[0-9]+$/.match(value) || x < min || x > 2147483647.0)
+			throw 'expected an integer from $min to 2147483647, not "$v"';
+		return Std.int(x);
 	}
 
 	static function enumWrite<T>(n:Node, p:Prop<T>, v:String, values:Map<String, T>):Int {

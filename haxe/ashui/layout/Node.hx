@@ -255,6 +255,22 @@ class Node {
 			write();
 	}
 
+	/** A CSS value such as `z-index: auto` explicitly restores the native initial value. **/
+	@:allow(ashui.css)
+	function styleInitial(prop:PropertyId):Void {
+		var key = field(prop);
+		if (owns(key))
+			return;
+		if (styled == null)
+			styled = new Map();
+		styled.set(key, true);
+		var reset = () -> BlincNative.blinc_unset(id, key);
+		if (batch != null && !immediate)
+			batch.set(key, reset);
+		else
+			reset();
+	}
+
 	/** While true, the cascade restyles an element it styled before: a field it gives a value for the first time moves from its initial value. **/
 	@:allow(ashui.css)
 	static var restyling = false;

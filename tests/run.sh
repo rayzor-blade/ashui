@@ -164,6 +164,9 @@ memory)
 	$haxe_ui --class-path fixtures/debug -main HitMapTest -hl bin/hit-map.hl
 	hitmap=0
 	run hit-map.hl || hitmap=$?
+	$haxe_ui --class-path fixtures/css -main CssLayoutEffects -hl bin/css-layout-effects.hl
+	effects=0
+	run css-layout-effects.hl || effects=$?
 	# The ashui.components library, on its own class path.
 	haxe components.hxml
 	components=0
@@ -181,7 +184,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2
