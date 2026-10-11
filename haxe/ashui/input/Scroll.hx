@@ -6,6 +6,9 @@ import ashui.layout.Node;
 import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
+typedef ScrollbarColor = {final rgb:Int; final alpha:Float;}
+typedef ScrollbarColors = {final thumb:ScrollbarColor; final track:ScrollbarColor;}
+
 /**
 	A scroll container: an element whose content, laid out taller or wider
 	than the element, moves under the wheel or trackpad. The `overflow-auto`,
@@ -33,6 +36,7 @@ class Scroll {
 				var visibility = ashui.css.Css.resolved(identity, "scrollbar-visibility");
 				if (visibility == null) visibility = "auto";
 				if (scroll.visibility != visibility) scroll.visibility = visibility;
+				scroll.restyle(identity);
 			}
 		});
 		ashui.css.Identity.forgetHooks.push(identity -> {
@@ -96,6 +100,54 @@ class Scroll {
 	var fading = false;
 	var stay:Null<ashui.animation.AnimationScheduler.Timer> = null;
 	final extent = new hl.Bytes(16);
+	final appearance = Signal.make(0);
+	var scrollbarColors:Null<ScrollbarColors> = null;
+	var scrollbarWidth = 4.0;
+	var lastWidth = 4.0;
+	var lastTrack = 0;
+	var lastColors:Null<String> = null;
+	var lastCurrentColor:Null<String> = null;
+
+	function restyle(identity:ashui.css.Identity):Void {
+		var colors = ashui.css.Css.resolved(identity, "scrollbar-color");
+		var current = colors != null && colors.toLowerCase().indexOf("currentcolor") >= 0
+			? ashui.css.Css.resolved(identity, "color") : null;
+		if (colors != lastColors || current != lastCurrentColor) {
+			var next = try ashui.css.Properties.scrollbarColors(colors == null ? "auto" : colors,
+				current == null ? Rgba(0, 1) : ashui.css.CssValue.color(current)) catch (_:String) null;
+			setScrollbarColors(next);
+			lastColors = colors;
+			lastCurrentColor = current;
+		}
+		var width = ashui.css.Css.resolved(identity, "scrollbar-width");
+		setScrollbarWidth(try ashui.css.Properties.scrollbarWidth(width == null ? "auto" : width) catch (_:String) 4.0);
+	}
+
+	/** Restyles the existing thumb watch; no additional watcher or ticker. Null restores the theme. **/
+	@:noCompletion public function setScrollbarColors(colors:Null<ScrollbarColors>):Void {
+		if (colors == null && scrollbarColors == null) return;
+		if (colors != null && scrollbarColors != null && colors.thumb.rgb == scrollbarColors.thumb.rgb
+			&& colors.thumb.alpha == scrollbarColors.thumb.alpha && colors.track.rgb == scrollbarColors.track.rgb
+			&& colors.track.alpha == scrollbarColors.track.alpha) return;
+		scrollbarColors = colors;
+		appearance.set(appearance.get() + 1);
+	}
+
+	/** Overlay widths in layout units: auto 4, thin 2, none 0. **/
+	@:noCompletion public function setScrollbarWidth(width:Float):Void {
+		if (scrollbarWidth == width) return;
+		scrollbarWidth = width;
+		if (width == 0) {
+			if (stay != null) stay.cancel();
+			stay = null;
+			fading = false;
+			if (visibility == "auto") thumb.set(0);
+		}
+		appearance.set(appearance.get() + 1);
+	}
+
+	static inline function packed(rgb:Int, alpha:Float):Int
+		return Std.int(Math.max(0, Math.min(1, alpha)) * 255) << 24 | rgb;
 
 	/**
 		When the thumb shows: "auto" while it scrolls (the default),
@@ -105,6 +157,14 @@ class Scroll {
 	public var visibility(default, set) = "auto";
 
 	function set_visibility(v:String):String {
+		if (v == visibility) {
+			if (v == "always" && (alongX || alongY)) thumb.set(1);
+			if (v == "hidden") thumb.set(0);
+			return v;
+		}
+		if (stay != null) stay.cancel();
+		stay = null;
+		fading = false;
 		visibility = v;
 		switch v {
 			case "always":
@@ -119,6 +179,7 @@ class Scroll {
 				else
 					fade();
 			case _:
+				fade();
 		}
 		return v;
 	}
@@ -141,19 +202,29 @@ class Scroll {
 		});
 		// Reacts at the next flush, which marks the frame for redrawing.
 		offsetWatch = new Watch(() -> {
-			var c = ashui.theme.ThemeState.tryGet();
+			appearance.get();
+			var colors = scrollbarColors;
+			var c = colors == null ? ashui.theme.ThemeState.tryGet() : null;
 			var color = c != null ? c.color(TextTertiary) : null;
+			var shown = thumb.get();
 			{
 				x: x.get(),
 				y: y.get(),
-				thumb: thumb.get(),
-				rgb: color != null ? color.rgb() : 0x808080
+				thumb: colors == null ? packed(color != null ? color.rgb() : 0x808080, shown * 0.7)
+					: packed(colors.thumb.rgb, shown * colors.thumb.alpha),
+				track: colors == null ? 0 : packed(colors.track.rgb, shown * colors.track.alpha),
+				width: scrollbarWidth
 			};
 		}, s -> {
-			var alpha = Std.int(Math.max(0, Math.min(1, s.thumb * 0.7)) * 255);
-			if (node.tree != null)
-				LayoutTreeNative.blinc_tree_set_scroll(node.tree.ptr, node.id, s.x, s.y, alpha << 24 | s.rgb);
-		}, (a, b) -> a.x == b.x && a.y == b.y && a.thumb == b.thumb && a.rgb == b.rgb);
+			if (node.tree != null) {
+				LayoutTreeNative.blinc_tree_set_scroll(node.tree.ptr, node.id, s.x, s.y, s.thumb);
+				if (lastWidth != s.width || lastTrack != s.track) {
+					LayoutTreeNative.blinc_tree_set_scrollbar_style(node.tree.ptr, node.id, s.width, s.track);
+					lastWidth = s.width;
+					lastTrack = s.track;
+				}
+			}
+		}, (a, b) -> a.x == b.x && a.y == b.y && a.thumb == b.thumb && a.track == b.track && a.width == b.width);
 	}
 
 	/** Makes `node` a scroll container along the axes given; once per node. **/
@@ -198,6 +269,7 @@ class Scroll {
 			return;
 		alongX = nextX;
 		alongY = nextY;
+		if ((alongX || alongY) && (visibility == "always" || visibility == "hover" && Interaction.of(node).hovered.get())) thumb.set(1);
 		if (!alongX) x.set(0);
 		if (!alongY) y.set(0);
 		if (!alongX && !alongY) {
@@ -272,7 +344,7 @@ class Scroll {
 
 	function showThumb():Void {
 		// Always shown, never shown, or shown by the pointer: scrolling changes none of these.
-		if (visibility != "auto")
+		if (visibility != "auto" || scrollbarWidth == 0)
 			return;
 		if (thumb.get() != 1)
 			thumb.set(1);
@@ -285,6 +357,11 @@ class Scroll {
 
 	function fade():Void {
 		stay = null;
+		if (scrollbarWidth == 0) {
+			thumb.set(0);
+			fading = false;
+			return;
+		}
 		// From where it is: nothing to fade when it is not shown.
 		var from = thumb.get();
 		if (from <= 0 || fading)

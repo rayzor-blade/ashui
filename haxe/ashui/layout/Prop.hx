@@ -105,6 +105,10 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var Position:Prop<ashui.types.Style.Position> = cast PropertyId.Position;
 	/** Sibling stacking order for drawing and hit testing; CSS `auto` uses tree order. **/
 	public static inline var ZIndex:Prop<Int> = cast PropertyId.ZIndex;
+	/** Keeps layout space while suppressing painting and hits for the subtree. **/
+	public static inline var Visibility:Prop<ashui.types.Style.Visibility> = cast PropertyId.Visibility;
+	/** Whether the subtree receives pointer hits; drawing and keyboard focus are unchanged. **/
+	public static inline var PointerEvents:Prop<ashui.types.Style.PointerEvents> = cast PropertyId.PointerEvents;
 	public static inline var Top:Prop<Single> = cast PropertyId.Top;
 	public static inline var Right:Prop<Single> = cast PropertyId.Right;
 	public static inline var Bottom:Prop<Single> = cast PropertyId.Bottom;

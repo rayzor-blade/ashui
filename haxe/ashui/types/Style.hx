@@ -70,6 +70,20 @@ enum abstract TextOverflow(Int) to Int {
 	var Ellipsis = 1;
 }
 
+/** Visibility suppresses native subtree paint and hits while keeping its layout space. **/
+enum abstract Visibility(Int) to Int {
+	var Visible = 0;
+	var Hidden = 1;
+	/** Currently hides like Hidden; table row/column collapsing is not implemented. **/
+	var Collapse = 2;
+}
+
+/** Native hit testing: None passes through the entire subtree. **/
+enum abstract PointerEvents(Int) to Int {
+	var Auto = 0;
+	var None = 1;
+}
+
 /** CSS's `overflow`: what happens to children that reach past the box. **/
 enum abstract Overflow(Int) to Int {
 	var Visible = 0;

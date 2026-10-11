@@ -1,0 +1,8 @@
+.css-scroll {
+    overflow-y: auto;
+    scrollbar-visibility: always;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) transparent;
+}
+.css-reserved { visibility: hidden; }
+.css-overlay { pointer-events: none; }

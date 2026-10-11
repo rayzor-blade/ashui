@@ -621,6 +621,11 @@ class Tw {
 		keyword("block", "Display", "Display", "Block");
 		keyword("grid", "Display", "Display", "Grid");
 		keyword("hidden", "Display", "Display", "None");
+		keyword("visible", "Visibility", "Visibility", "Visible");
+		keyword("invisible", "Visibility", "Visibility", "Hidden");
+		keyword("collapse", "Visibility", "Visibility", "Collapse");
+		keyword("pointer-events-auto", "PointerEvents", "PointerEvents", "Auto");
+		keyword("pointer-events-none", "PointerEvents", "PointerEvents", "None");
 		keyword("flex-row", "FlexDirection", "FlexDirection", "Row");
 		keyword("flex-row-reverse", "FlexDirection", "FlexDirection", "RowReverse");
 		keyword("flex-col", "FlexDirection", "FlexDirection", "Column");
@@ -877,6 +882,11 @@ class Tw {
 
 	/** Inherited list markers and native keyword cursors, shared by plain utilities and state variants. **/
 	static function keywordCss(word:String):Null<{name:String, value:String}> {
+		if (StringTools.startsWith(word, "scrollbar-")) {
+			var value = word.substr(10);
+			if (["auto", "thin", "none"].indexOf(value) >= 0)
+				return {name: "scrollbar-width", value: value};
+		}
 		if (StringTools.startsWith(word, "list-")) {
 			var value = word.substr(5);
 			if (["none", "disc", "circle", "square", "decimal", "decimal-leading-zero", "lower-alpha", "upper-alpha", "lower-latin", "upper-latin", "lower-roman", "upper-roman"].indexOf(value) >= 0)

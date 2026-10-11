@@ -170,6 +170,9 @@ memory)
 	$haxe_ui --class-path fixtures/css -main CssLayoutBindings -hl bin/css-layout-bindings.hl
 	bindings=0
 	run css-layout-bindings.hl || bindings=$?
+	$haxe_ui --class-path fixtures/css -main CssInteractionStyles -hl bin/css-interaction-styles.hl
+	interaction_styles=0
+	run css-interaction-styles.hl || interaction_styles=$?
 	# The ashui.components library, on its own class path.
 	haxe components.hxml
 	components=0
@@ -187,7 +190,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $components -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

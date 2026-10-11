@@ -27,6 +27,8 @@ typedef DivAttributes = {
 	?cornerRadius:IntoReactive<CornerRadius>,
 	?cornerShape:IntoReactive<ashui.types.CornerShape>,
 	?opacity:IntoReactive<Single>,
+	?visibility:IntoReactive<Visibility>,
+	?pointerEvents:IntoReactive<PointerEvents>,
 	?color:IntoReactive<Color>,
 	?accentColor:IntoReactive<Color>,
 	/** The shape it and everything inside it are clipped to; see `ClipPath`. **/
@@ -180,6 +182,8 @@ class Div extends Element {
 				node.set(Prop.CornerShape, attr.cornerShape);
 			if (attr.opacity != null)
 				node.set(Prop.Opacity, attr.opacity);
+			if (attr.visibility != null) node.set(Prop.Visibility, attr.visibility);
+			if (attr.pointerEvents != null) node.set(Prop.PointerEvents, attr.pointerEvents);
 			if (attr.color != null)
 				node.set(Prop.Color, attr.color);
 			if (attr.clipPath != null)

@@ -78,6 +78,8 @@ extern class LayoutTreeNative {
 
 	/** Scrolls container `node`'s content by `(x, y)` and colours its thumb `thumb`, `0xAARRGGBB`; 0 hides it. **/
 	static function blinc_tree_set_scroll(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, x:Single, y:Single, thumb:Int):Void;
+	/** Overlay scrollbar width and straight-alpha 0xAARRGGBB track color; width zero hides both. **/
+	static function blinc_tree_set_scrollbar_style(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, width:Single, track:Int):Void;
 
 	/** Writes container `node`'s viewport width and height and its content's width and height as four F32s; false before layout. **/
 	static function blinc_tree_scroll_extent(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, out:hl.Bytes):Bool;

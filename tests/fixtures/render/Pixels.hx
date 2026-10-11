@@ -1362,6 +1362,30 @@ class Pixels {
 		probe("half a second later still its own width", 9, 5, near(0xffffff));
 		ashui.css.Css.remove(motionSheet);
 
+		var interactionRoot:Div = ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+			<div width={24} height={24} visibility={Hidden} bg={Brush.solid(0xff0000)} />
+			<div width={24} height={24} pointerEvents={ashui.types.Style.PointerEvents.None} bg={Brush.solid(0x0000ff)} />
+		</div>);
+		pixels = offscreen.renderToRgba8(interactionRoot, SIZE, SIZE);
+		label = "CSS visibility: ";
+		probe("hidden keeps its empty layout slot", 10, 10, near(0xffffff));
+		probe("pointer none still paints beside it", 34, 10, near(0x0000ff));
+		var scrollPixels:Div = ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} class="overflow-auto" bg={Brush.solid(0xffffff)}>
+			<div width={128} height={128} flexShrink={0} />
+		</div>);
+		var scrollIdentity = ashui.css.Identity.of(tree, scrollPixels.node.id);
+		scrollIdentity.setInline("scrollbar-color", "red blue").setInline("scrollbar-width", "thin").setInline("scrollbar-visibility", "always");
+		pixels = offscreen.renderToRgba8(scrollPixels, SIZE, SIZE);
+		label = "CSS scrollbar: ";
+		probe("thin red thumb reaches the framebuffer", 61, 10, near(0xff0000));
+		probe("blue track follows the thumb", 61, 50, near(0x0000ff));
+		probe("thin keeps the adjacent content clear", 59, 10, near(0xffffff));
+		scrollIdentity.setInline("scrollbar-width", "none");
+		pixels = offscreen.renderToRgba8(scrollPixels, SIZE, SIZE);
+		probe("none removes the painted thumb", 61, 10, near(0xffffff));
+		probe("none removes the painted track", 61, 50, near(0xffffff));
+		interactionRoot.remove();
+		scrollPixels.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

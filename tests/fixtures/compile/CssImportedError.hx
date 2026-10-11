@@ -1,4 +1,4 @@
-// expect: imported.css:2: characters 22-23 : css: ::after is not supported; ::placeholder is
+// expect: imported.css:2: characters 24-25 : css: ::made-up is not supported; use ::before, ::after or ::placeholder
 // flags: -D ashui_css=fixtures/css/importer.css
 import ashui.layout.LayoutTree;
 import ashui.reactive.Owner;

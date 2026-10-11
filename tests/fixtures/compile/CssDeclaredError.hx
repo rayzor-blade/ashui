@@ -1,4 +1,4 @@
-// expect: broken.css:2: characters 12-13 : css: ::after is not supported; ::placeholder is
+// expect: broken.css:2: characters 14-15 : css: ::made-up is not supported; use ::before, ::after or ::placeholder
 // flags: -D ashui_css=fixtures/css/broken.css
 import ashui.layout.LayoutTree;
 import ashui.reactive.Owner;

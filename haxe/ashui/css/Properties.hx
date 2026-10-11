@@ -108,6 +108,10 @@ class Properties {
 
 	static function build():Map<String, (Node, String, ApplyContext) -> Array<Int>> {
 		var h = new Map<String, (Node, String, ApplyContext) -> Array<Int>>();
+		h.set("visibility", (n, v, _) -> [enumWrite(n, Prop.Visibility, v,
+			["visible" => Visibility.Visible, "hidden" => Visibility.Hidden, "collapse" => Visibility.Collapse])]);
+		h.set("pointer-events", (n, v, _) -> [enumWrite(n, Prop.PointerEvents, v,
+			["auto" => PointerEvents.Auto, "none" => PointerEvents.None])]);
 		h.set("cursor", (_, v, _) -> {
 			ashui.input.Cursor.parse(v);
 			[];
@@ -275,6 +279,15 @@ class Properties {
 			[Node.field(Prop.AspectRatio)];
 		});
 		// When a scroll container's thumb shows; after overflow in the alphabetical order of a restyle, so the container exists by then.
+		h.set("scrollbar-width", (_, v, _) -> {
+			scrollbarWidth(v);
+			[];
+		});
+		h.set("scrollbar-color", (_, v, c) -> {
+			// Validate here; Scroll's restyle hook applies after queued overflow creates the container.
+			scrollbarColors(v, c.currentColor);
+			[];
+		});
 		h.set("scrollbar-visibility", (n, v, _) -> {
 			var key = StringTools.trim(v).toLowerCase();
 			if (["auto", "always", "hover", "hidden"].indexOf(key) < 0)
@@ -1086,6 +1099,31 @@ class Properties {
 		if (lines == null)
 			return null;
 		return new TextDecoration(lines, style, hasColor ? color : null, hasThickness ? thickness : null, offset);
+	}
+
+	@:noCompletion public static function scrollbarWidth(value:String):Float {
+		return switch StringTools.trim(value).toLowerCase() {
+			case "auto": 4.0;
+			case "thin": 2.0;
+			case "none": 0.0;
+			case _: throw "scrollbar-width takes auto, thin or none";
+		};
+	}
+
+	/** Plain color data: scrollbar CSS does not allocate native style-value handles. **/
+	@:noCompletion public static function scrollbarColors(value:String, current:CssColor):Null<ashui.input.Scroll.ScrollbarColors> {
+		if (StringTools.trim(value).toLowerCase() == "auto") return null;
+		var parts = CssValue.split(value, " ");
+		if (parts.length != 2) throw "scrollbar-color takes auto or a thumb and track color";
+		function rgba(value:String):ashui.input.Scroll.ScrollbarColor {
+			var color = CssValue.color(value);
+			if (color == CurrentColor) color = current;
+			return switch color {
+				case Rgba(rgb, alpha): {rgb: rgb, alpha: alpha};
+				case CurrentColor: {rgb: 0, alpha: 1};
+			};
+		}
+		return {thumb: rgba(parts[0]), track: rgba(parts[1])};
 	}
 
 	static function colorOf(c:CssColor, ctx:ApplyContext):Color {

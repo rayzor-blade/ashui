@@ -1,0 +1,2 @@
+.interaction-compiled { visibility: hidden; pointer-events: none; }
+.scroll-compiled { overflow: auto; scrollbar-visibility: always; scrollbar-width: thin; scrollbar-color: #ff0000 #0000ff; }

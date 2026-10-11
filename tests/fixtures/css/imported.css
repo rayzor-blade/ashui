@@ -1,2 +1,2 @@
 .from-import { color: red; }
-.broken-import::after { color: blue; }
+.broken-import::made-up { color: blue; }

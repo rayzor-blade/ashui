@@ -174,6 +174,8 @@ enum abstract PropertyId(Int) from Int to Int {
     var ZIndex = 121;
     var TextOverflow = 122;
     var LineClamp = 123;
+    var Visibility = 124;
+    var PointerEvents = 125;
 
     /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
@@ -204,7 +206,7 @@ enum abstract PropertyId(Int) from Int to Int {
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)
             case FlexDirection | AlignItems | JustifyContent | AlignSelf |
                  FlexWrap | Display | Overflow | OverflowX | OverflowY | Position | AlignContent | JustifyItems | JustifySelf |
-                 FontWeight | FontStyle | TextAlign | Filter | Compound | ZIndex | TextOverflow | LineClamp:
+                 FontWeight | FontStyle | TextAlign | Filter | Compound | ZIndex | TextOverflow | LineClamp | Visibility | PointerEvents:
                 TypeI32;
 
             default:

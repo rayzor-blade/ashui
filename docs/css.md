@@ -229,6 +229,46 @@ Equivalent utilities include `list-disc`, `list-decimal`, `list-lower-roman`,
 <div class="cursor-grab active:cursor-grabbing">Drag this card</div>
 ```
 
+### Visibility, pointer events and scrollbars
+
+`visibility: hidden` keeps an element's layout space while suppressing its
+painting and pointer hits. `visible` restores it; `collapse` currently behaves
+like `hidden`. `pointer-events: none` passes pointer hits through an element
+while keeping it drawn and available to keyboard focus; `auto` restores hits.
+These use native subtree suppression: descendants cannot override a hidden
+or pointer-disabled ancestor. Table row/column collapsing is not implemented.
+
+```tsx
+<div visibility={Hidden}>Reserved space</div>
+<div class="pointer-events-none">A painted overlay that passes pointer hits through.</div>
+```
+
+Both typed attributes accept signals and computeds. Utilities include
+`visible`, `invisible`, `collapse`, `pointer-events-auto` and
+`pointer-events-none`, with the usual state variants. Changing these values
+invalidates the existing pointer hit cache.
+
+Scroll containers support `scrollbar-color: <thumb> <track>` or `auto` to
+restore the theme's thumb and transparent track. Colors inherit; `currentColor`,
+theme variables and alpha are supported. `scrollbar-width` accepts `auto`
+(4 layout units), `thin` (2) or `none`. The bars overlay content without
+changing layout; `none` hides them while wheel and trackpad scrolling continue.
+Utilities are `scrollbar-auto`, `scrollbar-thin` and `scrollbar-none`.
+
+```css
+.activity {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) transparent;
+    scrollbar-visibility: hover;
+}
+```
+
+The existing `scrollbar-visibility` property accepts `auto` (show during
+scrolling, then fade), `always`, `hover` or `hidden`. Custom thumbs and tracks
+follow the same visibility and fade behavior. Styling reuses the scroll
+container's existing watcher; hiding the scrollbar avoids fade timers.
+
 ### Sticky positioning, stacking and text limits
 
 `position: sticky` keeps an element in normal flow and holds it at an inset
