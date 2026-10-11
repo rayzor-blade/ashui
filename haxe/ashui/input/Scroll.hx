@@ -20,6 +20,61 @@ import ashui.reactive.Watch;
 **/
 class Scroll {
 	static final byNode = new haxe.ds.ObjectMap<Node, Scroll>();
+	/** Only reactive overflow needs a Haxe watch; constant overflow stays allocation-free until scrolling is enabled. **/
+	static final overflowWatches = new haxe.ds.ObjectMap<Node, Map<Int, Watch<Int>>>();
+	static var hooked = false;
+
+	static function hook():Void {
+		if (hooked) return;
+		hooked = true;
+		ashui.css.Css.restyled.push(identity -> {
+			var scroll = byNode.get(identity.node);
+			if (scroll != null) {
+				var visibility = ashui.css.Css.resolved(identity, "scrollbar-visibility");
+				if (visibility == null) visibility = "auto";
+				if (scroll.visibility != visibility) scroll.visibility = visibility;
+			}
+		});
+		ashui.css.Identity.forgetHooks.push(identity -> {
+			var watches = overflowWatches.get(identity.node);
+			if (watches != null) {
+				for (watch in watches) watch.stop();
+				overflowWatches.remove(identity.node);
+			}
+			var scroll = byNode.get(identity.node);
+			if (scroll != null) scroll.dispose();
+		});
+	}
+
+	/** The native overflow binding and input axes follow the same value. **/
+	@:noCompletion public static function bindOverflow(node:Node, field:Int, value:ashui.layout.IntoReactive<Int>):Void {
+		var watches = overflowWatches.get(node);
+		if (watches != null) {
+			var old = watches.get(field);
+			if (old != null) old.stop();
+			watches.remove(field);
+			if (!watches.iterator().hasNext()) overflowWatches.remove(node);
+		}
+		switch (value : ashui.layout.IntoReactive.ReactiveType<Int>) {
+			case Const(v): configure(node, field, v == ashui.types.Style.Overflow.Scroll);
+			case Bound(_) | Derived(_):
+				hook();
+				if (watches == null) watches = new Map();
+				overflowWatches.set(node, watches);
+				var read = switch (value : ashui.layout.IntoReactive.ReactiveType<Int>) {
+					case Bound(s): () -> s.get();
+					case Derived(c): () -> c.get();
+					case _: throw "expected reactive overflow";
+				};
+				var watch = new Watch(read, v -> configure(node, field, v == ashui.types.Style.Overflow.Scroll));
+				watches.set(field, watch);
+				ashui.reactive.Owner.onCleanup(() -> {
+					watch.stop();
+					if (watches.get(field) == watch) watches.remove(field);
+					if (overflowWatches.get(node) == watches && !watches.iterator().hasNext()) overflowWatches.remove(node);
+				});
+		}
+	}
 
 	/** Seconds the thumb stays after the last scroll, then the seconds it takes to fade. **/
 	static inline var THUMB_STAYS = 0.8;
@@ -32,8 +87,11 @@ class Scroll {
 	public final x:Signal<Float>;
 	public final y:Signal<Float>;
 
-	final alongX:Bool;
-	final alongY:Bool;
+	var alongX:Bool;
+	var alongY:Bool;
+	final hoverWatch:Watch<Bool>;
+	final offsetWatch:Watch<Dynamic>;
+	var disposed = false;
 	final thumb = Signal.make(0.0);
 	var fading = false;
 	var stay:Null<ashui.animation.AnimationScheduler.Timer> = null;
@@ -74,7 +132,7 @@ class Scroll {
 		Interaction.of(node).onWheel(wheel);
 		// Shown while the pointer is over it, for "hover".
 		var hovered = Interaction.of(node).hovered;
-		new Watch(() -> hovered.get(), h -> if (visibility == "hover") {
+		hoverWatch = new Watch(() -> hovered.get(), h -> if (visibility == "hover") {
 			if (h) {
 				fading = false;
 				thumb.set(1);
@@ -82,7 +140,7 @@ class Scroll {
 				fade();
 		});
 		// Reacts at the next flush, which marks the frame for redrawing.
-		new Watch(() -> {
+		offsetWatch = new Watch(() -> {
 			var c = ashui.theme.ThemeState.tryGet();
 			var color = c != null ? c.color(TextTertiary) : null;
 			{
@@ -100,13 +158,54 @@ class Scroll {
 
 	/** Makes `node` a scroll container along the axes given; once per node. **/
 	public static function attach(node:Node, alongX:Bool, alongY:Bool):Scroll {
+		hook();
 		var known = byNode.get(node);
-		if (known != null)
+		if (known != null) {
+			known.setAxes(known.alongX || alongX, known.alongY || alongY);
 			return known;
+		}
 		var s = new Scroll(node, alongX, alongY);
 		byNode.set(node, s);
-		ashui.reactive.Owner.onCleanup(() -> byNode.remove(node));
+		ashui.reactive.Owner.onCleanup(s.dispose);
 		return s;
+	}
+
+	function dispose():Void {
+		if (disposed) return;
+		disposed = true;
+		byNode.remove(node);
+		hoverWatch.stop();
+		offsetWatch.stop();
+		if (stay != null) stay.cancel();
+		stay = null;
+		fading = false;
+	}
+
+	/** Updates one CSS overflow field without allocating another interaction or watch. **/
+	public static function configure(node:Node, field:Int, enabled:Bool):Void {
+		var s = byNode.get(node);
+		if (s == null) {
+			if (enabled)
+				attach(node, field != ashui.layout.PropertyId.OverflowY, field != ashui.layout.PropertyId.OverflowX);
+			return;
+		}
+		s.setAxes(field == ashui.layout.PropertyId.OverflowY ? s.alongX : enabled,
+			field == ashui.layout.PropertyId.OverflowX ? s.alongY : enabled);
+	}
+
+	function setAxes(nextX:Bool, nextY:Bool):Void {
+		if (alongX == nextX && alongY == nextY)
+			return;
+		alongX = nextX;
+		alongY = nextY;
+		if (!alongX) x.set(0);
+		if (!alongY) y.set(0);
+		if (!alongX && !alongY) {
+			if (stay != null) stay.cancel();
+			stay = null;
+			fading = false;
+			thumb.set(0);
+		}
 	}
 
 	/** `node`'s scroll container, if it is one. **/

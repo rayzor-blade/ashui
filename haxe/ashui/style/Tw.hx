@@ -545,6 +545,9 @@ class Tw {
 			])
 				one('${entry[0]}-$name', entry[1], value);
 			v.set('size-$name', node -> [set(node, "WidthPercent", value), set(node, "HeightPercent", value)]);
+			for (side in ["Top", "Right", "Bottom", "Left"])
+				one('${side.toLowerCase()}-$name', side + "Percent", value);
+			v.set('inset-$name', node -> [for (side in ["Top", "Right", "Bottom", "Left"]) set(node, side + "Percent", value)]);
 		}
 
 		// Colours, from ColorToken, named as their CSS variables (tooltipBg is
@@ -618,24 +621,42 @@ class Tw {
 		for (entry in [["start", "Start"], ["end", "End"], ["center", "Center"], ["baseline", "Baseline"], ["stretch", "Stretch"]]) {
 			keyword('items-${entry[0]}', "AlignItems", "Align", entry[1]);
 			keyword('self-${entry[0]}', "AlignSelf", "Align", entry[1]);
+			keyword('justify-items-${entry[0]}', "JustifyItems", "Align", entry[1]);
+			keyword('justify-self-${entry[0]}', "JustifySelf", "Align", entry[1]);
+			var aligned = entry[1];
+			v.set('place-items-${entry[0]}', node -> [set(node, "AlignItems", macro $style.Align.$aligned), set(node, "JustifyItems", macro $style.Align.$aligned)]);
+			v.set('place-self-${entry[0]}', node -> [set(node, "AlignSelf", macro $style.Align.$aligned), set(node, "JustifySelf", macro $style.Align.$aligned)]);
 		}
+		keyword("self-auto", "AlignSelf", "Align", "Auto");
+		keyword("justify-self-auto", "JustifySelf", "Align", "Auto");
+		keyword("justify-items-normal", "JustifyItems", "Align", "Auto");
 		for (entry in [
 			["start", "Start"], ["end", "End"], ["center", "Center"], ["stretch", "Stretch"], ["between", "SpaceBetween"],
 			["around", "SpaceAround"], ["evenly", "SpaceEvenly"]
-		])
+		]) {
 			keyword('justify-${entry[0]}', "JustifyContent", "Justify", entry[1]);
-		for (entry in [["visible", "Visible"], ["hidden", "Hidden"], ["clip", "Clip"]])
+			keyword('content-${entry[0]}', "AlignContent", "Justify", entry[1]);
+			var aligned = entry[1];
+			v.set('place-content-${entry[0]}', node -> [set(node, "AlignContent", macro $style.Justify.$aligned), set(node, "JustifyContent", macro $style.Justify.$aligned)]);
+		}
+		keyword("content-normal", "AlignContent", "Justify", "Normal");
+		for (entry in [["visible", "Visible"], ["hidden", "Hidden"], ["clip", "Clip"]]) {
 			keyword('overflow-${entry[0]}', "Overflow", "Overflow", entry[1]);
+			keyword('overflow-x-${entry[0]}', "OverflowX", "Overflow", entry[1]);
+			keyword('overflow-y-${entry[0]}', "OverflowY", "Overflow", entry[1]);
+		}
 		// Scroll containers: the content moves under the wheel or trackpad along the axes they name.
 		for (entry in [
 			{name: "auto", x: true, y: true}, {name: "scroll", x: true, y: true}, {name: "x-auto", x: true, y: false},
 			{name: "y-auto", x: false, y: true}, {name: "x-scroll", x: true, y: false}, {name: "y-scroll", x: false, y: true}
 		]) {
 			var x = entry.x, y = entry.y;
-			v.set('overflow-${entry.name}', node -> [
-				set(node, "Overflow", macro $style.Overflow.Scroll),
-				macro ashui.input.Scroll.attach($node, $v{x}, $v{y})
-			]);
+			v.set('overflow-${entry.name}', node -> {
+				var writes = [];
+				if (x) writes.push(set(node, "OverflowX", macro $style.Overflow.Scroll));
+				if (y) writes.push(set(node, "OverflowY", macro $style.Overflow.Scroll));
+				return writes;
+			});
 		}
 		keyword("relative", "Position", "Position", "Relative");
 		keyword("absolute", "Position", "Position", "Absolute");

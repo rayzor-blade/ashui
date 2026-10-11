@@ -225,6 +225,8 @@ class Hxx {
 
 	/** Whether `name` is an attribute a `<div>` takes as a property, so a component's root can take it. **/
 	static function rootAttribute(name:String):Bool {
+		if (name == "hidden" || name == "title")
+			return true;
 		var key = name == 'bg' ? 'Background' : name.charAt(0).toUpperCase() + name.substr(1);
 		return (try Context.typeof(macro ashui.layout.Prop.$key) catch (_:Dynamic) null) != null;
 	}
@@ -279,7 +281,7 @@ class Hxx {
 		`strong`'s weight, `code`'s face). Inline elements inside one sit
 		beside its text in a wrapping row; text does not yet flow across them.
 	**/
-	static final TEXT_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u", "output"];
+	static final TEXT_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u", "ins", "del", "abbr", "output"];
 
 	/** HTML's elements built in as boxes of their type, with no behaviour of their own. **/
 	static final BOX_TAGS = [
@@ -393,6 +395,8 @@ class Hxx {
 		var xml = Xml.createElement('svg');
 		for (a in node.attributes)
 			switch a {
+				case Regular(name, _) if (name.value == "hidden" || name.value == "title"):
+					own.push(setter(el, a, '<svg>'));
 				case Regular(name, value) if (name.value == 'class'):
 					classes = classes.concat(classSetters(value, el));
 				case Regular(name, {expr: EConst(CString(text))}):
@@ -543,6 +547,10 @@ class Hxx {
 							Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
 					}
 				case Empty(name):
+					if (name.value == "hidden" && !propTypes.exists(name.value)) {
+						rootSets.push(setter(el, a, '<$tag>'));
+						continue;
+					}
 					if (!propTypes.exists(name.value))
 						Context.error('hxx: <$tag> has no prop "${name.value}"', name.pos);
 					fields.push({field: name.value, expr: macro @:pos(name.pos) true});
@@ -628,6 +636,14 @@ class Hxx {
 	/** `el.node.set(Prop.Key, value)` for one attribute, or its input setter. **/
 	static function setter(el:String, attribute:Attribute, tag:String):Expr {
 		return switch attribute {
+			case Regular(name, value) if (name.value == "hidden"):
+				var bound = bindable(value, Context.getType("Bool"));
+				macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).bindBooleanAttribute("hidden", $bound);
+			case Empty(name) if (name.value == "hidden"):
+				macro @:pos(name.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).bindBooleanAttribute("hidden", true);
+			case Regular(name, value) if (name.value == "title"):
+				var bound = bindable(value, Context.getType("String"));
+				macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).bindAttribute("title", $bound);
 			case Regular(name, value) if (name.value == 'ref'):
 				refSetter(value, el);
 			case Regular(name, value) if (inputSetter(el, name.value, value) != null):

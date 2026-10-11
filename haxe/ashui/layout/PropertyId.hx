@@ -145,6 +145,26 @@ enum abstract PropertyId(Int) from Int to Int {
     var BackdropSaturate = 97;
     var BackdropSepia = 98;
 
+    var OverflowX = 99;
+    var OverflowY = 100;
+    var AlignContent = 101;
+    var JustifyItems = 102;
+    var JustifySelf = 103;
+    var PaddingTopPercent = 104;
+    var PaddingRightPercent = 105;
+    var PaddingBottomPercent = 106;
+    var PaddingLeftPercent = 107;
+    var MarginTopPercent = 108;
+    var MarginRightPercent = 109;
+    var MarginBottomPercent = 110;
+    var MarginLeftPercent = 111;
+    var TopPercent = 112;
+    var RightPercent = 113;
+    var BottomPercent = 114;
+    var LeftPercent = 115;
+    var GapXPercent = 116;
+    var GapYPercent = 117;
+
     /** The shadows of the node's text and its descendants', first on top, as CSS's `text-shadow`. **/
     var TextShadow = 119;
 
@@ -175,12 +195,15 @@ enum abstract PropertyId(Int) from Int to Int {
             case Width | Height | MinWidth | MaxWidth | MinHeight | MaxHeight |
                  Padding | Margin | Gap | FlexBasis | FlexGrow | FlexShrink |
                  Top | Right | Bottom | Left | Opacity | BorderWidth |
+                 PaddingTopPercent | PaddingRightPercent | PaddingBottomPercent | PaddingLeftPercent |
+                 MarginTopPercent | MarginRightPercent | MarginBottomPercent | MarginLeftPercent |
+                 TopPercent | RightPercent | BottomPercent | LeftPercent | GapXPercent | GapYPercent |
                  FontSize | LetterSpacing | LineHeight | PaddingTop | PaddingRight | PaddingBottom | PaddingLeft | MarginTop | MarginRight | MarginBottom | MarginLeft | GapX | GapY | WidthPercent | HeightPercent | MinWidthPercent | MaxWidthPercent | MinHeightPercent | MaxHeightPercent | FlexBasisPercent | BorderTopWidth | BorderRightWidth | BorderBottomWidth | BorderLeftWidth | OutlineWidth | OutlineOffset | FadeTop | FadeRight | FadeBottom | FadeLeft | FilterBrightness | FilterContrast | FilterGrayscale | FilterHueRotate | FilterInvert | FilterSaturate | FilterSepia | FilterBlur | AspectRatio | TextWrap | BackdropBrightness | BackdropContrast | BackdropGrayscale | BackdropHueRotate | BackdropInvert | BackdropSaturate | BackdropSepia:
                 TypeF32;
 
             // Integers / Enums (Flexbox alignments, wraps, displays, weights, styles)
             case FlexDirection | AlignItems | JustifyContent | AlignSelf |
-                 FlexWrap | Display | Overflow | Position |
+                 FlexWrap | Display | Overflow | OverflowX | OverflowY | Position | AlignContent | JustifyItems | JustifySelf |
                  FontWeight | FontStyle | TextAlign | Filter | Compound | ZIndex | TextOverflow | LineClamp:
                 TypeI32;
 

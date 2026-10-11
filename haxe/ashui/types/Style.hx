@@ -31,6 +31,8 @@ enum abstract FlexWrap(Int) to Int {
 
 /** `align-items` and `align-self`. **/
 enum abstract Align(Int) to Int {
+	/** The container's alignment for self, or the layout engine's default for items. **/
+	var Auto = -1;
 	var Start = 0;
 	var End = 1;
 	var FlexStart = 2;
@@ -42,6 +44,7 @@ enum abstract Align(Int) to Int {
 
 /** `justify-content`: where children sit along the main axis, and the space between them. **/
 enum abstract Justify(Int) to Int {
+	var Normal = -1;
 	var Start = 0;
 	var End = 1;
 	var FlexStart = 2;

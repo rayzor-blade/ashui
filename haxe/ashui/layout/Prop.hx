@@ -89,12 +89,19 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var AlignItems:Prop<ashui.types.Style.Align> = cast PropertyId.AlignItems;
 	public static inline var JustifyContent:Prop<ashui.types.Style.Justify> = cast PropertyId.JustifyContent;
 	public static inline var AlignSelf:Prop<ashui.types.Style.Align> = cast PropertyId.AlignSelf;
+	/** Distribution of wrapped flex lines or grid tracks along the cross axis. **/
+	public static inline var AlignContent:Prop<ashui.types.Style.Justify> = cast PropertyId.AlignContent;
+	/** Horizontal alignment of grid items, or of one item within its grid area. **/
+	public static inline var JustifyItems:Prop<ashui.types.Style.Align> = cast PropertyId.JustifyItems;
+	public static inline var JustifySelf:Prop<ashui.types.Style.Align> = cast PropertyId.JustifySelf;
 	public static inline var FlexGrow:Prop<Single> = cast PropertyId.FlexGrow;
 	public static inline var FlexShrink:Prop<Single> = cast PropertyId.FlexShrink;
 	public static inline var FlexWrap:Prop<ashui.types.Style.FlexWrap> = cast PropertyId.FlexWrap;
 	public static inline var FlexBasis:Prop<Single> = cast PropertyId.FlexBasis;
 	public static inline var Display:Prop<ashui.types.Style.Display> = cast PropertyId.Display;
 	public static inline var Overflow:Prop<ashui.types.Style.Overflow> = cast PropertyId.Overflow;
+	public static inline var OverflowX:Prop<ashui.types.Style.Overflow> = cast PropertyId.OverflowX;
+	public static inline var OverflowY:Prop<ashui.types.Style.Overflow> = cast PropertyId.OverflowY;
 	public static inline var Position:Prop<ashui.types.Style.Position> = cast PropertyId.Position;
 	/** Sibling stacking order for drawing and hit testing; CSS `auto` uses tree order. **/
 	public static inline var ZIndex:Prop<Int> = cast PropertyId.ZIndex;
@@ -125,6 +132,22 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var MinHeightPercent:Prop<Single> = cast PropertyId.MinHeightPercent;
 	public static inline var MaxHeightPercent:Prop<Single> = cast PropertyId.MaxHeightPercent;
 	public static inline var FlexBasisPercent:Prop<Single> = cast PropertyId.FlexBasisPercent;
+	/** Fractions of the containing block's width, including the vertical padding and margin sides. **/
+	public static inline var PaddingTopPercent:Prop<Single> = cast PropertyId.PaddingTopPercent;
+	public static inline var PaddingRightPercent:Prop<Single> = cast PropertyId.PaddingRightPercent;
+	public static inline var PaddingBottomPercent:Prop<Single> = cast PropertyId.PaddingBottomPercent;
+	public static inline var PaddingLeftPercent:Prop<Single> = cast PropertyId.PaddingLeftPercent;
+	public static inline var MarginTopPercent:Prop<Single> = cast PropertyId.MarginTopPercent;
+	public static inline var MarginRightPercent:Prop<Single> = cast PropertyId.MarginRightPercent;
+	public static inline var MarginBottomPercent:Prop<Single> = cast PropertyId.MarginBottomPercent;
+	public static inline var MarginLeftPercent:Prop<Single> = cast PropertyId.MarginLeftPercent;
+	/** Fractions of the containing block along the inset or gap's axis. **/
+	public static inline var TopPercent:Prop<Single> = cast PropertyId.TopPercent;
+	public static inline var RightPercent:Prop<Single> = cast PropertyId.RightPercent;
+	public static inline var BottomPercent:Prop<Single> = cast PropertyId.BottomPercent;
+	public static inline var LeftPercent:Prop<Single> = cast PropertyId.LeftPercent;
+	public static inline var GapXPercent:Prop<Single> = cast PropertyId.GapXPercent;
+	public static inline var GapYPercent:Prop<Single> = cast PropertyId.GapYPercent;
 
 	/** CSS's `mask-image`: a gradient brush, its points fractions of the box, whose alpha the element and its subtree are drawn through. **/
 	public static inline var MaskImage:Prop<ashui.types.Brush> = cast PropertyId.MaskImage;

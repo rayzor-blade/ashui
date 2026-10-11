@@ -42,6 +42,8 @@ class UserAgent {
 	static inline var EXIT = "var(--duration-faster) var(--ease-sheet) forwards";
 
 	public static final CSS = '
+		/* Hidden elements leave layout, drawing and hit testing together. Author styles can override this default. */
+		[hidden] { display: none; }
 		/* Text. Sizes are the browser defaults, in em of the text around. Elements that hold a flow of text are no wider than what holds them, so it wraps there. */
 		p, h1, h2, h3, h4, h5, h6, dt, dd, caption, legend, figcaption { max-width: 100%; min-width: 0; }
 		h1, h2, h3, h4, h5, h6 { font-weight: 700; color: var(--text-primary); flex-direction: row; flex-wrap: wrap; align-items: baseline; }
@@ -52,7 +54,10 @@ class UserAgent {
 		h5 { font-size: 0.83em; margin: 1.67em 0; }
 		h6 { font-size: 0.67em; margin: 2.33em 0; }
 		p { margin: 1em 0; line-height: 1.5; color: var(--text-primary); flex-direction: row; flex-wrap: wrap; align-items: baseline; }
-		span, strong, b, em, i, small, code, kbd, mark, s, u { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+		span, strong, b, em, i, small, code, kbd, mark, s, u, ins, del, abbr { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+		u, ins { text-decoration: underline; }
+		s, del { text-decoration: line-through; }
+		abbr[title] { text-decoration: underline dotted; }
 		strong, b { font-weight: 700; }
 		em, i { font-style: italic; }
 		small { font-size: 0.83em; }
@@ -116,6 +121,7 @@ class UserAgent {
 
 		/* Links. */
 		a {
+			text-decoration: underline;
 			flex-direction: row; flex-wrap: wrap; align-items: baseline; color: var(--text-link); border-radius: var(--radius-sm);
 			transition: opacity ${STATE}, outline-width ${RING};
 		}

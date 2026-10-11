@@ -154,6 +154,45 @@ for part names and customization variables, and
 [`Properties`](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/css/Properties.hx)
 for the supported native properties and values.
 
+### Element defaults and layout
+
+`<a>`, `<u>` and `<ins>` are underlined; `<s>` and `<del>` have a strike;
+`<abbr title="...">` has a dotted underline. Application CSS can restyle
+these defaults. The global `hidden` attribute accepts a boolean or reactive
+value and defaults to `display: none`, removing the element from layout,
+drawing and hit testing. An explicit display style can override that default.
+
+```tsx
+<p>A <a href="https://example.com">link</a> and an <abbr title="Application Programming Interface">API</abbr>.</p>
+<div hidden={isClosed}>Content shown when isClosed becomes false.</div>
+```
+
+Padding, margins, insets and gaps accept percentages in runtime and compiled
+CSS. Padding and margin percentages use the containing block's **width**, on
+all four sides. Insets and gaps resolve along their respective axes. Typed
+attributes such as `paddingLeftPercent={0.1}` and `topPercent={0.5}` use
+fractions; final layout coordinates follow native pixel snapping.
+
+```css
+.tiles { display: grid; place-items: center; gap: 5%; padding: 4%; }
+.tiles .last { justify-self: end; }
+.wrapped { flex-wrap: wrap; align-content: space-between; }
+.scroll { overflow: hidden auto; }
+```
+
+Grid supports `justify-items` and `justify-self`; `align-content` distributes
+wrapped flex lines or grid tracks. `place-items`, `place-self` and
+`place-content` pair the corresponding align/justify properties. Utilities
+include `place-items-center`, `justify-self-end`, `content-between` and
+fractional insets such as `left-1/2`.
+
+`overflow-x` and `overflow-y` accept `visible`, `hidden`, `clip`, `auto` and
+`scroll`. CSS `auto`/`scroll` enables wheel and trackpad scrolling on that axis;
+changing or removing it updates the existing scroll container. Typed
+`overflowX`/`overflowY` attributes also keep input in step with reactive values. Equivalent
+utilities include `overflow-x-auto` and `overflow-y-auto`. Native rectangular
+clipping currently clips both axes when either axis needs clipping.
+
 ### Sticky positioning, stacking and text limits
 
 `position: sticky` keeps an element in normal flow and holds it at an inset

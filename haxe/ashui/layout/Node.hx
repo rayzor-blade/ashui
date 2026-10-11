@@ -182,6 +182,10 @@ class Node {
 		if (cornerShape)
 			return CORNER_SHAPE;
 		return switch raw {
+			case 104 | 105 | 106 | 107: raw - 61;
+			case 108 | 109 | 110 | 111: raw - 61;
+			case 112 | 113 | 114 | 115: raw - 82;
+			case 116 | 117: raw - 65;
 			case 53 | 54 | 55 | 56 | 57 | 58: raw - 43;
 			case 59: 26;
 			case 66: 9;
@@ -192,6 +196,7 @@ class Node {
 	/** The shorthand a field is part of, which owning covers it: `Padding` for `PaddingTop`. **/
 	static function shorthand(key:Int):Int {
 		return switch key {
+			case 99 | 100: 28;
 			case 43 | 44 | 45 | 46: 16;
 			case 47 | 48 | 49 | 50: 17;
 			case 51 | 52: 18;
@@ -293,6 +298,8 @@ class Node {
 		}
 		if (owns(key))
 			return;
+		if (key == PropertyId.Overflow || key == PropertyId.OverflowX || key == PropertyId.OverflowY)
+			ashui.input.Scroll.configure(this, key, false);
 		// Under a transition that covers it, it moves back to its initial value rather than jumping there.
 		var prop:PropertyId = key;
 		var tween = tweens == null ? null : tweens.get(prop);
@@ -372,6 +379,8 @@ class Node {
 
 	/** Binds an `Int` property, enums included. **/
 	public function applyI32(prop:PropertyId, reactive:IntoReactive<Int>):Void {
+		if (tree != null && (prop == PropertyId.Overflow || prop == PropertyId.OverflowX || prop == PropertyId.OverflowY))
+			ashui.input.Scroll.bindOverflow(this, prop, reactive);
 		switch (reactive) {
 			case Const(v):
 				BlincNative.blinc_apply_i32(id, prop, KIND_CONST, v, null, null);

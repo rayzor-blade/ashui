@@ -45,9 +45,9 @@ typedef ApplyContext = {
 	longhands. Each returns the fields it wrote, by `Node.field`, so the
 	cascade can unset the ones a later match no longer writes.
 
-	Lengths in `%` work where the layout takes them (`width`, `height`, the
-	min and max sizes, `flex-basis`); `em`, `rem`, `vw` and `vh` resolve to
-	pixels when applied.
+	Lengths in `%` reach native layout for sizes, flex basis, padding,
+	margin, insets and gaps; `em`, `rem`, `vw` and `vh` resolve to pixels
+	when applied.
 **/
 class Properties {
 	/** The supported properties, by name. **/
@@ -68,6 +68,9 @@ class Properties {
 			"flex" => ["flex-grow", "flex-shrink", "flex-basis"],
 			"background" => ["background-color", "background-image"],
 			"overflow" => ["overflow-x", "overflow-y"],
+			"place-content" => ["align-content", "justify-content"],
+			"place-items" => ["align-items", "justify-items"],
+			"place-self" => ["align-self", "justify-self"],
 			"outline" => ["outline-width", "outline-color"],
 			"border-width" => [for (s in sides) 'border-$s-width'],
 			"border-color" => [for (s in sides) 'border-$s-color']
@@ -131,52 +134,47 @@ class Properties {
 			});
 
 		// --- Spacing ---
-		function sides(name:String, keys:Array<Prop<Single>>, auto:Bool, negative:Bool) {
-			function one(n:Node, part:String, c:ApplyContext, p:Prop<Single>) {
-				var l = CssValue.length(part, auto);
-				if (l.match(Percent(_)))
-					throw '$name in % is not supported';
-				var px = pixels(l, c);
-				if (!negative && px < 0)
-					throw '$name cannot be negative';
-				write(n, p, px);
+		function sides(name:String, keys:Array<Prop<Single>>, percentKeys:Array<Prop<Single>>, auto:Bool, negative:Bool) {
+			function one(n:Node, part:String, c:ApplyContext, i:Int) {
+				lengthWrite(n, keys[i], percentKeys[i], part, c, auto, negative);
 			}
 			h.set(name, (n, v, c) -> {
 				var parts = CssValue.split(v, " ");
 				var four = boxSides(parts, name);
 				for (i in 0...4)
-					one(n, four[i], c, keys[i]);
+					one(n, four[i], c, i);
 				[for (k in keys) Node.field(k)];
 			});
 			for (i => side in ["top", "right", "bottom", "left"])
 				h.set('$name-$side', (n, v, c) -> {
-					one(n, v, c, keys[i]);
+					one(n, v, c, i);
 					[Node.field(keys[i])];
 				});
 		}
-		sides("padding", [Prop.PaddingTop, Prop.PaddingRight, Prop.PaddingBottom, Prop.PaddingLeft], false, false);
-		sides("margin", [Prop.MarginTop, Prop.MarginRight, Prop.MarginBottom, Prop.MarginLeft], true, true);
-		h.set("row-gap", (n, v, c) -> [single(n, Prop.GapY, v, c)]);
-		h.set("column-gap", (n, v, c) -> [single(n, Prop.GapX, v, c)]);
+		sides("padding", [Prop.PaddingTop, Prop.PaddingRight, Prop.PaddingBottom, Prop.PaddingLeft],
+			[Prop.PaddingTopPercent, Prop.PaddingRightPercent, Prop.PaddingBottomPercent, Prop.PaddingLeftPercent], false, false);
+		sides("margin", [Prop.MarginTop, Prop.MarginRight, Prop.MarginBottom, Prop.MarginLeft],
+			[Prop.MarginTopPercent, Prop.MarginRightPercent, Prop.MarginBottomPercent, Prop.MarginLeftPercent], true, true);
+		h.set("row-gap", (n, v, c) -> [lengthWrite(n, Prop.GapY, Prop.GapYPercent, v, c, false, false)]);
+		h.set("column-gap", (n, v, c) -> [lengthWrite(n, Prop.GapX, Prop.GapXPercent, v, c, false, false)]);
 		h.set("gap", (n, v, c) -> {
 			var parts = CssValue.split(v, " ");
-			if (parts.length > 2)
+			if (parts.length < 1 || parts.length > 2)
 				throw "gap takes a row gap and an optional column gap";
-			[single(n, Prop.GapY, parts[0], c), single(n, Prop.GapX, parts.length > 1 ? parts[1] : parts[0], c)];
+			[lengthWrite(n, Prop.GapY, Prop.GapYPercent, parts[0], c, false, false),
+				lengthWrite(n, Prop.GapX, Prop.GapXPercent, parts.length > 1 ? parts[1] : parts[0], c, false, false)];
 		});
 
 		// --- Position ---
-		var insets:Array<{name:String, prop:Prop<Single>}> = [
-			{name: "top", prop: Prop.Top}, {name: "right", prop: Prop.Right}, {name: "bottom", prop: Prop.Bottom}, {name: "left", prop: Prop.Left}
+		var insets:Array<{name:String, prop:Prop<Single>, percent:Prop<Single>}> = [
+			{name: "top", prop: Prop.Top, percent: Prop.TopPercent}, {name: "right", prop: Prop.Right, percent: Prop.RightPercent},
+			{name: "bottom", prop: Prop.Bottom, percent: Prop.BottomPercent}, {name: "left", prop: Prop.Left, percent: Prop.LeftPercent}
 		];
 		for (inset in insets)
-			h.set(inset.name, (n, v, c) -> [single(n, inset.prop, v, c, true)]);
+			h.set(inset.name, (n, v, c) -> [lengthWrite(n, inset.prop, inset.percent, v, c, true)]);
 		h.set("inset", (n, v, c) -> {
 			var four = boxSides(CssValue.split(v, " "), "inset");
-			[
-				single(n, Prop.Top, four[0], c, true), single(n, Prop.Right, four[1], c, true),
-				single(n, Prop.Bottom, four[2], c, true), single(n, Prop.Left, four[3], c, true)
-			];
+				[for (i in 0...4) lengthWrite(n, insets[i].prop, insets[i].percent, four[i], c, true)];
 		});
 		h.set("position", (n, v, _) -> [
 			enumWrite(n, Prop.Position, v, ["relative" => Position.Relative, "static" => Position.Relative, "absolute" => Position.Absolute,
@@ -207,17 +205,31 @@ class Properties {
 		]);
 		var aligns = [
 			"start" => Align.Start, "end" => Align.End, "flex-start" => Align.FlexStart, "flex-end" => Align.FlexEnd, "center" => Align.Center,
-			"baseline" => Align.Baseline, "stretch" => Align.Stretch
+			"baseline" => Align.Baseline, "stretch" => Align.Stretch, "normal" => Align.Auto
 		];
 		h.set("align-items", (n, v, _) -> [enumWrite(n, Prop.AlignItems, v, aligns)]);
-		h.set("align-self", (n, v, _) -> [enumWrite(n, Prop.AlignSelf, v, aligns)]);
-		h.set("justify-content", (n, v, _) -> [
-			enumWrite(n, Prop.JustifyContent, v, [
-				"start" => Justify.Start, "end" => Justify.End, "flex-start" => Justify.FlexStart, "flex-end" => Justify.FlexEnd,
-				"center" => Justify.Center, "stretch" => Justify.Stretch, "space-between" => Justify.SpaceBetween,
-				"space-evenly" => Justify.SpaceEvenly, "space-around" => Justify.SpaceAround
-			])
-		]);
+		h.set("justify-items", (n, v, _) -> [enumWrite(n, Prop.JustifyItems, v, aligns)]);
+		var selfAligns = aligns.copy();
+		selfAligns.set("auto", Align.Auto);
+		h.set("align-self", (n, v, _) -> [enumWrite(n, Prop.AlignSelf, v, selfAligns)]);
+		h.set("justify-self", (n, v, _) -> [enumWrite(n, Prop.JustifySelf, v, selfAligns)]);
+		var justifies = [
+			"start" => Justify.Start, "end" => Justify.End, "flex-start" => Justify.FlexStart, "flex-end" => Justify.FlexEnd,
+			"center" => Justify.Center, "stretch" => Justify.Stretch, "space-between" => Justify.SpaceBetween,
+			"space-evenly" => Justify.SpaceEvenly, "space-around" => Justify.SpaceAround, "normal" => Justify.Normal
+		];
+		h.set("justify-content", (n, v, _) -> [enumWrite(n, Prop.JustifyContent, v, justifies)]);
+		h.set("align-content", (n, v, _) -> [enumWrite(n, Prop.AlignContent, v, justifies)]);
+		for (entry in ["content", "items", "self"]) {
+			var kind = entry;
+			h.set('place-$kind', (n, v, c) -> {
+				var parts = CssValue.split(v, " ");
+				if (parts.length < 1 || parts.length > 2)
+					throw 'place-$kind takes one alignment or a pair';
+				var first = h.get('align-$kind')(n, parts[0], c);
+				return first.concat(h.get('justify-$kind')(n, parts.length == 1 ? parts[0] : parts[1], c));
+			});
+		}
 		h.set("flex-grow", (n, v, _) -> [number(n, Prop.FlexGrow, v, 0)]);
 		h.set("flex-shrink", (n, v, _) -> [number(n, Prop.FlexShrink, v, 0)]);
 		h.set("flex", (n, v, c) -> {
@@ -264,16 +276,19 @@ class Properties {
 			[];
 		});
 		// Scrolling along one axis or both makes the element a scroll container, as Tw's `overflow-auto` does.
-		for (axis in [{name: "overflow", x: true, y: true}, {name: "overflow-x", x: true, y: false}, {name: "overflow-y", x: false, y: true}]) {
-			h.set(axis.name, (n, v, _) -> {
-				var key = StringTools.trim(v).toLowerCase();
-				if (key == "scroll" || key == "auto")
-					ashui.input.Scroll.attach(n, axis.x, axis.y);
-				[
-					enumWrite(n, Prop.Overflow, v, ["visible" => Overflow.Visible, "clip" => Overflow.Clip, "hidden" => Overflow.Hidden, "scroll" => Overflow.Scroll,
-						"auto" => Overflow.Scroll])
-				];
-			});
+		var overflows = ["visible" => Overflow.Visible, "clip" => Overflow.Clip, "hidden" => Overflow.Hidden, "scroll" => Overflow.Scroll,
+			"auto" => Overflow.Scroll];
+		function overflow(n:Node, prop:Prop<Overflow>, v:String):Int {
+			return enumWrite(n, prop, v, overflows);
+		}
+		h.set("overflow", (n, v, _) -> {
+			var parts = CssValue.split(v, " ");
+			if (parts.length < 1 || parts.length > 2)
+				throw "overflow takes one value or a pair of axes";
+			return [overflow(n, Prop.OverflowX, parts[0]), overflow(n, Prop.OverflowY, parts.length == 1 ? parts[0] : parts[1])];
+		});
+		for (axis in [{name: "overflow-x", prop: Prop.OverflowX}, {name: "overflow-y", prop: Prop.OverflowY}]) {
+			h.set(axis.name, (n, v, _) -> [overflow(n, axis.prop, v)]);
 		}
 
 		// --- Masks: a gradient the element and what it holds are drawn through; none for none ---
@@ -836,6 +851,23 @@ class Properties {
 	}
 
 	/** A pixel length; NaN for `auto` where `auto` is allowed. **/
+	/** Pixel and percentage forms write one physical field; ownership and resets use its pixel id. **/
+	static function lengthWrite(n:Node, p:Prop<Single>, percent:Prop<Single>, v:String, c:ApplyContext, auto = false, negative = true):Int {
+		var l = CssValue.length(v, auto);
+		switch l {
+			case Percent(x):
+				if (!negative && x < 0)
+					throw "this length cannot be negative";
+				write(n, percent, x / 100);
+			case _:
+				var px = pixels(l, c);
+				if (!negative && px < 0)
+					throw "this length cannot be negative";
+				write(n, p, px);
+		}
+		return Node.field(p);
+	}
+
 	static function single(n:Node, p:Prop<Single>, v:String, c:ApplyContext, auto = false):Int {
 		write(n, p, pixels(CssValue.length(v, auto), c));
 		return Node.field(p);

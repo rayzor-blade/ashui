@@ -16,6 +16,8 @@ import ashui.ui.Text;
 /** A run of text in a flow: one `Text`, its whitespace collapsed, and where each of its characters ends. **/
 private class Run {
 	public final probe:Text;
+	/** Whether the author owned display before the flow suppressed its measurement text. **/
+	public final authoredDisplay:Bool;
 	/** The node its pieces are placed under: the flow's root or an inline element in it. **/
 	public final parent:haxe.Int64;
 	public var text = "";
@@ -31,6 +33,7 @@ private class Run {
 
 	public function new(probe:Text, parent:haxe.Int64) {
 		this.probe = probe;
+		this.authoredDisplay = probe.node.owns(ashui.layout.PropertyId.Display);
 		this.parent = parent;
 	}
 
@@ -78,13 +81,15 @@ private class Piece {
 **/
 private class Deco {
 	public final node:Node;
+	public final authoredDisplay:Bool;
 	public final tag:String;
 	public final classes:Array<String>;
 	public var padding = {top: 0.0, right: 0.0, bottom: 0.0, left: 0.0};
 	public final boxes:Array<DecoBox> = [];
 
-	public function new(node:Node, tag:String, classes:Array<String>) {
+	public function new(node:Node, tag:String, classes:Array<String>, authoredDisplay:Bool) {
 		this.node = node;
+		this.authoredDisplay = authoredDisplay;
 		this.tag = tag;
 		this.classes = classes;
 	}
@@ -228,6 +233,8 @@ class InlineFlow {
 	var lineClamp = 0;
 	var ellipsis = false;
 	var nowrap = false;
+	/** Only authored nodes currently excluded by CSS; ordinary text pieces add no bindings. **/
+	var excluded = new Map<String, Bool>();
 
 	/** Makes `root` a flow; its children are its inline content. **/
 	public static function attach(root:Div):InlineFlow {
@@ -292,9 +299,22 @@ class InlineFlow {
 		});
 		ashui.css.Css.restyled.push(identity -> {
 			var flow = byMember.get(haxe.Int64.toStr(identity.node.id));
-			if (flow != null)
+			if (flow != null) {
 				flow.measureChanged = true;
+				if (flow.cssHidden(identity) != flow.excluded.exists(key(identity.node.id))) {
+					flow.structureChanged = true;
+					flow.tree.markDrawn();
+				}
+			}
 		});
+	}
+
+	/** Display ownership used internally by probes and decoration boxes does not override the author's CSS. **/
+	function cssHidden(identity:Identity):Bool {
+		if (ashui.css.Css.computed(identity, "display") != "none")
+			return false;
+		var k = key(identity.node.id), run = kept.get(k), deco = decos.get(k);
+		return !(run != null ? run.authoredDisplay : deco != null ? deco.authoredDisplay : identity.node.owns(ashui.layout.PropertyId.Display));
 	}
 
 	static inline function key(id:haxe.Int64):String
@@ -311,6 +331,7 @@ class InlineFlow {
 			w.stop();
 		watches = [];
 		members = [key(root.node.id)];
+		excluded = new Map();
 		var seen = new Map<String, Bool>();
 		var nextRuns = [], nextAtoms = [];
 		order = [];
@@ -323,6 +344,27 @@ class InlineFlow {
 				if (i > 0)
 					skip.set(key(b.node.id), true);
 		var seenDecos = new Map<String, Bool>();
+		// Keep measurement runs while hidden so showing them reuses their pieces and original ownership.
+		function retainHidden(node:haxe.Int64) {
+			var k = key(node);
+			if (skip.exists(k))
+				return;
+			members.push(k);
+			var identity = Identity.of(tree, node);
+			if (identity != null && cssHidden(identity)) excluded.set(k, true);
+			var run = kept.get(k);
+			if (run != null) {
+				seen.set(k, true);
+				for (piece in run.pieces) piece.shown.set(Display.None);
+			}
+			var deco = decos.get(k);
+			if (deco != null) {
+				seenDecos.set(k, true);
+				for (box in deco.boxes) box.shown.set(Display.None);
+			}
+			if (keptAtoms.exists(k)) seen.set(k, true);
+			for (child in tree.children(node)) retainHidden(child);
+		}
 		/** The texts under `node` when they are all it holds, the flow's own pieces aside. **/
 		function onlyText(node:haxe.Int64):Null<Array<haxe.Int64>> {
 			var texts = [];
@@ -340,6 +382,12 @@ class InlineFlow {
 				var k = key(child);
 				if (skip.exists(k))
 					continue;
+				var identity = Identity.of(tree, child);
+				if (identity != null && cssHidden(identity)) {
+					excluded.set(k, true);
+					retainHidden(child);
+					continue;
+				}
 				var text = Text.at(child);
 				if (text != null) {
 					var run = kept.get(k);
@@ -356,7 +404,6 @@ class InlineFlow {
 					watches.push(new Watch(() -> text.text(), _ -> measureChanged = true));
 					continue;
 				}
-				var identity = Identity.of(tree, child);
 				if (identity != null && identity.types.indexOf("br") >= 0) {
 					order.push(Break);
 					continue;
@@ -368,7 +415,7 @@ class InlineFlow {
 					// A box around one text: a box on each line it is on.
 					var deco = decos.get(k);
 					if (deco == null) {
-						deco = new Deco(new Node(child), identity.types[0], identity.classes().copy());
+						deco = new Deco(new Node(child), identity.types[0], identity.classes().copy(), identity.node.owns(ashui.layout.PropertyId.Display));
 						deco.boxes.push(new DecoBox(deco.node));
 						decos.set(k, deco);
 					}

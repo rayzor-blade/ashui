@@ -82,6 +82,13 @@ class Interaction {
 
 	/** `node`'s interaction, made the first time it is asked for. Not to be called inside a computed. **/
 	public static function of(node:Node):Interaction {
+		if (!hooked) {
+			hooked = true;
+			ashui.css.Identity.forgetHooks.push(identity -> {
+				var interaction = byNode.get(identity.node);
+				if (interaction != null) interaction.dispose();
+			});
+		}
 		var interaction = byNode.get(node);
 		if (interaction != null)
 			return interaction;
@@ -94,15 +101,21 @@ class Interaction {
 				byTree.set(tree, all = new TreeInteractions());
 			all.add(interaction);
 		}
-		Owner.onCleanup(() -> {
-			byNode.remove(node);
-			if (tree != null)
-				byTree.get(tree).remove(interaction);
-			if (interaction.disabledWatch != null)
-				interaction.disabledWatch.stop();
-			Focus.forget(interaction);
-		});
+		Owner.onCleanup(interaction.dispose);
 		return interaction;
+	}
+
+	static var hooked = false;
+	var disposed = false;
+
+	function dispose():Void {
+		if (disposed) return;
+		disposed = true;
+		byNode.remove(node);
+		var all = node.tree != null ? byTree.get(node.tree) : null;
+		if (all != null) all.remove(this);
+		if (disabledWatch != null) disabledWatch.stop();
+		Focus.forget(this);
 	}
 
 	/** `node`'s interaction if it has one. **/

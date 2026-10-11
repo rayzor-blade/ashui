@@ -116,6 +116,21 @@ class Identity {
 		return this;
 	}
 
+	/** A boolean HTML attribute is present while true, absent while false. **/
+	public function bindBooleanAttribute(name:String, value:IntoReactive<Bool>):Identity {
+		switch (value : ashui.layout.IntoReactive.ReactiveType<Bool>) {
+			case Const(v): setAttribute(name, v ? "" : null);
+			case Bound(s):
+				setAttribute(name, s.get() ? "" : null);
+				new ashui.reactive.Watch(() -> s.get(), v -> setAttribute(name, v ? "" : null));
+			case Derived(c):
+				setAttribute(name, c.get() ? "" : null);
+				new ashui.reactive.Watch(() -> c.get(), v -> setAttribute(name, v ? "" : null));
+		}
+		Css.useUserAgent();
+		return this;
+	}
+
 	/** Attribute `name`'s value, null when it has none. **/
 	public function attribute(name:String):Null<String>
 		return attributes == null ? null : attributes.get(name);

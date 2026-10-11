@@ -1,0 +1,7 @@
+.bindings-compiled {
+	display: grid;
+	grid-template-columns: 100px;
+	grid-template-rows: 80px;
+	place-items: center start;
+	padding-left: 10%;
+}
