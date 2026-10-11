@@ -337,35 +337,30 @@ class Hxx {
 
 	/**
 		An `Image` of the bitmap in `src`. `fit`, or one of Tailwind's
-		`object-cover`, `object-contain` and `object-fill` classes, says how
+		`object-*` fitting and positioning classes, says how
 		it fills a box of another shape, `fill` by default as an `<img>`'s;
 		other classes, `style` and attributes set the element as they do any.
 	**/
 	static function lowerImg(node:Node):Expr {
 		var el = '__img${counter++}';
 		var src:Null<Expr> = null;
-		var fit:Null<Expr> = null, authoredFit:Null<Expr> = null;
+		var fit:Null<Expr> = null;
+		var position:Null<Expr> = null;
 		var classes = [], styles = [], own = [];
 		for (a in node.attributes)
 			switch a {
 				case Regular(name, value) if (name.value == 'src'):
 					src = value;
 				case Regular(name, value) if (name.value == 'fit'):
-					authoredFit = value;
+					fit = value;
+				case Regular(name, value) if (name.value == 'objectPosition'):
+					position = value;
 				case Regular(name, value) if (name.value == 'class'):
 					var text = switch value.expr {
 						case EConst(CString(s, _)): s;
 						case _: Context.error("hxx: <img>'s class must be a string literal", value.pos);
 					}
-					var rest = [];
-					for (word in ~/\s+/g.split(text))
-						switch word {
-							case "object-cover": fit = macro ashui.types.Brush.ImageFit.Cover;
-							case "object-contain": fit = macro ashui.types.Brush.ImageFit.Contain;
-							case "object-fill": fit = macro ashui.types.Brush.ImageFit.Fill;
-							case _: rest.push(word);
-						}
-					classes = classes.concat(classSetters({expr: EConst(CString(rest.join(" "))), pos: value.pos}, el));
+					classes = classes.concat(classSetters({expr: EConst(CString(text)), pos: value.pos}, el));
 				case Regular(name, value) if (name.value == 'id'):
 					own.push(idSetter(value, el));
 				case Regular(name, value) if (name.value == 'style'):
@@ -376,8 +371,9 @@ class Hxx {
 		if (src == null)
 			Context.error("hxx: <img> needs src={bitmap}", node.name.pos);
 		var sets = classes.concat(styles).concat(own);
-		if (authoredFit != null) fit = authoredFit;
-		var attributes = fit == null ? macro null : macro {fit: $fit};
+		if (fit == null) fit = macro null;
+		if (position == null) position = macro null;
+		var attributes = macro {fit: $fit, objectPosition: $position};
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Image($src, $attributes);
 			$b{sets};

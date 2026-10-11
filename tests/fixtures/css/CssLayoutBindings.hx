@@ -254,7 +254,7 @@ class CssLayoutBindings {
 		layout(imageTree, images);
 		check("removing object-fit restores fill without changing owned fits", imageSlots(drawn(imageTree, images))[0] == bitmap.slotFor(Fill) && imageSlots(drawn(imageTree, images))[1] == bitmap.slotFor(Cover));
 		var rejected = false;
-		try ashui.css.Properties.apply(image, "object-fit", "scale-down", context) catch (_:String) rejected = true;
+		try ashui.css.Properties.apply(image, "object-fit", "tile", context) catch (_:String) rejected = true;
 		check("unsupported image modes report a diagnostic instead of silently tiling", rejected);
 		images.remove();
 		check("removed images leave no retained CSS image lookup", @:privateAccess ashui.ui.Image.byNode.get(image) == null);
@@ -263,8 +263,61 @@ class CssLayoutBindings {
 		var disposableNode = disposable.node;
 		disposableTree.dispose();
 		check("disposing an unowned image tree clears its styling lookup and identity", (@:privateAccess ashui.ui.Image.byNode.get(disposableNode)) == null && Identity.of(disposableTree, disposableNode.id) == null);
+		imagePositioning(bitmap, context);
 		bitmap.dispose();
 		listAndCursor();
+	}
+
+	static function imagePositioning(bitmap:ashui.types.Bitmap, context:ashui.css.Properties.ApplyContext) {
+		var compiled = ashui.css.CompiledCss.file("layout-bindings.css");
+		Css.add(compiled);
+		var tree = new LayoutTree();
+		var images:ashui.ui.Div = Owner.root(tree, _ -> <div width={160} height={24}>
+			<img src={bitmap} class="position-compiled" width={24} height={24} />
+			<img src={bitmap} class="position-compiled object-none object-left-top" width={24} height={24} />
+			<img src={bitmap} class="object-scale-down object-right-bottom" width={24} height={24} />
+			<img src={bitmap} fit={ashui.types.ObjectFit.None} objectPosition={{x: 0.125, y: 0.875, offsetX: -0.375, offsetY: 1.625}} class="object-scale-down object-left" width={24} height={24} />
+			<img src={bitmap} class="object-contain object-left hover:object-cover hover:object-right" width={24} height={24} />
+		</div>);
+		layout(tree, images);
+		var list = drawn(tree, images);
+		var rows = [for (r in 0...list.count) if (list.kind(r) == DisplayList.PRIM_IMAGE) r];
+		var first = rows[0], explicit = rows[3];
+		check("compiled scale-down carries numeric mode while reusing the decoded fill slot", list.get(first, 14) == 5 && Std.int(list.get(first, 40)) == bitmap.slotFor(Fill));
+		check("fractional object-position crosses the native ABI without integer conversion", list.get(first, 4) == 0.125 && list.get(first, 5) == 0.875);
+		check("object fit and position utilities keep their local settings", list.get(rows[1], 14) == 4 && list.get(rows[1], 4) == 0 && list.get(rows[1], 5) == 0 && list.get(rows[2], 4) == 1 && list.get(rows[2], 5) == 1);
+		check("authored object attributes win over utility order and retain subpixel offsets", list.get(explicit, 14) == 4 && list.get(explicit, 4) == 0.125 && list.get(explicit, 6) == -0.375 && list.get(explicit, 7) == 1.625);
+		var hoverNode = child(tree, images.node, 4);
+		ashui.input.Interaction.of(hoverNode).hovered.set(true);
+		layout(tree, images); list = drawn(tree, images);
+		check("object fit and position state variants override their base utilities", list.get(rows[4], 14) == 0 && list.get(rows[4], 4) == 1);
+		ashui.input.Interaction.of(hoverNode).hovered.set(false);
+		layout(tree, images); list = drawn(tree, images);
+		check("leaving hover restores base object utilities", list.get(rows[4], 14) == 1 && list.get(rows[4], 4) == 0);
+		var image = child(tree, images.node);
+		identity(image).setInline("object-fit", "cover").setInline("object-position", "right 0.375px bottom 1.625px");
+		layout(tree, images); list = drawn(tree, images);
+		check("edge offsets use negative right/bottom lengths without rounding", list.get(first, 14) == 0 && list.get(first, 4) == 1 && list.get(first, 5) == 1 && list.get(first, 6) == -0.375 && list.get(first, 7) == -1.625);
+		identity(image).setInline("object-fit", null).setInline("object-position", null);
+		Css.remove(compiled); layout(tree, images); list = drawn(tree, images);
+		check("removing image CSS returns to legacy centered fill records", list.get(first, 45) != 3 && Std.int(list.get(first, 40)) == bitmap.slotFor(Fill));
+		check("CSS reset preserves independently authored object positioning", list.get(explicit, 4) == 0.125 && list.get(explicit, 6) == -0.375);
+		identity(images.node).setInline("object-position", "12.5% 87.5%");
+		layout(tree, images); list = drawn(tree, images);
+		check("object-position inherits through ordinary container hosts", list.get(first, 45) == 3 && list.get(first, 4) == 0.125 && list.get(first, 5) == 0.875);
+		identity(images.node).setInline("object-position", null);
+		layout(tree, images); list = drawn(tree, images);
+		check("removing inherited position restores legacy centered image records", list.get(first, 45) != 3);
+		var p = ashui.css.Properties.imagePosition("bottom left", context);
+		check("reordered axis keywords resolve to the correct pair", p.x == 0 && p.y == 1);
+		p = ashui.css.Properties.imagePosition("12.5% -0.375px", context);
+		check("percentage and subpixel length pairs remain distinct", p.x == 0.125 && p.y == 0 && p.offsetY == -0.375);
+		for (value in ["left right", "top bottom", "auto", "left 10% bottom 2px", "calc(20% + 2px) center"]) {
+			var rejected = false;
+			try ashui.css.Properties.imagePosition(value, context) catch (_:String) rejected = true;
+			check("invalid or unsupported object-position reports " + value, rejected);
+		}
+		images.remove(); tree.dispose();
 	}
 
 	static function listAndCursor() {

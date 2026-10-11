@@ -138,6 +138,10 @@ class Pixels {
 		var bgra = new Offscreen(device, TextureFormat.Bgra8unorm).renderToRgba8(root, SIZE, SIZE);
 
 		var failures = 0;
+		function check(name:String, ok:Bool) {
+			if (!ok) failures++;
+			Sys.println((ok ? "ok   " : "FAIL ") + name);
+		}
 		var pixels = shared;
 		var label = "";
 		function probe(name:String, x:Int, y:Int, ok:(r:Int, g:Int, b:Int) -> Bool) {
@@ -645,6 +649,80 @@ class Pixels {
 		probe("and red again a cell on", 38, 40, (r, g, b) -> r > 200 && b < 60);
 		probe("repeated across the box", 47, 44, (r, g, b) -> b > 200 && r < 60);
 		ashui.css.Css.remove(bitmapFitSheet);
+
+		// Full object-fit semantics: source dimensions, positioning, cropping, cache reuse and resets.
+		var objectPixels = haxe.io.Bytes.alloc(8 * 4 * 4);
+		for (y in 0...4) for (x in 0...8) {
+			var at = (y * 8 + x) * 4;
+			objectPixels.set(at + (x < 4 ? 0 : 2), 255); objectPixels.set(at + 3, 255);
+		}
+		var objectBitmap = ashui.types.Bitmap.fromBytes(ashui.core.render.Png.encode(8, 4, objectPixels));
+		var objectSheet = ashui.css.Css.load('
+			#object-none { object-fit: none; object-position: left top; }
+			#object-scale, #object-small { object-fit: scale-down; }
+			#object-crop { object-fit: cover; object-position: left top; }
+			#object-contain { object-fit: contain; object-position: right bottom; }
+		');
+		var objectTree = new LayoutTree();
+		function objectImage(id:String, x:Float, y:Float, w:Float, h:Float):ashui.ui.Image {
+			var image = new ashui.ui.Image(objectBitmap, {width: (w : Single), height: (h : Single)}, objectTree);
+			image.node.set(Prop.Position, Position.Absolute);
+			image.node.set(Prop.Left, (x : Single)); image.node.set(Prop.Top, (y : Single));
+			ashui.css.Identity.of(objectTree, image.node.id).setId(id);
+			return image;
+		}
+		var noneImage = objectImage("object-none", 4, 4, 24, 12);
+		var scaleImage = objectImage("object-scale", 32, 4, 24, 12);
+		var smallImage = objectImage("object-small", 4, 24, 4, 8);
+		var cropImage = objectImage("object-crop", 16, 24, 8, 16);
+		var containImage = objectImage("object-contain", 32, 24, 24, 16);
+		containImage.node.set(Prop.CornerRadius, CornerRadius.all(6));
+		var objectRoot = new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff)}, [noneImage, scaleImage, smallImage, cropImage, containImage], objectTree);
+		pixels = offscreen.renderToRgba8(objectRoot, SIZE, SIZE);
+		label = "object-fit/position: ";
+		probe("none draws intrinsic red pixels", 5, 5, near(0xff0000));
+		probe("none draws intrinsic blue pixels", 10, 5, near(0x0000ff));
+		probe("none does not enlarge the source", 17, 5, near(0xffffff));
+		probe("scale-down leaves small sources centered at intrinsic size", 41, 9, near(0xff0000));
+		probe("scale-down retains the blue half", 46, 9, near(0x0000ff));
+		probe("scale-down does not upscale", 35, 9, near(0xffffff));
+		probe("scale-down shrinks larger sources", 4, 27, near(0xff0000));
+		probe("shrinking preserves the blue half", 7, 27, near(0x0000ff));
+		probe("shrink keeps letterbox transparency", 4, 24, near(0xffffff));
+		probe("cover with left positioning selects the red end", 19, 32, near(0xff0000));
+		probe("bottom positioned contain leaves space above", 42, 25, near(0xffffff));
+		probe("positioned contain still clips its rounded corners", 32, 39, near(0xffffff));
+		probe("positioned contain keeps the image visible", 40, 34, near(0xff0000));
+		var objectAtlas = @:privateAccess offscreen.renderer.imageAtlas;
+		var cachedImages = [for (key in (@:privateAccess objectAtlas.entries).keys()) key].length;
+		ashui.css.Identity.of(objectTree, cropImage.node.id).setInline("object-position", "right top");
+		pixels = offscreen.renderToRgba8(objectRoot, SIZE, SIZE);
+		probe("restyled cover position selects the blue end", 19, 32, near(0x0000ff));
+		check("moving an image reuses its existing atlas entries", cachedImages == [for (key in (@:privateAccess objectAtlas.entries).keys()) key].length);
+		ashui.css.Css.remove(objectSheet);
+		ashui.css.Identity.of(objectTree, cropImage.node.id).setInline("object-position", null);
+		pixels = offscreen.renderToRgba8(objectRoot, SIZE, SIZE);
+		probe("removing image CSS restores default fill", 24, 8, near(0x0000ff));
+
+		// Emulate exhausted atlas shelves without allocating a 4096-square GPU texture.
+		// A cached first image must survive retry when the later image forces eviction.
+		var retryAtlas = new ashui.core.render.ImageAtlas(offscreen.device);
+		ashui.core.render.Images.bitmap(objectBitmap.slot, 8, 4, 1, retryAtlas);
+		@:privateAccess retryAtlas.size = ashui.core.render.ImageAtlas.MAX_SIZE;
+		@:privateAccess retryAtlas.nextY = ashui.core.render.ImageAtlas.MAX_SIZE;
+		@:privateAccess retryAtlas.shelves = [];
+		var retryList = new ashui.layout.DisplayList();
+		ashui.css.Css.add(objectSheet);
+		objectTree.flush(); objectTree.computeLayout(objectRoot.node, SIZE, SIZE);
+		retryList.update(objectTree, objectRoot.node);
+		ashui.core.render.Images.resolve(retryList, retryAtlas);
+		var retryRows = [for (r in 0...retryList.count) if (retryList.kind(r) == ashui.layout.DisplayList.PRIM_IMAGE) r];
+		check("atlas eviction retries original mapped image geometry", retryList.get(retryRows[0], 4) == 0 && retryList.get(retryRows[0], 6) == 8 && retryList.get(retryRows[0], 15) == 1);
+		check("atlas eviction resolves the later bitmap instead of stale atlas slots", retryList.get(retryRows[2], 6) == 4 && retryList.get(retryRows[2], 7) == 2 && retryList.get(retryRows[2], 15) == 1);
+		retryAtlas.view.destroy();
+		retryAtlas.texture.destroy();
+		ashui.css.Css.remove(objectSheet);
+		objectRoot.remove(); objectTree.dispose(); objectBitmap.dispose();
 
 		// CSS's url() reads an image file into a background, fitted by background-size.
 		var pairFile = haxe.io.Path.join([Sys.getCwd(), "pixels-pair.png"]);

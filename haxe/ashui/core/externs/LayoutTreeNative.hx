@@ -59,6 +59,10 @@ extern class LayoutTreeNative {
 
 	/** Makes `node` draw image `slot`, which the renderer resolves, in its content box; a negative slot stops it. **/
 	static function blinc_tree_set_image(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
+
+	/** Optional bitmap fit and object-position, as fractions of free space plus pixel offsets. **/
+	static function blinc_tree_set_image_mapping(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, fit:Int, x:Single, y:Single,
+		offsetX:Single, offsetY:Single):Void;
 	static function blinc_tree_set_canvas(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
 
 	/**

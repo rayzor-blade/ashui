@@ -882,6 +882,13 @@ class Tw {
 
 	/** Inherited list markers and native keyword cursors, shared by plain utilities and state variants. **/
 	static function keywordCss(word:String):Null<{name:String, value:String}> {
+		if (StringTools.startsWith(word, "object-")) {
+			var value = word.substr(7);
+			if (["cover", "contain", "fill", "none", "scale-down"].indexOf(value) >= 0)
+				return {name: "object-fit", value: value};
+			if (["center", "left", "right", "top", "bottom", "left-top", "left-bottom", "right-top", "right-bottom"].indexOf(value) >= 0)
+				return {name: "object-position", value: StringTools.replace(value, "-", " ")};
+		}
 		if (StringTools.startsWith(word, "scrollbar-")) {
 			var value = word.substr(10);
 			if (["auto", "thin", "none"].indexOf(value) >= 0)

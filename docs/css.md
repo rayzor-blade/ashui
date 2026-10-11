@@ -193,11 +193,27 @@ changing or removing it updates the existing scroll container. Typed
 utilities include `overflow-x-auto` and `overflow-y-auto`. Native rectangular
 clipping currently clips both axes when either axis needs clipping.
 
-`object-fit: cover`, `contain` or `fill` styles an `<img>` through the same
-bitmap fitting API as `fit={Cover}` and the `object-cover` utilities. CSS can
-change fitting without decoding or copying the image again. Removing the
-rule restores `fill`; an explicit `fit` attribute or `object-*` utility keeps
-its local setting. `none` and `scale-down` are not supported yet.
+`object-fit` supports `cover`, `contain`, `fill`, `none` (intrinsic size), and
+`scale-down` (contain without enlarging). `object-position` positions the
+image within its content box, including cropping. It inherits, defaults to
+`50% 50%`, and accepts axis keywords, percentage/length pairs, and edge lengths
+such as `right 8px bottom 4px`. Percentages apply to the space left after fitting;
+fractional values are preserved. Edge percentage offsets and percentage terms
+inside `calc()` are currently unsupported.
+
+```tsx
+<img src={photo} class="object-cover object-left hover:object-right rounded-xl"
+     width={240} height={160} />
+```
+
+Matching utilities include `object-none`, `object-scale-down`, `object-center`,
+`object-top`, and `object-right-bottom`, with state variants. `fit` accepts
+`ashui.types.ObjectFit` and existing `Brush.ImageFit` values; typed
+`objectPosition` takes `{x, y, offsetX, offsetY}` (fractions and pixel offsets).
+Explicit attributes win over CSS and utilities. Removing a stylesheet restores
+`fill` and centered positioning while keeping local utility declarations.
+Bitmaps are decoded once; positioned images share size-bucketed atlas entries,
+so changing position reuses the texture.
 
 ### List markers and cursors
 

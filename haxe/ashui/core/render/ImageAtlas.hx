@@ -31,6 +31,11 @@ class ImageAtlas {
 	var shelves:Array<{y:Int, height:Int, x:Int}> = [];
 	var nextY = 0;
 
+	// Reused staging rows let an overflow retry untouched records. Each renderer
+	// keeps its own pool, which is released together with this atlas.
+	@:allow(ashui.core.render.Images) final resolving:Array<Images.ResolvedImage> = [];
+	@:allow(ashui.core.render.Images) var prepared = 0;
+
 	/** The texture's view; replaced, with `revision` bumped, when the atlas grows. **/
 	public var view(default, null):GpuTextureView;
 

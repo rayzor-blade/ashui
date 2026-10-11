@@ -5,8 +5,9 @@ package ashui.core.render;
 	A mask image, `typeInfo.y` 0, is coverage tinted with the record's
 	colour; a colour image, 1, is drawn as it is under the opacity in
 	`color2.a`; a tiled one, 2, repeats from the box's top-left in cells
-	`color2.xy` layout units in size. The record's `gradient` row is the
-	rect, one cell for a tiled image, in atlas pixels.
+	`color2.xy` layout units in size. Mode 3 uses `cornerRadius` as the image's
+	drawn rect, positioned inside its content box; `color2.z` selects tiling.
+	The record's `gradient` row is the rect, one cell for a tiled image, in atlas pixels.
 **/
 class ImageShader implements UiShader {
 	static var SRC = {
@@ -36,7 +37,14 @@ class ImageShader implements UiShader {
 				discard;
 			var rect = primitive.gradient;
 			var at = mix(rect.xy, rect.zw, uv);
-			if (primitive.typeInfo.y > 1.5) {
+			if (primitive.typeInfo.y > 2.5) {
+				// The image's drawn rect, separate from its content box and rounded clips.
+				var mapping = primitive.cornerRadius;
+				var sampleUv = (local - mapping.xy) / mapping.zw;
+				if (primitive.color2.z > 0.5) sampleUv = fract(sampleUv);
+				else clip *= 1. - smoothstep(-aa, aa, sdRoundedRect(local, mapping.xy, mapping.zw, vec4(0., 0., 0., 0.)));
+				at = clamp(mix(rect.xy, rect.zw, sampleUv), rect.xy + vec2(0.5, 0.5), rect.zw - vec2(0.5, 0.5));
+			} else if (primitive.typeInfo.y > 1.5) {
 				// Kept half a texel inside the cell, so filtering does not reach its neighbours in the atlas.
 				at = clamp(mix(rect.xy, rect.zw, fract(local / primitive.color2.xy)), rect.xy + vec2(0.5, 0.5), rect.zw - vec2(0.5, 0.5));
 			}

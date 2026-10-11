@@ -1,3 +1,5 @@
 #fit-cover { object-fit: cover; }
 #fit-contain { object-fit: contain; }
 #fit-fill { object-fit: fill; }
+#fit-none { object-fit: none; object-position: center; }
+#fit-scale-down { object-fit: scale-down; }

@@ -62,8 +62,22 @@ class ImageGallery {
 					<text class="text-sm font-semibold text-white">As a background</text>
 				</div>
 			</div>
+			<div flexDirection={Row} gap={20}>
+				<div flexDirection={Column} gap={8}>
+					<img src={avatar} id="fit-none" class="rounded-xl" width={220} height={140} />
+					<text class="text-xs text-text-secondary">none: intrinsic size, cropped</text>
+				</div>
+				<div flexDirection={Column} gap={8}>
+					<img src={avatar} id="fit-scale-down" class="rounded-xl" width={220} height={140} />
+					<text class="text-xs text-text-secondary">scale-down: shrink, never enlarge</text>
+				</div>
+				<div flexDirection={Column} gap={8}>
+					<img src={avatar} class="object-cover object-bottom rounded-xl" width={220} height={140} />
+					<text class="text-xs text-text-secondary">object-position: bottom</text>
+				</div>
+			</div>
 			<canvas width={680} height={190} draw={canvas} />
 		</div>;
-		Snapshot.scene(light ? "images-light" : "images", 760, 640, build, page.rgb(), page.a, 2.0, 1.0);
+		Snapshot.scene(light ? "images-light" : "images", 760, 840, build, page.rgb(), page.a, 2.0, 1.0);
 	}
 }

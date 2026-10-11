@@ -10,3 +10,5 @@
 
 .markers-compiled { list-style-type: lower-roman; }
 .cursor-compiled { cursor: crosshair; }
+
+.position-compiled { object-fit: scale-down; object-position: 12.5% 87.5%; }

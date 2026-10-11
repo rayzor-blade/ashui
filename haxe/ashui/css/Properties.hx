@@ -369,6 +369,10 @@ class Properties {
 			ashui.ui.Image.styleFit(n, ashui.ui.Image.cssFit(v));
 			[];
 		});
+		h.set("object-position", (n, v, c) -> {
+			ashui.ui.Image.stylePosition(n, imagePosition(v, c));
+			[];
+		});
 		// These settings belong to the glass background; they have no separate native field.
 		for (name in ["glass-blur", "glass-tint", "glass-aberration", "glass-bevel", "glass-curvature", "glass-noise", "glass-mode"])
 			h.set(name, (_, v, c) -> {
@@ -862,6 +866,53 @@ class Properties {
 				if (["inset", "outset"].indexOf(StringTools.trim(value).toLowerCase()) < 0)
 					throw "expected inset or outset";
 		}
+	}
+
+	/** A position expressed as fractions of the free space and pixel offsets. **/
+	@:noCompletion public static function imagePosition(v:String, c:ApplyContext):ashui.ui.Image.ImagePosition {
+		var words = CssValue.split(v.toLowerCase(), " ");
+		function axis(word:String, vertical:Bool):{fraction:Float, offset:Float} {
+			if (word == "center") return {fraction: 0.5, offset: 0};
+			if (word == (vertical ? "top" : "left")) return {fraction: 0, offset: 0};
+			if (word == (vertical ? "bottom" : "right")) return {fraction: 1, offset: 0};
+			return switch CssValue.length(word) {
+				case Percent(p): {fraction: p / 100, offset: 0};
+				case length:
+					if (word.indexOf("%") >= 0) throw "object-position calc() supports pixel terms only";
+					{fraction: 0, offset: pixels(length, c)};
+			};
+		}
+		var x = {fraction: 0.5, offset: 0.0}, y = {fraction: 0.5, offset: 0.0};
+		if (words.length == 1) {
+			if (words[0] == "top" || words[0] == "bottom") y = axis(words[0], true);
+			else x = axis(words[0], false);
+		} else if (words.length == 2) {
+			var a = words[0], b = words[1];
+			if (a == "top" || a == "bottom" || a == "center" && (b == "left" || b == "right")) {
+				var swap = a; a = b; b = swap;
+			}
+			x = axis(a, false); y = axis(b, true);
+		} else if (words.length == 3 || words.length == 4) {
+			var hasX = false, hasY = false, i = 0;
+			while (i < words.length) {
+				var edge = words[i++];
+				var vertical = edge == "top" || edge == "bottom";
+				if (!vertical && edge != "left" && edge != "right") throw "expected two object-position edges and their offsets";
+				if (vertical ? hasY : hasX) throw "object-position needs one horizontal and one vertical edge";
+				var at = axis(edge, vertical);
+				if (i < words.length && ["top", "right", "bottom", "left"].indexOf(words[i]) < 0) {
+					if (words[i].indexOf("%") >= 0) throw "object-position edge offsets support lengths, not percentages";
+					var offset = CssValue.length(words[i++]);
+					if (offset.match(Percent(_))) throw "object-position edge offsets support lengths, not percentages";
+					at.offset = pixels(offset, c) * (edge == "right" || edge == "bottom" ? -1 : 1);
+				}
+				if (vertical) { y = at; hasY = true; } else { x = at; hasX = true; }
+			}
+			if (!hasX || !hasY) throw "object-position needs both axes";
+		} else throw "expected an object-position keyword, pair or edge offsets";
+		if (!Math.isFinite(x.fraction) || !Math.isFinite(y.fraction) || !Math.isFinite(x.offset) || !Math.isFinite(y.offset))
+			throw "object-position must be finite";
+		return {x: x.fraction, y: y.fraction, offsetX: x.offset, offsetY: y.offset};
 	}
 
 	static function pixels(l:CssLength, c:ApplyContext):Float {
