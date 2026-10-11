@@ -38,7 +38,8 @@ typedef CellProps = {
 	`<caption>`. Every row is a grid of the same columns, so cells line up
 	down the table: as many as its widest row has, sized by their cells'
 	unbreakable and one-line widths unless a `<col>` gives a width. A cell's
-	`colspan` spans columns. Rows that come or go later are laid out the
+	`colspan` spans columns and its content constrains automatic tracks.
+	Rows that come or go later are laid out the
 	same. `rowspan` is not supported.
 
 	Its look is the user-agent stylesheet's `table`, `caption`, `thead`,
@@ -63,10 +64,17 @@ private typedef TableRow = {
 	var cells:Array<Cell>;
 }
 
+private typedef SpanningCell = {
+	var cell:Cell;
+	var start:Int;
+	var end:Int;
+}
+
 /**
 	Content sizing from blinc_ts's native/tables.ts, using existing Ashui flows
-	and layout passes (Ashui 8fbda23, umbrella 8780d6b). A colspan spans tracks
-	but does not size them; rowspan and border-collapse/spacing remain in 8780d6b.
+	and layout passes (Ashui 8fbda23, umbrella 8780d6b). Spanning-cell constraints
+	are tracked in 4bcdb95. Rowspan needs the shared-row layout/paint prerequisite
+	blinc_abi bcec1a0; border-collapse/spacing remain in umbrella 8780d6b.
 **/
 private class TableColumns {
 	final tree:LayoutTree;
@@ -76,6 +84,11 @@ private class TableColumns {
 	var given:Array<Null<String>> = [];
 	var min:Array<Float> = [];
 	var max:Array<Float> = [];
+	var spans:Array<SpanningCell> = [];
+	var fixed:Array<Float> = [];
+	var percentages:Array<{column:Int, fraction:Float}> = [];
+	var needsWidth = false;
+	var basisWidth = 0.0;
 	var stops:Array<Void->Void> = [];
 	var dirty = true;
 	var template:Null<String>;
@@ -85,7 +98,7 @@ private class TableColumns {
 		id = box.node.id;
 		this.cols = cols;
 		ashui.layout.AfterChildren.watch(tree, "table " + haxe.Int64.toStr(id), parent -> within(tree, id, parent), refresh);
-		InlineFlow.onMeasured(tree, () -> dirty && measure());
+		InlineFlow.onMeasured(tree, afterMeasure);
 		Owner.onCleanup(unsubscribe);
 		refresh();
 	}
@@ -118,17 +131,42 @@ private class TableColumns {
 		while (given.length < count) given.push(null);
 		min = [for (_ in given) 0.0];
 		max = [for (_ in given) 0.0];
+		fixed = [for (t in given) t != null && StringTools.endsWith(t, "px") ? Std.parseFloat(t) : 0.0];
+		percentages = [for (i => t in given) if (t != null && StringTools.endsWith(t, "%")) {column: i, fraction: Std.parseFloat(t) / 100}];
+		spans = [];
+		needsWidth = false;
 		for (row in rows) {
 			var column = 0;
 			for (cell in row.cells) {
-				if (given[column] == null && cell.span() == 1)
+				var end = column + cell.span(), automatic = false;
+				for (i in column...end) if (given[i] == null) automatic = true;
+				if (automatic) {
 					stops.push(cell.flow.onWidthsChanged(() -> dirty = true));
-				column += cell.span();
+					if (cell.span() > 1) {
+						spans.push({cell: cell, start: column, end: end});
+						for (p in percentages) if (p.column >= column && p.column < end) needsWidth = true;
+					}
+				}
+				column = end;
 			}
 		}
+		// Smaller spans establish their constraints before wider or overlapping ones.
+		spans.sort((a, b) -> (a.end - a.start) - (b.end - b.start));
 		dirty = true;
 		// New rows need the template even when it matches the previous rows' template.
 		measure(true);
+	}
+
+	/** Percentage tracks change a span's available width on resize, without reshaping its text (4bcdb95). **/
+	function afterMeasure():Bool {
+		if (needsWidth && rows.length > 0) {
+			var bounds = tree.getBounds(rows[0].node);
+			if (bounds != null && bounds.width != basisWidth) {
+				basisWidth = bounds.width;
+				dirty = true;
+			}
+		}
+		return dirty && measure();
 	}
 
 	function measure(force = false):Bool {
@@ -145,6 +183,14 @@ private class TableColumns {
 				column += cell.span();
 			}
 		}
+		for (p in percentages) fixed[p.column] = basisWidth * p.fraction;
+		for (span in spans) {
+			var widths = span.cell.flow.widths();
+			if (widths == null) continue;
+			constrain(span, min, widths.min);
+			for (i in span.start...span.end) max[i] = Math.max(max[i], min[i]);
+			constrain(span, max, widths.max);
+		}
 		var shares = Lambda.exists(given, t -> t != null && t.indexOf("fr") >= 0);
 		var tracks = [for (i => t in given) t != null ? t :
 			'minmax(${min[i]}px, ${shares ? Math.max(min[i], max[i]) + "px" : Math.max(max[i], 1) + "fr"})'];
@@ -153,6 +199,30 @@ private class TableColumns {
 		template = next;
 		for (row in rows) row.node.set(Prop.GridTemplateColumns, next);
 		return true;
+	}
+
+	/**
+		Share a spanning cell's missing width among automatic columns, by their
+		preferred content widths; explicit tracks retain their settings (4bcdb95).
+		Widths remain floating point, with the final allocation taking the remainder.
+	**/
+	function constrain(span:SpanningCell, sizes:Array<Float>, width:Float):Void {
+		var total = 0.0, weight = 0.0, last = -1;
+		for (i in span.start...span.end) {
+			if (given[i] == null) {
+				total += sizes[i];
+				weight += Math.max(max[i], 1);
+				last = i;
+			} else total += fixed[i];
+		}
+		var missing = width - total;
+		if (missing <= 0 || last < 0) return;
+		var left = missing;
+		for (i in span.start...span.end) if (given[i] == null) {
+			var add = i == last ? left : missing * Math.max(max[i], 1) / weight;
+			sizes[i] += add;
+			left -= add;
+		}
 	}
 
 	/** A column's track: its width, or an equal share that may shrink below its content. **/

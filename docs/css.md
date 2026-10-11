@@ -260,10 +260,17 @@ width, leaving the remainder to the star columns.
 </table>
 ```
 
-`colspan` spans the shared columns; spanning cells currently do not set
-column widths. `rowspan`, `border-collapse`, `border-spacing`, and browser
+`colspan` spans the shared columns and contributes its unbreakable and
+one-line widths to automatic columns. Smaller spans are sized before wider
+or overlapping spans; their extra width is shared by the automatic columns'
+content widths. Explicit columns keep their pixel, percentage or star
+settings. Spans over explicit columns alone wrap within the given widths.
+
+`rowspan`, `border-collapse`, `border-spacing`, and browser
 `display: table-*` / `table-layout` modes are not implemented. These limits
-are tracked in git-bug umbrella `8780d6b`; content sizing is milestone `8fbda23`.
+are tracked in git-bug umbrella `8780d6b`; content sizing is milestone
+`8fbda23` and spanning-cell constraints are `4bcdb95`. The shared native
+row-grid and paint ordering needed for `rowspan` are tracked in ABI `bcec1a0`.
 
 ### List markers and cursors
 
