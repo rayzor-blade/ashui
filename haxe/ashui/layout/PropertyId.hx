@@ -144,6 +144,9 @@ enum abstract PropertyId(Int) from Int to Int {
     var BackdropSaturate = 97;
     var BackdropSepia = 98;
 
+    /** The shadows of the node's text and its descendants', first on top, as CSS's `text-shadow`. **/
+    var TextShadow = 119;
+
     /** The kind of value this property takes, which `Node.set` dispatches on. **/
     public inline function getDataType(): PropertyDataType {
         return switch (this) {
@@ -154,7 +157,7 @@ enum abstract PropertyId(Int) from Int to Int {
             case Transform: TypeTransform;
             case Shadow: TypeShadow;
             case ClipPath: TypeClipPath;
-            case DropShadow: TypeShadow;
+            case DropShadow | TextShadow: TypeShadow;
 
             // Strings (Typography / Paths / Content)
             case FontFamily | TextContent | GridTemplateColumns | GridTemplateRows | GridColumn | GridRow: TypeString;

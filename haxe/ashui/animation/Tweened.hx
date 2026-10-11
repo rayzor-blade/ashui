@@ -109,6 +109,8 @@ class Tweened<T> {
 			case 4: (1.0 : Single);
 			case 5: ashui.types.Transform.identity();
 			case 64: (0.0 : Single);
+			// Text shadows grow from a transparent one, as CSS's do from none.
+			case 119: new ashui.types.Shadow(0, 0, 0, 0, 0);
 			case _: null;
 		}
 	}

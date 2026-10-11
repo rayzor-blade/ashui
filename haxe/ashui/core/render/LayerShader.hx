@@ -31,6 +31,8 @@ class LayerShader implements UiShader {
 		@param var shadow : Sampler2D;
 
 		var output : { position : Vec4, color : Vec4 };
+		/** Where the fragment is in layout units, as the record's clip rows are. **/
+		var pixel : Vec2;
 
 		/** The mask's alpha at target pixel `pixel`; 1 without a mask. **/
 		function maskAlpha(pixel : Vec2) : Float {
@@ -67,7 +69,7 @@ class LayerShader implements UiShader {
 
 		function vertex() {
 			var b = primitive.bounds;
-			var pixel = placed(b.xy, primitive.affine, quadCorner(vertexID) * b.zw);
+			pixel = placed(b.xy, primitive.affine, quadCorner(vertexID) * b.zw);
 			output.position = pixelToClip(pixel, viewport);
 		}
 
@@ -134,7 +136,9 @@ class LayerShader implements UiShader {
 					rgb = premult / outA;
 				a = outA;
 			}
-			output.color = vec4(rgb, a * primitive.color.a * maskAlpha(fragCoord.xy));
+			// Clipped where the record says, as a text shadow's layer is where its text is; a layer without clips is not.
+			var clipped = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w);
+			output.color = vec4(rgb, a * primitive.color.a * maskAlpha(fragCoord.xy) * clipped);
 		}
 	};
 }

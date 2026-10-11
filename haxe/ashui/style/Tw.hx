@@ -575,6 +575,17 @@ class Tw {
 		for (token in tokenNames("ashui.theme.ShadowToken"))
 			one(token == "Default" ? "shadow" : 'shadow-${scale(token)}', "Shadow", macro ashui.theme.Themed.shadow(ashui.theme.ShadowToken.$token));
 
+		// Text shadows, Tailwind's scale: black at low alpha, more layers and blur up it.
+		one("text-shadow-none", "TextShadow", macro new ashui.types.Shadow(0, 0, 0, 0, 0));
+		one("text-shadow-2xs", "TextShadow", macro new ashui.types.Shadow(0, 1, 0, 0x000000, 0.15));
+		one("text-shadow-xs", "TextShadow", macro new ashui.types.Shadow(0, 1, 1, 0x000000, 0.2));
+		one("text-shadow-sm", "TextShadow",
+			macro new ashui.types.Shadow(0, 1, 0, 0x000000, 0.075).and(0, 1, 1, 0x000000, 0.075).and(0, 2, 2, 0x000000, 0.075));
+		one("text-shadow-md", "TextShadow",
+			macro new ashui.types.Shadow(0, 1, 1, 0x000000, 0.1).and(0, 1, 2, 0x000000, 0.1).and(0, 2, 4, 0x000000, 0.1));
+		one("text-shadow-lg", "TextShadow",
+			macro new ashui.types.Shadow(0, 1, 2, 0x000000, 0.1).and(0, 3, 2, 0x000000, 0.1).and(0, 4, 8, 0x000000, 0.1));
+
 		// Type, from TypographyToken: TextXs is text-xs, FontBold font-bold, LeadingSnug leading-snug.
 		for (token in tokenNames("ashui.theme.TypographyToken")) {
 			var value = macro ashui.theme.TypographyToken.$token;

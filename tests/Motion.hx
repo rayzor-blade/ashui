@@ -134,6 +134,24 @@ class Motion {
 		check("a keyframes run records each segment's curve and follows it", bv != null && bobbed.keyframes != null && bobbed.keyframes.length == 3
 			&& bobbed.samples.filter(x -> x.eased != null).length >= 10 && bv.issues.length == 0, bv == null ? null : [bobbed.keyframes, bv.issues]);
 
+		// --- text-shadow: read from CSS, refused with a spread or inset, and moved by a transition ---
+		ashui.css.Css.load(".glowy { width: 40px; height: 10px; text-shadow: 0 0 0 transparent; transition: text-shadow 100ms linear; }
+			.glowy.on { text-shadow: 0 2px 4px #ff0000; }
+			.spread { text-shadow: 1px 1px 2px 3px red; }");
+		var glowClasses = Signal.make(["glowy"]);
+		var glowBox:Div = Owner.root(tree, _ -> new Div({classes: glowClasses}, tree));
+		@:privateAccess tree.addChild(root.node.id, glowBox.node.id);
+		frame(2);
+		glowClasses.set(["glowy", "on"]);
+		frame(8);
+		var glowed = Lambda.find(trace.tracks, t -> t.node == glowBox.node.id && t.property == "text-shadow");
+		var spreadBox:Div = Owner.root(tree, _ -> new Div({classes: ["spread"]}, tree));
+		@:privateAccess tree.addChild(root.node.id, spreadBox.node.id);
+		frame();
+		check("text-shadow transitions as a shadow list, and a spread is refused", glowed != null && glowed.end == Completed
+			&& ashui.css.Css.problems.filter(p -> p.indexOf("text-shadow") >= 0).length == 1,
+			[glowed == null ? null : glowed.end, ashui.css.Css.problems.filter(p -> p.indexOf("text-shadow") >= 0)]);
+
 		// --- A spring, against the oscillator's closed form ---
 		var spring = new ashui.animation.Spring(ashui.animation.SpringConfig.wobbly(), 0);
 		var id = scheduler.register(spring);

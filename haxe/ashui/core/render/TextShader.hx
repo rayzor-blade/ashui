@@ -42,7 +42,12 @@ class TextShader implements UiShader {
 				discard;
 			var rect = primitive.gradient;
 			var result = vec4(0., 0., 0., 0.);
-			if (primitive.typeInfo.y > 0.5) {
+			if (primitive.typeInfo.y > 1.5) {
+				// A colour glyph's shadow: its shape, the colour atlas's alpha, in the record's colour.
+				var size = textureSize(colorAtlas);
+				var shape = textureLod(colorAtlas, mix(rect.xy, rect.zw, uv) / size, 0.).a;
+				result = vec4(primitive.color.rgb, primitive.color.a * shape);
+			} else if (primitive.typeInfo.y > 0.5) {
 				var size = textureSize(colorAtlas);
 				result = textureLod(colorAtlas, mix(rect.xy, rect.zw, uv) / size, 0.);
 				result.a *= primitive.color.a;

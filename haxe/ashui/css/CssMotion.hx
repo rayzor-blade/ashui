@@ -65,7 +65,7 @@ class CssMotion {
 		var widths = [2, 60, 61, 62, 63];
 		var outline = [9, 66];
 		var m = [
-			"background" => [0], "background-color" => [0], "color" => [7], "opacity" => [4], "transform" => [5], "box-shadow" => [6],
+			"background" => [0], "background-color" => [0], "color" => [7], "opacity" => [4], "transform" => [5], "box-shadow" => [6], "text-shadow" => [119],
 			"border-color" => colors, "border-width" => widths, "border" => colors.concat(widths), "border-radius" => [3],
 			"outline-color" => outline, "outline-width" => [64], "outline-offset" => [65], "outline" => outline.concat([64, 65]),
 			"width" => [10, 53], "height" => [11, 54], "min-width" => [12, 55], "max-width" => [13, 56], "min-height" => [14, 57],
@@ -278,7 +278,7 @@ class CssMotion {
 	/** What a property is where nothing sets it, for keyframes that leave out their first or last frame. **/
 	public static final INITIAL:Map<String, String> = [
 		"opacity" => "1", "transform" => "none", "background-color" => "transparent", "background" => "transparent", "color" => "black",
-		"border-color" => "transparent", "box-shadow" => "none", "filter" => "none", "border-radius" => "0px", "padding" => "0px", "margin" => "0px",
+		"border-color" => "transparent", "box-shadow" => "none", "text-shadow" => "none", "filter" => "none", "border-radius" => "0px", "padding" => "0px", "margin" => "0px",
 		"gap" => "0px", "letter-spacing" => "0px", "outline-offset" => "0px", "outline-width" => "0px"
 	];
 

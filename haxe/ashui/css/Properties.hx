@@ -474,6 +474,20 @@ class Properties {
 			write(n, Prop.Shadow, shadow == null ? new Shadow(0, 0, 0, 0, 0) : shadow);
 			[Node.field(Prop.Shadow)];
 		});
+		// Set on the element that declares it; its text and its descendants' take the nearest, as CSS inherits it.
+		h.set("text-shadow", (n, v, c) -> {
+			var shadow:Null<Shadow> = null;
+			if (StringTools.trim(v).toLowerCase() != "none")
+				// One at a time without `inset`, so a spread or inset is refused as text-shadow has neither.
+				for (part in CssValue.split(v, ",")) {
+					var s = CssValue.shadow(part, false);
+					var col = colorOf(s.color, c);
+					var x = pixels(s.x, c), y = pixels(s.y, c), blur = pixels(s.blur, c);
+					shadow = shadow == null ? new Shadow(x, y, blur, col.rgb, col.alpha) : shadow.and(x, y, blur, col.rgb, col.alpha);
+				}
+			write(n, Prop.TextShadow, shadow == null ? new Shadow(0, 0, 0, 0, 0) : shadow);
+			[Node.field(Prop.TextShadow)];
+		});
 		h.set("transform", (n, v, c) -> {
 			write(n, Prop.Transform, transform(CssValue.transforms(v), c));
 			[Node.field(Prop.Transform)];
