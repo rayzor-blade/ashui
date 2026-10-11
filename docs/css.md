@@ -238,6 +238,33 @@ repeat and position declarations. Image brushes also accept optional
 Multiple background layers, `space`/`round` repetition and explicit tile sizes
 are currently unsupported.
 
+### Table columns
+
+The built-in `<table>` and component library `Table` share content sizing.
+Every row uses the same columns: each automatic column stays at least as
+wide as its widest unbreakable cell content, including padding and borders.
+The remaining width is shared in proportion to the cells' one-line widths.
+Text wraps when needed. Reactive text, font and spacing changes, added or
+removed rows, and table resizing update the layout.
+
+Use `<col>` for explicit widths: `"120"` is a width in layout units,
+`"25%"` is a percentage, and `"2*"` shares the remaining space with other
+star columns. An automatic column beside a star column takes its one-line
+width, leaving the remainder to the star columns.
+
+```tsx
+<table width={480}>
+    <colgroup><col /><col width="80" /></colgroup>
+    <thead><tr><th>Product</th><th>Quantity</th></tr></thead>
+    <tbody><tr><td>{productName}</td><td>3</td></tr></tbody>
+</table>
+```
+
+`colspan` spans the shared columns; spanning cells currently do not set
+column widths. `rowspan`, `border-collapse`, `border-spacing`, and browser
+`display: table-*` / `table-layout` modes are not implemented. These limits
+are tracked in git-bug umbrella `8780d6b`; content sizing is milestone `8fbda23`.
+
 ### List markers and cursors
 
 `list-style-type` inherits through lists and can be overridden on individual

@@ -6,6 +6,7 @@ import ashui.layout.LayoutTree;
 import ashui.layout.Node;
 import ashui.layout.Prop;
 import ashui.reactive.Owner;
+import ashui.text.InlineFlow;
 
 typedef TableProps = {
 	?id:String
@@ -20,7 +21,7 @@ typedef ColProps = {
 	/** Columns it stands for; 1 by default. **/
 	?span:Int,
 
-	/** Its width: layout units (`"120"`), a percentage of the table (`"25%"`), or a share of what is left (`"2*"`); an equal share by default. **/
+	/** Its width: layout units (`"120"`), a percentage of the table (`"25%"`), or a share of what is left (`"2*"`); sized by its cells by default. **/
 	?width:String
 }
 
@@ -35,8 +36,8 @@ typedef CellProps = {
 	HTML's `<table>`, built in: rows, `<tr>`, directly or in `<thead>`,
 	`<tbody>` and `<tfoot>`, of cells, `<td>` and `<th>`, under an optional
 	`<caption>`. Every row is a grid of the same columns, so cells line up
-	down the table: as many as its widest row has, each an equal share of
-	the width unless a `<col>` in a `<colgroup>` gives it one. A cell's
+	down the table: as many as its widest row has, sized by their cells'
+	unbreakable and one-line widths unless a `<col>` gives a width. A cell's
 	`colspan` spans columns. Rows that come or go later are laid out the
 	same. `rowspan` is not supported.
 
@@ -46,40 +47,112 @@ typedef CellProps = {
 class Table extends Component<TableProps> {
 	function render():Element {
 		var box = new Div({tag: "table", id: props.id}, children);
-		var tree = box.tree, id = box.node.id;
 		var cols:Array<Col> = [];
 		for (c in children)
 			if (Std.isOfType(c, Col))
 				cols.push(cast c);
 			else if (Std.isOfType(c, Colgroup))
 				cols = cols.concat((cast c : Colgroup).cols());
-		function layOut() {
-			var rows = rowsOf(tree, id);
-			var count = 0;
-			for (c in cols)
-				count += c.span();
-			for (r in rows) {
-				var n = 0;
-				for (cell in tree.children(r)) {
-					var c = Cell.at(cell);
-					n += c == null ? 1 : c.span();
-				}
-				count = Std.int(Math.max(count, n));
-			}
-			var tracks = [];
-			for (c in cols)
-				for (_ in 0...c.span())
-					tracks.push(track(c.props.width));
-			while (tracks.length < count)
-				tracks.push(track(null));
-			var template = tracks.length == 0 ? "none" : tracks.join(" ");
-			for (r in rows)
-				new Node(r).set(Prop.GridTemplateColumns, template);
-		}
-		// Rows come and go in the table and its sections, and cells in rows.
-		ashui.layout.AfterChildren.watch(tree, "table " + haxe.Int64.toStr(id), parent -> within(tree, id, parent), layOut);
-		layOut();
+		new TableColumns(box, cols);
 		return box;
+	}
+}
+
+private typedef TableRow = {
+	var node:Node;
+	var cells:Array<Cell>;
+}
+
+/**
+	Content sizing from blinc_ts's native/tables.ts, using existing Ashui flows
+	and layout passes (Ashui 8fbda23, umbrella 8780d6b). A colspan spans tracks
+	but does not size them; rowspan and border-collapse/spacing remain in 8780d6b.
+**/
+private class TableColumns {
+	final tree:LayoutTree;
+	final id:haxe.Int64;
+	final cols:Array<Col>;
+	var rows:Array<TableRow> = [];
+	var given:Array<Null<String>> = [];
+	var min:Array<Float> = [];
+	var max:Array<Float> = [];
+	var stops:Array<Void->Void> = [];
+	var dirty = true;
+	var template:Null<String>;
+
+	public function new(box:Div, cols:Array<Col>) {
+		tree = box.tree;
+		id = box.node.id;
+		this.cols = cols;
+		ashui.layout.AfterChildren.watch(tree, "table " + haxe.Int64.toStr(id), parent -> within(tree, id, parent), refresh);
+		InlineFlow.onMeasured(tree, () -> dirty && measure());
+		Owner.onCleanup(unsubscribe);
+		refresh();
+	}
+
+	function unsubscribe():Void {
+		for (stop in stops) stop();
+		stops = [];
+	}
+
+	/** Cache rows and subscriptions when authored children change; no repeated tree walk during layout. **/
+	function refresh():Void {
+		unsubscribe();
+		rows = [];
+		given = [];
+		for (c in cols)
+			for (_ in 0...c.span())
+				given.push(c.props.width == null || StringTools.trim(c.props.width) == "" ? null : track(c.props.width));
+		var count = given.length;
+		for (r in rowsOf(tree, id)) {
+			var cells:Array<Cell> = [], n = 0;
+			for (node in tree.children(r)) {
+				var cell = Cell.at(node);
+				if (cell == null) continue;
+				cells.push(cell);
+				n += cell.span();
+			}
+			rows.push({node: new Node(r), cells: cells});
+			count = Std.int(Math.max(count, n));
+		}
+		while (given.length < count) given.push(null);
+		min = [for (_ in given) 0.0];
+		max = [for (_ in given) 0.0];
+		for (row in rows) {
+			var column = 0;
+			for (cell in row.cells) {
+				if (given[column] == null && cell.span() == 1)
+					stops.push(cell.flow.onWidthsChanged(() -> dirty = true));
+				column += cell.span();
+			}
+		}
+		dirty = true;
+		// New rows need the template even when it matches the previous rows' template.
+		measure(true);
+	}
+
+	function measure(force = false):Bool {
+		dirty = false;
+		for (i in 0...given.length) min[i] = max[i] = 0;
+		for (row in rows) {
+			var column = 0;
+			for (cell in row.cells) {
+				var widths = given[column] == null && cell.span() == 1 ? cell.flow.widths() : null;
+				if (widths != null && given[column] == null) {
+					min[column] = Math.max(min[column], widths.min);
+					max[column] = Math.max(max[column], widths.max);
+				}
+				column += cell.span();
+			}
+		}
+		var shares = Lambda.exists(given, t -> t != null && t.indexOf("fr") >= 0);
+		var tracks = [for (i => t in given) t != null ? t :
+			'minmax(${min[i]}px, ${shares ? Math.max(min[i], max[i]) + "px" : Math.max(max[i], 1) + "fr"})'];
+		var next = tracks.length == 0 ? "none" : tracks.join(" ");
+		if (!force && next == template) return false;
+		template = next;
+		for (row in rows) row.node.set(Prop.GridTemplateColumns, next);
+		return true;
 	}
 
 	/** A column's track: its width, or an equal share that may shrink below its content. **/
@@ -87,11 +160,12 @@ class Table extends Component<TableProps> {
 		if (width == null || StringTools.trim(width) == "")
 			return "minmax(0, 1fr)";
 		var w = StringTools.trim(width);
-		if (StringTools.endsWith(w, "*"))
-			return 'minmax(0, ${w.length == 1 ? "1" : w.substr(0, w.length - 1)}fr)';
-		if (StringTools.endsWith(w, "%"))
-			return w;
-		return Std.parseFloat(w) + "px";
+		if (StringTools.endsWith(w, "*")) {
+			var n = w.length == 1 ? 1 : Std.parseFloat(w.substr(0, w.length - 1));
+			return 'minmax(0, ${n > 0 ? n : 1}fr)';
+		}
+		var n = Std.parseFloat(w);
+		return n >= 0 ? (StringTools.endsWith(w, "%") ? n + "%" : n + "px") : "minmax(0, 1fr)";
 	}
 
 	static function typeOf(tree:LayoutTree, node:haxe.Int64, types:Array<String>):Bool {
@@ -148,10 +222,12 @@ class Col extends Component<ColProps> {
 /** What `<td>` and `<th>` share: their colspan, and a way for the table to find them. **/
 abstract class Cell extends Component<CellProps> {
 	static final byNode = new Map<String, Cell>();
+	/** The existing cell flow also supplies its cached column measurements. **/
+	public var flow(default, null):InlineFlow;
 
 	function cell(tag:String):Element {
 		var box = new Div({tag: tag, id: props.id}, children);
-		ashui.text.InlineFlow.attach(box);
+		flow = InlineFlow.attach(box);
 		if (span() > 1)
 			box.node.set(Prop.GridColumn, 'span ${span()}');
 		var key = haxe.Int64.toStr(box.node.id);

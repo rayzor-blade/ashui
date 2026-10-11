@@ -163,6 +163,12 @@ private enum abstract Align(Int) {
 	var Justify = 3;
 }
 
+/** A flow's unbreakable and one-line widths, including its horizontal padding and borders. **/
+typedef FlowWidths = {
+	var min:Float;
+	var max:Float;
+}
+
 /**
 	HTML's inline formatting: a paragraph's text and the inline elements in
 	it laid out as one flow, wrapped together at the paragraph's width, each
@@ -203,6 +209,7 @@ class InlineFlow {
 
 	static final flows = new haxe.ds.ObjectMap<LayoutTree, Array<InlineFlow>>();
 	static final byMember = new Map<String, InlineFlow>();
+	static final measured = new haxe.ds.ObjectMap<LayoutTree, Array<Void->Bool>>();
 	static var hooked = false;
 
 	final root:Div;
@@ -233,6 +240,8 @@ class InlineFlow {
 	var lineClamp = 0;
 	var ellipsis = false;
 	var nowrap = false;
+	var intrinsic:Null<FlowWidths>;
+	var widthListeners:Null<Array<Void->Void>>;
 	/** Only authored nodes currently excluded by CSS; ordinary text pieces add no bindings. **/
 	var excluded = new Map<String, Bool>();
 
@@ -252,6 +261,34 @@ class InlineFlow {
 			flow.forget();
 		});
 		return flow;
+	}
+
+	/** Cached widths while subscribed below (Ashui 8fbda23, umbrella 8780d6b); null before the first measurement. **/
+	public function widths():Null<FlowWidths>
+		return intrinsic;
+
+	/** Re-sizes a table only when a cell's intrinsic widths change, not when its lines merely rewrap. **/
+	public function onWidthsChanged(listener:Void->Void):Void->Void {
+		if (widthListeners == null) widthListeners = [];
+		widthListeners.push(listener);
+		return () -> {
+			if (widthListeners != null) {
+				widthListeners.remove(listener);
+				if (widthListeners.length == 0) widthListeners = null;
+			}
+		};
+	}
+
+	/** Work that depends on flow measurements runs after all flows, within the existing bounded layout passes. **/
+	public static function onMeasured(tree:LayoutTree, work:Void->Bool):Void {
+		hook();
+		var list = measured.get(tree);
+		if (list == null) measured.set(tree, list = []);
+		list.push(work);
+		Owner.onCleanup(() -> {
+			list.remove(work);
+			if (list.length == 0) measured.remove(tree);
+		});
 	}
 
 	function new(root:Div) {
@@ -282,6 +319,7 @@ class InlineFlow {
 			byMember.remove(m);
 		for (w in watches)
 			w.stop();
+		widthListeners = null;
 	}
 
 	static function hook():Void {
@@ -295,6 +333,10 @@ class InlineFlow {
 				for (flow in list.copy())
 					if (flow.layOut())
 						changed = true;
+			var after = measured.get(tree);
+			if (after != null)
+				for (work in after)
+					if (work()) changed = true;
 			changed;
 		});
 		ashui.css.Css.restyled.push(identity -> {
@@ -754,6 +796,21 @@ class InlineFlow {
 		var s = tree.getBounds(spacer.node), a = tree.getBounds(anchor.node);
 		if (s == null || a == null)
 			return changed;
+		if (widthListeners != null) {
+			var b = tree.getBounds(root.node);
+			// Unlike doubling the leading inset, this also handles asymmetric padding and borders.
+			var inset = Math.max(0, s.x - b.x) + Math.max(0, b.x + b.width - s.x - s.width);
+			var min = (nowrap ? spacerWidth.get() : spacerMin.get()) + inset;
+			var max = spacerWidth.get() + inset;
+			if (intrinsic == null || min != intrinsic.min || max != intrinsic.max) {
+				if (intrinsic == null) intrinsic = {min: min, max: max};
+				else {
+					intrinsic.min = min;
+					intrinsic.max = max;
+				}
+				for (listener in widthListeners) listener();
+			}
+		}
 		for (atom in atoms)
 			if (atom.block)
 				changed = set(atom.fill, s.width) || changed;
