@@ -885,6 +885,28 @@ class Smoke {
 			heights[0] > heights[2] * 1.9 && heights[0] < heights[2] * 2.2 && Math.abs(heights[1] - 24) <= 1, heights);
 		check("the user-agent sheet is in force first", ashui.css.Css.userAgent != null);
 
+		// --- Semantic sectioning elements: plain boxes, typed and selectable ---
+		var semanticSheet = ashui.css.Css.load("nav { background: #ff0000 }");
+		var semanticTree = new LayoutTree();
+		var page:Div = Owner.root(semanticTree, _ -> hxx('
+			<div flexDirection={Column} width={300}>
+				<header><h1>Title</h1></header>
+				<nav><a href="#x">Link</a></nav>
+				<main><article><section><p>Body</p></section></article></main>
+				<aside>Side</aside>
+				<footer>End</footer>
+			</div>
+		'));
+		semanticTree.flush();
+		semanticTree.computeLayout(page.node, 300, 300);
+		var sections = semanticTree.children(page.node.id);
+		var sectionTypes = [for (s in sections) ashui.css.Identity.of(semanticTree, s).types.join(",")];
+		var navBounds = semanticTree.getBounds(new ashui.layout.Node(sections[1]));
+		check("header, nav, main, article, aside and footer are built-in boxes, typed for CSS and full width",
+			sectionTypes.join("|") == "header|nav|main|aside|footer" && navBounds.width == 300, sectionTypes);
+		check("a tag selector matches a semantic element", ashui.css.Css.computed(ashui.css.Identity.of(semanticTree, sections[1]), "background") == "#ff0000");
+		ashui.css.Css.remove(semanticSheet);
+
 		// --- Built-in controls: checkbox, radio, label, button ---
 		var formTree = new LayoutTree();
 		var agreed = Signal.make(false);
