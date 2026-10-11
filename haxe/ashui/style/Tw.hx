@@ -79,6 +79,11 @@ import haxe.macro.Type;
 	- text limits: `truncate`, `text-ellipsis`, `text-clip`, `whitespace-nowrap`,
 	  `line-clamp-1` … `line-clamp-6` and `line-clamp-none`; and positioning
 	  with `sticky`, `z-0` … `z-50` in steps of ten, including negative forms;
+	- list markers: `list-disc`, `list-circle`, `list-square`, `list-decimal`,
+	  `list-decimal-leading-zero`, `list-lower-alpha`, `list-upper-roman` and
+	  their case counterparts, or `list-none` to remove the marker space;
+	  native keyword cursors with `cursor-pointer`, `cursor-text`,
+	  `cursor-grab`, `cursor-none`, resize cursors and their state variants;
 	- transitions, composed into one `ashui.animation.Transition`:
 	  `transition` (colours, opacity, shadow, transform), `transition-colors`,
 	  `-opacity`, `-shadow`, `-transform`, `-all`, `-none`; `duration-fastest`
@@ -391,6 +396,11 @@ class Tw {
 		malformed one is a compile error at `pos`; null if neither.
 	**/
 	static function lookup(vocabulary:Map<String, Expr->Array<Expr>>, word:String, pos:Position):Null<Expr->Array<Expr>> {
+		var keyword = keywordCss(word);
+		if (keyword != null) {
+			var name = keyword.name, value = keyword.value;
+			return node -> [macro ashui.css.Identity.declare($node, $v{name}, $v{value})];
+		}
 		var glass = glassCss(word, pos);
 		if (glass != null) {
 			var name = glass.name, value = glass.value;
@@ -861,6 +871,21 @@ class Tw {
 			if (base == null)
 				return null;
 			return {name: "color", value: percent == null ? base : 'color-mix(in srgb, $base $percent%, transparent)'};
+		}
+		return null;
+	}
+
+	/** Inherited list markers and native keyword cursors, shared by plain utilities and state variants. **/
+	static function keywordCss(word:String):Null<{name:String, value:String}> {
+		if (StringTools.startsWith(word, "list-")) {
+			var value = word.substr(5);
+			if (["none", "disc", "circle", "square", "decimal", "decimal-leading-zero", "lower-alpha", "upper-alpha", "lower-latin", "upper-latin", "lower-roman", "upper-roman"].indexOf(value) >= 0)
+				return {name: "list-style-type", value: value};
+		}
+		if (StringTools.startsWith(word, "cursor-")) {
+			var value = word.substr(7);
+			if (["auto", "default", "none", "context-menu", "help", "pointer", "progress", "wait", "cell", "crosshair", "text", "vertical-text", "alias", "copy", "move", "no-drop", "not-allowed", "grab", "grabbing", "e-resize", "n-resize", "ne-resize", "nw-resize", "s-resize", "se-resize", "sw-resize", "w-resize", "ew-resize", "ns-resize", "nesw-resize", "nwse-resize", "col-resize", "row-resize", "all-scroll", "zoom-in", "zoom-out"].indexOf(value) >= 0)
+				return {name: "cursor", value: value};
 		}
 		return null;
 	}

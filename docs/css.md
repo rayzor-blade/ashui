@@ -199,6 +199,36 @@ change fitting without decoding or copying the image again. Removing the
 rule restores `fill`; an explicit `fit` attribute or `object-*` utility keeps
 its local setting. `none` and `scale-down` are not supported yet.
 
+### List markers and cursors
+
+`list-style-type` inherits through lists and can be overridden on individual
+`<li>` elements. Supported types are `disc`, `circle`, `square`, `decimal`,
+`decimal-leading-zero`, `lower-alpha`/`upper-alpha`, `lower-latin`/`upper-latin`,
+`lower-roman`/`upper-roman` and `none`. `none` removes the marker and its space.
+The existing `<ol>` `start`, `reversed`, `type` and `<li value>` counting rules
+still apply; removing CSS restores their default markers.
+
+```css
+.steps { list-style-type: lower-roman; }
+.steps > li:last-child { list-style-type: none; }
+.draggable { cursor: grab; }
+.draggable:active { cursor: grabbing; }
+```
+
+`cursor` inherits and accepts the standard platform keywords, including
+`pointer`, `text`, `grab`, resize cursors and `none` to hide the cursor.
+Custom cursor images are not supported. Built-in controls choose pointer
+or text cursors through the user-agent stylesheet. Updates use the cached
+hit target and do not add pointer movement watchers.
+
+Equivalent utilities include `list-disc`, `list-decimal`, `list-lower-roman`,
+`list-none` and `cursor-*`, including state variants:
+
+```tsx
+<ol class="list-lower-roman"><li>Prepare</li><li>Publish</li></ol>
+<div class="cursor-grab active:cursor-grabbing">Drag this card</div>
+```
+
 ### Sticky positioning, stacking and text limits
 
 `position: sticky` keeps an element in normal flow and holds it at an inset

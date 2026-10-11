@@ -93,11 +93,17 @@ class UserAgent {
 		*/
 		li { flex-direction: row; align-items: flex-start; }
 		li > .marker { flex-shrink: 0; width: 32px; padding-right: 8px; align-items: center; justify-content: flex-end; color: var(--text-secondary); }
+		li > .marker.none { display: none; }
 		li > .marker > .bullet { display: none; flex-shrink: 0; width: 0.35em; height: 0.35em; margin-top: 0.2em; }
 		li > .marker.disc > .bullet { display: flex; border-radius: var(--radius-full); background: var(--text-secondary); }
 		li > .marker.circle > .bullet { display: flex; border-radius: var(--radius-full); border: 1.5px solid var(--text-secondary); }
 		li > .marker.square > .bullet { display: flex; width: 0.3em; height: 0.3em; background: var(--text-secondary); }
 		li > .content { flex-grow: 1; min-width: 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+
+		/* Native keyword cursors follow control CSS, including its children. */
+		a[href], button, summary, select { cursor: pointer; }
+		input, textarea { cursor: text; }
+		input[type=checkbox], input[type=radio], input[type=range], input[type=button], input[type=submit], input[type=reset] { cursor: pointer; }
 		dl { flex-direction: column; margin: 1em 0; color: var(--text-primary); }
 		dt { flex-direction: row; flex-wrap: wrap; align-items: baseline; font-weight: 600; }
 		dd { flex-direction: row; flex-wrap: wrap; align-items: baseline; margin: 0 0 6px 24px; color: var(--text-secondary); }

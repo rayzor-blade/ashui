@@ -7,3 +7,6 @@
 }
 
 .fit-compiled { object-fit: contain; }
+
+.markers-compiled { list-style-type: lower-roman; }
+.cursor-compiled { cursor: crosshair; }

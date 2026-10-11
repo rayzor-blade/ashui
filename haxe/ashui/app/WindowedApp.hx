@@ -167,6 +167,10 @@ class WindowedApp {
 		offscreen = new Offscreen(device, format);
 		motion = ashui.debug.MotionStream.fromEnvironment(offscreen);
 		tree = new LayoutTree();
+		ashui.input.Cursor.bind(tree, code -> {
+			window.setCursorVisible(code != ashui.input.Cursor.HIDDEN);
+			if (code != ashui.input.Cursor.HIDDEN) window.setCursorIcon(cast code);
+		});
 		paceOnRedraw = window.platform() == WAYLAND;
 	}
 
@@ -614,6 +618,7 @@ class WindowedApp {
 	}
 
 	function close(instance:GpuInstance):Void {
+		ashui.input.Pointer.forget(tree);
 		ashui.core.Work.listen(null);
 		scheduler.useRealtime(false);
 		if (current == this)

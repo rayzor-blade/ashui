@@ -26,6 +26,19 @@ class Pointer {
 
 	/** Called after each move, press, release and leave in a tree, as pointer queries need. **/
 	public static final hooks:Array<LayoutTree->Void> = [];
+	static final EMPTY:Array<Hit> = [];
+
+	@:allow(ashui.input.Cursor)
+	static function hoverChain(tree:LayoutTree):Array<Hit> {
+		var s = states.get(tree);
+		return s == null ? EMPTY : s.chain;
+	}
+
+	/** Releases cached input and the native cursor callback when its window or tree closes. **/
+	@:noCompletion public static function forget(tree:LayoutTree):Void {
+		states.remove(tree);
+		Cursor.unbind(tree);
+	}
 
 	/** Where the pointer is over `tree`, whether it is over the window, and whether a button is down. **/
 	public static function at(tree:LayoutTree):{x:Float, y:Float, inside:Bool, pressed:Bool} {
@@ -218,6 +231,7 @@ class Pointer {
 				}
 			}
 		}
+		Cursor.retarget(tree, chain);
 		return changed;
 	}
 

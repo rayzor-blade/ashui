@@ -86,7 +86,7 @@ checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 [[package]]
 name = "blinc_abi"
 version = "0.1.0"
-source = "git+https://github.com/project-blinc/blinc_abi?rev=4efc650e5bdb4d2195d572768f337e19e3c8e529#4efc650e5bdb4d2195d572768f337e19e3c8e529"
+source = "git+https://github.com/project-blinc/blinc_abi?rev=052e685a15563dab147acdba7126ed016fe66e80#052e685a15563dab147acdba7126ed016fe66e80"
 dependencies = [
  "blinc_core",
  "blinc_image",

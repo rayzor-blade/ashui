@@ -80,10 +80,8 @@ class Ul extends Component<UlProps> {
 		Marking.watch(box, () -> {
 			var depth = Std.int(Math.min(Marking.depth(tree, box.node.id), BULLETS.length - 1));
 			var items = Marking.items(tree, box.node.id);
-			for (li in items) {
-				li.marker.set(" ");
-				li.bullet.set(BULLETS[depth]);
-			}
+			for (i => li in items)
+				li.mark(i + 1, BULLETS[depth]);
 			Marking.markNested(tree, [for (li in items) li.node.id]);
 		});
 		return box;
@@ -106,8 +104,13 @@ class Ol extends Component<OlProps> {
 			for (li in items) {
 				if (li.props.value != null)
 					n = li.props.value;
-				li.marker.set(counter(n, props.type) + ".");
-				li.bullet.set("");
+				li.mark(n, switch props.type {
+					case "a": "lower-alpha";
+					case "A": "upper-alpha";
+					case "i": "lower-roman";
+					case "I": "upper-roman";
+					case _: "decimal";
+				});
 				n += step;
 			}
 			Marking.markNested(tree, [for (li in items) li.node.id]);

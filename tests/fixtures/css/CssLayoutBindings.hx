@@ -264,5 +264,89 @@ class CssLayoutBindings {
 		disposableTree.dispose();
 		check("disposing an unowned image tree clears its styling lookup and identity", (@:privateAccess ashui.ui.Image.byNode.get(disposableNode)) == null && Identity.of(disposableTree, disposableNode.id) == null);
 		bitmap.dispose();
+		listAndCursor();
+	}
+
+	static function listAndCursor() {
+		var compiled = ashui.css.CompiledCss.file("layout-bindings.css");
+		var sheet = Css.load('#letters { list-style-type: lower-alpha; } #bullets { list-style-type: square; }');
+		var tree = new LayoutTree();
+		var page:ashui.ui.Div = Owner.root(tree, _ -> <div class="flex-col" width={300} height={400}>
+			<ol id="letters" start={26} type="I"><li>Twenty six</li><li value={3}>Three</li><li>Four</li></ol>
+			<ul id="bullets"><li>First<ul><li>Nested</li></ul></li><li>Second</li></ul>
+			<ol reversed={true} type="a"><li>Three</li><li value={8}>Eight</li><li>Seven</li></ol>
+			<ol class="list-decimal-leading-zero"><li>One</li><li>Two</li></ol>
+		</div>);
+		layout(tree, page, 300, 400);
+		var letters = child(tree, page.node), bullets = child(tree, page.node, 1), reversed = child(tree, page.node, 2), zeros = child(tree, page.node, 3);
+		function item(list:Node, index:Int):ashui.ui.Li return ashui.ui.Li.at(child(tree, list, index).id);
+		check("CSS markers preserve start, li value and subsequent ordinals", item(letters, 0).marker.get() == "z." && item(letters, 1).marker.get() == "c." && item(letters, 2).marker.get() == "d.");
+		var nested = Css.query(tree, bullets.id, "#bullets ul > li");
+		check("list-style-type reaches nested list items through the cascade", item(bullets, 0).bullet.get() == "square" && ashui.ui.Li.at(nested[nested.length - 1]).bullet.get() == "square");
+		check("leading-zero utilities reuse decimal counters", item(zeros, 0).marker.get() == "01." && item(zeros, 1).marker.get() == "02.");
+		check("ordered list defaults keep reversed and value behavior", item(reversed, 0).marker.get() == "c." && item(reversed, 1).marker.get() == "h." && item(reversed, 2).marker.get() == "g.");
+		var first = item(letters, 0);
+		identity(first.node).setInline("list-style-type", "none");
+		layout(tree, page, 300, 400);
+		check("an item can hide its marker and remove the gutter", first.marker.get() == "" && first.bullet.get() == "none" && near(tree.getBounds(child(tree, first.node)).width, 0));
+		identity(first.node).setInline("list-style-type", "upper-roman");
+		layout(tree, page, 300, 400);
+		check("an individual item can override the inherited marker type", first.marker.get() == "XXVI." && item(letters, 1).marker.get() == "c.");
+		identity(first.node).setInline("list-style-type", null);
+		Css.remove(sheet);
+		layout(tree, page, 300, 400);
+		check("removing marker CSS restores the authored HTML type", first.marker.get() == "XXVI." && item(letters, 1).marker.get() == "III.");
+		check("removing inherited bullet CSS restores nesting defaults", item(bullets, 0).bullet.get() == "disc" && ashui.ui.Li.at(nested[nested.length - 1]).bullet.get() == "circle");
+		var extra = Owner.root(tree, _ -> <li>Six</li>);
+		tree.addChild(reversed.id, extra.node.id);
+		layout(tree, page, 300, 400);
+		check("added items retain reversed counting and explicit value overrides", item(reversed, 0).marker.get() == "d." && item(reversed, 3).marker.get() == "f.");
+		Css.add(compiled);
+		identity(letters).setClasses(["markers-compiled"]);
+		layout(tree, page, 300, 400);
+		check("compiled list-style-type applies through the same inherited marker path", first.marker.get() == "xxvi." && item(letters, 1).marker.get() == "iii.");
+		var removedId = first.node.id;
+		first.remove();
+		check("removed items leave the marker lookup", ashui.ui.Li.at(removedId) == null);
+
+		var cursorTree = new LayoutTree();
+		var cursors:ashui.ui.Div = Owner.root(cursorTree, _ -> <div width={200} height={80} class="cursor-pointer">
+			<div width={80} height={80} class="cursor-auto"><div width={40} height={40} /></div>
+			<div width={80} height={80} class="cursor-grab hover:cursor-grabbing"><div width={40} height={40} /></div>
+		</div>);
+		layout(cursorTree, cursors, 200, 80);
+		var writes:Array<Int> = [];
+		ashui.input.Cursor.bind(cursorTree, code -> writes.push(code));
+		check("cursor binding initializes the platform default", writes.length == 1 && writes[0] == window.CursorIcon.Default);
+		var hooks = ashui.input.Pointer.hooks.length;
+		ashui.input.Pointer.move(cursorTree, 10, 10);
+		check("explicit auto cursor overrides the parent's pointer cursor", writes.length == 1);
+		ashui.input.Pointer.move(cursorTree, 90, 10);
+		cursorTree.flush();
+		check("hover cursor utilities apply through descendants", writes[writes.length - 1] == window.CursorIcon.Grabbing);
+		var before = writes.length;
+		ashui.input.Pointer.move(cursorTree, 92, 12);
+		check("cursor handling preserves quiet hit regions and avoids repeated native writes", writes.length == before && ashui.input.Pointer.hooks.length == hooks && ashui.input.Pointer.quietRegion(cursorTree) != null);
+		var target = child(cursorTree, child(cursorTree, cursors.node, 1));
+		identity(target).setClasses(["cursor-compiled"]);
+		cursorTree.flush();
+		check("compiled CSS changes a cursor under a stationary pointer", writes[writes.length - 1] == window.CursorIcon.Crosshair);
+		identity(target).setInline("cursor", "none");
+		cursorTree.flush();
+		check("cursor none hides the platform cursor", writes[writes.length - 1] == ashui.input.Cursor.HIDDEN);
+		identity(target).setInline("cursor", null).setClasses([]);
+		cursorTree.flush();
+		check("removing child cursor CSS restores its inherited hover cursor", writes[writes.length - 1] == window.CursorIcon.Grabbing);
+		ashui.input.Pointer.leave(cursorTree);
+		check("leaving the window restores a visible default cursor", writes[writes.length - 1] == window.CursorIcon.Default);
+		Css.remove(compiled);
+		cursorTree.dispose();
+		check("disposed cursor trees release both pointer cache and window callback", (@:privateAccess ashui.input.Cursor.sinks.get(cursorTree)) == null && !ashui.input.Pointer.at(cursorTree).inside);
+		var context:ashui.css.Properties.ApplyContext = {viewportWidth: 200, viewportHeight: 100, fontSize: 16, rootFontSize: 16, currentColor: Rgba(0, 1)};
+		for (entry in [{name: "cursor", value: "made-up"}, {name: "list-style-type", value: "triangle"}]) {
+			var rejected = false;
+			try ashui.css.Properties.apply(page.node, entry.name, entry.value, context) catch (_:String) rejected = true;
+			check("invalid " + entry.name + " reports a diagnostic", rejected);
+		}
 	}
 }

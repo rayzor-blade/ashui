@@ -48,6 +48,7 @@ class LayoutTree {
 		tree do nothing.
 	**/
 	public function dispose():Void {
+		ashui.input.Pointer.forget(this);
 		ashui.css.Identity.forgetTree(this);
 		invalidateHits();
 		root = null;

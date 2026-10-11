@@ -108,6 +108,10 @@ class Properties {
 
 	static function build():Map<String, (Node, String, ApplyContext) -> Array<Int>> {
 		var h = new Map<String, (Node, String, ApplyContext) -> Array<Int>>();
+		h.set("cursor", (_, v, _) -> {
+			ashui.input.Cursor.parse(v);
+			[];
+		});
 
 		// --- Sizes: px, %, auto ---
 		var sizes:Array<{name:String, px:Prop<Single>, pct:Prop<Single>}> = [
@@ -189,6 +193,11 @@ class Properties {
 		});
 
 		// --- Flexbox ---
+		h.set("list-style-type", (_, v, _) -> {
+			ashui.ui.Li.cssType(v);
+			// The Li restyle hook reuses the list's counter and marker signals.
+			[];
+		});
 		h.set("display", (n, v, _) -> [
 			enumWrite(n, Prop.Display, v, ["flex" => Display.Flex, "block" => Display.Block, "grid" => Display.Grid, "none" => Display.None])
 		]);
