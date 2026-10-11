@@ -14,7 +14,7 @@ on:
       hlwindow_tag:
         description: hlwindow release tag
         type: string
-        default: v0.2.1
+        default: v0.3.0
       hlavi_tag:
         description: hlavi release tag
         type: string
