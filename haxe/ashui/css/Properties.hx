@@ -9,6 +9,7 @@ import ashui.types.CornerRadius;
 import ashui.types.CornerShape;
 import ashui.types.Shadow;
 import ashui.types.Style;
+import ashui.types.TextDecoration;
 import ashui.types.Transform;
 
 /** What a declaration's relative values resolve against. **/
@@ -488,6 +489,17 @@ class Properties {
 			write(n, Prop.TextShadow, shadow == null ? new Shadow(0, 0, 0, 0, 0) : shadow);
 			[Node.field(Prop.TextShadow)];
 		});
+		// Set on the element that declares one; its text and its descendants' stack with their
+		// own, as a node's draw does walking its ancestors, so none here does not undo one above.
+		for (name in ["text-decoration", "text-decoration-line", "text-decoration-style", "text-decoration-color", "text-decoration-thickness",
+			"text-underline-offset"])
+			h.set(name, (n, v, c) -> {
+				var d = decoration(name, v, c);
+				if (d == null)
+					return [];
+				write(n, Prop.TextDecoration, d);
+				[Node.field(Prop.TextDecoration)];
+			});
 		h.set("transform", (n, v, c) -> {
 			write(n, Prop.Transform, transform(CssValue.transforms(v), c));
 			[Node.field(Prop.Transform)];
@@ -827,6 +839,183 @@ class Properties {
 			throw 'expected ${[for (k in values.keys()) k].join(", ")}, not "$v"';
 		write(n, p, x);
 		return Node.field(p);
+	}
+
+	// --- Text decoration ---
+
+	static final DECORATION_STYLES = ["solid" => Solid, "double" => Double, "dotted" => Dotted, "dashed" => Dashed];
+
+	/** `text-decoration-line`'s bits, or `none`'s 0. **/
+	static function decorationLines(v:String):Int {
+		var lines = 0, none = false;
+		for (word in CssValue.split(v, " "))
+			switch word.toLowerCase() {
+				case "none": none = true;
+				case "underline": lines |= ashui.types.DecorationLine.Underline;
+				case "overline": lines |= ashui.types.DecorationLine.Overline;
+				case "line-through": lines |= ashui.types.DecorationLine.LineThrough;
+				case "blink" | "spelling-error" | "grammar-error": throw 'text-decoration-line $word is not supported';
+				case _: throw 'expected none, underline, overline or line-through, not "$word"';
+			}
+		if (none && lines != 0)
+			throw "none stands alone in text-decoration-line";
+		if (!none && lines == 0)
+			throw "expected none, underline, overline or line-through";
+		return lines;
+	}
+
+	static function decorationStyle(v:String):ashui.types.DecorationStyle {
+		var key = StringTools.trim(v).toLowerCase();
+		if (key == "wavy")
+			throw "text-decoration-style wavy is not supported";
+		var s = DECORATION_STYLES.get(key);
+		if (s == null)
+			throw 'expected solid, double, dotted or dashed, not "${StringTools.trim(v)}"';
+		return s;
+	}
+
+	/** `currentcolor` as none, the text's own. **/
+	static function decorationColor(v:String, c:ApplyContext):Null<Color> {
+		if (StringTools.trim(v).toLowerCase() == "currentcolor")
+			return null;
+		return colorOf(CssValue.color(v), c);
+	}
+
+	/** `auto`/`from-font` as none, the font's own; else a length, or a percentage of the font size, in pixels. **/
+	static function decorationLength(v:String, c:ApplyContext):Null<Float> {
+		var key = StringTools.trim(v).toLowerCase();
+		if (key == "auto" || key == "from-font")
+			return null;
+		var d = CssValue.dimension(v);
+		if (d != null && d.unit == "%")
+			return d.value / 100 * c.fontSize;
+		return pixels(CssValue.length(v), c);
+	}
+
+	/** What `text-decoration`'s shorthand names: a line, a style, a colour and a thickness, in any order. **/
+	static function decorationShorthand(v:String, c:ApplyContext):{lines:Null<Int>, style:Null<ashui.types.DecorationStyle>, colorSet:Bool,
+		color:Null<Color>, thicknessSet:Bool, thickness:Null<Float>} {
+		var lineWords = [];
+		var style:Null<ashui.types.DecorationStyle> = null;
+		var colorSet = false, color:Null<Color> = null;
+		var thicknessSet = false, thickness:Null<Float> = null;
+		for (word in CssValue.split(v, " ")) {
+			var lower = word.toLowerCase();
+			if (["none", "underline", "overline", "line-through", "blink"].indexOf(lower) >= 0)
+				lineWords.push(word);
+			else if (DECORATION_STYLES.exists(lower) || lower == "wavy") {
+				if (style != null)
+					throw "text-decoration names one style";
+				style = decorationStyle(word);
+			} else {
+				var d = CssValue.dimension(word);
+				if (lower == "auto" || lower == "from-font" || (d != null && (d.unit != "" || d.value == 0))) {
+					if (thicknessSet)
+						throw "text-decoration names one thickness";
+					thicknessSet = true;
+					thickness = decorationLength(word, c);
+				} else {
+					if (colorSet)
+						throw "text-decoration names one colour";
+					colorSet = true;
+					color = decorationColor(word, c);
+				}
+			}
+		}
+		return {
+			lines: lineWords.length == 0 ? null : decorationLines(lineWords.join(" ")),
+			style: style,
+			colorSet: colorSet,
+			color: color,
+			thicknessSet: thicknessSet,
+			thickness: thickness
+		};
+	}
+
+	/**
+		How the node is decorated, from `text-decoration` and its five
+		longhands, the ones beside `name: v` read from `c.glassProperties`;
+		null when none of them draws anything. A property other than `name`
+		that fails to parse is left at its default rather than failing the
+		whole declaration, as a browser does; `name`'s own failure throws.
+	**/
+	static function decoration(name:String, v:String, c:ApplyContext):Null<TextDecoration> {
+		var declared = c.glassProperties;
+		inline function of(wanted:String):Null<String>
+			return name == wanted ? v : (declared == null ? null : declared.get(wanted));
+
+		var lines:Null<Int> = null;
+		var style:Null<ashui.types.DecorationStyle> = null;
+		var color:Null<Color> = null, hasColor = false;
+		var thickness:Null<Float> = null, hasThickness = false;
+
+		var shorthand = of("text-decoration");
+		if (shorthand != null)
+			try {
+				var p = decorationShorthand(shorthand, c);
+				lines = p.lines == null ? 0 : p.lines;
+				style = p.style;
+				if (p.colorSet) {
+					hasColor = true;
+					color = p.color;
+				}
+				if (p.thicknessSet) {
+					hasThickness = true;
+					thickness = p.thickness;
+				}
+			} catch (e:String) {
+				if (name == "text-decoration")
+					throw e;
+			}
+		var line = of("text-decoration-line");
+		if (line != null)
+			try
+				lines = decorationLines(line)
+			catch (e:String) {
+				if (name == "text-decoration-line")
+					throw e;
+			}
+		var s = of("text-decoration-style");
+		if (s != null)
+			try
+				style = decorationStyle(s)
+			catch (e:String) {
+				if (name == "text-decoration-style")
+					throw e;
+			}
+		var col = of("text-decoration-color");
+		if (col != null)
+			try {
+				color = decorationColor(col, c);
+				hasColor = true;
+			} catch (e:String) {
+				if (name == "text-decoration-color")
+					throw e;
+			}
+		var thick = of("text-decoration-thickness");
+		if (thick != null)
+			try {
+				var t = decorationLength(thick, c);
+				if (t != null && t < 0)
+					throw "expected a nonnegative thickness, not a negative one";
+				thickness = t;
+				hasThickness = true;
+			} catch (e:String) {
+				if (name == "text-decoration-thickness")
+					throw e;
+			}
+		var offset:Null<Float> = null;
+		var off = of("text-underline-offset");
+		if (off != null)
+			try
+				offset = decorationLength(off, c)
+			catch (e:String) {
+				if (name == "text-underline-offset")
+					throw e;
+			}
+		if (lines == null)
+			return null;
+		return new TextDecoration(lines, style, hasColor ? color : null, hasThickness ? thickness : null, offset);
 	}
 
 	static function colorOf(c:CssColor, ctx:ApplyContext):Color {

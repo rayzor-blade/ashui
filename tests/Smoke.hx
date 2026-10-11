@@ -907,6 +907,41 @@ class Smoke {
 		check("a tag selector matches a semantic element", ashui.css.Css.computed(ashui.css.Identity.of(semanticTree, sections[1]), "background") == "#ff0000");
 		ashui.css.Css.remove(semanticSheet);
 
+		// --- text-decoration: the shorthand, longhands, and what the cascade hands each element ---
+		var decoSheet = ashui.css.Css.load("
+			#plain { text-decoration-line: underline; }
+			#over { text-decoration: underline red; text-decoration-style: dotted; }
+			#bad { text-decoration-style: wavy; }
+			#parent { text-decoration: underline; }
+			#own-none { text-decoration: none; }
+		");
+		var decoTree = new LayoutTree();
+		var decoPage:Div = Owner.root(decoTree, _ -> hxx('
+			<div flexDirection={Column}>
+				<text id="plain">A</text>
+				<text id="over">B</text>
+				<div id="parent"><text id="inherited">C</text><text id="own-none">D</text></div>
+				<text id="bad">E</text>
+			</div>
+		'));
+		decoTree.flush();
+		function identityOf(id:String)
+			return ashui.css.Identity.of(decoTree, ashui.css.Css.query(decoTree, decoPage.node.id, '#$id')[0]);
+		check("a longhand on its own is the declared line", ashui.css.Css.computed(identityOf("plain"), "text-decoration-line") == "underline");
+		check("a longhand after the shorthand is the style a stronger rule gives it, beside the shorthand's line and colour",
+			ashui.css.Css.computed(identityOf("over"), "text-decoration") == "underline red"
+			&& ashui.css.Css.computed(identityOf("over"), "text-decoration-style") == "dotted");
+		check("a wavy style is reported, by the declaration that names it",
+			ashui.css.Css.problems.filter(p -> p.indexOf("text-decoration-style") >= 0 && p.indexOf("wavy") >= 0).length == 1, ashui.css.Css.problems);
+		// The draw-time ancestor walk (blinc_abi's decorations_of) is what stacks a parent's
+		// line onto an undeclared child and leaves an explicit none drawing nothing of its own,
+		// without undoing the parent's; that walk is tested in blinc_abi, not reachable from here.
+		check("a parent's own decoration is declared on it; an undeclared child has none of its own; an explicit none is declared, literally",
+			ashui.css.Css.computed(identityOf("parent"), "text-decoration") == "underline"
+			&& ashui.css.Css.computed(identityOf("inherited"), "text-decoration") == null
+			&& ashui.css.Css.computed(identityOf("own-none"), "text-decoration") == "none");
+		ashui.css.Css.remove(decoSheet);
+
 		// --- Built-in controls: checkbox, radio, label, button ---
 		var formTree = new LayoutTree();
 		var agreed = Signal.make(false);

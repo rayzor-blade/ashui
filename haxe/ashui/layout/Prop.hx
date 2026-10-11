@@ -60,6 +60,8 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var DropShadow:Prop<ashui.types.Shadow> = cast PropertyId.DropShadow;
 	/** The shadows of the node's text and its descendants', first on top: offsets, a blur and a colour, no spread or inset. **/
 	public static inline var TextShadow:Prop<ashui.types.Shadow> = cast PropertyId.TextShadow;
+	/** How the node's text, and its descendants', is decorated: which lines, their style, colour, thickness and offset. **/
+	public static inline var TextDecoration:Prop<ashui.types.TextDecoration> = cast PropertyId.TextDecoration;
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;

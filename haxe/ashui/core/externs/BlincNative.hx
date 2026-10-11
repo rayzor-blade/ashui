@@ -138,4 +138,12 @@ extern class BlincNative {
 	static function blinc_clip_even_odd(clip:hl.Abstract<"blinc_value">):hl.Abstract<"blinc_value">;
 	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int,
 		alpha:Single, inset:Bool):Void;
+
+	/**
+		A text decoration: `lines` is `UNDERLINE` (1), `OVERLINE` (2) and
+		`LINE_THROUGH` (4) as bits; `style` is 0 solid, 1 double, 2 dotted, 3
+		dashed. A negative `alpha` is no colour of its own, the text's; a NaN
+		`thickness` or `offset` is the font's own. See `TextDecoration`.
+	**/
+	static function blinc_text_decoration(lines:Int, style:Int, hex:Int, alpha:Single, thickness:Single, offset:Single):hl.Abstract<"blinc_value">;
 }

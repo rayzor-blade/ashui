@@ -333,7 +333,7 @@ class Node {
 				applyF32(prop, cast reactive);
 			case TypeI32:
 				applyI32(prop, cast reactive);
-			case TypeBrush | TypeColor | TypeCornerRadius | TypeTransform | TypeShadow | TypeClipPath:
+			case TypeBrush | TypeColor | TypeCornerRadius | TypeTransform | TypeShadow | TypeClipPath | TypeTextDecoration:
 				applyValue(prop, cast reactive);
 			case TypeString:
 				applyString(prop, cast reactive);
