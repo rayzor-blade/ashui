@@ -31,6 +31,12 @@ enum Placement {
 	At(x:Float, y:Float);
 }
 
+/** The user action asking a top-layer entry to close. **/
+enum DismissReason {
+	Escape;
+	Backdrop;
+}
+
 /** One entry of the top layer; `close` takes it out. **/
 class TopEntry {
 	public final content:Element;
@@ -193,9 +199,10 @@ class TopLayer {
 		only its own controls close it, as an alert dialog's. `modeless`, it
 		has no backdrop at all: the page beneath takes presses and the pointer
 		as before while the content takes its own, as a hover card's.
+		With onDismiss, user actions go to that callback instead of closing directly.
 	**/
 	public static function open(tree:LayoutTree, content:Element, placement:Placement, ?backdrop:Brush, ?onClose:Void->Void, passThrough = false,
-			dismissible = true, modeless = false):TopEntry {
+			dismissible = true, modeless = false, ?onDismiss:DismissReason->Void):TopEntry {
 		var root = tree.root;
 		if (root == null)
 			throw "TopLayer.open needs a tree that has been laid out";
@@ -247,14 +254,17 @@ class TopLayer {
 		var entry:Null<TopEntry> = null;
 		Interaction.of(shade.node).onPointerDown(e -> {
 			// A press on the backdrop itself, not on what it holds.
-			if ((e.target == shade.node || e.target == dim.node) && entry != null && dismissible)
-				entry.close();
+			if (!e.defaultPrevented && (e.target == shade.node || e.target == dim.node) && entry != null && dismissible) {
+				if (onDismiss != null) onDismiss(Backdrop) else entry.close();
+			}
 		});
 		Interaction.of(shade.node).onKeyDown(e -> switch e.key {
 			case Named(Escape):
+				if (e.defaultPrevented) return;
 				e.preventDefault();
-				if (entry != null && dismissible)
-					entry.close();
+				if (entry != null && dismissible) {
+					if (onDismiss != null) onDismiss(Escape) else entry.close();
+				}
 			case _:
 		});
 		tree.addChild(root.id, shade.node.id);

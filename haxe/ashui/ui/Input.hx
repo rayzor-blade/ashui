@@ -426,6 +426,11 @@ class Input extends Component<InputProps> implements FormControl {
 			}
 		}, steppers.concat(children == null ? [] : children));
 		var e = editing = field.editing;
+		// TextEditing consumes Enter to avoid clicking the text field. Submit through its existing callback.
+		e.onSubmit = _ -> {
+			var form = Form.near(field.tree, field.node.id);
+			if (form != null) form.requestSubmit(form.defaultSubmitter());
+		};
 		interaction = e.interaction;
 		if (type == "number") {
 			e.accept = typed -> ~/[^0-9.eE+-]/g.replace(typed, "");

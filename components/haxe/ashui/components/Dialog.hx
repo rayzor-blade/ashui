@@ -126,6 +126,10 @@ class DialogClose extends Component<{?variant:ButtonVariant, ?size:ButtonSize, ?
 
 typedef DialogContentProps = {
 	?size:DialogSize,
+	/** any allows Escape and backdrop requests; closerequest only Escape; none only explicit controls. **/
+	?closedby:String,
+	?onCancel:ashui.ui.Dialog.DialogCancelEvent->Void,
+	?onClose:Void->Void,
 	/** A sheet's edge: "right", "left", "top" or "bottom"; a dialog has none. **/
 	?side:String,
 	?id:String
@@ -168,6 +172,9 @@ class DialogContent extends Component<DialogContentProps> {
 			id: props.id,
 			backdrop: backdrop(),
 			dismissible: dismissible(),
+			closedby: props.closedby,
+			onCancel: props.onCancel,
+			onClose: props.onClose,
 			placement: placement()
 		}, contents());
 		panel = dialog.panel;

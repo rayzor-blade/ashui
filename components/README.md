@@ -70,6 +70,9 @@ documented by each component.
 Buttons support focus, Enter and Space. Form buttons default to submitting;
 use `type="button"` for other actions. Dialogs manage modal focus and restore
 it on close; popovers and menus handle their own navigation and dismissal.
+`DialogContent` also accepts `closedby`, `onCancel` and `onClose`. Forms with
+`method="dialog"` validate and close their containing dialog; `Button.value`
+supplies the return value. See the [dialog and form guide](https://github.com/rayzor-blade/ashui/blob/main/docs/elements.md).
 
 ## Controls
 

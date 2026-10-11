@@ -29,6 +29,9 @@ typedef ButtonProps = {
 	?disabled:IntoReactive<Bool>,
 	/** HTML's button type in a form: `submit` (the default), `reset` or `button`. **/
 	?type:String,
+	/** Submit button name and value, included in FormData; value becomes a method=dialog return value. **/
+	?name:String,
+	?value:String,
 	?onClick:PointerEvent->Void,
 	?id:String
 }
@@ -49,6 +52,10 @@ class Button extends Component<ButtonProps> {
 		], children, props.id);
 		if (props.type != null)
 			ashui.css.Identity.of(box.tree, box.node.id).setAttribute("type", props.type);
+		if (props.name != null)
+			ashui.css.Identity.of(box.tree, box.node.id).setAttribute("name", props.name);
+		if (props.value != null)
+			ashui.css.Identity.of(box.tree, box.node.id).setAttribute("value", props.value);
 		var i = Interaction.of(box.node).setFocusable(true);
 		if (props.disabled != null)
 			i.setDisabled(props.disabled);

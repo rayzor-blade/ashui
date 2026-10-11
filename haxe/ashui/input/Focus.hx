@@ -105,6 +105,17 @@ class Focus {
 		return () -> list.remove(node);
 	}
 
+	/** Pointer presses keep modal focus inside its existing scope, including an empty backdrop press. **/
+	@:allow(ashui.input.Pointer)
+	static function press(tree:LayoutTree, target:Null<Interaction>):Void {
+		var scope = scopes.get(tree);
+		if (scope != null && scope.length > 0) {
+			var inside = scope[scope.length - 1];
+			if (target == null || (target.node.id != inside.id && tree.ancestors(target.node.id).indexOf(inside.id) < 0)) return;
+		}
+		if (target != null) set(target, false) else clear(tree);
+	}
+
 	public static function move(tree:LayoutTree, backward = false):Void {
 		var scope = scopes.get(tree);
 		var inside = scope == null || scope.length == 0 ? null : scope[scope.length - 1];

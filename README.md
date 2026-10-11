@@ -109,6 +109,9 @@ See the [CSS guide](https://github.com/rayzor-blade/ashui/blob/main/docs/css.md)
 for the cascade, compiled stylesheets, reusable styles and how theme tokens
 generate Tailwind-style utilities.
 
+The [dialog and form guide](https://github.com/rayzor-blade/ashui/blob/main/docs/elements.md)
+covers built-in focus management, cancellable dismissal and dialog forms.
+
 ## Themes and HIG
 
 ashui ships three **Universal** themes, each with light and dark schemes.

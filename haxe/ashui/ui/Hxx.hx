@@ -310,7 +310,7 @@ class Hxx {
 					classes = classes.concat(classSetters(value, el));
 				case Regular(name, value) if (name.value == 'id'):
 					own.push(idSetter(value, el));
-				case Regular(name, value) if ((name.value == 'type' && tag == 'button') || ((name.value == 'for' || name.value == 'name') && tag == 'output')):
+				case Regular(name, value) if ((['type', 'name', 'value'].indexOf(name.value) >= 0 && tag == 'button') || ((name.value == 'for' || name.value == 'name') && tag == 'output')):
 					own.push(macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setAttribute($v{name.value}, ($value : String)));
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));

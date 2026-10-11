@@ -115,10 +115,7 @@ class Pointer {
 						target = i;
 						break;
 					}
-				if (target != null)
-					Focus.set(target, false);
-				else
-					Focus.clear(tree);
+				Focus.press(tree, target);
 			}
 		}
 		if (!blocked)
