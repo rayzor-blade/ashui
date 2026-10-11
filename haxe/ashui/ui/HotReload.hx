@@ -14,12 +14,21 @@ package ashui.ui;
 	builds take over the `@:state` of the ones built before them in the same
 	place (see `Component.rerender`).
 
-	Ash replaces method bodies only: adding, removing or reordering methods,
-	fields or statics is not supported. A template's reactive expressions and
-	callbacks are methods of their own, so adding or removing one counts as
-	adding or removing a method. Elsewhere `check()` does nothing.
+	Ash takes edits to method bodies, a template's new reactive expressions
+	and callbacks, new classes such as a new child component, and methods
+	added to or removed from a class; what it refuses it names, and the
+	program keeps running the old code. Elsewhere `check()` does nothing.
 **/
 class HotReload {
+	#if ashui_hot_reload
+	/**
+		Present only in a `-D ashui_hot_reload` build, whose `@:state`
+		accessors make a field's signal on first use: how Ash tells that a
+		state field a reload adds is safe to leave null on live instances.
+	**/
+	@:keep @:noCompletion public static var stateOnFirstUse = true;
+	#end
+
 	/** True when the program was reloaded and its root components rendered again. **/
 	public static function check():Bool {
 		#if hl
