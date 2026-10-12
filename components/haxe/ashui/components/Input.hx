@@ -24,8 +24,10 @@ typedef InputProps = {
 	here gets the class of the library's own (`ui-checkbox`, `ui-radio`,
 	`ui-slider`); `Checkbox`, `RadioGroup` and `Slider` lay those out with
 	their labels. A `revealable` password has an eye button inside it that
-	shows and hides its value, keeping focus in the field. CSS: `.ui-input`
-	(`:hover`, `:focus`, `:disabled`, `:user-invalid`), `.ui-input-reveal`;
+	shows and hides its value, keeping focus in the field. `InputIcon`
+	children place SVG icons before or after the editable text (git-bug 27e0124).
+	CSS: `.ui-input` (`:hover`, `:focus`, `:disabled`, `:user-invalid`),
+	`.ui-input-reveal`, `.ui-input-icon[data-side]`;
 	`--ui-input-bg`, `-border`, `-radius`, `-height`, `-padding`.
 **/
 class Input extends Component<InputProps> {
@@ -67,8 +69,7 @@ class Input extends Component<InputProps> {
 			var identity = ashui.css.Identity.of(toggle.get().tree, toggle.get().node.id);
 			identity.bindAttribute("aria-label", ashui.reactive.Computed.make(() -> shown.get() ? "Hide password" : "Show password"));
 			identity.bindAttribute("aria-pressed", ashui.reactive.Computed.make(() -> shown.get() ? "true" : "false"));
-			ashui.css.Identity.of(built.tree, built.node.id).addClasses(["ui-input"]).setAttribute("data-size", props.size == null ? Size.Md : props.size);
-			return built;
+			return decorate(built, "ui-input");
 		}
 		var el = new ashui.ui.Input(props, parts);
 		var cls = switch type {
@@ -77,7 +78,45 @@ class Input extends Component<InputProps> {
 			case "range": "ui-slider";
 			case _: "ui-input";
 		}
+		return decorate(el, cls);
+	}
+
+	/** Leading icon parts precede the native text clip, keeping the same input node and focus (git-bug 27e0124). **/
+	function decorate(el:ashui.ui.Input, cls:String):Element {
 		ashui.css.Identity.of(el.tree, el.node.id).addClasses([cls]).setAttribute("data-size", props.size == null ? Size.Md : props.size);
+		if (cls == "ui-input") {
+			var leading:Null<Array<haxe.Int64>> = null;
+			for (child in children) if (Std.isOfType(child, InputIcon) && (cast child : InputIcon).props.side != Trailing) {
+				if (leading == null) leading = [];
+				leading.push(child.node.id);
+			}
+			if (leading != null) {
+				var rest = el.tree.children(el.node.id).filter(id -> leading.indexOf(id) < 0);
+				el.tree.replaceChildren(el.node.id, leading.concat(rest));
+			}
+		}
 		return el;
+	}
+}
+
+/** The side of the editable text an input's decorative icon occupies. **/
+enum abstract InputIconSide(String) to String {
+	var Leading = "leading";
+	var Trailing = "trailing";
+}
+
+/**
+	An SVG inside an Input, before its text by default; `side={Trailing}`
+	places it after. CSS sizes and centers it with the input's `Size`.
+	It passes pointer hits to the field and adds no keyboard focus stop.
+	Use a Button child for an action such as clearing the value.
+	CSS: `.ui-input-icon[data-side]`, `--ui-input-icon-size`, `-gap`, `-color`
+	(git-bug 27e0124).
+**/
+class InputIcon extends Component<{?side:InputIconSide}> {
+	function render():Element {
+		var icon = Library.part("ui-input-icon", "span", ["side" => (props.side == null ? Leading : props.side : String)], children);
+		ashui.css.Identity.of(icon.tree, icon.node.id).setAttribute("aria-hidden", "true");
+		return icon;
 	}
 }

@@ -144,6 +144,34 @@ with `SIZES=1` to compare all nine controls in either color scheme.
 The size gallery supplies a monospace font fallback for a native SF Mono
 rendering defect; the components themselves keep the theme's font token.
 
+### Input icons
+
+Place an `input-icon` inside `Input` to add a leading SVG. Set
+`side={Trailing}` for an icon after the text. Both sides resize with the
+field and leave room for its placeholder, text and caret.
+
+```tsx
+import ashui.components.Input;
+
+var search = <input type="search" placeholder="Search projects">
+    <input-icon>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="7" />
+            <path d="m21 21-6-6" />
+        </svg>
+    </input-icon>
+</input>;
+```
+
+Icons are decorative: clicking them focuses the field, and Tab reaches
+the input once. Editing, validation and form submission use the existing
+input behavior; Escape clears a search. Use a `button` child for an
+interactive action. Style `.ui-input-icon[data-side]` or set
+`--ui-input-icon-size`, `--ui-input-icon-gap` and `--ui-input-icon-color`.
+
+### Numeric inputs
+
 `NumberInput` uses the shared `Size` enum. Medium is the default; large
 keeps its original 40 px design. Buttons, arrow keys and the wheel share
 the same decimal steps and bounds. Wheel up increases the value; trackpad

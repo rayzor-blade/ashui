@@ -407,6 +407,22 @@ input.ui-input:hover, textarea.ui-textarea:hover { border-color: var(--border-ho
 input.ui-input:focus, textarea.ui-textarea:focus { border-color: var(--border-focus); background: var(--input-bg-focus); outline-width: 2px; }
 input.ui-input:user-invalid, textarea.ui-textarea:user-invalid { border-color: var(--border-error); outline-color: var(--focus-ring-error); }
 input.ui-input:disabled, textarea.ui-textarea:disabled { background: var(--input-bg-disabled); border-color: var(--border); color: var(--text-tertiary); }
+/* Decorative HXX icon parts share the native field's row and leave its text clip flexible (git-bug 27e0124). */
+input.ui-input > .ui-input-icon {
+	flex-shrink: 0; align-self: center; align-items: center; justify-content: center;
+	width: var(--ui-input-icon-size, 16px); height: var(--ui-input-icon-size, 16px);
+	color: var(--ui-input-icon-color, var(--text-secondary)); pointer-events: none;
+}
+input.ui-input > .ui-input-icon > svg { width: 100%; height: 100%; }
+input.ui-input > .ui-input-icon[data-side="leading"] { margin-right: var(--ui-input-icon-gap, 8px); }
+input.ui-input > .ui-input-icon[data-side="trailing"] { margin-left: var(--ui-input-icon-gap, 8px); }
+input.ui-input[data-size="sm"] > .ui-input-icon { width: var(--ui-input-icon-size, 14px); height: var(--ui-input-icon-size, 14px); }
+input.ui-input[data-size="sm"] > .ui-input-icon[data-side="leading"] { margin-right: var(--ui-input-icon-gap, 6px); }
+input.ui-input[data-size="sm"] > .ui-input-icon[data-side="trailing"] { margin-left: var(--ui-input-icon-gap, 6px); }
+input.ui-input[data-size="lg"] > .ui-input-icon { width: var(--ui-input-icon-size, 18px); height: var(--ui-input-icon-size, 18px); }
+input.ui-input[data-size="lg"] > .ui-input-icon[data-side="leading"] { margin-right: var(--ui-input-icon-gap, 10px); }
+input.ui-input[data-size="lg"] > .ui-input-icon[data-side="trailing"] { margin-left: var(--ui-input-icon-gap, 10px); }
+input.ui-input:disabled > .ui-input-icon { color: var(--text-tertiary); }
 /* A password's reveal button, inside the field after the text, its right edge on the field's padding. */
 input.ui-input > .ui-input-reveal { flex-shrink: 0; align-self: center; width: 28px; height: 28px; margin-left: 4px; margin-right: -6px; color: var(--text-secondary); }
 input.ui-input > .ui-input-reveal:hover { color: var(--text-primary); }

@@ -28,7 +28,7 @@ import ashui.types.Style;
 class FormsGallery {
 	/** All density variants, aligned in columns, using existing controls (git-bug e8a1b50). **/
 	static function sizes():ashui.layout.Element
-		return <div class="bg-background flex-col p-6 gap-6" width={1280} height={1120}>
+		return <div class="bg-background flex-col p-6 gap-6" width={1280} height={1200}>
 			<h2>Form controls · size variants</h2>
 			<div class="flex-row gap-6 items-start">
 				<for {size in [Size.Sm, Size.Md, Size.Lg]}>
@@ -36,6 +36,11 @@ class FormsGallery {
 						<card-header><card-title>${size == Size.Sm ? "Small" : size == Size.Md ? "Medium · default" : "Large"}</card-title></card-header>
 						<card-content class="flex-col gap-4">
 							<div class="flex-col gap-2" height={72}><label>Name</label><input size={size} value="Alex Rivera" /></div>
+							<div class="flex-col gap-2" height={72}><label>Search projects</label>
+								<input size={size} type="search" placeholder="Search projects">
+									<input-icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7" /><path d="m21 21-6-6" /></svg></input-icon>
+								</input>
+							</div>
 							<div class="flex-col gap-2" height={72}><label>Password</label><input size={size} type="password" value="ashui-demo" revealable={true} /></div>
 							<div class="flex-col gap-2" height={72}><label>Region</label><select size={size} value="eu"><select-item value="eu">Europe</select-item><select-item value="us">Americas</select-item></select></div>
 							<div class="flex-col gap-2" height={72}><label>Search</label><combobox size={size} value="design" options={[{value: "design", label: "Design"}, {value: "engineering", label: "Engineering"}]} /></div>
@@ -73,9 +78,21 @@ class FormsGallery {
 					<h2>Form Inputs</h2>
 					<div flexDirection={Row} gap={24} alignItems={Start}>
 						<div flexDirection={Column} gap={12}>
-							<div flexDirection={Column} gap={8}><label>Username</label><input placeholder="Enter username" /></div>
-							<div flexDirection={Column} gap={8}><label required={true}>Email</label><input type="email" placeholder="you@example.com" /></div>
-							<div flexDirection={Column} gap={8}><label>Password</label><input type="password" value="hunter22" revealable={true} /></div>
+							<div flexDirection={Column} gap={8}><label>Search projects</label>
+								<input type="search" placeholder="Search projects">
+									<input-icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7" /><path d="m21 21-6-6" /></svg></input-icon>
+								</input>
+							</div>
+							<div flexDirection={Column} gap={8}><label required={true}>Email</label>
+								<input type="email" placeholder="you@example.com">
+									<input-icon side={Trailing}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 6 9 7 9-7" /></svg></input-icon>
+								</input>
+							</div>
+							<div flexDirection={Column} gap={8}><label>Password</label>
+								<input type="password" value="hunter22" revealable={true}>
+									<input-icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg></input-icon>
+								</input>
+							</div>
 							<div flexDirection={Column} gap={8}><label>Password, shown</label><input type="password" value="hunter22" revealable={true} reveal={true} /></div>
 						</div>
 						<div flexDirection={Column} gap={12}>
@@ -157,7 +174,7 @@ class FormsGallery {
 				</div>
 			</div>;
 		Snapshot.scene(sizing ? (light ? "form-sizes-light" : "form-sizes") : (light ? "forms-light" : "forms"),
-			sizing ? 1280 : 1400, sizing ? 1120 : 1500, build, page.rgb(), page.a, 2.0, 0.5);
+			sizing ? 1280 : 1400, sizing ? 1200 : 1500, build, page.rgb(), page.a, 2.0, 0.5);
 		for (p in ashui.css.Css.problems)
 			Sys.println("css: " + p);
 	}

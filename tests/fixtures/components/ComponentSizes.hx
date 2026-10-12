@@ -4,6 +4,7 @@ import ashui.components.Checkbox;
 import ashui.components.Combobox;
 import ashui.components.Input;
 import ashui.components.InputOtp;
+import ashui.components.Label;
 import ashui.components.RadioGroup;
 import ashui.components.Select;
 import ashui.components.Size;
@@ -37,12 +38,22 @@ class ComponentSizes {
 		var tree = new LayoutTree(), dispose = () -> {};
 		var disabled = Signal.make(false), checked = Signal.make(false), radio = Signal.make("a"), choice = Signal.make("");
 		var code = Signal.make(""), completed = "", volume = Signal.make(0.25), vertical = Signal.make(0.25);
+		var query = Signal.make(""), entered = "", submitted = "", submits = 0;
 		var area = new Ref<Textarea>(), custom = new Ref<Textarea>();
 		var root:Div = Owner.root(tree, stop -> {
 			dispose = stop;
 			return <div width={800} height={1600} class="flex-col gap-3 items-start">
 				<input id="text" size={size} value="Editable text" disabled={disabled} />
-				<input id="password" size={size} type="password" value="secret" revealable={true} disabled={disabled} />
+				<input id="password" size={size} type="password" value="secret" revealable={true} disabled={disabled}>
+					<input-icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg></input-icon>
+				</input>
+				<form class="flex-col gap-2" onSubmit={data -> { submits++; submitted = data.get("query"); }}>
+					<label id="search-label" for="search">Search</label>
+					<input id="search" name="query" type="search" size={size} value={query} placeholder="Search projects" required={true} maxlength={12} disabled={disabled} onInput={value -> entered = value}>
+						<input-icon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="10" r="7" /><path d="m21 21-6-6" /></svg></input-icon>
+						<input-icon side={Trailing}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" /></svg></input-icon>
+					</input>
+				</form>
 				<input id="number" size={size} type="number" valueAsNumber={1.0} />
 				<select id="select" size={size} value={choice} placeholder="Choose" disabled={disabled}><select-item value="a">Alpha</select-item><select-item value="b">Beta</select-item></select>
 				<combobox id="combo" size={size} options={[{value: "a", label: "Alpha"}, {value: "b", label: "Beta"}]} disabled={disabled} />
@@ -87,8 +98,47 @@ class ComponentSizes {
 		var password = ashui.ui.Input.at(tree, node("password")), eye = parts(password.node.id, "ui-input-reveal")[0];
 		var icon = tree.children(eye)[0];
 		check('$size reveal icon fits its button', bounds(eye).height == [24, 28, 32][n] && bounds(icon).width == [14, 16, 18][n]);
+		var lock = parts(password.node.id, "ui-input-icon")[0], lockBounds = bounds(lock);
+		check('$size password icon stays before the text and reveal button', lockBounds.x + lockBounds.width < bounds(password.editing.text.node.id).x
+			&& lockBounds.x < bounds(eye).x);
 		click(eye);
 		check('$size password reveal preserves focus', password.editing.revealed.get() && password.editing.interaction.focused.get());
+		// Icon parts share the actual input and its editing clip, rather than wrapping another field (git-bug 27e0124).
+		var search = ashui.ui.Input.at(tree, node("search")), ornaments = parts(search.node.id, "ui-input-icon");
+		var leading = bounds(ornaments[0]), trailing = bounds(ornaments[1]), sb = bounds(search.node.id);
+		var clip = [for (at in tree.children(search.node.id)) if (!Identity.of(tree, at).hasClass("ui-input-icon")) at][0];
+		var clipBounds = bounds(clip), iconSize = [14, 16, 18][n];
+		check('$size input icons fit before and after the text clip', ornaments.length == 2 && leading.width == iconSize && leading.height == iconSize
+			&& trailing.width == iconSize && trailing.height == iconSize && leading.x + leading.width < clipBounds.x && clipBounds.x + clipBounds.width < trailing.x
+			&& sb.height == fieldHeight);
+		check('$size input icons are vertically centered', Math.abs(leading.y + leading.height / 2 - sb.y - sb.height / 2) <= 0.5
+			&& Math.abs(trailing.y + trailing.height / 2 - sb.y - sb.height / 2) <= 0.5);
+		var hint = bounds([for (at in Css.query(tree, search.node.id, "text")) if (ashui.ui.Text.at(at).text() == "Search projects") at][0]);
+		check('$size search placeholder clears both icons', hint.x >= clipBounds.x && hint.x + hint.width <= trailing.x);
+		check('$size plain inputs reserve no icon space', tree.children(node("text")).length == 1);
+		click(tree.children(ornaments[0])[0]);
+		check('$size clicking a decorative SVG focuses the original input', search.editing.interaction.focused.get());
+		Keyboard.text(tree, "abcdefghijklmnop"); settle();
+		check('$size icon input retains typing, maxlength and onInput', query.get() == "abcdefghijkl" && entered == query.get());
+		Keyboard.input(tree, key(Named(Tab), Tab)); settle();
+		check('$size icons add no Tab focus stops', Interaction.byId(tree, node("number")).focused.get());
+		click(node("search-label"));
+		check('$size labels still focus an input containing icons', search.editing.interaction.focused.get());
+		query.set("A long search value that scrolls inside the text clip instead of beneath the icons"); settle();
+		Keyboard.input(tree, key(Named(End), End)); settle();
+		var caretX = bounds(search.editing.text.node.id).x + search.editing.stopAt(search.editing.displayCaret(), search.editing.display()).x;
+		check('$size long text keeps its caret inside the remaining clip', caretX >= clipBounds.x && caretX <= clipBounds.x + clipBounds.width,
+			[caretX, clipBounds]);
+		Keyboard.input(tree, key(Named(Home), Home)); settle();
+		check('$size Home returns to the visible start after the leading icon', search.editing.caret.get() == 0
+			&& bounds(search.editing.text.node.id).x >= clipBounds.x);
+		query.set("tools"); settle();
+		Keyboard.input(tree, key(Named(Enter), Enter)); settle();
+		check('$size icon input submits its named value through the existing form', submits == 1 && submitted == "tools");
+		Keyboard.input(tree, key(Named(Escape), Escape)); settle();
+		check('$size Escape clears a search with icons and preserves focus', query.get() == "" && entered == "" && search.editing.interaction.focused.get());
+		Keyboard.input(tree, key(Named(Enter), Enter)); settle();
+		check('$size required search with icons blocks empty form submission', submits == 1 && search.validity().valueMissing);
 		var coreArea = ashui.ui.TextArea.at(area.get().node.id), edges = tree.getBox(area.get().node), b = bounds(area.get().node.id);
 		var wrap = b.width - edges.padding[1] - edges.padding[3] - edges.border[1] - edges.border[3] - 4;
 		check('$size Textarea measures its actual inner width', coreArea.editing.wrapWidth == wrap && coreArea.editing.fontSize.get() == font,
@@ -133,6 +183,9 @@ class ComponentSizes {
 		click(parts(checkRoot, "ui-checkbox-text")[0]);
 		check('$size disabled controls keep their state', checked.get() && Interaction.byId(tree, node("text")).disabled.get()
 			&& Interaction.byId(tree, node("combo")).disabled.get() && Interaction.byId(tree, otp).disabled.get());
+		Focus.clear(tree);
+		click(tree.children(ornaments[0])[0]); Keyboard.text(tree, "ignored"); settle();
+		check('$size disabled icon inputs refuse focus and typing', !search.editing.interaction.focused.get() && query.get() == "");
 		// CSS overrides must update caret wrapping as well as visual dimensions (e8a1b50).
 		var sheet = Css.load('textarea.ui-textarea[data-size] { padding: 16px 20px; font-size: 18px; }');
 		settle();
