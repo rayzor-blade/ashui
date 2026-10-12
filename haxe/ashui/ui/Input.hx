@@ -138,6 +138,10 @@ class Input extends Component<InputProps> implements FormControl {
 	public var editing(default, null):Null<TextEditing> = null;
 
 	var interaction:Interaction;
+	var setRange:Null<Float->Void>;
+	var dragRange:Null<(Float, Float)->Void>;
+	/** A composed range's additional live limit, applied before publishing an edit (095fab4). **/
+	public var rangeLimit:Null<Float->Float>;
 
 	/** Changed by the user and left, or its form submitted: `:user-invalid` shows from then on. **/
 	final touched = Signal.make(false);
@@ -149,6 +153,7 @@ class Input extends Component<InputProps> implements FormControl {
 
 	/** What `reset` puts back. **/
 	var initial:{text:Null<String>, checked:Bool, group:Null<String>} = {text: null, checked: false, group: null};
+	var initialRange:Null<Float>;
 
 	function render():Element {
 		var type = props.type == null ? "text" : props.type.toLowerCase();
@@ -171,6 +176,7 @@ class Input extends Component<InputProps> implements FormControl {
 	function constrain(type:String):Void {
 		var i = interaction;
 		initial = {text: value != null ? value.get() : null, checked: state.get(), group: props.group != null ? props.group.get() : null};
+		initialRange = type == "range" ? valueAsNumber.get() : null;
 		validityOf = new FormStates.Validity(problems);
 		FormStates.keep(i, props.required == true, validityOf, touched);
 		if (value != null && props.placeholder != null) {
@@ -259,6 +265,8 @@ class Input extends Component<InputProps> implements FormControl {
 	public function reset():Void {
 		if (value != null && initial.text != null)
 			value.set(initial.text);
+		if (initialRange != null && valueAsNumber != null)
+			valueAsNumber.set(initialRange);
 		if (props.group != null && initial.group != null)
 			props.group.set(initial.group);
 		else
@@ -493,12 +501,25 @@ class Input extends Component<InputProps> implements FormControl {
 		var n = valueAsNumber;
 		var step = props.step != null && props.step > 0 ? props.step : 1;
 		var from = Math.isNaN(n.get()) ? (props.min != null ? props.min : 0) - (by > 0 ? step : -step) : n.get();
+		if (setRange != null) {
+			setRange(from + by * step);
+			return;
+		}
 		var v = snap(from + by * step, props.min, props.max, step);
 		if (!same(v, n.get())) {
 			n.set(v);
 			if (props.onInput != null)
 				props.onInput(formatNumber(v));
 		}
+	}
+
+	/**
+		Starts this range's existing pointer drag at window coordinates.
+		Composed controls can choose an endpoint, focus it, then delegate its
+		drag here. Inert for other input types or disabled ranges (095fab4).
+	**/
+	public function beginRangeDrag(x:Float, y:Float):Void {
+		if (dragRange != null && !interaction.disabled.get()) dragRange(x, y);
 	}
 
 	/** A range: a slider, its `.fill` and `.rest` either side of its `.thumb`, grown in proportion to the value. **/
@@ -535,37 +556,54 @@ class Input extends Component<InputProps> implements FormControl {
 		var tree = box.tree;
 		function set(v:Float) {
 			v = snap(v, min, max, step);
+			if (rangeLimit != null) v = snap(rangeLimit(v), min, max, step);
 			if (same(v, n.get()))
 				return;
 			n.set(v);
 			if (props.onInput != null)
 				props.onInput(formatNumber(v));
 		}
+		setRange = set;
 		// The thumb's centre travels along the axis, with vertical values increasing upward.
 		function seek(x:Float, y:Float) {
 			var b = tree.getBounds(box.node), t = tree.getBounds(thumb.node);
 			if (b == null || t == null)
 				return;
-			var travel = vertical ? b.height - t.height : b.width - t.width;
-			var along = vertical ? b.y + b.height - y - t.height / 2 : x - b.x - t.width / 2;
+			var edges = tree.getBox(box.node);
+			var start = vertical ? edges.border[2] + edges.padding[2] : edges.border[3] + edges.padding[3];
+			var end = vertical ? edges.border[0] + edges.padding[0] : edges.border[1] + edges.padding[1];
+			var travel = (vertical ? b.height - t.height : b.width - t.width) - start - end;
+			var along = vertical ? b.y + b.height - start - y - t.height / 2 : x - b.x - start - t.width / 2;
 			set(min + (travel > 0 ? along / travel : 0) * (max - min));
 		}
-		// A drag follows the pointer until the button comes up, wherever the pointer goes.
+		// The shared FSM owns active-only capture, including composed gauges (095fab4).
+		var phase = new ashui.state.Machine<RangePhase, RangeEvent>(Idle, (s, e) -> switch [s, e] {
+			case [Idle, Begin]: Dragging;
+			case [Dragging, End]: Idle;
+			case _: null;
+		});
+		identity.bindAttribute("data-state", phase.name());
 		var drag:Null<LayoutTree->Void> = null;
 		function stopDrag() {
 			if (drag != null)
 				Pointer.hooks.remove(drag);
 			drag = null;
 		}
-		interaction.onPointerDown(p -> {
-			seek(p.x, p.y);
-			stopDrag();
+		phase.onEnter(Dragging, _ -> {
 			drag = t -> if (t == tree) {
 				var at = Pointer.at(tree);
-				if (at.pressed) seek(at.x, at.y) else stopDrag();
+				if (at.pressed && !interaction.disabled.get()) seek(at.x, at.y) else phase.send(End);
 			}
 			Pointer.hooks.push(drag);
 		});
+		phase.onExit(Dragging, _ -> stopDrag());
+		dragRange = (x, y) -> {
+			phase.send(End);
+			seek(x, y);
+			phase.send(Begin);
+		};
+		interaction.onPointerDown(p -> beginRangeDrag(p.x, p.y));
+		new Watch(() -> interaction.disabled.get(), disabled -> if (disabled) phase.send(End));
 		Owner.onCleanup(stopDrag);
 		interaction.onKeyDown(e -> {
 			var page = Math.max(step, (max - min) / 10);
@@ -585,6 +623,9 @@ class Input extends Component<InputProps> implements FormControl {
 	}
 
 	/** `v` on the grid of `step` from `min` (or 0), within `min` and `max` where given, rounded to the step's decimals. **/
+	public static function constrainNumber(v:Float, ?min:Float, ?max:Float, step = 1.0):Float
+		return snap(v, min, max, step > 0 ? step : 1);
+
 	static function snap(v:Float, min:Null<Float>, max:Null<Float>, step:Float):Float {
 		if (Math.isNaN(v))
 			return v;
@@ -594,8 +635,13 @@ class Input extends Component<InputProps> implements FormControl {
 		inline function grid(x:Float)
 			return Math.round((base + x * step) * scale) / scale;
 		v = grid(Math.round((v - base) / step));
-		if (max != null && v > max)
-			v = grid(Math.floor((max - base) / step));
+		if (max != null && v > max) {
+			var last = Math.floor((max - base) / step);
+			// A subtraction such as 2.05 - 1.05 can fall just below 1.
+			// Compare the rounded grid point rather than dropping a valid final step (095fab4).
+			if (grid(last + 1) <= max) last++;
+			v = grid(last);
+		}
 		if (min != null && v < min)
 			v = min;
 		return v;
@@ -603,8 +649,11 @@ class Input extends Component<InputProps> implements FormControl {
 
 	static function decimals(x:Float):Int {
 		var s = Std.string(x);
-		var dot = s.indexOf(".");
-		return dot < 0 || s.indexOf("e") >= 0 ? 0 : s.length - dot - 1;
+		var exponent = s.indexOf("e");
+		var places = exponent < 0 ? 0 : Std.parseInt(s.substr(exponent + 1));
+		var mantissa = exponent < 0 ? s : s.substr(0, exponent);
+		var dot = mantissa.indexOf(".");
+		return Std.int(Math.max(0, (dot < 0 ? 0 : mantissa.length - dot - 1) - places));
 	}
 
 	/** `s` as a number, as HTML reads one: NaN when it is not one, or empty. **/
@@ -700,4 +749,14 @@ class Input extends Component<InputProps> implements FormControl {
 	/** The input at `node` of `tree`, for a label to operate; null if it is none. **/
 	public static function at(tree:LayoutTree, node:haxe.Int64):Null<Input>
 		return byNode.get(haxe.Int64.toStr(node));
+}
+
+private enum RangePhase {
+	Idle;
+	Dragging;
+}
+
+private enum RangeEvent {
+	Begin;
+	End;
 }

@@ -78,7 +78,7 @@ supplies the return value. See the [dialog and form guide](https://github.com/ra
 
 | Area | Components |
 | --- | --- |
-| Forms | Input, Textarea, NumberInput, InputOtp, Checkbox, RadioGroup, ToggleSwitch, Slider |
+| Forms | Input, Textarea, NumberInput, NumberGauge, NumberRangeGauge, InputOtp, Checkbox, RadioGroup, ToggleSwitch, Slider |
 | Selection | Select, Combobox, Calendar with `minYear` and `maxYear` |
 | Overlays | Dialog, Sheet, Drawer, Popover, Tooltip, HoverCard, Toast |
 | Navigation | Tabs, Accordion, DropdownMenu, ContextMenu, Menubar, TreeView, Sidebar |
@@ -157,6 +157,34 @@ var small = <number-input size={Sm} value={12.5} step={0.5} />; // 24 px
 var medium = <number-input size={Md} value={12.5} step={0.5} />; // 32 px (default)
 var large = <number-input size={Lg} value={12.5} step={0.5} />; // 40 px
 ```
+
+`NumberGauge` shows a filled range, a centered number and a flat three-dot
+grip. `NumberRangeGauge` fills the interval between two grips. Drag or scroll
+near an edge to edit it; Tab reaches each endpoint separately for arrow,
+Page Up/Down and Home/End keys. Both support the same `Sm`, `Md` and `Lg`
+heights as NumberInput, with a default width of 240 px.
+
+```tsx
+import ashui.components.NumberGauge;
+import ashui.components.NumberRangeGauge;
+import ashui.reactive.Reactive;
+
+var opacity = signal(64.0);
+var lower = signal(20.0), upper = signal(75.0);
+var amount = <number-gauge value={opacity} min={0} max={100}
+    format={n -> n + " %"} />;
+var interval = <number-range-gauge lower={lower} upper={upper}
+    min={0} max={100} step={0.5} format={(a, b) -> a + " – " + b + " °C"} />;
+```
+
+Endpoints stay on the step grid and cannot cross. `onChange` reports user
+edits; programmatic changes update the fill and label without calling it.
+Use `name` on NumberGauge, or `lowerName`/`upperName` on NumberRangeGauge,
+to submit values in a form. `lowerId`/`upperId` let labels target individual
+endpoints. `disabled` also follows disabled fieldsets. CSS hooks include
+`--ui-number-gauge-width`, `-height`, `-radius`, `-fill`, `-track`, `-font-size`
+and `-grip-width`. See the pure HXX
+[NumberGauges demo](https://github.com/rayzor-blade/ashui/blob/main/tools/demo/NumberGauges.hx).
 
 Override theme tokens for a shared look, or component properties such as
 `--ui-button-bg` and `--ui-card-radius` for a local change. Standard layout
