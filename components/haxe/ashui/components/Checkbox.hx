@@ -10,6 +10,8 @@ typedef CheckboxProps = {
 	?indeterminate:IntoReactive<Bool>,
 	?disabled:IntoReactive<Bool>,
 	?required:Bool,
+	/** Small, medium (default) or large marker and label (git-bug e8a1b50). **/
+	?size:Size,
 	?name:String,
 	?id:String,
 	/** Called with whether it is checked after the user changes it. **/
@@ -36,14 +38,15 @@ class Checkbox extends Component<CheckboxProps> {
 			id: props.id,
 			onChange: props.onChange
 		});
-		ashui.css.Identity.of(box.tree, box.node.id).addClasses(["ui-checkbox"]);
+		var size = props.size == null ? Size.Md : props.size;
+		ashui.css.Identity.of(box.tree, box.node.id).addClasses(["ui-checkbox"]).setAttribute("data-size", size);
 		if (children.length == 0)
 			return box;
 		var text = Library.part("ui-checkbox-text", null, null, children);
 		ashui.text.InlineFlow.attach(text);
 		var field = new ashui.ui.Label({}, [box, text]);
 		var identity = ashui.css.Identity.of(field.tree, field.node.id);
-		identity.addClasses(["ui-checkbox-field"]);
+		identity.addClasses(["ui-checkbox-field"]).setAttribute("data-size", size);
 		if (props.disabled != null)
 			identity.bindAttribute("data-disabled", ashui.reactive.Computed.make(() -> (ashui.input.Interaction.of(box.node).disabled.get() ? "" : null : Null<String>)));
 		return field;

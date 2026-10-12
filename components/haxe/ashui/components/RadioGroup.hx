@@ -11,6 +11,8 @@ typedef RadioGroupProps = {
 	?value:IntoReactive<String>,
 	/** "vertical" (the default) or "horizontal". **/
 	?orientation:String,
+	/** Small, medium (default) or large; inherited by every item (git-bug e8a1b50). **/
+	?size:Size,
 	?name:String,
 	?disabled:IntoReactive<Bool>,
 	/** Called with the value chosen. **/
@@ -42,17 +44,18 @@ class RadioGroup extends Component<RadioGroupProps> {
 			var first = true, v = value;
 			new Watch(() -> v.get(), x -> if (first) first = false else props.onValueChange(x));
 		}
-		var root = Library.part("ui-radio-group", null, ["orientation" => (props.orientation == null ? "vertical" : props.orientation)], children,
+		var size = props.size == null ? Size.Md : props.size;
+		var root = Library.part("ui-radio-group", null, ["orientation" => (props.orientation == null ? "vertical" : props.orientation), "size" => (size : String)], children,
 			props.id);
 		for (c in children)
 			if (Std.isOfType(c, RadioGroupItem))
-				(cast c : RadioGroupItem).bindTo(value, props.name, props.disabled);
+				(cast c : RadioGroupItem).bindTo(value, props.name, props.disabled, size);
 		return root;
 	}
 }
 
 /** One of a radio group's choices; its children are the label's text. **/
-class RadioGroupItem extends Component<{value:String, ?disabled:IntoReactive<Bool>, ?id:String}> {
+class RadioGroupItem extends Component<{value:String, ?disabled:IntoReactive<Bool>, ?size:Size, ?id:String}> {
 	var field:Null<ashui.ui.Label> = null;
 
 	function render():Element {
@@ -66,8 +69,10 @@ class RadioGroupItem extends Component<{value:String, ?disabled:IntoReactive<Boo
 
 	/** Its radio, made once the group gives it the shared value: radios are one set by sharing it. **/
 	@:allow(ashui.components.RadioGroup)
-	function bindTo(group:Signal<String>, name:Null<String>, disabled:Null<IntoReactive<Bool>>):Void {
+	function bindTo(group:Signal<String>, name:Null<String>, disabled:Null<IntoReactive<Bool>>, groupSize:Size):Void {
 		var f = field;
+		var size = props.size == null ? groupSize : props.size;
+		ashui.css.Identity.of(f.tree, f.node.id).setAttribute("data-size", size);
 		@:privateAccess this.owner.run(() -> {
 			var dial = new ashui.ui.Input({
 				type: "radio",
@@ -77,7 +82,7 @@ class RadioGroupItem extends Component<{value:String, ?disabled:IntoReactive<Boo
 				id: props.id,
 				disabled: props.disabled != null ? props.disabled : disabled
 			});
-			ashui.css.Identity.of(dial.tree, dial.node.id).addClasses(["ui-radio"]);
+			ashui.css.Identity.of(dial.tree, dial.node.id).addClasses(["ui-radio"]).setAttribute("data-size", size);
 			f.tree.replaceChildren(f.node.id, [dial.node.id].concat(f.tree.children(f.node.id)));
 		});
 	}

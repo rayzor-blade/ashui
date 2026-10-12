@@ -15,6 +15,8 @@ typedef SliderProps = {
 	?step:Float,
 	/** Horizontal by default; vertical increases from bottom to top. **/
 	?orientation:String,
+	/** Small, medium (default) or large track, thumb and label (git-bug e8a1b50). **/
+	?size:Size,
 	/** A label over it, its value shown at the other end. **/
 	?label:String,
 	/** How the value is shown beside the label; to two decimals by default. **/
@@ -61,7 +63,8 @@ class Slider extends Component<SliderProps> {
 			name: props.name,
 			id: props.id
 		}, children);
-		ashui.css.Identity.of(range.tree, range.node.id).addClasses(["ui-slider"]);
+		var size = props.size == null ? Size.Md : props.size;
+		ashui.css.Identity.of(range.tree, range.node.id).addClasses(["ui-slider"]).setAttribute("data-size", size);
 		if (props.label == null)
 			return range;
 		var v = value;
@@ -70,7 +73,7 @@ class Slider extends Component<SliderProps> {
 			Library.part("ui-slider-label", null, null, [new ashui.ui.Text(props.label)]),
 			Library.part("ui-slider-value", null, null, [new ashui.ui.Text(Computed.make(() -> format(v.get())))])
 		]);
-		var field = Library.part("ui-slider-field", null, null, [header, range]);
+		var field = Library.part("ui-slider-field", null, ["size" => (size : String)], [header, range]);
 		if (props.disabled != null)
 			ashui.css.Identity.of(field.tree, field.node.id)
 				.bindAttribute("data-disabled", Computed.make(() -> (ashui.input.Interaction.of(range.node).disabled.get() ? "" : null : Null<String>)));

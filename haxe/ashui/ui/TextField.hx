@@ -102,7 +102,7 @@ class TextField extends Component<TextFieldProps> {
 		});
 		var stripLeft = Computed.make(() -> (INSET - scroll.get() : Single));
 		text = new Text(shown, {wrap: false, fontSize: e.fontSize.get()});
-		e.text = text;
+		e.bindText(text);
 		clip = hxx('<div class="relative grow h-full overflow-hidden">
 					<div class="absolute top-0 bottom-0 flex flex-row items-center" left={stripLeft} width={4096}>
 						<div class="relative">
@@ -110,7 +110,7 @@ class TextField extends Component<TextFieldProps> {
 							${text}
 							<div class="absolute bottom-0 bg-text-primary" left={composedLeft} width={composedWidth} height={1} />
 							<div class="absolute top-0" left={0}>
-								<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
+								<text class="text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
 							</div>
 							<div class="absolute top-0 bottom-0 bg-text-primary" left={caretLeft} width={1.5}
 								opacity={Computed.make(() -> (e.showsCaret() ? e.caretAlpha.get() : 0 : Single))} />
@@ -121,7 +121,6 @@ class TextField extends Component<TextFieldProps> {
 		if (props.width != null)
 			box.node.set(ashui.layout.Prop.Width, props.width);
 		ashui.css.Identity.of(box.tree, box.node.id).setAttribute("type", type);
-		text.node.set(ashui.layout.Prop.FontSize, e.fontSize);
 		var i = e.interaction = Interaction.of(box.node).setFocusable(true);
 		i.onPointerDown(p -> e.press(textX(p.x), 0, p.shift, p.clickCount));
 		i.onPointerMove(p -> e.drag(textX(p.x), 0));

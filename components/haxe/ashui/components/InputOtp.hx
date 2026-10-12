@@ -20,6 +20,8 @@ typedef InputOtpProps = {
 	?disabled:IntoReactive<Bool>,
 	/** Called with the code once every slot is filled. **/
 	?onComplete:String->Void,
+	/** Small, medium (default) or large slots and spacing (git-bug e8a1b50). **/
+	?size:Size,
 	?id:String
 }
 
@@ -76,6 +78,6 @@ class InputOtp extends Component<InputOtpProps> {
 			], [new ashui.ui.Text(Computed.make(() -> v.get().length > at ? v.get().charAt(at) : ""))]));
 		}
 		var row = Library.part("ui-input-otp-slots", null, null, slots);
-		return Library.part("ui-input-otp", null, null, [row, field]);
+		return Library.part("ui-input-otp", null, ["size" => (props.size == null ? Size.Md : props.size : String)], [row, field]);
 	}
 }

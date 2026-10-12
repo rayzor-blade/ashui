@@ -165,6 +165,7 @@ class UserAgent {
 		input[type="checkbox"]:checked:hover, input[type="checkbox"]:indeterminate:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 		input[type="radio"]:checked { border-color: var(--primary); }
 		input[type="checkbox"] > svg {
+			width: 12px; height: 12px;
 			/* Both marks in the same place, centred by the alignment of the box; auto margins over insets would centre them on the border box. */
 			position: absolute; opacity: 0; transform: scale(0.4);
 			transition: opacity ${STATE}, transform ${POP};
@@ -183,9 +184,9 @@ class UserAgent {
 			transition: background ${STATE}, border-color ${STATE}, outline-width ${RING};
 		}
 		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]) {
-			flex-direction: row; align-items: center; width: 240px; height: 38px; padding: 0 10px;
+			flex-direction: row; align-items: center; width: 240px; height: 38px; padding: 0 10px; font-size: var(--text-sm);
 		}
-		textarea { flex-direction: column; }
+		textarea { flex-direction: column; width: 320px; height: 120px; padding: 10px; font-size: var(--text-sm); }
 		input:is([type="text"], [type="password"], [type="search"], [type="email"], [type="tel"], [type="url"], [type="number"]):hover, textarea:hover {
 			border-color: var(--border-hover);
 		}
@@ -203,6 +204,7 @@ class UserAgent {
 		}
 		input[type="number"] > .steppers > div:hover { background: var(--accent-subtle); color: var(--text-primary); }
 		input[type="number"] > .steppers > div:active { transform: scale(0.85); }
+		input[type="number"] > .steppers svg { width: 10px; height: 10px; }
 
 		/* Ranges: a track, filled up to the thumb, which grows under the pointer. */
 		input[type="range"] {
@@ -271,7 +273,7 @@ class UserAgent {
 		select:active { transform: scale(0.98); }
 		select[open] { border-color: var(--border-focus); }
 		select:disabled { opacity: 0.5; transform: none; }
-		select > .chevron { color: var(--text-secondary); transition: transform var(--duration-normal) var(--ease-state); }
+		select > .chevron { width: 14px; height: 14px; color: var(--text-secondary); transition: transform var(--duration-normal) var(--ease-state); }
 		select[data-placeholder] { color: var(--text-tertiary); }
 		select[open] > .chevron { transform: rotate(180deg); }
 		listbox {

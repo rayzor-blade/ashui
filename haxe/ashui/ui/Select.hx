@@ -116,7 +116,7 @@ class Select extends Component<SelectProps> implements FormControl {
 			var l = labelOf(value.get());
 			(l == "" && placeholder != null ? placeholder : l);
 		});
-		var chevron = new Svg(CHEVRON, {width: 14, height: 14});
+		var chevron = new Svg(CHEVRON);
 		ashui.css.Identity.of(chevron.tree, chevron.node.id).setClasses(["chevron"]);
 		button = new Div({tag: "select", id: props.id}, [new Text(label), chevron]);
 		if (props.name != null)

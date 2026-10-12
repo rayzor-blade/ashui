@@ -345,9 +345,9 @@ class Input extends Component<InputProps> implements FormControl {
 				checkMark = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>);
 				dashMark = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M6 12h12"/></svg>);
 			}
-			var check = new Svg(checkMark, {width: 12, height: 12});
+			var check = new Svg(checkMark);
 			ashui.css.Identity.of(check.tree, check.node.id).setClasses(["check"]);
-			var dash = new Svg(dashMark, {width: 12, height: 12});
+			var dash = new Svg(dashMark);
 			ashui.css.Identity.of(dash.tree, dash.node.id).setClasses(["dash"]);
 			box.appendChild(check);
 			box.appendChild(dash);
@@ -407,8 +407,8 @@ class Input extends Component<InputProps> implements FormControl {
 					n.set(v);
 			});
 			new Watch(() -> n.get(), v -> if (!same(parseNumber(text.get()), v)) text.set(formatNumber(v)));
-			var up = new Div({classes: ["step-up"]}, [new Svg(chevron(true), {width: 10, height: 10})]);
-			var down = new Div({classes: ["step-down"]}, [new Svg(chevron(false), {width: 10, height: 10})]);
+			var up = new Div({classes: ["step-up"]}, [new Svg(chevron(true))]);
+			var down = new Div({classes: ["step-down"]}, [new Svg(chevron(false))]);
 			Interaction.of(up.node).onClick(_ -> stepNumber(1));
 			Interaction.of(down.node).onClick(_ -> stepNumber(-1));
 			steppers = [new Div({classes: ["steppers"]}, [up, down])];

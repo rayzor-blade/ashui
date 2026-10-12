@@ -22,6 +22,8 @@ typedef ComboboxProps = {
 	?empty:String,
 	?disabled:IntoReactive<Bool>,
 	?onChange:String->Void,
+	/** Small, medium (default) or large trigger and search list (git-bug e8a1b50). **/
+	?size:Size,
 	?id:String
 }
 
@@ -56,7 +58,7 @@ class Combobox extends Component<ComboboxProps> {
 		};
 		if (chevrons == null)
 			chevrons = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>);
-		var icon = new ashui.ui.Svg(chevrons, {width: 14, height: 14});
+		var icon = new ashui.ui.Svg(chevrons);
 		ashui.css.Identity.of(icon.tree, icon.node.id).setClasses(["ui-combobox-chevron"]);
 		var placeholder = props.placeholder == null ? "Select..." : props.placeholder;
 		var shown = Computed.make(() -> {
@@ -64,6 +66,7 @@ class Combobox extends Component<ComboboxProps> {
 			(l == null ? placeholder : l);
 		});
 		var trigger = Library.part("ui-combobox-trigger", "button", [
+			"size" => (props.size == null ? Size.Md : props.size : String),
 			"placeholder" => Computed.make(() -> (labelOf(v.get()) == null ? "" : null : Null<String>)),
 			"state" => Computed.make(() -> (open.get() ? "open" : "closed" : Null<String>))
 		], [new ashui.ui.Text(shown), icon], props.id);
@@ -87,7 +90,8 @@ class Combobox extends Component<ComboboxProps> {
 					props.onChange(next);
 			}
 		}, [search, new CommandList({}, items)]);
-		ashui.css.Identity.of(command.tree, command.node.id).addClasses(["ui-combobox-content"]);
+		ashui.css.Identity.of(command.tree, command.node.id).addClasses(["ui-combobox-content"])
+			.setAttribute("data-size", props.size == null ? Size.Md : props.size);
 		var floating = new Floating(open, command);
 		floating.align = "start";
 		floating.anchorTo(trigger, "bottom", 4);
@@ -98,6 +102,6 @@ class Combobox extends Component<ComboboxProps> {
 				command.node.set(ashui.layout.Prop.MinWidth, b.width);
 			search.focus();
 		};
-		return Library.part("ui-combobox", null, null, [trigger]);
+		return Library.part("ui-combobox", null, ["size" => (props.size == null ? Size.Md : props.size : String)], [trigger]);
 	}
 }

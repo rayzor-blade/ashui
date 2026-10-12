@@ -1,0 +1,185 @@
+// Shared Size variants and CSS-driven editing geometry, git-bug e8a1b50.
+import ashui.components.Badge;
+import ashui.components.Checkbox;
+import ashui.components.Combobox;
+import ashui.components.Input;
+import ashui.components.InputOtp;
+import ashui.components.RadioGroup;
+import ashui.components.Select;
+import ashui.components.Size;
+import ashui.components.Slider;
+import ashui.components.Textarea;
+import ashui.css.Css;
+import ashui.css.Identity;
+import ashui.input.Focus;
+import ashui.input.Interaction;
+import ashui.input.Keyboard;
+import ashui.input.Pointer;
+import ashui.layout.LayoutTree;
+import ashui.layout.Node;
+import ashui.reactive.Owner;
+import ashui.reactive.Signal;
+import ashui.ui.Div;
+import ashui.ui.Ref;
+
+class ComponentSizes {
+	static var failures = 0;
+	static var checks = 0;
+	static function check(message:String, ok:Bool, ?detail:Dynamic):Void {
+		checks++;
+		if (!ok) { failures++; Sys.println('FAIL $message: $detail'); }
+		else Sys.println('ok   $message');
+	}
+	static function key(k:window.Key, code:window.KeyCode):window.KeyEvent
+		return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
+
+	static function variant(size:Size):Void {
+		var tree = new LayoutTree(), dispose = () -> {};
+		var disabled = Signal.make(false), checked = Signal.make(false), radio = Signal.make("a"), choice = Signal.make("");
+		var code = Signal.make(""), completed = "", volume = Signal.make(0.25), vertical = Signal.make(0.25);
+		var area = new Ref<Textarea>(), custom = new Ref<Textarea>();
+		var root:Div = Owner.root(tree, stop -> {
+			dispose = stop;
+			return <div width={800} height={1600} class="flex-col gap-3 items-start">
+				<input id="text" size={size} value="Editable text" disabled={disabled} />
+				<input id="password" size={size} type="password" value="secret" revealable={true} disabled={disabled} />
+				<input id="number" size={size} type="number" valueAsNumber={1.0} />
+				<select id="select" size={size} value={choice} placeholder="Choose" disabled={disabled}><select-item value="a">Alpha</select-item><select-item value="b">Beta</select-item></select>
+				<combobox id="combo" size={size} options={[{value: "a", label: "Alpha"}, {value: "b", label: "Beta"}]} disabled={disabled} />
+				<textarea ref={area} size={size} value={Signal.make("A paragraph whose caret must wrap at the same width as its visible text.")} disabled={disabled} />
+				<textarea ref={custom} size={size} width={220} height={180} value={Signal.make("Another paragraph, in a developer sized field.")} />
+				<input-otp id="otp" size={size} length={4} separator={2} value={code} onComplete={v -> completed = v} disabled={disabled} />
+				<checkbox id="check" size={size} checked={checked} disabled={disabled}>Updates</checkbox>
+				<radio-group id="radios" size={size} value={radio} disabled={disabled}><radio-group-item id="radio-a" value="a">Alpha</radio-group-item><radio-group-item value="b">Beta</radio-group-item></radio-group>
+				<slider id="range" size={size} label="Volume" value={volume} min={0} max={1} step={0.01} disabled={disabled} />
+				<slider id="vertical" size={size} orientation="vertical" value={vertical} min={0} max={1} step={0.01} disabled={disabled} />
+				<badge id="badge" size={size} variant={Success}>Active</badge>
+			</div>;
+		});
+		function settle():Void {
+			for (_ in 0...3) { tree.flush(); tree.computeLayout(root.node, 800, 1600); }
+		}
+		function node(id:String):haxe.Int64 {
+			for (at in tree.order()) { var i = Identity.of(tree, at); if (i != null && i.id == id) return at; }
+			throw 'Missing $id';
+		}
+		function parts(at:haxe.Int64, cls:String):Array<haxe.Int64> {
+			var out = [], own = Identity.of(tree, at);
+			if (own != null && own.hasClass(cls)) out.push(at);
+			for (child in tree.children(at)) out = out.concat(parts(child, cls));
+			return out;
+		}
+		function bounds(at:haxe.Int64)
+			return tree.getBounds(new Node(at));
+		function click(at:haxe.Int64):Void {
+			var b = bounds(at);
+			Pointer.move(tree, b.x + b.width / 2, b.y + b.height / 2);
+			Pointer.press(tree); Pointer.release(tree); settle();
+		}
+		settle();
+		var n = size == Sm ? 0 : size == Md ? 1 : 2;
+		var fieldHeight = [32, 40, 48][n], font = [12, 14, 16][n], marker = [14, 18, 22][n], thumb = [12, 16, 22][n];
+		check('$size aligns Input, Select and Combobox', bounds(node("text")).height == fieldHeight && bounds(node("select")).height == fieldHeight
+			&& bounds(node("combo")).height == fieldHeight);
+		var input = ashui.ui.Input.at(tree, node("text"));
+		check('$size edits in the resolved font size', input.editing.fontSize.get() == font
+			&& Css.fontSize(Identity.of(tree, input.editing.text.node.id)) == font, input.editing.fontSize.get());
+		var password = ashui.ui.Input.at(tree, node("password")), eye = parts(password.node.id, "ui-input-reveal")[0];
+		var icon = tree.children(eye)[0];
+		check('$size reveal icon fits its button', bounds(eye).height == [24, 28, 32][n] && bounds(icon).width == [14, 16, 18][n]);
+		click(eye);
+		check('$size password reveal preserves focus', password.editing.revealed.get() && password.editing.interaction.focused.get());
+		var coreArea = ashui.ui.TextArea.at(area.get().node.id), edges = tree.getBox(area.get().node), b = bounds(area.get().node.id);
+		var wrap = b.width - edges.padding[1] - edges.padding[3] - edges.border[1] - edges.border[3] - 4;
+		check('$size Textarea measures its actual inner width', coreArea.editing.wrapWidth == wrap && coreArea.editing.fontSize.get() == font,
+			[coreArea.editing.wrapWidth, wrap, coreArea.editing.fontSize.get()]);
+		var cb = bounds(custom.get().node.id);
+		check('$size Textarea preserves explicit dimensions', cb.width == 220 && cb.height == 180, cb);
+		var otp = node("otp"), otpRoot = tree.ancestors(otp)[0], slots = parts(otpRoot, "ui-input-otp-slot");
+		var ob = bounds(otp), outer = bounds(otpRoot);
+		check('$size OTP field covers every slot', ob.x == outer.x && ob.y == outer.y && ob.width == outer.width && ob.height == [36, 44, 52][n]
+			&& bounds(slots[0]).width == [32, 40, 48][n]);
+		click(otp); Keyboard.text(tree, "1a2"); settle(); Keyboard.text(tree, "345"); settle();
+		check('$size OTP filters, limits and completes', code.get() == "1234" && completed == "1234", [code.get(), completed]);
+		var checkable = node("check"), checkRoot = tree.ancestors(checkable)[0];
+		check('$size checkbox scales its mark', bounds(checkable).width == marker && bounds(parts(checkable, "check")[0]).width == [8, 12, 16][n]);
+		click(parts(checkRoot, "ui-checkbox-text")[0]);
+		check('$size checkbox label activates its existing input', checked.get());
+		var dial = node("radio-a");
+		check('$size RadioGroup passes density to its item and dot', bounds(dial).width == marker && bounds(parts(dial, "dot")[0]).width == [6, 8, 10][n]);
+		Focus.set(Interaction.byId(tree, dial), true); Keyboard.input(tree, key(Named(ArrowDown), ArrowDown)); settle();
+		check('$size RadioGroup retains arrow navigation', radio.get() == "b", radio.get());
+		for (id in ["range", "vertical"]) {
+			var range = node(id), t = bounds(parts(range, "thumb")[0]);
+			check('$size $id thumb scales on both axes', t.width == thumb && t.height == thumb, t);
+			var rb = bounds(range);
+			Pointer.move(tree, id == "range" ? rb.x + rb.width - thumb / 2 : rb.x + rb.width / 2,
+				id == "range" ? rb.y + rb.height / 2 : rb.y + thumb / 2);
+			Pointer.press(tree); Pointer.release(tree); settle();
+			check('$size $id seeks to the maximum using thumb bounds', (id == "range" ? volume.get() : vertical.get()) == 1);
+		}
+		check('$size Badge has proportional type and padding', bounds(node("badge")).height == [20, 24, 30][n], bounds(node("badge")));
+		click(node("select"));
+		var rows = Css.query(tree, root.node.id, "option.ui-select-item");
+		check('$size Select sizes its top-layer options', rows.length == 2 && Css.fontSize(Identity.of(tree, rows[0])) == font, rows.length);
+		Keyboard.input(tree, key(Named(ArrowDown), ArrowDown)); Keyboard.input(tree, key(Named(Enter), Enter)); settle();
+		check('$size Select retains option selection', choice.get() == "b", choice.get());
+		click(node("combo")); Keyboard.text(tree, "beta"); settle();
+		var searches = Css.query(tree, root.node.id, "input.ui-command-field");
+		check('$size Combobox search uses matching typography', searches.length == 1 && ashui.ui.Input.at(tree, searches[0]).editing.fontSize.get() == font,
+			[searches.length, searches.length == 0 ? -1 : ashui.ui.Input.at(tree, searches[0]).editing.fontSize.get()]);
+		Keyboard.input(tree, key(Named(Enter), Enter)); settle();
+		disabled.set(true); settle();
+		click(parts(checkRoot, "ui-checkbox-text")[0]);
+		check('$size disabled controls keep their state', checked.get() && Interaction.byId(tree, node("text")).disabled.get()
+			&& Interaction.byId(tree, node("combo")).disabled.get() && Interaction.byId(tree, otp).disabled.get());
+		// CSS overrides must update caret wrapping as well as visual dimensions (e8a1b50).
+		var sheet = Css.load('textarea.ui-textarea[data-size] { padding: 16px 20px; font-size: 18px; }');
+		settle();
+		var changedEdges = tree.getBox(area.get().node), changedBounds = bounds(area.get().node.id);
+		check('$size Textarea CSS overrides update editing geometry', coreArea.editing.fontSize.get() == 18
+			&& coreArea.editing.wrapWidth == changedBounds.width - changedEdges.padding[1] - changedEdges.padding[3] - changedEdges.border[1] - changedEdges.border[3] - 4);
+		Css.remove(sheet); settle();
+		check('$size removing CSS restores editing geometry', coreArea.editing.fontSize.get() == font && coreArea.editing.wrapWidth == wrap);
+		dispose(); tree.dispose();
+	}
+
+	static function defaults():Void {
+		var tree = new LayoutTree(), dispose = () -> {};
+		var field = new Ref<Input>(), checkable = new Ref<Checkbox>();
+		var group = new Ref<RadioGroup>(), icon = new Ref<ashui.ui.Svg>(), explicit = new Ref<ashui.ui.Svg>();
+		var root = Owner.root(tree, stop -> {
+			dispose = stop;
+			return <div width={400} height={300} class="flex-col gap-3 items-start">
+				<input ref={field} />
+				<checkbox ref={checkable} />
+				<radio-group ref={group} size={Lg}><radio-group-item value="a" size={Sm}>Small item</radio-group-item></radio-group>
+				<svg ref={icon} id="intrinsic-icon" viewBox="0 0 24 24"><path d="M2 2h20v20H2z" /></svg>
+				<svg ref={explicit} id="explicit-icon" width={32} height={28} viewBox="0 0 24 24"><path d="M2 2h20v20H2z" /></svg>
+			</div>;
+		});
+		Identity.of(tree, icon.get().node.id).setId("intrinsic-icon");
+		Identity.of(tree, explicit.get().node.id).setId("explicit-icon");
+		function settle():Void { tree.flush(); tree.computeLayout(root.node, 400, 300); }
+		settle();
+		check('omitted size preserves medium defaults', tree.getBounds(field.get().node).height == 40 && tree.getBounds(checkable.get().node).width == 18);
+		var dials = Css.query(tree, root.node.id, "input.ui-radio");
+		check('radio item can override its group size', dials.length == 1 && tree.getBounds(new Node(dials[0])).width == 14);
+		var sheet = Css.load('#intrinsic-icon, #explicit-icon { width: 10px; height: 12px; }');
+		settle();
+		check('CSS sizes an SVG without overriding explicit attributes', tree.getBounds(icon.get().node).width == 10
+			&& tree.getBounds(icon.get().node).height == 12 && tree.getBounds(explicit.get().node).width == 32 && tree.getBounds(explicit.get().node).height == 28);
+		Css.remove(sheet); settle();
+		check('removing SVG size rules restores intrinsic dimensions', tree.getBounds(icon.get().node).width == icon.get().document.width
+			&& tree.getBounds(icon.get().node).height == icon.get().document.height);
+		dispose(); tree.dispose();
+	}
+
+	static function main():Void {
+		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Light);
+		defaults();
+		for (size in [Size.Sm, Size.Md, Size.Lg]) variant(size);
+		Sys.println('$checks checks, $failures failures');
+		Sys.exit(failures == 0 ? 0 : 1);
+	}
+}

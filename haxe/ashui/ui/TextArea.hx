@@ -8,7 +8,6 @@ import ashui.layout.IntoReactive;
 import ashui.reactive.Computed;
 import ashui.reactive.Signal;
 import ashui.reactive.Watch;
-import ashui.ui.Hxx.hxx;
 
 typedef TextAreaProps = {
 	/** The text, read and written: the area sets it as the user edits. A signal of its own by default. **/
@@ -54,6 +53,8 @@ typedef TextAreaProps = {
 **/
 class TextArea extends Component<TextAreaProps> implements FormControl {
 	static final byNode = new Map<String, TextArea>();
+	static final layouts = new haxe.ds.ObjectMap<ashui.layout.LayoutTree, Array<TextArea>>();
+	static var layoutHook = false;
 
 	/** The text area at `node`, null if it is none, for a form to find. **/
 	public static function at(node:haxe.Int64):Null<TextArea>
@@ -70,6 +71,12 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 
 	var box:Div;
 	var text:Text;
+	var content:Div;
+	var geometryDirty = true;
+	var laidWidth = -1.0;
+	var laidHeight = -1.0;
+	var padding = [PADDING, PADDING, PADDING, PADDING];
+	var border = [BORDER, BORDER, BORDER, BORDER];
 	var scroller:Null<Scroll>;
 	final touched = Signal.make(false);
 	var validityOf:FormStates.Validity;
@@ -116,8 +123,8 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 				[for (rect in selectionRects(r.from, r.to, shown.get())) {x: rect.x, y: rect.y + rect.h - 1, w: rect.w, h: (1 : Single)}];
 		});
 		text = new Text(shown, {wrap: true, fontSize: e.fontSize.get()});
-		e.text = text;
-		var content = hxx('
+		e.bindText(text);
+		content =
 			<div class="relative shrink-0" width={wrapWidth}>
 				<for {r in selection}>
 					<div class="absolute bg-selection" left={r.x} top={r.y} width={r.w} height={r.h} />
@@ -127,14 +134,15 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 					<div class="absolute bg-text-primary" left={r.x} top={r.y} width={r.w} height={r.h} />
 				</for>
 				<div class="absolute top-0" left={0}>
-					<text class="text-sm text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
+					<text class="text-text-tertiary" opacity={Computed.make(() -> (empty.get() ? 1 : 0 : Single))}>${placeholder}</text>
 				</div>
 				<div class="absolute bg-text-primary" left={caretLeft} top={caretTop} width={1.5} height={lineHeight}
 					opacity={Computed.make(() -> (e.showsCaret() ? e.caretAlpha.get() : 0 : Single))} />
-			</div>
-		');
-		// The look is the user-agent stylesheet's `textarea`; the size and padding are kept here, as the wrap width is worked out from them.
-		box = new Div({tag: "textarea", width: width, height: height, padding: PADDING}, [content]);
+			</div>;
+		// Styles set default dimensions; explicit developer dimensions still win (git-bug e8a1b50).
+		box = new Div({tag: "textarea"}, [content]);
+		if (props.width != null) box.node.set(ashui.layout.Prop.Width, props.width);
+		if (props.height != null) box.node.set(ashui.layout.Prop.Height, props.height);
 		var i = Interaction.of(box.node).setFocusable(true);
 		i.onPointerDown(p -> e.press(textX(p.x), textY(p.y), p.shift, p.clickCount));
 		i.onPointerMove(p -> e.drag(textX(p.x), textY(p.y)));
@@ -145,14 +153,13 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 		i.onComposition(e.compose);
 		i.onFocus(_ -> e.focus());
 		i.onBlur(_ -> e.blur());
-		text.node.set(ashui.layout.Prop.FontSize, e.fontSize);
 		text.node.set(ashui.layout.Prop.Width, wrapWidth);
 		e.interaction = Interaction.of(box.node);
 		e.onEscape = () -> Focus.clear(box.tree);
 		// Scrolled by the area itself, whatever a stylesheet says of its overflow.
 		box.node.set(ashui.layout.Prop.Overflow, ashui.types.Style.Overflow.Scroll);
 		scroller = Scroll.attach(box.node, false, true);
-		e.pageLines = () -> e.lineHeight > 0 ? Std.int(Math.max(1, Math.floor((height - 2 * (PADDING + BORDER)) / e.lineHeight) - 1)) : 1;
+		e.pageLines = () -> e.lineHeight > 0 ? Std.int(Math.max(1, Math.floor((laidHeight - padding[0] - padding[2] - border[0] - border[2]) / e.lineHeight) - 1)) : 1;
 		if (props.disabled != null)
 			e.interaction.setDisabled(props.disabled);
 		initial = value.get();
@@ -167,7 +174,26 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 			ashui.css.Identity.of(box.tree, box.node.id).setAttribute("name", props.name);
 		var key = haxe.Int64.toStr(box.node.id);
 		byNode.set(key, this);
-		ashui.reactive.Owner.onCleanup(() -> byNode.remove(key));
+		var tree = box.tree, areas = layouts.get(tree);
+		if (areas == null) layouts.set(tree, areas = []);
+		areas.push(this);
+		ashui.reactive.Owner.onCleanup(() -> {
+			byNode.remove(key);
+			areas.remove(this);
+			if (areas.length == 0) layouts.remove(tree);
+		});
+		if (!layoutHook) {
+			layoutHook = true;
+			ashui.layout.LayoutTree.layoutHooks.push(tree -> {
+				var list = layouts.get(tree), changed = false;
+				if (list != null) for (area in list) if (area.measureLayout()) changed = true;
+				return changed;
+			});
+			ashui.css.Css.restyled.push(identity -> {
+				var area = byNode.get(haxe.Int64.toStr(identity.node.id));
+				if (area != null) area.geometryDirty = true;
+			});
+		}
 		// Keeps the caret inside the visible part of the area.
 		new Watch(() -> (caretTop.get() : Float), top -> reveal(top));
 		// The blink stops while the window is in the background or hidden, and starts again on return.
@@ -178,6 +204,23 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 			b == null ? null : {x: b.x + caretLeft.get(), y: b.y + caretTop.get() - scrollY, width: 1.5, height: lineHeight.get()};
 		});
 		return box;
+	}
+
+	/** Actual CSS padding/borders and layout width govern wrapping and editing together (git-bug e8a1b50). **/
+	function measureLayout():Bool {
+		var b = box.tree.getBounds(box.node);
+		if (b == null || (!geometryDirty && b.width == laidWidth && b.height == laidHeight)) return false;
+		var edges = box.tree.getBox(box.node);
+		if (edges == null) return false;
+		geometryDirty = false;
+		laidWidth = b.width; laidHeight = b.height;
+		padding = edges.padding; border = edges.border;
+		var width = Math.max(1, b.width - padding[1] - padding[3] - border[1] - border[3] - CARET_ROOM);
+		if (editing.wrapWidth == width) return false;
+		editing.wrapWidth = width;
+		content.node.set(ashui.layout.Prop.Width, (width : Single));
+		text.node.set(ashui.layout.Prop.Width, (width : Single));
+		return true;
 	}
 
 	/** The constraints it breaks now, each with what a browser says of it. **/
@@ -251,19 +294,19 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 		var bounds = box.tree.getBounds(box.node);
 		if (scroller == null || bounds == null || editing.lineHeight <= 0)
 			return;
-		var view = bounds.height - 2 * BORDER;
+		var view = bounds.height - border[0] - border[2];
 		if (view <= 0)
 			return;
-		var top = PADDING + caretTop;
+		var top = padding[0] + caretTop;
 		var bottom = top + editing.lineHeight;
 		var s = scroller.y.get();
 		var to = s;
-		if (top - PADDING < s)
-			to = top - PADDING;
-		else if (bottom + PADDING > s + view)
-			to = bottom + PADDING - view;
+		if (top - padding[0] < s)
+			to = top - padding[0];
+		else if (bottom + padding[2] > s + view)
+			to = bottom + padding[2] - view;
 		// The lines just measured, not the last layout, which may not have the newest line yet.
-		var content = 2 * PADDING + editing.lines * editing.lineHeight;
+		var content = padding[0] + padding[2] + editing.lines * editing.lineHeight;
 		to = Math.max(0, Math.min(to, content - view));
 		if (to != s)
 			scroller.jumpTo(scroller.x.get(), to);

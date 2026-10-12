@@ -41,12 +41,18 @@ class TextEditing {
 	/** What a press selects as it is dragged: 1 characters, 2 words, 3 paragraphs; and what the press first selected. **/
 	var granularity = 1;
 	var pressRange = {from: 0, to: 0};
-	/** The theme's small text size, which the view's text is set in and measured at. **/
+	/** The view's resolved CSS font size; the theme's small text size before it is styled (e8a1b50). **/
 	public final fontSize:Computed<Single>;
 	/** Whether Enter starts a new line and Up and Down move between lines, as in a text area. **/
 	public final multiline:Bool;
 	/** The width lines wrap at; 0 keeps the text on one line. **/
-	public final wrapWidth:Float;
+	public var wrapWidth(default, set):Float;
+	final styledSize = Signal.make((null : Null<Single>));
+	final geometry = Signal.make(0);
+	static final byText = new haxe.ds.ObjectMap<ashui.css.Identity, TextEditing>();
+	static var styledHook = false;
+	static final FONT_FIELDS = ["font-family", "font-weight", "font-style", "line-height", "letter-spacing"];
+	var fontFields:Array<Null<String>> = [];
 
 	/** Called with the new value after each edit. **/
 	public var onInput:Null<String->Void>;
@@ -74,6 +80,7 @@ class TextEditing {
 	var stops:Array<CaretStop> = [{index: 0, x: 0, line: 0}];
 	var measured:Null<String> = null;
 	var measuredSize = 0.0;
+	var measuredWidth = 0.0;
 	/** The height of a line, and how many the value takes, as last measured. **/
 	public var lineHeight(default, null) = 0.0;
 	public var lines(default, null) = 1;
@@ -88,15 +95,54 @@ class TextEditing {
 		this.value = value;
 		this.multiline = multiline;
 		this.wrapWidth = wrapWidth;
-		fontSize = ashui.theme.Themed.fontSize(TextSm);
+		var fallback = ashui.theme.Themed.fontSize(TextSm);
+		fontSize = Computed.make(() -> styledSize.get() == null ? fallback.get() : styledSize.get());
+	}
+
+	/** The existing CSS restyle notification updates metrics only when a font changes (git-bug e8a1b50). **/
+	public function bindText(view:Text):Void {
+		text = view;
+		var identity = ashui.css.Identity.of(view.tree, view.node.id);
+		byText.set(identity, this);
+		if (!styledHook) {
+			styledHook = true;
+			ashui.css.Css.restyled.push(identity -> {
+				var edit = byText.get(identity);
+				if (edit != null) edit.restyled(identity);
+			});
+		}
+		ashui.reactive.Owner.onCleanup(() -> byText.remove(identity));
+	}
+
+	function restyled(identity:ashui.css.Identity):Void {
+		var size:Single = ashui.css.Css.fontSize(identity);
+		var changed = size != styledSize.get();
+		for (i in 0...FONT_FIELDS.length) {
+			var value = ashui.css.Css.computed(identity, FONT_FIELDS[i]);
+			if (fontFields[i] != value) { fontFields[i] = value; changed = true; }
+		}
+		if (!changed) return;
+		styledSize.set(size);
+		measured = null;
+		geometry.set(geometry.get() + 1);
+	}
+
+	function set_wrapWidth(value:Float):Float {
+		if (value != wrapWidth) {
+			wrapWidth = value;
+			measured = null;
+			geometry.set(geometry.get() + 1);
+		}
+		return value;
 	}
 
 	// --- geometry ---
 
 	/** The caret stops of `s`, from the text engine, measured once per value and font size. **/
 	public function stopsFor(s:String):Array<CaretStop> {
+		geometry.get();
 		var size:Float = fontSize.get();
-		if ((measured == s && measuredSize == size) || text == null)
+		if ((measured == s && measuredSize == size && measuredWidth == wrapWidth) || text == null)
 			return stops;
 		var key = s;
 		s = masked(s);
@@ -110,6 +156,7 @@ class TextEditing {
 			lines = Std.int(info.getF32(4));
 			measured = key;
 			measuredSize = size;
+			measuredWidth = wrapWidth;
 		}
 		return stops;
 	}

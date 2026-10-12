@@ -21,6 +21,8 @@ enum abstract BadgeAppearance(String) to String {
 typedef BadgeProps = {
 	?variant:BadgeVariant,
 	?appearance:BadgeAppearance,
+	/** Small, medium (default) or large type and padding (git-bug e8a1b50). **/
+	?size:Size,
 	?id:String
 }
 
@@ -28,6 +30,7 @@ typedef BadgeProps = {
 class Badge extends Component<BadgeProps> {
 	function render():Element
 		return Library.part("ui-badge", null, [
+			"size" => (props.size == null ? Size.Md : props.size : String),
 			"variant" => (props.variant == null ? Primary : props.variant : String),
 			"appearance" => (props.appearance == null ? Soft : props.appearance : String)
 		], children, props.id);

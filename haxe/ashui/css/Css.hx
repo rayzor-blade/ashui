@@ -11,6 +11,8 @@ private typedef Applied = {
 
 	final signature:String;
 	final fields:Array<Int>;
+	/** Pixel size already resolved by the cascade, for editable text metrics (git-bug e8a1b50). **/
+	final fontSize:Float;
 }
 
 /** A declaration that applies to an element, and where it came from. **/
@@ -300,6 +302,12 @@ class Css {
 		return a == null ? null : a.values.get(name);
 	}
 
+	/** The resolved font size in pixels, without rebuilding a native style record (e8a1b50). **/
+	public static function fontSize(identity:Identity):Float {
+		var a = applied.get(identity);
+		return a == null ? rootFontSize : a.fontSize;
+	}
+
 	/**
 		The elements under `root` in `tree`, `root` included, that one of the
 		comma-separated `selectors` matches, in document order:
@@ -418,7 +426,7 @@ class Css {
 		var sig = signature.join(";");
 		var last = applied.get(identity);
 		if (last != null && last.signature == sig) {
-			applied.set(identity, {values: values, signature: sig, fields: last.fields});
+			applied.set(identity, {values: values, signature: sig, fields: last.fields, fontSize: ownFontSize});
 			return;
 		}
 
@@ -527,7 +535,7 @@ class Css {
 			for (f in last.fields)
 				if (fields.indexOf(f) < 0)
 					@:privateAccess identity.node.unstyle(f);
-		applied.set(identity, {values: values, signature: sig, fields: fields});
+		applied.set(identity, {values: values, signature: sig, fields: fields, fontSize: ownFontSize});
 		for (hook in restyled)
 			hook(identity);
 
@@ -557,7 +565,7 @@ class Css {
 	static function markAgain(identity:Identity):Void {
 		var last = applied.get(identity);
 		if (last != null)
-			applied.set(identity, {values: last.values, signature: "", fields: last.fields});
+			applied.set(identity, {values: last.values, signature: "", fields: last.fields, fontSize: last.fontSize});
 		mark(identity);
 	}
 
