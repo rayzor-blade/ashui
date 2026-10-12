@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.2",
-  "releasenote": "Use ashui 0.1.2: components styled by the native CSS engine from a sheet compiled at build time.",
+  "version": "0.1.3",
+  "releasenote": "Coordinated small, medium and large control sizes. Centered NumberInput values with optional step buttons and wheel stepping. New NumberGauge and NumberRangeGauge controls with compact SVG grips. Numeric editing preserves parent scroll and momentum ownership; dialogs support cancellable dismissal and form submission.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.1.2"
+    "ashui": "0.1.3"
   }
 }

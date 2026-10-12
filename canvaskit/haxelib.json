@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.2",
-  "releasenote": "Use ashui 0.1.2 with the native CSS engine and canvas text outlines restored.",
+  "version": "0.1.3",
+  "releasenote": "SceneKit object rotation and scale gizmos, world orientation controls and selection masks with silhouette highlights. Paused canvases release their frame ticker so idle windows can sleep. Uses ashui 0.1.3.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.1.2"
+    "ashui": "0.1.3"
   }
 }
