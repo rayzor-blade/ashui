@@ -778,6 +778,23 @@ class Components {
 			for (v in [1.0, 0.5, -2.5, 12.5]) {
 				quantities[n].set(v); formSettle();
 				check('NumberInput size $n centers $v', centered(), formTree.getBounds(e.text.node));
+				// Color-only hover transitions must never feed pixel rounding back into alignment (git-bug d5a8df1).
+				var before = formTree.getBounds(e.text.node), stable = true, positions = new Map<String, Bool>();
+				for (frame in 0...80) {
+					if (frame % 20 == 0) {
+						if (frame == 60) ashui.input.Pointer.leave(formTree);
+						else {
+							var target = formTree.getBounds(new ashui.layout.Node(children[[1, 0, 2][Std.int(frame / 20)]]));
+							ashui.input.Pointer.move(formTree, target.x + target.width / 2, target.y + target.height / 2);
+						}
+					}
+					ashui.animation.AnimationScheduler.main.tick(1 / 60);
+					formTree.flush(); formTree.computeLayout(formRoot.node, 600, 400);
+					var after = formTree.getBounds(e.text.node);
+					stable = stable && after.x == before.x && after.y == before.y && after.width == before.width && after.height == before.height;
+					positions.set('${after.x},${after.y},${after.width},${after.height}', true);
+				}
+				check('NumberInput size $n keeps $v still while hovering its field and both buttons', stable, [for (position in positions.keys()) position]);
 			}
 			quantities[n].set(0.5); formSettle();
 			var clock = ashui.input.InputClock.source, inputTime = ashui.input.InputClock.now() + 1;

@@ -59,8 +59,10 @@ class TextField extends Component<TextFieldProps> {
 	var clip:Div;
 	var text:Text;
 	final hint = new Ref<Text>();
+	var hintWidth = -1.0;
 	var laidWidth = -1.0;
 	static final layouts = new haxe.ds.ObjectMap<ashui.layout.LayoutTree, Array<TextField>>();
+	static final hints = new haxe.ds.ObjectMap<ashui.css.Identity, TextField>();
 	static var layoutHook = false;
 
 	function render():Element {
@@ -146,9 +148,12 @@ class TextField extends Component<TextFieldProps> {
 		var tree = box.tree, fields = layouts.get(tree);
 		if (fields == null) layouts.set(tree, fields = []);
 		fields.push(this);
+		var hintIdentity = ashui.css.Identity.of(tree, hint.get().node.id);
+		if (placeholder != "") hints.set(hintIdentity, this);
 		Owner.onCleanup(() -> {
 			fields.remove(this);
 			if (fields.length == 0) layouts.remove(tree);
+			hints.remove(hintIdentity);
 		});
 		if (!layoutHook) {
 			layoutHook = true;
@@ -156,6 +161,10 @@ class TextField extends Component<TextFieldProps> {
 				var fields = layouts.get(tree), changed = false;
 				if (fields != null) for (field in fields) if (field.measureLayout()) changed = true;
 				return changed;
+			});
+			ashui.css.Css.restyled.push(identity -> {
+				var field = hints.get(identity);
+				if (field != null) field.hintWidth = -1;
 			});
 		}
 		// Keeps the caret inside the visible part of the field.
@@ -182,19 +191,34 @@ class TextField extends Component<TextFieldProps> {
 		// Left-aligned fields already follow the caret watch; unchanged layout needs no extra text measurement (d5a8df1).
 		if (factor == 0 && alignment.get() == 0 && placeholderLeft.get() == 0 && laidWidth == b.width) return false;
 		laidWidth = b.width;
+		var shown = editing.display();
 		var offset:Single = 0, placeholderOffset:Single = 0;
 		if (factor != 0) {
-			var t = text.tree.getBounds(text.node);
-			offset = factor * Math.max(0, visible - (t == null ? 0 : t.width));
-			var placeholder = hint.get(), h = placeholder.tree.getBounds(placeholder.node);
-			placeholderOffset = h == null ? 0 : factor * Math.max(0, visible - h.width) - offset;
+			// Rounded bounds depend on the text's position and can oscillate after centering (git-bug d5a8df1).
+			var advance = editing.stopAt(shown.length, shown).x;
+			offset = factor * Math.max(0, visible - advance);
+			if (props.placeholder != null && props.placeholder != "")
+				placeholderOffset = factor * Math.max(0, visible - placeholderWidth()) - offset;
 		}
 		var changed = offset != alignment.get() || placeholderOffset != placeholderLeft.get();
 		if (offset != alignment.get()) alignment.set(offset);
 		if (placeholderOffset != placeholderLeft.get()) placeholderLeft.set(placeholderOffset);
-		var previous = scroll.get(), shown = editing.display();
+		var previous = scroll.get();
 		reveal(editing.stopAt(editing.displayCaret(), shown).x);
 		return changed || previous != scroll.get();
+	}
+
+	/** Measure the placeholder once in its own styled font; retain fractional advances (git-bug d5a8df1). **/
+	function placeholderWidth():Float {
+		var value = props.placeholder;
+		if (value == null || value == "") return 0;
+		if (hintWidth < 0) {
+			var capacity = value.length + 2, out = new hl.Bytes(capacity * 12), info = new hl.Bytes(16);
+			var count = ashui.core.externs.TextNative.blinc_text_carets(box.tree.ptr, hint.get().node.id,
+				ashui.core.Utf8.encode(value), 0, 0, out, capacity, info);
+			hintWidth = count > 0 && count <= capacity ? out.getF32((count - 1) * 12 + 4) : 0;
+		}
+		return hintWidth;
 	}
 
 	function reveal(x:Float):Void {

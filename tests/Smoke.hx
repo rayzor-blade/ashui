@@ -2497,6 +2497,26 @@ class Smoke {
 		fieldValue.set(""); alignSettle();
 		var hb = fieldTree.getBounds(@:privateAccess field.hint.get().node);
 		check("text field: CSS also centers its empty placeholder", hb != null && Math.abs(hb.x + hb.width / 2 - cb.x - cb.width / 2) <= 0.5, hb);
+		var hintStable = true;
+		for (frame in 0...40) {
+			if (frame == 1) ashui.input.Pointer.move(fieldTree, cb.x + cb.width / 2, cb.y + cb.height / 2);
+			if (frame == 20) ashui.input.Pointer.leave(fieldTree);
+			ashui.animation.AnimationScheduler.main.tick(1 / 60); alignSettle();
+			var after = fieldTree.getBounds(@:privateAccess field.hint.get().node);
+			hintStable = hintStable && after.x == hb.x && after.y == hb.y && after.width == hb.width && after.height == hb.height;
+		}
+		check("text field: a centered placeholder stays still across hover frames", hintStable);
+		// A placeholder can have its own font without reusing the value's metrics (git-bug d5a8df1).
+		ashui.css.Identity.of(fieldTree, @:privateAccess field.hint.get().node.id).addClasses(["custom-hint"]);
+		var hintSheet = ashui.css.Css.load('.aligned-field .custom-hint { font-size: 20px; letter-spacing: 0.25px }');
+		alignSettle();
+		var largerHint = fieldTree.getBounds(@:privateAccess field.hint.get().node);
+		check("text field: placeholder alignment follows its own changed CSS font", largerHint.width > hb.width
+			&& Math.abs(largerHint.x + largerHint.width / 2 - cb.x - cb.width / 2) <= 0.5, [hb, largerHint]);
+		ashui.css.Css.remove(hintSheet); alignSettle();
+		var restoredHint = fieldTree.getBounds(@:privateAccess field.hint.get().node);
+		check("text field: removing a placeholder font override restores its centered metrics", restoredHint.x == hb.x && restoredHint.width == hb.width,
+			[hb, restoredHint]);
 		fieldIdentity.addClasses(["right"]); fieldValue.set("12.5"); alignSettle();
 		tb = fieldTree.getBounds(field.editing.text.node);
 		check("text field: CSS can right-align the editable run", Math.abs(tb.x + tb.width - cb.x - cb.width + 2) <= 0.5, [tb, cb]);
