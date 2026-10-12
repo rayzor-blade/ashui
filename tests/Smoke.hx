@@ -2399,7 +2399,7 @@ class Smoke {
 		var fieldTree = new LayoutTree();
 		var fieldValue = Signal.make("");
 		var submitted = "";
-		var field:ashui.ui.TextField = Owner.root(fieldTree, _ -> new ashui.ui.TextField({value: fieldValue, onSubmit: v -> submitted = v}));
+		var field:ashui.ui.TextField = Owner.root(fieldTree, _ -> new ashui.ui.TextField({value: fieldValue, placeholder: "Amount", onSubmit: v -> submitted = v}));
 		fieldTree.flush();
 		fieldTree.computeLayout(field.node, 300, 60);
 		fieldTree.flush();
@@ -2480,6 +2480,29 @@ class Smoke {
 		check("text field: the caret stops blinking while the window is in the background or hidden, and starts again",
 			blinkingFocused && stoppedInBackground && stoppedHidden && field.editing.blinking(),
 			[blinkingFocused, stoppedInBackground, stoppedHidden]);
+		// Alignment is CSS's and follows actual layout, including placeholders and resizing (git-bug d5a8df1).
+		var alignmentSheet = ashui.css.Css.load('.aligned-field { text-align: center } .aligned-field.right { text-align: right }');
+		var fieldIdentity = ashui.css.Identity.of(fieldTree, field.node.id);
+		fieldIdentity.addClasses(["aligned-field"]);
+		function alignSettle() {
+			fieldTree.flush(); fieldTree.computeLayout(field.node, 500, 60);
+			fieldTree.flush(); fieldTree.computeLayout(field.node, 500, 60);
+		}
+		fieldValue.set("12.5"); alignSettle();
+		var cb = fieldTree.getBounds(@:privateAccess field.clip.node), tb = fieldTree.getBounds(field.editing.text.node);
+		check("text field: CSS centers the editable run", Math.abs(tb.x + tb.width / 2 - cb.x - cb.width / 2) <= 0.5, [tb, cb]);
+		field.node.set(ashui.layout.Prop.Width, 420); alignSettle();
+		cb = fieldTree.getBounds(@:privateAccess field.clip.node); tb = fieldTree.getBounds(field.editing.text.node);
+		check("text field: centered text follows a width change", Math.abs(tb.x + tb.width / 2 - cb.x - cb.width / 2) <= 0.5, [tb, cb]);
+		fieldValue.set(""); alignSettle();
+		var hb = fieldTree.getBounds(@:privateAccess field.hint.get().node);
+		check("text field: CSS also centers its empty placeholder", hb != null && Math.abs(hb.x + hb.width / 2 - cb.x - cb.width / 2) <= 0.5, hb);
+		fieldIdentity.addClasses(["right"]); fieldValue.set("12.5"); alignSettle();
+		tb = fieldTree.getBounds(field.editing.text.node);
+		check("text field: CSS can right-align the editable run", Math.abs(tb.x + tb.width - cb.x - cb.width + 2) <= 0.5, [tb, cb]);
+		ashui.css.Css.remove(alignmentSheet); alignSettle();
+		tb = fieldTree.getBounds(field.editing.text.node);
+		check("text field: removing CSS restores left alignment", tb.x == cb.x + 2, [tb, cb]);
 
 		// --- Scroll containers move their content under the wheel ---
 		var scrollTree = new LayoutTree();

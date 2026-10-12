@@ -769,6 +769,45 @@ class Components {
 			}
 			check('NumberInput size $n aligns its field and both buttons inside the border', aligned, bounds);
 			check('NumberInput size $n keeps its id on the editable field', identity2(formTree, children[1]).id == ["number-sm", "number-md", "number-lg"][n]);
+			// Actual text bounds and pointer editing must follow CSS alignment (git-bug d5a8df1).
+			var input = ashui.ui.Input.at(formTree, children[1]), e = input.editing;
+			function centered():Bool {
+				var field = formTree.getBounds(input.node), text = formTree.getBounds(e.text.node);
+				return text.width > 0 && Math.abs(text.x + text.width / 2 - field.x - field.width / 2) <= 0.5;
+			}
+			for (v in [1.0, 0.5, -2.5, 12.5]) {
+				quantities[n].set(v); formSettle();
+				check('NumberInput size $n centers $v', centered(), formTree.getBounds(e.text.node));
+			}
+			quantities[n].set(0.5); formSettle();
+			var clock = ashui.input.InputClock.source, inputTime = ashui.input.InputClock.now() + 1;
+			ashui.input.InputClock.source = () -> inputTime;
+			var tb = formTree.getBounds(e.text.node), decimal = e.stopAt(1, e.value.get()).x;
+			ashui.input.Pointer.move(formTree, tb.x + decimal, tb.y + tb.height / 2);
+			ashui.input.Pointer.press(formTree); ashui.input.Pointer.release(formTree); formSettle();
+			check('NumberInput size $n clicks the centered decimal at its character boundary', e.caret.get() == 1, e.caret.get());
+			ashui.input.Keyboard.text(formTree, "2"); formSettle();
+			check('NumberInput size $n edits a centered float and keeps it centered', quantities[n].get() == 2.5 && centered(), quantities[n].get());
+			tb = formTree.getBounds(e.text.node);
+			inputTime += 1;
+			ashui.input.Pointer.move(formTree, tb.x + e.stopAt(1, e.value.get()).x, tb.y + tb.height / 2);
+			ashui.input.Pointer.press(formTree);
+			ashui.input.Pointer.move(formTree, tb.x + e.stopAt(3, e.value.get()).x, tb.y + tb.height / 2);
+			ashui.input.Pointer.release(formTree); formSettle();
+			var selection = formTree.children(formTree.ancestors(e.text.node.id)[0])[0];
+			var sb = formTree.getBounds(new ashui.layout.Node(selection));
+			check('NumberInput size $n drags a selection over the centered characters', e.anchor.get() == 1 && e.caret.get() == 3
+				&& sb != null && Math.abs(sb.x - tb.x - e.stopAt(1, e.value.get()).x) <= 0.5, [e.anchor.get(), e.caret.get(), sb]);
+			ashui.input.InputClock.source = clock;
+			quantities[n].set(123456789.5); formSettle();
+			e.caret.set(e.value.get().length); e.anchor.set(e.caret.get()); formSettle();
+			var fb = formTree.getBounds(input.node), box = formTree.getBox(input.node);
+			tb = formTree.getBounds(e.text.node);
+			var end = tb.x + e.stopAt(e.value.get().length, e.value.get()).x;
+			check('NumberInput size $n scrolls an overflowing float to its end', tb.x < fb.x + box.padding[3]
+				&& Math.abs(end - (fb.x + fb.width - box.padding[1] - 2)) <= 0.5, [tb, end, fb]);
+			quantities[n].set(0.5); formSettle();
+			check('NumberInput size $n recenters after a long value shrinks', centered());
 			formClick(children[2]);
 			formClick(children[2]);
 			var atMax = quantities[n].get();

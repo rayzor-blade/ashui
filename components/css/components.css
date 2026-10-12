@@ -440,7 +440,8 @@ input.ui-input[data-size="lg"] > .steppers svg { width: 12px; height: 12px; }
 .ui-number-step:active { background: color-mix(in srgb, var(--text-primary) 10%, transparent); transform: none; }
 .ui-number-step[data-step="down"] { border-right: 1px solid var(--border); }
 .ui-number-step[data-step="up"] { border-left: 1px solid var(--border); }
-input.ui-number-field { width: var(--ui-number-field-width, 48px); height: auto; padding: 0 var(--ui-number-field-padding, 6px); border: 0; border-radius: 0; background: transparent; justify-content: center; font-size: var(--ui-number-field-font-size, 13px); }
+/* The editable strip honors text-align, including decimal values (git-bug d5a8df1). */
+input.ui-number-field { width: var(--ui-number-field-width, 48px); height: auto; padding: 0 var(--ui-number-field-padding, 6px); border: 0; border-radius: 0; background: transparent; text-align: center; font-size: var(--ui-number-field-font-size, 13px); }
 input.ui-number-field:hover, input.ui-number-field:focus { background: transparent; outline-width: 0; }
 input.ui-number-field > .steppers { display: none; }
 .ui-number-input[data-size="sm"] { height: var(--ui-input-height, 24px); border-radius: var(--ui-input-radius, var(--radius-sm)); }
