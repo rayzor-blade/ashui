@@ -217,15 +217,19 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			var unlit = flags.y > 0.5 ? (flags.y > 1.5 ? surfaceColor.rgb : applyFog(surfaceColor.rgb, worldPos)) : vec3(0., 0., 0.);
 			var lit = flags.y > 0.5 ? unlit : applyFog(shade(), worldPos);
 			var color = flags.y > 0.5 ? linearToSrgb(unlit) : present(lit);
-			// Keep texture and lighting detail under a slight mask. The geometric normal keeps
-			// the rim smooth even on a material with a detailed normal map (git-bug 8ceba8d).
+			// Subdue color and highlight contrast so editor gizmos remain clear over textured metal (8d44ccf).
+			// Apply after presentation: exposure and emissive materials cannot overpower the selection mask.
 			if (drawSelected(drawIndex) > 0.5 && glowPass < 0.5) {
+				var luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+				var masked = vec3(0.10, 0.14, 0.20) + vec3(luminance * 0.20);
 				var rim = pow(1. - abs(dot(normalize(worldNormal), toEye)), 4.);
-				color = mix(color * 0.88, vec3(0.74, 0.88, 1.), rim * 0.35);
+				color = mix(masked, color, 0.06);
+				color = mix(color, vec3(0.74, 0.88, 1.), rim * 0.12);
 			}
 			// For bloom's glow pass: the exposed light without tone mapping, so light brighter than white stays brighter.
 			if (glowPass > 0.5) {
-				color = lit * sceneExposure();
+				// A selected surface must not regain bright material colors through bloom (8d44ccf).
+				color = drawSelected(drawIndex) > 0.5 ? vec3(0., 0., 0.) : lit * sceneExposure();
 				alpha = 1.;
 			}
 			// Never true (opacity is not negative): it keeps every binding, for shaders extending this one.

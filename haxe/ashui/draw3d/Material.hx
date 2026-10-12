@@ -32,7 +32,7 @@ typedef MaterialOptions = {
 	?textureTransform:TextureTransform,
 	?fog:Bool,
 	?culled:Bool,
-	/** Subtle selection mask and rim, applied after lighting (git-bug 8ceba8d). **/
+	/** Subdued selection mask and rim, keeping editor gizmos clear after lighting (8ceba8d, 8d44ccf). **/
 	?selected:Bool,
 }
 

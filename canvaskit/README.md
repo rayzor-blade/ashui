@@ -134,8 +134,10 @@ when the scene draws. Omit either callback to keep the object selectable
 without handles for that tool.
 
 Wrap the object's mesh or model draws in `selection.draw(id, ctx, draw)`
-to give the selected object a subtle mask, a soft rim and highlighted
-silhouette edges. Textures and lighting stay visible, edges use the scene's
+to give the selected object a subdued blue mask, a soft rim and highlighted
+silhouette edges. The mask reduces material color and lighting contrast,
+including emissive bloom, so the gizmo stays prominent over detailed surfaces.
+The object's shape and texture detail remain visible, edges use the scene's
 depth, and the gizmos draw above them. Geometry is cached while
 selected and freed on deselection. Cutout and blended materials keep the
 surface treatment without geometry edge lines. Custom shaders inherit the

@@ -4,29 +4,34 @@ import ashui.canvaskit.SceneKit;
 import ashui.canvaskit.Selection3D;
 import ashui.canvaskit.SelectionEdges;
 import ashui.core.render.Offscreen;
+import ashui.draw3d.Bloom;
 import ashui.draw3d.Material;
 import ashui.input.Pointer;
 import ashui.layout.LayoutTree;
 import ashui.math.Mat4;
 import ashui.math.Vec3;
 import ashui.reactive.Owner;
+import ashui.reactive.Computed;
 import ashui.reactive.Signal;
 import ashui.types.Brush;
 import ashui.ui.Div;
 import gpu.GpuTextureViewDescriptor;
 
-/** Actual selection surfaces, silhouettes, occlusion and cache lifetime. git-bug 8ceba8d, 67cca2c. **/
+/** Actual selection surfaces, silhouettes, occlusion and cache lifetime. git-bug 8ceba8d, 67cca2c, 8d44ccf. **/
 class SceneSelectionPixels {
 	static function check(name:String, ok:Bool):Void {
 		if (!ok) throw name;
 		Sys.println('ok   $name');
 	}
+	static function luminance(bytes:haxe.io.Bytes, at:Int):Float
+		return (bytes.get(at) * 0.2126 + bytes.get(at + 1) * 0.7152 + bytes.get(at + 2) * 0.0722) / 255;
 
 	static function main() {
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Dark);
 		var offscreen = Offscreen.create();
 		var box = Geometry.box(1, 1, 1, new Material({baseColor: 0x999999, unlit: true}));
 		var torus = Geometry.torus(0.65, 0.16, 48, 24, box.material);
+		var emissive = Geometry.box(1, 1, 1, new Material({baseColor: 0xfcc72c, emissive: 0x25ff65, emissiveStrength: 8, metallic: 0.85, roughness: 0.08}));
 		var foreground = Geometry.box(0.6, 0.6, 0.6, new Material({baseColor: 0xe55278, unlit: true}));
 		var other = Geometry.box(0.5, 0.5, 0.5, new Material({baseColor: 0xdb8250, unlit: true}));
 		check('cube UV and normal seams weld to twelve real edges, without triangle diagonals', SelectionEdges.geometry(box).length == 12 * 64);
@@ -38,14 +43,14 @@ class SceneSelectionPixels {
 		check('edge geometry preserves fractional dimensions', edgeBytes.length == 12 * 64 && Math.abs(Math.abs(edgeBytes.getFloat(0)) - 0.000625) < 1e-9);
 		for (scale in [1, 2]) {
 			var tree = new LayoutTree(), stop:Void->Void = null;
-			var selection:Selection3D = null, mode:Signal<Int> = null, occluded:Signal<Bool> = null;
+			var selection:Selection3D = null, mode:Signal<Int> = null, occluded:Signal<Bool> = null, bloomOn:Signal<Bool> = null;
 			var camera = new OrbitCamera(0.55, 0.4, 4, Vec3.ZERO, 0.75), draws = 0;
 			var root:Div = Owner.root(tree, dispose -> {
-				stop = dispose; selection = new Selection3D(); mode = Signal.make(0); occluded = Signal.make(false);
+				stop = dispose; selection = new Selection3D(); mode = Signal.make(0); occluded = Signal.make(false); bloomOn = Signal.make(false);
 				return <div width={420} height={320} bg={Brush.solid(0x121923)}>
-					<scene-kit camera={camera} selection={selection} width={420} height={320} draw={ctx -> {
+					<scene-kit camera={camera} selection={selection} bloom={Computed.make(() -> bloomOn.get() ? new Bloom(0.7, 1.0) : null)} width={420} height={320} draw={ctx -> {
 						draws++;
-						var mesh = mode.get() == 0 ? box : torus;
+						var mesh = mode.get() == 0 ? box : mode.get() == 1 ? torus : emissive;
 						selection.draw("main", ctx, () -> ctx.drawMesh(mesh));
 						selection.region("main", mesh.min, mesh.max);
 						var at = Mat4.translation(new Vec3(1.5, 0, 0));
@@ -61,8 +66,7 @@ class SceneSelectionPixels {
 			function render():haxe.io.Bytes { offscreen.render(root, view, 420, 320); return offscreen.readRgba8(texture, w, h); }
 			var before = render(); selection.select("main"); var selected = render();
 			var center = (160 * scale * w + 210 * scale) * 4;
-			var delta = before.get(center) - selected.get(center);
-			check('selection has a slight surface mask at ${scale}x ($delta)', delta > 8 && delta < 30);
+			check('selection clearly subdues the surface behind gizmos at ${scale}x', luminance(selected, center) < luminance(before, center) * 0.65);
 			var fringe = 0, interiorEdges = 0, untouched = 0, altered = 0;
 			for (i in 0...w * h) {
 				var at = i * 4, r = selected.get(at), b = selected.get(at + 2);
@@ -113,6 +117,14 @@ class SceneSelectionPixels {
 					&& selected.get(at + 2) > 60 && selected.get(at + 2) - selected.get(at) > 15) edges++;
 			}
 			check('curved mesh has highlighted silhouettes at ${scale}x ($edges)', edges > 60 * scale);
+			// Bright, saturated emissive material must stay subdued even with bloom enabled (8d44ccf).
+			selection.clear(); mode.set(2); camera.reset(); bloomOn.set(true); before = render();
+			selection.select("main"); selected = render();
+			check('selected emissive material loses competing brightness and saturated color at ${scale}x',
+				luminance(before, center) > 0.7 && luminance(selected, center) < 0.45 && selected.get(center + 1) < selected.get(center + 2));
+			bloomOn.set(false); var withoutBloom = render(), bloomDifference = 0;
+			for (i in 0...w * h * 4) if (i % 4 != 3) bloomDifference = Std.int(Math.max(bloomDifference, Math.abs(selected.get(i) - withoutBloom.get(i))));
+			check('selected emissive material cannot glow through its mask at ${scale}x ($bloomDifference)', bloomDifference <= 2);
 			var settled = draws; render();
 			check('settled selection adds no idle draws or pointer hooks at ${scale}x', draws == settled && Pointer.hooks.length == 0);
 			stop(); tree.dispose(); view.destroy(); texture.destroy();

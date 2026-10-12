@@ -653,6 +653,14 @@ class Studio3D {
 			selection.select("model");
 			tree.flush(); tree.computeLayout(root.node, 1200, 820);
 			Snapshot.capture("Studio3D-selected", tree, root.node, 1200, 820, background.rgb(), background.a, 2.0);
+			// Check both gizmo tools over the subdued selected material (8d44ccf).
+			objectTool.set(["scale"]);
+			for (_ in 0...15) {
+				ashui.core.render.Offscreen.advance(1 / 60);
+				ashui.css.Css.update(); tree.flush();
+			}
+			tree.flush(); tree.computeLayout(root.node, 1200, 820);
+			Snapshot.capture("Studio3D-selected-scale", tree, root.node, 1200, 820, background.rgb(), background.a, 2.0);
 		}
 		cleanup();
 		#end
