@@ -13,12 +13,12 @@ import ashui.reactive.Signal;
 import ashui.theme.ThemeState;
 import ashui.theme.themes.DefaultTheme;
 import ashui.types.Style;
-import ashui.ui.Hxx.hxx;
 
 /**
 	The library's form components, section by section: fields, checkboxes
 	and switches, sliders, radio groups, selects and progress. Dark by
-	default; `SCHEME=light` renders the light scheme.
+	default; `SCHEME=light` renders the light scheme. NumberInput's three
+	sizes appear together (git-bug ffc482f).
 **/
 class FormsGallery {
 	static function main() {
@@ -32,7 +32,7 @@ class FormsGallery {
 		var color = Signal.make("blue");
 		var fruit = Signal.make("");
 		var dim = Signal.make("medium");
-		var build = () -> hxx('
+		var build = () ->
 			<div flexDirection={Column} padding={48} gap={48} width={1400} height={1500}>
 				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
 					<h2>Form Inputs</h2>
@@ -45,8 +45,13 @@ class FormsGallery {
 						</div>
 						<div flexDirection={Column} gap={12}>
 							<div flexDirection={Column} gap={8}><label>Bio</label><textarea placeholder="Tell us about yourself..." /></div>
-							<div flexDirection={Column} gap={8}><label>Quantity</label><number-input value={1.0} min={0} /></div>
-							<div flexDirection={Column} gap={8}><label>Temperature</label><number-input value={22.5} step={0.5} /></div>
+							<div flexDirection={Column} gap={8}><label>Quantity</label><number-input size={Lg} value={1.0} min={0} /></div>
+							<div flexDirection={Column} gap={8}><label>Temperature</label><number-input size={Lg} value={22.5} step={0.5} /></div>
+						</div>
+						<div flexDirection={Column} gap={12}>
+							<div flexDirection={Column} gap={8}><label>Small</label><number-input size={Sm} value={12.5} step={0.5} /></div>
+							<div flexDirection={Column} gap={8}><label>Medium (default)</label><number-input value={12.5} step={0.5} /></div>
+							<div flexDirection={Column} gap={8}><label>Large</label><number-input size={Lg} value={12.5} step={0.5} /></div>
 						</div>
 					</div>
 				</div>
@@ -110,8 +115,7 @@ class FormsGallery {
 						<progress value={75.0} max={100} size={Lg} />
 					</div>
 				</div>
-			</div>
-		');
+			</div>;
 		Snapshot.scene(light ? "forms-light" : "forms", 1400, 1500, build, page.rgb(), page.a, 2.0, 0.5);
 		for (p in ashui.css.Css.problems)
 			Sys.println("css: " + p);

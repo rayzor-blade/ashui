@@ -119,6 +119,17 @@ application CSS. Parts have `ui-` classes, such as `.ui-button` and
 interactive states use selectors such as `:hover`, `:checked` and
 `:focus-visible`.
 
+`NumberInput` uses the shared `Size` enum. Medium is the default; large
+keeps its original 40 px design. The field and step buttons resize together:
+
+```tsx
+import ashui.components.NumberInput;
+
+var small = <number-input size={Sm} value={12.5} step={0.5} />; // 24 px
+var medium = <number-input size={Md} value={12.5} step={0.5} />; // 32 px (default)
+var large = <number-input size={Lg} value={12.5} step={0.5} />; // 40 px
+```
+
 Override theme tokens for a shared look, or component properties such as
 `--ui-button-bg` and `--ui-card-radius` for a local change. Standard layout
 attributes and Tailwind-style classes apply to component roots.

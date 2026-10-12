@@ -701,14 +701,21 @@ class Components {
 		// --- Forms: a checkbox's text checks it, a radio group's arrows choose, a select's placeholder, steppers that stop at the bounds ---
 		var formTree = new LayoutTree();
 		var agree = Signal.make(false), pick = Signal.make("a"), fruitPick = Signal.make(""), qty = Signal.make(1.0);
-		var formRoot:Div = Owner.root(formTree, _ -> hxx('
+		// NumberInput's three sizes keep real field/stepper bounds and behaviors (git-bug ffc482f).
+		var quantities = [Signal.make(0.5), Signal.make(0.5), Signal.make(0.5)], numbersDisabled = Signal.make(false);
+		var formRoot:Div = Owner.root(formTree, _ ->
 			<div width={600} height={400} flexDirection={Column} gap={12} padding={10}>
 				<checkbox id="agree" checked={agree}>I agree</checkbox>
 				<radio-group value={pick}><radio-group-item id="ra" value="a">A</radio-group-item><radio-group-item value="b">B</radio-group-item></radio-group>
 				<select id="fr" value={fruitPick} placeholder="Choose"><select-item value="apple">Apple</select-item></select>
 				<number-input value={qty} min={0} max={2} />
+				<div flexDirection={Row} gap={12} alignItems={Center}>
+					<number-input id="number-sm" size={Sm} value={quantities[0]} min={0} max={1} step={0.5} disabled={numbersDisabled} />
+					<number-input id="number-md" size={Md} value={quantities[1]} min={0} max={1} step={0.5} disabled={numbersDisabled} />
+					<number-input id="number-lg" size={Lg} value={quantities[2]} min={0} max={1} step={0.5} disabled={numbersDisabled} />
+				</div>
 			</div>
-		'));
+		);
 		function formSettle() {
 			formTree.flush();
 			formTree.computeLayout(formRoot.node, 600, 400);
@@ -748,6 +755,40 @@ class Components {
 		for (_ in 0...3)
 			formClick(steps[0]);
 		check("a NumberInput's buttons step it and stop at its bounds", top == 2 && qty.get() == 0, [top, qty.get()]);
+		var numbers = formFind(formRoot.node.id, i -> i.hasClass("ui-number-input"));
+		var defaultBounds = formTree.getBounds(new ashui.layout.Node(numbers[0]));
+		check("NumberInput defaults to medium dimensions", defaultBounds.height == 32 && defaultBounds.width == 114, defaultBounds);
+		for (n in 0...3) {
+			var number = numbers[n + 1], children = formTree.children(number);
+			var bounds = formTree.getBounds(new ashui.layout.Node(number));
+			var height = [24, 32, 40][n], stepWidth = [24, 32, 36][n], fieldWidth = [40, 48, 52][n];
+			var aligned = bounds.height == height && bounds.width == stepWidth * 2 + fieldWidth + 2;
+			for (c in 0...3) {
+				var b = formTree.getBounds(new ashui.layout.Node(children[c]));
+				aligned = aligned && b.y == bounds.y + 1 && b.height == height - 2 && b.width == (c == 1 ? fieldWidth : stepWidth);
+			}
+			check('NumberInput size $n aligns its field and both buttons inside the border', aligned, bounds);
+			check('NumberInput size $n keeps its id on the editable field', identity2(formTree, children[1]).id == ["number-sm", "number-md", "number-lg"][n]);
+			formClick(children[2]);
+			formClick(children[2]);
+			var atMax = quantities[n].get();
+			for (_ in 0...3) formClick(children[0]);
+			check('NumberInput size $n steps decimals and clamps both bounds', atMax == 1 && quantities[n].get() == 0);
+			ashui.input.Focus.set(ashui.input.Interaction.byId(formTree, children[1]), true);
+			ashui.input.Keyboard.input(formTree, key(Named(ArrowUp), ArrowUp));
+			formSettle();
+			check('NumberInput size $n keeps the field keyboard editable', quantities[n].get() == 0.5, quantities[n].get());
+		}
+		numbersDisabled.set(true);
+		formSettle();
+		for (n in 0...3) {
+			var children = formTree.children(numbers[n + 1]);
+			formClick(children[2]);
+			check('NumberInput size $n disables both buttons and the field', quantities[n].get() == 0.5
+				&& ashui.input.Interaction.byId(formTree, children[0]).disabled.get()
+				&& ashui.input.Interaction.byId(formTree, children[1]).disabled.get()
+				&& ashui.input.Interaction.byId(formTree, children[2]).disabled.get());
+		}
 
 		// --- Toggles, a sheet, a hover card and a context menu ---
 		var pnTree = new LayoutTree();

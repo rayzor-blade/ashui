@@ -405,24 +405,31 @@ input.ui-input > .ui-input-reveal:hover { color: var(--text-primary); }
 .ui-label-text { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
 .ui-label-required { color: var(--error); }
 
-/* A number between a − and a +, one bordered piece, the field's own steppers hidden. */
+/* A number between a − and a +, one bordered piece, the field's own steppers hidden.
+   Sm/Md/Lg scale together; Lg retains the original 40px design (git-bug ffc482f). */
 .ui-number-input {
-	flex-direction: row; align-items: stretch; align-self: flex-start; height: var(--ui-input-height, 40px); overflow: hidden;
+	flex-direction: row; align-items: stretch; align-self: flex-start; height: var(--ui-input-height, 32px); overflow: hidden;
 	border: 1px solid var(--ui-input-border, var(--border)); border-radius: var(--ui-input-radius, var(--radius-default));
 	background: var(--ui-input-bg, var(--input-bg));
 }
 .ui-number-step {
-	width: 36px; padding: 0; align-items: center; justify-content: center; border-radius: 0; border: 0;
-	background: transparent; color: var(--text-secondary); font-size: 16px; box-shadow: none;
+	width: var(--ui-number-step-width, 32px); padding: 0; align-items: center; justify-content: center; border-radius: 0; border: 0;
+	background: transparent; color: var(--text-secondary); font-size: var(--ui-number-step-font-size, 16px); box-shadow: none;
 	transition: background var(--duration-fast) var(--ease-state), color var(--duration-fast) var(--ease-state);
 }
 .ui-number-step:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-primary); }
 .ui-number-step:active { background: color-mix(in srgb, var(--text-primary) 10%, transparent); transform: none; }
 .ui-number-step[data-step="down"] { border-right: 1px solid var(--border); }
 .ui-number-step[data-step="up"] { border-left: 1px solid var(--border); }
-input.ui-number-field { width: 52px; height: auto; padding: 0 8px; border: 0; border-radius: 0; background: transparent; justify-content: center; font-size: 14px; }
+input.ui-number-field { width: var(--ui-number-field-width, 48px); height: auto; padding: 0 var(--ui-number-field-padding, 6px); border: 0; border-radius: 0; background: transparent; justify-content: center; font-size: var(--ui-number-field-font-size, 13px); }
 input.ui-number-field:hover, input.ui-number-field:focus { background: transparent; outline-width: 0; }
 input.ui-number-field > .steppers { display: none; }
+.ui-number-input[data-size="sm"] { height: var(--ui-input-height, 24px); border-radius: var(--ui-input-radius, var(--radius-sm)); }
+.ui-number-input[data-size="sm"] > .ui-number-step { width: var(--ui-number-step-width, 24px); font-size: var(--ui-number-step-font-size, 14px); }
+.ui-number-input[data-size="sm"] > input.ui-number-field { width: var(--ui-number-field-width, 40px); padding: 0 var(--ui-number-field-padding, 4px); font-size: var(--ui-number-field-font-size, 12px); }
+.ui-number-input[data-size="lg"] { height: var(--ui-input-height, 40px); }
+.ui-number-input[data-size="lg"] > .ui-number-step { width: var(--ui-number-step-width, 36px); }
+.ui-number-input[data-size="lg"] > input.ui-number-field { width: var(--ui-number-field-width, 52px); padding: 0 var(--ui-number-field-padding, 8px); font-size: var(--ui-number-field-font-size, 14px); }
 
 /* Checkboxes and radios: 18 across, a hairline of the secondary border; checked, the primary colour. */
 .ui-checkbox-field, .ui-radio-field { flex-direction: row; align-items: center; gap: 12px; font-size: 14px; color: var(--text-primary); }

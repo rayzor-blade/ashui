@@ -14,6 +14,8 @@ typedef NumberInputProps = {
 	?max:Float,
 	/** What − and + move it by; 1 by default. **/
 	?step:Float,
+	/** Small (24px), medium (32px, default) or large (40px). **/
+	?size:Size,
 	?disabled:IntoReactive<Bool>,
 	?name:String,
 	?id:String
@@ -22,9 +24,13 @@ typedef NumberInputProps = {
 /**
 	A number between a − and a + that step it: the built-in
 	`<input type="number">` (typed into, its constraints) joined to its two
-	buttons in one bordered piece. CSS: `.ui-number-input`,
+	buttons in one bordered piece. CSS: `.ui-number-input` (`[data-size]`),
 	`.ui-number-step` (`[data-step]` down or up, `:disabled`),
-	`.ui-number-field`.
+	`.ui-number-field`. The shared `Size` variants scale the field and both
+	buttons together; `Lg` keeps the original dimensions (git-bug ffc482f).
+	`--ui-input-height` and `-radius` retune the outer box; `--ui-number-step-width`
+	and `-font-size`, and `--ui-number-field-width`, `-padding` and `-font-size`
+	retune its parts at any size.
 **/
 class NumberInput extends Component<NumberInputProps> {
 	public var value(default, null):Signal<Float>;
@@ -71,6 +77,7 @@ class NumberInput extends Component<NumberInputProps> {
 			});
 			return b;
 		}
-		return Library.part("ui-number-input", null, null, [stepper(-1, "−"), field, stepper(1, "+")]);
+		return Library.part("ui-number-input", null, ["size" => (props.size == null ? Size.Md : props.size : String)],
+			[stepper(-1, "−"), field, stepper(1, "+")]);
 	}
 }
