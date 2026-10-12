@@ -66,9 +66,13 @@ class NumberGauges {
 		var expected = size == Sm ? 24 : size == Md ? 32 : 40;
 		check('$size gauge width is capped by its formatted bounds', bounds("#single").width < 200 && bounds("#single").height == expected
 			&& bounds("#interval").width < 200 && bounds("#interval").height == expected);
-		check('$size vertical grips use SVG at each endpoint', Css.query(tree, root.node.id, "svg.ui-number-gauge-grip").length == 3
-			&& bounds("#single .ui-number-gauge-grip").width == 3
-			&& bounds("#single .ui-number-gauge-grip").height == (size == Sm ? 5 : size == Md ? 8 : 11));
+		check('$size vertical grips use SVG at each endpoint', Css.query(tree, root.node.id, "svg.ui-number-gauge-grip").length == 3);
+		for (selector in ["#single", "#lower", "#upper"]) {
+			var thumb = bounds(selector + " > .thumb"), grip = bounds(selector + " .ui-number-gauge-grip");
+			check('$size $selector dots are centered in their grip', Math.abs(grip.x + grip.width / 2 - thumb.x - thumb.width / 2) <= 0.01
+				&& Math.abs(grip.y + grip.height / 2 - thumb.y - thumb.height / 2) <= 0.01, [thumb, grip]);
+			check('$size $selector grip has compact side spacing', thumb.width >= grip.width && thumb.width - grip.width <= 4, [thumb, grip]);
+		}
 		var sb = bounds("#single"), text = bounds("#single > .ui-number-gauge-value > text");
 		check('$size formatted number is centered', Math.abs(text.x + text.width / 2 - sb.x - sb.width / 2) <= 0.6
 			&& Math.abs(text.y + text.height / 2 - sb.y - sb.height / 2) <= 1, [sb, text]);

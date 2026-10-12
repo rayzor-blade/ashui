@@ -79,8 +79,10 @@ class NumberGauge extends Component<NumberGaugeProps> {
 			var identity = Identity.of(range.tree, id);
 			if (identity != null && identity.hasClass("thumb")) {
 				// A shared, compile-checked SVG; currentColor follows the CSS state (095fab4).
-				var grip = new ashui.ui.Svg(ashui.svg.SvgDocument.of(<svg width="3" height="11" viewBox="0 0 3 11" fill="currentColor">
-					<circle cx="1.5" cy="1.5" r="1"/><circle cx="1.5" cy="5.5" r="1"/><circle cx="1.5" cy="9.5" r="1"/>
+				var grip = new ashui.ui.Svg(ashui.svg.SvgDocument.of(<svg width="7" height="12" viewBox="0 0 7 12" fill="currentColor">
+					<circle cx="1.5" cy="1.5" r="1.25"/><circle cx="5.5" cy="1.5" r="1.25"/>
+					<circle cx="1.5" cy="6" r="1.25"/><circle cx="5.5" cy="6" r="1.25"/>
+					<circle cx="1.5" cy="10.5" r="1.25"/><circle cx="5.5" cy="10.5" r="1.25"/>
 				</svg>));
 				Identity.of(grip.tree, grip.node.id).addClasses(["ui-number-gauge-grip"]);
 				range.tree.addChild(id, grip.node.id);

@@ -469,10 +469,10 @@ input.ui-number-gauge > .fill, input.ui-number-gauge > .rest { height: 100%; bor
 input.ui-number-gauge > .fill { background: var(--ui-number-gauge-fill, color-mix(in srgb, var(--primary) 22%, var(--input-bg))); }
 input.ui-number-gauge > .rest { background: transparent; }
 input.ui-number-gauge > .thumb {
-	width: var(--ui-number-gauge-grip-width, 14px); height: 100%; padding: 0;
+	width: var(--ui-number-gauge-grip-width, 11px); height: 100%; padding: 0;
 	border: 0; border-radius: 0; box-shadow: none; transform: none;
 	background: var(--ui-number-gauge-grip-bg, color-mix(in srgb, var(--primary) 30%, var(--input-bg)));
-	flex-direction: column; align-items: center; justify-content: flex-end;
+	flex-direction: column; align-items: center; justify-content: center;
 	transition: background var(--duration-fast) var(--ease-state);
 }
 input.ui-number-gauge:hover > .thumb, input.ui-number-gauge:active > .thumb,
@@ -480,8 +480,8 @@ input.ui-number-gauge[data-state="dragging"] > .thumb, input.ui-number-gauge:foc
 	transform: none; border: 0; box-shadow: none;
 	background: var(--ui-number-gauge-grip-bg-active, color-mix(in srgb, var(--primary) 44%, var(--input-bg)));
 }
-/* Keep the vertical grip below the centered number when their positions cross (095fab4). */
-svg.ui-number-gauge-grip { width: 3px; height: 8px; margin-bottom: 2px; color: var(--primary); pointer-events: none; }
+/* The compact six-dot SVG stays centered in every grip size (095fab4). */
+svg.ui-number-gauge-grip { width: 7px; height: 12px; color: var(--primary); pointer-events: none; }
 .ui-number-gauge-value { position: absolute; left: 0; right: 0; top: 0; bottom: 0; align-items: center; justify-content: center; pointer-events: none; z-index: 2; }
 input.ui-number-gauge[data-size="sm"], .ui-number-range-gauge[data-size="sm"] {
 	--ui-number-gauge-base-width: 90px;
@@ -489,8 +489,6 @@ input.ui-number-gauge[data-size="sm"], .ui-number-range-gauge[data-size="sm"] {
 	border-radius: var(--ui-number-gauge-radius, var(--radius-sm));
 }
 input.ui-number-gauge[data-size="lg"], .ui-number-range-gauge[data-size="lg"] { --ui-number-gauge-base-width: 126px; height: var(--ui-number-gauge-height, 40px); font-size: var(--ui-number-gauge-font-size, 14px); }
-input.ui-number-gauge[data-size="sm"] svg.ui-number-gauge-grip { height: 5px; margin-bottom: 1px; }
-input.ui-number-gauge[data-size="lg"] svg.ui-number-gauge-grip { height: 11px; }
 /* Upper paints the interval, lower covers only the prefix. Their thumbs have identical travel. */
 .ui-number-range-gauge > input.ui-number-gauge {
 	position: absolute; left: 0; top: 0; width: 100%; max-width: none; height: 100%;
