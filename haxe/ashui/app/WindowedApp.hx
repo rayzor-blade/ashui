@@ -17,6 +17,7 @@ import gpu.GpuSurfaceConfiguration;
 import gpu.Power;
 import gpu.TextureFormat;
 import window.Window;
+import window.TouchPhase;
 
 /**
 	Opens a window and draws a UI into it until the window closes. `run`
@@ -78,6 +79,7 @@ class WindowedApp {
 	var pendingWheelX = 0.0;
 	var pendingWheelY = 0.0;
 	var pendingWheel = false;
+	var pendingWheelPhase:Null<TouchPhase> = null;
 	var modifiers:window.Modifiers = ashui.input.Events.InputEvent.NO_MODIFIERS;
 
 	/** `ASHUI_FRAME_LOG=<file>` writes each frame's phase timings and each wheel delta there; off when unset, safe either way. **/
@@ -370,10 +372,10 @@ class WindowedApp {
 	}
 
 	/** Applies the batch's last pointer position, then its summed wheel delta. **/
-	function applyPointer():Void {
+	function applyPointer(readCursor = true):Void {
 		// Quiet native moves stay out of the event queue. Consume the latest
 		// position and clear the filter before input or application work.
-		switch window.takeCursorMove() {
+		if (readCursor) switch window.takeCursorMove() {
 			case CursorMoved(x, y, _):
 				var scale = window.scaleFactor();
 				pendingMove = {x: x / scale, y: y / scale};
@@ -388,7 +390,8 @@ class WindowedApp {
 			pendingWheel = false;
 			var dx = pendingWheelX, dy = pendingWheelY;
 			pendingWheelX = pendingWheelY = 0;
-			ashui.input.Pointer.wheel(tree, dx, dy);
+			ashui.input.Pointer.wheel(tree, dx, dy, pendingWheelPhase);
+			pendingWheelPhase = null;
 		}
 	}
 
@@ -420,6 +423,7 @@ class WindowedApp {
 			case ThemeChanged(_):
 				WindowTheme.handle(event);
 			case Focused(on):
+				if (!on) ashui.input.Pointer.wheel(tree, 0, 0, TouchPhase.Cancelled);
 				if (ashui.debug.InputLog.current != null)
 					ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.WindowFocus(on));
 				if (ashui.input.WindowState.active.get() != on)
@@ -437,6 +441,8 @@ class WindowedApp {
 				else
 					dirty = true;
 			case CursorMoved(x, y, _):
+				// Keep already queued wheel input at its original pointer position (095fab4).
+				if (pendingWheel) applyPointer(false);
 				var scale = window.scaleFactor();
 				pendingMove = {x: x / scale, y: y / scale};
 			case CursorLeft(_):
@@ -456,8 +462,11 @@ class WindowedApp {
 					};
 					frameLog.writeString('wheel\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\t$d\t$phase\n');
 				}
-				// Applied after the batch's last move: during a scroll the pointer barely moves.
+				// Coalesce only deltas within the same phase. Start/end boundaries
+				// reach the dispatcher intact, including zero-delta end events (095fab4).
+				if (pendingWheel && pendingWheelPhase != phase) applyPointer();
 				pendingWheel = true;
+				pendingWheelPhase = phase;
 				switch delta {
 					case LineDelta(x, y):
 						pendingWheelX += x * WHEEL_LINE;
@@ -467,6 +476,7 @@ class WindowedApp {
 						pendingWheelX += x / scale;
 						pendingWheelY += y / scale;
 				}
+				if (phase != TouchPhase.Moved) applyPointer();
 			case ModifiersChanged(m):
 				modifiers = m;
 				ashui.input.Pointer.modifiers(tree, m);

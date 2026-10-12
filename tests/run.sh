@@ -137,6 +137,10 @@ window)
 	cp "$xgpu" bin/xgpu.hdll
 	rm -f bin/xwindow.hdll
 	cp "$xwindow" bin/xwindow.hdll
+	$haxe_ui --class-path ../components/haxe --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/window -main NumberWheelWindow -hl bin/number-wheel-window.hl
+	run number-wheel-window.hl
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/window -main WindowDemo -hl bin/window.hl
@@ -213,6 +217,10 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main NumberGauges -hl bin/number-gauges-test.hl
 	number_gauges=0
 	run number-gauges-test.hl || number_gauges=$?
+	# Scroll gestures retain ownership when content reveals numeric controls (095fab4).
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/input -main NumberWheelOwnership -hl bin/number-wheel-ownership.hl
+	number_wheel=0
+	run number-wheel-ownership.hl || number_wheel=$?
 	# Motion tracing: what each animation records and what the checks find.
 	haxe motion.hxml
 	motion=0
@@ -226,7 +234,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $component_sizes -eq 0 ] && [ $number_gauges -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $component_sizes -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

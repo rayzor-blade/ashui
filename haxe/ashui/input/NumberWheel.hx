@@ -9,11 +9,17 @@ class NumberWheel {
 		Trackpad deltas accumulate until a step; reversing or leaving clears
 		the remainder. Enabled controls consume vertical scrolling, including
 		at their limits; disabled controls and horizontal gestures pass it on.
-		No timer or frame hook is kept.
+		An active parent scroll is captured by Pointer before it reaches
+		these handlers (095fab4). No timer or frame hook is kept.
 	**/
 	public static function bind(node:Node, disabled:Void->Bool, step:Int->Void):Void {
 		var remainder = 0.0;
+		var sequence = -1;
 		Interaction.of(node).onPointerLeave(_ -> remainder = 0).onWheel(e -> {
+			if (sequence != e.wheelSequence) {
+				sequence = e.wheelSequence;
+				remainder = 0;
+			}
 			if (disabled()) {
 				remainder = 0;
 				return;

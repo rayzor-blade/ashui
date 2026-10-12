@@ -23,6 +23,9 @@ class Pointer {
 	/** Seconds and layout units within which presses count as one double- or triple-click. **/
 	static inline var MULTI_CLICK_TIME = 0.5;
 	static inline var MULTI_CLICK_SLOP = 4.0;
+	// Wheel mice have no phase boundaries. Expire their ownership lazily,
+	// without scheduling a timer or keeping an idle window awake (095fab4).
+	static inline var WHEEL_GAP = 0.25;
 
 	/** Called after each move, press, release and leave in a tree, as pointer queries need. **/
 	public static final hooks:Array<LayoutTree->Void> = [];
@@ -82,6 +85,9 @@ class Pointer {
 		var s = state(tree);
 		s.inside = false;
 		s.quiet = false;
+		s.wheelOwner = null;
+		s.wheelPhased = false;
+		s.wheelSequence++;
 		retarget(tree, s, []);
 		moved(tree);
 	}
@@ -153,13 +159,54 @@ class Pointer {
 			}
 	}
 
-	/** A wheel or trackpad scrolled by `(dx, dy)` layout units where the pointer is. **/
-	public static function wheel(tree:LayoutTree, dx:Float, dy:Float):Void {
+	/**
+		A wheel or trackpad scrolled by `(dx, dy)` layout units. Forward native
+		`phase` boundaries when available; unphased wheels use a 250 ms gap.
+		A captured parent scroll skips child wheel handlers until the gesture
+		ends or leaves that container (095fab4).
+	**/
+	public static function wheel(tree:LayoutTree, dx:Float, dy:Float, ?phase:window.TouchPhase):Void {
 		if (ashui.debug.InputLog.current != null)
-			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Wheel(dx, dy));
-		refresh(tree);
+			ashui.debug.InputLog.note(tree, phase == null ? ashui.debug.InputLog.InputRecord.Wheel(dx, dy)
+				: ashui.debug.InputLog.InputRecord.WheelPhase(dx, dy, phase));
+		if (dx != 0 || dy != 0) refresh(tree);
 		var s = state(tree);
-		bubble(tree, s, s.chain, 0, "wheel", null, dx, dy);
+		var now = InputClock.now();
+		if (phase == window.TouchPhase.Started || (!s.wheelPhased && now - s.lastWheel > WHEEL_GAP)) {
+			s.wheelOwner = null;
+			s.wheelSequence++;
+		}
+		if (phase == window.TouchPhase.Started) s.wheelPhased = true;
+		// Removed scroll containers must not keep a captured gesture alive.
+		if (s.wheelOwner != null && Interaction.byId(tree, s.wheelOwner.node.id) != s.wheelOwner) {
+			s.wheelOwner = null;
+		}
+		s.lastWheel = now;
+		if (dx != 0 || dy != 0) {
+			var from = 0;
+			if (s.wheelOwner != null) {
+				from = -1;
+				for (index => hit in s.chain) if (hit.id == s.wheelOwner.node.id) { from = index; break; }
+				// Ownership is scoped to its container. Leaving it starts a new
+				// target, with fresh local coordinates and no retained hit arrays.
+				if (from < 0) { s.wheelOwner = null; s.wheelSequence++; from = 0; }
+			}
+			bubble(tree, s, s.chain, from, "wheel", null, dx, dy);
+		}
+		if (phase == window.TouchPhase.Ended || phase == window.TouchPhase.Cancelled) {
+			s.wheelOwner = null;
+			s.wheelPhased = false;
+			s.wheelSequence++;
+		}
+	}
+
+	/** Releases ownership when a scroll container closes or disables overflow (095fab4). **/
+	@:noCompletion public static function cancelWheel(node:ashui.layout.Node):Void {
+		var s = states.get(node.tree);
+		if (s != null && s.wheelOwner != null && s.wheelOwner.node.id == node.id) {
+			s.wheelOwner = null;
+			s.wheelPhased = false;
+		}
 	}
 
 	/** The modifier keys now held, for the events that follow. **/
@@ -243,12 +290,16 @@ class Pointer {
 				continue;
 			if (e == null) {
 				var target = Interaction.byId(tree, chain[from].id);
-				e = new PointerEvent(target != null ? target.node : i.node, s.x, s.y, button, s.modifiers, dx, dy);
+				e = new PointerEvent(target != null ? target.node : i.node, s.x, s.y, button, s.modifiers, dx, dy,
+					kind == "wheel" ? s.wheelSequence : 0);
 				if (button != null)
 					e.count(s.clicks);
 			}
 			e.local(hit.x, hit.y);
 			i.fire(kind, e);
+			if (kind == "wheel" && e.wheelCapture == i.node && s.wheelOwner != i) {
+				s.wheelOwner = i;
+			}
 			if (e.propagationStopped)
 				return;
 		}
@@ -298,6 +349,10 @@ private class PointerState {
 	public var lastX = 0.0;
 	public var lastY = 0.0;
 	public var clicks = 0;
+	public var wheelOwner:Null<Interaction> = null;
+	public var lastWheel = Math.NEGATIVE_INFINITY;
+	public var wheelPhased = false;
+	public var wheelSequence = 0;
 
 	public function new() {}
 }

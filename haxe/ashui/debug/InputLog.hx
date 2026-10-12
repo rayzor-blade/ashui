@@ -19,6 +19,8 @@ enum InputRecord {
 	Text(text:String, modifiers:Null<Modifiers>);
 	Composition(text:String, cursor:Int);
 	WindowFocus(on:Bool);
+	/** Native gesture boundaries, retained for faithful wheel replay (095fab4). **/
+	WheelPhase(dx:Float, dy:Float, phase:window.TouchPhase);
 }
 
 /** An input and when it came, in seconds since its log started. **/
@@ -156,6 +158,8 @@ class InputLog {
 				Pointer.release(tree, b);
 			case Wheel(dx, dy):
 				Pointer.wheel(tree, dx, dy);
+			case WheelPhase(dx, dy, phase):
+				Pointer.wheel(tree, dx, dy, phase);
 			case ModifiersChanged(m):
 				Pointer.modifiers(tree, m);
 			case Key(e, m):

@@ -244,6 +244,7 @@ class Scroll {
 	function dispose():Void {
 		if (disposed) return;
 		disposed = true;
+		Pointer.cancelWheel(node);
 		byNode.remove(node);
 		hoverWatch.stop();
 		offsetWatch.stop();
@@ -267,6 +268,7 @@ class Scroll {
 	function setAxes(nextX:Bool, nextY:Bool):Void {
 		if (alongX == nextX && alongY == nextY)
 			return;
+		Pointer.cancelWheel(node);
 		alongX = nextX;
 		alongY = nextY;
 		if ((alongX || alongY) && (visibility == "always" || visibility == "hover" && Interaction.of(node).hovered.get())) thumb.set(1);
@@ -305,8 +307,12 @@ class Scroll {
 	/** Scrolls to `(toX, toY)`, kept within the content; true if it moved. **/
 	public function scrollTo(toX:Float, toY:Float):Bool {
 		var max = limits();
-		var nx = Math.max(0, Math.min(max.x, toX));
-		var ny = Math.max(0, Math.min(max.y, toY));
+		return bounded(toX, toY, max.x, max.y);
+	}
+
+	function bounded(toX:Float, toY:Float, maxX:Float, maxY:Float):Bool {
+		var nx = Math.max(0, Math.min(maxX, toX));
+		var ny = Math.max(0, Math.min(maxY, toY));
 		if (nx == x.get() && ny == y.get())
 			return false;
 		x.set(nx);
@@ -331,6 +337,7 @@ class Scroll {
 	}
 
 	function wheel(e:PointerEvent):Void {
+		if (disposed) return;
 		// A vertical wheel scrolls a container that only scrolls sideways.
 		var dx = e.deltaX, dy = e.deltaY;
 		if (alongX && !alongY && dx == 0) {
@@ -338,7 +345,11 @@ class Scroll {
 			dy = 0;
 		}
 		// The content follows the fingers: a positive delta moves it down, toward the start.
-		if (scrollTo(x.get() - dx, y.get() - dy))
+		var max = limits();
+		// Even at a boundary, scrolling must not begin editing an input that
+		// moves under the pointer. Outer scrollers still receive unused deltas (095fab4).
+		if (dx != 0 && max.x > 0 || dy != 0 && max.y > 0) e.captureWheel();
+		if (bounded(x.get() - dx, y.get() - dy, max.x, max.y))
 			e.stopPropagation();
 	}
 

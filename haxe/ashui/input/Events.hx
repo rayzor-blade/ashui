@@ -108,8 +108,18 @@ class PointerEvent extends InputEvent {
 
 	public final deltaY:Float;
 
+	/** Identifies a wheel gesture; numeric controls discard fractions from older gestures (095fab4). **/
+	public final wheelSequence:Int;
+	@:allow(ashui.input.Pointer)
+	var wheelCapture:Null<Node> = null;
+
+	/** Keep this wheel gesture on the current scroll container as content moves under the pointer. **/
+	public function captureWheel():Void {
+		wheelCapture = currentTarget;
+	}
+
 	@:allow(ashui.input)
-	function new(target:Node, x:Float, y:Float, button:Null<MouseButton>, modifiers:Modifiers, deltaX = 0.0, deltaY = 0.0) {
+	function new(target:Node, x:Float, y:Float, button:Null<MouseButton>, modifiers:Modifiers, deltaX = 0.0, deltaY = 0.0, wheelSequence = 0) {
 		super(target, modifiers);
 		this.x = x;
 		this.y = y;
@@ -118,6 +128,7 @@ class PointerEvent extends InputEvent {
 		this.button = button;
 		this.deltaX = deltaX;
 		this.deltaY = deltaY;
+		this.wheelSequence = wheelSequence;
 	}
 
 	@:allow(ashui.input)

@@ -2581,7 +2581,9 @@ class Smoke {
 			[innerScroll.y.get(), outerScroll.y.get()]);
 		scrollTree.flush();
 		ashui.input.Pointer.move(scrollTree, 50, 90);
-		ashui.input.Pointer.wheel(scrollTree, 0, -30);
+		// A new gesture may choose the inner scroller; the preceding outer
+		// gesture keeps its ownership while its content moves (095fab4).
+		ashui.input.Pointer.wheel(scrollTree, 0, -30, window.TouchPhase.Started);
 		var innerFirst = innerScroll.y.get();
 		ashui.input.Pointer.wheel(scrollTree, 0, -30);
 		check("scroll: an inner container takes the wheel until its edge, then it goes on",
