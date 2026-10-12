@@ -85,6 +85,50 @@ return <scene-kit width={640} height={480} antialias={true}
 Shift-drag or right-drag to pan, and scroll to zoom. Supply `OrbitCamera`
 to control or share camera state; `controls={false}` disables camera input.
 
+### Selection and gizmos
+
+Pass `Selection3D` to show rotation rings for a selected object, and
+`worldGizmo={true}` for the world axes in the top-right corner:
+
+```tsx
+import ashui.canvaskit.Selection3D;
+import ashui.math.Mat4;
+import ashui.math.Quat;
+import ashui.math.Vec3;
+import ashui.reactive.Reactive;
+
+var selection = new Selection3D();
+var rotation = signal(Quat.IDENTITY);
+var rotate = (delta:Quat) -> rotation.set(delta.mul(rotation.get()).normalize());
+return <scene-kit selection={selection} worldGizmo={true}
+    width={640} height={480} draw={ctx -> {
+        var at = Mat4.compose(Vec3.ZERO, rotation.get(), Vec3.ONE);
+        ctx.drawMesh(box, at);
+        selection.region("box", box.min, box.max, at, rotate);
+    }} />;
+```
+
+Click an object's registered bounds to select it; an empty click clears
+selection. Drag red **X**, green **Y** or blue **Z** rings to rotate about
+world axes. The outside ring rotates in the view plane. **Escape** cancels
+the rotation. Clicking a positive or negative world axis sets the camera's
+view, keeping its target and distance. Dragging elsewhere still orbits or
+pans the camera.
+
+Register bounds through the same transform used to draw the object. Picking
+uses oriented bounds, rather than individual triangles. The rotation callback
+receives a quaternion delta in world space; the application keeps its own
+transform state. Supply a final `pivot` argument to `region()` for a world
+pivot other than the object's origin. Register only visible objects; bounds
+are refreshed when the scene draws. With no rotation callback an object is
+selectable without rotation rings.
+
+`worldGizmoRight` and `worldGizmoTop` adjust the corner inset (16 layout units
+by default), so a floating panel can leave the widget visible. The widgets
+draw reactively and keep no idle ticker. Try the
+[SceneGizmos demo](https://github.com/rayzor-blade/ashui/blob/main/tools/demo/SceneGizmos.hx)
+or select a model in Studio3D.
+
 - **Geometry and assets:** `Geometry` builds primitives and terrain;
   `Gltf.load()` reads glTF/GLB models. `GltfPose` and `GltfAnimation` handle
   node transforms, skins, morph targets and animation playback.

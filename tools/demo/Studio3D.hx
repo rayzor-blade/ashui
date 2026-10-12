@@ -13,6 +13,7 @@ import ashui.canvaskit.GltfPose;
 import ashui.canvaskit.GroundGrid;
 import ashui.canvaskit.OrbitCamera;
 import ashui.canvaskit.SceneKit;
+import ashui.canvaskit.Selection3D;
 import ashui.canvaskit.Skybox;
 import ashui.components.Accordion;
 import ashui.components.Button;
@@ -246,6 +247,10 @@ class Studio3D {
 		});
 
 		var camera = new OrbitCamera(0.4, 0.15, 3, null, 0.7);
+		// Object rotation and corner camera controls share SceneKit's input path (c16e24c).
+		var selection = new Selection3D();
+		var objectRotation = Signal.make(ashui.math.Quat.IDENTITY);
+		var rotateObject = (delta:ashui.math.Quat) -> objectRotation.set(delta.mul(objectRotation.get()).normalize());
 		// The drone's heading the chase camera last turned to, where it last put the camera's target,
 		// and that target's offset from the drone in the drone's own frame: right, up, ahead. A pan moves the offset.
 		var chased = 0.0;
@@ -255,6 +260,8 @@ class Studio3D {
 			return new Vec3(v.x * Math.cos(heading) + v.z * Math.sin(heading), v.y, -v.x * Math.sin(heading) + v.z * Math.cos(heading));
 		// Framed afresh as each model comes in.
 		new Watch(() -> model.get(), m -> if (m != null) {
+			selection.clear();
+			objectRotation.set(ashui.math.Quat.IDENTITY);
 			// A panorama looks like a sky through a wide lens; through a narrow one its picture is magnified past its resolution.
 			camera.fovY.set(example.get().panorama != null ? 1.2 : 0.7);
 			// In flight the camera starts behind the drone, a little to its right, looking the way it goes.
@@ -470,8 +477,13 @@ class Studio3D {
 					.mul(ashui.math.Mat4.rotation(ashui.math.Quat.axisAngle(Vec3.UP, f.heading - (held != null ? held.yaw : 0))))
 					.mul(ashui.math.Mat4.rotation(ashui.math.Quat.axisAngle(new Vec3(1, 0, 0), f.pitch())));
 				l.pose.draw(ctx, placed, transformOn.get() ? null : plain);
-			} else
-				l.pose.draw(ctx, null, transformOn.get() ? null : plain);
+			} else {
+				var pivot = m.min.lerp(m.max, 0.5);
+				var placed = ashui.math.Mat4.translation(pivot).mul(ashui.math.Mat4.rotation(objectRotation.get()))
+					.mul(ashui.math.Mat4.translation(pivot.negate()));
+				l.pose.draw(ctx, placed, transformOn.get() ? null : plain);
+				selection.region("model", m.min, m.max, placed, rotateObject, pivot);
+			}
 		}
 
 		var percent = (v:Float) -> Std.string(Math.round(v * 100)) + "%";
@@ -491,7 +503,7 @@ class Studio3D {
 			// The select reads its options from its own children, so they are made here and spliced in.
 			var choices:Array<Element> = [for (e in examples) <select-item value={e.id}>${e.title}</select-item>];
 			return <div class="w-full h-full">
-			<scene-kit widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} vignette={vignette} grain={grain} aberration={aberration} antialias={antialias} motionBlur={motionBlur} grade={Computed.make(() -> gradeStrength.get() > 0 ? ashui.draw3d.ColorGrade.NIGHT.at(gradeStrength.get()) : null)} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
+			<scene-kit selection={selection} worldGizmo={true} worldGizmoRight={332} widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} vignette={vignette} grain={grain} aberration={aberration} antialias={antialias} motionBlur={motionBlur} grade={Computed.make(() -> gradeStrength.get() > 0 ? ashui.draw3d.ColorGrade.NIGHT.at(gradeStrength.get()) : null)} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
 			<if {loading.get() || model.get() == null}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} alignItems={Center} justifyContent={Justify.Center}>
 					<div class="flex flex-col items-center gap-3 px-5 py-4 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md">
@@ -624,6 +636,11 @@ class Studio3D {
 			tree.flush();
 		}
 		Snapshot.capture("Studio3D", tree, root.node, 1200, 820, background.rgb(), background.a, 2.0);
+		if (selection.get("model") != null) {
+			selection.select("model");
+			tree.flush(); tree.computeLayout(root.node, 1200, 820);
+			Snapshot.capture("Studio3D-selected", tree, root.node, 1200, 820, background.rgb(), background.a, 2.0);
+		}
 		cleanup();
 		#end
 	}

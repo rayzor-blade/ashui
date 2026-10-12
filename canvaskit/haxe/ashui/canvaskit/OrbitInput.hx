@@ -60,6 +60,9 @@ class OrbitInput {
 				return;
 			stopDrag();
 			spinning = false;
+			// SceneKit's gizmos consume a press before camera input (c16e24c).
+			if (p.defaultPrevented)
+				return;
 			var panning = p.button == Right || p.button == Middle || switch p.modifiers {
 				case State(shift, _): shift;
 			};
@@ -96,6 +99,8 @@ class OrbitInput {
 		});
 		interaction.onWheel(p -> {
 			spinning = false;
+			if (p.defaultPrevented)
+				return;
 			camera.zoom(Math.exp(p.deltaY * zoomSensitivity));
 			p.preventDefault();
 		});

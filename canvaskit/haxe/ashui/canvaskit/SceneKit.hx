@@ -91,6 +91,18 @@ typedef SceneKitProps = {
 	/** Whether dragging and scrolling move the camera; true by default. **/
 	?controls:Bool,
 
+	/** Selectable bounds registered in `draw`; selected rotatable objects show X/Y/Z rings. c16e24c. **/
+	?selection:Selection3D,
+
+	/** Show a world orientation widget in the top-right corner. Click an axis to look along it. **/
+	?worldGizmo:Bool,
+
+	/** Corner widget's right inset, in layout units; 16 by default. **/
+	?worldGizmoRight:Float,
+
+	/** Corner widget's top inset, in layout units; 16 by default. **/
+	?worldGizmoTop:Float,
+
 	/**
 		Set to true while meshes it draws wait for their textures, which are
 		compressed in the background, and to false when all are in place: show
@@ -127,6 +139,9 @@ typedef SceneKitProps = {
 	`camera.reset()`).
 **/
 class SceneKit extends Component<SceneKitProps> {
+	/** Editor controls, when `selection` or `worldGizmo` is supplied. **/
+	public var gizmos(default, null):Null<SceneGizmos>;
+
 	/** A key light from above and in front, as a scene has with no `lights`. **/
 	static final defaultLights:Array<Light> = [Directional(new ashui.math.Vec3(-0.4, -1, -0.3), 0xffffff, 2.5)];
 
@@ -136,6 +151,14 @@ class SceneKit extends Component<SceneKitProps> {
 		var sky = new SkyboxPass();
 		ashui.reactive.Owner.onCleanup(() -> sky.dispose());
 		var loading = props.loading;
+		if (props.selection != null) ashui.reactive.Owner.onCleanup(() -> props.selection.forgetRegions());
+		gizmos = props.selection != null || props.worldGizmo == true ? new SceneGizmos(camera, props.selection) : null;
+		if (gizmos != null) {
+			gizmos.world = props.worldGizmo == true;
+			gizmos.cameraControls = props.controls != false;
+			if (props.worldGizmoRight != null) gizmos.worldRight = props.worldGizmoRight;
+			if (props.worldGizmoTop != null) gizmos.worldTop = props.worldGizmoTop;
+		}
 		var canvas = new Canvas({
 			id: props.id,
 			animate: props.animate,
@@ -158,10 +181,14 @@ class SceneKit extends Component<SceneKitProps> {
 					grid.catchesShadows = sky.skybox == null || !sky.skybox.match(Grounded(_, _, _, _, _, _));
 					ctx.drawPass(grid);
 				}
+				if (props.selection != null) props.selection.begin();
 				if (props.draw != null)
 					props.draw(ctx);
+				if (props.selection != null) props.selection.end();
+				if (gizmos != null) gizmos.draw(ctx);
 			}
 		});
+		if (gizmos != null) gizmos.attach(canvas.node);
 		if (props.controls != false)
 			new OrbitInput(camera).attach(canvas.node);
 		return canvas;

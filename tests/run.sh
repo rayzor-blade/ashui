@@ -114,6 +114,10 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path ../components/haxe --class-path fixtures/render -main TableRowSpanPixels -hl bin/table-row-span-pixels.hl
 	run table-row-span-pixels.hl
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path ../canvaskit/haxe --class-path fixtures/render -main SceneGizmoPixels -hl bin/scene-gizmo-pixels.hl
+	run scene-gizmo-pixels.hl
 	;;
 window)
 	# hlwgpu's and hlwindow's libraries, built when missing or out of date.
