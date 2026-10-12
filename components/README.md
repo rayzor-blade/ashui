@@ -119,6 +119,31 @@ application CSS. Parts have `ui-` classes, such as `.ui-button` and
 interactive states use selectors such as `:hover`, `:checked` and
 `:focus-visible`.
 
+`Input`, `Textarea`, `Select`, `Combobox`, `InputOtp`, `Checkbox`,
+`RadioGroup`, `Slider` and `Badge` accept the shared `Size` enum: `Sm`,
+`Md` (default) and `Lg`. Sizes adjust typography, spacing and internal
+parts together, including dropdown options, checkbox marks and slider thumbs.
+Radio items inherit the group's size and can override it individually.
+
+```tsx
+import ashui.components.Input;
+import ashui.components.Select;
+import ashui.components.Slider;
+
+var field = <input size={Sm} placeholder="Search" />;
+var choice = <select size={Lg} value="design">
+    <select-item value="design">Design</select-item>
+</select>;
+var volume = <slider size={Md} label="Volume" value={0.5} />;
+```
+
+Input, select and combobox heights are 32/40/48 px; textarea defaults are
+88/120/152 px high, with explicit `width` and `height` supported. CSS overrides
+also update editable text's caret and wrapping geometry. Run FormsGallery
+with `SIZES=1` to compare all nine controls in either color scheme.
+The size gallery supplies a monospace font fallback for a native SF Mono
+rendering defect; the components themselves keep the theme's font token.
+
 `NumberInput` uses the shared `Size` enum. Medium is the default; large
 keeps its original 40 px design. The field and step buttons resize together:
 

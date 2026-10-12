@@ -1,11 +1,16 @@
 import ashui.components.Checkbox;
+import ashui.components.Badge;
+import ashui.components.Card;
+import ashui.components.Combobox;
 import ashui.components.Input;
+import ashui.components.InputOtp;
 import ashui.components.Label;
 import ashui.components.NumberInput;
 import ashui.components.Progress;
 import ashui.components.RadioGroup;
 import ashui.components.Select;
 import ashui.components.Slider;
+import ashui.components.Size;
 import ashui.components.Textarea;
 import ashui.components.ToggleSwitch;
 import ashui.core.render.Snapshot;
@@ -21,6 +26,31 @@ import ashui.types.Style;
 	sizes appear together (git-bug ffc482f).
 **/
 class FormsGallery {
+	/** All density variants, aligned in columns, using existing controls (git-bug e8a1b50). **/
+	static function sizes():ashui.layout.Element
+		return <div class="bg-background flex-col p-6 gap-6" width={1280} height={1120}>
+			<h2>Form controls · size variants</h2>
+			<div class="flex-row gap-6 items-start">
+				<for {size in [Size.Sm, Size.Md, Size.Lg]}>
+					<card width={392}>
+						<card-header><card-title>${size == Size.Sm ? "Small" : size == Size.Md ? "Medium · default" : "Large"}</card-title></card-header>
+						<card-content class="flex-col gap-4">
+							<div class="flex-col gap-2" height={72}><label>Name</label><input size={size} value="Alex Rivera" /></div>
+							<div class="flex-col gap-2" height={72}><label>Password</label><input size={size} type="password" value="ashui-demo" revealable={true} /></div>
+							<div class="flex-col gap-2" height={72}><label>Region</label><select size={size} value="eu"><select-item value="eu">Europe</select-item><select-item value="us">Americas</select-item></select></div>
+							<div class="flex-col gap-2" height={72}><label>Search</label><combobox size={size} value="design" options={[{value: "design", label: "Design"}, {value: "engineering", label: "Engineering"}]} /></div>
+							<div class="flex-col gap-2" height={176}><label>Notes</label><textarea size={size} value={Signal.make("The same controls, with typography and spacing that fit each size.")} /></div>
+							<div class="flex-col gap-2" height={80}><label>Verification code</label><input-otp size={size} length={4} separator={2} value="1234" /></div>
+							<div height={32} class="flex-row items-center"><checkbox size={size} checked={true}>Email updates</checkbox></div>
+							<div height={88}><radio-group size={size} value="standard"><radio-group-item value="standard">Standard</radio-group-item><radio-group-item value="priority">Priority</radio-group-item></radio-group></div>
+							<div height={64}><slider size={size} label="Volume" value={0.65} min={0} max={1} step={0.01} format={v -> Std.string(Math.round(v * 100)) + "%"} /></div>
+							<div height={40} class="flex-row items-center gap-2"><badge size={size} variant={Success}>Active</badge><badge size={size} variant={Secondary}>4 items</badge></div>
+						</card-content>
+					</card>
+				</for>
+			</div>
+		</div>;
+
 	static function main() {
 		var light = Sys.getEnv("SCHEME") == "light";
 		ThemeState.init(DefaultTheme.bundle(), light ? Light : Dark);
@@ -32,7 +62,12 @@ class FormsGallery {
 		var color = Signal.make("blue");
 		var fruit = Signal.make("");
 		var dim = Signal.make("medium");
-		var build = () ->
+		var sizing = Sys.getEnv("SIZES") == "1";
+		if (sizing)
+			// SF Mono's unhinted CFF outlines overflow the native atlas on macOS (git-bug c2cfa79).
+			// Keep the comparison readable using available TrueType monospace faces; component styles retain the theme token.
+			ashui.css.Css.load('.ui-input-otp-slot { font-family: Menlo, Consolas, "Liberation Mono", monospace; }');
+		var build = () -> sizing ? sizes() :
 			<div flexDirection={Column} padding={48} gap={48} width={1400} height={1500}>
 				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">
 					<h2>Form Inputs</h2>
@@ -116,7 +151,8 @@ class FormsGallery {
 					</div>
 				</div>
 			</div>;
-		Snapshot.scene(light ? "forms-light" : "forms", 1400, 1500, build, page.rgb(), page.a, 2.0, 0.5);
+		Snapshot.scene(sizing ? (light ? "form-sizes-light" : "form-sizes") : (light ? "forms-light" : "forms"),
+			sizing ? 1280 : 1400, sizing ? 1120 : 1500, build, page.rgb(), page.a, 2.0, 0.5);
 		for (p in ashui.css.Css.problems)
 			Sys.println("css: " + p);
 	}

@@ -116,6 +116,10 @@ render)
 	run table-row-span-pixels.hl
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path ../components/haxe --class-path fixtures/render -main ComponentSizePixels -hl bin/component-size-pixels.hl
+	run component-size-pixels.hl
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path ../canvaskit/haxe --class-path fixtures/render -main SceneGizmoPixels -hl bin/scene-gizmo-pixels.hl
 	run scene-gizmo-pixels.hl
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
