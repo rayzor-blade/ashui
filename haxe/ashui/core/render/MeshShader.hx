@@ -42,6 +42,7 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 		@:import ashui.shaders.MeshDraw;
 		@:import ashui.shaders.Pbr;
 		@:import ashui.shaders.ColorSpace;
+		@:import ashui.shaders.Selection;
 		@:import ashui.shaders.Shadows;
 
 		@input var input : { position : Vec3, normal : Vec3, uv : Vec2, tangent : Vec4 };
@@ -220,11 +221,7 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			// Subdue color and highlight contrast so editor gizmos remain clear over textured metal (8d44ccf).
 			// Apply after presentation: exposure and emissive materials cannot overpower the selection mask.
 			if (drawSelected(drawIndex) > 0.5 && glowPass < 0.5) {
-				var luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
-				var masked = vec3(0.10, 0.14, 0.20) + vec3(luminance * 0.20);
-				var rim = pow(1. - abs(dot(normalize(worldNormal), toEye)), 4.);
-				color = mix(masked, color, 0.06);
-				color = mix(color, vec3(0.74, 0.88, 1.), rim * 0.12);
+				color = selectionMask(color, worldNormal, toEye);
 			}
 			// For bloom's glow pass: the exposed light without tone mapping, so light brighter than white stays brighter.
 			if (glowPass > 0.5) {
