@@ -1,4 +1,5 @@
 import ashui.canvaskit.Geometry;
+import ashui.canvaskit.GizmoMode;
 import ashui.canvaskit.OrbitCamera;
 import ashui.canvaskit.SceneGizmos;
 import ashui.canvaskit.SceneKit;
@@ -18,7 +19,7 @@ import ashui.ui.Div;
 import ashui.ui.Ref;
 import gpu.GpuTextureViewDescriptor;
 
-/** Gizmo GPU and real pointer arbitration checks (git-bug c16e24c). **/
+/** Gizmo GPU and real pointer arbitration checks (git-bug c16e24c, 6a3a68b). **/
 class SceneGizmoPixels {
 	static function check(name:String, ok:Bool) {
 		if (!ok) throw name;
@@ -26,6 +27,7 @@ class SceneGizmoPixels {
 	}
 	static function same(a:Quat, b:Quat):Bool
 		return Math.abs(Math.abs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w) - 1) < 1e-5;
+	static function sameScale(a:Vec3, b:Vec3):Bool return a.distance(b) < 1e-5;
 
 	static function main() {
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Dark);
@@ -35,19 +37,23 @@ class SceneGizmoPixels {
 			var reference = new Ref<SceneKit>();
 			var camera = new OrbitCamera(0.55, 0.4, 6, Vec3.ZERO, 0.7);
 			var selection:Selection3D = null, rotation:Signal<Quat> = null;
+			var size:Signal<Vec3> = null, mode:Signal<GizmoMode> = null;
+			var rotatable = true, scalable = true;
 			var draws = 0, changes = 0, show = true;
 			var box = Geometry.box(1, 1, 1, new Material({baseColor: 0x999999, unlit: true}));
 			var root:Div = Owner.root(tree, stop -> {
 				dispose = stop;
 				selection = new Selection3D(); rotation = Signal.make(Quat.IDENTITY);
+				size = Signal.make(Vec3.ONE); mode = Signal.make(GizmoMode.Orbit);
 				var turn = (delta:Quat) -> {changes++; rotation.set(delta.mul(rotation.get()).normalize());};
+				var resize = (delta:Vec3) -> size.set(size.get().mul(delta));
 				return <div width={800} height={560}>
-					<scene-kit ref={reference} camera={camera} width={800} height={560} selection={selection} worldGizmo={true}
+					<scene-kit ref={reference} camera={camera} width={800} height={560} selection={selection} gizmoMode={mode} worldGizmo={true}
 						draw={ctx -> {
 							draws++;
 							if (show) {
-								var at = Mat4.rotation(rotation.get()); selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
-								selection.region("box", box.min, box.max, at, turn);
+								var at = Mat4.compose(Vec3.ZERO, rotation.get(), size.get()); selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
+								selection.region("box", box.min, box.max, at, rotatable ? turn : null, null, scalable ? resize : null);
 							}
 						}} />
 				</div>;
@@ -136,6 +142,68 @@ class SceneGizmoPixels {
 					&& camera.target.get().distance(Vec3.ZERO) < 1e-6 && camera.distance.get() == distance);
 				camera.reset(); render();
 			}
+			// Scale tools share the capture/FSM path, using the object's local axes (6a3a68b).
+			mode.set(GizmoMode.Scale); render();
+			for (axis in 0...4) {
+				size.set(Vec3.ONE); render(); var grip = handle(axis);
+				var dx = grip.x - 400, dy = grip.y - 280, length = Math.sqrt(dx * dx + dy * dy);
+				if (axis == 3) { dx = 0.7071; dy = -0.7071; } else { dx /= length; dy /= length; }
+				Pointer.move(tree, grip.x, grip.y); Pointer.press(tree);
+				Pointer.move(tree, grip.x + dx * 18, grip.y + dy * 18); render();
+				var now = size.get();
+				check('scale grip $axis changes only its local axis, or all axes uniformly, at ${scale}x',
+					(axis == 0 || axis == 3 ? now.x > 1.05 : Math.abs(now.x - 1) < 1e-6)
+					&& (axis == 1 || axis == 3 ? now.y > 1.05 : Math.abs(now.y - 1) < 1e-6)
+					&& (axis == 2 || axis == 3 ? now.z > 1.05 : Math.abs(now.z - 1) < 1e-6));
+				check('scale grip $axis preserves rotation and camera at ${scale}x', same(rotation.get(), initial)
+					&& camera.azimuth.get() == beforeA && camera.elevation.get() == beforeE && camera.distance.get() == distance);
+				Pointer.release(tree); render();
+				check('scale grip $axis commits and releases capture at ${scale}x', sameScale(now, size.get()) && Pointer.hooks.length == 0);
+			}
+			size.set(Vec3.ONE); render(); point = handle(3);
+			Pointer.move(tree, point.x, point.y); Pointer.press(tree); Pointer.move(tree, point.x + 20, point.y - 20); render();
+			Pointer.wheel(tree, 0, 50); render();
+			check('wheel cannot move the camera during scaling at ${scale}x', camera.distance.get() == distance);
+			Keyboard.input(tree, Input(Code(Escape), Named(Escape), null, Standard, Pressed, false, null)); render();
+			check('Escape restores scale and removes capture at ${scale}x', sameScale(size.get(), Vec3.ONE) && Pointer.hooks.length == 0);
+			Pointer.release(tree); render(); point = handle(3);
+			Pointer.move(tree, point.x, point.y); Pointer.press(tree); Pointer.move(tree, point.x + 20, point.y - 20); render();
+			mode.set(GizmoMode.Orbit); render();
+			check('switching to orbit cancels a scale drag at ${scale}x', sameScale(size.get(), Vec3.ONE) && Pointer.hooks.length == 0);
+			Pointer.release(tree); render(); point = handle(2);
+			Pointer.move(tree, point.x, point.y); Pointer.press(tree); Pointer.move(tree, point.x + 15, point.y + 15); render();
+			mode.set(GizmoMode.Scale); render();
+			check('switching to scale cancels a rotation drag at ${scale}x', same(rotation.get(), initial) && Pointer.hooks.length == 0);
+			Pointer.release(tree); render(); point = handle(3);
+			Pointer.move(tree, point.x, point.y); Pointer.press(tree); Pointer.move(tree, point.x + 20, point.y - 20); render();
+			selection.clear(); render();
+			check('selection change cancels a scale drag at ${scale}x', sameScale(size.get(), Vec3.ONE) && Pointer.hooks.length == 0);
+			Pointer.release(tree); selection.select("box"); render(); point = handle(3);
+			Pointer.move(tree, point.x, point.y); Pointer.press(tree); Pointer.move(tree, point.x - 2000, point.y + 2000); render();
+			check('scale drag remains positive when pulled through the pivot at ${scale}x', Math.abs(size.get().x - 0.05) < 1e-6 && sameScale(size.get(), new Vec3(0.05, 0.05, 0.05)));
+			Pointer.move(tree, point.x + 2000, point.y - 2000); render();
+			check('large scale drag is bounded and finite at ${scale}x', Math.abs(size.get().x - 20) < 1e-5 && Math.isFinite(size.get().x + size.get().y + size.get().z));
+			Keyboard.input(tree, Input(Code(Escape), Named(Escape), null, Standard, Pressed, false, null)); Pointer.release(tree); render();
+			rotation.set(Quat.IDENTITY); camera.azimuth.set(0); camera.elevation.set(0); render(); point = handle(2);
+			Pointer.move(tree, point.x, point.y); Pointer.press(tree); Pointer.move(tree, point.x + 18, point.y + 18); render();
+			check('end-on local axis remains reachable and scales without NaNs at ${scale}x', size.get().z > 1.05 && size.get().x == 1 && size.get().y == 1 && Math.isFinite(size.get().z));
+			Keyboard.input(tree, Input(Code(Escape), Named(Escape), null, Standard, Pressed, false, null)); Pointer.release(tree);
+			rotation.set(initial); camera.reset(); render(); point = handle(3);
+			Pointer.move(tree, point.x, point.y); Pointer.press(tree); Pointer.move(tree, point.x + 18, point.y - 18); render(); var normalScale = size.get();
+			Keyboard.input(tree, Input(Code(Escape), Named(Escape), null, Standard, Pressed, false, null)); Pointer.release(tree); render();
+			kit.node.set(ashui.layout.Prop.Transform, ashui.types.Transform.scaling(0.75)); render();
+			Pointer.move(tree, 400 + (point.x - 400) * 0.75, 280 + (point.y - 280) * 0.75); Pointer.press(tree);
+			Pointer.move(tree, 400 + (point.x + 18 - 400) * 0.75, 280 + (point.y - 18 - 280) * 0.75); render();
+			check('CSS scale preserves captured object scaling in canvas coordinates at ${scale}x', sameScale(normalScale, size.get()));
+			Keyboard.input(tree, Input(Code(Escape), Named(Escape), null, Standard, Pressed, false, null)); Pointer.release(tree);
+			kit.node.set(ashui.layout.Prop.Transform, ashui.types.Transform.identity()); render();
+			rotatable = false; mode.set(GizmoMode.Orbit); render();
+			check('orbit tool skips an object without a rotation handler at ${scale}x', kit.gizmos.hit(400, 280) == -1);
+			mode.set(GizmoMode.Scale); render();
+			check('scale-only objects still have scale handles at ${scale}x', kit.gizmos.hit(400, 280) == 3);
+			scalable = false; mode.set(GizmoMode.Orbit); render(); mode.set(GizmoMode.Scale); render();
+			check('scale tool skips an object without a scale handler at ${scale}x', kit.gizmos.hit(400, 280) == -1);
+			rotatable = true; scalable = true; mode.set(GizmoMode.Orbit); render();
 			// Inverse transformed bounds choose the nearest object, even with nonuniform scale.
 			selection.region("far", box.min, box.max, Mat4.translation(new Vec3(0, 0, -3)));
 			selection.region("near", box.min, box.max, Mat4.compose(new Vec3(0, 0, 2), Quat.euler(0.2, 0.4, 0), new Vec3(0.4, 2, 1)));

@@ -91,8 +91,11 @@ typedef SceneKitProps = {
 	/** Whether dragging and scrolling move the camera; true by default. **/
 	?controls:Bool,
 
-	/** Bounds registered in `draw`; `selection.draw` adds a mask and edges, rotation handlers add rings. c16e24c, 8ceba8d. **/
+	/** Bounds registered in `draw`; `selection.draw` adds a mask and edges, transform handlers add gizmos. c16e24c, 8ceba8d, 6a3a68b. **/
 	?selection:Selection3D,
+
+	/** Selected-object tool; Orbit by default. Accepts a signal or computed. git-bug 6a3a68b. **/
+	?gizmoMode:IntoReactive<GizmoMode>,
 
 	/** Show a world orientation widget in the top-right corner. Click an axis to look along it. **/
 	?worldGizmo:Bool,
@@ -152,7 +155,7 @@ class SceneKit extends Component<SceneKitProps> {
 		ashui.reactive.Owner.onCleanup(() -> sky.dispose());
 		var loading = props.loading;
 		if (props.selection != null) ashui.reactive.Owner.onCleanup(() -> props.selection.forgetRegions());
-		gizmos = props.selection != null || props.worldGizmo == true ? new SceneGizmos(camera, props.selection) : null;
+		gizmos = props.selection != null || props.worldGizmo == true ? new SceneGizmos(camera, props.selection, props.gizmoMode) : null;
 		if (gizmos != null) {
 			gizmos.world = props.worldGizmo == true;
 			gizmos.cameraControls = props.controls != false;

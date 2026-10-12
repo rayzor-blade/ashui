@@ -11,6 +11,7 @@ import ashui.canvaskit.Gltf;
 import ashui.canvaskit.GltfAnimation;
 import ashui.canvaskit.GltfPose;
 import ashui.canvaskit.GroundGrid;
+import ashui.canvaskit.GizmoMode;
 import ashui.canvaskit.OrbitCamera;
 import ashui.canvaskit.SceneKit;
 import ashui.canvaskit.Selection3D;
@@ -23,6 +24,8 @@ import ashui.components.Select;
 import ashui.components.Slider;
 import ashui.components.Spinner;
 import ashui.components.ToggleSwitch;
+import ashui.components.Toggle.ToggleGroup;
+import ashui.components.Toggle.ToggleGroupItem;
 import ashui.draw3d.Light;
 import ashui.layout.Element;
 import ashui.math.Vec3;
@@ -247,10 +250,14 @@ class Studio3D {
 		});
 
 		var camera = new OrbitCamera(0.4, 0.15, 3, null, 0.7);
-		// Object rotation and corner camera controls share SceneKit's input path (c16e24c).
+		// Object rotation/scaling and corner camera controls share SceneKit's input path (c16e24c, 6a3a68b).
 		var selection = new Selection3D();
 		var objectRotation = Signal.make(ashui.math.Quat.IDENTITY);
+		var objectScale = Signal.make(Vec3.ONE);
+		var objectTool = Signal.make(["orbit"]);
+		var objectMode = Computed.make(() -> objectTool.get()[0] == "scale" ? GizmoMode.Scale : GizmoMode.Orbit);
 		var rotateObject = (delta:ashui.math.Quat) -> objectRotation.set(delta.mul(objectRotation.get()).normalize());
+		var scaleObject = (delta:Vec3) -> objectScale.set(objectScale.get().mul(delta));
 		// The drone's heading the chase camera last turned to, where it last put the camera's target,
 		// and that target's offset from the drone in the drone's own frame: right, up, ahead. A pan moves the offset.
 		var chased = 0.0;
@@ -262,6 +269,7 @@ class Studio3D {
 		new Watch(() -> model.get(), m -> if (m != null) {
 			selection.clear();
 			objectRotation.set(ashui.math.Quat.IDENTITY);
+			objectScale.set(Vec3.ONE);
 			// A panorama looks like a sky through a wide lens; through a narrow one its picture is magnified past its resolution.
 			camera.fovY.set(example.get().panorama != null ? 1.2 : 0.7);
 			// In flight the camera starts behind the drone, a little to its right, looking the way it goes.
@@ -480,9 +488,10 @@ class Studio3D {
 			} else {
 				var pivot = m.min.lerp(m.max, 0.5);
 				var placed = ashui.math.Mat4.translation(pivot).mul(ashui.math.Mat4.rotation(objectRotation.get()))
+					.mul(ashui.math.Mat4.scaling(objectScale.get()))
 					.mul(ashui.math.Mat4.translation(pivot.negate()));
 				selection.draw("model", ctx, () -> l.pose.draw(ctx, placed, transformOn.get() ? null : plain));
-				selection.region("model", m.min, m.max, placed, rotateObject, pivot);
+				selection.region("model", m.min, m.max, placed, rotateObject, pivot, scaleObject);
 			}
 		}
 
@@ -503,7 +512,7 @@ class Studio3D {
 			// The select reads its options from its own children, so they are made here and spliced in.
 			var choices:Array<Element> = [for (e in examples) <select-item value={e.id}>${e.title}</select-item>];
 			return <div class="w-full h-full">
-			<scene-kit selection={selection} worldGizmo={true} worldGizmoRight={332} widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} vignette={vignette} grain={grain} aberration={aberration} antialias={antialias} motionBlur={motionBlur} grade={Computed.make(() -> gradeStrength.get() > 0 ? ashui.draw3d.ColorGrade.NIGHT.at(gradeStrength.get()) : null)} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
+			<scene-kit selection={selection} gizmoMode={objectMode} worldGizmo={true} worldGizmoRight={332} widthPercent={1} heightPercent={1} loading={loading} fps={fps} lens={lens} vignette={vignette} grain={grain} aberration={aberration} antialias={antialias} motionBlur={motionBlur} grade={Computed.make(() -> gradeStrength.get() > 0 ? ashui.draw3d.ColorGrade.NIGHT.at(gradeStrength.get()) : null)} bloom={Computed.make(() -> new ashui.draw3d.Bloom(bloomStrength.get(), bloomThreshold.get()))} fog={Computed.make(() -> example.get().fog)} shadowReach={Computed.make(() -> example.get().shadowReach != null ? (example.get().shadowReach : Float) : 0.0)} camera={camera} lights={rig} exposure={exposure} environment={sky} environmentIntensity={skyLight} shadows={shadows} shadowStrength={shadowStrength} grid={Computed.make(() -> showGrid.get() && model.get() != null ? current.get().floor : null)} skybox={skybox} draw={draw} />
 			<if {loading.get() || model.get() == null}>
 				<div class="w-full h-full" position={Absolute} left={0} top={0} flexDirection={Column} alignItems={Center} justifyContent={Justify.Center}>
 					<div class="flex flex-col items-center gap-3 px-5 py-4 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md">
@@ -518,6 +527,10 @@ class Studio3D {
 			<div class="flex flex-col gap-4 p-5 rounded-xl border border-white/10 bg-surface/70 backdrop-blur-md" position={Absolute} top={16} right={16} bottom={16} width={300}>
 				<card-header><card-title>Studio</card-title><card-description>Drag to turn, Shift-drag to move, scroll to zoom</card-description></card-header>
 				<select value={chosen} widthPercent={1}>{choices}</select>
+				<toggle-group value={objectTool} variant={Outline} widthPercent={1}>
+					<toggle-group-item value="orbit" flexGrow={1}>Orbit</toggle-group-item>
+					<toggle-group-item value="scale" flexGrow={1}>Scale</toggle-group-item>
+				</toggle-group>
 				<scroll-area flexGrow={1} flexBasis={0} minHeight={0}>
 					<accordion type="multiple" value={[]}>
 						<accordion-item value="animation">

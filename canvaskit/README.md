@@ -87,10 +87,12 @@ to control or share camera state; `controls={false}` disables camera input.
 
 ### Selection and gizmos
 
-Pass `Selection3D` to show rotation rings for a selected object, and
-`worldGizmo={true}` for the world axes in the top-right corner:
+Pass `Selection3D` for selected-object tools and `worldGizmo={true}` for
+the world axes in the top-right corner. `gizmoMode` accepts `GizmoMode.Orbit`
+(the default) or `GizmoMode.Scale`, including signals and computed values:
 
 ```tsx
+import ashui.canvaskit.GizmoMode;
 import ashui.canvaskit.Selection3D;
 import ashui.math.Mat4;
 import ashui.math.Quat;
@@ -99,34 +101,42 @@ import ashui.reactive.Reactive;
 
 var selection = new Selection3D();
 var rotation = signal(Quat.IDENTITY);
+var scale = signal(Vec3.ONE);
+var mode = signal(GizmoMode.Orbit);
 var rotate = (delta:Quat) -> rotation.set(delta.mul(rotation.get()).normalize());
-return <scene-kit selection={selection} worldGizmo={true}
+var resize = (delta:Vec3) -> scale.set(scale.get().mul(delta));
+return <scene-kit selection={selection} gizmoMode={mode} worldGizmo={true}
     width={640} height={480} draw={ctx -> {
-        var at = Mat4.compose(Vec3.ZERO, rotation.get(), Vec3.ONE);
+        var at = Mat4.compose(Vec3.ZERO, rotation.get(), scale.get());
         selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
-        selection.region("box", box.min, box.max, at, rotate);
+        selection.region("box", box.min, box.max, at, rotate, null, resize);
     }} />;
 ```
 
 Click an object's registered bounds to select it; an empty click clears
-selection. Drag red **X**, green **Y** or blue **Z** rings to rotate about
-world axes. The outside ring rotates in the view plane. **Escape** cancels
-the rotation. Clicking a positive or negative world axis sets the camera's
-view, keeping its target and distance. Dragging elsewhere still orbits or
-pans the camera.
+selection. In **Orbit** mode, drag red **X**, green **Y** or blue **Z** rings
+to rotate about world axes; the outside ring rotates in the view plane.
+Set `mode.set(GizmoMode.Scale)` to show local-axis scale grips. Drag an axis
+to stretch it, or the center grip up and right to scale uniformly.
+**Escape**, losing focus or changing selection or mode cancels a drag and
+restores its transform. Clicking a positive or negative world axis sets
+the camera's view, keeping its target and distance. Dragging elsewhere
+still orbits or pans the camera.
 
 Register bounds through the same transform used to draw the object. Picking
 uses oriented bounds, rather than individual triangles. The rotation callback
 receives a quaternion delta in world space; the application keeps its own
-transform state. Supply a final `pivot` argument to `region()` for a world
-pivot other than the object's origin. Register only visible objects; bounds
-are refreshed when the scene draws. With no rotation callback an object is
-selectable without rotation rings.
+transform state. The scale callback receives positive multipliers for local
+X/Y/Z, so scaling preserves the object's rotation. The optional `pivot`
+argument to `region()` sets a world pivot other than the object's origin;
+`onScale` follows it. Register only visible objects; bounds are refreshed
+when the scene draws. Omit either callback to keep the object selectable
+without handles for that tool.
 
 Wrap the object's mesh or model draws in `selection.draw(id, ctx, draw)`
 to give the selected object a subtle mask, a soft rim and highlighted
 silhouette and crease edges. Textures and lighting stay visible, edges use
-the scene's depth, and the rings draw above them. Geometry is cached while
+the scene's depth, and the gizmos draw above them. Geometry is cached while
 selected and freed on deselection. Cutout and blended materials keep the
 surface treatment without geometry edge lines. Custom shaders inherit the
 mask and rim when they use `MeshShader.fragment`; their vertex deformation

@@ -16,7 +16,8 @@ typedef SceneRegion = {
 	inverse:Null<Mat4>,
 	pivot:Vec3,
 	frame:Int,
-	?onRotate:Quat->Void
+	?onRotate:Quat->Void,
+	?onScale:Vec3->Void
 }
 
 /**
@@ -91,18 +92,20 @@ class Selection3D {
 		`onRotate` receives a world rotation delta; compose it before the
 		object's rotation. `pivot` is in world coordinates, the transform's
 		origin by default. Omit the handler for selection without rotation.
+		`onScale` receives positive local X/Y/Z multipliers; multiply them
+		into the object's scale. A uniform drag changes all three (6a3a68b).
 	**/
-	public function region(object:String, min:Vec3, max:Vec3, ?transform:Mat4, ?onRotate:Quat->Void, ?pivot:Vec3):Void {
+	public function region(object:String, min:Vec3, max:Vec3, ?transform:Mat4, ?onRotate:Quat->Void, ?pivot:Vec3, ?onScale:Vec3->Void):Void {
 		var at = transform != null ? transform : Mat4.IDENTITY;
 		var r = regions.get(object);
 		if (r == null) {
 			regions.set(object, {id: object, min: min, max: max, transform: at, inverse: at.inverse(),
-				pivot: pivot != null ? pivot : at.position(), onRotate: onRotate, frame: frame});
+				pivot: pivot != null ? pivot : at.position(), onRotate: onRotate, onScale: onScale, frame: frame});
 		} else {
 			var changed = false;
 			if (at != r.transform) for (i in 0...16) if (at.m[i] != r.transform.m[i]) { changed = true; break; }
 			if (changed) { r.transform = at; r.inverse = at.inverse(); }
-			r.min = min; r.max = max; r.pivot = pivot != null ? pivot : at.position(); r.onRotate = onRotate; r.frame = frame;
+			r.min = min; r.max = max; r.pivot = pivot != null ? pivot : at.position(); r.onRotate = onRotate; r.onScale = onScale; r.frame = frame;
 		}
 	}
 

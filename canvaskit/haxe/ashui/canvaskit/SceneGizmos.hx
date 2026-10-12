@@ -9,10 +9,13 @@ import ashui.draw3d.Camera;
 import ashui.input.Interaction;
 import ashui.input.Pointer;
 import ashui.layout.LayoutTree;
+import ashui.layout.IntoReactive;
 import ashui.math.Quat;
 import ashui.math.Mat4;
 import ashui.math.Vec3;
 import ashui.reactive.Owner;
+import ashui.reactive.Signal;
+import ashui.reactive.Watch;
 import ashui.state.Machine;
 import ashui.types.Brush;
 
@@ -20,17 +23,23 @@ private typedef Point = {x:Float, y:Float};
 private typedef Segment = {a:Point, b:Point, handle:Int, front:Bool, vector:Vec3};
 private typedef Arm = {x:Float, y:Float, depth:Float, handle:Int};
 private typedef RingBounds = {left:Float, top:Float, right:Float, bottom:Float};
-private typedef Drag = {
+private typedef RotationDrag = {
 	region:SceneRegion, axis:Vec3, pivot:Vec3, camera:Camera, width:Float, height:Float,
 	center:Point, last:Point, vector:Null<Vec3>, angle:Float, total:Float,
 	map:Affine, rotate:Quat->Void
 };
+private typedef ScalingDrag = {
+	region:SceneRegion, map:Affine, last:Point, start:Point, direction:Point,
+	handle:Int, total:Float, span:Float, size:Float, axes:Array<Vec3>, scale:Vec3->Void
+};
+private enum Drag { Rotation(data:RotationDrag); Resizing(data:ScalingDrag); }
+private typedef ScaleTip = {point:Point, handle:Int};
 
-private enum Phase { Idle; Hover(handle:Int); Rotating(handle:Int); }
+private enum Phase { Idle; Hover(handle:Int); Dragging(handle:Int); }
 private enum Action { PointAt(handle:Int); Grab(handle:Int); Finish; }
 
 /**
-	SceneKit's rotation rings and world orientation widget (c16e24c).
+	SceneKit's rotation/scale tools and world orientation widget (c16e24c, 6a3a68b).
 	Paths are projected once when the reactive canvas records a changed
 	scene, then reused for picking. Only a captured drag installs a pointer
 	hook; there is no timer or frame loop while idle.
@@ -40,6 +49,7 @@ class SceneGizmos {
 	static final colors = [0xf16c78, 0x8bd45c, 0x6aa9ff];
 	static final brushes = [for (color in colors) Brush.solid(color)];
 	static final white = Brush.solid(0xffffff);
+	static final uniform = Brush.solid(0xdde9f5);
 	static final dark = Brush.solid(0x111827, 0.8);
 	static final worldBackground = Brush.solid(0x111827, 0.32);
 	static final names = ["X", "Y", "Z"];
@@ -56,6 +66,8 @@ class SceneGizmos {
 
 	public final camera:OrbitCamera;
 	public final selection:Null<Selection3D>;
+	/** Reactive tool choice; changing it cancels any captured object transform. **/
+	public final mode:Signal<GizmoMode>;
 	public var world = false;
 	/** False when SceneKit's camera controls are disabled; the world widget remains visible. **/
 	public var cameraControls = true;
@@ -66,12 +78,16 @@ class SceneGizmos {
 	public var maxRadius = 180.0;
 
 	final phase = new Machine<Phase, Action>(Idle, (state, event) -> switch [state, event] {
-		case [Rotating(_), PointAt(_)]: null;
+		case [Dragging(_), PointAt(_)]: null;
 		case [_, PointAt(handle)]: handle < 0 ? Idle : Hover(handle);
-		case [_, Grab(handle)]: Rotating(handle);
+		case [_, Grab(handle)]: Dragging(handle);
 		case [_, Finish]: Idle;
 	});
 	var segments:Array<Segment> = [];
+	var scaleTips:Array<ScaleTip> = [];
+	var scaleSize = 0.0;
+	var scaleAxes:Array<Vec3> = [];
+	var drawnMode = GizmoMode.Orbit;
 	var ringBounds:Null<RingBounds>;
 	var arms:Array<Arm> = [];
 	var worldCenter:Point = {x: 0, y: 0};
@@ -85,20 +101,32 @@ class SceneGizmos {
 	var suppressClick = false;
 	var down:Point = {x: 0, y: 0};
 
-	public function new(camera:OrbitCamera, ?selection:Selection3D) {
+	public function new(camera:OrbitCamera, ?selection:Selection3D, ?mode:IntoReactive<GizmoMode>) {
 		this.camera = camera;
 		this.selection = selection;
+		this.mode = switch mode {
+			case null: Signal.make(GizmoMode.Orbit);
+			case Const(v): Signal.make(v);
+			case Bound(s): s;
+			case Derived(c):
+				var s = Signal.make(c.get());
+				new Watch(() -> c.get(), v -> s.set(v)); s;
+		};
 	}
 
 	/** Draw after the meshes: clear editor lines above the lit/post-processed image. **/
 	public function draw(ctx:DrawContext):Void {
 		width = ctx.width; height = ctx.height; viewed = ctx.currentScene().camera;
 		view = viewed.view(); focal = height / (2 * Math.tan(viewed.fovY / 2));
-		segments = []; arms = []; ringBounds = null;
-		var active = switch phase.state.get() { case Hover(h), Rotating(h): h; case Idle: -1; };
+		segments = []; scaleTips = []; arms = []; ringBounds = null;
+		drawnMode = mode.get();
+		var active = switch phase.state.get() { case Hover(h), Dragging(h): h; case Idle: -1; };
 		ctx.pushClipRect(0, 0, width, height);
 		var selected = selection != null ? selection.selected() : null;
-		if (selected != null && selected.onRotate != null) drawRings(ctx, selected, active);
+		if (selected != null) {
+			if (drawnMode == GizmoMode.Orbit && selected.onRotate != null) drawRings(ctx, selected, active);
+			if (drawnMode == GizmoMode.Scale && selected.onScale != null) drawScale(ctx, selected, active);
+		}
 		if (world) drawWorld(ctx, active);
 		ctx.popClip();
 	}
@@ -108,14 +136,7 @@ class SceneGizmos {
 		if (center == null) return;
 		var forward = viewed.target.sub(viewed.eye).normalize();
 		var depth = r.pivot.sub(viewed.eye).dot(forward);
-		var extent = 0.0;
-		for (x in [r.min.x, r.max.x]) for (y in [r.min.y, r.max.y]) for (z in [r.min.z, r.max.z]) {
-			var corner = r.transform.transformPoint(new Vec3(x, y, z));
-			extent = Math.max(extent, corner.distance(r.pivot));
-		}
-		// A bounding sphere keeps the rings stable as the selected object rotates.
-		var radius = Math.min(maxRadius, Math.max(minRadius, extent * focal / depth * 1.12));
-		var size = radius * 2 * depth * Math.tan(viewed.fovY / 2) / height;
+		var size = objectSize(r), radius = size * focal / depth;
 		var fronts:Array<Path> = [], backs:Array<Path> = [];
 		for (axis in 0...3) {
 			var front = new Path(), back = new Path();
@@ -158,6 +179,49 @@ class SceneGizmos {
 			ringBounds.left = Math.min(ringBounds.left, s.a.x - 7); ringBounds.top = Math.min(ringBounds.top, s.a.y - 7);
 			ringBounds.right = Math.max(ringBounds.right, s.a.x + 7); ringBounds.bottom = Math.max(ringBounds.bottom, s.a.y + 7);
 		}
+	}
+
+	/** A bounding sphere keeps editor handles stable as the object turns. **/
+	function objectSize(r:SceneRegion):Float {
+		var depth = r.pivot.sub(viewed.eye).dot(viewed.target.sub(viewed.eye).normalize()), extent = 0.0;
+		for (x in [r.min.x, r.max.x]) for (y in [r.min.y, r.max.y]) for (z in [r.min.z, r.max.z])
+			extent = Math.max(extent, r.transform.transformPoint(new Vec3(x, y, z)).distance(r.pivot));
+		return Math.min(maxRadius, Math.max(minRadius, extent * focal / depth * 1.12)) * depth / focal;
+	}
+
+	/** Local axes end in square grips; the center grip scales all axes together. 6a3a68b. **/
+	function drawScale(ctx:DrawContext, r:SceneRegion, active:Int):Void {
+		var center = projectPoint(r.pivot);
+		if (center == null) return;
+		var resize = switch drag { case Resizing(d) if (d.region.id == r.id): d; case _: null; };
+		scaleSize = resize != null ? resize.size : objectSize(r);
+		scaleAxes = resize != null ? resize.axes : [for (axis in axes) r.transform.transformDirection(axis).normalize()];
+		ringBounds = {left: center.x - 12, top: center.y - 12, right: center.x + 12, bottom: center.y + 12};
+		for (axis in 0...3) {
+			var factor = resize != null && (resize.handle == axis || resize.handle == 3) ? resize.total : 1.0;
+			var end = projectPoint(r.pivot.add(scaleAxes[axis].scale(scaleSize * factor)));
+			if (end == null) continue;
+			var dx = end.x - center.x, dy = end.y - center.y, length = Math.sqrt(dx * dx + dy * dy);
+			// An axis viewed end-on still needs its own reachable grip, separate from the center.
+			if (length < 28) {
+				var ex = length > 1 ? dx / length : (axis == 1 ? -0.7071 : 0.7071);
+				var ey = length > 1 ? dy / length : (axis == 2 ? 0.7071 : -0.7071);
+				end = {x: center.x + ex * 36, y: center.y + ey * 36};
+			}
+			var color = active == axis ? white : brushes[axis];
+			ctx.line(center.x, center.y, end.x, end.y, halo, dark);
+			ctx.line(center.x, center.y, end.x, end.y, active == axis ? thick : thin, color);
+			ctx.fillRect(end.x - 6, end.y - 6, 12, 12, dark, 2);
+			ctx.fillRect(end.x - 4.5, end.y - 4.5, 9, 9, color, 1);
+			ctx.text(names[axis], end.x + 13, end.y, color, labelStyle);
+			scaleTips.push({point: end, handle: axis});
+			segments.push({a: center, b: end, handle: axis, front: true, vector: scaleAxes[axis]});
+			ringBounds.left = Math.min(ringBounds.left, end.x - 12); ringBounds.top = Math.min(ringBounds.top, end.y - 12);
+			ringBounds.right = Math.max(ringBounds.right, end.x + 12); ringBounds.bottom = Math.max(ringBounds.bottom, end.y + 12);
+		}
+		ctx.fillRect(center.x - 7, center.y - 7, 14, 14, dark, 2);
+		ctx.fillRect(center.x - 5, center.y - 5, 10, 10, active == 3 ? white : uniform, 1);
+		scaleTips.push({point: center, handle: 3});
 	}
 
 	function drawWorld(ctx:DrawContext, active:Int):Void {
@@ -204,6 +268,17 @@ class SceneGizmos {
 		}
 		if (handle >= 0) return handle;
 		if (ringBounds == null || x < ringBounds.left || y < ringBounds.top || x > ringBounds.right || y > ringBounds.bottom) return -1;
+		if (drawnMode == GizmoMode.Scale) {
+			// Test grips before shafts; the uniform center wins where all shafts meet.
+			for (tip in scaleTips) if (tip.handle == 3) {
+				var dx = tip.point.x - x, dy = tip.point.y - y;
+				if (dx * dx + dy * dy < 100) return 3;
+			}
+			for (tip in scaleTips) {
+				var dx = tip.point.x - x, dy = tip.point.y - y;
+				if (dx * dx + dy * dy < 100) return tip.handle;
+			}
+		}
 		nearest = 7;
 		for (s in segments) {
 			var d = lineDistance(x, y, s.a, s.b);
@@ -231,33 +306,46 @@ class SceneGizmos {
 				return;
 			}
 			var r = selection != null ? selection.selected() : null;
-			if (handle < 0 || r == null || r.onRotate == null) return;
+			if (handle < 0 || r == null) return;
 			var center = projectPoint(r.pivot);
 			if (center == null) return;
-			var axis = handle == 3 ? viewed.eye.sub(viewed.target).normalize() : axes[handle];
-			var vector = planeVector(viewed, p.localX, p.localY, width, height, r.pivot, axis);
-			if (vector == null || Math.abs(axis.dot(viewed.eye.sub(viewed.target).normalize())) < 0.15) {
-				var nearest = Math.POSITIVE_INFINITY;
-				for (s in segments) if (s.handle == handle) {
-					var distance = lineDistance(p.localX, p.localY, s.a, s.b);
-					if (distance < nearest) { nearest = distance; vector = s.vector; }
+			var map = pointerMap(node, p.x, p.y, p.localX, p.localY);
+			if (drawnMode == GizmoMode.Scale) {
+				if (r.onScale == null) return;
+				var direction:Point = {x: 0.7071, y: -0.7071}, span = minRadius;
+				for (tip in scaleTips) if (tip.handle == handle && handle != 3) {
+					span = distance(center, tip.point);
+					direction = {x: (tip.point.x - center.x) / span, y: (tip.point.y - center.y) / span};
 				}
+				drag = Resizing({region: r, map: map, start: down, last: down, direction: direction, handle: handle,
+					total: 1, span: Math.max(32, span), size: scaleSize, axes: scaleAxes, scale: r.onScale});
+			} else {
+				if (r.onRotate == null) return;
+				var axis = handle == 3 ? viewed.eye.sub(viewed.target).normalize() : axes[handle];
+				var vector = planeVector(viewed, p.localX, p.localY, width, height, r.pivot, axis);
+				if (vector == null || Math.abs(axis.dot(viewed.eye.sub(viewed.target).normalize())) < 0.15) {
+					var nearest = Math.POSITIVE_INFINITY;
+					for (s in segments) if (s.handle == handle) {
+						var distance = lineDistance(p.localX, p.localY, s.a, s.b);
+						if (distance < nearest) { nearest = distance; vector = s.vector; }
+					}
+				}
+				drag = Rotation({region: r, axis: axis, pivot: r.pivot, camera: viewed, width: width, height: height, center: center,
+					last: down, vector: vector, angle: Math.atan2(center.y - p.localY, p.localX - center.x), total: 0, map: map, rotate: r.onRotate});
 			}
-			drag = {region: r, axis: axis, pivot: r.pivot, camera: viewed, width: width, height: height, center: center,
-				last: down, vector: vector,
-				angle: Math.atan2(center.y - p.localY, p.localX - center.x), total: 0,
-				map: pointerMap(node, p.x, p.y, p.localX, p.localY), rotate: r.onRotate};
 			phase.send(Grab(handle));
 			suppressClick = true;
 			p.preventDefault();
 			var tree = node.tree;
 			hook = t -> if (t == tree && drag != null) {
 				var at = Pointer.at(tree);
-				if (!at.pressed || !at.inside || selection == null || selection.id.get() != drag.region.id) {
-					finish(!at.inside || selection == null || selection.id.get() != drag.region.id);
+				var captured = capture();
+				if (captured == null) return;
+				if (!at.pressed || !at.inside || selection == null || selection.id.get() != captured.region.id) {
+					finish(!at.inside || selection == null || selection.id.get() != captured.region.id);
 					return;
 				}
-				move(drag.map.x(at.x, at.y), drag.map.y(at.x, at.y));
+				move(captured.map.x(at.x, at.y), captured.map.y(at.x, at.y));
 			};
 			Pointer.hooks.push(hook);
 		});
@@ -269,25 +357,47 @@ class SceneGizmos {
 		input.onWheel(p -> if (drag != null) p.preventDefault());
 		input.onKeyDown(p -> if (p.key.match(Named(Escape)) && drag != null) { finish(true); p.preventDefault(); });
 		input.onBlur(_ -> if (drag != null) finish(true));
-		if (selection != null) new ashui.reactive.Watch(() -> selection.id.get(), id -> {
-			if (drag != null && drag.region.id != id) finish(true);
+		if (selection != null) new Watch(() -> selection.id.get(), id -> {
+			var captured = capture();
+			if (captured != null && captured.region.id != id) finish(true);
 		});
-		Owner.onCleanup(() -> { finish(false); phase.dispose(); segments = []; arms = []; });
+		new Watch(() -> mode.get(), next -> {
+			switch drag {
+				case Rotation(_) if (next != GizmoMode.Orbit): finish(true);
+				case Resizing(_) if (next != GizmoMode.Scale): finish(true);
+				case _:
+			}
+			if (next != drawnMode) { finish(true); segments = []; scaleTips = []; ringBounds = null; }
+		});
+		Owner.onCleanup(() -> { finish(false); phase.dispose(); segments = []; scaleTips = []; arms = []; });
 	}
 
 	function hover(handle:Int):Void {
 		switch phase.state.get() {
 			case Idle if (handle < 0): return;
 			case Hover(now) if (now == handle): return;
-			case Rotating(_): return;
+			case Dragging(_): return;
 			case _:
 		}
 		phase.send(PointAt(handle));
 	}
 
 	function move(x:Float, y:Float):Void {
-		var d = drag;
-		if (d == null || (x == d.last.x && y == d.last.y)) return;
+		switch drag {
+			case Rotation(d): if (x != d.last.x || y != d.last.y) moveRotation(d, x, y);
+			case Resizing(d):
+				if (x == d.last.x && y == d.last.y) return;
+				var target = Math.max(0.05, Math.min(20, 1 + ((x - d.start.x) * d.direction.x + (y - d.start.y) * d.direction.y) / d.span));
+				d.last = {x: x, y: y};
+				if (Math.isFinite(target) && Math.abs(target - d.total) > 1e-8) {
+					var delta = target / d.total; d.total = target;
+					d.scale(scaleFactors(d.handle, delta));
+				}
+			case null:
+		}
+	}
+
+	function moveRotation(d:RotationDrag, x:Float, y:Float):Void {
 		var vector = planeVector(d.camera, x, y, d.width, d.height, d.pivot, d.axis);
 		var angle = Math.atan2(d.center.y - y, x - d.center.x), delta:Float;
 		if (Math.abs(d.axis.dot(d.camera.eye.sub(d.camera.target).normalize())) < 0.15) {
@@ -336,9 +446,19 @@ class SceneGizmos {
 		if (hook != null) Pointer.hooks.remove(hook);
 		hook = null;
 		var d = drag; drag = null;
-		if (cancel && d != null && d.total != 0) d.rotate(Quat.axisAngle(d.axis, -d.total));
+		if (cancel) switch d {
+			case Rotation(d): if (d.total != 0) d.rotate(Quat.axisAngle(d.axis, -d.total));
+			case Resizing(d): if (d.total != 1) d.scale(scaleFactors(d.handle, 1 / d.total));
+			case null:
+		}
 		phase.send(Finish);
 	}
+
+	function capture():Null<{region:SceneRegion, map:Affine}>
+		return switch drag { case Rotation(d): d; case Resizing(d): d; case null: null; };
+
+	static function scaleFactors(handle:Int, value:Float):Vec3
+		return new Vec3(handle == 0 || handle == 3 ? value : 1, handle == 1 || handle == 3 ? value : 1, handle == 2 || handle == 3 ? value : 1);
 
 	/** Positive or negative X/Y/Z view, preserving the orbit target and distance. **/
 	public function snapView(handle:Int):Void {
