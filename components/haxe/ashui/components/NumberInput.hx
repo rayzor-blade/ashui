@@ -14,6 +14,8 @@ typedef NumberInputProps = {
 	?max:Float,
 	/** What the buttons, arrow keys and wheel move it by; 1 by default. **/
 	?step:Float,
+	/** Show the minus/plus buttons (default true). Hiding them keeps typing, arrow keys and wheel stepping. **/
+	?showStepButtons:Bool,
 	/** Small (24px), medium (32px, default) or large (40px). **/
 	?size:Size,
 	?disabled:IntoReactive<Bool>,
@@ -28,6 +30,8 @@ typedef NumberInputProps = {
 	`.ui-number-step` (`[data-step]` down or up, `:disabled`),
 	`.ui-number-field`. The shared `Size` variants scale the field and both
 	buttons together; `Lg` keeps the original dimensions (git-bug ffc482f).
+	`showStepButtons=false` omits both buttons and keeps the centered editable
+	field and its wheel stepping (git-bug e1d5d1b).
 	`--ui-input-height` and `-radius` retune the outer box; `--ui-number-step-width`
 	and `-font-size`, and `--ui-number-field-width`, `-padding` and `-font-size`
 	retune its parts at any size.
@@ -65,8 +69,10 @@ class NumberInput extends Component<NumberInputProps> {
 			i.onClick(_ -> field.stepNumber(dir));
 			return b;
 		}
-		var box = Library.part("ui-number-input", null, ["size" => (props.size == null ? Size.Md : props.size : String)],
-			[stepper(-1, "−"), field, stepper(1, "+")]);
+		var showSteps = props.showStepButtons != false;
+		var parts:Array<Element> = showSteps ? [stepper(-1, "−"), field, stepper(1, "+")] : [field];
+		var box = Library.part("ui-number-input", null,
+			["size" => (props.size == null ? Size.Md : props.size : String), "step-buttons" => (showSteps ? "visible" : "hidden")], parts);
 		// Wheel over the field or either button uses the same decimal grid (git-bug 095fab4).
 		ashui.input.NumberWheel.bind(box.node, () -> Interaction.of(field.node).disabled.get(), field.stepNumber);
 		return box;

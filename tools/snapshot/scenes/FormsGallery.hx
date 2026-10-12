@@ -88,6 +88,11 @@ class FormsGallery {
 							<div flexDirection={Column} gap={8}><label>Medium (default)</label><number-input value={12.5} step={0.5} /></div>
 							<div flexDirection={Column} gap={8}><label>Large</label><number-input size={Lg} value={12.5} step={0.5} /></div>
 						</div>
+						<div flexDirection={Column} gap={12}>
+							<div flexDirection={Column} gap={8}><label>Small · no buttons</label><number-input size={Sm} showStepButtons={false} value={12.5} step={0.5} /></div>
+							<div flexDirection={Column} gap={8}><label>Medium · no buttons</label><number-input showStepButtons={false} value={12.5} step={0.5} /></div>
+							<div flexDirection={Column} gap={8}><label>Large · no buttons</label><number-input size={Lg} showStepButtons={false} value={12.5} step={0.5} /></div>
+						</div>
 					</div>
 				</div>
 				<div class="bg-surface border border-border rounded-xl p-4 flex-col gap-12">

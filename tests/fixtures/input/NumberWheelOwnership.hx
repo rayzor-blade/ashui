@@ -27,6 +27,14 @@ class NumberWheelOwnership {
 	}
 
 	static function main():Void {
+		run(true);
+		run(false);
+		nested();
+		Sys.println('$checks checks: ALL PASSED');
+	}
+
+	/** Both NumberInput layouts retain the same scroll ownership (e1d5d1b). **/
+	static function run(showSteps:Bool):Void {
 		var tree = new LayoutTree(), stop = () -> {};
 		var number = Signal.make(50.0), gauge = Signal.make(50.0), lower = Signal.make(20.0), upper = Signal.make(80.0);
 		var root:Div = Owner.root(tree, dispose -> {
@@ -34,7 +42,7 @@ class NumberWheelOwnership {
 			return <div width={420} height={250} id="scroller" class="flex-col overflow-y-auto">
 				<div width={400} height={700} class="flex-col shrink-0 gap-4">
 					<div id="space" height={50} class="shrink-0" />
-					<number-input id="number" value={number} min={0} max={100} />
+					<number-input id="number" value={number} min={0} max={100} showStepButtons={showSteps} />
 					<number-gauge id="gauge" value={gauge} max={100} />
 					<number-range-gauge id="interval" lower={lower} upper={upper} max={100} />
 				</div>
@@ -61,13 +69,13 @@ class NumberWheelOwnership {
 		}
 		scroll.scrollTo(0, 0); settle(); clock += 1;
 		// Scroll content moves a numeric input under a stationary pointer.
-		Pointer.move(tree, 60, 35); Pointer.wheel(tree, 0, -40); settle();
+		Pointer.move(tree, 40, 35); Pointer.wheel(tree, 0, -40); settle();
 		check("scrolling moves the number field under the stationary pointer",
-			Lambda.exists(tree.hitTest(60, 35), hit -> hit.id == node("#number").id));
+			Lambda.exists(tree.hitTest(40, 35), hit -> hit.id == node("#number").id));
 		Pointer.wheel(tree, 0, -40); settle();
 		check("stationary-pointer scrolling never edits the revealed number", number.get() == 50 && scroll.y.get() == 80);
 		scroll.scrollTo(0, 0); settle(); clock += 1;
-		Pointer.move(tree, 60, 35); Pointer.wheel(tree, 0, -10, Started); Pointer.wheel(tree, 0, -40, Moved); settle();
+		Pointer.move(tree, 40, 35); Pointer.wheel(tree, 0, -10, Started); Pointer.wheel(tree, 0, -40, Moved); settle();
 		Pointer.wheel(tree, 0, 0, Ended); clock += 0.02;
 		Pointer.wheel(tree, 0, -40, Started); settle();
 		check("macOS momentum phase handoff keeps scrolling instead of editing a revealed input", scroll.y.get() == 90
@@ -122,8 +130,6 @@ class NumberWheelOwnership {
 		check("wheel ownership installs no pointer frame hooks", Pointer.hooks.length == hooks);
 		InputClock.source = null;
 		stop(); tree.dispose();
-		nested();
-		Sys.println('$checks checks: ALL PASSED');
 	}
 
 	static function nested():Void {

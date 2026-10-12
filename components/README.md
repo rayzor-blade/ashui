@@ -160,7 +160,11 @@ import ashui.components.NumberInput;
 var small = <number-input size={Sm} value={12.5} step={0.5} />; // 24 px
 var medium = <number-input size={Md} value={12.5} step={0.5} />; // 32 px (default)
 var large = <number-input size={Lg} value={12.5} step={0.5} />; // 40 px
+var field = <number-input showStepButtons={false} value={12.5} step={0.5} />;
 ```
+
+Set `showStepButtons={false}` to omit the minus/plus buttons. Integers and
+decimals stay centered; typing, arrow keys and wheel stepping remain enabled.
 
 `NumberGauge` shows a filled range, a centered number and a vertical SVG three-dot
 grip. `NumberRangeGauge` fills the interval between two grips. Drag or scroll

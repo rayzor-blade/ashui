@@ -703,6 +703,7 @@ class Components {
 		var agree = Signal.make(false), pick = Signal.make("a"), fruitPick = Signal.make(""), qty = Signal.make(1.0);
 		// NumberInput's three sizes keep real field/stepper bounds and behaviors (git-bug ffc482f).
 		var quantities = [Signal.make(0.5), Signal.make(0.5), Signal.make(0.5)], numbersDisabled = Signal.make(false);
+		var plainQuantities = [Signal.make(0.5), Signal.make(0.5), Signal.make(0.5)];
 		var formRoot:Div = Owner.root(formTree, _ ->
 			<div width={600} height={400} flexDirection={Column} gap={12} padding={10}>
 				<checkbox id="agree" checked={agree}>I agree</checkbox>
@@ -713,6 +714,11 @@ class Components {
 					<number-input id="number-sm" size={Sm} value={quantities[0]} min={0} max={1} step={0.5} disabled={numbersDisabled} />
 					<number-input id="number-md" size={Md} value={quantities[1]} min={0} max={1} step={0.5} disabled={numbersDisabled} />
 					<number-input id="number-lg" size={Lg} value={quantities[2]} min={0} max={1} step={0.5} disabled={numbersDisabled} />
+				</div>
+				<div flexDirection={Row} gap={12} alignItems={Center}>
+					<number-input id="number-plain-sm" size={Sm} showStepButtons={false} value={plainQuantities[0]} min={-10} max={20} step={0.5} disabled={numbersDisabled} />
+					<number-input id="number-plain-md" size={Md} showStepButtons={false} value={plainQuantities[1]} min={-10} max={20} step={0.5} disabled={numbersDisabled} />
+					<number-input id="number-plain-lg" size={Lg} showStepButtons={false} value={plainQuantities[2]} min={-10} max={20} step={0.5} disabled={numbersDisabled} />
 				</div>
 			</div>
 		);
@@ -883,6 +889,46 @@ class Components {
 				&& ashui.input.Interaction.byId(formTree, children[2]).disabled.get());
 			ashui.input.Pointer.wheel(formTree, 0, 40);
 			check('NumberInput size $n passes disabled wheel edits to its parent', quantities[n].get() == 0.5 && numberParentWheels == 4 + n);
+		}
+
+		// Button-free NumberInputs reuse native editing, alignment and wheel ownership (git-bug e1d5d1b).
+		numbersDisabled.set(false); formSettle();
+		for (n in 0...3) {
+			var number = numbers[n + 4], parts = formTree.children(number);
+			var input = ashui.ui.Input.at(formTree, parts[0]), e = input.editing;
+			var outer = formTree.getBounds(new ashui.layout.Node(number)), field = formTree.getBounds(input.node);
+			check('NumberInput size $n omits step buttons and their space', parts.length == 1 && field.width == [40, 48, 52][n]
+				&& outer.width == field.width + 2 && outer.height == [24, 32, 40][n]);
+			function centered():Bool {
+				var text = formTree.getBounds(e.text.node), field = formTree.getBounds(input.node);
+				return text.width > 0 && Math.abs(text.x + text.width / 2 - field.x - field.width / 2) <= 0.5;
+			}
+			for (v in [1.0, 0.5, -2.5, 12.5]) {
+				plainQuantities[n].set(v); formSettle();
+				check('NumberInput size $n centers $v without buttons', centered());
+			}
+			formClick(input.node.id);
+			e.anchor.set(0); e.caret.set(e.value.get().length);
+			ashui.input.Keyboard.text(formTree, "2.5"); formSettle();
+			check('NumberInput size $n accepts manual decimals without buttons', plainQuantities[n].get() == 2.5 && centered());
+			ashui.input.Keyboard.input(formTree, key(Named(ArrowUp), ArrowUp)); formSettle();
+			check('NumberInput size $n retains arrow stepping without buttons', plainQuantities[n].get() == 3 && centered());
+			var parentBefore = numberParentWheels;
+			ashui.input.Pointer.wheel(formTree, 0, 40); formSettle();
+			check('NumberInput size $n retains decimal wheel stepping without buttons', plainQuantities[n].get() == 3.5
+				&& numberParentWheels == parentBefore && centered());
+			plainQuantities[n].set(20); formSettle();
+			ashui.input.Pointer.wheel(formTree, 0, 80); formSettle();
+			check('NumberInput size $n wheel still clamps without buttons', plainQuantities[n].get() == 20);
+		}
+		numbersDisabled.set(true); formSettle();
+		for (n in 0...3) {
+			var field = formTree.children(numbers[n + 4])[0];
+			formClick(field);
+			var parentBefore = numberParentWheels;
+			ashui.input.Pointer.wheel(formTree, 0, 40); formSettle();
+			check('NumberInput size $n disables button-free editing and passes wheel to parent',
+				ashui.input.Interaction.byId(formTree, field).disabled.get() && plainQuantities[n].get() == 20 && numberParentWheels == parentBefore + 1);
 		}
 
 		// --- Toggles, a sheet, a hover card and a context menu ---
