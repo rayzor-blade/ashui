@@ -150,6 +150,10 @@ window)
 		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/window -main IdleWake -hl bin/idle-wake.hl
 	ASHUI_WINDOW_SECONDS=8 run idle-wake.hl
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/window -main CanvasIdle -hl bin/canvas-idle.hl
+	ASHUI_WINDOW_SECONDS=6 run canvas-idle.hl
 	;;
 render-caribou)
 	# The pixel test on caribou's runtime and its GPU plugin, needing a built
@@ -177,6 +181,10 @@ memory)
 	haxe smoke.hxml ${ASHUI_HAXE_FLAGS:-}
 	smoke=0
 	run smoke.hl || smoke=$?
+	# Shared equal-write suppression and paused canvas ownership (f12b432, 364d4b2).
+	$haxe_ui --class-path fixtures/reactive -main IdleSignalsAndCanvas -hl bin/idle-signals-canvas.hl
+	idle=0
+	run idle-signals-canvas.hl || idle=$?
 	# Quiet pointer motion, invalidation and current coordinates after coalescing.
 	$haxe_ui --class-path fixtures/input -main HitCache -hl bin/hit-cache.hl
 	hits=0
@@ -234,7 +242,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $component_sizes -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $component_sizes -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

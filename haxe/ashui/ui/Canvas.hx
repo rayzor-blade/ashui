@@ -185,13 +185,25 @@ class Canvas extends Component<CanvasProps> {
 					case Bound(s): s.get();
 					case Derived(c): c.get();
 				} : Bool));
-				var alive = true;
-				Owner.onCleanup(() -> alive = false);
-				AnimationScheduler.main.addTicker(_ -> {
-					if (alive && running.get() && tree.inView(id))
-						repaint();
-					return alive;
+				// git-bug 364d4b2: a paused canvas must leave the scheduler idle.
+				var ticker:ashui.animation.AnimationScheduler.Ticker = null;
+				function stop() {
+					if (ticker != null) {
+						ticker.cancel();
+						ticker = null;
+					}
+				}
+				new Watch(() -> running.get(), enabled -> {
+					if (!enabled)
+						stop();
+					else if (ticker == null)
+						ticker = AnimationScheduler.main.addTicker(_ -> {
+							if (tree.inView(id))
+								repaint();
+							return true;
+						});
 				});
+				Owner.onCleanup(stop);
 		}
 		return box;
 	}

@@ -12,7 +12,7 @@ path = "native/lib.rs"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "450f5681981eeb05dc5a1a6c86b6048f7858adb9", default-features = false, features = ["hashlink"] }
+blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "4dc10a4f18f9b64a173439b5543faa2e266445b9", default-features = false, features = ["hashlink"] }
 
 [workspace]
 resolver = "3"

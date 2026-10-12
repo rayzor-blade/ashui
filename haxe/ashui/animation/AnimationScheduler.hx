@@ -17,7 +17,7 @@ class AnimationScheduler {
 	/** Each spring's move being recorded, while a motion trace records. **/
 	final springTracks = new Map<Int, {track:ashui.debug.MotionTrack, start:Float, target:Float}>();
 	/** Called each tick with the seconds passed; dropped once they return false. **/
-	final tickers:Array<Float->Bool> = [];
+	final tickers:Array<Ticker> = [];
 	var nextId = 1;
 	var running = false;
 	final timers:Array<Timer> = [];
@@ -154,11 +154,22 @@ class AnimationScheduler {
 		return locked(() -> springs.keys().hasNext() || tickers.length > 0);
 	}
 
-	/** Calls `ticker` every tick until it returns false. **/
-	public function addTicker(ticker:Float->Bool):Void {
+	/** Calls `ticker` every tick until it returns false or its handle is cancelled. **/
+	public function addTicker(callback:Float->Bool):Ticker {
+		var ticker = new Ticker(this, callback);
 		locked(() -> {
 			tickers.push(ticker);
 			null;
+		});
+		ashui.core.Work.notify();
+		return ticker;
+	}
+
+	@:allow(ashui.animation.Ticker)
+	function cancelTicker(ticker:Ticker):Void {
+		locked(() -> {
+			ticker.cancelled = true;
+			tickers.remove(ticker);
 		});
 		ashui.core.Work.notify();
 	}
@@ -205,10 +216,13 @@ class AnimationScheduler {
 		});
 		// Outside the lock: a ticker may add another.
 		var running = locked(() -> tickers.splice(0, tickers.length));
-		var kept = [for (ticker in running) if (ticker(dt)) ticker];
+		var kept = [for (ticker in running) if (!ticker.cancelled && ticker.callback(dt)) ticker];
 		locked(() -> {
-			for (i in 0...kept.length)
-				tickers.insert(i, kept[i]);
+			var at = 0;
+			for (ticker in kept)
+				// git-bug 364d4b2: cancellation during a tick must also stop reinsertion.
+				if (!ticker.cancelled)
+					tickers.insert(at++, ticker);
 			null;
 		});
 		// Due timers, after the tickers, so one a timer starts begins at the next tick
@@ -247,6 +261,25 @@ class AnimationScheduler {
 	/** Stops `run`'s thread after its current tick. **/
 	public function stop():Void {
 		running = false;
+	}
+}
+
+/** A running ticker; cancellation removes it immediately, including during a tick. **/
+class Ticker {
+	final scheduler:AnimationScheduler;
+	@:allow(ashui.animation.AnimationScheduler)
+	final callback:Float->Bool;
+	@:allow(ashui.animation.AnimationScheduler)
+	public var cancelled(default, null) = false;
+
+	@:allow(ashui.animation.AnimationScheduler)
+	function new(scheduler:AnimationScheduler, callback:Float->Bool) {
+		this.scheduler = scheduler;
+		this.callback = callback;
+	}
+
+	public function cancel():Void {
+		scheduler.cancelTicker(this);
 	}
 }
 

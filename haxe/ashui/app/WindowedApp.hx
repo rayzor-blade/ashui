@@ -355,8 +355,12 @@ class WindowedApp {
 					presented = t4;
 					if (motion != null)
 						motion.frame(tree, root, logicalWidth(), logicalHeight());
-					if (onFrame != null)
+					if (onFrame != null) {
 						onFrame(frames, haxe.Timer.stamp() - opened);
+						// git-bug 364d4b2: callback writes happen after this frame's
+						// flush. Apply them before sleeping, including a canvas resume.
+						if (tree.flush()) dirty = true;
+					}
 				}
 			}
 			coalescePointer();
