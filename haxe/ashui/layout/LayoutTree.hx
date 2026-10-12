@@ -331,6 +331,22 @@ class LayoutTree {
 	function nativeChildren(node:haxe.Int64):Array<haxe.Int64>
 		return children(node);
 
+	/**
+		Lay direct rows' cells out in a shared grid, retaining their authored
+		parents for CSS, painting and input. Empty rows restore ordinary layout.
+		False for removed, foreign or duplicate rows. git-bug: 471d54e / ABI bcec1a0.
+	**/
+	public function setGridRows(group:haxe.Int64, rows:Array<haxe.Int64>):Bool {
+		var data = new hl.Bytes(rows.length * 8 + 8);
+		for (i in 0...rows.length) {
+			data.setI32(i * 8, rows[i].low);
+			data.setI32(i * 8 + 4, rows[i].high);
+		}
+		if (!LayoutTreeNative.blinc_tree_set_grid_rows(this.ptr, group, data, rows.length)) return false;
+		markDrawn();
+		return true;
+	}
+
 	/** `node`'s children as laid out, a fragment's items in its place, as native ids. **/
 	public function children(node:haxe.Int64):Array<haxe.Int64> {
 		var capacity = 16;

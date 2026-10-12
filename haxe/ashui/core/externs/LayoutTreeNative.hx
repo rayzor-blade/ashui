@@ -41,6 +41,9 @@ extern class LayoutTreeNative {
 	/** Makes the `len` ids in `children` `parent`'s children, detaching, not deleting, the rest. **/
 	static function blinc_tree_set_children(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64, children:hl.Bytes, len:Int):Void;
 
+	/** Shared row layout/paint with authored cell parents retained; empty rows reset. git-bug: 471d54e / ABI bcec1a0. **/
+	static function blinc_tree_set_grid_rows(tree:hl.Abstract<"blinc_tree">, group:haxe.Int64, rows:hl.Bytes, len:Int):Bool;
+
 	/** Applies queued property writes; true if any changed what is drawn, by layout or by look. **/
 	static function blinc_tree_flush(tree:hl.Abstract<"blinc_tree">):Bool;
 

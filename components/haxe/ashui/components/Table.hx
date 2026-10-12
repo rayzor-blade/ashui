@@ -9,7 +9,8 @@ import ashui.ui.Component;
 	A table in the library's look: the built-in `<table>`, every row a grid
 	of the same columns, with `TableHeader`, `TableBody` and `TableFooter`
 	of `TableRow`s of `TableHead` and `TableCell`, and a `TableCaption`
-	under it. Rows highlight under the pointer. CSS: `.ui-table`,
+	under it. Cells accept `colspan` and `rowspan`, including 0 through the
+	row group's end (471d54e / 8780d6b). Rows highlight under the pointer. CSS: `.ui-table`,
 	`.ui-table-header`, `.ui-table-body`, `.ui-table-footer`,
 	`.ui-table-row` (`:hover`, `[data-state="selected"]`), `.ui-table-head`,
 	`.ui-table-cell`, `.ui-table-caption`.

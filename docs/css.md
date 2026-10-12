@@ -238,7 +238,7 @@ repeat and position declarations. Image brushes also accept optional
 Multiple background layers, `space`/`round` repetition and explicit tile sizes
 are currently unsupported.
 
-### Table columns
+### Table columns and spans
 
 The built-in `<table>` and component library `Table` share content sizing.
 Every row uses the same columns: each automatic column stays at least as
@@ -266,11 +266,31 @@ or overlapping spans; their extra width is shared by the automatic columns'
 content widths. Explicit columns keep their pixel, percentage or star
 settings. Spans over explicit columns alone wrap within the given widths.
 
-`rowspan`, `border-collapse`, `border-spacing`, and browser
+`rowspan={2}` spans two rows; `rowspan={0}` spans the remaining rows in
+its group. Spans stop at the end of `<thead>`, each `<tbody>`, `<tfoot>`,
+or a group of direct `<tr>` children. Later cells skip occupied columns,
+including when `rowspan` and `colspan` are combined. Hidden rows and cells
+release their slots, and added or removed rows update spans automatically.
+The component library's `TableHead` and `TableCell` accept the same props.
+
+```tsx
+<table>
+    <tbody>
+        <tr><td rowspan={2}>Fruit</td><td>Pears</td></tr>
+        <tr><td>Apples</td></tr>
+    </tbody>
+</table>
+```
+
+Spanning cells retain their authored row parents for selectors, hover,
+click bubbling and focus order. Row backgrounds paint beneath the cells.
+Shared row layout is enabled only in groups that need it. This integration
+is tracked in `471d54e`, using ABI `bcec1a0`.
+
+`border-collapse`, `border-spacing`, and browser
 `display: table-*` / `table-layout` modes are not implemented. These limits
 are tracked in git-bug umbrella `8780d6b`; content sizing is milestone
-`8fbda23` and spanning-cell constraints are `4bcdb95`. The shared native
-row-grid and paint ordering needed for `rowspan` are tracked in ABI `bcec1a0`.
+`8fbda23` and spanning-cell constraints are `4bcdb95`.
 
 ### List markers and cursors
 

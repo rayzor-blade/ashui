@@ -29,6 +29,16 @@ class Node {
 	/** The tree that made this node. **/
 	public var tree(default, null):Null<LayoutTree>;
 
+	/** The effective display binding, retained for table slot visibility (471d54e); null means native Flex. **/
+	@:noCompletion public var displayValue(default, null):Null<IntoReactive<ashui.types.Style.Display>>;
+	/** Only display writes notify these subscribers; signal changes use the existing reactive graph. **/
+	@:noCompletion public static final displayHooks:Array<Node->Void> = [];
+
+	function recordDisplay(value:Null<IntoReactive<ashui.types.Style.Display>>):Void {
+		displayValue = value;
+		for (hook in displayHooks) hook(this);
+	}
+
 	/** What animates when a property it covers is set again or its value changes. **/
 	public var transition(default, set):Null<ashui.animation.Transition>;
 
@@ -269,7 +279,10 @@ class Node {
 		if (styled == null)
 			styled = new Map();
 		styled.set(key, true);
-		var reset = () -> BlincNative.blinc_unset(id, key);
+		var reset = () -> {
+			if (key == PropertyId.Display) recordDisplay(null);
+			BlincNative.blinc_unset(id, key);
+		};
 		if (batch != null && !immediate)
 			batch.set(key, reset);
 		else
@@ -325,6 +338,7 @@ class Node {
 			tweens.remove(prop);
 		if (settled != null)
 			settled.remove(key);
+		if (key == PropertyId.Display) recordDisplay(null);
 		BlincNative.blinc_unset(id, key);
 	}
 
@@ -379,6 +393,7 @@ class Node {
 
 	/** Binds an `Int` property, enums included. **/
 	public function applyI32(prop:PropertyId, reactive:IntoReactive<Int>):Void {
+		if (prop == PropertyId.Display) recordDisplay(cast reactive);
 		if (tree != null && (prop == PropertyId.Overflow || prop == PropertyId.OverflowX || prop == PropertyId.OverflowY))
 			ashui.input.Scroll.bindOverflow(this, prop, reactive);
 		switch (reactive) {

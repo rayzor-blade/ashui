@@ -607,7 +607,8 @@ tfoot.ui-table-footer { font-weight: 500; background: var(--surface-overlay); }
 tr.ui-table-row { transition: background var(--duration-fast) var(--ease-state); }
 tbody.ui-table-body > tr.ui-table-row:hover { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
 tr.ui-table-row[data-state="selected"], tr.ui-table-row[data-state="selected"]:hover { background: var(--selection); }
-th.ui-table-head { height: 40px; align-items: center; padding: 0 16px; color: var(--text-secondary); font-weight: 500; }
+/* Minimum height lets a heading stretch across rows (471d54e / 8780d6b). */
+th.ui-table-head { min-height: 40px; align-items: center; padding: 0 16px; color: var(--text-secondary); font-weight: 500; }
 td.ui-table-cell { padding: 12px 16px; }
 caption.ui-table-caption { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-secondary); font-weight: 400; font-size: var(--text-sm); }
 
