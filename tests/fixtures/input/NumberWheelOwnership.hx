@@ -67,6 +67,13 @@ class NumberWheelOwnership {
 		Pointer.wheel(tree, 0, -40); settle();
 		check("stationary-pointer scrolling never edits the revealed number", number.get() == 50 && scroll.y.get() == 80);
 		scroll.scrollTo(0, 0); settle(); clock += 1;
+		Pointer.move(tree, 60, 35); Pointer.wheel(tree, 0, -10, Started); Pointer.wheel(tree, 0, -40, Moved); settle();
+		Pointer.wheel(tree, 0, 0, Ended); clock += 0.02;
+		Pointer.wheel(tree, 0, -40, Started); settle();
+		check("macOS momentum phase handoff keeps scrolling instead of editing a revealed input", scroll.y.get() == 90
+			&& number.get() == 50 && gauge.get() == 50);
+		Pointer.wheel(tree, 0, 0, Ended);
+		scroll.scrollTo(0, 0); settle(); clock += 1;
 		hover("#space"); Pointer.wheel(tree, 0, -10, Started); settle();
 		Focus.set(Interaction.of(node("#number")), true);
 		hover("#number"); clock += 2; Pointer.wheel(tree, 0, -40, Moved); settle();

@@ -41,6 +41,13 @@ class NumberWheelWindow {
 				send(CursorMoved(200 * scale, 100 * scale, 0)); settle();
 				check("batched native parent scrolling never changes a numeric descendant", value.get() == 50 && scroll.y.get() == 50);
 				send(MouseWheel(PixelDelta(0, 0), Ended, 0));
+				scroll.scrollTo(0, 0); settle();
+				send(CursorMoved(60 * scale, 55 * scale, 0));
+				send(MouseWheel(PixelDelta(0, -40 * scale), Started, 0)); settle();
+				send(MouseWheel(PixelDelta(0, 0), Ended, 0));
+				send(MouseWheel(PixelDelta(0, -10 * scale), Started, 0)); settle();
+				check("macOS momentum's second native phase stays on the parent scroller", value.get() == 50 && scroll.y.get() == 50);
+				send(MouseWheel(PixelDelta(0, 0), Ended, 0));
 				scroll.scrollTo(0, 0); settle(); hoverNumber();
 				send(MouseWheel(PixelDelta(0, 0), Started, 0));
 				send(MouseWheel(LineDelta(0, 1), Moved, 0));
@@ -68,6 +75,6 @@ class NumberWheelWindow {
 			return root;
 		});
 		check("the window dispatcher checks actually ran", ran);
-		Sys.println("6 checks: ALL PASSED");
+		Sys.println("7 checks: ALL PASSED");
 	}
 }

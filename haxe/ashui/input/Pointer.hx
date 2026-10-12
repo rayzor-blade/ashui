@@ -65,6 +65,7 @@ class Pointer {
 		if (ashui.debug.InputLog.current != null)
 			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Move(x, y, modifiers));
 		var s = state(tree);
+		if (s.wheelTail != null && (x != s.x || y != s.y)) s.wheelTail = null;
 		var reuse = quiet(tree, s) && x >= s.left && y >= s.top && x < s.right && y < s.bottom;
 		s.x = x;
 		s.y = y;
@@ -86,6 +87,7 @@ class Pointer {
 		s.inside = false;
 		s.quiet = false;
 		s.wheelOwner = null;
+		s.wheelTail = null;
 		s.wheelPhased = false;
 		s.wheelSequence++;
 		retarget(tree, s, []);
@@ -172,10 +174,17 @@ class Pointer {
 		if (dx != 0 || dy != 0) refresh(tree);
 		var s = state(tree);
 		var now = InputClock.now();
+		// winit reports macOS momentum as a second Started/Ended pair. A
+		// recent scroll at the same pointer position retains its owner;
+		// movement or the wheel gap allows a deliberate new target (095fab4).
+		var continuation = s.wheelOwner == null && s.wheelTail != null && now - s.lastWheelEnd <= WHEEL_GAP
+			&& phase != window.TouchPhase.Cancelled;
 		if (phase == window.TouchPhase.Started || (!s.wheelPhased && now - s.lastWheel > WHEEL_GAP)) {
 			s.wheelOwner = null;
 			s.wheelSequence++;
 		}
+		if (continuation) s.wheelOwner = s.wheelTail;
+		s.wheelTail = null;
 		if (phase == window.TouchPhase.Started) s.wheelPhased = true;
 		// Removed scroll containers must not keep a captured gesture alive.
 		if (s.wheelOwner != null && Interaction.byId(tree, s.wheelOwner.node.id) != s.wheelOwner) {
@@ -194,6 +203,10 @@ class Pointer {
 			bubble(tree, s, s.chain, from, "wheel", null, dx, dy);
 		}
 		if (phase == window.TouchPhase.Ended || phase == window.TouchPhase.Cancelled) {
+			if (phase == window.TouchPhase.Ended) {
+				s.wheelTail = s.wheelOwner;
+				s.lastWheelEnd = now;
+			}
 			s.wheelOwner = null;
 			s.wheelPhased = false;
 			s.wheelSequence++;
@@ -207,6 +220,7 @@ class Pointer {
 			s.wheelOwner = null;
 			s.wheelPhased = false;
 		}
+		if (s != null && s.wheelTail != null && s.wheelTail.node.id == node.id) s.wheelTail = null;
 	}
 
 	/** The modifier keys now held, for the events that follow. **/
@@ -350,6 +364,8 @@ private class PointerState {
 	public var lastY = 0.0;
 	public var clicks = 0;
 	public var wheelOwner:Null<Interaction> = null;
+	public var wheelTail:Null<Interaction> = null;
+	public var lastWheelEnd = Math.NEGATIVE_INFINITY;
 	public var lastWheel = Math.NEGATIVE_INFINITY;
 	public var wheelPhased = false;
 	public var wheelSequence = 0;
