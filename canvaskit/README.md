@@ -103,7 +103,7 @@ var rotate = (delta:Quat) -> rotation.set(delta.mul(rotation.get()).normalize())
 return <scene-kit selection={selection} worldGizmo={true}
     width={640} height={480} draw={ctx -> {
         var at = Mat4.compose(Vec3.ZERO, rotation.get(), Vec3.ONE);
-        ctx.drawMesh(box, at);
+        selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
         selection.region("box", box.min, box.max, at, rotate);
     }} />;
 ```
@@ -122,6 +122,15 @@ transform state. Supply a final `pivot` argument to `region()` for a world
 pivot other than the object's origin. Register only visible objects; bounds
 are refreshed when the scene draws. With no rotation callback an object is
 selectable without rotation rings.
+
+Wrap the object's mesh or model draws in `selection.draw(id, ctx, draw)`
+to give the selected object a subtle mask, a soft rim and highlighted
+silhouette and crease edges. Textures and lighting stay visible, edges use
+the scene's depth, and the rings draw above them. Geometry is cached while
+selected and freed on deselection. Cutout and blended materials keep the
+surface treatment without geometry edge lines. Custom shaders inherit the
+mask and rim when they use `MeshShader.fragment`; their vertex deformation
+is preserved, and geometry edge lines are skipped.
 
 `worldGizmoRight` and `worldGizmoTop` adjust the corner inset (16 layout units
 by default), so a floating panel can leave the widget visible. The widgets

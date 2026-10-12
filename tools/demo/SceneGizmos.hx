@@ -30,10 +30,10 @@ class SceneGizmos {
 					grid={GroundGrid.studio()} widthPercent={1} heightPercent={1}
 					draw={ctx -> {
 						var at = Mat4.compose(new Vec3(-1.05, 0.8, 0), rotation.get(), Vec3.ONE);
-						ctx.drawMesh(box, at);
+						selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
 						selection.region("box", box.min, box.max, at, turn);
 						var other = Mat4.compose(new Vec3(1.3, 0.8, 0), otherRotation.get(), Vec3.ONE);
-						ctx.drawMesh(torus, other);
+						selection.draw("torus", ctx, () -> ctx.drawMesh(torus, other));
 						selection.region("torus", torus.min, torus.max, other, turnOther);
 					}} />
 				<div position={Absolute} left={24} top={24} class="flex flex-col gap-2" pointerEvents={ashui.types.Style.PointerEvents.None}>

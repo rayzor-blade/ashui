@@ -217,6 +217,12 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			var unlit = flags.y > 0.5 ? (flags.y > 1.5 ? surfaceColor.rgb : applyFog(surfaceColor.rgb, worldPos)) : vec3(0., 0., 0.);
 			var lit = flags.y > 0.5 ? unlit : applyFog(shade(), worldPos);
 			var color = flags.y > 0.5 ? linearToSrgb(unlit) : present(lit);
+			// Keep texture and lighting detail under a slight mask. The geometric normal keeps
+			// the rim smooth even on a material with a detailed normal map (git-bug 8ceba8d).
+			if (drawSelected(drawIndex) > 0.5 && glowPass < 0.5) {
+				var rim = pow(1. - abs(dot(normalize(worldNormal), toEye)), 4.);
+				color = mix(color * 0.88, vec3(0.74, 0.88, 1.), rim * 0.35);
+			}
 			// For bloom's glow pass: the exposed light without tone mapping, so light brighter than white stays brighter.
 			if (glowPass > 0.5) {
 				color = lit * sceneExposure();

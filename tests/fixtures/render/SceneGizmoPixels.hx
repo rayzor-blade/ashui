@@ -46,7 +46,7 @@ class SceneGizmoPixels {
 						draw={ctx -> {
 							draws++;
 							if (show) {
-								var at = Mat4.rotation(rotation.get()); ctx.drawMesh(box, at);
+								var at = Mat4.rotation(rotation.get()); selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
 								selection.region("box", box.min, box.max, at, turn);
 							}
 						}} />

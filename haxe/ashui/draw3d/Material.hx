@@ -32,6 +32,8 @@ typedef MaterialOptions = {
 	?textureTransform:TextureTransform,
 	?fog:Bool,
 	?culled:Bool,
+	/** Subtle selection mask and rim, applied after lighting (git-bug 8ceba8d). **/
+	?selected:Bool,
 }
 
 /**
@@ -77,6 +79,7 @@ class Material {
 	public final textureTransform:Null<TextureTransform>;
 	public final fog:Bool;
 	public final culled:Bool;
+	public final selected:Bool;
 
 	public function new(?o:MaterialOptions) {
 		if (o == null)
@@ -102,6 +105,7 @@ class Material {
 		textureTransform = o.textureTransform;
 		fog = o.fog != false;
 		culled = o.culled != false;
+		selected = o.selected == true;
 	}
 
 	/** A copy with the settings `o` gives in place of these. **/
@@ -127,6 +131,7 @@ class Material {
 			shader: o.shader != null ? o.shader : shader,
 			textureTransform: o.textureTransform != null ? o.textureTransform : textureTransform,
 			fog: o.fog != null ? o.fog : fog,
-			culled: o.culled != null ? o.culled : culled
+			culled: o.culled != null ? o.culled : culled,
+			selected: o.selected != null ? o.selected : selected
 		});
 }

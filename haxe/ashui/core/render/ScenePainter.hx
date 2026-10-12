@@ -1353,7 +1353,8 @@ class ScenePainter {
 		}
 		row(out, Std.int(offset / 16) + 4, c0x * k, c0y * k, c0z * k, t.offsetX);
 		row(out, Std.int(offset / 16) + 5, c1x * k, c1y * k, c1z * k, t.offsetY);
-		row(out, Std.int(offset / 16) + 6, c2x * k, c2y * k, c2z * k, 0);
+		// Selection uses the spare normal-column component: no larger draw buffer or new binding. 8ceba8d.
+		row(out, Std.int(offset / 16) + 6, c2x * k, c2y * k, c2z * k, m.selected ? 1 : 0);
 		var at = Std.int(offset / 16);
 		row(out, at + 7, linear(m.baseColor >> 16 & 0xff), linear(m.baseColor >> 8 & 0xff), linear(m.baseColor & 0xff), m.alpha);
 		row(out, at + 8, m.metallic, m.roughness, m.normalScale, m.occlusionTexture != null ? m.occlusionStrength : 0);

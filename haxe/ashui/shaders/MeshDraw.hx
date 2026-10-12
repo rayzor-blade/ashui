@@ -37,6 +37,11 @@ class MeshDraw implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxs
 			return draws[i * 16 + 7];
 		}
 
+		/** Editor selection, in the spare component of the normal matrix's last column. 8ceba8d. **/
+		function drawSelected(i : Int) : Float {
+			return draws[i * 16 + 6].w;
+		}
+
 		/** Metallic, roughness, normal scale, occlusion strength. **/
 		function drawSurface(i : Int) : Vec4 {
 			return draws[i * 16 + 8];

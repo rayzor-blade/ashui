@@ -1,5 +1,7 @@
 package ashui.canvaskit;
 
+import ashui.draw.DrawContext;
+import ashui.draw3d.Material;
 import ashui.math.Mat4;
 import ashui.math.Quat;
 import ashui.math.Vec3;
@@ -25,6 +27,8 @@ typedef SceneRegion = {
 class Selection3D {
 	public final id = Signal.make((null : String));
 	final regions = new Map<String, SceneRegion>();
+	final materials = new haxe.ds.ObjectMap<Material, {selected:Material, used:Int}>();
+	final edges = new SelectionEdges();
 	var frame = 0;
 
 	public function new() {}
@@ -39,19 +43,48 @@ class Selection3D {
 	public function has(object:String):Bool
 		return id.get() == object;
 
-	/** SceneKit clears last frame's regions before calling `draw`. **/
+	/** SceneKit starts a registration frame before calling `draw`. **/
 	@:allow(ashui.canvaskit.SceneKit)
-	function begin():Void
+	function begin(ctx:DrawContext):Void {
 		frame++;
+		edges.begin(ctx.width);
+	}
 
 	@:allow(ashui.canvaskit.SceneKit)
-	function end():Void
+	function end(ctx:DrawContext):Void {
 		for (key => r in regions) if (r.frame != frame) regions.remove(key);
+		for (source => entry in materials) if (entry.used != frame) materials.remove(source);
+		if (!edges.empty()) ctx.drawPass(edges); else edges.clear();
+	}
 
 	/** Release callbacks and bounds when the viewport's owner is disposed. **/
 	@:allow(ashui.canvaskit.SceneKit)
-	function forgetRegions():Void
-		regions.clear();
+	function forgetRegions():Void {
+		regions.clear(); materials.clear(); edges.dispose();
+	}
+
+	/**
+		Draws an object's meshes with its selection mask and edges (8ceba8d).
+		Wrap either one `ctx.drawMesh` or a whole model's `draw`. Register its
+		bounds with `region` as usual. Materials, textures, shaders and mesh
+		vertices are preserved; only the selected object's draws are decorated.
+	**/
+	public function draw(object:String, ctx:DrawContext, draw:Void->Void):Void {
+		var selected = has(object), first = ctx.ops.length;
+		draw();
+		if (!selected) return;
+		for (i in first...ctx.ops.length) switch ctx.ops[i] {
+			case Mesh3D(mesh, at, scene, opacity, material):
+				var entry = materials.get(material);
+				if (entry == null) { entry = {selected: material.with({selected: true}), used: frame}; materials.set(material, entry); }
+				entry.used = frame;
+				ctx.ops[i] = Mesh3D(mesh, at, scene, opacity, entry.selected);
+				// Mesh edges cannot describe texture cutouts or a custom shader's moved vertices.
+				// Those still get the mask/rim through the mesh shader's alpha and deformation rules.
+				if (material.alphaMode == Opaque && material.shader == null) edges.add(mesh, at, opacity);
+			case _:
+		}
+	}
 
 	/**
 		Registers local bounds through the same transform used to draw them.

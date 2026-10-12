@@ -91,7 +91,7 @@ typedef SceneKitProps = {
 	/** Whether dragging and scrolling move the camera; true by default. **/
 	?controls:Bool,
 
-	/** Selectable bounds registered in `draw`; selected rotatable objects show X/Y/Z rings. c16e24c. **/
+	/** Bounds registered in `draw`; `selection.draw` adds a mask and edges, rotation handlers add rings. c16e24c, 8ceba8d. **/
 	?selection:Selection3D,
 
 	/** Show a world orientation widget in the top-right corner. Click an axis to look along it. **/
@@ -181,10 +181,10 @@ class SceneKit extends Component<SceneKitProps> {
 					grid.catchesShadows = sky.skybox == null || !sky.skybox.match(Grounded(_, _, _, _, _, _));
 					ctx.drawPass(grid);
 				}
-				if (props.selection != null) props.selection.begin();
+				if (props.selection != null) props.selection.begin(ctx);
 				if (props.draw != null)
 					props.draw(ctx);
-				if (props.selection != null) props.selection.end();
+				if (props.selection != null) props.selection.end(ctx);
 				if (gizmos != null) gizmos.draw(ctx);
 			}
 		});

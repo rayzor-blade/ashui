@@ -481,7 +481,7 @@ class Studio3D {
 				var pivot = m.min.lerp(m.max, 0.5);
 				var placed = ashui.math.Mat4.translation(pivot).mul(ashui.math.Mat4.rotation(objectRotation.get()))
 					.mul(ashui.math.Mat4.translation(pivot.negate()));
-				l.pose.draw(ctx, placed, transformOn.get() ? null : plain);
+				selection.draw("model", ctx, () -> l.pose.draw(ctx, placed, transformOn.get() ? null : plain));
 				selection.region("model", m.min, m.max, placed, rotateObject, pivot);
 			}
 		}
