@@ -125,6 +125,19 @@ class TopEntry {
 		@:privateAccess TopLayer.entries.remove(this);
 		// Marked closing, so CSS animates it away, and taken out once that has played.
 		var tree = layer.tree;
+		// Owner teardown can remove the content before closing its top-layer entry.
+		if (content.node == null || layer.node == null || holder.node == null || dim.node == null) {
+			if (content.node != null && holder.node != null) {
+				var parent = tree.ancestors(content.node.id);
+				if (parent.length > 0 && parent[0] == holder.node.id)
+					tree.detachChildren(holder.node.id);
+			}
+			if (layer.node != null)
+				layer.remove();
+			if (onClose != null)
+				onClose();
+			return;
+		}
 		var marked = [Identity.of(tree, dim.node.id), Identity.of(tree, content.node.id)];
 		for (identity in marked)
 			if (identity != null)
