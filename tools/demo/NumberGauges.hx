@@ -39,15 +39,15 @@ class NumberGauges {
 				<card-content class="flex-col gap-5">
 					<div class="flex-row items-center justify-between gap-4">
 						<label for="gauge-opacity">Opacity</label>
-						<number-gauge id="gauge-opacity" width={340} value={opacity} min={0} max={100} format={n -> n + " %"} />
+						<number-gauge id="gauge-opacity" value={opacity} min={0} max={100} format={n -> n + " %"} />
 					</div>
 					<div class="flex-row items-center justify-between gap-4">
 						<label for="gauge-gain">Exposure</label>
-						<number-gauge id="gauge-gain" width={340} value={gain} min={-2} max={2} step={0.05} format={n -> n + " EV"} />
+						<number-gauge id="gauge-gain" value={gain} min={-2} max={2} step={0.05} format={n -> n + " EV"} />
 					</div>
 					<div class="flex-row items-center justify-between gap-4">
 						<label>Temperature</label>
-						<number-range-gauge id="gauge-temperature" width={340} lower={lower} upper={upper} min={0} max={100}
+						<number-range-gauge id="gauge-temperature" lower={lower} upper={upper} min={0} max={100}
 							format={(a, b) -> a + " – " + b + " °C"} />
 					</div>
 				</card-content>
@@ -61,7 +61,7 @@ class NumberGauges {
 				<for {size in [Size.Sm, Size.Md, Size.Lg]}>
 					<div class="flex-row items-center gap-5">
 						<div width={70}><label>${size == Size.Sm ? "Small" : size == Size.Md ? "Medium" : "Large"}</label></div>
-						<number-gauge size={size} width={280} value={12.5} min={0} max={20} step={0.5} />
+						<div width={150}><number-gauge size={size} value={12.5} min={0} max={20} step={0.5} /></div>
 						<number-input size={size} value={12.5} min={0} max={20} step={0.5} />
 					</div>
 				</for>

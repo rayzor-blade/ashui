@@ -427,6 +427,11 @@ class Css {
 		var last = applied.get(identity);
 		if (last != null && last.signature == sig) {
 			applied.set(identity, {values: values, signature: sig, fields: last.fields, fontSize: ownFontSize});
+			// Intrinsic layout consumers can read custom properties even when
+			// they don't change a native declaration. Notify them without
+			// rebinding unchanged styles or restarting motion (095fab4).
+			if (variablesChanged(last.values, values))
+				for (hook in restyled) hook(identity);
 			return;
 		}
 
@@ -539,6 +544,14 @@ class Css {
 		for (hook in restyled)
 			hook(identity);
 
+	}
+
+	static function variablesChanged(before:Map<String, String>, after:Map<String, String>):Bool {
+		for (name => value in before)
+			if (StringTools.startsWith(name, "--") && after.get(name) != value) return true;
+		for (name => value in after)
+			if (StringTools.startsWith(name, "--") && before.get(name) != value) return true;
+		return false;
 	}
 
 	/** The motion properties, applied as a transition and animations rather than one by one. **/

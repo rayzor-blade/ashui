@@ -29,7 +29,7 @@ typedef NumberGaugeProps = {
 }
 
 /**
-	A filled numeric range with a centered value and a flat three-dot grip,
+	A filled numeric range with a centered value and a vertical SVG grip,
 	without step buttons (git-bug 095fab4). Press or drag the fill edge,
 	wheel anywhere over it, or use the built-in range's arrows, Page Up/Down
 	and Home/End. All edits share the core range's snapping and form behavior.
@@ -42,7 +42,7 @@ class NumberGauge extends Component<NumberGaugeProps> {
 	function render():Element {
 		Library.use();
 		var min = props.min == null ? 0.0 : props.min;
-		var max = props.max == null ? 100.0 : Math.max(min, props.max);
+		var max = Math.max(min, props.max == null ? 100.0 : props.max);
 		var step = props.step != null && props.step > 0 ? props.step : 1.0;
 		NumberGaugeParts.validate(min, max, step);
 		var range = new ashui.ui.Input({
@@ -60,6 +60,9 @@ class NumberGauge extends Component<NumberGaugeProps> {
 		var format = props.format == null ? NumberGaugeParts.format : props.format;
 		var label = NumberGaugeParts.label(Computed.make(() -> format(v.get())));
 		range.tree.addChild(range.node.id, label.node.id);
+		NumberGaugeParts.sizeToBounds(range, label, [format(min), format(max),
+			format(NumberGaugeParts.normalize(min + step, min, max, step)),
+			format(NumberGaugeParts.normalize(max - step, min, max, step))]);
 		for (child in children) range.tree.addChild(range.node.id, child.node.id);
 		NumberWheel.bind(range.node, () -> Interaction.of(range.node).disabled.get(), range.stepNumber);
 		return range;
@@ -75,8 +78,11 @@ class NumberGauge extends Component<NumberGaugeProps> {
 		for (id in range.tree.children(range.node.id)) {
 			var identity = Identity.of(range.tree, id);
 			if (identity != null && identity.hasClass("thumb")) {
-				var grip = Library.part("ui-number-gauge-grip", null, null,
-					[for (_ in 0...3) Library.part("ui-number-gauge-dot")]);
+				// A shared, compile-checked SVG; currentColor follows the CSS state (095fab4).
+				var grip = new ashui.ui.Svg(ashui.svg.SvgDocument.of(<svg width="3" height="11" viewBox="0 0 3 11" fill="currentColor">
+					<circle cx="1.5" cy="1.5" r="1"/><circle cx="1.5" cy="5.5" r="1"/><circle cx="1.5" cy="9.5" r="1"/>
+				</svg>));
+				Identity.of(grip.tree, grip.node.id).addClasses(["ui-number-gauge-grip"]);
 				range.tree.addChild(id, grip.node.id);
 				return new ashui.layout.Node(id);
 			}
@@ -85,7 +91,12 @@ class NumberGauge extends Component<NumberGaugeProps> {
 	}
 
 	public static function label(text:IntoReactive<String>):Element
-		return Library.part("ui-number-gauge-value", null, null, [new ashui.ui.Text(text)]);
+		return Library.part("ui-number-gauge-value", null, null, [new ashui.ui.Text(text, {wrap: false})]);
+
+	public static function sizeToBounds(root:Element, label:Element, candidates:Array<String>):Void {
+		var text = Identity.of(root.tree, root.tree.children(label.node.id)[0]).node;
+		new NumberGaugeSizing(root.node, text, candidates);
+	}
 
 	public static function normalize(n:Float, min:Float, max:Float, step:Float):Float
 		return ashui.ui.Input.constrainNumber(Math.isFinite(n) ? n : min, min, max, step);

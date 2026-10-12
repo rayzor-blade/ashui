@@ -453,7 +453,9 @@ input.ui-number-field > .steppers { display: none; }
 
 /* Filled numeric gauges reuse input[type=range], including its keyboard and drag behavior (095fab4). */
 input.ui-number-gauge, .ui-number-range-gauge {
-	width: var(--ui-number-gauge-width, 240px); height: var(--ui-number-gauge-height, 32px);
+	--ui-number-gauge-base-width: 114px;
+	width: var(--ui-number-gauge-width, 100%); height: var(--ui-number-gauge-height, 32px);
+	align-self: flex-start; flex-shrink: 1;
 	padding: 0; overflow: hidden; border: 1px solid var(--ui-number-gauge-border, var(--border));
 	border-radius: var(--ui-number-gauge-radius, var(--radius-default));
 	background: var(--ui-number-gauge-track, var(--input-bg)); color: var(--text-primary);
@@ -478,18 +480,20 @@ input.ui-number-gauge[data-state="dragging"] > .thumb, input.ui-number-gauge:foc
 	transform: none; border: 0; box-shadow: none;
 	background: var(--ui-number-gauge-grip-bg-active, color-mix(in srgb, var(--primary) 44%, var(--input-bg)));
 }
-.ui-number-gauge-grip { flex-direction: row; align-items: center; justify-content: center; gap: 2px; margin-bottom: 4px; pointer-events: none; }
-.ui-number-gauge-dot { width: 2px; height: 2px; flex-shrink: 0; border-radius: var(--radius-full); background: var(--primary); }
+/* Keep the vertical grip below the centered number when their positions cross (095fab4). */
+svg.ui-number-gauge-grip { width: 3px; height: 8px; margin-bottom: 2px; color: var(--primary); pointer-events: none; }
 .ui-number-gauge-value { position: absolute; left: 0; right: 0; top: 0; bottom: 0; align-items: center; justify-content: center; pointer-events: none; z-index: 2; }
 input.ui-number-gauge[data-size="sm"], .ui-number-range-gauge[data-size="sm"] {
+	--ui-number-gauge-base-width: 90px;
 	height: var(--ui-number-gauge-height, 24px); font-size: var(--ui-number-gauge-font-size, 12px);
 	border-radius: var(--ui-number-gauge-radius, var(--radius-sm));
 }
-input.ui-number-gauge[data-size="sm"] .ui-number-gauge-grip { margin-bottom: 2px; }
-input.ui-number-gauge[data-size="lg"], .ui-number-range-gauge[data-size="lg"] { height: var(--ui-number-gauge-height, 40px); font-size: var(--ui-number-gauge-font-size, 14px); }
+input.ui-number-gauge[data-size="lg"], .ui-number-range-gauge[data-size="lg"] { --ui-number-gauge-base-width: 126px; height: var(--ui-number-gauge-height, 40px); font-size: var(--ui-number-gauge-font-size, 14px); }
+input.ui-number-gauge[data-size="sm"] svg.ui-number-gauge-grip { height: 5px; margin-bottom: 1px; }
+input.ui-number-gauge[data-size="lg"] svg.ui-number-gauge-grip { height: 11px; }
 /* Upper paints the interval, lower covers only the prefix. Their thumbs have identical travel. */
 .ui-number-range-gauge > input.ui-number-gauge {
-	position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+	position: absolute; left: 0; top: 0; width: 100%; max-width: none; height: 100%;
 	border: 0; border-radius: 0; outline-width: 0; background: transparent; font-size: inherit;
 }
 .ui-number-range-gauge > input[data-endpoint="lower"] { z-index: 1; }
@@ -497,7 +501,7 @@ input.ui-number-gauge[data-size="lg"], .ui-number-range-gauge[data-size="lg"] { 
 input.ui-number-gauge:disabled, .ui-number-range-gauge:disabled { color: var(--text-tertiary); border-color: var(--border); cursor: default; }
 input.ui-number-gauge:disabled > .fill { background: var(--input-bg-disabled); }
 input.ui-number-gauge:disabled > .thumb { background: var(--border-secondary); }
-input.ui-number-gauge:disabled .ui-number-gauge-dot { background: var(--text-tertiary); }
+input.ui-number-gauge:disabled svg.ui-number-gauge-grip { color: var(--text-tertiary); }
 
 /* Checkboxes and radios: 18 across, a hairline of the secondary border; checked, the primary colour. */
 .ui-checkbox-field, .ui-radio-field { flex-direction: row; align-items: center; gap: var(--ui-check-gap, 12px); font-size: var(--ui-check-font-size, 14px); color: var(--text-primary); }

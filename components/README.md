@@ -148,6 +148,10 @@ rendering defect; the components themselves keep the theme's font token.
 keeps its original 40 px design. Buttons, arrow keys and the wheel share
 the same decimal steps and bounds. Wheel up increases the value; trackpad
 movement accumulates into steps. Disabled fields let their parent scroll.
+An ongoing parent scroll keeps its gesture when a numeric control moves
+under the pointer, including momentum; those deltas never edit the value.
+Moving onto a control or waiting for the 250 ms wheel gap lets a new gesture
+edit it without scrolling its parent.
 The field and step buttons resize together:
 
 ```tsx
@@ -158,11 +162,14 @@ var medium = <number-input size={Md} value={12.5} step={0.5} />; // 32 px (defau
 var large = <number-input size={Lg} value={12.5} step={0.5} />; // 40 px
 ```
 
-`NumberGauge` shows a filled range, a centered number and a flat three-dot
+`NumberGauge` shows a filled range, a centered number and a vertical SVG three-dot
 grip. `NumberRangeGauge` fills the interval between two grips. Drag or scroll
 near an edge to edit it; Tab reaches each endpoint separately for arrow,
 Page Up/Down and Home/End keys. Both support the same `Sm`, `Md` and `Lg`
-heights as NumberInput, with a default width of 240 px.
+heights as NumberInput. They stay compact: the formatted minimum, maximum
+and decimal step determine their maximum width in the current font.
+Intervals reserve space for both values. Changing the value does not resize
+the control, and narrower parents can shrink it.
 
 ```tsx
 import ashui.components.NumberGauge;
@@ -183,7 +190,9 @@ Use `name` on NumberGauge, or `lowerName`/`upperName` on NumberRangeGauge,
 to submit values in a form. `lowerId`/`upperId` let labels target individual
 endpoints. `disabled` also follows disabled fieldsets. CSS hooks include
 `--ui-number-gauge-width`, `-height`, `-radius`, `-fill`, `-track`, `-font-size`
-and `-grip-width`. See the pure HXX
+and `-grip-width`. `--ui-number-gauge-min-width` and `-value-space` tune the
+intrinsic sizing; an explicit CSS `max-width` overrides the derived limit.
+See the pure HXX
 [NumberGauges demo](https://github.com/rayzor-blade/ashui/blob/main/tools/demo/NumberGauges.hx).
 
 Override theme tokens for a shared look, or component properties such as

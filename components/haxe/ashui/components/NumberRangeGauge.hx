@@ -51,7 +51,7 @@ class NumberRangeGauge extends Component<NumberRangeGaugeProps> {
 	function render():Element {
 		Library.use();
 		var min = props.min == null ? 0.0 : props.min;
-		var max = props.max == null ? 100.0 : Math.max(min, props.max);
+		var max = Math.max(min, props.max == null ? 100.0 : props.max);
 		var step = props.step != null && props.step > 0 ? props.step : 1.0;
 		NumberGaugeParts.validate(min, max, step);
 		function notify() if (props.onChange != null) props.onChange(lower.get(), upper.get());
@@ -85,10 +85,15 @@ class NumberRangeGauge extends Component<NumberRangeGaugeProps> {
 		low.node.set(Prop.PointerEvents, ashui.types.Style.PointerEvents.None);
 		high.node.set(Prop.PointerEvents, ashui.types.Style.PointerEvents.None);
 		var format = props.format == null ? (a:Float, b:Float) -> NumberGaugeParts.format(a) + " – " + NumberGaugeParts.format(b) : props.format;
+		var label = NumberGaugeParts.label(Computed.make(() -> format(lo.get(), hi.get())));
 		var box = Library.part("ui-number-range-gauge", null,
 			["size" => (props.size == null ? Size.Md : props.size : String),
 			 "focus-visible" => Computed.make(() -> (Interaction.of(low.node).focusVisible.get() || Interaction.of(high.node).focusVisible.get() ? "" : null : Null<String>))],
-			[low, high, NumberGaugeParts.label(Computed.make(() -> format(lo.get(), hi.get())))].concat(children), props.id);
+			[low, high, label].concat(children), props.id);
+		var nearMin = NumberGaugeParts.normalize(min + step, min, max, step);
+		var nearMax = NumberGaugeParts.normalize(max - step, min, max, step);
+		NumberGaugeParts.sizeToBounds(box, label, [format(min, max), format(min, min), format(max, max),
+			format(nearMin, nearMax), format(nearMin, nearMin), format(nearMax, nearMax)]);
 		var interaction = Interaction.of(box.node);
 		var li = Interaction.of(low.node), hiInteraction = Interaction.of(high.node);
 		interaction.setDisabled(Computed.make(() -> li.disabled.get() || hiInteraction.disabled.get()));

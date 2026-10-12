@@ -64,10 +64,11 @@ class NumberGauges {
 		}
 		settle();
 		var expected = size == Sm ? 24 : size == Md ? 32 : 40;
-		check('$size gauge dimensions honor explicit width', bounds("#single").width == 320 && bounds("#single").height == expected
-			&& bounds("#interval").width == 320 && bounds("#interval").height == expected);
-		check('$size flat grips have three dots per endpoint', Css.query(tree, root.node.id, ".ui-number-gauge-grip").length == 3
-			&& Css.query(tree, root.node.id, ".ui-number-gauge-dot").length == 9);
+		check('$size gauge width is capped by its formatted bounds', bounds("#single").width < 200 && bounds("#single").height == expected
+			&& bounds("#interval").width < 200 && bounds("#interval").height == expected);
+		check('$size vertical grips use SVG at each endpoint', Css.query(tree, root.node.id, "svg.ui-number-gauge-grip").length == 3
+			&& bounds("#single .ui-number-gauge-grip").width == 3
+			&& bounds("#single .ui-number-gauge-grip").height == (size == Sm ? 5 : size == Md ? 8 : 11));
 		var sb = bounds("#single"), text = bounds("#single > .ui-number-gauge-value > text");
 		check('$size formatted number is centered', Math.abs(text.x + text.width / 2 - sb.x - sb.width / 2) <= 0.6
 			&& Math.abs(text.y + text.height / 2 - sb.y - sb.height / 2) <= 1, [sb, text]);
@@ -162,6 +163,7 @@ class NumberGauges {
 
 	static function main():Void {
 		for (size in [Size.Sm, Size.Md, Size.Lg]) variant(size);
+		sizing();
 		// Float steps printed in exponent form must not be rounded to integers.
 		var tree = new LayoutTree(), stop = () -> {};
 		var tiny = Signal.make(0.0000002);
@@ -178,5 +180,51 @@ class NumberGauges {
 		stop(); tree.dispose();
 		Sys.println('$checks checks: ' + (failures == 0 ? "ALL PASSED" : '$failures FAILED'));
 		Sys.exit(failures == 0 ? 0 : 1);
+	}
+
+	static function sizing():Void {
+		var tree = new LayoutTree(), stop = () -> {};
+		var value = Signal.make(0.0);
+		var root:Div = Owner.root(tree, dispose -> {
+			stop = dispose;
+			return <div width={900} height={350} class="flex-col">
+				<number-gauge id="compact" max={100} />
+				<number-gauge id="digits" max={999999999999.0} value={value} />
+				<number-gauge id="decimal" min={-9999.99} max={9999.99} step={0.01} format={n -> n + " kg"} />
+				<number-range-gauge id="wide-interval" min={-9999.99} max={9999.99} step={0.01} />
+				<div width={75}><number-gauge id="narrow" max={100} /></div>
+			</div>;
+		});
+		function settle() for (_ in 0...3) { tree.flush(); tree.computeLayout(root.node, 900, 350); }
+		function node(selector:String):Node return new Node(Css.query(tree, root.node.id, selector)[0]);
+		function width(selector:String):Float return tree.getBounds(node(selector)).width;
+		tree.flush(); tree.computeLayout(root.node, 900, 350);
+		check("intrinsic sizing settles during the first layout before a frame is drawn", width("#compact") > 0
+			&& width("#digits") > width("#compact"), [width("#compact"), width("#digits")]);
+		settle();
+		var compact = width("#compact"), digits = width("#digits"), decimal = width("#decimal");
+		check("column gauges stay compact instead of stretching across their parent", compact <= 126 && compact >= 90, compact);
+		check("maximum digit count enlarges the intrinsic limit", digits > compact, [compact, digits]);
+		check("negative decimals and suffixes fit inside the gauge", decimal > compact
+			&& width("#decimal > .ui-number-gauge-value > text") + 28 <= decimal, decimal);
+		check("interval sizing reserves both formatted endpoint values", width("#wide-interval") > decimal, width("#wide-interval"));
+		check("a narrow parent can shrink the gauge below its intrinsic limit", width("#narrow") == 75, width("#narrow"));
+		value.set(999999999999.0); settle();
+		check("changing the value never changes the maximum-based width", width("#digits") == digits);
+		var identity = Identity.of(tree, node("#digits").id);
+		identity.setInline("font-size", "26px"); settle();
+		check("font changes remeasure the numeric maximum", width("#digits") > digits, width("#digits"));
+		identity.setInline("font-size", null); settle();
+		check("removing a font override restores the compact limit", width("#digits") == digits);
+		identity.setInline("max-width", "280px").setInline("width", "280px"); settle();
+		check("explicit CSS can override the intrinsic maximum", width("#digits") == 280, width("#digits"));
+		identity.setInline("max-width", null).setInline("width", null); settle();
+		check("removing a CSS maximum restores bound-based sizing", width("#digits") == digits, width("#digits"));
+		var compactIdentity = Identity.of(tree, node("#compact").id);
+		compactIdentity.setInline("--ui-number-gauge-min-width", "160px"); settle();
+		check("CSS custom properties can tune the intrinsic minimum", width("#compact") == 160, width("#compact"));
+		compactIdentity.setInline("--ui-number-gauge-min-width", null); settle();
+		check("removing a sizing token restores the theme-sized control", width("#compact") == compact);
+		stop(); tree.dispose();
 	}
 }
