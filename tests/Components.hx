@@ -835,6 +835,43 @@ class Components {
 			formSettle();
 			check('NumberInput size $n keeps the field keyboard editable', quantities[n].get() == 0.5, quantities[n].get());
 		}
+		// Wheel deltas use WindowedApp's 40-unit line and the core decimal grid (095fab4).
+		var numberParentWheels = 0;
+		ashui.input.Interaction.of(formRoot.node).onWheel(_ -> numberParentWheels++);
+		for (n in 0...3) {
+			var children = formTree.children(numbers[n + 1]);
+			var b = formTree.getBounds(new ashui.layout.Node(children[1]));
+			ashui.input.Pointer.move(formTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.wheel(formTree, 0, 40);
+			formSettle();
+			var raised = quantities[n].get();
+			ashui.input.Pointer.wheel(formTree, 0, 80);
+			formSettle();
+			var limited = quantities[n].get();
+			ashui.input.Pointer.wheel(formTree, 0, -40);
+			formSettle();
+			check('NumberInput size $n wheel steps decimals and clamps', raised == 1 && limited == 1 && quantities[n].get() == 0.5);
+			b = formTree.getBounds(new ashui.layout.Node(children[0]));
+			ashui.input.Pointer.move(formTree, b.x + b.width / 2, b.y + b.height / 2);
+			ashui.input.Pointer.wheel(formTree, 0, -40);
+			formSettle();
+			check('NumberInput size $n wheel works over its step button', quantities[n].get() == 0);
+			ashui.input.Pointer.wheel(formTree, 0, 12);
+			ashui.input.Pointer.wheel(formTree, 0, 12);
+			var held = quantities[n].get();
+			ashui.input.Pointer.wheel(formTree, 0, 16);
+			formSettle();
+			check('NumberInput size $n accumulates small trackpad deltas', held == 0 && quantities[n].get() == 0.5);
+			ashui.input.Pointer.wheel(formTree, 0, 12);
+			ashui.input.Pointer.wheel(formTree, 0, -28);
+			var reversed = quantities[n].get();
+			ashui.input.Pointer.wheel(formTree, 0, -12);
+			formSettle();
+			check('NumberInput size $n resets the remainder on reversal', reversed == 0.5 && quantities[n].get() == 0);
+			ashui.input.Pointer.wheel(formTree, 40, 0);
+			check('NumberInput size $n passes horizontal scrolling to its parent', numberParentWheels == n + 1 && quantities[n].get() == 0);
+			quantities[n].set(0.5);
+		}
 		numbersDisabled.set(true);
 		formSettle();
 		for (n in 0...3) {
@@ -844,6 +881,8 @@ class Components {
 				&& ashui.input.Interaction.byId(formTree, children[0]).disabled.get()
 				&& ashui.input.Interaction.byId(formTree, children[1]).disabled.get()
 				&& ashui.input.Interaction.byId(formTree, children[2]).disabled.get());
+			ashui.input.Pointer.wheel(formTree, 0, 40);
+			check('NumberInput size $n passes disabled wheel edits to its parent', quantities[n].get() == 0.5 && numberParentWheels == 4 + n);
 		}
 
 		// --- Toggles, a sheet, a hover card and a context menu ---

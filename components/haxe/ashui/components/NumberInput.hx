@@ -12,7 +12,7 @@ typedef NumberInputProps = {
 	?value:IntoReactive<Float>,
 	?min:Float,
 	?max:Float,
-	/** What − and + move it by; 1 by default. **/
+	/** What the buttons, arrow keys and wheel move it by; 1 by default. **/
 	?step:Float,
 	/** Small (24px), medium (32px, default) or large (40px). **/
 	?size:Size,
@@ -57,27 +57,18 @@ class NumberInput extends Component<NumberInputProps> {
 			id: props.id
 		});
 		ashui.css.Identity.of(field.tree, field.node.id).addClasses(["ui-number-field"]);
-		var v = value;
-		var step = props.step == null ? 1.0 : props.step;
-		var low = props.min, high = props.max;
 		function stepper(dir:Int, glyph:String):Element {
 			var b = Library.part("ui-number-step", "button", ["step" => (dir < 0 ? "down" : "up")], [new ashui.ui.Text(glyph)]);
 			var i = Interaction.of(b.node).setFocusable(true);
 			if (props.disabled != null)
 				i.setDisabled(props.disabled);
-			i.onClick(_ -> {
-				var next = v.get() + dir * step;
-				// Rounded to the step's places, so 0.1 steps do not drift.
-				next = Math.round(next / step) * step;
-				if (low != null)
-					next = Math.max(low, next);
-				if (high != null)
-					next = Math.min(high, next);
-				v.set(next);
-			});
+			i.onClick(_ -> field.stepNumber(dir));
 			return b;
 		}
-		return Library.part("ui-number-input", null, ["size" => (props.size == null ? Size.Md : props.size : String)],
+		var box = Library.part("ui-number-input", null, ["size" => (props.size == null ? Size.Md : props.size : String)],
 			[stepper(-1, "−"), field, stepper(1, "+")]);
+		// Wheel over the field or either button uses the same decimal grid (git-bug 095fab4).
+		ashui.input.NumberWheel.bind(box.node, () -> Interaction.of(field.node).disabled.get(), field.stepNumber);
+		return box;
 	}
 }

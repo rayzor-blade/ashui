@@ -487,8 +487,8 @@ class Input extends Component<InputProps> implements FormControl {
 	}
 
 	/** Moves a number by `by` steps from where it is, or from nothing, within its bounds. **/
-	function stepNumber(by:Int):Void {
-		if (interaction.disabled.get())
+	public function stepNumber(by:Int):Void {
+		if (valueAsNumber == null || by == 0 || interaction.disabled.get())
 			return;
 		var n = valueAsNumber;
 		var step = props.step != null && props.step > 0 ? props.step : 1;

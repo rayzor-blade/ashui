@@ -145,7 +145,10 @@ The size gallery supplies a monospace font fallback for a native SF Mono
 rendering defect; the components themselves keep the theme's font token.
 
 `NumberInput` uses the shared `Size` enum. Medium is the default; large
-keeps its original 40 px design. The field and step buttons resize together:
+keeps its original 40 px design. Buttons, arrow keys and the wheel share
+the same decimal steps and bounds. Wheel up increases the value; trackpad
+movement accumulates into steps. Disabled fields let their parent scroll.
+The field and step buttons resize together:
 
 ```tsx
 import ashui.components.NumberInput;
