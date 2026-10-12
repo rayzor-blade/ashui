@@ -135,8 +135,8 @@ without handles for that tool.
 
 Wrap the object's mesh or model draws in `selection.draw(id, ctx, draw)`
 to give the selected object a subtle mask, a soft rim and highlighted
-silhouette and crease edges. Textures and lighting stay visible, edges use
-the scene's depth, and the gizmos draw above them. Geometry is cached while
+silhouette edges. Textures and lighting stay visible, edges use the scene's
+depth, and the gizmos draw above them. Geometry is cached while
 selected and freed on deselection. Cutout and blended materials keep the
 surface treatment without geometry edge lines. Custom shaders inherit the
 mask and rim when they use `MeshShader.fragment`; their vertex deformation

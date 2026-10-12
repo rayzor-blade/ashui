@@ -9,7 +9,7 @@ private typedef Edge = {a:Int, b:Int, n0:Vec3, n1:Vec3, boundary:Bool};
 private typedef EdgeDraw = {mesh:MeshData, transform:Mat4, opacity:Float};
 
 /**
-	Selected-object edges (git-bug 8ceba8d), using the scene's depth buffer.
+	Selected-object silhouettes (git-bug 8ceba8d, 67cca2c), using the scene's depth buffer.
 	Welds coincident positions across UV/normal seams, suppresses coplanar
 	triangle diagonals, and lets the shader find silhouettes for each view.
 	Geometry and GPU resources are cached for the current selected meshes;
@@ -28,7 +28,7 @@ class SelectionEdges implements ScenePass {
 	public function stage():SceneStage return Overlay;
 	public function animated():Bool return false;
 
-	/** All noncoplanar adjacency edges; the shader keeps visible creases and silhouettes. **/
+	/** Noncoplanar adjacency and open boundaries; the shader keeps only visible contours (67cca2c). **/
 	public static function geometry(mesh:MeshData):haxe.io.Bytes {
 		var ids = new haxe.ds.Vector<Int>(mesh.vertexCount), positions = new Map<String, Int>();
 		var extent = mesh.max.sub(mesh.min);
@@ -79,7 +79,7 @@ class SelectionEdges implements ScenePass {
 		for (i in 0...kept.length) {
 			var e = kept[i], at = i * 64;
 			row(at, point(e.a), 0); row(at + 16, point(e.b), 0);
-			row(at + 32, e.n0, e.boundary || e.n0.dot(e.n1) < 0.8660254 ? 1 : 0);
+			row(at + 32, e.n0, e.boundary ? 1 : 0);
 			row(at + 48, e.n1, 0);
 		}
 		return out;

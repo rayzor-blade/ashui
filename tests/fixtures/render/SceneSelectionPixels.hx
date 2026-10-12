@@ -15,7 +15,7 @@ import ashui.types.Brush;
 import ashui.ui.Div;
 import gpu.GpuTextureViewDescriptor;
 
-/** Actual selection surfaces, silhouettes, occlusion and cache lifetime. git-bug 8ceba8d. **/
+/** Actual selection surfaces, silhouettes, occlusion and cache lifetime. git-bug 8ceba8d, 67cca2c. **/
 class SceneSelectionPixels {
 	static function check(name:String, ok:Bool):Void {
 		if (!ok) throw name;
@@ -32,7 +32,7 @@ class SceneSelectionPixels {
 		check('cube UV and normal seams weld to twelve real edges, without triangle diagonals', SelectionEdges.geometry(box).length == 12 * 64);
 		var smooth = SelectionEdges.geometry(torus), seams = 0;
 		for (i in 0...Std.int(smooth.length / 64)) if (smooth.getFloat(i * 64 + 44) > 0.5) seams++;
-		check('smooth torus has no false boundary or crease at its UV seams', seams == 0);
+		check('smooth torus has no false boundary at its UV seams', seams == 0);
 		var fractional = Geometry.box(0.00125, 0.0025, 0.00375);
 		var edgeBytes = SelectionEdges.geometry(fractional);
 		check('edge geometry preserves fractional dimensions', edgeBytes.length == 12 * 64 && Math.abs(Math.abs(edgeBytes.getFloat(0)) - 0.000625) < 1e-9);
@@ -63,16 +63,28 @@ class SceneSelectionPixels {
 			var center = (160 * scale * w + 210 * scale) * 4;
 			var delta = before.get(center) - selected.get(center);
 			check('selection has a slight surface mask at ${scale}x ($delta)', delta > 8 && delta < 30);
-			var edges = 0, untouched = 0, altered = 0;
+			var fringe = 0, interiorEdges = 0, untouched = 0, altered = 0;
 			for (i in 0...w * h) {
 				var at = i * 4, r = selected.get(at), b = selected.get(at + 2);
-				if (b > 185 && b - r > 15) edges++;
+				if (before.get(at) == 0x12 && before.get(at + 1) == 0x19 && before.get(at + 2) == 0x23 && b > 60 && b - r > 15) fringe++;
+				if (b > 185 && b - r > 15) {
+					// A contour touches the unselected background; an internal crease does not (67cca2c).
+					var x = i % w, y = Std.int(i / w), contour = false;
+					for (dy in -2 * scale...2 * scale + 1) for (dx in -2 * scale...2 * scale + 1) {
+						var px = x + dx, py = y + dy;
+						if (px < 0 || py < 0 || px >= w || py >= h) continue;
+						var near = (py * w + px) * 4;
+						if (before.get(near) == 0x12 && before.get(near + 1) == 0x19 && before.get(near + 2) == 0x23) contour = true;
+					}
+					if (!contour) interiorEdges++;
+				}
 				if (before.get(at) == 0xdb && before.get(at + 1) == 0x82 && before.get(at + 2) == 0x50) {
 					untouched++;
 					if (r != 0xdb || selected.get(at + 1) != 0x82 || b != 0x50) altered++;
 				}
 			}
-			check('selected cube has visible edge highlights without rotation rings at ${scale}x ($edges)', edges > 60 * scale);
+			check('selected cube has a visible silhouette fringe without rotation rings at ${scale}x ($fringe)', fringe > 60 * scale);
+			check('selected cube highlights only its contour, without face creases at ${scale}x ($interiorEdges)', interiorEdges == 0);
 			check('unselected object keeps its original material at ${scale}x', untouched > 100 * scale && altered == 0);
 			selection.clear(); var cleared = render();
 			check('deselection restores original pixels at ${scale}x', haxe.crypto.Sha256.make(before).toHex() == haxe.crypto.Sha256.make(cleared).toHex());
@@ -92,7 +104,7 @@ class SceneSelectionPixels {
 			var dir = Sys.getEnv("ASHUI_SNAPSHOT_DIR"); if (dir == null) dir = "../../.ashui/snapshots";
 			sys.FileSystem.createDirectory(dir);
 			sys.io.File.saveBytes('$dir/scene-selection-${scale}x.png', ashui.core.render.Png.encode(w, h, selected));
-			edges = 0;
+			var edges = 0;
 			// Curved silhouettes are depth-tested: their inside half is hidden by the surface.
 			// Check the visible fringe over pixels that were pure background, rather than brightness on a face.
 			for (i in 0...w * h) {

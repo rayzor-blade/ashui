@@ -65,7 +65,7 @@ class Selection3D {
 	}
 
 	/**
-		Draws an object's meshes with its selection mask and edges (8ceba8d).
+		Draws an object's meshes with its selection mask and silhouette edges (8ceba8d, 67cca2c).
 		Wrap either one `ctx.drawMesh` or a whole model's `draw`. Register its
 		bounds with `region` as usual. Materials, textures, shaders and mesh
 		vertices are preserved; only the selected object's draws are decorated.

@@ -1,6 +1,6 @@
 package ashui.canvaskit;
 
-/** Selected mesh silhouettes and creases, with depth and a constant screen width. 8ceba8d. **/
+/** Selected mesh silhouettes, with depth and a constant screen width. 8ceba8d, 67cca2c. **/
 class SelectionEdgeShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
@@ -25,7 +25,8 @@ class SelectionEdgeShader implements hlwgpu.hxsl.Shader {
 			var look = cameraEye() - (a + b) * 0.5;
 			var front0 = dot(normal(n0.xyz), look) > 0.;
 			var front1 = dot(normal(n1.xyz), look) > 0.;
-			var visible = (front0 || front1) && (n0.w > 0.5 || front0 != front1);
+			// Closed edges are contours only where facing changes; sharp front-facing creases stay unlined (67cca2c).
+			var visible = n0.w > 0.5 ? front0 : front0 != front1;
 			var ca = worldToClip(vec4(a, 1.)), cb = worldToClip(vec4(b, 1.));
 			// Clip to the near plane before division, including edges crossing behind the eye.
 			if (ca.z < 0. && cb.z >= 0.) ca = mix(ca, cb, -ca.z / (cb.z - ca.z));
