@@ -3,6 +3,7 @@ package ashui.components;
 import ashui.input.Interaction;
 import ashui.layout.Element;
 import ashui.reactive.Owner;
+import ashui.reactive.Watch;
 import ashui.state.Machine;
 import ashui.ui.Component;
 import ashui.ui.Text;
@@ -83,11 +84,19 @@ class Tooltip extends Component<TooltipProps> {
 			owner = null;
 		});
 		var i = Interaction.of(trigger.node);
+		// 8dd8f7e: focus events target the actual child control; focusWithin
+		// and its focusVisible signal keep the existing FSM in sync instead.
+		function keyboardFocused():Bool {
+			var focused = ashui.input.Focus.of(tree);
+			return i.focusWithin.get() && focused != null && focused.focusVisible.get();
+		}
 		i.onPointerEnter(_ -> machine.send(Rest));
-		i.onPointerLeave(_ -> machine.send(Leave));
+		i.onPointerLeave(_ -> if (!keyboardFocused()) machine.send(Leave));
 		i.onPointerDown(_ -> machine.send(Leave));
-		i.onFocus(_ -> if (i.focusVisible.get()) machine.send(Focus));
-		i.onBlur(_ -> machine.send(Leave));
+		new Watch(keyboardFocused, focused -> {
+			if (focused) machine.send(Focus);
+			else if (!i.hovered.get()) machine.send(Leave);
+		});
 		Owner.onCleanup(() -> {
 			if (entry != null)
 				entry.close();

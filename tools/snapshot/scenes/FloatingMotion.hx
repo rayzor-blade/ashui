@@ -7,7 +7,6 @@ import ashui.reactive.Signal;
 import ashui.theme.ThemeState;
 import ashui.theme.themes.DefaultTheme;
 import ashui.types.Style;
-import ashui.ui.Hxx.hxx;
 
 /**
 	The floating components recorded with the motion overlay: a popover
@@ -22,7 +21,7 @@ class FloatingMotion {
 		ThemeState.init(DefaultTheme.bundle(), light ? Light : Dark);
 		var page = ThemeState.get().color(Background);
 		var chosen = Signal.make("");
-		var build = () -> hxx('
+		var build = () ->
 			<div flexDirection={Row} padding={32} gap={48} width={760} height={420} alignItems={Start}>
 				<popover>
 					<popover-trigger id="pop">Open Popover</popover-trigger>
@@ -44,7 +43,7 @@ class FloatingMotion {
 				</dropdown-menu>
 				<tooltip label="Add to library" delay={0.1}><button id="tip" variant={Outline}>Hover me</button></tooltip>
 			</div>
-		');
+		;
 		function at(tree:ashui.layout.LayoutTree, id:String):{x:Float, y:Float} {
 			var node = byId(tree, tree.root.id, id);
 			if (node == null)
@@ -60,8 +59,8 @@ class FloatingMotion {
 		}
 		var result = MotionRecorder.record(light ? "floating-light" : "floating", 760, 420, build, {
 			fps: 60,
-			frames: 120,
-			minFrames: 90,
+			frames: 150,
+			minFrames: 132,
 			clear: page.rgb(),
 			before: (frame, tree, root) -> switch frame {
 				case 1: click(tree, "pop");
@@ -71,6 +70,12 @@ class FloatingMotion {
 				case 70:
 					var p = at(tree, "tip");
 					ashui.input.Pointer.move(tree, p.x, p.y);
+				// 8dd8f7e: the child receives keyboard focus; leaving with the
+				// pointer must retain its tooltip until keyboard focus leaves.
+				case 95:
+					ashui.input.Focus.set(ashui.input.Interaction.byId(tree, byId(tree, root.node.id, "tip")), true);
+				case 96: ashui.input.Pointer.leave(tree);
+				case 110: ashui.input.Focus.clear(tree);
 				case _:
 			}
 		});
