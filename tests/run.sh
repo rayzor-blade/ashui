@@ -245,6 +245,10 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main NumberGauges -hl bin/number-gauges-test.hl
 	number_gauges=0
 	run number-gauges-test.hl || number_gauges=$?
+	# Numeric resets supersede formatting already waiting in the reactive queue.
+	$haxe_ui --class-path fixtures/input -main NumberSynchronization -hl bin/number-synchronization.hl
+	number_sync=0
+	run number-synchronization.hl || number_sync=$?
 	# Scroll gestures retain ownership when content reveals numeric controls (095fab4).
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/input -main NumberWheelOwnership -hl bin/number-wheel-ownership.hl
 	number_wheel=0
@@ -270,7 +274,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $command_items -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $command_items -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_sync -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

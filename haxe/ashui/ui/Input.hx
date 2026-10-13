@@ -408,13 +408,22 @@ class Input extends Component<InputProps> implements FormControl {
 			var n = valueAsNumber = numberState(parseNumber(text.get()));
 			if (!same(parseNumber(text.get()), n.get()))
 				text.set(formatNumber(n.get()));
-			// The text and the number follow each other; text that is no number yet, as "1e" is while typed, leaves the number.
+			// External numeric writes take precedence over queued text from an earlier value.
+			var lastNumber = n.get();
+			// Partial text such as "1e" leaves the number unchanged.
 			new Watch(() -> text.get(), t -> {
+				if (t != text.get() || !same(n.get(), lastNumber)) return;
 				var v = parseNumber(t);
-				if ((t == "" || !Math.isNaN(v)) && !same(v, n.get()))
+				if ((t == "" || !Math.isNaN(v)) && !same(v, n.get())) {
+					lastNumber = v;
 					n.set(v);
+				}
 			});
-			new Watch(() -> n.get(), v -> if (!same(parseNumber(text.get()), v)) text.set(formatNumber(v)));
+			new Watch(() -> n.get(), _ -> {
+				var v = n.get();
+				lastNumber = v;
+				if (!same(parseNumber(text.get()), v)) text.set(formatNumber(v));
+			});
 			var up = new Div({classes: ["step-up"]}, [new Svg(chevron(true))]);
 			var down = new Div({classes: ["step-down"]}, [new Svg(chevron(false))]);
 			Interaction.of(up.node).onClick(_ -> stepNumber(1));
