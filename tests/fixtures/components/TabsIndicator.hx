@@ -39,6 +39,45 @@ class TabsIndicator {
 		tree.flush(); tree.computeLayout(root.node, 200, 40);
 		stop(); tree.dispose();
 	}
+	/** Compact unequal labels must keep their content padding, including the active font weight (4a624a1). **/
+	static function compact(size:Size) {
+		var tree = new LayoutTree(), stop:Void->Void = null, value = Signal.make("object");
+		var width = size == Size.Sm ? 250 : size == Size.Md ? 290 : 350;
+		var view = Owner.root(tree, dispose -> {
+			stop = dispose;
+			return <tabs value={value} size={size} width={width} height={80}>
+				<tabs-list id="compact-list">
+					<tabs-trigger id="compact-object" value="object" class="flex-auto">Object</tabs-trigger>
+					<tabs-trigger id="compact-physics" value="physics" class="flex-auto">Physics</tabs-trigger>
+					<tabs-trigger id="compact-animation" value="animation" class="flex-auto">Animation</tabs-trigger>
+				</tabs-list>
+			</tabs>;
+		});
+		function node(selector:String):Node return new Node(Css.query(tree, view.node.id, selector)[0]);
+		function settle() { tree.flush(); tree.computeLayout(view.node, width, 80); }
+		try {
+			settle();
+			for (selected in ["object", "physics", "animation"]) {
+				value.set(selected); settle(); AnimationScheduler.main.tick(1); settle();
+				var trigger = node("#compact-" + selected), b = tree.getBounds(trigger), box = tree.getBox(trigger);
+				var text = tree.getBounds(node("#compact-" + selected + " text"));
+				var label = selected == "object" ? "Object" : selected == "physics" ? "Physics" : "Animation";
+				var carets = new hl.Bytes((label.length + 2) * 12), info = new hl.Bytes(16);
+				var count = ashui.core.externs.TextNative.blinc_text_carets(tree.ptr, node("#compact-" + selected + " text").id,
+					ashui.core.Utf8.encode(label), 0, 0, carets, label.length + 2, info);
+				var shapedWidth = count > 0 ? carets.getF32((count - 1) * 12 + 4) : 0;
+				check('$size compact $selected fits the shaped label plus padding', shapedWidth > 0
+					&& b.width >= shapedWidth + box.padding[1] + box.padding[3] - .05, [b.width, shapedWidth, box.padding]);
+				check('$size compact $selected keeps left and right label padding', text.x >= b.x + box.padding[3] - .05
+					&& text.x + text.width <= b.x + b.width - box.padding[1] + .05, [b, text, box.padding]);
+				var indicator = tree.getBounds(node(".ui-tabs-indicator"));
+				check('$size compact $selected background covers the padded trigger', near(b.x, indicator.x) && near(b.width, indicator.width));
+			}
+			var short = tree.getBounds(node("#compact-object")), long = tree.getBounds(node("#compact-animation"));
+			check('$size compact longer labels have wider backgrounds', long.width > short.width + 10, [short, long]);
+		} catch (error:Dynamic) { stop(); tree.dispose(); throw error; }
+		stop(); AnimationScheduler.main.tick(1); tree.dispose();
+	}
 	static function main() {
 		for (dark in [true, false]) for (size in [Size.Sm, Size.Md, Size.Lg]) {
 			ThemeState.init(DefaultTheme.bundle(), dark ? Dark : Light);
@@ -144,6 +183,7 @@ class TabsIndicator {
 			// Existing CSS color transition disposal is tracked by 7ac6110; drain it between variants.
 			AnimationScheduler.main.tick(1); tree.flush();
 			trace.stop(); tree.dispose();
+			compact(size);
 		}
 		Sys.println('$checks checks: ALL PASSED');
 	}

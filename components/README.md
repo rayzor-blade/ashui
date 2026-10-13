@@ -152,6 +152,11 @@ and resizes to the selected tab on clicks, keyboard navigation and bound
 motion tokens. Rapid choices continue from the background's current
 position. The existing trigger and content behavior stays in place.
 
+Triggers size to their labels and padding. For a strip that fills its
+available width with unequal labels, give the triggers `class="flex-auto"`.
+`flex-1 min-w-0` forces equal widths and can squeeze a longer label against
+its background in a compact strip.
+
 ```tsx
 import ashui.components.Tabs;
 import ashui.reactive.Reactive;

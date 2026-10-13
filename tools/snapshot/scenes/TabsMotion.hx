@@ -20,7 +20,7 @@ class TabsMotion {
 		var light = Sys.getEnv("SCHEME") == "light";
 		ThemeState.init(DefaultTheme.bundle(), light ? Light : Dark);
 		var selected = signal("overview"), width = signal((624 : Single));
-		var build = () -> <div class="bg-background flex-col p-6 gap-4" width={760} height={650}>
+		var build = () -> <div class="bg-background flex-col p-6 gap-4" width={760} height={780}>
 			<div class="flex-col gap-2">
 				<text class="text-xl font-semibold">Tabs · moving selection</text>
 				<text class="text-sm text-secondary">One background follows clicks, keyboard navigation and layout.</text>
@@ -46,8 +46,21 @@ class TabsMotion {
 					</card-content>
 				</card>
 			</for>
+			<!-- Compact unequal labels keep their intrinsic text width and padding (4a624a1). -->
+			<card width={712}>
+				<card-content class="flex-col gap-4">
+					<label>Compact · unequal labels</label>
+					<tabs size={Sm} value={selected} width={250}>
+						<tabs-list>
+							<tabs-trigger value="overview" class="flex-auto">Object</tabs-trigger>
+							<tabs-trigger value="activity" class="flex-auto">Physics</tabs-trigger>
+							<tabs-trigger value="shortcuts" class="flex-auto">Animation</tabs-trigger>
+						</tabs-list>
+					</tabs>
+				</card-content>
+			</card>
 		</div>;
-		var result = MotionRecorder.record(light ? "tabs-light" : "tabs", 760, 650, build, {
+		var result = MotionRecorder.record(light ? "tabs-light" : "tabs", 760, 780, build, {
 			fps: 60, frames: 180, minFrames: 170, settle: 0.5,
 			clear: ThemeState.get().color(Background).rgb(),
 			before: (frame, tree, root) -> {
