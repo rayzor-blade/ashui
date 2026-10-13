@@ -600,11 +600,12 @@ class Css {
 			return new Map();
 		if (!themeWatched) {
 			themeWatched = true;
-			new ashui.reactive.Watch(() -> state.revision.get(), _ -> {
+			// 2abc23a: the global cache must outlive the first tree that loads CSS.
+			ashui.reactive.Owner.unowned(() -> new ashui.reactive.Watch(() -> state.revision.get(), _ -> {
 				themeVariables = null;
 				NativeCascade.setTheme(theme());
 				mediaChanged();
-			});
+			}));
 		}
 		return themeVariables = state.toCssVariableMap();
 	}

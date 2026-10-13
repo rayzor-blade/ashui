@@ -84,6 +84,20 @@ class Owner {
 		return owner.run(() -> fn(owner.dispose));
 	}
 
+	/** Runs application-lifetime setup outside the current presentation owner (2abc23a). **/
+	@:noCompletion public static function unowned<R>(fn:Void->R):R {
+		var previous = current;
+		current = null;
+		try {
+			var result = fn();
+			current = previous;
+			return result;
+		} catch (e:haxe.Exception) {
+			current = previous;
+			throw e;
+		}
+	}
+
 	/** Runs `fn` when the current owner is disposed; nothing outside an owner. **/
 	public static function onCleanup(fn:Void->Void):Void {
 		if (current != null)

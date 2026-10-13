@@ -198,6 +198,10 @@ memory)
 	$haxe_ui --class-path fixtures/css -main CssLayoutBindings -hl bin/css-layout-bindings.hl
 	bindings=0
 	run css-layout-bindings.hl || bindings=$?
+	# Global theme subscriptions survive presentation-owner disposal (2abc23a).
+	$haxe_ui --class-path fixtures/css -main CssThemeOwnership -hl bin/css-theme-ownership.hl
+	theme_ownership=0
+	run css-theme-ownership.hl || theme_ownership=$?
 	$haxe_ui --class-path fixtures/css -main CssTables -hl bin/css-tables.hl
 	tables=0
 	run css-tables.hl || tables=$?
@@ -246,7 +250,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $component_sizes -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $component_sizes -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2
