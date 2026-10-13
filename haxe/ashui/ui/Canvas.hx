@@ -81,6 +81,11 @@ class Canvas extends Component<CanvasProps> {
 	final painter = new ashui.core.render.CanvasPainter();
 	#end
 
+	static function removeSettledHook(hook:LayoutTree->Void):Void {
+		for(i in 0...LayoutTree.settledHooks.length)
+			if(Reflect.compareMethods(LayoutTree.settledHooks[i],hook)) {LayoutTree.settledHooks.splice(i,1);return;}
+	}
+
 	function render():Element {
 		#if ashui_gpu
 		painter.repaint = () -> repaint();
@@ -116,7 +121,7 @@ class Canvas extends Component<CanvasProps> {
 			}
 		}
 		LayoutTree.settledHooks.push(sized);
-		Owner.onCleanup(() -> LayoutTree.settledHooks.remove(sized));
+		Owner.onCleanup(() -> removeSettledHook(sized));
 		if (props.sketch != null) {
 			var sketch = props.sketch;
 			var frames = 0, t = 0.0, setUp = false;
@@ -140,7 +145,7 @@ class Canvas extends Component<CanvasProps> {
 			first = laid -> if (laid == tree && !setUp && w.get() > 0 && h.get() > 0)
 				step(0);
 			LayoutTree.settledHooks.push(first);
-			Owner.onCleanup(() -> LayoutTree.settledHooks.remove(first));
+			Owner.onCleanup(() -> removeSettledHook(first));
 			AnimationScheduler.main.addTicker(dt -> {
 				if (!alive)
 					return false;
