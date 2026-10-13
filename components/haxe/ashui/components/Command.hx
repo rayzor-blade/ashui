@@ -2,6 +2,9 @@ package ashui.components;
 
 import ashui.input.Interaction;
 import ashui.layout.Element;
+import ashui.layout.AfterChildren;
+import ashui.layout.LayoutTree;
+import ashui.reactive.Owner;
 import ashui.reactive.Computed;
 import ashui.reactive.Signal;
 import ashui.ui.Component;
@@ -32,46 +35,92 @@ class Command extends Component<CommandProps> {
 	public final active = Signal.make("");
 
 	var items:Array<CommandItem> = [];
+	// 6a88875: index mounted parts, including fragment children, using the
+	// existing AfterChildren queue; never scan an idle command every frame.
+	static final parts = new haxe.ds.ObjectMap<ashui.css.Identity, Component<Dynamic>>();
+
+	@:allow(ashui.components)
+	static function register(part:Component<Dynamic>, box:Element):Void {
+		var identity = ashui.css.Identity.of(box.tree, box.node.id);
+		parts.set(identity, part);
+		Owner.onCleanup(() -> parts.remove(identity));
+	}
 
 	function render():Element {
 		items = [];
-		var groups:Array<CommandGroup> = [], separators:Array<CommandSeparator> = [], empties:Array<CommandEmpty> = [], inputs:Array<CommandInput> = [];
-		function walk(list:Array<Element>) {
-			for (c in list) {
-				if (Std.isOfType(c, CommandItem))
-					items.push(cast c);
-				else if (Std.isOfType(c, CommandGroup))
-					groups.push(cast c);
-				else if (Std.isOfType(c, CommandSeparator))
-					separators.push(cast c);
-				else if (Std.isOfType(c, CommandEmpty))
-					empties.push(cast c);
-				else if (Std.isOfType(c, CommandInput))
-					inputs.push(cast c);
-				if (Std.isOfType(c, Component))
-					walk(@:privateAccess (cast c : Component<Dynamic>).children);
-			}
-		}
-		walk(children);
 		var q = query, a = active;
-		for (i in items)
-			i.bindTo(this);
-		for (inp in inputs)
-			inp.bindTo(q);
-		for (g in groups)
-			g.bindTo(Computed.make(() -> Lambda.exists(g.items(), it -> it.shown.get())));
-		var any = Computed.make(() -> Lambda.exists(items, it -> it.shown.get()));
-		for (e in empties)
-			e.bindTo(any);
-		for (s in separators)
-			s.bindTo(Computed.make(() -> q.get() == ""));
+		var root = Library.part("ui-command", null, null, children, props.id);
+		var tree = root.tree, id = root.node.id, owner = Owner.current;
+		register(this, root);
+		var revision = Signal.make(0);
+		var bindings = new haxe.ds.ObjectMap<Component<Dynamic>, Owner>();
+		var groups = new haxe.ds.ObjectMap<CommandGroup, Array<CommandItem>>();
+		var any = Computed.make(() -> {
+			revision.get();
+			return Lambda.exists(items, it -> it.shown.get());
+		});
+		function index() {
+			var mounted:Array<Component<Dynamic>> = [], next:Array<CommandItem> = [];
+			var seen = new haxe.ds.ObjectMap<Component<Dynamic>, Bool>();
+			groups = new haxe.ds.ObjectMap();
+			function walk(node:haxe.Int64, group:Null<CommandGroup>) {
+				var part = parts.get(ashui.css.Identity.of(tree, node));
+				if (part != null) {
+					if (Std.isOfType(part, Command)) return; // A nested command owns its own catalog (6a88875).
+					mounted.push(part);
+					seen.set(part, true);
+					if (Std.isOfType(part, CommandGroup)) {
+						group = cast part;
+						groups.set(group, []);
+					} else if (Std.isOfType(part, CommandItem)) {
+						var item:CommandItem = cast part;
+						next.push(item);
+						if (group != null) groups.get(group).push(item);
+						return;
+					}
+				}
+				for (child in tree.children(node)) walk(child, group);
+			}
+			for (child in tree.children(id)) walk(child, null);
+			items = next;
+			for (part => scope in bindings)
+				if (!seen.exists(part)) { scope.dispose(); bindings.remove(part); }
+			for (part in mounted) {
+				if (bindings.exists(part)) continue;
+				var scope = new Owner(tree, owner);
+				bindings.set(part, scope);
+				scope.run(() -> {
+					if (Std.isOfType(part, CommandItem)) (cast part : CommandItem).bindTo(this);
+					else if (Std.isOfType(part, CommandInput)) (cast part : CommandInput).bindTo(q);
+					else if (Std.isOfType(part, CommandGroup)) {
+						var group:CommandGroup = cast part;
+						group.bindTo(Computed.make(() -> {
+							revision.get();
+							var held = groups.get(group);
+							return held != null && Lambda.exists(held, it -> it.shown.get());
+						}));
+					} else if (Std.isOfType(part, CommandEmpty)) (cast part : CommandEmpty).bindTo(any);
+					else if (Std.isOfType(part, CommandSeparator)) (cast part : CommandSeparator).bindTo(Computed.make(() -> q.get() == ""));
+				});
+			}
+			revision.set(revision.get() + 1);
+		}
+		index();
+		AfterChildren.watch(tree, "command " + haxe.Int64.toStr(id),
+			parent -> parent == id || tree.ancestors(parent).indexOf(id) >= 0, index);
+		Owner.onCleanup(() -> { items = []; groups.clear(); bindings.clear(); });
 		// The first item left takes the highlight when the one highlighted is filtered out.
-		new ashui.reactive.Watch(() -> [for (it in items) if (it.shown.get() && !it.disabled()) it.props.value].join("\u0000"), visible -> {
-			var left = visible == "" ? [] : visible.split("\u0000");
+		new ashui.reactive.Watch(() -> {
+			revision.get();
+			return [for (it in items) if (it.shown.get() && !it.disabled()) it.props.value];
+		}, left -> {
 			if (left.indexOf(a.get()) < 0)
 				a.set(left.length > 0 ? left[0] : "");
+		}, (before, after) -> {
+			if (before.length != after.length) return false;
+			for (i in 0...before.length) if (before[i] != after[i]) return false;
+			return true;
 		});
-		var root = Library.part("ui-command", null, null, children, props.id);
 		Interaction.of(root.node).onKeyDown(e -> {
 			var left = [for (it in items) if (it.shown.get() && !it.disabled()) it];
 			if (left.length == 0)
@@ -138,7 +187,9 @@ class CommandInput extends Component<{?placeholder:String, ?id:String}> {
 		ashui.css.Identity.of(icon.tree, icon.node.id).setClasses(["ui-command-search"]);
 		field = new ashui.ui.Input({value: text, placeholder: props.placeholder, id: props.id});
 		ashui.css.Identity.of(field.tree, field.node.id).addClasses(["ui-command-field"]);
-		return Library.part("ui-command-input", null, null, [icon, field]);
+		var box = Library.part("ui-command-input", null, null, [icon, field]);
+		Command.register(this, box);
+		return box;
 	}
 
 	@:allow(ashui.components.Command)
@@ -155,8 +206,11 @@ class CommandInput extends Component<{?placeholder:String, ?id:String}> {
 
 /** The list of groups and items, scrolling past its height. **/
 class CommandList extends Component<{?id:String}> {
-	function render():Element
-		return Library.part("ui-command-list", null, null, children, props.id);
+	function render():Element {
+		var box = Library.part("ui-command-list", null, null, children, props.id);
+		Command.register(this, box);
+		return box;
+	}
 }
 
 /** Shown when nothing matches what is typed. **/
@@ -165,6 +219,7 @@ class CommandEmpty extends Component<{?id:String}> {
 
 	function render():Element {
 		box = Library.part("ui-command-empty", null, null, children, props.id);
+		Command.register(this, box);
 		ashui.text.InlineFlow.attach(box);
 		return box;
 	}
@@ -183,12 +238,9 @@ class CommandGroup extends Component<{?heading:String, ?id:String}> {
 		if (props.heading != null)
 			parts.push(Library.part("ui-command-heading", null, null, [new ashui.ui.Text(props.heading)]));
 		box = Library.part("ui-command-group", null, null, parts.concat(children), props.id);
+		Command.register(this, box);
 		return box;
 	}
-
-	@:allow(ashui.components.Command)
-	function items():Array<CommandItem>
-		return [for (c in children) if (Std.isOfType(c, CommandItem)) (cast c : CommandItem)];
 
 	@:allow(ashui.components.Command)
 	function bindTo(any:Computed<Bool>):Void
@@ -201,6 +253,7 @@ class CommandSeparator extends Component<{?id:String}> {
 
 	function render():Element {
 		box = Library.part("ui-command-separator", null, null, null, props.id);
+		Command.register(this, box);
 		return box;
 	}
 
@@ -225,6 +278,7 @@ class CommandItem extends Component<CommandItemProps> {
 	/** Whether it matches what is typed; true until it is in a command. **/
 	public final shown = Signal.make(true);
 	var box:Null<ashui.ui.Div> = null;
+	var command:Null<Command>;
 
 	function render():Element {
 		var label = Library.part("ui-command-label", null, null, children);
@@ -233,8 +287,12 @@ class CommandItem extends Component<CommandItemProps> {
 		if (props.shortcut != null)
 			parts.push(Library.part("ui-menu-shortcut", null, null, [new ashui.ui.Text(props.shortcut, {wrap: false})]));
 		box = Library.part("ui-command-item", null, null, parts, props.id);
+		Command.register(this, box);
 		if (props.disabled == true)
 			Interaction.of(box.node).setDisabled(true);
+		// 6a88875: handlers are installed once even when an item is reindexed.
+		Interaction.of(box.node).onPointerEnter(_ -> if (command != null && !disabled()) command.active.set(props.value));
+		Interaction.of(box.node).onClick(_ -> if (command != null) command.choose(this));
 		return box;
 	}
 
@@ -243,14 +301,13 @@ class CommandItem extends Component<CommandItemProps> {
 
 	@:allow(ashui.components.Command)
 	function bindTo(command:Command):Void {
+		this.command = command;
+		Owner.onCleanup(() -> if (this.command == command) this.command = null);
 		var q = command.query, a = command.active, value = props.value, me = this;
 		var match = Computed.make(() -> Command.matches(me, q.get()));
 		new ashui.reactive.Watch(() -> match.get(), v -> shown.set(v));
 		var identity = ashui.css.Identity.of(box.tree, box.node.id);
 		identity.bindAttribute("data-hidden", Computed.make(() -> (match.get() ? null : "" : Null<String>)));
 		identity.bindAttribute("data-selected", Computed.make(() -> (a.get() == value ? "" : null : Null<String>)));
-		var i = Interaction.of(box.node);
-		i.onPointerEnter(_ -> if (!disabled()) a.set(value));
-		i.onClick(_ -> command.choose(this));
 	}
 }
