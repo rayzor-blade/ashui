@@ -222,7 +222,7 @@ class Select extends Component<SelectProps> implements FormControl {
 		if (open != null || interaction.disabled.get())
 			return;
 		var tree = button.tree;
-		var b = tree.getBounds(button.node);
+		var b = tree.getScrolledBounds(button.node);
 		if (b == null)
 			return;
 		var owner = new Owner(tree, @:privateAccess this.owner);

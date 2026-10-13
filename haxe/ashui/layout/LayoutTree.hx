@@ -581,6 +581,18 @@ class LayoutTree {
 		return {padding: side(0), border: side(4), margin: side(8)};
 	}
 
+	/** The layout rectangle after ancestor scrolling, for controls anchored in the top layer. **/
+	public function getScrolledBounds(node:Node):Null<Bounds> {
+		var b = getBounds(node);
+		if (b == null) return null;
+		var x:Float = b.x, y:Float = b.y;
+		for (id in ancestors(node.id)) {
+			var scroll = ashui.input.Scroll.at(id, this);
+			if (scroll != null) { x -= scroll.x.get(); y -= scroll.y.get(); }
+		}
+		return new Bounds(x, y, b.width, b.height);
+	}
+
 	/** The node's absolute rectangle, or null before it has been laid out. **/
 	public function getBounds(node:Node):Null<Bounds> {
 		var out = new hl.Bytes(16);

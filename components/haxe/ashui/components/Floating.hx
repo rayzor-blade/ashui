@@ -65,7 +65,7 @@ class Floating {
 		if (entry != null || anchor == null)
 			return;
 		var tree = anchor.tree;
-		var b = tree.root == null ? null : tree.getBounds(anchor.node);
+		var b = tree.root == null ? null : tree.getScrolledBounds(anchor.node);
 		if (b == null) {
 			// Not laid out yet: opened at the next flush.
 			var retry:Null<LayoutTree->Void> = null;

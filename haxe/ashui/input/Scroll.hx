@@ -287,9 +287,9 @@ class Scroll {
 		return byNode.get(node);
 
 	/** The scroll container of the node `id`, found by its id rather than its `Node`. **/
-	public static function at(id:haxe.Int64):Null<Scroll> {
+	public static function at(id:haxe.Int64, ?tree:ashui.layout.LayoutTree):Null<Scroll> {
 		for (n => s in byNode)
-			if (n.id == id)
+			if (n.id == id && (tree == null || n.tree == tree))
 				return s;
 		return null;
 	}

@@ -68,7 +68,7 @@ class Tooltip extends Component<TooltipProps> {
 		// The top layer keeps a closing entry this long for its exit animation.
 		machine.after(Closing, theme == null ? 0 : theme.animations().durationFaster / 1000, Gone);
 		machine.onEnter(Open, _ -> {
-			var b = tree.getBounds(trigger.node);
+			var b = tree.getScrolledBounds(trigger.node);
 			if (b == null || tree.root == null)
 				return;
 			// Made under an owner of its own, gone once it has faded out.
