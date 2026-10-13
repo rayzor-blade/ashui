@@ -81,7 +81,7 @@ supplies the return value. See the [dialog and form guide](https://github.com/ra
 | Forms | Input, Textarea, NumberInput, NumberGauge, NumberRangeGauge, InputOtp, Checkbox, RadioGroup, ToggleSwitch, Slider |
 | Selection | Select, Combobox, Calendar with `minYear` and `maxYear` |
 | Overlays | Dialog, Sheet, Drawer, Popover, Tooltip, HoverCard, Toast |
-| Navigation | Tabs, Accordion, DropdownMenu, ContextMenu, Menubar, TreeView, Sidebar |
+| Navigation | Command, Tabs, Accordion, DropdownMenu, ContextMenu, Menubar, TreeView, Sidebar |
 | Content | Card, Badge, Avatar, Alert, Table, Chart, Progress, Spinner, Skeleton |
 | Layout | ScrollArea, Resizable, AspectRatio, Separator |
 
@@ -143,6 +143,32 @@ also update editable text's caret and wrapping geometry. Run FormsGallery
 with `SIZES=1` to compare all nine controls in either color scheme.
 The size gallery supplies a monospace font fallback for a native SF Mono
 rendering defect; the components themselves keep the theme's font token.
+
+### Commands
+
+Import `ashui.components.Command` for the command palette and its parts.
+Ordinary HXX `<for>` and `<if>` children participate in filtering, group
+visibility and selection, including when their data changes.
+
+```tsx
+import ashui.components.Command;
+import ashui.reactive.Reactive;
+
+var tools = signal(["Calendar", "Calculator", "Settings"]);
+var palette = <command onSelect={value -> trace(value)}>
+    <command-input placeholder="Search tools" />
+    <command-list>
+        <command-empty>No results</command-empty>
+        <command-group heading="Tools">
+            <for {tool in tools.get()}><command-item value={tool}>{tool}</command-item></for>
+        </command-group>
+    </command-list>
+</command>;
+```
+
+Arrows, Home and End reveal the selected row while focus stays in the search
+field. Manual scrolling stays where you leave it until selection, filtering
+or the catalog changes. See [CommandMotion](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/CommandMotion.hx).
 
 ### Input icons
 

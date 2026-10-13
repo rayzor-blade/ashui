@@ -55,6 +55,7 @@ class Command extends Component<CommandProps> {
 		var revision = Signal.make(0);
 		var bindings = new haxe.ds.ObjectMap<Component<Dynamic>, Owner>();
 		var groups = new haxe.ds.ObjectMap<CommandGroup, Array<CommandItem>>();
+		var indexed:Array<Component<Dynamic>> = [];
 		var any = Computed.make(() -> {
 			revision.get();
 			return Lambda.exists(items, it -> it.shown.get());
@@ -62,7 +63,7 @@ class Command extends Component<CommandProps> {
 		function index() {
 			var mounted:Array<Component<Dynamic>> = [], next:Array<CommandItem> = [];
 			var seen = new haxe.ds.ObjectMap<Component<Dynamic>, Bool>();
-			groups = new haxe.ds.ObjectMap();
+			var nextGroups = new haxe.ds.ObjectMap<CommandGroup, Array<CommandItem>>();
 			function walk(node:haxe.Int64, group:Null<CommandGroup>) {
 				var part = parts.get(ashui.css.Identity.of(tree, node));
 				if (part != null) {
@@ -71,17 +72,24 @@ class Command extends Component<CommandProps> {
 					seen.set(part, true);
 					if (Std.isOfType(part, CommandGroup)) {
 						group = cast part;
-						groups.set(group, []);
+						nextGroups.set(group, []);
 					} else if (Std.isOfType(part, CommandItem)) {
 						var item:CommandItem = cast part;
 						next.push(item);
-						if (group != null) groups.get(group).push(item);
+						if (group != null) nextGroups.get(group).push(item);
 						return;
 					}
 				}
 				for (child in tree.children(node)) walk(child, group);
 			}
 			for (child in tree.children(id)) walk(child, null);
+			// 08938d7: label/inline-flow changes are not catalog changes and
+			// must not cancel the user's manual scroll or invalidate bindings.
+			var changed = mounted.length != indexed.length;
+			if (!changed) for (i in 0...mounted.length) if (mounted[i] != indexed[i]) { changed = true; break; }
+			if (!changed) return;
+			indexed = mounted;
+			groups = nextGroups;
 			items = next;
 			for (part => scope in bindings)
 				if (!seen.exists(part)) { scope.dispose(); bindings.remove(part); }
@@ -92,6 +100,7 @@ class Command extends Component<CommandProps> {
 				scope.run(() -> {
 					if (Std.isOfType(part, CommandItem)) (cast part : CommandItem).bindTo(this);
 					else if (Std.isOfType(part, CommandInput)) (cast part : CommandInput).bindTo(q);
+					else if (Std.isOfType(part, CommandList)) (cast part : CommandList).bindTo(this, revision);
 					else if (Std.isOfType(part, CommandGroup)) {
 						var group:CommandGroup = cast part;
 						group.bindTo(Computed.make(() -> {
@@ -108,7 +117,7 @@ class Command extends Component<CommandProps> {
 		index();
 		AfterChildren.watch(tree, "command " + haxe.Int64.toStr(id),
 			parent -> parent == id || tree.ancestors(parent).indexOf(id) >= 0, index);
-		Owner.onCleanup(() -> { items = []; groups.clear(); bindings.clear(); });
+		Owner.onCleanup(() -> { items = []; indexed = []; groups.clear(); bindings.clear(); });
 		// The first item left takes the highlight when the one highlighted is filtered out.
 		new ashui.reactive.Watch(() -> {
 			revision.get();
@@ -125,7 +134,8 @@ class Command extends Component<CommandProps> {
 			var left = [for (it in items) if (it.shown.get() && !it.disabled()) it];
 			if (left.length == 0)
 				return;
-			var at = Lambda.findIndex(left, it -> it.props.value == a.get());
+			var value = a.get();
+			var at = Lambda.findIndex(left, it -> it.props.value == value);
 			switch e.key {
 				case Named(ArrowDown):
 					e.preventDefault();
@@ -148,6 +158,12 @@ class Command extends Component<CommandProps> {
 			}
 		});
 		return root;
+	}
+
+	@:allow(ashui.components.CommandList)
+	function selected():Null<CommandItem> {
+		var value = active.get();
+		return Lambda.find(items, it -> it.props.value == value && it.shown.get() && !it.disabled());
 	}
 
 	@:allow(ashui.components.CommandItem)
@@ -206,10 +222,41 @@ class CommandInput extends Component<{?placeholder:String, ?id:String}> {
 
 /** The list of groups and items, scrolling past its height. **/
 class CommandList extends Component<{?id:String}> {
+	var box:ashui.ui.Div;
+
 	function render():Element {
-		var box = Library.part("ui-command-list", null, null, children, props.id);
+		box = Library.part("ui-command-list", null, null, children, props.id);
 		Command.register(this, box);
 		return box;
+	}
+
+	@:allow(ashui.components.Command)
+	function bindTo(command:Command, revision:Signal<Int>):Void {
+		// 08938d7: reveal changes after layout, as Select does. An unchanged
+		// selection leaves manual scroll alone and adds no work to idle frames.
+		var pending = true, tree = box.tree, id = box.node.id;
+		new ashui.reactive.Watch(() -> {active: command.active.get(), query: command.query.get(), version: revision.get()},
+			_ -> pending = true, (a, b) -> a.active == b.active && a.query == b.query && a.version == b.version);
+		var reveal = (t:LayoutTree) -> {
+			if (t != tree || !pending || box.node == null || !tree.inView(id)) return false;
+			var scroll = ashui.input.Scroll.of(box.node), list = tree.getBounds(box.node);
+			if (scroll == null || list == null || list.height <= 0) return false;
+			var selected = command.selected();
+			if (selected == null) {
+				pending = false;
+				return scroll.scrollTo(scroll.x.get(), 0);
+			}
+			if (tree.ancestors(selected.node.id).indexOf(id) < 0) { pending = false; return false; }
+			var row = tree.getBounds(selected.node);
+			if (row == null || row.height <= 0) return false;
+			pending = false;
+			var top = row.y - list.y, bottom = top + row.height, y = scroll.y.get();
+			if (top < y) return scroll.scrollTo(scroll.x.get(), top);
+			if (bottom > y + list.height) return scroll.scrollTo(scroll.x.get(), bottom - list.height);
+			return false;
+		};
+		LayoutTree.layoutHooks.push(reveal);
+		Owner.onCleanup(() -> LayoutTree.layoutHooks.remove(reveal));
 	}
 }
 
