@@ -13,7 +13,8 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 # git-bug a8d3dd7: shared CSS order/row grids and equal-write idle suppression.
-blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "28180508c28ddf85dc153ffb95b8128afaad0cdc", default-features = false, features = ["hashlink"] }
+# git-bug e8233fb: shared native text alignment and exact inline line-edge checks.
+blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "ecdb2f03b9309f692767218f862e229ac83cbc1b", default-features = false, features = ["hashlink"] }
 
 [workspace]
 resolver = "3"
