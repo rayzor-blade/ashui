@@ -468,7 +468,7 @@ class Components {
 
 		var tabsId = kids[6];
 		var tabsKids = tree.children(tabsId);
-		var triggers = tree.children(tabsKids[0]);
+		var triggers = tree.children(tabsKids[0]).filter(id -> identity(id).hasClass("ui-tabs-trigger"));
 		var stateOf = (id:haxe.Int64) -> identity(id).attribute("data-state");
 		var first = [stateOf(triggers[0]), stateOf(triggers[1]), stateOf(tabsKids[1]), stateOf(tabsKids[2])].join(",");
 		clickAt(triggers[1]);

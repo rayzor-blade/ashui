@@ -237,6 +237,10 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main SwitchIcons -hl bin/switch-icons.hl
 	switch_icons=0
 	run switch-icons.hl || switch_icons=$?
+	# A persistent Tabs background uses FLIP and retains pointer/keyboard input (5bc757e).
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main TabsIndicator -hl bin/tabs-indicator.hl
+	tabs_indicator=0
+	run tabs-indicator.hl || tabs_indicator=$?
 	# Filled numeric gauges: real wheel/drag/key events, interval limits and owner cleanup (095fab4).
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main NumberGauges -hl bin/number-gauges-test.hl
 	number_gauges=0
@@ -266,7 +270,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $command_items -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $command_items -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

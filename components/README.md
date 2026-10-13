@@ -144,6 +144,37 @@ with `SIZES=1` to compare all nine controls in either color scheme.
 The size gallery supplies a monospace font fallback for a native SF Mono
 rendering defect; the components themselves keep the theme's font token.
 
+### Tabs
+
+`TabsList` draws one selection background beneath its triggers. It slides
+and resizes to the selected tab on clicks, keyboard navigation and bound
+`value` changes, using the framework's FLIP layout animation and the theme's
+motion tokens. Rapid choices continue from the background's current
+position. The existing trigger and content behavior stays in place.
+
+```tsx
+import ashui.components.Tabs;
+import ashui.reactive.Reactive;
+
+var section = signal("overview");
+var view = <tabs value={section}>
+    <tabs-list>
+        <tabs-trigger value="overview">Overview</tabs-trigger>
+        <tabs-trigger value="activity">Activity</tabs-trigger>
+        <tabs-trigger value="shortcuts">Keyboard shortcuts</tabs-trigger>
+    </tabs-list>
+    <tabs-content value="overview">Your workspace at a glance.</tabs-content>
+    <tabs-content value="activity">Recent changes.</tabs-content>
+    <tabs-content value="shortcuts">Keyboard shortcuts.</tabs-content>
+</tabs>;
+```
+
+Style `.ui-tabs-indicator` or set `--ui-tabs-active-bg` and
+`--ui-tabs-trigger-radius`. `<tabs-list indicator={false}>` uses a stationary
+background on the active trigger. The
+[TabsMotion scene](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/TabsMotion.hx)
+compares all three sizes in either theme and supports interactive window mode.
+
 ### Switch knob icons
 
 `ToggleSwitch` places its HXX children inside the knob. A single inline SVG

@@ -6,6 +6,8 @@ import ashui.reactive.Owner;
 import ashui.theme.Easing;
 
 typedef LayoutAnimationOptions = {
+	/** Measures movement within this box, so its parent's layout movement carries it without a second animation (5bc757e). **/
+	?relativeTo:Node,
 	/** Animates where it is; true by default. **/
 	?position:Bool,
 	/** Animates its size, its children clipped to the size drawn; true by default. **/
@@ -62,6 +64,8 @@ class LayoutAnimation {
 		if (Owner.current != null)
 			Owner.onCleanup(() -> {
 				list.remove(key);
+				// Empty animation registries must not retain a disposed Tabs tree (5bc757e).
+				if (!list.keys().hasNext()) animated.remove(tree);
 				a.running = false;
 				if (a.track != null)
 					a.track.finish(Interrupted);
@@ -94,16 +98,18 @@ class LayoutAnimation {
 		if (b == null)
 			return;
 		var x:Float = b.x, y:Float = b.y;
-		// Relative to the nearest animated element it is in, whose own move carries it.
-		for (up in tree.ancestors(node.id))
-			if (list.exists(haxe.Int64.toStr(up))) {
-				var p = tree.getBounds(new Node(up));
-				if (p != null) {
-					x -= p.x;
-					y -= p.y;
+		// A supplied reference box, or the nearest animated ancestor, carries its own movement (5bc757e).
+		var relative = options.relativeTo;
+		if (relative == null)
+			for (up in tree.ancestors(node.id))
+				if (list.exists(haxe.Int64.toStr(up))) {
+					relative = new Node(up);
+					break;
 				}
-				break;
-			}
+		if (relative != null) {
+			var p = tree.getBounds(relative);
+			if (p != null) { x -= p.x; y -= p.y; }
+		}
 		var now = {x: x, y: y, w: (b.width : Float), h: (b.height : Float)};
 		var was = last;
 		last = now;
