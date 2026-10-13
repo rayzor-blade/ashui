@@ -20,12 +20,15 @@ typedef ToggleSwitchProps = {
 
 /**
 	An on and off switch: a track and its `thumb`, which slides across when
-	it is on. It takes focus, and a click, Enter or Space turns it. In hxx
+	it is on. Its children go inside the knob; inline SVGs are centered and
+	sized with it. Give two SVGs `ui-switch-icon-off` and `ui-switch-icon-on`
+	classes to fade and rotate between them without rebuilding either (26f6deb).
+	It takes focus, and a click, Enter or Space turns it. In hxx
 	it is `<toggle-switch>`: `switch` is a Haxe keyword hxx keeps. CSS:
 	`.ui-switch`, `:checked`, `:hover`, `:disabled`, `[data-state]` (on,
 	off), `[data-size]`, `.ui-switch-thumb`; `--ui-switch-width`, `-height`, `-thumb`,
 	`-travel`, `-track`, `-track-hover`, `-track-on`, `-track-on-hover`,
-	`-thumb-bg`.
+	`-thumb-bg`, `-icon-size`, `-icon-color`.
 **/
 class ToggleSwitch extends Component<ToggleSwitchProps> {
 	/** Whether it is on; the caller's signal when `checked` was one. **/
@@ -42,7 +45,9 @@ class ToggleSwitch extends Component<ToggleSwitchProps> {
 				s;
 		}
 		var on = state;
-		var thumb = Library.part("ui-switch-thumb");
+		// Decorative knob content shares the switch's hit target and focus (26f6deb).
+		var thumb = Library.part("ui-switch-thumb", null, null, children);
+		ashui.css.Identity.of(thumb.tree, thumb.node.id).setAttribute("aria-hidden", "true");
 		var box = Library.part("ui-switch", null, [
 			"state" => Computed.make(() -> (on.get() ? "on" : "off" : Null<String>)),
 			"size" => (props.size == null ? Size.Md : props.size : String)

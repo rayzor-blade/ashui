@@ -196,16 +196,30 @@
 .ui-switch:focus-visible { outline-width: 3px; }
 .ui-switch:disabled { background: var(--input-bg-disabled); border: 1px solid var(--border-secondary); padding: 1px; opacity: 0.5; }
 .ui-switch-thumb {
+	align-items: center; justify-content: center; pointer-events: none;
 	width: var(--ui-switch-thumb, 20px); height: var(--ui-switch-thumb, 20px); border-radius: var(--radius-full);
 	background: var(--ui-switch-thumb-bg, var(--text-inverse)); box-shadow: var(--shadow-sm);
+	color: var(--ui-switch-icon-color, var(--text-primary));
 	transition: transform var(--duration-normal) var(--ease-spring);
 }
+/* Inline state icons share the knob's center and animate without remounting (26f6deb). */
+.ui-switch-thumb > svg {
+	position: absolute; left: 0; right: 0; top: 0; bottom: 0; margin: auto;
+	width: var(--ui-switch-icon-size, 12px); height: var(--ui-switch-icon-size, 12px); pointer-events: none;
+	transition: opacity var(--duration-normal) var(--ease-state), transform var(--duration-normal) var(--ease-state);
+}
+.ui-switch-thumb > .ui-switch-icon-off { opacity: 1; transform: rotate(0deg) scale(1); }
+.ui-switch-thumb > .ui-switch-icon-on { opacity: 0; transform: rotate(-90deg) scale(0.65); }
+.ui-switch:checked > .ui-switch-thumb > .ui-switch-icon-off { opacity: 0; transform: rotate(90deg) scale(0.65); }
+.ui-switch:checked > .ui-switch-thumb > .ui-switch-icon-on { opacity: 1; transform: rotate(0deg) scale(1); }
 .ui-switch:disabled > .ui-switch-thumb { box-shadow: none; border: 1px solid var(--border-secondary); }
 .ui-switch:checked > .ui-switch-thumb { transform: translateX(var(--ui-switch-travel, 20px)); }
 .ui-switch:active > .ui-switch-thumb { transform: scale(0.9); }
 .ui-switch:checked:active > .ui-switch-thumb { transform: translateX(var(--ui-switch-travel, 20px)) scale(0.9); }
 .ui-switch[data-size="sm"] { width: var(--ui-switch-width, 32px); height: var(--ui-switch-height, 18px); --ui-switch-thumb: 14px; --ui-switch-travel: 14px; }
 .ui-switch[data-size="lg"] { width: var(--ui-switch-width, 52px); height: var(--ui-switch-height, 28px); --ui-switch-thumb: 24px; --ui-switch-travel: 24px; }
+.ui-switch[data-size="sm"] > .ui-switch-thumb > svg { width: var(--ui-switch-icon-size, 8px); height: var(--ui-switch-icon-size, 8px); }
+.ui-switch[data-size="lg"] > .ui-switch-thumb > svg { width: var(--ui-switch-icon-size, 16px); height: var(--ui-switch-icon-size, 16px); }
 
 /* ------------------------------------------------------------------ Tabs */
 

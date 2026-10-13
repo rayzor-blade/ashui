@@ -144,6 +144,36 @@ with `SIZES=1` to compare all nine controls in either color scheme.
 The size gallery supplies a monospace font fallback for a native SF Mono
 rendering defect; the components themselves keep the theme's font token.
 
+### Switch knob icons
+
+`ToggleSwitch` places its HXX children inside the knob. A single inline SVG
+stays visible in both states. For an animated change, keep two SVGs mounted
+with the `ui-switch-icon-off` and `ui-switch-icon-on` classes:
+
+```tsx
+import ashui.components.ToggleSwitch;
+import ashui.reactive.Reactive;
+
+var enabled = signal(false);
+var control = <toggle-switch checked={enabled}>
+    <svg class="ui-switch-icon-off" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="m6 6 12 12M18 6 6 18" />
+    </svg>
+    <svg class="ui-switch-icon-on" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="m5 12 4 4L19 6" />
+    </svg>
+</toggle-switch>;
+```
+
+The icons fade, rotate and scale with the theme's animation tokens, while
+the knob slides as usual. They stay centered in `Sm`, `Md` and `Lg`, add no
+focus stop, and pass clicks to the switch. Customize `--ui-switch-icon-size`
+and `--ui-switch-icon-color`, or replace the CSS transitions. This animates
+the two SVG elements; it does not interpolate their path data.
+
 ### Commands
 
 Import `ashui.components.Command` for the command palette and its parts.
