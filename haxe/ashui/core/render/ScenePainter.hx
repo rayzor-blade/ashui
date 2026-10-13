@@ -198,7 +198,7 @@ class ScenePainter {
 	/** The largest layer, each way, in pixels. **/
 	static inline var MAX_LAYER = 4096;
 
-	static inline var DEPTH_FORMAT = TextureFormat.Depth24plus;
+	static inline var DEPTH_FORMAT = #if ashui_scene_stencil TextureFormat.Depth24plusStencil8 #else TextureFormat.Depth24plus #end;
 
 	final layers:Array<SceneLayer> = [];
 	final meshes = new haxe.ds.ObjectMap<MeshData, {vertices:GpuBuffer, indices:GpuBuffer, used:Int}>();
@@ -574,6 +574,9 @@ class ScenePainter {
 			// The second pass draws both the glow and the velocities: for bloom, motion blur, or both.
 			var glowing = blooming || scene.motionBlur > 0;
 			depth.depthStoreOp(Discard);
+			#if ashui_scene_stencil
+			depth.stencilClearValue(0); depth.stencilLoadOp(Clear); depth.stencilStoreOp(Discard);
+			#end
 			var pass = new GpuRenderPassDescriptor();
 			pass.addColorAttachments(color);
 			pass.depthStencilAttachment(depth);
@@ -681,6 +684,9 @@ class ScenePainter {
 		depth.depthClearValue(1);
 		depth.depthLoadOp(Clear);
 		depth.depthStoreOp(Discard);
+		#if ashui_scene_stencil
+		depth.stencilClearValue(0); depth.stencilLoadOp(Clear); depth.stencilStoreOp(Discard);
+		#end
 		var pass = new GpuRenderPassDescriptor();
 		pass.addColorAttachments(color);
 		pass.addColorAttachments(moved);
