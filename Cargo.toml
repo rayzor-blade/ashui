@@ -12,7 +12,8 @@ path = "native/lib.rs"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "4dc10a4f18f9b64a173439b5543faa2e266445b9", default-features = false, features = ["hashlink"] }
+# git-bug a8d3dd7: shared CSS order/row grids and equal-write idle suppression.
+blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "28180508c28ddf85dc153ffb95b8128afaad0cdc", default-features = false, features = ["hashlink"] }
 
 [workspace]
 resolver = "3"
