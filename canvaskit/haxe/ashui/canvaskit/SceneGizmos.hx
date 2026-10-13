@@ -32,14 +32,19 @@ private typedef ScalingDrag = {
 	region:SceneRegion, map:Affine, last:Point, start:Point, direction:Point,
 	handle:Int, total:Float, span:Float, size:Float, axes:Array<Vec3>, scale:Vec3->Void
 };
-private enum Drag { Rotation(data:RotationDrag); Resizing(data:ScalingDrag); }
-private typedef ScaleTip = {point:Point, handle:Int};
+private typedef TranslationDrag = {
+	region:SceneRegion, map:Affine, last:Point, start:Point, pivot:Vec3,
+	camera:Camera, width:Float, height:Float, axis:Null<Vec3>, normal:Vec3,
+	anchor:Null<Vec3>, direction:Point, units:Float, total:Vec3, translate:Vec3->Void
+};
+private enum Drag { Rotation(data:RotationDrag); Resizing(data:ScalingDrag); Translating(data:TranslationDrag); }
+private typedef AxisTip = {point:Point, handle:Int};
 
 private enum Phase { Idle; Hover(handle:Int); Dragging(handle:Int); }
 private enum Action { PointAt(handle:Int); Grab(handle:Int); Finish; }
 
 /**
-	SceneKit's rotation/scale tools and world orientation widget (c16e24c, 6a3a68b).
+	SceneKit's rotation, scale and translation tools and world orientation widget (c16e24c, 6a3a68b).
 	Paths are projected once when the reactive canvas records a changed
 	scene, then reused for picking. Only a captured drag installs a pointer
 	hook; there is no timer or frame loop while idle.
@@ -68,6 +73,10 @@ class SceneGizmos {
 	public final selection:Null<Selection3D>;
 	/** Reactive tool choice; changing it cancels any captured object transform. **/
 	public final mode:Signal<GizmoMode>;
+	/** Called once after a captured object transform ends; true means canceled. **/
+	public var onTransformEnd:Null<Bool->Void>;
+	public var transforming(get, never):Bool;
+	inline function get_transforming():Bool return switch phase.state.get() { case Dragging(_): true; case _: false; };
 	public var world = false;
 	/** False when SceneKit's camera controls are disabled; the world widget remains visible. **/
 	public var cameraControls = true;
@@ -84,7 +93,7 @@ class SceneGizmos {
 		case [_, Finish]: Idle;
 	});
 	var segments:Array<Segment> = [];
-	var scaleTips:Array<ScaleTip> = [];
+	var axisTips:Array<AxisTip> = [];
 	var scaleSize = 0.0;
 	var scaleAxes:Array<Vec3> = [];
 	var drawnMode = GizmoMode.Orbit;
@@ -118,7 +127,7 @@ class SceneGizmos {
 	public function draw(ctx:DrawContext):Void {
 		width = ctx.width; height = ctx.height; viewed = ctx.currentScene().camera;
 		view = viewed.view(); focal = height / (2 * Math.tan(viewed.fovY / 2));
-		segments = []; scaleTips = []; arms = []; ringBounds = null;
+		segments = []; axisTips = []; arms = []; ringBounds = null;
 		drawnMode = mode.get();
 		var active = switch phase.state.get() { case Hover(h), Dragging(h): h; case Idle: -1; };
 		ctx.pushClipRect(0, 0, width, height);
@@ -126,6 +135,7 @@ class SceneGizmos {
 		if (selected != null) {
 			if (drawnMode == GizmoMode.Orbit && selected.onRotate != null) drawRings(ctx, selected, active);
 			if (drawnMode == GizmoMode.Scale && selected.onScale != null) drawScale(ctx, selected, active);
+			if (drawnMode == GizmoMode.Move && selected.onMove != null) drawMove(ctx, selected, active);
 		}
 		if (world) drawWorld(ctx, active);
 		ctx.popClip();
@@ -214,14 +224,49 @@ class SceneGizmos {
 			ctx.fillRect(end.x - 6, end.y - 6, 12, 12, dark, 2);
 			ctx.fillRect(end.x - 4.5, end.y - 4.5, 9, 9, color, 1);
 			ctx.text(names[axis], end.x + 13, end.y, color, labelStyle);
-			scaleTips.push({point: end, handle: axis});
+			axisTips.push({point: end, handle: axis});
 			segments.push({a: center, b: end, handle: axis, front: true, vector: scaleAxes[axis]});
 			ringBounds.left = Math.min(ringBounds.left, end.x - 12); ringBounds.top = Math.min(ringBounds.top, end.y - 12);
 			ringBounds.right = Math.max(ringBounds.right, end.x + 12); ringBounds.bottom = Math.max(ringBounds.bottom, end.y + 12);
 		}
 		ctx.fillRect(center.x - 7, center.y - 7, 14, 14, dark, 2);
 		ctx.fillRect(center.x - 5, center.y - 5, 10, 10, active == 3 ? white : uniform, 1);
-		scaleTips.push({point: center, handle: 3});
+		axisTips.push({point: center, handle: 3});
+	}
+
+	/** World axes end in arrows; the center grip moves in the camera plane. **/
+	function drawMove(ctx:DrawContext, r:SceneRegion, active:Int):Void {
+		var center = projectPoint(r.pivot);
+		if (center == null) return;
+		var size = objectSize(r);
+		ringBounds = {left: center.x - 12, top: center.y - 12, right: center.x + 12, bottom: center.y + 12};
+		for (axis in 0...3) {
+			var end = projectPoint(r.pivot.add(axes[axis].scale(size)));
+			if (end == null) continue;
+			var dx = end.x - center.x, dy = end.y - center.y, length = Math.sqrt(dx * dx + dy * dy);
+			// Keep a reachable handle when the world axis points into the camera.
+			if (length < 28) {
+				var ex = length > 1 ? dx / length : (axis == 1 ? -0.7071 : 0.7071);
+				var ey = length > 1 ? dy / length : (axis == 2 ? 0.7071 : -0.7071);
+				end = {x: center.x + ex * 36, y: center.y + ey * 36};
+				dx = end.x - center.x; dy = end.y - center.y; length = 36;
+			}
+			var ux = dx / length, uy = dy / length, color = active == axis ? white : brushes[axis];
+			ctx.line(center.x, center.y, end.x, end.y, halo, dark);
+			ctx.line(center.x, center.y, end.x, end.y, active == axis ? thick : thin, color);
+			var arrow = new Path().moveTo(end.x, end.y)
+				.lineTo(end.x - ux * 13 - uy * 6, end.y - uy * 13 + ux * 6)
+				.lineTo(end.x - ux * 13 + uy * 6, end.y - uy * 13 - ux * 6).close();
+			ctx.strokePath(arrow, thin, dark); ctx.fillPath(arrow, color);
+			ctx.text(names[axis], end.x + ux * 13, end.y + uy * 13, color, labelStyle);
+			axisTips.push({point: end, handle: axis});
+			segments.push({a: center, b: end, handle: axis, front: true, vector: axes[axis]});
+			ringBounds.left = Math.min(ringBounds.left, end.x - 12); ringBounds.top = Math.min(ringBounds.top, end.y - 12);
+			ringBounds.right = Math.max(ringBounds.right, end.x + 12); ringBounds.bottom = Math.max(ringBounds.bottom, end.y + 12);
+		}
+		ctx.fillCircle(center.x, center.y, 7, dark);
+		ctx.fillCircle(center.x, center.y, 4.5, active == 3 ? white : uniform);
+		axisTips.push({point: center, handle: 3});
 	}
 
 	function drawWorld(ctx:DrawContext, active:Int):Void {
@@ -268,13 +313,13 @@ class SceneGizmos {
 		}
 		if (handle >= 0) return handle;
 		if (ringBounds == null || x < ringBounds.left || y < ringBounds.top || x > ringBounds.right || y > ringBounds.bottom) return -1;
-		if (drawnMode == GizmoMode.Scale) {
+		if (drawnMode == GizmoMode.Scale || drawnMode == GizmoMode.Move) {
 			// Test grips before shafts; the uniform center wins where all shafts meet.
-			for (tip in scaleTips) if (tip.handle == 3) {
+			for (tip in axisTips) if (tip.handle == 3) {
 				var dx = tip.point.x - x, dy = tip.point.y - y;
 				if (dx * dx + dy * dy < 100) return 3;
 			}
-			for (tip in scaleTips) {
+			for (tip in axisTips) {
 				var dx = tip.point.x - x, dy = tip.point.y - y;
 				if (dx * dx + dy * dy < 100) return tip.handle;
 			}
@@ -313,12 +358,25 @@ class SceneGizmos {
 			if (drawnMode == GizmoMode.Scale) {
 				if (r.onScale == null) return;
 				var direction:Point = {x: 0.7071, y: -0.7071}, span = minRadius;
-				for (tip in scaleTips) if (tip.handle == handle && handle != 3) {
+				for (tip in axisTips) if (tip.handle == handle && handle != 3) {
 					span = distance(center, tip.point);
 					direction = {x: (tip.point.x - center.x) / span, y: (tip.point.y - center.y) / span};
 				}
 				drag = Resizing({region: r, map: map, start: down, last: down, direction: direction, handle: handle,
 					total: 1, span: Math.max(32, span), size: scaleSize, axes: scaleAxes, scale: r.onScale});
+			} else if (drawnMode == GizmoMode.Move) {
+				if (r.onMove == null) return;
+				var axis = handle == 3 ? null : axes[handle], forward = viewed.target.sub(viewed.eye).normalize();
+				var normal = axis == null ? forward : forward.sub(axis.scale(forward.dot(axis)));
+				var anchor = normal.length() < 0.15 ? null : planePoint(viewed, p.localX, p.localY, width, height, r.pivot, normal.normalize());
+				var direction:Point = {x: 0.7071, y: -0.7071};
+				for (tip in axisTips) if (tip.handle == handle && handle != 3) {
+					var span = distance(center, tip.point);
+					direction = {x: (tip.point.x - center.x) / span, y: (tip.point.y - center.y) / span};
+				}
+				drag = Translating({region: r, map: map, last: down, start: down, pivot: r.pivot,
+					camera: viewed, width: width, height: height, axis: axis, normal: normal.normalize(), anchor: anchor,
+					direction: direction, units: r.pivot.sub(viewed.eye).dot(forward) / focal, total: Vec3.ZERO, translate: r.onMove});
 			} else {
 				if (r.onRotate == null) return;
 				var axis = handle == 3 ? viewed.eye.sub(viewed.target).normalize() : axes[handle];
@@ -365,11 +423,12 @@ class SceneGizmos {
 			switch drag {
 				case Rotation(_) if (next != GizmoMode.Orbit): finish(true);
 				case Resizing(_) if (next != GizmoMode.Scale): finish(true);
+				case Translating(_) if (next != GizmoMode.Move): finish(true);
 				case _:
 			}
-			if (next != drawnMode) { finish(true); segments = []; scaleTips = []; ringBounds = null; }
+			if (next != drawnMode) { finish(true); segments = []; axisTips = []; ringBounds = null; }
 		});
-		Owner.onCleanup(() -> { finish(false); phase.dispose(); segments = []; scaleTips = []; arms = []; });
+		Owner.onCleanup(() -> { finish(false); onTransformEnd = null; phase.dispose(); segments = []; axisTips = []; arms = []; });
 	}
 
 	function hover(handle:Int):Void {
@@ -392,6 +451,20 @@ class SceneGizmos {
 				if (Math.isFinite(target) && Math.abs(target - d.total) > 1e-8) {
 					var delta = target / d.total; d.total = target;
 					d.scale(scaleFactors(d.handle, delta));
+				}
+			case Translating(d):
+				if (x == d.last.x && y == d.last.y) return;
+				var point = d.anchor == null ? null : planePoint(d.camera, x, y, d.width, d.height, d.pivot, d.normal);
+				var target:Vec3;
+				if (point != null) {
+					target = point.sub(d.anchor);
+					if (d.axis != null) target = d.axis.scale(target.dot(d.axis));
+				} else if (d.anchor == null && d.axis != null)
+					target = d.axis.scale(((x - d.start.x) * d.direction.x + (y - d.start.y) * d.direction.y) * d.units);
+				else return;
+				d.last = {x: x, y: y};
+				if (Math.isFinite(target.x + target.y + target.z) && target.distance(d.total) > 1e-8) {
+					var delta = target.sub(d.total); d.total = target; d.translate(delta);
 				}
 			case null:
 		}
@@ -449,13 +522,15 @@ class SceneGizmos {
 		if (cancel) switch d {
 			case Rotation(d): if (d.total != 0) d.rotate(Quat.axisAngle(d.axis, -d.total));
 			case Resizing(d): if (d.total != 1) d.scale(scaleFactors(d.handle, 1 / d.total));
+			case Translating(d): if (d.total.length() != 0) d.translate(d.total.scale(-1));
 			case null:
 		}
 		phase.send(Finish);
+		if (d != null && onTransformEnd != null) onTransformEnd(cancel);
 	}
 
 	function capture():Null<{region:SceneRegion, map:Affine}>
-		return switch drag { case Rotation(d): d; case Resizing(d): d; case null: null; };
+		return switch drag { case Rotation(d): d; case Resizing(d): d; case Translating(d): d; case null: null; };
 
 	static function scaleFactors(handle:Int, value:Float):Vec3
 		return new Vec3(handle == 0 || handle == 3 ? value : 1, handle == 1 || handle == 3 ? value : 1, handle == 2 || handle == 3 ? value : 1);
@@ -483,6 +558,13 @@ class SceneGizmos {
 		var forward = camera.target.sub(camera.eye).normalize(), right = forward.cross(camera.up).normalize(), up = right.cross(forward);
 		var scale = 2 * Math.tan(camera.fovY / 2) / height;
 		return {origin: camera.eye, direction: forward.add(right.scale((x - width / 2) * scale)).add(up.scale((height / 2 - y) * scale)).normalize()};
+	}
+
+	static function planePoint(camera:Camera, x:Float, y:Float, width:Float, height:Float, pivot:Vec3, normal:Vec3):Null<Vec3> {
+		var r = ray(camera, x, y, width, height), divisor = r.direction.dot(normal);
+		if (Math.abs(divisor) < 1e-5) return null;
+		var t = pivot.sub(r.origin).dot(normal) / divisor;
+		return t <= 0 ? null : r.origin.add(r.direction.scale(t));
 	}
 
 	static function planeVector(camera:Camera, x:Float, y:Float, width:Float, height:Float, pivot:Vec3, axis:Vec3):Null<Vec3> {

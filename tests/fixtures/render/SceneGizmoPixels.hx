@@ -37,23 +37,24 @@ class SceneGizmoPixels {
 			var reference = new Ref<SceneKit>();
 			var camera = new OrbitCamera(0.55, 0.4, 6, Vec3.ZERO, 0.7);
 			var selection:Selection3D = null, rotation:Signal<Quat> = null;
-			var size:Signal<Vec3> = null, mode:Signal<GizmoMode> = null;
-			var rotatable = true, scalable = true;
+			var size:Signal<Vec3> = null, position:Signal<Vec3> = null, mode:Signal<GizmoMode> = null;
+			var rotatable = true, scalable = true, movable = true;
 			var draws = 0, changes = 0, show = true;
 			var box = Geometry.box(1, 1, 1, new Material({baseColor: 0x999999, unlit: true}));
 			var root:Div = Owner.root(tree, stop -> {
 				dispose = stop;
 				selection = new Selection3D(); rotation = Signal.make(Quat.IDENTITY);
-				size = Signal.make(Vec3.ONE); mode = Signal.make(GizmoMode.Orbit);
+				size = Signal.make(Vec3.ONE); position = Signal.make(Vec3.ZERO); mode = Signal.make(GizmoMode.Orbit);
 				var turn = (delta:Quat) -> {changes++; rotation.set(delta.mul(rotation.get()).normalize());};
 				var resize = (delta:Vec3) -> size.set(size.get().mul(delta));
+				var translate = (delta:Vec3) -> position.set(position.get().add(delta));
 				return <div width={800} height={560}>
 					<scene-kit ref={reference} camera={camera} width={800} height={560} selection={selection} gizmoMode={mode} worldGizmo={true}
 						draw={ctx -> {
 							draws++;
 							if (show) {
-								var at = Mat4.compose(Vec3.ZERO, rotation.get(), size.get()); selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
-								selection.region("box", box.min, box.max, at, rotatable ? turn : null, null, scalable ? resize : null);
+								var at = Mat4.compose(position.get(), rotation.get(), size.get()); selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
+								selection.region("box", box.min, box.max, at, rotatable ? turn : null, null, scalable ? resize : null, movable ? translate : null);
 							}
 						}} />
 				</div>;
@@ -197,6 +198,63 @@ class SceneGizmoPixels {
 			check('CSS scale preserves captured object scaling in canvas coordinates at ${scale}x', sameScale(normalScale, size.get()));
 			Keyboard.input(tree, Input(Code(Escape), Named(Escape), null, Standard, Pressed, false, null)); Pointer.release(tree);
 			kit.node.set(ashui.layout.Prop.Transform, ashui.types.Transform.identity()); render();
+			// Known world-axis points project the start and end of an exact translation.
+			var endings:Array<Bool> = []; kit.gizmos.onTransformEnd = cancel -> endings.push(cancel);
+			mode.set(GizmoMode.Move); size.set(Vec3.ONE); render();
+			var worldAxes = [new Vec3(1,0,0), Vec3.UP, new Vec3(0,0,1)];
+			data = offscreen.readRgba8(texture, 800 * scale, 560 * scale);
+			sys.io.File.saveBytes('$dir/scene-move-test-${scale}x.png', ashui.core.render.Png.encode(800 * scale, 560 * scale, data));
+			counts = [0,0,0];
+			for (y in 140 * scale...420 * scale) for (x in 260 * scale...540 * scale) {
+				var i = (y * 800 * scale + x) * 4, r = data.get(i), g = data.get(i+1), b = data.get(i+2);
+				if (r > 170 && r-g > 20 && r-b > 20) counts[0]++;
+				if (g > 140 && g-r > 20 && g-b > 20) counts[1]++;
+				if (b > 170 && b-r > 20 && b-g > 20) counts[2]++;
+			}
+			check('translation draws all three colored axes at ${scale}x', counts[0]>20 && counts[1]>20 && counts[2]>20);
+			for (axis in 0...3) {
+				position.set(Vec3.ZERO); render();
+				var start = SceneGizmos.project(camera.camera(), worldAxes[axis].scale(.6),800,560);
+				var end = SceneGizmos.project(camera.camera(), worldAxes[axis].scale(1),800,560);
+				check('world translation axis $axis is reachable at ${scale}x', kit.gizmos.hit(start.x,start.y)==axis);
+				Pointer.move(tree,start.x,start.y); Pointer.press(tree); Pointer.move(tree,end.x,end.y); render();
+				check('axis $axis translates exactly 0.4 world units at ${scale}x', position.get().distance(worldAxes[axis].scale(.4))<1e-5);
+				end = SceneGizmos.project(camera.camera(),worldAxes[axis].scale(1.2),800,560);
+				Pointer.move(tree,end.x,end.y); render();
+				check('axis $axis accumulates pointer movement once at ${scale}x', position.get().distance(worldAxes[axis].scale(.6))<1e-5);
+				check('translation preserves scale, rotation and camera at ${scale}x', sameScale(size.get(),Vec3.ONE) && same(rotation.get(),initial)
+					&& camera.azimuth.get()==beforeA && camera.elevation.get()==beforeE && camera.distance.get()==distance);
+				Pointer.release(tree); render(); check('translation releases capture at ${scale}x', Pointer.hooks.length==0);
+				check('release reports one committed transform at ${scale}x',endings.length==axis+1 && endings[axis]==false);
+			}
+			position.set(Vec3.ZERO); render();
+			Pointer.move(tree,400,280); Pointer.press(tree); Pointer.move(tree,424,264); render();
+			var a = camera.azimuth.get(), e = camera.elevation.get(), unit = 2*Math.tan(camera.fovY.get()/2)*camera.distance.get()/560;
+			var right = new Vec3(Math.cos(a),0,-Math.sin(a)), up = new Vec3(-Math.sin(a)*Math.sin(e),Math.cos(e),-Math.cos(a)*Math.sin(e));
+			var expected = right.scale(24*unit).add(up.scale(16*unit));
+			check('center translates by analytic camera-plane displacement at ${scale}x', position.get().distance(expected)<1e-5);
+			Pointer.wheel(tree,0,50); render(); check('wheel cannot zoom during translation at ${scale}x', camera.distance.get()==distance);
+			Keyboard.input(tree,Input(Code(Escape),Named(Escape),null,Standard,Pressed,false,null)); Pointer.release(tree); render();
+			check('Escape cancels translation and capture at ${scale}x', position.get().length()<1e-6 && Pointer.hooks.length==0);
+			check('Escape reports one canceled transform at ${scale}x',endings.length==4 && endings[3]==true);
+			kit.node.set(ashui.layout.Prop.Transform, ashui.types.Transform.scaling(.75)); render();
+			Pointer.move(tree,400,280); Pointer.press(tree); Pointer.move(tree,418,268); render();
+			check('CSS scale preserves translation in canvas coordinates at ${scale}x', position.get().distance(expected)<1e-5);
+			mode.set(GizmoMode.Orbit); render(); Pointer.release(tree);
+			check('changing tools cancels translation at ${scale}x', position.get().length()<1e-6 && Pointer.hooks.length==0);
+			check('mode change reports one canceled transform at ${scale}x',endings.length==5 && endings[4]==true);
+			kit.node.set(ashui.layout.Prop.Transform,ashui.types.Transform.identity()); mode.set(GizmoMode.Move); render();
+			Pointer.move(tree,400,280); Pointer.press(tree); Pointer.move(tree,424,264); render(); selection.clear(); render(); Pointer.release(tree);
+			check('changing selection cancels translation at ${scale}x', position.get().length()<1e-6 && Pointer.hooks.length==0);
+			selection.select("box"); camera.azimuth.set(0); camera.elevation.set(0); render();
+			var endOn = {x:400+36/Math.sqrt(2),y:280+36/Math.sqrt(2)};
+			check('end-on translation has a separate reachable arrow at ${scale}x',kit.gizmos.hit(endOn.x,endOn.y)==2);
+			Pointer.move(tree,endOn.x,endOn.y); Pointer.press(tree); Pointer.move(tree,endOn.x+20/Math.sqrt(2),endOn.y+20/Math.sqrt(2)); render();
+			check('end-on translation is finite and constrained to Z at ${scale}x',position.get().distance(new Vec3(0,0,20*unit))<1e-5);
+			Keyboard.input(tree,Input(Code(Escape),Named(Escape),null,Standard,Pressed,false,null)); Pointer.release(tree); camera.reset(); render();
+			movable = false; mode.set(GizmoMode.Orbit); render(); mode.set(GizmoMode.Move); render();
+			check('Move skips an object without a translation callback at ${scale}x',kit.gizmos.hit(400,280)==-1);
+			movable = true;
 			rotatable = false; mode.set(GizmoMode.Orbit); render();
 			check('orbit tool skips an object without a rotation handler at ${scale}x', kit.gizmos.hit(400, 280) == -1);
 			mode.set(GizmoMode.Scale); render();

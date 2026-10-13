@@ -89,7 +89,7 @@ to control or share camera state; `controls={false}` disables camera input.
 
 Pass `Selection3D` for selected-object tools and `worldGizmo={true}` for
 the world axes in the top-right corner. `gizmoMode` accepts `GizmoMode.Orbit`
-(the default) or `GizmoMode.Scale`, including signals and computed values:
+(the default), `GizmoMode.Scale` or `GizmoMode.Move`, including signals and computed values:
 
 ```tsx
 import ashui.canvaskit.GizmoMode;
@@ -102,14 +102,16 @@ import ashui.reactive.Reactive;
 var selection = new Selection3D();
 var rotation = signal(Quat.IDENTITY);
 var scale = signal(Vec3.ONE);
+var position = signal(Vec3.ZERO);
 var mode = signal(GizmoMode.Orbit);
 var rotate = (delta:Quat) -> rotation.set(delta.mul(rotation.get()).normalize());
 var resize = (delta:Vec3) -> scale.set(scale.get().mul(delta));
+var move = (delta:Vec3) -> position.set(position.get().add(delta));
 return <scene-kit selection={selection} gizmoMode={mode} worldGizmo={true}
     width={640} height={480} draw={ctx -> {
-        var at = Mat4.compose(Vec3.ZERO, rotation.get(), scale.get());
+        var at = Mat4.compose(position.get(), rotation.get(), scale.get());
         selection.draw("box", ctx, () -> ctx.drawMesh(box, at));
-        selection.region("box", box.min, box.max, at, rotate, null, resize);
+        selection.region("box", box.min, box.max, at, rotate, null, resize, move);
     }} />;
 ```
 
@@ -118,6 +120,10 @@ selection. In **Orbit** mode, drag red **X**, green **Y** or blue **Z** rings
 to rotate about world axes; the outside ring rotates in the view plane.
 Set `mode.set(GizmoMode.Scale)` to show local-axis scale grips. Drag an axis
 to stretch it, or the center grip up and right to scale uniformly.
+Set `mode.set(GizmoMode.Move)` to show world X/Y/Z translation arrows. Drag an
+arrow to move along that axis, or the center grip to move in the camera plane.
+An end-on arrow remains reachable and maps pointer distance to world units at
+the original pivot depth.
 **Escape**, losing focus or changing selection or mode cancels a drag and
 restores its transform. Clicking a positive or negative world axis sets
 the camera's view, keeping its target and distance. Dragging elsewhere
@@ -129,9 +135,12 @@ receives a quaternion delta in world space; the application keeps its own
 transform state. The scale callback receives positive multipliers for local
 X/Y/Z, so scaling preserves the object's rotation. The optional `pivot`
 argument to `region()` sets a world pivot other than the object's origin;
-`onScale` follows it. Register only visible objects; bounds are refreshed
-when the scene draws. Omit either callback to keep the object selectable
-without handles for that tool.
+`onScale` follows it, then optional `onMove` receives world-space translation
+deltas. Register only visible objects; bounds are refreshed
+when the scene draws. Omit a callback to keep the object selectable
+without handles for that tool. `kit.gizmos.transforming` identifies a captured
+object gesture; `onTransformEnd` receives `false` when it commits or `true`
+when canceled. An editor can use these to group a drag into one undo entry.
 
 Wrap the object's mesh or model draws in `selection.draw(id, ctx, draw)`
 to give the selected object a subdued blue mask, a soft rim and highlighted
