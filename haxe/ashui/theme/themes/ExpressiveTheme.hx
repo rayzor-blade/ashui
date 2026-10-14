@@ -149,12 +149,35 @@ class ExpressiveTheme {
 
 	static function lightShadows():ShadowTokens {
 		return {
-			shadowSm: [new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.04)), new Shadow(0, 1, 2, 0, Rgba.fromHex(0x161726).withAlpha(0.06))],
-			shadowDefault: [new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.04)), new Shadow(0, 1, 3, 0, Rgba.fromHex(0x161726).withAlpha(0.06)), new Shadow(0, 2, 6, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.04))],
-			shadowMd: [new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.05)), new Shadow(0, 2, 4, 0, Rgba.fromHex(0x161726).withAlpha(0.06)), new Shadow(0, 4, 10, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.05))],
-			shadowLg: [new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.05)), new Shadow(0, 6, 12, 0, Rgba.fromHex(0x161726).withAlpha(0.07)), new Shadow(0, 14, 28, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.06))],
-			shadowXl: [new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.06)), new Shadow(0, 12, 22, 0, Rgba.fromHex(0x161726).withAlpha(0.08)), new Shadow(0, 28, 48, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.08))],
-			shadow2xl: [new Shadow(0, 0, 2, 0, Rgba.fromHex(0x161726).withAlpha(0.08)), new Shadow(0, 22, 38, 0, Rgba.fromHex(0x161726).withAlpha(0.10)), new Shadow(0, 48, 80, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.10))],
+			shadowSm: [
+				new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.04)),
+				new Shadow(0, 1, 2, 0, Rgba.fromHex(0x161726).withAlpha(0.06))
+			],
+			shadowDefault: [
+				new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.04)),
+				new Shadow(0, 1, 3, 0, Rgba.fromHex(0x161726).withAlpha(0.06)),
+				new Shadow(0, 2, 6, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.04))
+			],
+			shadowMd: [
+				new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.05)),
+				new Shadow(0, 2, 4, 0, Rgba.fromHex(0x161726).withAlpha(0.06)),
+				new Shadow(0, 4, 10, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.05))
+			],
+			shadowLg: [
+				new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.05)),
+				new Shadow(0, 6, 12, 0, Rgba.fromHex(0x161726).withAlpha(0.07)),
+				new Shadow(0, 14, 28, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.06))
+			],
+			shadowXl: [
+				new Shadow(0, 0, 1, 0, Rgba.fromHex(0x161726).withAlpha(0.06)),
+				new Shadow(0, 12, 22, 0, Rgba.fromHex(0x161726).withAlpha(0.08)),
+				new Shadow(0, 28, 48, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.08))
+			],
+			shadow2xl: [
+				new Shadow(0, 0, 2, 0, Rgba.fromHex(0x161726).withAlpha(0.08)),
+				new Shadow(0, 22, 38, 0, Rgba.fromHex(0x161726).withAlpha(0.10)),
+				new Shadow(0, 48, 80, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.10))
+			],
 			shadowInner: [new Shadow(0, 2, 4, 0, Rgba.fromHex(0x161726).withAlpha(0.08))],
 			shadowNone: []
 		};
@@ -162,12 +185,35 @@ class ExpressiveTheme {
 
 	static function darkShadows():ShadowTokens {
 		return {
-			shadowSm: [new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.32)), new Shadow(0, 1, 2, 0, Rgba.BLACK.withAlpha(0.40))],
-			shadowDefault: [new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.32)), new Shadow(0, 1, 3, 0, Rgba.BLACK.withAlpha(0.40)), new Shadow(0, 2, 6, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.12))],
-			shadowMd: [new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.36)), new Shadow(0, 2, 4, 0, Rgba.BLACK.withAlpha(0.42)), new Shadow(0, 4, 10, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.14))],
-			shadowLg: [new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.40)), new Shadow(0, 6, 12, 0, Rgba.BLACK.withAlpha(0.46)), new Shadow(0, 14, 28, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.16))],
-			shadowXl: [new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.44)), new Shadow(0, 12, 22, 0, Rgba.BLACK.withAlpha(0.52)), new Shadow(0, 28, 48, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.18))],
-			shadow2xl: [new Shadow(0, 0, 2, 0, Rgba.BLACK.withAlpha(0.50)), new Shadow(0, 22, 38, 0, Rgba.BLACK.withAlpha(0.60)), new Shadow(0, 48, 80, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.22))],
+			shadowSm: [
+				new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.32)),
+				new Shadow(0, 1, 2, 0, Rgba.BLACK.withAlpha(0.40))
+			],
+			shadowDefault: [
+				new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.32)),
+				new Shadow(0, 1, 3, 0, Rgba.BLACK.withAlpha(0.40)),
+				new Shadow(0, 2, 6, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.12))
+			],
+			shadowMd: [
+				new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.36)),
+				new Shadow(0, 2, 4, 0, Rgba.BLACK.withAlpha(0.42)),
+				new Shadow(0, 4, 10, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.14))
+			],
+			shadowLg: [
+				new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.40)),
+				new Shadow(0, 6, 12, 0, Rgba.BLACK.withAlpha(0.46)),
+				new Shadow(0, 14, 28, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.16))
+			],
+			shadowXl: [
+				new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.44)),
+				new Shadow(0, 12, 22, 0, Rgba.BLACK.withAlpha(0.52)),
+				new Shadow(0, 28, 48, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.18))
+			],
+			shadow2xl: [
+				new Shadow(0, 0, 2, 0, Rgba.BLACK.withAlpha(0.50)),
+				new Shadow(0, 22, 38, 0, Rgba.BLACK.withAlpha(0.60)),
+				new Shadow(0, 48, 80, 0, Rgba.fromHex(0x3D5FE8).withAlpha(0.22))
+			],
 			shadowInner: [new Shadow(0, 2, 4, 0, Rgba.BLACK.withAlpha(0.35))],
 			shadowNone: []
 		};

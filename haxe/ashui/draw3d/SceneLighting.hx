@@ -3,6 +3,7 @@ package ashui.draw3d;
 #if ashui_gpu
 /** An environment cubemap on the GPU, as a lighting hands it to ashui's mesh shader. **/
 typedef EnvironmentMap = {view:gpu.GpuTextureView, levels:Int, intensity:Float};
+
 #else
 typedef EnvironmentMap = Dynamic;
 #end

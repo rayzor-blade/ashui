@@ -23,6 +23,7 @@ import ashui.svg.SvgDocument;
 **/
 class Images {
 	static inline var STEPS_PER_OCTAVE = 12;
+
 	/** The largest side an image is rasterized at; beyond it, it is magnified. **/
 	static inline var MAX_SIDE = 2048;
 
@@ -40,7 +41,9 @@ class Images {
 			prepare(list, atlas);
 		}
 		for (i in 0...atlas.prepared) {
-			var image = atlas.resolving[i], r = image.record, rect = image.rect;
+			var image = atlas.resolving[i],
+				r = image.record,
+				rect = image.rect;
 			if (rect == null) {
 				list.set(r, COLOR + 3, 0);
 				list.set(r, COLOR2 + 3, 0);
@@ -52,11 +55,14 @@ class Images {
 			list.set(r, GRADIENT + 3, rect.y + rect.height);
 			list.set(r, FILL, image.mode);
 			if (image.mode == 3) {
-				list.set(r, MAPPING, image.x); list.set(r, MAPPING + 1, image.y);
-				list.set(r, MAPPING + 2, image.width); list.set(r, MAPPING + 3, image.height);
+				list.set(r, MAPPING, image.x);
+				list.set(r, MAPPING + 1, image.y);
+				list.set(r, MAPPING + 2, image.width);
+				list.set(r, MAPPING + 3, image.height);
 				list.set(r, COLOR2 + 2, image.repeat);
 			} else if (image.mode == 2) {
-				list.set(r, COLOR2, image.width); list.set(r, COLOR2 + 1, image.height);
+				list.set(r, COLOR2, image.width);
+				list.set(r, COLOR2 + 1, image.height);
 			}
 		}
 	}
@@ -65,9 +71,19 @@ class Images {
 		var fitted = true;
 		atlas.prepared = 0;
 		for (r in 0...list.count) {
-			if (list.kind(r) != DisplayList.PRIM_IMAGE) continue;
+			if (list.kind(r) != DisplayList.PRIM_IMAGE)
+				continue;
 			if (atlas.prepared == atlas.resolving.length)
-				atlas.resolving.push({record: 0, rect: null, mode: 0, x: 0, y: 0, width: 0, height: 0, repeat: 0});
+				atlas.resolving.push({
+					record: 0,
+					rect: null,
+					mode: 0,
+					x: 0,
+					y: 0,
+					width: 0,
+					height: 0,
+					repeat: 0
+				});
 			var image = atlas.resolving[atlas.prepared++];
 			image.record = r;
 			var slot = Std.int(list.get(r, GRADIENT));
@@ -77,10 +93,11 @@ class Images {
 			var doc = bitmap ? null : SvgDocument.get(slot);
 			var tiled = bitmap && ((slot - ashui.types.Bitmap.BASE) & 3) == ashui.types.Brush.ImageFit.Tile;
 			image.mode = doc != null && doc.mask ? 0 : mapped ? 3 : tiled ? 2 : 1;
-			image.rect = bitmap ? mapped ? positioned(slot - ashui.types.Bitmap.BASE, list, r, onScreen, atlas, image)
-				: resampled(slot - ashui.types.Bitmap.BASE, list, r, onScreen, atlas, image)
-				: doc == null ? null : rasterized(doc, list, r, onScreen, atlas);
-			if (image.rect == null && (doc != null || bitmap)) fitted = false;
+			image.rect = bitmap ? mapped ? positioned(slot - ashui.types.Bitmap.BASE, list, r, onScreen, atlas,
+				image) : resampled(slot - ashui.types.Bitmap.BASE, list, r, onScreen, atlas,
+					image) : doc == null ? null : rasterized(doc, list, r, onScreen, atlas);
+			if (image.rect == null && (doc != null || bitmap))
+				fitted = false;
 		}
 		return fitted;
 	}
@@ -90,7 +107,8 @@ class Images {
 		var slot = code >> 2;
 		var sw = ashui.core.externs.BitmapNative.blinc_bitmap_size(slot, false);
 		var sh = ashui.core.externs.BitmapNative.blinc_bitmap_size(slot, true);
-		if (sw <= 0 || sh <= 0) return null;
+		if (sw <= 0 || sh <= 0)
+			return null;
 		var fit = Std.int(list.get(r, COLOR2 + 2));
 		var w = list.get(r, BOUNDS + 2), h = list.get(r, BOUNDS + 3);
 		var scale = switch fit {
@@ -156,7 +174,8 @@ class Images {
 		var scale = bucket(onScreen);
 		var w = side(width * scale), h = side(height * scale);
 		var fill = ashui.types.Brush.ImageFit.Fill;
-		return atlas.get('bitmap${slot * 4 + fill}:${w}x$h', w, h, pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, w, h, fill, pixels.getData()));
+		return atlas.get('bitmap${slot * 4 + fill}:${w}x$h', w, h,
+			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, w, h, fill, pixels.getData()));
 	}
 
 	static function bucket(onScreen:Float):Float {

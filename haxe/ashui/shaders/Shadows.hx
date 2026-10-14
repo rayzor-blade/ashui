@@ -13,14 +13,12 @@ package ashui.shaders;
 class Shadows implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
-
 		// Declared for this module's own build; a shader importing it declares them itself.
-		@param var shadowMap : Sampler2D;
-		@param var environmentMap : SamplerCube;
-		@param var scene : StorageBuffer<Vec4>;
-
+		@param var shadowMap:Sampler2D;
+		@param var environmentMap:SamplerCube;
+		@param var scene:StorageBuffer<Vec4>;
 		/** 1 where `world` is lit by the first light, down to 1 less the shadows' strength where it is in shadow; nine texels averaged, so edges are soft. **/
-		function shadowLight(world : Vec3) : Float {
+		function shadowLight(world:Vec3):Float {
 			var settings = shadowSettings();
 			var lit = 1.;
 			if (settings.x > 0.5) {
@@ -48,9 +46,8 @@ class Shadows implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl
 			}
 			return lit;
 		}
-
 		/** The share of the light reaching level ground at `at` that the first light gives, weighed as ashui's mesh shader weighs it. **/
-		function keyLightShare(at : Vec3) : Float {
+		function keyLightShare(at:Vec3):Float {
 			var up = vec3(0., 1., 0.);
 			var luma = vec3(0.2126, 0.7152, 0.0722);
 			var key = 0.;
@@ -73,19 +70,17 @@ class Shadows implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl
 				rest += dot(ambientLight() * 1.1, luma);
 			return key / max(key + rest, 0.0001);
 		}
-
 		/**
 			How much darker level ground at `at` is for the first light's shadow
 			there, 0 to 1: as dark as the light the shadow keeps off is strong
 			against the rest, so a sky or a second light lifts it. A floor that
 			catches shadows multiplies its colour by one less this.
 		**/
-		function groundShadow(at : Vec3) : Float {
+		function groundShadow(at:Vec3):Float {
 			return (1. - shadowLight(at)) * keyLightShare(at);
 		}
-
 		/** What a shadow pass writes for a point at `clip` in the light's clip space: its depth. **/
-		function shadowDepth(clip : Vec4) : Vec4 {
+		function shadowDepth(clip:Vec4):Vec4 {
 			return vec4(clip.z / clip.w, 0., 0., 1.);
 		}
 	};

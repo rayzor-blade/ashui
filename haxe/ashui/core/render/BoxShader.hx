@@ -10,24 +10,22 @@ package ashui.core.render;
 class BoxShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		var output : { position : Vec4, color : Vec4 };
+		var output:{position:Vec4, color:Vec4};
 		/**
 			Where the fragment is in the box's own coordinates, from its top-left,
 			for the shape and fill (`xy`), and on screen, for the clip (`zw`).
 			Values passed between stages are few, so pairs share a vec4.
 		**/
-		var place : Vec4;
+		var place:Vec4;
 		/** The box's size; its fill type plus four times its clips; its clips' corner `n`. **/
-		var box : Vec4;
-
+		var box:Vec4;
 		/**
 			The fill at `p`: `fillType` 0 is solid, 1 linear from `g.xy` to
 			`g.zw`, 2 radial at `g.xy` of radius `g.z`. A gradient runs from `c1`
 			at `stops.x` to `c2` at `stops.z`, through `via` at `stops.y` when
 			`stops.w` is 1.
 		**/
-		function fillAt(p : Vec2, c1 : Vec4, c2 : Vec4, via : Vec4, stops : Vec4, g : Vec4, fillType : Float) : Vec4 {
+		function fillAt(p:Vec2, c1:Vec4, c2:Vec4, via:Vec4, stops:Vec4, g:Vec4, fillType:Float):Vec4 {
 			var c = c1;
 			if (fillType > 0.5) {
 				var t = 0.;
@@ -48,7 +46,6 @@ class BoxShader implements UiShader {
 			}
 			return c;
 		}
-
 		/**
 			`fill` with the border composited over it where `p` is in the ring
 			between the edge and the inner shape; straight alpha. With
@@ -57,8 +54,8 @@ class BoxShader implements UiShader {
 			side's width, so two sides meet on the line from the outer corner to
 			the inner one, as CSS joins them.
 		**/
-		function withBorder(p : Vec2, origin : Vec2, size : Vec2, radii : Vec4, shape : Vec4, d : Float, coverage : Float, fill : Vec4,
-				border : Vec4, topColor : Vec4, rightColor : Vec4, bottomColor : Vec4, leftColor : Vec4, aa : Float) : Vec4 {
+		function withBorder(p:Vec2, origin:Vec2, size:Vec2, radii:Vec4, shape:Vec4, d:Float, coverage:Float, fill:Vec4, border:Vec4, topColor:Vec4,
+				rightColor:Vec4, bottomColor:Vec4, leftColor:Vec4, aa:Float):Vec4 {
 			var result = fill;
 			if (max(max(border.x, border.y), max(border.z, border.w)) > 0.) {
 				// Each side its own: ashui writes all four, a uniform border as four equal widths.
@@ -144,7 +141,6 @@ class BoxShader implements UiShader {
 			}
 			return result;
 		}
-
 		function vertex() {
 			var b = primitive.bounds;
 			// The quad reaches a pixel and a half past the box, so the edge's
@@ -157,7 +153,6 @@ class BoxShader implements UiShader {
 			box = vec4(b.zw, primitive.typeInfo.y + 4. * primitive.typeInfo.z, primitive.typeInfo.w);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
 		function fragment() {
 			// Half a screen pixel in the box's own units, which a transform scales or slants;
 			// taken before the discard, as derivatives need every fragment of the quad.
@@ -165,10 +160,9 @@ class BoxShader implements UiShader {
 			var aa = halfPixel(local);
 			var clips = floor(box.z * 0.25);
 			var fillType = box.z - 4. * clips;
-			var clip = clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, clips, box.w)
-				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, clips, box.w, aa)
-				* fadeCoverage(place.zw, primitive.fadeBounds, primitive.fade)
-				* shapeCoverage(place.zw);
+			var clip = clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, clips,
+				box.w) * localClipCoverage(local, primitive.shadow, primitive.shadowColor, clips, box.w,
+					aa) * fadeCoverage(place.zw, primitive.fadeBounds, primitive.fade) * shapeCoverage(place.zw);
 			if (clip < 0.001)
 				discard;
 			var p = local;
@@ -244,8 +238,8 @@ class BoxShader implements UiShader {
 					fill = mix(fill, vec4(color.rgb, color.a), ring * color.a);
 				}
 			} else
-				fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border,
-					primitive.borderTop, primitive.borderRight, primitive.borderBottom, primitive.borderLeft, aa);
+				fill = withBorder(p, origin, size, primitive.cornerRadius, primitive.cornerShape, d, coverage, fill, primitive.border, primitive.borderTop,
+					primitive.borderRight, primitive.borderBottom, primitive.borderLeft, aa);
 			output.color = vec4(fill.rgb, fill.a * clip * coverage);
 		}
 	};

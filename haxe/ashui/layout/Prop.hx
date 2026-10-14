@@ -12,35 +12,45 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var Background:Prop<ashui.types.Brush> = cast PropertyId.Background;
 	public static inline var BorderColor:Prop<ashui.types.Color> = cast PropertyId.BorderColor;
 	public static inline var BorderWidth:Prop<Single> = cast PropertyId.BorderWidth;
+
 	/** One side's border width, over `BorderWidth`; the colour stays `BorderColor`. **/
 	public static inline var BorderTopWidth:Prop<Single> = cast PropertyId.BorderTopWidth;
+
 	public static inline var BorderRightWidth:Prop<Single> = cast PropertyId.BorderRightWidth;
 	public static inline var BorderBottomWidth:Prop<Single> = cast PropertyId.BorderBottomWidth;
 	public static inline var BorderLeftWidth:Prop<Single> = cast PropertyId.BorderLeftWidth;
+
 	/** One side's border colour, over `BorderColor`. **/
 	public static inline var BorderTopColor:Prop<ashui.types.Color> = cast PropertyId.BorderTopColor;
+
 	public static inline var BorderRightColor:Prop<ashui.types.Color> = cast PropertyId.BorderRightColor;
 	public static inline var BorderBottomColor:Prop<ashui.types.Color> = cast PropertyId.BorderBottomColor;
 	public static inline var BorderLeftColor:Prop<ashui.types.Color> = cast PropertyId.BorderLeftColor;
+
 	/** How far in from a side a box that clips its children (`Overflow` hidden or scroll) fades them out. **/
 	public static inline var FadeTop:Prop<Single> = cast PropertyId.FadeTop;
+
 	public static inline var FadeRight:Prop<Single> = cast PropertyId.FadeRight;
 	public static inline var FadeBottom:Prop<Single> = cast PropertyId.FadeBottom;
 	public static inline var FadeLeft:Prop<Single> = cast PropertyId.FadeLeft;
+
 	/** The shape the element and everything inside it are clipped to, as CSS's `clip-path`. **/
 	public static inline var ClipPath:Prop<ashui.types.ClipPath> = cast PropertyId.ClipPath;
+
 	/**
 		CSS's colour filters over the element and everything inside it, drawn
 		as one layer: brightness, contrast and saturate as multipliers (1 is
 		none), grayscale, invert and sepia from 0 to 1, hue-rotate in degrees.
 	**/
 	public static inline var FilterBrightness:Prop<Single> = cast PropertyId.FilterBrightness;
+
 	public static inline var FilterContrast:Prop<Single> = cast PropertyId.FilterContrast;
 	public static inline var FilterGrayscale:Prop<Single> = cast PropertyId.FilterGrayscale;
 	public static inline var FilterHueRotate:Prop<Single> = cast PropertyId.FilterHueRotate;
 	public static inline var FilterInvert:Prop<Single> = cast PropertyId.FilterInvert;
 	public static inline var FilterSaturate:Prop<Single> = cast PropertyId.FilterSaturate;
 	public static inline var FilterSepia:Prop<Single> = cast PropertyId.FilterSepia;
+
 	/**
 		CSS `backdrop-filter`'s colour filters, applied to what is behind an
 		element whose background is a backdrop (`Brush.blur` or
@@ -48,27 +58,36 @@ abstract Prop<T>(PropertyId) to PropertyId {
 		values are as the `Filter` properties take them.
 	**/
 	public static inline var BackdropBrightness:Prop<Single> = cast PropertyId.BackdropBrightness;
+
 	public static inline var BackdropContrast:Prop<Single> = cast PropertyId.BackdropContrast;
 	public static inline var BackdropGrayscale:Prop<Single> = cast PropertyId.BackdropGrayscale;
 	public static inline var BackdropHueRotate:Prop<Single> = cast PropertyId.BackdropHueRotate;
 	public static inline var BackdropInvert:Prop<Single> = cast PropertyId.BackdropInvert;
 	public static inline var BackdropSaturate:Prop<Single> = cast PropertyId.BackdropSaturate;
 	public static inline var BackdropSepia:Prop<Single> = cast PropertyId.BackdropSepia;
+
 	/** CSS's `blur()`: the element and everything inside it blurred, this standard deviation in layout units. **/
 	public static inline var FilterBlur:Prop<Single> = cast PropertyId.FilterBlur;
+
 	/** CSS's `drop-shadow()`: the first layer of a `Shadow`, cast by what the element and its children draw rather than by its box. **/
 	public static inline var DropShadow:Prop<ashui.types.Shadow> = cast PropertyId.DropShadow;
+
 	/** The shadows of the node's text and its descendants', first on top: offsets, a blur and a colour, no spread or inset. **/
 	public static inline var TextShadow:Prop<ashui.types.Shadow> = cast PropertyId.TextShadow;
+
 	/** How the node's text, and its descendants', is decorated: which lines, their style, colour, thickness and offset. **/
 	public static inline var TextDecoration:Prop<ashui.types.TextDecoration> = cast PropertyId.TextDecoration;
+
 	/** A ring outside the border box, `OutlineOffset` away from it, its corners following the box's. **/
 	public static inline var OutlineWidth:Prop<Single> = cast PropertyId.OutlineWidth;
+
 	public static inline var OutlineOffset:Prop<Single> = cast PropertyId.OutlineOffset;
 	public static inline var OutlineColor:Prop<ashui.types.Color> = cast PropertyId.OutlineColor;
 	public static inline var CornerRadius:Prop<ashui.types.CornerRadius> = cast PropertyId.CornerRadius;
+
 	/** Shares its id with `CornerRadius`; the two are told apart by value. **/
 	public static inline var CornerShape:Prop<ashui.types.CornerShape> = cast PropertyId.CornerRadius;
+
 	public static inline var Opacity:Prop<Single> = cast PropertyId.Opacity;
 	public static inline var Transform:Prop<ashui.types.Transform> = cast PropertyId.Transform;
 	public static inline var Shadow:Prop<ashui.types.Shadow> = cast PropertyId.Shadow;
@@ -89,10 +108,13 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var AlignItems:Prop<ashui.types.Style.Align> = cast PropertyId.AlignItems;
 	public static inline var JustifyContent:Prop<ashui.types.Style.Justify> = cast PropertyId.JustifyContent;
 	public static inline var AlignSelf:Prop<ashui.types.Style.Align> = cast PropertyId.AlignSelf;
+
 	/** Distribution of wrapped flex lines or grid tracks along the cross axis. **/
 	public static inline var AlignContent:Prop<ashui.types.Style.Justify> = cast PropertyId.AlignContent;
+
 	/** Horizontal alignment of grid items, or of one item within its grid area. **/
 	public static inline var JustifyItems:Prop<ashui.types.Style.Align> = cast PropertyId.JustifyItems;
+
 	public static inline var JustifySelf:Prop<ashui.types.Style.Align> = cast PropertyId.JustifySelf;
 	public static inline var FlexGrow:Prop<Single> = cast PropertyId.FlexGrow;
 	public static inline var FlexShrink:Prop<Single> = cast PropertyId.FlexShrink;
@@ -103,14 +125,19 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var OverflowX:Prop<ashui.types.Style.Overflow> = cast PropertyId.OverflowX;
 	public static inline var OverflowY:Prop<ashui.types.Style.Overflow> = cast PropertyId.OverflowY;
 	public static inline var Position:Prop<ashui.types.Style.Position> = cast PropertyId.Position;
+
 	/** Signed flex/grid item order; authored children and Tab order stay unchanged. git-bug: 7977648. **/
 	public static inline var Order:Prop<Int> = cast PropertyId.Order;
+
 	/** Sibling stacking order for drawing and hit testing; CSS `auto` uses tree order. **/
 	public static inline var ZIndex:Prop<Int> = cast PropertyId.ZIndex;
+
 	/** Keeps layout space while suppressing painting and hits for the subtree. **/
 	public static inline var Visibility:Prop<ashui.types.Style.Visibility> = cast PropertyId.Visibility;
+
 	/** Whether the subtree receives pointer hits; drawing and keyboard focus are unchanged. **/
 	public static inline var PointerEvents:Prop<ashui.types.Style.PointerEvents> = cast PropertyId.PointerEvents;
+
 	public static inline var Top:Prop<Single> = cast PropertyId.Top;
 	public static inline var Right:Prop<Single> = cast PropertyId.Right;
 	public static inline var Bottom:Prop<Single> = cast PropertyId.Bottom;
@@ -126,20 +153,26 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var MarginRight:Prop<Single> = cast PropertyId.MarginRight;
 	public static inline var MarginBottom:Prop<Single> = cast PropertyId.MarginBottom;
 	public static inline var MarginLeft:Prop<Single> = cast PropertyId.MarginLeft;
+
 	/** The gap between columns. **/
 	public static inline var GapX:Prop<Single> = cast PropertyId.GapX;
+
 	/** The gap between rows. **/
 	public static inline var GapY:Prop<Single> = cast PropertyId.GapY;
+
 	/** A fraction of the parent's width, 0 to 1. **/
 	public static inline var WidthPercent:Prop<Single> = cast PropertyId.WidthPercent;
+
 	public static inline var HeightPercent:Prop<Single> = cast PropertyId.HeightPercent;
 	public static inline var MinWidthPercent:Prop<Single> = cast PropertyId.MinWidthPercent;
 	public static inline var MaxWidthPercent:Prop<Single> = cast PropertyId.MaxWidthPercent;
 	public static inline var MinHeightPercent:Prop<Single> = cast PropertyId.MinHeightPercent;
 	public static inline var MaxHeightPercent:Prop<Single> = cast PropertyId.MaxHeightPercent;
 	public static inline var FlexBasisPercent:Prop<Single> = cast PropertyId.FlexBasisPercent;
+
 	/** Fractions of the containing block's width, including the vertical padding and margin sides. **/
 	public static inline var PaddingTopPercent:Prop<Single> = cast PropertyId.PaddingTopPercent;
+
 	public static inline var PaddingRightPercent:Prop<Single> = cast PropertyId.PaddingRightPercent;
 	public static inline var PaddingBottomPercent:Prop<Single> = cast PropertyId.PaddingBottomPercent;
 	public static inline var PaddingLeftPercent:Prop<Single> = cast PropertyId.PaddingLeftPercent;
@@ -147,8 +180,10 @@ abstract Prop<T>(PropertyId) to PropertyId {
 	public static inline var MarginRightPercent:Prop<Single> = cast PropertyId.MarginRightPercent;
 	public static inline var MarginBottomPercent:Prop<Single> = cast PropertyId.MarginBottomPercent;
 	public static inline var MarginLeftPercent:Prop<Single> = cast PropertyId.MarginLeftPercent;
+
 	/** Fractions of the containing block along the inset or gap's axis. **/
 	public static inline var TopPercent:Prop<Single> = cast PropertyId.TopPercent;
+
 	public static inline var RightPercent:Prop<Single> = cast PropertyId.RightPercent;
 	public static inline var BottomPercent:Prop<Single> = cast PropertyId.BottomPercent;
 	public static inline var LeftPercent:Prop<Single> = cast PropertyId.LeftPercent;
@@ -157,12 +192,16 @@ abstract Prop<T>(PropertyId) to PropertyId {
 
 	/** CSS's `mask-image`: a gradient brush, its points fractions of the box, whose alpha the element and its subtree are drawn through. **/
 	public static inline var MaskImage:Prop<ashui.types.Brush> = cast PropertyId.MaskImage;
+
 	/** Width over height, which sizes a box given only one of them; NaN for none. **/
 	public static inline var AspectRatio:Prop<Single> = cast PropertyId.AspectRatio;
+
 	/** Whether text breaks lines at its width: 1, as it does by default, or 0, kept to one line. **/
 	public static inline var TextWrap:Prop<Single> = cast PropertyId.TextWrap;
+
 	/** Whether a line wider than its box is clipped or ends with an ellipsis. **/
 	public static inline var TextOverflow:Prop<ashui.types.Style.TextOverflow> = cast PropertyId.TextOverflow;
+
 	/** Maximum visible lines, ending the last with an ellipsis; 0 removes the clamp. **/
 	public static inline var LineClamp:Prop<Int> = cast PropertyId.LineClamp;
 

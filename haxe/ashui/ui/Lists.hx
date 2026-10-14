@@ -31,7 +31,9 @@ private class Marking {
 	static final lists = new Map<String, {tree:LayoutTree, mark:Void->Void}>();
 
 	public static function watch(box:Div, mark:Void->Void):Void {
-		var tree = box.tree, id = box.node.id, key = haxe.Int64.toStr(box.node.id);
+		var tree = box.tree,
+			id = box.node.id,
+			key = haxe.Int64.toStr(box.node.id);
 		lists.set(key, {tree: tree, mark: mark});
 		ashui.layout.AfterChildren.watch(tree, "list " + key, parent -> parent == id, mark);
 		Owner.onCleanup(() -> lists.remove(key));

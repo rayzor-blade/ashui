@@ -38,10 +38,13 @@ class MotionOverlay implements FrameOverlay {
 
 	/** The trace drawn; a live stream gives it a fresh one after each burst it writes out. **/
 	public var trace:MotionTrace;
+
 	/** Seconds an ended track stays drawn, fading. **/
 	public var linger = 0.75;
+
 	/** Whether the corner panel of curves is drawn, and of how many tracks at most. **/
 	public var curves = true;
+
 	public var maxCurves = 3;
 
 	public function new(trace:MotionTrace) {
@@ -61,7 +64,9 @@ class MotionOverlay implements FrameOverlay {
 	/** The tracks drawn now: those running, and those that ended within `linger`. **/
 	public function shown():Array<MotionTrack> {
 		var now = MotionTrace.clock();
-		return [for (t in trace.tracks) if (t.running || (t.ended != null && now - t.ended <= linger)) t];
+		return [
+			for (t in trace.tracks) if (t.running || (t.ended != null && now - t.ended <= linger)) t
+		];
 	}
 
 	function build(tree:LayoutTree, width:Int, height:Int, own:LayoutTree):Array<Element> {
@@ -200,9 +205,14 @@ class MotionOverlay implements FrameOverlay {
 	}
 
 	/** A rectangle, filled and outlined as given, rounded by `radius`. **/
-	static function box(own:LayoutTree, x:Float, y:Float, w:Float, h:Float, ?fill:Int, fillAlpha = 1.0, ?edge:Int, edgeAlpha = 1.0,
-			radius = 0.0):Div {
-		var d = new Div({position: Position.Absolute, left: x, top: y, width: Math.max(w, 0), height: Math.max(h, 0)}, own);
+	static function box(own:LayoutTree, x:Float, y:Float, w:Float, h:Float, ?fill:Int, fillAlpha = 1.0, ?edge:Int, edgeAlpha = 1.0, radius = 0.0):Div {
+		var d = new Div({
+			position: Position.Absolute,
+			left: x,
+			top: y,
+			width: Math.max(w, 0),
+			height: Math.max(h, 0)
+		}, own);
 		if (fill != null)
 			d.node.set(Prop.Background, Brush.solid(fill, fillAlpha));
 		if (edge != null) {
@@ -230,7 +240,12 @@ class MotionOverlay implements FrameOverlay {
 
 	static function label(own:LayoutTree, x:Float, y:Float, s:String, c:Int, a:Float):Div {
 		var t = new Text(s, {color: new Color(0xffffff, a), fontSize: 10, wrap: false}, own);
-		var d = new Div({position: Position.Absolute, left: x, top: y, padding: 2}, [t], own);
+		var d = new Div({
+			position: Position.Absolute,
+			left: x,
+			top: y,
+			padding: 2
+		}, [t], own);
 		d.node.set(Prop.Background, Brush.solid(c, 0.85 * a));
 		d.node.set(Prop.CornerRadius, CornerRadius.all(3));
 		return d;

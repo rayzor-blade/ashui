@@ -29,106 +29,88 @@ class Scene implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.S
 	public static inline var ROWS = FIRST_LIGHT + MAX_LIGHTS * LIGHT_ROWS;
 
 	static var SRC = {
-		@param var scene : StorageBuffer<Vec4>;
-
+		@param var scene:StorageBuffer<Vec4>;
 		/** A point in the scene, `w` 1, or a direction, `w` 0, to clip space through the camera. **/
-		function worldToClip(p : Vec4) : Vec4 {
+		function worldToClip(p:Vec4):Vec4 {
 			return scene[0] * p.x + scene[1] * p.y + scene[2] * p.z + scene[3] * p.w;
 		}
-
 		/** A point in the scene, `w` 1, to clip space through the previous frame's camera, for motion blur. **/
-		function worldToClipBefore(p : Vec4) : Vec4 {
+		function worldToClipBefore(p:Vec4):Vec4 {
 			return scene[14] * p.x + scene[15] * p.y + scene[16] * p.z + scene[17] * p.w;
 		}
-
 		/** Where the camera is. **/
-		function cameraEye() : Vec3 {
+		function cameraEye():Vec3 {
 			return scene[4].xyz;
 		}
-
 		/** The light that reaches everywhere, times its strength. **/
-		function ambientLight() : Vec3 {
+		function ambientLight():Vec3 {
 			return scene[5].rgb;
 		}
-
 		/** What lit colours are multiplied by before tone mapping. **/
-		function sceneExposure() : Float {
+		function sceneExposure():Float {
 			return scene[5].w;
 		}
-
 		/** What the environment's light is multiplied by. **/
-		function environmentIntensity() : Float {
+		function environmentIntensity():Float {
 			return scene[6].x;
 		}
-
 		/** The environment's blurriest mip level, which rough surfaces and diffuse light sample. **/
-		function environmentLevels() : Float {
+		function environmentLevels():Float {
 			return scene[6].y;
 		}
-
 		/** Whether there is an environment; without one, ambient light stands in for it. **/
-		function hasEnvironment() : Bool {
+		function hasEnvironment():Bool {
 			return scene[6].z > 0.5;
 		}
-
 		/** A point in the scene, `w` 1, in the shadow-casting light's clip space. **/
-		function worldToShadow(p : Vec4) : Vec4 {
+		function worldToShadow(p:Vec4):Vec4 {
 			return scene[7] * p.x + scene[8] * p.y + scene[9] * p.z + scene[10] * p.w;
 		}
-
 		/** Whether there are shadows, their bias, strength and map size. **/
-		function shadowSettings() : Vec4 {
+		function shadowSettings():Vec4 {
 			return scene[11];
 		}
-
 		/** How far into the fog a point at `world` is, 0 clear to 1 wholly fog; 0 without fog. **/
-		function fogAmount(world : Vec3) : Float {
+		function fogAmount(world:Vec3):Float {
 			var far = scene[6].w;
 			var amount = 0.;
 			if (far > 0.)
 				amount = smoothstep(scene[12].w, far, length(world - scene[4].xyz)) * scene[13].x;
 			return amount;
 		}
-
 		/**
 			How many mesh draws the scene has. The glow pass draws a mesh again
 			with its instance index raised by this, so the mesh shader can tell
 			the two passes apart.
 		**/
-		function drawCount() : Int {
+		function drawCount():Int {
 			return int(scene[13].y + 0.5);
 		}
-
 		/** The most the fog covers, 0 to 1. **/
-		function fogOpacity() : Float {
+		function fogOpacity():Float {
 			return scene[13].x;
 		}
-
 		/** The fog's colour, linear. **/
-		function fogColor() : Vec3 {
+		function fogColor():Vec3 {
 			return scene[12].rgb;
 		}
-
 		/** `color` (linear, before exposure) of a point at `world`, faded into the fog by its distance. **/
-		function applyFog(color : Vec3, world : Vec3) : Vec3 {
+		function applyFog(color:Vec3, world:Vec3):Vec3 {
 			return mix(color, fogColor(), fogAmount(world));
 		}
-
-		function lightCount() : Int {
+		function lightCount():Int {
 			return int(scene[4].w + 0.5);
 		}
-
 		/** The way from `at` toward light `i`, of unit length. **/
-		function lightDirection(i : Int, at : Vec3) : Vec3 {
+		function lightDirection(i:Int, at:Vec3):Vec3 {
 			var row = 18 + i * 4;
 			var l = -normalize(scene[row + 3].xyz);
 			if (scene[row].x > 0.5)
 				l = normalize(scene[row + 2].xyz - at);
 			return l;
 		}
-
 		/** The light `i` brings to `at`: its colour and intensity, faded by distance and, for a spot, its cone. **/
-		function lightRadiance(i : Int, at : Vec3) : Vec3 {
+		function lightRadiance(i:Int, at:Vec3):Vec3 {
 			var row = 18 + i * 4;
 			var kind = scene[row];
 			var fade = 1.;

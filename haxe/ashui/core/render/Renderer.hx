@@ -79,21 +79,29 @@ class Renderer {
 	var imageAtlas:Null<ImageAtlas> = null;
 	var layerPass(get, never):Pass;
 	var _layerPass:Null<Pass> = null;
+
 	/** The first pass of a layer's blur, written as it is: blending off. **/
 	var blurPass(get, never):Pass;
+
 	var _blurPass:Null<Pass> = null;
+
 	/** The first pass of a layer's drop shadow, its alpha blurred along its rows, blending off. **/
 	var shadowPass(get, never):Pass;
+
 	var _shadowPass:Null<Pass> = null;
+
 	/** A backdrop filter's two passes, and the copy of a frame drawn offscreen onto its target. **/
 	var backdropRowsPass(get, never):Pass;
+
 	var _backdropRowsPass:Null<Pass> = null;
 	var backdropPass(get, never):Pass;
 	var _backdropPass:Null<Pass> = null;
 	var blitPass(get, never):Pass;
 	var _blitPass:Null<Pass> = null;
+
 	/** The frame drawn offscreen, when a backdrop filter must read what is drawn under it. **/
 	var frameLayer:Null<Layer> = null;
+
 	// Filters finish before another layer uses scratch space, so all depths share it.
 	var rows:Null<LayerTarget> = null;
 	var shadow:Null<LayerTarget> = null;
@@ -101,6 +109,7 @@ class Renderer {
 	var backdropGroup:Null<GpuBindGroup> = null;
 	var shadowGroup:Null<GpuBindGroup> = null;
 	final format:TextureFormat;
+
 	/** A composite record's blur, its `color.r`: its deviation in pixels. **/
 	static inline var BLUR_FIELD = 8;
 
@@ -112,13 +121,18 @@ class Renderer {
 
 	/** Layer textures by depth, from 1, the target's size, each with its bind group for `layerPass`. **/
 	final layers:Array<Layer> = [];
+
 	var imageRevision = -1;
+
 	/** The atlas revisions `text`'s bind group holds views of. **/
 	var textRevisions = "";
+
 	var records:Null<GpuTexture> = null;
 	var recordsView:Null<GpuTextureView> = null;
+
 	/** Rows of the records texture, `DisplayList.RECORDS_PER_ROW` records each. **/
 	var recordRows = 0;
+
 	final passes:Array<Pass> = [];
 
 	/**
@@ -175,7 +189,7 @@ class Renderer {
 		builder.target(format, GpuFlags.COLOR_WRITE_ALL);
 		if (blend)
 			builder.blend(BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha, BlendOperation.Add, BlendFactor.One, BlendFactor.OneMinusSrcAlpha,
-			BlendOperation.Add);
+				BlendOperation.Add);
 		builder.primitive(PrimitiveTopology.TriangleList, CullMode.None, FrontFace.Ccw);
 		var pipeline = builder.build();
 		var error = device.takeError();
@@ -290,8 +304,8 @@ class Renderer {
 		× `pixelHeight` is the size of `view`'s texture, which layers match;
 		the same as the units unless they are scaled.
 	**/
-	public function draw(list:DisplayList, view:GpuTextureView, width:Int, height:Int, r = 0.0, g = 0.0, b = 0.0, a = 0.0, ?pixelWidth:Int,
-			?pixelHeight:Int, keep = false):Void {
+	public function draw(list:DisplayList, view:GpuTextureView, width:Int, height:Int, r = 0.0, g = 0.0, b = 0.0, a = 0.0, ?pixelWidth:Int, ?pixelHeight:Int,
+			keep = false):Void {
 		var layerWidth = pixelWidth != null ? pixelWidth : width;
 		var layerHeight = pixelHeight != null ? pixelHeight : height;
 		var queue = device.queue();
@@ -301,9 +315,12 @@ class Renderer {
 		var offscreen = false, hasText = false, hasImages = false;
 		for (i in 0...list.count)
 			switch list.kind(i) {
-				case DisplayList.PRIM_BACKDROP: offscreen = true;
-				case DisplayList.PRIM_TEXT: hasText = true;
-				case DisplayList.PRIM_IMAGE: hasImages = true;
+				case DisplayList.PRIM_BACKDROP:
+					offscreen = true;
+				case DisplayList.PRIM_TEXT:
+					hasText = true;
+				case DisplayList.PRIM_IMAGE:
+					hasImages = true;
 				default:
 			}
 		if (hasText)
@@ -454,8 +471,7 @@ class Renderer {
 		clipped box, then sets the scissor back to the whole target. Nothing
 		else needs restoring: each run sets its own pipeline and bindings.
 	**/
-	function paintCanvas(encoder:GpuEncoder, list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int,
-			target:GpuTextureView):Void {
+	function paintCanvas(encoder:GpuEncoder, list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int, target:GpuTextureView):Void {
 		var canvas = ashui.ui.Canvas.at(Std.int(list.get(at, GRADIENT_FIELD)));
 		if (canvas == null)
 			return;
@@ -471,12 +487,15 @@ class Renderer {
 		if (clips & 2 != 0)
 			box = intersect(box, bounding(transform, f(6, 0), f(6, 1), f(6, 2), f(6, 3)));
 		var ratio = targetWidth / width;
-		var x0 = Std.int(Math.max(0, Math.floor(box[0] * ratio))), y0 = Std.int(Math.max(0, Math.floor(box[1] * ratio)));
-		var x1 = Std.int(Math.min(targetWidth, Math.ceil(box[2] * ratio))), y1 = Std.int(Math.min(targetHeight, Math.ceil(box[3] * ratio)));
+		var x0 = Std.int(Math.max(0, Math.floor(box[0] * ratio))),
+			y0 = Std.int(Math.max(0, Math.floor(box[1] * ratio)));
+		var x1 = Std.int(Math.min(targetWidth, Math.ceil(box[2] * ratio))),
+			y1 = Std.int(Math.min(targetHeight, Math.ceil(box[3] * ratio)));
 		if (x1 <= x0 || y1 <= y0)
 			return;
 		encoder.renderSetScissorRect(x0, y0, x1 - x0, y1 - y0);
-		canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0], target));
+		canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0],
+			target));
 		encoder.renderSetScissorRect(0, 0, targetWidth, targetHeight);
 	}
 
@@ -491,7 +510,12 @@ class Renderer {
 	}
 
 	static function intersect(a:Array<Float>, b:Array<Float>):Array<Float>
-		return [Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])];
+		return [
+			Math.max(a[0], b[0]),
+			Math.max(a[1], b[1]),
+			Math.min(a[2], b[2]),
+			Math.min(a[3], b[3])
+		];
 
 	function drawRun(encoder:GpuEncoder, pass:Pass, first:Int, count:Int):Void {
 		encoder.renderSetPipeline(pass.pipeline);
@@ -536,7 +560,12 @@ class Renderer {
 		var size = new GpuExtent3D(width);
 		size.height(height);
 		var texture = device.texture(new GpuTextureDescriptor(size, format, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
-		return {texture: texture, view: texture.createView(new GpuTextureViewDescriptor()), width: width, height: height};
+		return {
+			texture: texture,
+			view: texture.createView(new GpuTextureViewDescriptor()),
+			width: width,
+			height: height
+		};
 	}
 
 	/** Content stays per depth; blur/shadow intermediates are shared and made only when used. **/
@@ -557,8 +586,10 @@ class Renderer {
 
 	function reserveRows(width:Int, height:Int):LayerTarget {
 		if (rows == null || rows.width != width || rows.height != height) {
-			if (rowsGroup != null) rowsGroup.destroy();
-			if (backdropGroup != null) backdropGroup.destroy();
+			if (rowsGroup != null)
+				rowsGroup.destroy();
+			if (backdropGroup != null)
+				backdropGroup.destroy();
 			rowsGroup = null;
 			backdropGroup = null;
 			if (rows != null) {
@@ -572,7 +603,8 @@ class Renderer {
 
 	function reserveShadow(width:Int, height:Int):LayerTarget {
 		if (shadow == null || shadow.width != width || shadow.height != height) {
-			if (shadowGroup != null) shadowGroup.destroy();
+			if (shadowGroup != null)
+				shadowGroup.destroy();
 			shadowGroup = null;
 			if (shadow != null) {
 				shadow.view.destroy();
@@ -639,8 +671,10 @@ private typedef LayerTarget = {
 
 private typedef Layer = {
 	> LayerTarget,
+
 	/** Bindings that read this layer's content; filter outputs use shared scratch targets. **/
 	var group:Null<GpuBindGroup>;
+
 	var blurGroup:Null<GpuBindGroup>;
 	var shadowPassGroup:Null<GpuBindGroup>;
 	var backdropRowsGroup:Null<GpuBindGroup>;
@@ -651,6 +685,7 @@ private typedef Layer = {
 typedef Pass = {
 	final pipeline:GpuPipeline;
 	var group:Null<GpuBindGroup>;
+
 	/** The pass's own bind group of the records texture: an inferred layout is one pipeline's. **/
 	var records:Null<GpuBindGroup>;
 }

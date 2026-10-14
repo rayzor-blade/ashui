@@ -220,7 +220,10 @@ class Tessellate {
 			section(sx - ux * back, sy - uy * back, -uy, ux, uy, -ux);
 			for (i in 1...n - 1)
 				join(line, stroke, i, i - 1, i, outer, aa);
-			var ex = line.x(n - 1), ey = line.y(n - 1), vx = stepX[steps - 1], vy = stepY[steps - 1];
+			var ex = line.x(n - 1),
+				ey = line.y(n - 1),
+				vx = stepX[steps - 1],
+				vy = stepY[steps - 1];
 			section(ex + vx * back, ey + vy * back, -vy, vx, vy, -vx);
 			if (stroke.cap == Round)
 				cap(ex, ey, vx, vy, inner, outer, mesh, c, aa);
@@ -242,7 +245,10 @@ class Tessellate {
 	static function join(line:Contour, stroke:Stroke, i:Int, d0:Int, d1:Int, outer:Float, aa:Float):Void {
 		var px = line.x(i), py = line.y(i);
 		// Left normals of the step in and the step out.
-		var n0x = -stepY[d0], n0y = stepX[d0], n1x = -stepY[d1], n1y = stepX[d1];
+		var n0x = -stepY[d0],
+			n0y = stepX[d0],
+			n1x = -stepY[d1],
+			n1y = stepX[d1];
 		var turn = stepX[d0] * stepY[d1] - stepY[d0] * stepX[d1];
 		var dot = stepX[d0] * stepX[d1] + stepY[d0] * stepY[d1];
 		var mx = n0x + n1x, my = n0y + n1y;
@@ -258,15 +264,20 @@ class Tessellate {
 		var ki = Math.min(k, Math.max(1, reach));
 		// Turning left in these terms, the right side is the outside of the corner.
 		var outsideRight = turn > 0;
-		var ix = (outsideRight ? mx : -mx) * ki, iy = (outsideRight ? my : -my) * ki;
+		var ix = (outsideRight ? mx : -mx) * ki,
+			iy = (outsideRight ? my : -my) * ki;
 		inline function put(ox:Float, oy:Float)
-			if (outsideRight) section(px, py, ix, iy, ox, oy) else section(px, py, ox, oy, ix, iy);
+			if (outsideRight)
+				section(px, py, ix, iy, ox, oy)
+			else
+				section(px, py, ox, oy, ix, iy);
 		var s = outsideRight ? -1.0 : 1.0;
 		switch stroke.join {
 			case Miter if (k <= stroke.miterLimit):
 				put(s * mx * k, s * my * k);
 			case Round:
-				var a0 = Math.atan2(s * n0y, s * n0x), a1 = Math.atan2(s * n1y, s * n1x);
+				var a0 = Math.atan2(s * n0y, s * n0x),
+					a1 = Math.atan2(s * n1y, s * n1x);
 				var sweep = a1 - a0;
 				while (sweep > Math.PI)
 					sweep -= Math.PI * 2;
@@ -317,12 +328,24 @@ class Tessellate {
 	static function arcFan(px:Float, py:Float, start:Float, sweep:Float, inner:Float, outer:Float, mesh:Mesh, c:Float, aa:Float):Void {
 		var steps = Std.int(Math.max(4, Math.min(64, Math.ceil(sweep / Math.max(Math.acos(Math.max(-1, 1 - 0.1 * aa / Math.max(outer, 1e-9))) * 2, 0.05)))));
 		for (t in 0...steps) {
-			var a = start + sweep * t / steps, b = start + sweep * (t + 1) / steps;
-			var ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+			var a = start + sweep * t / steps,
+				b = start + sweep * (t + 1) / steps;
+			var ca = Math.cos(a),
+				sa = Math.sin(a),
+				cb = Math.cos(b),
+				sb = Math.sin(b);
 			if (inner > 0)
 				mesh.triangle(px, py, c, px + ca * inner, py + sa * inner, c, px + cb * inner, py + sb * inner, c);
-			mesh.quad(px + ca * inner, py + sa * inner, c, px + ca * outer, py + sa * outer, 0, px + cb * outer, py + sb * outer, 0, px + cb * inner,
-				py + sb * inner, c);
+			mesh.quad(px
+				+ ca * inner, py
+				+ sa * inner, c, px
+				+ ca * outer, py
+				+ sa * outer, 0, px
+				+ cb * outer, py
+				+ sb * outer, 0, px
+				+ cb * inner,
+				py
+				+ sb * inner, c);
 		}
 	}
 }

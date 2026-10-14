@@ -63,8 +63,10 @@ class Interaction {
 
 	final handlers = new Map<String, Array<Dynamic->Void>>();
 	var disabledWatch:Null<ashui.reactive.Watch<Bool>>;
+
 	/** Disabled by its own `setDisabled`; `disabled` is that or any of `disablers`. **/
 	var ownDisabled = false;
+
 	/** What disables it from outside, as a disabled fieldset does what it holds. **/
 	final disablers:Array<{}> = [];
 
@@ -86,7 +88,8 @@ class Interaction {
 			hooked = true;
 			ashui.css.Identity.forgetHooks.push(identity -> {
 				var interaction = byNode.get(identity.node);
-				if (interaction != null) interaction.dispose();
+				if (interaction != null)
+					interaction.dispose();
 			});
 		}
 		var interaction = byNode.get(node);
@@ -106,15 +109,19 @@ class Interaction {
 	}
 
 	static var hooked = false;
+
 	var disposed = false;
 
 	function dispose():Void {
-		if (disposed) return;
+		if (disposed)
+			return;
 		disposed = true;
 		byNode.remove(node);
 		var all = node.tree != null ? byTree.get(node.tree) : null;
-		if (all != null) all.remove(this);
-		if (disabledWatch != null) disabledWatch.stop();
+		if (all != null)
+			all.remove(this);
+		if (disabledWatch != null)
+			disabledWatch.stop();
 		Focus.forget(this);
 	}
 

@@ -77,7 +77,8 @@ class Path {
 		a line from the pen to its start, or a new subpath if there is none.
 	**/
 	public function arc(cx:Float, cy:Float, radius:Float, start:Float, end:Float, counterclockwise = false):Path {
-		var sx = cx + radius * Math.cos(start), sy = cy + radius * Math.sin(start);
+		var sx = cx + radius * Math.cos(start),
+			sy = cy + radius * Math.sin(start);
 		if (commands.length == 0 || commands[commands.length - 1].match(Close))
 			moveTo(sx, sy);
 		else
@@ -103,8 +104,8 @@ class Path {
 		r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
 		if (r == 0)
 			return rect(x, y, w, h);
-		return moveTo(x + r, y)
-			.lineTo(x + w - r, y)
+		return moveTo(x + r,
+			y).lineTo(x + w - r, y)
 			.arcTo(r, r, 0, false, true, x + w, y + r)
 			.lineTo(x + w, y + h - r)
 			.arcTo(r, r, 0, false, true, x + w - r, y + h)
@@ -116,10 +117,7 @@ class Path {
 	}
 
 	public function ellipse(cx:Float, cy:Float, rx:Float, ry:Float):Path
-		return moveTo(cx + rx, cy)
-			.arcTo(rx, ry, 0, false, true, cx - rx, cy)
-			.arcTo(rx, ry, 0, false, true, cx + rx, cy)
-			.close();
+		return moveTo(cx + rx, cy).arcTo(rx, ry, 0, false, true, cx - rx, cy).arcTo(rx, ry, 0, false, true, cx + rx, cy).close();
 
 	public inline function circle(cx:Float, cy:Float, r:Float):Path
 		return ellipse(cx, cy, r, r);

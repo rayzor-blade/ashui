@@ -45,8 +45,7 @@ class Mesh {
 	}
 
 	/** The quad `a b c d`, in order around it, as two triangles. **/
-	public inline function quad(ax:Float, ay:Float, ac:Float, bx:Float, by:Float, bc:Float, cx:Float, cy:Float, cc:Float, dx:Float, dy:Float,
-			dc:Float):Void {
+	public inline function quad(ax:Float, ay:Float, ac:Float, bx:Float, by:Float, bc:Float, cx:Float, cy:Float, cc:Float, dx:Float, dy:Float, dc:Float):Void {
 		triangle(ax, ay, ac, bx, by, bc, cx, cy, cc);
 		triangle(ax, ay, ac, cx, cy, cc, dx, dy, dc);
 	}

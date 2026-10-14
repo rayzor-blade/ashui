@@ -154,13 +154,16 @@ class SceneKit extends Component<SceneKitProps> {
 		var sky = new SkyboxPass();
 		ashui.reactive.Owner.onCleanup(() -> sky.dispose());
 		var loading = props.loading;
-		if (props.selection != null) ashui.reactive.Owner.onCleanup(() -> props.selection.forgetRegions());
+		if (props.selection != null)
+			ashui.reactive.Owner.onCleanup(() -> props.selection.forgetRegions());
 		gizmos = props.selection != null || props.worldGizmo == true ? new SceneGizmos(camera, props.selection, props.gizmoMode) : null;
 		if (gizmos != null) {
 			gizmos.world = props.worldGizmo == true;
 			gizmos.cameraControls = props.controls != false;
-			if (props.worldGizmoRight != null) gizmos.worldRight = props.worldGizmoRight;
-			if (props.worldGizmoTop != null) gizmos.worldTop = props.worldGizmoTop;
+			if (props.worldGizmoRight != null)
+				gizmos.worldRight = props.worldGizmoRight;
+			if (props.worldGizmoTop != null)
+				gizmos.worldTop = props.worldGizmoTop;
 		}
 		var canvas = new Canvas({
 			id: props.id,
@@ -169,12 +172,14 @@ class SceneKit extends Component<SceneKitProps> {
 			onSceneFrame: props.fps != null ? frameCounter(props.fps) : null,
 			draw: ctx -> {
 				var rig = new LightRig(read(props.lights, defaultLights), read(props.ambient, 0xffffff), read(props.ambientStrength, 0.25),
-					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {strength: read(props.shadowStrength, 0.7), reach: read(props.shadowReach, 0.0) > 0 ? read(props.shadowReach, 0.0) : null, focus: camera.target.get()} : null);
+					read(props.environment, null), read(props.environmentIntensity, 1.0), read(props.shadows, false) ? {
+						strength: read(props.shadowStrength, 0.7),
+						reach: read(props.shadowReach, 0.0) > 0 ? read(props.shadowReach, 0.0) : null,
+						focus: camera.target.get()
+					} : null);
 				ctx.setScene(new Scene3D(camera.camera(), rig, read(props.exposure, 1.0), read(props.background, 0x000000), read(props.backgroundAlpha, 0.0),
-					read(props.fog, null), read(props.lens, 0.0), read(props.bloom, null),
-					read(props.vignette, 0.0), read(props.grain, 0.0), read(props.aberration, 0.0),
-					read(props.grade, null), read(props.antialias, false),
-					read(props.motionBlur, 0.0)));
+					read(props.fog, null), read(props.lens, 0.0), read(props.bloom, null), read(props.vignette, 0.0), read(props.grain, 0.0),
+					read(props.aberration, 0.0), read(props.grade, null), read(props.antialias, false), read(props.motionBlur, 0.0)));
 				sky.skybox = read(props.skybox, null);
 				if (sky.skybox != null)
 					ctx.drawPass(sky);
@@ -184,14 +189,18 @@ class SceneKit extends Component<SceneKitProps> {
 					grid.catchesShadows = sky.skybox == null || !sky.skybox.match(Grounded(_, _, _, _, _, _));
 					ctx.drawPass(grid);
 				}
-				if (props.selection != null) props.selection.begin(ctx);
+				if (props.selection != null)
+					props.selection.begin(ctx);
 				if (props.draw != null)
 					props.draw(ctx);
-				if (props.selection != null) props.selection.end(ctx);
-				if (gizmos != null) gizmos.draw(ctx);
+				if (props.selection != null)
+					props.selection.end(ctx);
+				if (gizmos != null)
+					gizmos.draw(ctx);
 			}
 		});
-		if (gizmos != null) gizmos.attach(canvas.node);
+		if (gizmos != null)
+			gizmos.attach(canvas.node);
 		if (props.controls != false)
 			new OrbitInput(camera).attach(canvas.node);
 		return canvas;

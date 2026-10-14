@@ -44,44 +44,42 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 		@:import ashui.shaders.ColorSpace;
 		@:import ashui.shaders.Selection;
 		@:import ashui.shaders.Shadows;
-
-		@input var input : { position : Vec3, normal : Vec3, uv : Vec2, tangent : Vec4 };
+		@input var input:{
+			position:Vec3,
+			normal:Vec3,
+			uv:Vec2,
+			tangent:Vec4
+		};
 		// `velocity` goes to a second target in the glow and motion pass; the scene's own pass has none, and drops it.
-		var output : { position : Vec4, color : Vec4, velocity : Vec4 };
-
-		@param var baseColorMap : Sampler2D;
-		@param var normalMap : Sampler2D;
-		@param var metalRoughMap : Sampler2D;
-		@param var emissiveMap : Sampler2D;
-		@param var occlusionMap : Sampler2D;
-		@param var environmentMap : SamplerCube;
-		@param var shadowMap : Sampler2D;
-		@param var scene : StorageBuffer<Vec4>;
-		@param var draws : StorageBuffer<Vec4>;
-
-		var worldPos : Vec3;
-		var worldNormal : Vec3;
-		var worldTangent : Vec4;
-		var texcoord : Vec2;
-		var drawIndex : Int;
-
+		var output:{position:Vec4, color:Vec4, velocity:Vec4};
+		@param var baseColorMap:Sampler2D;
+		@param var normalMap:Sampler2D;
+		@param var metalRoughMap:Sampler2D;
+		@param var emissiveMap:Sampler2D;
+		@param var occlusionMap:Sampler2D;
+		@param var environmentMap:SamplerCube;
+		@param var shadowMap:Sampler2D;
+		@param var scene:StorageBuffer<Vec4>;
+		@param var draws:StorageBuffer<Vec4>;
+		var worldPos:Vec3;
+		var worldNormal:Vec3;
+		var worldTangent:Vec4;
+		var texcoord:Vec2;
+		var drawIndex:Int;
 		/** 1 when drawing for bloom's glow pass, 0 when drawing the scene. **/
-		var glowPass : Float;
-
+		var glowPass:Float;
 		/** Where the vertex is on screen now and where it was in the previous frame, for motion blur. **/
-		var clipNow : Vec4;
-		var clipBefore : Vec4;
-
+		var clipNow:Vec4;
+		var clipBefore:Vec4;
 		/**
 			Returns where a vertex placed at `world` is drawn on screen. By
 			default that is `world` itself. Lighting, shadows and fog are still
 			worked out at `world`, so a bent surface looks moved but is lit as
 			if it had not moved.
 		**/
-		function bend(world : Vec3) : Vec3 {
+		function bend(world:Vec3):Vec3 {
 			return world;
 		}
-
 		function vertex() {
 			// The glow pass draws a mesh again with its instance index raised by the draw count.
 			var draw = instanceID;
@@ -101,16 +99,14 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			clipNow = output.position;
 			clipBefore = worldToClipBefore(vec4(bend(modelToWorldBefore(draw, vec4(input.position, 1.)).xyz), 1.));
 		}
-
 		// What `surface` reads and `shade` lights: linear colours.
-		var surfaceColor : Vec4;
-		var surfaceMetallic : Float;
-		var surfaceRoughness : Float;
-		var surfaceNormal : Vec3;
-		var surfaceEmission : Vec3;
-		var surfaceOcclusion : Float;
-		var toEye : Vec3;
-
+		var surfaceColor:Vec4;
+		var surfaceMetallic:Float;
+		var surfaceRoughness:Float;
+		var surfaceNormal:Vec3;
+		var surfaceEmission:Vec3;
+		var surfaceOcclusion:Float;
+		var toEye:Vec3;
 		/** The surface where this pixel is: its material's settings times its textures, its normal bent by its normal texture. **/
 		function surface() {
 			var settings = drawSurface(drawIndex);
@@ -143,9 +139,8 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			surfaceOcclusion = mix(1., texture(occlusionMap, texcoord).r, settings.w);
 			toEye = normalize(cameraEye() - worldPos);
 		}
-
 		/** The light the surface sends to the eye, linear: each light by `Pbr`, the environment or ambient light, its own glow. **/
-		function shade() : Vec3 {
+		function shade():Vec3 {
 			var n = surfaceNormal;
 			var v = toEye;
 			var albedo = surfaceColor.rgb;
@@ -178,12 +173,10 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			lit += (around * albedo * (1. - surfaceMetallic) + sky * environmentBrdf(f0, surfaceRoughness, max(dot(n, v), 0.0001))) * surfaceOcclusion;
 			return lit + surfaceEmission;
 		}
-
 		/** Linear light as the screen shows it: exposed, tone-mapped, sRGB. **/
-		function present(lit : Vec3) : Vec3 {
+		function present(lit:Vec3):Vec3 {
 			return linearToSrgb(toneMapAces(lit * sceneExposure()));
 		}
-
 		/**
 			Every texture and buffer it binds, read once: the compiler drops
 			bindings a shader does not read and numbers the rest, so a shader
@@ -191,11 +184,11 @@ class MeshShader implements hlwgpu.hxsl.Shader {
 			`fragment` reads them where it never runs; an extension that
 			replaces `fragment` calls it the same way.
 		**/
-		function everyBinding() : Vec4 {
+		function everyBinding():Vec4 {
 			return texture(baseColorMap, texcoord) + texture(normalMap, texcoord) + texture(metalRoughMap, texcoord) + texture(emissiveMap, texcoord)
-				+ texture(occlusionMap, texcoord) + textureLod(environmentMap, vec3(0., 1., 0.), 0.) + textureLod(shadowMap, texcoord, 0.) + scene[0] + draws[0];
+				+ texture(occlusionMap,
+					texcoord) + textureLod(environmentMap, vec3(0., 1., 0.), 0.) + textureLod(shadowMap, texcoord, 0.) + scene[0] + draws[0];
 		}
-
 		function fragment() {
 			surface();
 			var flags = drawFlags(drawIndex);

@@ -19,17 +19,13 @@ class SkyShader implements hlwgpu.hxsl.Shader {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.ColorSpace;
 		@:import ashui.shaders.Shadows;
-
-		var output : { position : Vec4, color : Vec4 };
-
-		@param var environmentMap : SamplerCube;
-		@param var shadowMap : Sampler2D;
-		@param var panorama : Sampler2D;
-		@param var scene : StorageBuffer<Vec4>;
-		@param var sky : StorageBuffer<Vec4>;
-
-		var ndc : Vec2;
-
+		var output:{position:Vec4, color:Vec4};
+		@param var environmentMap:SamplerCube;
+		@param var shadowMap:Sampler2D;
+		@param var panorama:Sampler2D;
+		@param var scene:StorageBuffer<Vec4>;
+		@param var sky:StorageBuffer<Vec4>;
+		var ndc:Vec2;
 		function vertex() {
 			// A triangle past the corners: (-1, -1), (3, -1), (-1, 3).
 			var c = vec2(-1., -1.);
@@ -40,7 +36,6 @@ class SkyShader implements hlwgpu.hxsl.Shader {
 			ndc = c;
 			output.position = vec4(c, 1., 1.);
 		}
-
 		function fragment() {
 			// A panorama's spread takes in more of the sky through each pixel, as a wider lens would.
 			var spread = sky[5].x > 2.5 ? sky[9].x : 1.;

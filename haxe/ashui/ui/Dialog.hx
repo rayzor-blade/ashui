@@ -14,9 +14,13 @@ import ashui.ui.TopLayer;
 class DialogCancelEvent {
 	public final target:Dialog;
 	public var defaultPrevented(default, null) = false;
+
 	@:allow(ashui.ui.Dialog)
-	function new(target:Dialog) this.target = target;
-	public function preventDefault():Void defaultPrevented = true;
+	function new(target:Dialog)
+		this.target = target;
+
+	public function preventDefault():Void
+		defaultPrevented = true;
 }
 
 typedef DialogProps = {
@@ -64,6 +68,7 @@ class Dialog extends Component<DialogProps> {
 
 	/** The dialog element itself: in place when not modal, in the top layer while a modal one is open. **/
 	public var panel(default, null):Div;
+
 	/** The value supplied by close(), requestClose() or a method=dialog submit button. **/
 	public var returnValue = "";
 
@@ -80,7 +85,8 @@ class Dialog extends Component<DialogProps> {
 	function register(dialog:Div):Void {
 		var tree = dialog.tree, id = dialog.node.id;
 		registry.add(tree, id, this);
-		if (props.closedby != null) ashui.css.Identity.of(tree, id).setAttribute("closedby", props.closedby);
+		if (props.closedby != null)
+			ashui.css.Identity.of(tree, id).setAttribute("closedby", props.closedby);
 	}
 
 	function dismissal():String {
@@ -93,18 +99,23 @@ class Dialog extends Component<DialogProps> {
 
 	/** Closes without sending cancel. Omitting a value preserves the previous returnValue. **/
 	public function close(?value:String):Void {
-		if (!opened.get()) return;
-		if (value != null) returnValue = value;
+		if (!opened.get())
+			return;
+		if (value != null)
+			returnValue = value;
 		opened.set(false);
 		hide();
 	}
 
 	/** Sends cancel, then closes unless a handler prevents it. closedby restricts user actions, not this API. **/
 	public function requestClose(?value:String):Void {
-		if (!opened.get()) return;
+		if (!opened.get())
+			return;
 		var event = new DialogCancelEvent(this);
-		if (props.onCancel != null) props.onCancel(event);
-		if (!event.defaultPrevented && opened.get()) close(value);
+		if (props.onCancel != null)
+			props.onCancel(event);
+		if (!event.defaultPrevented && opened.get())
+			close(value);
 	}
 
 	function render():Element {
@@ -127,7 +138,8 @@ class Dialog extends Component<DialogProps> {
 			var first = true;
 			new Watch(() -> opened.get(), v -> {
 				identity.setAttribute("open", v ? "" : null);
-				if (!first && !v && props.onClose != null) props.onClose();
+				if (!first && !v && props.onClose != null)
+					props.onClose();
 				first = false;
 			});
 			panel = box;
@@ -160,7 +172,8 @@ class Dialog extends Component<DialogProps> {
 		var tree = dialog.tree;
 		// The top layer needs the tree laid out; until it is, open at the next flush.
 		if (tree.root == null) {
-			if (pending != null) return;
+			if (pending != null)
+				return;
 			pending = t -> if (t == tree && tree.root != null) {
 				LayoutTree.flushHooks.remove(pending);
 				pending = null;
@@ -174,26 +187,29 @@ class Dialog extends Component<DialogProps> {
 		// Reopened during its closing animation, the panel still belongs to the old holder.
 		// A modal panel is that holder's only child; detach it before placing it in the new layer.
 		var parent = tree.ancestors(dialog.node.id);
-		if (parent.length > 0) tree.detachChildren(parent[0]);
+		if (parent.length > 0)
+			tree.detachChildren(parent[0]);
 		// Marked open as it is shown, so its opening animation starts then.
 		var identity = ashui.css.Identity.of(tree, dialog.node.id);
 		identity.setAttribute("open", "");
-		entry = TopLayer.open(tree, dialog, props.placement != null ? props.placement : Centered, props.backdrop != null ? props.backdrop : ashui.types.Brush.solid(0x000000, 0.4), () -> {
-			identity.setAttribute("open", null);
-			entry = null;
-			if (release != null)
-				release();
-			release = null;
-			if (opened.get())
-				opened.set(false);
-			if (before != null)
-				Focus.set(before, false);
-			if (props.onClose != null)
-				props.onClose();
-		}, false, true, false, reason -> {
-			var policy = dismissal();
-			if (policy == "any" || policy == "closerequest" && reason == Escape) requestClose();
-		});
+		entry = TopLayer.open(tree, dialog, props.placement != null ? props.placement : Centered,
+			props.backdrop != null ? props.backdrop : ashui.types.Brush.solid(0x000000, 0.4), () -> {
+				identity.setAttribute("open", null);
+				entry = null;
+				if (release != null)
+					release();
+				release = null;
+				if (opened.get())
+					opened.set(false);
+				if (before != null)
+					Focus.set(before, false);
+				if (props.onClose != null)
+					props.onClose();
+			}, false, true, false, reason -> {
+				var policy = dismissal();
+				if (policy == "any" || policy == "closerequest" && reason == Escape)
+					requestClose();
+			});
 		release = Focus.trap(dialog.node);
 		// The first focusable element inside takes focus.
 		var focused = false;
@@ -206,7 +222,8 @@ class Dialog extends Component<DialogProps> {
 					break;
 				}
 			}
-		if (!focused) Focus.set(Interaction.of(dialog.node).setFocusable(true), Focus.byKeyboard);
+		if (!focused)
+			Focus.set(Interaction.of(dialog.node).setFocusable(true), Focus.byKeyboard);
 	}
 
 	function hide():Void {
@@ -218,8 +235,10 @@ class Dialog extends Component<DialogProps> {
 		if (entry != null)
 			entry.close();
 		else if (waiting) {
-			if (opened.get()) opened.set(false);
-			if (props.onClose != null) props.onClose();
+			if (opened.get())
+				opened.set(false);
+			if (props.onClose != null)
+				props.onClose();
 		}
 	}
 }

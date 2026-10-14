@@ -139,12 +139,14 @@ class Input extends Component<InputProps> implements FormControl {
 
 	var interaction:Interaction;
 	var setRange:Null<Float->Void>;
-	var dragRange:Null<(Float, Float)->Void>;
+	var dragRange:Null<(Float, Float) -> Void>;
+
 	/** A composed range's additional live limit, applied before publishing an edit (095fab4). **/
 	public var rangeLimit:Null<Float->Float>;
 
 	/** Changed by the user and left, or its form submitted: `:user-invalid` shows from then on. **/
 	final touched = Signal.make(false);
+
 	/** Its constraints and a script's message, which its form states and `validity` read. **/
 	var validityOf:FormStates.Validity;
 
@@ -153,6 +155,7 @@ class Input extends Component<InputProps> implements FormControl {
 
 	/** What `reset` puts back. **/
 	var initial:{text:Null<String>, checked:Bool, group:Null<String>} = {text: null, checked: false, group: null};
+
 	var initialRange:Null<Float>;
 
 	function render():Element {
@@ -343,9 +346,12 @@ class Input extends Component<InputProps> implements FormControl {
 		new Watch(() -> state.get(), v -> checked.set(v));
 		switch props.indeterminate {
 			case null:
-			case Const(v): interaction.indeterminate.set(v);
-			case Bound(s): new Watch(() -> s.get(), v -> interaction.indeterminate.set(v));
-			case Derived(c): new Watch(() -> c.get(), v -> interaction.indeterminate.set(v));
+			case Const(v):
+				interaction.indeterminate.set(v);
+			case Bound(s):
+				new Watch(() -> s.get(), v -> interaction.indeterminate.set(v));
+			case Derived(c):
+				new Watch(() -> c.get(), v -> interaction.indeterminate.set(v));
 		}
 
 		if (type == "checkbox") {
@@ -412,7 +418,8 @@ class Input extends Component<InputProps> implements FormControl {
 			var lastNumber = n.get();
 			// Partial text such as "1e" leaves the number unchanged.
 			new Watch(() -> text.get(), t -> {
-				if (t != text.get() || !same(n.get(), lastNumber)) return;
+				if (t != text.get() || !same(n.get(), lastNumber))
+					return;
 				var v = parseNumber(t);
 				if ((t == "" || !Math.isNaN(v)) && !same(v, n.get())) {
 					lastNumber = v;
@@ -422,7 +429,8 @@ class Input extends Component<InputProps> implements FormControl {
 			new Watch(() -> n.get(), _ -> {
 				var v = n.get();
 				lastNumber = v;
-				if (!same(parseNumber(text.get()), v)) text.set(formatNumber(v));
+				if (!same(parseNumber(text.get()), v))
+					text.set(formatNumber(v));
 			});
 			var up = new Div({classes: ["step-up"]}, [new Svg(chevron(true))]);
 			var down = new Div({classes: ["step-down"]}, [new Svg(chevron(false))]);
@@ -446,7 +454,8 @@ class Input extends Component<InputProps> implements FormControl {
 		// TextEditing consumes Enter to avoid clicking the text field. Submit through its existing callback.
 		e.onSubmit = _ -> {
 			var form = Form.near(field.tree, field.node.id);
-			if (form != null) form.requestSubmit(form.defaultSubmitter());
+			if (form != null)
+				form.requestSubmit(form.defaultSubmitter());
 		};
 		interaction = e.interaction;
 		if (type == "number") {
@@ -491,8 +500,10 @@ class Input extends Component<InputProps> implements FormControl {
 	/** A number's or a range's value: `valueAsNumber`, else `value` read as a number, else `initial`. **/
 	function numberState(initial:Float):Signal<Float> {
 		switch props.valueAsNumber {
-			case Bound(s): return s;
-			case Const(v): return Signal.make(v);
+			case Bound(s):
+				return s;
+			case Const(v):
+				return Signal.make(v);
 			case Derived(c):
 				var s = Signal.make(c.get());
 				new Watch(() -> c.get(), v -> s.set(v));
@@ -528,7 +539,8 @@ class Input extends Component<InputProps> implements FormControl {
 		drag here. Inert for other input types or disabled ranges (095fab4).
 	**/
 	public function beginRangeDrag(x:Float, y:Float):Void {
-		if (dragRange != null && !interaction.disabled.get()) dragRange(x, y);
+		if (dragRange != null && !interaction.disabled.get())
+			dragRange(x, y);
 	}
 
 	/** A range: a slider, its `.fill` and `.rest` either side of its `.thumb`, grown in proportion to the value. **/
@@ -565,7 +577,8 @@ class Input extends Component<InputProps> implements FormControl {
 		var tree = box.tree;
 		function set(v:Float) {
 			v = snap(v, min, max, step);
-			if (rangeLimit != null) v = snap(rangeLimit(v), min, max, step);
+			if (rangeLimit != null)
+				v = snap(rangeLimit(v), min, max, step);
 			if (same(v, n.get()))
 				return;
 			n.set(v);
@@ -601,7 +614,10 @@ class Input extends Component<InputProps> implements FormControl {
 		phase.onEnter(Dragging, _ -> {
 			drag = t -> if (t == tree) {
 				var at = Pointer.at(tree);
-				if (at.pressed && !interaction.disabled.get()) seek(at.x, at.y) else phase.send(End);
+				if (at.pressed && !interaction.disabled.get())
+					seek(at.x, at.y)
+				else
+					phase.send(End);
 			}
 			Pointer.hooks.push(drag);
 		});
@@ -648,7 +664,8 @@ class Input extends Component<InputProps> implements FormControl {
 			var last = Math.floor((max - base) / step);
 			// A subtraction such as 2.05 - 1.05 can fall just below 1.
 			// Compare the rounded grid point rather than dropping a valid final step (095fab4).
-			if (grid(last + 1) <= max) last++;
+			if (grid(last + 1) <= max)
+				last++;
 			v = grid(last);
 		}
 		if (min != null && v < min)
@@ -710,7 +727,9 @@ class Input extends Component<InputProps> implements FormControl {
 
 	/** Whether it is checked now: a grouped radio while its group holds its value, read now rather than when `state` catches up. **/
 	public function isChecked():Bool
-		return props.group != null && props.type != null && props.type.toLowerCase() == "radio" ? props.group.get() == constValue() : state.get();
+		return props.group != null
+			&& props.type != null
+			&& props.type.toLowerCase() == "radio" ? props.group.get() == constValue() : state.get();
 
 	/** Checks this radio: its group takes its value, or the others of its name uncheck. **/
 	function check():Void {
@@ -735,7 +754,8 @@ class Input extends Component<InputProps> implements FormControl {
 			mine.push(this);
 		var order = [for (i => id in tree.order()) haxe.Int64.toStr(id) => i];
 		mine.sort((a, b) -> {
-			var ia = order.get(haxe.Int64.toStr(a.node.id)), ib = order.get(haxe.Int64.toStr(b.node.id));
+			var ia = order.get(haxe.Int64.toStr(a.node.id)),
+				ib = order.get(haxe.Int64.toStr(b.node.id));
 			(ia == null ? 0 : ia) - (ib == null ? 0 : ib);
 		});
 		return mine;

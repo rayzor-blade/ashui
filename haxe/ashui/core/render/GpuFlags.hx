@@ -19,28 +19,70 @@ class GpuFlags {
 	public static var COLOR_WRITE_ALL(get, never):Int;
 
 	#if ashui_caribou
-	static inline function get_BUFFER_UNIFORM():Int return gpu.BufferUsage.UNIFORM();
-	static inline function get_BUFFER_COPY_DST():Int return gpu.BufferUsage.COPY_DST();
-	static inline function get_BUFFER_MAP_READ():Int return gpu.BufferUsage.MAP_READ();
-	static inline function get_BUFFER_VERTEX():Int return gpu.BufferUsage.VERTEX();
-	static inline function get_BUFFER_INDEX():Int return gpu.BufferUsage.INDEX();
-	static inline function get_BUFFER_STORAGE():Int return gpu.BufferUsage.STORAGE();
-	static inline function get_TEXTURE_COPY_SRC():Int return gpu.TextureUsage.COPY_SRC();
-	static inline function get_TEXTURE_COPY_DST():Int return gpu.TextureUsage.COPY_DST();
-	static inline function get_TEXTURE_BINDING():Int return gpu.TextureUsage.TEXTURE_BINDING();
-	static inline function get_TEXTURE_RENDER_ATTACHMENT():Int return gpu.TextureUsage.RENDER_ATTACHMENT();
-	static inline function get_COLOR_WRITE_ALL():Int return gpu.ColorWrite.ALL();
+	static inline function get_BUFFER_UNIFORM():Int
+		return gpu.BufferUsage.UNIFORM();
+
+	static inline function get_BUFFER_COPY_DST():Int
+		return gpu.BufferUsage.COPY_DST();
+
+	static inline function get_BUFFER_MAP_READ():Int
+		return gpu.BufferUsage.MAP_READ();
+
+	static inline function get_BUFFER_VERTEX():Int
+		return gpu.BufferUsage.VERTEX();
+
+	static inline function get_BUFFER_INDEX():Int
+		return gpu.BufferUsage.INDEX();
+
+	static inline function get_BUFFER_STORAGE():Int
+		return gpu.BufferUsage.STORAGE();
+
+	static inline function get_TEXTURE_COPY_SRC():Int
+		return gpu.TextureUsage.COPY_SRC();
+
+	static inline function get_TEXTURE_COPY_DST():Int
+		return gpu.TextureUsage.COPY_DST();
+
+	static inline function get_TEXTURE_BINDING():Int
+		return gpu.TextureUsage.TEXTURE_BINDING();
+
+	static inline function get_TEXTURE_RENDER_ATTACHMENT():Int
+		return gpu.TextureUsage.RENDER_ATTACHMENT();
+
+	static inline function get_COLOR_WRITE_ALL():Int
+		return gpu.ColorWrite.ALL();
 	#else
-	static inline function get_BUFFER_UNIFORM():Int return gpu.BufferUsage.UNIFORM;
-	static inline function get_BUFFER_COPY_DST():Int return gpu.BufferUsage.COPY_DST;
-	static inline function get_BUFFER_MAP_READ():Int return gpu.BufferUsage.MAP_READ;
-	static inline function get_BUFFER_VERTEX():Int return gpu.BufferUsage.VERTEX;
-	static inline function get_BUFFER_INDEX():Int return gpu.BufferUsage.INDEX;
-	static inline function get_BUFFER_STORAGE():Int return gpu.BufferUsage.STORAGE;
-	static inline function get_TEXTURE_COPY_SRC():Int return gpu.TextureUsage.COPY_SRC;
-	static inline function get_TEXTURE_COPY_DST():Int return gpu.TextureUsage.COPY_DST;
-	static inline function get_TEXTURE_BINDING():Int return gpu.TextureUsage.TEXTURE_BINDING;
-	static inline function get_TEXTURE_RENDER_ATTACHMENT():Int return gpu.TextureUsage.RENDER_ATTACHMENT;
-	static inline function get_COLOR_WRITE_ALL():Int return gpu.ColorWrite.ALL;
+	static inline function get_BUFFER_UNIFORM():Int
+		return gpu.BufferUsage.UNIFORM;
+
+	static inline function get_BUFFER_COPY_DST():Int
+		return gpu.BufferUsage.COPY_DST;
+
+	static inline function get_BUFFER_MAP_READ():Int
+		return gpu.BufferUsage.MAP_READ;
+
+	static inline function get_BUFFER_VERTEX():Int
+		return gpu.BufferUsage.VERTEX;
+
+	static inline function get_BUFFER_INDEX():Int
+		return gpu.BufferUsage.INDEX;
+
+	static inline function get_BUFFER_STORAGE():Int
+		return gpu.BufferUsage.STORAGE;
+
+	static inline function get_TEXTURE_COPY_SRC():Int
+		return gpu.TextureUsage.COPY_SRC;
+
+	static inline function get_TEXTURE_COPY_DST():Int
+		return gpu.TextureUsage.COPY_DST;
+
+	static inline function get_TEXTURE_BINDING():Int
+		return gpu.TextureUsage.TEXTURE_BINDING;
+
+	static inline function get_TEXTURE_RENDER_ATTACHMENT():Int
+		return gpu.TextureUsage.RENDER_ATTACHMENT;
+
+	static inline function get_COLOR_WRITE_ALL():Int
+		return gpu.ColorWrite.ALL;
 	#end
 }

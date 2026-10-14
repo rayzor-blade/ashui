@@ -57,7 +57,8 @@ class Fieldset extends Component<FieldsetProps> {
 		});
 		ashui.layout.AfterChildren.watch(tree, "fieldset " + haxe.Int64.toStr(box.node.id),
 			parent -> disabled.get() && (parent == box.node.id || tree.ancestors(parent).indexOf(box.node.id) >= 0), mark);
-		Owner.onCleanup(() -> for (i in marked) i.disableFrom(this, false));
+		Owner.onCleanup(() -> for (i in marked)
+			i.disableFrom(this, false));
 		return box;
 	}
 
@@ -66,7 +67,8 @@ class Fieldset extends Component<FieldsetProps> {
 		var kids = tree.children(box.node.id);
 		var legend = Lambda.find(kids, k -> {
 			var id = ashui.css.Identity.of(tree, k);
-			id != null && id.types.indexOf("legend") >= 0;
+			id != null
+			&& id.types.indexOf("legend") >= 0;
 		});
 		// Only a legend that comes first exempts what it holds.
 		if (legend != null && kids[0] != legend)

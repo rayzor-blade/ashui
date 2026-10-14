@@ -7,6 +7,7 @@ typedef TypographyTokensData = {
 
 	/** Font sizes in pixels. **/
 	final textXs:Float;
+
 	final textSm:Float;
 	final textBase:Float;
 	final textLg:Float;
@@ -26,6 +27,7 @@ typedef TypographyTokensData = {
 
 	/** Line heights as multiples of the font size. **/
 	final leadingNone:Float;
+
 	final leadingTight:Float;
 	final leadingSnug:Float;
 	final leadingNormal:Float;
@@ -34,6 +36,7 @@ typedef TypographyTokensData = {
 
 	/** Letter spacing in ems. **/
 	final trackingTighter:Float;
+
 	final trackingTight:Float;
 	final trackingNormal:Float;
 	final trackingWide:Float;

@@ -31,17 +31,28 @@ class Equalizer {
 
 	/** 1–16 center frequencies in Hz. Defaults to 60, 250, 1000, 4000 and 12000 Hz, flat at Q=1. **/
 	public function new(?frequencies:Array<Float>) {
-		if (frequencies == null) frequencies = [60, 250, 1000, 4000, 12000];
-		if (frequencies.length < 1 || frequencies.length > 16) throw "An equalizer needs 1–16 bands";
+		if (frequencies == null)
+			frequencies = [60, 250, 1000, 4000, 12000];
+		if (frequencies.length < 1 || frequencies.length > 16)
+			throw "An equalizer needs 1–16 bands";
 		for (frequency in frequencies)
-			if (!Math.isFinite(frequency) || frequency < 1 || frequency > 96000) throw "Equalizer frequency must be 1–96000 Hz";
+			if (!Math.isFinite(frequency) || frequency < 1 || frequency > 96000)
+				throw "Equalizer frequency must be 1–96000 Hz";
 		native = AudioEqualizer.create(frequencies.length);
 		try {
 			for (index in 0...frequencies.length) {
 				native.setBand(index, frequencies[index], 0, 1);
-				bands.push(Signal.make({frequency: frequencies[index], gainDb: 0.0, q: 1.0, enabled: true}));
+				bands.push(Signal.make({
+					frequency: frequencies[index],
+					gainDb: 0.0,
+					q: 1.0,
+					enabled: true
+				}));
 			}
-		} catch (e:Dynamic) { native.close(); throw e; }
+		} catch (e:Dynamic) {
+			native.close();
+			throw e;
+		}
 		Owner.onCleanup(this.close);
 	}
 
@@ -49,7 +60,12 @@ class Equalizer {
 	public function setBand(index:Int, frequency:Float, gainDb:Float, q:Float):Void {
 		checkBand(index);
 		native.setBand(index, frequency, gainDb, q);
-		bands[index].set({frequency: frequency, gainDb: gainDb, q: q, enabled: true});
+		bands[index].set({
+			frequency: frequency,
+			gainDb: gainDb,
+			q: q,
+			enabled: true
+		});
 		changed();
 	}
 
@@ -63,7 +79,12 @@ class Equalizer {
 		checkBand(index);
 		native.disableBand(index);
 		var band = bands[index].get();
-		bands[index].set({frequency: band.frequency, gainDb: band.gainDb, q: band.q, enabled: false});
+		bands[index].set({
+			frequency: band.frequency,
+			gainDb: band.gainDb,
+			q: band.q,
+			enabled: false
+		});
 		changed();
 	}
 
@@ -89,7 +110,12 @@ class Equalizer {
 		for (index in 0...bands.length) {
 			var band = bands[index].get();
 			native.setBand(index, band.frequency, 0, band.q);
-			bands[index].set({frequency: band.frequency, gainDb: 0.0, q: band.q, enabled: true});
+			bands[index].set({
+				frequency: band.frequency,
+				gainDb: 0.0,
+				q: band.q,
+				enabled: true
+			});
 		}
 		native.setPreamp(0);
 		preamp.set(0);
@@ -110,15 +136,19 @@ class Equalizer {
 
 	/** Detaches attached players, restoring flat playback. Terminal and idempotent. **/
 	public function close():Void {
-		if (disposed) return;
+		if (disposed)
+			return;
 		native.close();
 		closed.set(true);
 		changed();
 		listeners.resize(0);
 	}
 
-	public inline function dispose():Void close();
-	inline function get_disposed():Bool return closed.get();
+	public inline function dispose():Void
+		close();
+
+	inline function get_disposed():Bool
+		return closed.get();
 
 	@:allow(ashui.media.Player)
 	function handle():AudioEqualizer {
@@ -128,24 +158,30 @@ class Equalizer {
 
 	// Explicit subscriptions also update standalone or paused players, without
 	// depending on a UI flush or assigning a caller-owned player to a UI Owner.
+
 	@:allow(ashui.media.Player)
 	function listen(callback:Void->Void):Void->Void {
 		checkOpen();
 		listeners.push(callback);
-		return () -> { listeners.remove(callback); };
+		return () -> {
+			listeners.remove(callback);
+		};
 	}
 
 	function changed():Void {
 		revision.set(revision.get() + 1);
-		for (listener in listeners.copy()) listener();
+		for (listener in listeners.copy())
+			listener();
 	}
 
 	function checkBand(index:Int):Void {
 		checkOpen();
-		if (index < 0 || index >= bands.length) throw "Equalizer band index is out of range";
+		if (index < 0 || index >= bands.length)
+			throw "Equalizer band index is out of range";
 	}
 
 	function checkOpen():Void {
-		if (disposed) throw "Equalizer is closed";
+		if (disposed)
+			throw "Equalizer is closed";
 	}
 }

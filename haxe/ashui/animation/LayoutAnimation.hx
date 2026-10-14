@@ -39,15 +39,35 @@ class LayoutAnimation {
 	final node:Node;
 	final tree:LayoutTree;
 	final options:LayoutAnimationOptions;
+
 	/** Its box at the last layout, relative to the nearest animated element it is in. **/
-	var last:Null<{x:Float, y:Float, w:Float, h:Float}> = null;
+	var last:Null<{
+		x:Float,
+		y:Float,
+		w:Float,
+		h:Float
+	}> = null;
+
 	/** Where it is drawn from, relative to its layout, and the size it is drawn at, when the running move started; and how far it is. **/
-	var from = {dx: 0.0, dy: 0.0, w: 0.0, h: 0.0};
+	var from = {
+		dx: 0.0,
+		dy: 0.0,
+		w: 0.0,
+		h: 0.0
+	};
+
 	var to = {w: 0.0, h: 0.0};
 	var elapsed = 0.0;
 	var running = false;
+
 	/** Where it is drawn now, relative to its layout, and at what size. **/
-	var shown = {dx: 0.0, dy: 0.0, w: -1.0, h: -1.0};
+	var shown = {
+		dx: 0.0,
+		dy: 0.0,
+		w: -1.0,
+		h: -1.0
+	};
+
 	/** The move being recorded, while a motion trace records. **/
 	var track:Null<ashui.debug.MotionTrack> = null;
 
@@ -65,7 +85,8 @@ class LayoutAnimation {
 			Owner.onCleanup(() -> {
 				list.remove(key);
 				// Empty animation registries must not retain a disposed Tabs tree (5bc757e).
-				if (!list.keys().hasNext()) animated.remove(tree);
+				if (!list.keys().hasNext())
+					animated.remove(tree);
 				a.running = false;
 				if (a.track != null)
 					a.track.finish(Interrupted);
@@ -108,9 +129,17 @@ class LayoutAnimation {
 				}
 		if (relative != null) {
 			var p = tree.getBounds(relative);
-			if (p != null) { x -= p.x; y -= p.y; }
+			if (p != null) {
+				x -= p.x;
+				y -= p.y;
+			}
 		}
-		var now = {x: x, y: y, w: (b.width : Float), h: (b.height : Float)};
+		var now = {
+			x: x,
+			y: y,
+			w: (b.width : Float),
+			h: (b.height : Float)
+		};
 		var was = last;
 		last = now;
 		if (was == null || (was.x == now.x && was.y == now.y && was.w == now.w && was.h == now.h))
@@ -128,8 +157,8 @@ class LayoutAnimation {
 		if (ashui.debug.MotionTrace.current != null) {
 			inline function r(v:Float)
 				return Math.round(v * 10) / 10;
-			track = ashui.debug.MotionTrace.begin(Layout, tree, node.id, "layout",
-				'${r(was.x)},${r(was.y)} ${r(was.w)}x${r(was.h)}', '${r(now.x)},${r(now.y)} ${r(now.w)}x${r(now.h)}', 0, duration(), curve());
+			track = ashui.debug.MotionTrace.begin(Layout, tree, node.id, "layout", '${r(was.x)},${r(was.y)} ${r(was.w)}x${r(was.h)}',
+				'${r(now.x)},${r(now.y)} ${r(now.w)}x${r(now.h)}', 0, duration(), curve());
 		}
 		apply(0);
 		if (!running) {
@@ -142,7 +171,12 @@ class LayoutAnimation {
 				apply(t);
 				if (t >= 1) {
 					running = false;
-					shown = {dx: 0, dy: 0, w: -1, h: -1};
+					shown = {
+						dx: 0,
+						dy: 0,
+						w: -1,
+						h: -1
+					};
 					tree.clearVisual(node.id);
 					if (track != null)
 						track.finish(Completed);

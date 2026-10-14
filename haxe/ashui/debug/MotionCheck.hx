@@ -6,23 +6,33 @@ import ashui.debug.MotionTrack.MotionEnd;
 /** What `MotionCheck` measured of a track, and what it found wrong. **/
 typedef MotionVerdict = {
 	track:MotionTrack,
+
 	/** Frames it drew. **/
 	frames:Int,
+
 	/** Seconds from when it was due to start (asked, plus its delay) to its first frame. **/
 	startLag:Float,
+
 	/** Seconds it ran, from when it was due to start to its last frame; null while it runs. **/
 	ran:Null<Float>,
+
 	/** The furthest it was from where its curve put it at that time, as a fraction of the whole move, and the time fraction there. **/
 	maxError:Float,
+
 	errorAt:Float,
+
 	/** How far past its end it went, as a fraction of the move; 0 when it did not. **/
 	overshoot:Float,
+
 	/** The median seconds between its frames. **/
 	frameTime:Float,
+
 	/** Where its last frame put it. **/
 	lastProgress:Float,
+
 	/** Problems, each a short phrase; empty when it behaved as declared. **/
 	issues:Array<String>,
+
 	/** Things worth knowing that are not wrong: it was interrupted, it is still running. **/
 	notes:Array<String>
 }
@@ -38,6 +48,7 @@ typedef MotionVerdict = {
 class MotionCheck {
 	/** A fraction of the move a frame may be off its curve. **/
 	public static var tolerance = 0.02;
+
 	/**
 		Seconds within which a move undone by the next on the same property is
 		a bounce rather than two intended moves: a few frames, as a flicker in
@@ -146,7 +157,10 @@ class MotionCheck {
 				if (other.key() == track.key())
 					previous = other;
 			}
-			if (previous != null && previous.end == Interrupted && track.to == previous.from && track.from != track.to
+			if (previous != null
+				&& previous.end == Interrupted
+				&& track.to == previous.from
+				&& track.from != track.to
 				&& track.began - previous.began < bounceWindow)
 				issues.push('undid track #${previous.id} ${ms(track.began - previous.began)} after it began: a change and its reverse');
 		}
@@ -216,7 +230,10 @@ class MotionCheck {
 		var verdicts = [for (t in trace.tracks) check(t, trace)];
 		var warned = verdicts.filter(v -> v.issues.length > 0).length;
 		var span = (trace.stopped != null ? trace.stopped : MotionTrace.clock()) - trace.started;
-		var out = ['motion trace: ${trace.tracks.length} tracks over ${ms(span)}, ${warned == 0 ? "all ok" : '$warned with issues'}', ""];
+		var out = [
+			'motion trace: ${trace.tracks.length} tracks over ${ms(span)}, ${warned == 0 ? "all ok" : '$warned with issues'}',
+			""
+		];
 		for (v in verdicts)
 			out.push(line(v));
 		return out.join("\n") + "\n";
@@ -246,7 +263,15 @@ class MotionCheck {
 						issues: v.issues,
 						notes: v.notes,
 						maxError: v.maxError,
-						samples: [for (s in t.samples) {clock: s.clock, progress: s.progress, expected: t.expected(s.clock), eased: s.eased, value: s.value}],
+						samples: [
+							for (s in t.samples) {
+								clock: s.clock,
+								progress: s.progress,
+								expected: t.expected(s.clock),
+								eased: s.eased,
+								value: s.value
+							}
+						],
 						rects: t.rects
 					}
 				}

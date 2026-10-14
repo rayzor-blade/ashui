@@ -26,8 +26,8 @@ extern class TextNative {
 		the font's ascender and descender (negative) as four F32s to `info`.
 		Returns how many stops there are.
 	**/
-	static function blinc_text_carets(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, text:hl.Bytes, fontSize:Single, wrapWidth:Single,
-		out:hl.Bytes, capacity:Int, info:hl.Bytes):Int;
+	static function blinc_text_carets(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, text:hl.Bytes, fontSize:Single, wrapWidth:Single, out:hl.Bytes,
+		capacity:Int, info:hl.Bytes):Int;
 
 	/**
 		`text` in a face of `font` (null for the system's), set as `style`

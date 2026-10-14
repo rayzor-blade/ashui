@@ -19,54 +19,45 @@ class MeshDraw implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxs
 	public static inline var ROWS = 16;
 
 	static var SRC = {
-		@param var draws : StorageBuffer<Vec4>;
-
+		@param var draws:StorageBuffer<Vec4>;
 		/** A point (`w` 1) or direction (`w` 0) of draw `i`'s mesh, placed in the scene. **/
-		function modelToWorld(i : Int, p : Vec4) : Vec4 {
+		function modelToWorld(i:Int, p:Vec4):Vec4 {
 			var d = i * 16;
 			return draws[d] * p.x + draws[d + 1] * p.y + draws[d + 2] * p.z + draws[d + 3] * p.w;
 		}
-
 		/** A normal of draw `i`'s mesh, turned as its surface is in the scene; not of unit length. **/
-		function normalToWorld(i : Int, n : Vec3) : Vec3 {
+		function normalToWorld(i:Int, n:Vec3):Vec3 {
 			var d = i * 16;
 			return (draws[d + 4] * n.x + draws[d + 5] * n.y + draws[d + 6] * n.z).xyz;
 		}
-
-		function drawBaseColor(i : Int) : Vec4 {
+		function drawBaseColor(i:Int):Vec4 {
 			return draws[i * 16 + 7];
 		}
-
 		/** Editor selection, in the spare component of the normal matrix's last column. 8ceba8d. **/
-		function drawSelected(i : Int) : Float {
+		function drawSelected(i:Int):Float {
 			return draws[i * 16 + 6].w;
 		}
-
 		/** Metallic, roughness, normal scale, occlusion strength. **/
-		function drawSurface(i : Int) : Vec4 {
+		function drawSurface(i:Int):Vec4 {
 			return draws[i * 16 + 8];
 		}
-
 		/** The emissive colour, and the alpha cut-off. **/
-		function drawEmissive(i : Int) : Vec4 {
+		function drawEmissive(i:Int):Vec4 {
 			return draws[i * 16 + 9];
 		}
-
 		/** A texture coordinate of draw `i`'s mesh where its material's texture transform puts it. **/
-		function drawTexcoord(i : Int, uv : Vec2) : Vec2 {
+		function drawTexcoord(i:Int, uv:Vec2):Vec2 {
 			var d = i * 16;
 			var m = draws[d + 11];
 			return vec2(m.x * uv.x + m.y * uv.y + draws[d + 4].w, m.z * uv.x + m.w * uv.y + draws[d + 5].w);
 		}
-
 		/** A point (`w` 1) or direction (`w` 0) of draw `i`'s mesh, placed where it was in the previous frame, for motion blur. **/
-		function modelToWorldBefore(i : Int, p : Vec4) : Vec4 {
+		function modelToWorldBefore(i:Int, p:Vec4):Vec4 {
 			var d = i * 16;
 			return draws[d + 12] * p.x + draws[d + 13] * p.y + draws[d + 14] * p.z + draws[d + 15] * p.w;
 		}
-
 		/** Has a normal texture, unlit, alpha mode, opacity. **/
-		function drawFlags(i : Int) : Vec4 {
+		function drawFlags(i:Int):Vec4 {
 			return draws[i * 16 + 10];
 		}
 	};

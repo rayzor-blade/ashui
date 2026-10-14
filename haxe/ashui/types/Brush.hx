@@ -82,6 +82,7 @@ class Brush implements IValue {
 
 	/** A solid brush's colour, `0xRRGGBB`, and alpha; -1 for any other brush. **/
 	public var solidRgb(default, null) = -1;
+
 	public var solidAlpha(default, null) = 1.0;
 
 	/** A gradient's description; null for any other brush. **/
@@ -159,7 +160,12 @@ class Brush implements IValue {
 	public static function image(url:String, fit:ImageFit = Cover, ?position:ImagePosition, ?repeat:ImageRepeat):Brush {
 		var brush = new Brush(BlincNative.blinc_brush_image(Utf8.encode(url), fit));
 		if (position != null || repeat != null) {
-			var p:ImagePosition = position == null ? {x: 0.5, y: 0.5, offsetX: 0.0, offsetY: 0.0} : position;
+			var p:ImagePosition = position == null ? {
+				x: 0.5,
+				y: 0.5,
+				offsetX: 0.0,
+				offsetY: 0.0
+			} : position;
 			BlincNative.blinc_brush_image_mapping(brush.ptr, p.x, p.y, p.offsetX, p.offsetY, repeat == null ? (fit == Tile ? Repeat : NoRepeat) : repeat);
 		}
 		return brush;
@@ -177,14 +183,30 @@ class Brush implements IValue {
 	**/
 	public static function linear(x1:Single, y1:Single, x2:Single, y2:Single, boundingBox = false):Brush {
 		var brush = new Brush(BlincNative.blinc_brush_gradient(false, x1, y1, x2, y2, boundingBox));
-		brush.gradient = {radial: false, x1: x1, y1: y1, x2: x2, y2: y2, boundingBox: boundingBox, stops: []};
+		brush.gradient = {
+			radial: false,
+			x1: x1,
+			y1: y1,
+			x2: x2,
+			y2: y2,
+			boundingBox: boundingBox,
+			stops: []
+		};
 		return brush;
 	}
 
 	/** A radial gradient about `(cx, cy)` of `radius`, with no stops yet; `boundingBox` as for `linear`. **/
 	public static function radial(cx:Single, cy:Single, radius:Single, boundingBox = false):Brush {
 		var brush = new Brush(BlincNative.blinc_brush_gradient(true, cx, cy, radius, 0, boundingBox));
-		brush.gradient = {radial: true, x1: cx, y1: cy, x2: radius, y2: 0, boundingBox: boundingBox, stops: []};
+		brush.gradient = {
+			radial: true,
+			x1: cx,
+			y1: cy,
+			x2: radius,
+			y2: 0,
+			boundingBox: boundingBox,
+			stops: []
+		};
 		return brush;
 	}
 
@@ -201,8 +223,16 @@ class Brush implements IValue {
 			toAlpha:Single = 1.0):Brush {
 		var brush = new Brush(BlincNative.blinc_brush_linear_gradient(startX, startY, endX, endY, fromHex, fromAlpha, toHex, toAlpha));
 		brush.gradient = {
-			radial: false, x1: startX, y1: startY, x2: endX, y2: endY, boundingBox: false,
-			stops: [{offset: 0, rgb: fromHex & 0xFFFFFF, alpha: fromAlpha}, {offset: 1, rgb: toHex & 0xFFFFFF, alpha: toAlpha}]
+			radial: false,
+			x1: startX,
+			y1: startY,
+			x2: endX,
+			y2: endY,
+			boundingBox: false,
+			stops: [
+				{offset: 0, rgb: fromHex & 0xFFFFFF, alpha: fromAlpha},
+				{offset: 1, rgb: toHex & 0xFFFFFF, alpha: toAlpha}
+			]
 		};
 		return brush;
 	}

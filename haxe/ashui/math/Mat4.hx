@@ -38,10 +38,10 @@ class Mat4 {
 	public static function rotation(q:Quat):Mat4 {
 		var x = q.x, y = q.y, z = q.z, w = q.w;
 		return ofColumns([
-			1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w), 0,
-			2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w), 0,
-			2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y), 0,
-			0, 0, 0, 1
+			1 - 2 * (y * y + z * z),     2 * (x * y + z * w),     2 * (x * z - y * w), 0,
+			    2 * (x * y - z * w), 1 - 2 * (x * x + z * z),     2 * (y * z + x * w), 0,
+			    2 * (x * z + y * w),     2 * (y * z - x * w), 1 - 2 * (x * x + y * y), 0,
+			                      0,                       0,                       0, 1
 		]);
 	}
 
@@ -49,10 +49,10 @@ class Mat4 {
 	public static function compose(position:Vec3, rotation:Quat, scale:Vec3):Mat4 {
 		var r = Mat4.rotation(rotation).m;
 		return ofColumns([
-			r[0] * scale.x, r[1] * scale.x, r[2] * scale.x, 0,
-			r[4] * scale.y, r[5] * scale.y, r[6] * scale.y, 0,
+			r[0] * scale.x, r[1] * scale.x,  r[2] * scale.x, 0,
+			r[4] * scale.y, r[5] * scale.y,  r[6] * scale.y, 0,
 			r[8] * scale.z, r[9] * scale.z, r[10] * scale.z, 0,
-			position.x, position.y, position.z, 1
+			    position.x,     position.y,      position.z, 1
 		]);
 	}
 
@@ -60,13 +60,49 @@ class Mat4 {
 	public static function perspective(fovY:Float, aspect:Float, near:Float, far:Float):Mat4 {
 		var f = 1 / Math.tan(fovY / 2);
 		var range = 1 / (near - far);
-		return ofColumns([f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, far * range, -1, 0, 0, near * far * range, 0]);
+		return ofColumns([
+			f / aspect,
+			0,
+			0,
+			0,
+			0,
+			f,
+			0,
+			0,
+			0,
+			0,
+			far * range,
+			-1,
+			0,
+			0,
+			near * far * range,
+			0
+		]);
 	}
 
 	/** An orthographic projection of the box between the planes given. **/
 	public static function orthographic(left:Float, right:Float, bottom:Float, top:Float, near:Float, far:Float):Mat4 {
-		var w = 1 / (right - left), h = 1 / (top - bottom), d = 1 / (near - far);
-		return ofColumns([2 * w, 0, 0, 0, 0, 2 * h, 0, 0, 0, 0, d, 0, -(right + left) * w, -(top + bottom) * h, near * d, 1]);
+		var w = 1 / (right - left),
+			h = 1 / (top - bottom),
+			d = 1 / (near - far);
+		return ofColumns([
+			2 * w,
+			0,
+			0,
+			0,
+			0,
+			2 * h,
+			0,
+			0,
+			0,
+			0,
+			d,
+			0,
+			-(right + left) * w,
+			-(top + bottom) * h,
+			near * d,
+			1
+		]);
 	}
 
 	/** The view from `eye` toward `target`, `up` keeping it level. **/
@@ -76,7 +112,24 @@ class Mat4 {
 		if (s.length() == 0)
 			s = f.cross(Math.abs(f.z) < 0.9 ? new Vec3(0, 0, 1) : new Vec3(1, 0, 0)).normalize();
 		var u = s.cross(f);
-		return ofColumns([s.x, u.x, -f.x, 0, s.y, u.y, -f.y, 0, s.z, u.z, -f.z, 0, -s.dot(eye), -u.dot(eye), f.dot(eye), 1]);
+		return ofColumns([
+			s.x,
+			u.x,
+			-f.x,
+			0,
+			s.y,
+			u.y,
+			-f.y,
+			0,
+			s.z,
+			u.z,
+			-f.z,
+			0,
+			-s.dot(eye),
+			-u.dot(eye),
+			f.dot(eye),
+			1
+		]);
 	}
 
 	/** This after `b`: `b` applied first. **/

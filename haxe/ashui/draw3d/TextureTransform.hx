@@ -30,8 +30,18 @@ class TextureTransform {
 	}
 
 	/** Its rotation and scale as a 2×2 matrix, by rows: `u' = a u + b v + offsetX`, `v' = c u + d v + offsetY`. **/
-	public function matrix():{a:Float, b:Float, c:Float, d:Float} {
+	public function matrix():{
+		a:Float,
+		b:Float,
+		c:Float,
+		d:Float
+	} {
 		var c = Math.cos(rotation), s = Math.sin(rotation);
-		return {a: c * scaleX, b: -s * scaleY, c: s * scaleX, d: c * scaleY};
+		return {
+			a: c * scaleX,
+			b: -s * scaleY,
+			c: s * scaleX,
+			d: c * scaleY
+		};
 	}
 }

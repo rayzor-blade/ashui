@@ -82,7 +82,8 @@ class OrbitInput {
 				var dx = (at.x - lastX) / size, dy = (at.y - lastY) / size;
 				if (dx == 0 && dy == 0)
 					return;
-				var now = haxe.Timer.stamp(), dt = Math.max(now - lastAt, 1 / 240);
+				var now = haxe.Timer.stamp(),
+					dt = Math.max(now - lastAt, 1 / 240);
 				if (panning)
 					camera.pan(-dx, dy);
 				else {

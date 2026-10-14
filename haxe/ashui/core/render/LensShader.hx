@@ -31,14 +31,11 @@ package ashui.core.render;
 **/
 class LensShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
-		var output : { position : Vec4, color : Vec4 };
-
-		@param var lensSource : Sampler2D;
-		@param var velocityMap : Sampler2D;
-		@param var lens : StorageBuffer<Vec4>;
-
-		var uv : Vec2;
-
+		var output:{position:Vec4, color:Vec4};
+		@param var lensSource:Sampler2D;
+		@param var velocityMap:Sampler2D;
+		@param var lens:StorageBuffer<Vec4>;
+		var uv:Vec2;
 		function vertex() {
 			// A triangle past the corners: (-1, -1), (3, -1), (-1, 3).
 			var c = vec2(-1., -1.);
@@ -49,13 +46,11 @@ class LensShader implements hlwgpu.hxsl.Shader {
 			uv = vec2(c.x * 0.5 + 0.5, 0.5 - c.y * 0.5);
 			output.position = vec4(c, 0., 1.);
 		}
-
-		function luma(c : Vec3) : Float {
+		function luma(c:Vec3):Float {
 			return dot(c, vec3(0.299, 0.587, 0.114));
 		}
-
 		/** The layer at `at`, smoothed along any edge there by FXAA; `texel` is the size of one of the layer's pixels. **/
-		function fxaa(at : Vec2, texel : Vec2) : Vec4 {
+		function fxaa(at:Vec2, texel:Vec2):Vec4 {
 			var m = textureLod(lensSource, at, 0.);
 			var nw = luma(textureLod(lensSource, at + vec2(-1., -1.) * texel, 0.).rgb);
 			var ne = luma(textureLod(lensSource, at + vec2(1., -1.) * texel, 0.).rgb);
@@ -76,7 +71,6 @@ class LensShader implements hlwgpu.hxsl.Shader {
 				rgb = a;
 			return vec4(rgb, m.a);
 		}
-
 		function fragment() {
 			var s = lens[0];
 			// Out from the middle in heights, so the bend is round whatever the shape.

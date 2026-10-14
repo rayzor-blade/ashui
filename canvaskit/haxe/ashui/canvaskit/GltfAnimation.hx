@@ -164,8 +164,10 @@ class GltfSampler {
 			var data:hl.Bytes = values.view.buffer;
 			var base = values.view.byteOffset;
 			var last = Std.int(Math.max(Math.max(at0, at1), Math.max(at2, at3)));
-			var v0 = ash.simd.Float32x4.splat(w0), v1 = ash.simd.Float32x4.splat(w1);
-			var v2 = ash.simd.Float32x4.splat(w2), v3 = ash.simd.Float32x4.splat(w3);
+			var v0 = ash.simd.Float32x4.splat(w0),
+				v1 = ash.simd.Float32x4.splat(w1);
+			var v2 = ash.simd.Float32x4.splat(w2),
+				v3 = ash.simd.Float32x4.splat(w3);
 			// Four lanes at a time while every value's four lie inside the keyframes.
 			while (c + 4 <= w || (c < w && last + c + 4 <= values.length)) {
 				var sum = ash.simd.Float32x4.load(data, base + (at0 + c) * 4) * v0 + ash.simd.Float32x4.load(data, base + (at1 + c) * 4) * v1;

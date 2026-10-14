@@ -45,12 +45,15 @@ typedef HitInfo = {
 class HitOverlay implements FrameOverlay {
 	/** Requested map spacing in layout units; large frames increase it to bound work. **/
 	public var sampleSize = 4;
+
 	public var opacity = 0.14;
 	public var maxAncestors = 7;
+
 	/** The actual spacing used by the last map. **/
 	public var spacing(default, null) = 4;
 
 	static inline var MAX_SAMPLES = 65536;
+
 	final region = new hl.Bytes(16);
 	var mapped:Null<LayoutTree>;
 	var revision = -1;
@@ -90,19 +93,21 @@ class HitOverlay implements FrameOverlay {
 	}
 
 	function describe(tree:LayoutTree, path:Array<ashui.layout.LayoutTree.Hit>):Array<HitInfo> {
-		return [for (hit in path) {
-			var input = Interaction.byId(tree, hit.id);
-			{
-				id: hit.id,
-				name: nameOf(tree, hit.id),
-				x: hit.x,
-				y: hit.y,
-				handlers: input == null ? [] : input.handlerKinds(),
-				interaction: input != null,
-				focusable: input != null && input.focusable,
-				disabled: input != null && input.disabled.get()
-			};
-		}];
+		return [
+			for (hit in path) {
+				var input = Interaction.byId(tree, hit.id);
+				{
+					id: hit.id,
+					name: nameOf(tree, hit.id),
+					x: hit.x,
+					y: hit.y,
+					handlers: input == null ? [] : input.handlerKinds(),
+					interaction: input != null,
+					focusable: input != null && input.focusable,
+					disabled: input != null && input.disabled.get()
+				};
+			}
+		];
 	}
 
 	/**
@@ -111,7 +116,11 @@ class HitOverlay implements FrameOverlay {
 		walks between samples; curved edges retain the declared grid spacing.
 	**/
 	public function map(tree:LayoutTree, width:Int, height:Int):Array<HitTile> {
-		if (mapped == tree && revision == tree.hitRevision && mapWidth == width && mapHeight == height && requestedSpacing == sampleSize)
+		if (mapped == tree
+			&& revision == tree.hitRevision
+			&& mapWidth == width
+			&& mapHeight == height
+			&& requestedSpacing == sampleSize)
 			return tiles;
 		mapped = tree;
 		revision = tree.hitRevision;
@@ -124,7 +133,8 @@ class HitOverlay implements FrameOverlay {
 		spacing = Std.int(Math.max(1, Math.max(sampleSize, Math.ceil(Math.sqrt(width * (height : Float) / MAX_SAMPLES)))));
 		while ((Math.ceil(width / spacing) : Float) * Math.ceil(height / spacing) > MAX_SAMPLES)
 			spacing++;
-		var columns = Math.ceil(width / spacing), rows = Math.ceil(height / spacing);
+		var columns = Math.ceil(width / spacing),
+			rows = Math.ceil(height / spacing);
 		var previous = new Map<String, HitTile>();
 		var left = 0.0, top = 0.0, right = 0.0, bottom = 0.0;
 		var target:Null<haxe.Int64> = null;
@@ -151,7 +161,13 @@ class HitOverlay implements FrameOverlay {
 				if (last != null && last.key == key && last.tile.x + last.tile.width == x)
 					last.tile.width = endX - last.tile.x;
 				else
-					runs.push({key: key, tile: {x: x, y: y, width: endX - x, height: endY - y, target: target}});
+					runs.push({key: key, tile: {
+						x: x,
+						y: y,
+						width: endX - x,
+						height: endY - y,
+						target: target
+					}});
 			}
 			var current = new Map<String, HitTile>();
 			for (run in runs) {
@@ -176,20 +192,30 @@ class HitOverlay implements FrameOverlay {
 		var target = path.length == 0 ? null : path[0].id;
 		// Layout is already current, while the dispatcher refreshes after the
 		// frame. Read the same native region without mutating pointer/hover state.
-		var quiet = at.inside && !at.pressed && Pointer.hooks.length == 0 && !Lambda.exists(path, h -> h.handlers.indexOf("pointermove") >= 0)
-			&& region.getF32(0) < region.getF32(8) && region.getF32(4) < region.getF32(12)
-			? {left: region.getF32(0), top: region.getF32(4), right: region.getF32(8), bottom: region.getF32(12)} : null;
+		var quiet = at.inside
+			&& !at.pressed
+			&& Pointer.hooks.length == 0
+			&& !Lambda.exists(path, h -> h.handlers.indexOf("pointermove") >= 0)
+			&& region.getF32(0) < region.getF32(8)
+			&& region.getF32(4) < region.getF32(12) ? {
+				left: region.getF32(0),
+				top: region.getF32(4),
+				right: region.getF32(8),
+				bottom: region.getF32(12)
+			} : null;
 		var own = new LayoutTree();
 		Owner.root(own, dispose -> {
 			var out:Array<Element> = [];
 			for (tile in map(tree, width, height)) {
 				var alpha = tile.target == root.id ? opacity * 0.3 : opacity;
-				if (target != null && tile.target == target) alpha *= 2;
+				if (target != null && tile.target == target)
+					alpha *= 2;
 				out.push(MotionOverlay.box(own, tile.x, tile.y, tile.width, tile.height, colour(tile.target), alpha));
 			}
 			if (quiet != null) {
 				var x = Math.max(0, quiet.left), y = Math.max(0, quiet.top);
-				var right = Math.min(width, quiet.right), bottom = Math.min(height, quiet.bottom);
+				var right = Math.min(width, quiet.right),
+					bottom = Math.min(height, quiet.bottom);
 				out.push(MotionOverlay.box(own, x, y, right - x, bottom - y, null, 0, 0xffb703, 0.9));
 			}
 			if (at.inside) {
@@ -218,8 +244,10 @@ class HitOverlay implements FrameOverlay {
 			var colour = colour(hit.id);
 			var label = '${i == 0 ? "target" : "ancestor"} ${hit.name} [${haxe.Int64.toStr(hit.id)}]';
 			var detail = hit.handlers.length == 0 ? "no handlers" : hit.handlers.join(", ");
-			if (hit.focusable) detail += " · focusable";
-			if (hit.disabled) detail += " · disabled";
+			if (hit.focusable)
+				detail += " · focusable";
+			if (hit.disabled)
+				detail += " · disabled";
 			detail += hit.interaction ? " · input state" : " · no input state";
 			out.push(MotionOverlay.box(own, x + 10, y + 48 + i * 34, 5, 5, colour, 1, null, 0, 2.5));
 			out.push(MotionOverlay.text(own, x + 23, y + 42 + i * 34, shorten(label, w - 33, 11), colour, 1, 11));
@@ -233,9 +261,11 @@ class HitOverlay implements FrameOverlay {
 
 	static function nameOf(tree:LayoutTree, id:haxe.Int64):String {
 		var identity = Identity.of(tree, id);
-		if (identity == null) return "native node";
+		if (identity == null)
+			return "native node";
 		var name = identity.types.length == 0 ? "node" : identity.types[identity.types.length - 1];
-		if (identity.id != null) name += "#" + identity.id;
+		if (identity.id != null)
+			name += "#" + identity.id;
 		return name;
 	}
 

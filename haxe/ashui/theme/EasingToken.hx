@@ -6,12 +6,16 @@ enum abstract EasingToken(Int) {
 	var In;
 	var Out;
 	var InOut;
+
 	/** Hover, press and other state changes. **/
 	var State;
+
 	/** Navigation and page transitions. **/
 	var Nav;
+
 	/** Popovers and badges, which overshoot a little. **/
 	var Spring;
+
 	/** Sheets and drawers. **/
 	var Sheet;
 

@@ -288,7 +288,9 @@ private class Reader {
 
 	function node(index:Int, parent:Int, meshes:Array<GltfMesh>):GltfNode {
 		var n:Dynamic = list(json.nodes)[index];
-		var t:Array<Float> = n.translation, r:Array<Float> = n.rotation, s:Array<Float> = n.scale;
+		var t:Array<Float> = n.translation,
+			r:Array<Float> = n.rotation,
+			s:Array<Float> = n.scale;
 		var meshIndex:Int = n.mesh != null ? n.mesh : -1;
 		var weights:Array<Float> = n.weights != null ? [for (w in (n.weights : Array<Float>)) (w : Float)] : meshIndex >= 0 ? meshes[meshIndex].weights.copy() : [];
 		return new GltfNode(n.name, parent, n.children != null ? [for (c in (n.children : Array<Int>)) c] : [],
@@ -327,7 +329,8 @@ private class Reader {
 			var uvs = a.TEXCOORD_0 != null ? floats(a.TEXCOORD_0) : null;
 			var tangents = a.TANGENT != null && normals != null ? floats(a.TANGENT) : null;
 			var data = MeshData.build(positions, indices, normals, uvs, tangents, p.material != null ? material(p.material) : Material.DEFAULT);
-			var joints:Null<UInt16Array> = null, weights:Null<Float32Array> = null;
+			var joints:Null<UInt16Array> = null,
+				weights:Null<Float32Array> = null;
 			if (a.JOINTS_0 != null && a.WEIGHTS_0 != null) {
 				var j = floats(a.JOINTS_0);
 				joints = new UInt16Array(j.length);
@@ -398,8 +401,9 @@ private class Reader {
 		var base:Array<Float> = pbr.baseColorFactor != null ? pbr.baseColorFactor : [1, 1, 1, 1];
 		var emissive:Array<Float> = m.emissiveFactor != null ? m.emissiveFactor : [0, 0, 0];
 		// glTF's factors are linear and may pass 1 with KHR_materials_emissive_strength; Material's colours are sRGB.
-		var strength = m.extensions != null && Reflect.field(m.extensions, "KHR_materials_emissive_strength") != null ? (Reflect.field(m.extensions,
-			"KHR_materials_emissive_strength").emissiveStrength : Float) : 1.0;
+		var strength = m.extensions != null
+			&& Reflect.field(m.extensions,
+				"KHR_materials_emissive_strength") != null ? (Reflect.field(m.extensions, "KHR_materials_emissive_strength").emissiveStrength : Float) : 1.0;
 		var made = new Material({
 			baseColor: srgb(base[0], base[1], base[2]),
 			alpha: base[3],
@@ -421,7 +425,13 @@ private class Reader {
 			},
 			alphaCutoff: m.alphaCutoff != null ? m.alphaCutoff : 0.5,
 			doubleSided: m.doubleSided == true,
-			textureTransform: textureTransform([pbr.baseColorTexture, m.normalTexture, pbr.metallicRoughnessTexture, m.emissiveTexture, m.occlusionTexture])
+			textureTransform: textureTransform([
+				pbr.baseColorTexture,
+				m.normalTexture,
+				pbr.metallicRoughnessTexture,
+				m.emissiveTexture,
+				m.occlusionTexture
+			])
 		});
 		materials.set(index, made);
 		return made;
@@ -513,8 +523,8 @@ private class Reader {
 			var at = [for (_ in 0...k) 0.0];
 			var iv:Dynamic = list(json.bufferViews)[sparse.indices.bufferView];
 			var isize = componentSize(sparse.indices.componentType);
-			elements(buffer(iv.buffer), (iv.byteOffset != null ? iv.byteOffset : 0) + (sparse.indices.byteOffset != null ? sparse.indices.byteOffset : 0), isize,
-				k, 1, sparse.indices.componentType, false, i -> i, at);
+			elements(buffer(iv.buffer), (iv.byteOffset != null ? iv.byteOffset : 0) + (sparse.indices.byteOffset != null ? sparse.indices.byteOffset : 0),
+				isize, k, 1, sparse.indices.componentType, false, i -> i, at);
 			var vv:Dynamic = list(json.bufferViews)[sparse.values.bufferView];
 			elements(buffer(vv.buffer), (vv.byteOffset != null ? vv.byteOffset : 0) + (sparse.values.byteOffset != null ? sparse.values.byteOffset : 0),
 				n * componentSize(a.componentType), k, n, a.componentType, normalized, i -> Std.int(at[i]), out);
@@ -539,10 +549,20 @@ private class Reader {
 		return switch type {
 			case 5126: data.getFloat(at);
 			case 5125: (data.getInt32(at) : Float) + (data.getInt32(at) < 0 ? 4294967296.0 : 0);
-			case 5123: var v = data.getUInt16(at); normalized ? v / 65535 : v;
-			case 5122: var v = data.getUInt16(at); var s = v >= 0x8000 ? v - 0x10000 : v; normalized ? Math.max(s / 32767, -1) : s;
-			case 5121: var v = data.get(at); normalized ? v / 255 : v;
-			case 5120: var v = data.get(at); var s = v >= 0x80 ? v - 0x100 : v; normalized ? Math.max(s / 127, -1) : s;
+			case 5123:
+				var v = data.getUInt16(at);
+				normalized ? v / 65535 : v;
+			case 5122:
+				var v = data.getUInt16(at);
+				var s = v >= 0x8000 ? v - 0x10000 : v;
+				normalized ? Math.max(s / 32767, -1) : s;
+			case 5121:
+				var v = data.get(at);
+				normalized ? v / 255 : v;
+			case 5120:
+				var v = data.get(at);
+				var s = v >= 0x80 ? v - 0x100 : v;
+				normalized ? Math.max(s / 127, -1) : s;
 			case _: 0;
 		}
 

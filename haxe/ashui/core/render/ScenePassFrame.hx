@@ -69,9 +69,9 @@ class ScenePassFrame {
 	public static inline var SHADOW_DEPTH_FORMAT = TextureFormat.Depth24plus;
 
 	@:allow(ashui.core.render.ScenePainter)
-	function new(device:GpuDevice, encoder:GpuEncoder, format:TextureFormat, depthFormat:TextureFormat, width:Int, height:Int, scene:Scene3D,
-			view:Mat4, projection:Mat4, sceneBuffer:GpuBuffer, environment:GpuTextureView, environmentSampler:GpuSampler,
-			bounds:{min:ashui.math.Vec3, max:ashui.math.Vec3}, shadowMap:GpuTextureView, shadowSampler:GpuSampler) {
+	function new(device:GpuDevice, encoder:GpuEncoder, format:TextureFormat, depthFormat:TextureFormat, width:Int, height:Int, scene:Scene3D, view:Mat4,
+			projection:Mat4, sceneBuffer:GpuBuffer, environment:GpuTextureView, environmentSampler:GpuSampler, bounds:{min:ashui.math.Vec3, max:ashui.math.Vec3
+		}, shadowMap:GpuTextureView, shadowSampler:GpuSampler) {
 		this.bounds = bounds;
 		this.shadowMap = shadowMap;
 		this.shadowSampler = shadowSampler;
@@ -89,7 +89,7 @@ class ScenePassFrame {
 		this.environment = environment;
 		this.environmentSampler = environmentSampler;
 		this.time = ashui.animation.AnimationScheduler.main.clock;
-	}
+		}
 
 	/**
 		A pipeline builder for a shader of WGSL `wgsl` that draws into the

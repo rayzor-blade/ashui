@@ -149,12 +149,30 @@ class HybridTheme {
 
 	static function lightShadows():ShadowTokens {
 		return {
-			shadowSm: [new Shadow(0, 0, 1, 0, Rgba.fromHex(0x0F1422).withAlpha(0.05)), new Shadow(0, 1, 2, 0, Rgba.fromHex(0x0F1422).withAlpha(0.06))],
-			shadowDefault: [new Shadow(0, 1, 1, 0, Rgba.fromHex(0x0F1422).withAlpha(0.05)), new Shadow(0, 2, 4, 0, Rgba.fromHex(0x0F1422).withAlpha(0.06))],
-			shadowMd: [new Shadow(0, 1, 2, 0, Rgba.fromHex(0x0F1422).withAlpha(0.05)), new Shadow(0, 4, 8, 0, Rgba.fromHex(0x0F1422).withAlpha(0.07))],
-			shadowLg: [new Shadow(0, 3, 6, 0, Rgba.fromHex(0x0F1422).withAlpha(0.06)), new Shadow(0, 12, 22, 0, Rgba.fromHex(0x0F1422).withAlpha(0.08))],
-			shadowXl: [new Shadow(0, 6, 12, 0, Rgba.fromHex(0x0F1422).withAlpha(0.07)), new Shadow(0, 24, 40, 0, Rgba.fromHex(0x0F1422).withAlpha(0.10))],
-			shadow2xl: [new Shadow(0, 10, 20, 0, Rgba.fromHex(0x0F1422).withAlpha(0.09)), new Shadow(0, 40, 64, 0, Rgba.fromHex(0x0F1422).withAlpha(0.14))],
+			shadowSm: [
+				new Shadow(0, 0, 1, 0, Rgba.fromHex(0x0F1422).withAlpha(0.05)),
+				new Shadow(0, 1, 2, 0, Rgba.fromHex(0x0F1422).withAlpha(0.06))
+			],
+			shadowDefault: [
+				new Shadow(0, 1, 1, 0, Rgba.fromHex(0x0F1422).withAlpha(0.05)),
+				new Shadow(0, 2, 4, 0, Rgba.fromHex(0x0F1422).withAlpha(0.06))
+			],
+			shadowMd: [
+				new Shadow(0, 1, 2, 0, Rgba.fromHex(0x0F1422).withAlpha(0.05)),
+				new Shadow(0, 4, 8, 0, Rgba.fromHex(0x0F1422).withAlpha(0.07))
+			],
+			shadowLg: [
+				new Shadow(0, 3, 6, 0, Rgba.fromHex(0x0F1422).withAlpha(0.06)),
+				new Shadow(0, 12, 22, 0, Rgba.fromHex(0x0F1422).withAlpha(0.08))
+			],
+			shadowXl: [
+				new Shadow(0, 6, 12, 0, Rgba.fromHex(0x0F1422).withAlpha(0.07)),
+				new Shadow(0, 24, 40, 0, Rgba.fromHex(0x0F1422).withAlpha(0.10))
+			],
+			shadow2xl: [
+				new Shadow(0, 10, 20, 0, Rgba.fromHex(0x0F1422).withAlpha(0.09)),
+				new Shadow(0, 40, 64, 0, Rgba.fromHex(0x0F1422).withAlpha(0.14))
+			],
 			shadowInner: [new Shadow(0, 1, 2, 0, Rgba.fromHex(0x0F1422).withAlpha(0.07))],
 			shadowNone: []
 		};
@@ -162,12 +180,30 @@ class HybridTheme {
 
 	static function darkShadows():ShadowTokens {
 		return {
-			shadowSm: [new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.22)), new Shadow(0, 1, 2, 0, Rgba.BLACK.withAlpha(0.35))],
-			shadowDefault: [new Shadow(0, 1, 1, 0, Rgba.BLACK.withAlpha(0.26)), new Shadow(0, 2, 4, 0, Rgba.BLACK.withAlpha(0.40))],
-			shadowMd: [new Shadow(0, 1, 2, 0, Rgba.BLACK.withAlpha(0.28)), new Shadow(0, 4, 8, 0, Rgba.BLACK.withAlpha(0.42))],
-			shadowLg: [new Shadow(0, 3, 6, 0, Rgba.BLACK.withAlpha(0.30)), new Shadow(0, 12, 22, 0, Rgba.BLACK.withAlpha(0.44))],
-			shadowXl: [new Shadow(0, 6, 12, 0, Rgba.BLACK.withAlpha(0.34)), new Shadow(0, 24, 40, 0, Rgba.BLACK.withAlpha(0.50))],
-			shadow2xl: [new Shadow(0, 10, 20, 0, Rgba.BLACK.withAlpha(0.40)), new Shadow(0, 40, 64, 0, Rgba.BLACK.withAlpha(0.58))],
+			shadowSm: [
+				new Shadow(0, 0, 1, 0, Rgba.BLACK.withAlpha(0.22)),
+				new Shadow(0, 1, 2, 0, Rgba.BLACK.withAlpha(0.35))
+			],
+			shadowDefault: [
+				new Shadow(0, 1, 1, 0, Rgba.BLACK.withAlpha(0.26)),
+				new Shadow(0, 2, 4, 0, Rgba.BLACK.withAlpha(0.40))
+			],
+			shadowMd: [
+				new Shadow(0, 1, 2, 0, Rgba.BLACK.withAlpha(0.28)),
+				new Shadow(0, 4, 8, 0, Rgba.BLACK.withAlpha(0.42))
+			],
+			shadowLg: [
+				new Shadow(0, 3, 6, 0, Rgba.BLACK.withAlpha(0.30)),
+				new Shadow(0, 12, 22, 0, Rgba.BLACK.withAlpha(0.44))
+			],
+			shadowXl: [
+				new Shadow(0, 6, 12, 0, Rgba.BLACK.withAlpha(0.34)),
+				new Shadow(0, 24, 40, 0, Rgba.BLACK.withAlpha(0.50))
+			],
+			shadow2xl: [
+				new Shadow(0, 10, 20, 0, Rgba.BLACK.withAlpha(0.40)),
+				new Shadow(0, 40, 64, 0, Rgba.BLACK.withAlpha(0.58))
+			],
 			shadowInner: [new Shadow(0, 1, 2, 0, Rgba.BLACK.withAlpha(0.32))],
 			shadowNone: []
 		};

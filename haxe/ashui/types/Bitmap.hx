@@ -36,7 +36,6 @@ class Bitmap {
 
 	// What follows runs in the program, not in the compiler.
 	#if !macro
-
 	static final loaded = new Map<String, Bitmap>();
 
 	/** Names the decoded image to the renderer. **/

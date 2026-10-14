@@ -1,7 +1,6 @@
 package ashui.svg;
 
 import ashui.svg.PathData.PathCommand;
-
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
@@ -10,10 +9,13 @@ import haxe.macro.Expr;
 /** What fills or strokes a shape. **/
 enum Paint {
 	NoPaint;
+
 	/** The element's colour, which a theme or class sets; one SVG can then be drawn in any colour. **/
 	CurrentColor;
+
 	/** A fixed colour, `0xRRGGBB`, and its alpha from 0 to 1. **/
 	Solid(rgb:Int, alpha:Float);
+
 	/** A paint this model does not read, such as a gradient `url(#g)`; the renderer draws it. **/
 	Other(value:String);
 }
@@ -33,12 +35,16 @@ typedef SvgShape = {
 	final stroke:Paint;
 	final strokeOpacity:Float;
 	final strokeWidth:Float;
+
 	/** `butt`, `round` or `square`. **/
 	final lineCap:String;
+
 	/** `miter`, `round` or `bevel`. **/
 	final lineJoin:String;
+
 	final miterLimit:Float;
 	final opacity:Float;
+
 	/** `[a, b, c, d, e, f]`: `(x, y)` maps to `(a·x + c·y + e, b·x + d·y + f)`. **/
 	final transform:Null<Array<Float>>;
 }
@@ -47,6 +53,7 @@ typedef SvgShape = {
 enum SvgNode {
 	Shape(shape:SvgShape);
 	Group(opacity:Float, transform:Null<Array<Float>>, children:Array<SvgNode>);
+
 	/** A gradient, text, `<use>`, a filter or any element besides shapes and groups, with what is inside it. **/
 	OtherElement(name:String, children:Array<SvgNode>);
 }

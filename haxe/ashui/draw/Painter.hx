@@ -20,7 +20,13 @@ class Painter {
 	var strokeStyle = new Stroke(1);
 
 	/** Per `push`: transforms and clips pushed since, and the paint state to go back to. **/
-	final groups:Array<{transforms:Int, clips:Int, fill:Null<Brush>, stroke:Null<Brush>, style:Stroke}> = [];
+	final groups:Array<{
+		transforms:Int,
+		clips:Int,
+		fill:Null<Brush>,
+		stroke:Null<Brush>,
+		style:Stroke
+	}> = [];
 
 	public function new(ctx:DrawContext)
 		this.ctx = ctx;
@@ -48,7 +54,13 @@ class Painter {
 	}
 
 	public function push():Painter {
-		groups.push({transforms: 0, clips: 0, fill: fillBrush, stroke: strokeBrush, style: strokeStyle});
+		groups.push({
+			transforms: 0,
+			clips: 0,
+			fill: fillBrush,
+			stroke: strokeBrush,
+			style: strokeStyle
+		});
 		return this;
 	}
 

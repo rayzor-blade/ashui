@@ -276,8 +276,7 @@ class Select extends Component<SelectProps> implements FormControl {
 					Focus.set(list[list.length - 1].interaction, true);
 				case Named(Enter):
 					e.preventDefault();
-					if (at >= 0)
-						choose(list[at].choice.option.valueText());
+					if (at >= 0) choose(list[at].choice.option.valueText());
 				case Named(Tab):
 					e.preventDefault();
 					open.close();
@@ -301,11 +300,14 @@ class Select extends Component<SelectProps> implements FormControl {
 		var wanted:Null<Div> = null;
 		function reveal():Bool {
 			var row = wanted;
-			var list = tree.getBounds(picker.node), at = row == null ? null : tree.getBounds(row.node);
+			var list = tree.getBounds(picker.node),
+				at = row == null ? null : tree.getBounds(row.node);
 			if (row == null || list == null || at == null || list.height <= 0)
 				return false;
 			wanted = null;
-			var top = at.y - list.y, bottom = top + at.height, y = scroll.y.get();
+			var top = at.y - list.y,
+				bottom = top + at.height,
+				y = scroll.y.get();
 			if (top < y)
 				scroll.scrollTo(0, top);
 			else if (bottom > y + list.height)
@@ -352,7 +354,7 @@ class Select extends Component<SelectProps> implements FormControl {
 		var rows = new Map<Int, Interaction>();
 		var listInteraction:Null<Interaction> = null;
 		var picker = owner.run(() -> {
-			var before = new Div({height: Computed.make(() -> (start.get() * rowHeight : Single)), flexShrink: 0});
+			var before = new Div({height: Computed.make(() -> (start.get() * rowHeight:Single)), flexShrink: 0});
 			var window = new For(() -> [for (i in start.get()...start.get() + visibleCount) i], i -> {
 				var c = choices[i];
 				var row = new Div({tag: "option", height: rowHeight, flexShrink: 0}, [new Text(c.option.labelText())]);

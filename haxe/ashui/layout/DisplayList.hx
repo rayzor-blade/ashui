@@ -18,6 +18,7 @@ import ashui.core.externs.LayoutTreeNative;
 class DisplayList {
 	/** The floats in a record. **/
 	public static inline var RECORD_FLOATS = 112;
+
 	public static inline var RECORD_BYTES = RECORD_FLOATS * 4;
 	public static inline var RECORD_ROWS = RecordLayout.RECORD_ROWS;
 	public static inline var ROW_TEXELS = RecordLayout.ROW_TEXELS;
@@ -25,28 +26,37 @@ class DisplayList {
 
 	/** Where the primitive type sits in a record, and its values. **/
 	public static inline var KIND_FIELD = 44;
+
 	/**
 		The corner `n` of the record's rounded clip (see `CornerShape`), so a
 		squircle parent clips to its own curve.
 	**/
 	public static inline var CLIP_SHAPE_FIELD = 47;
+
 	/** The four corners' `n`, top-left first, the theme's smoothing applied. **/
 	public static inline var CORNER_SHAPE_FIELD = 48;
+
 	/** A box: its fill, flat or a gradient, and its border. **/
 	public static inline var PRIM_RECT = 0;
+
 	/** A box's shadow, cast outside it or, inset, inside it. **/
 	public static inline var PRIM_SHADOW = 3;
+
 	/** A glyph of text, sampled from a glyph atlas. **/
 	public static inline var PRIM_TEXT = 7;
+
 	/** An image in a node's content box, which the renderer looks up in its image atlas. **/
 	public static inline var PRIM_IMAGE = 32;
 
 	/** Where a canvas paints with the GPU itself: its content box, with its clips; `gradient.x` is its slot, `gradient.y` its scale on screen. **/
 	public static inline var PRIM_CANVAS = 33;
+
 	/** The records after it, to its `PRIM_LAYER`, draw into a layer of their own. **/
 	public static inline var PRIM_LAYER_BEGIN = 40;
+
 	/** Composites the layer begun last over its bounds, faded by its colour's alpha. **/
 	public static inline var PRIM_LAYER = 41;
+
 	/** What is drawn behind its box, blurred and colour-filtered, drawn back over the box before the element. **/
 	public static inline var PRIM_BACKDROP = 42;
 

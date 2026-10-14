@@ -4,8 +4,7 @@ package ashui.types;
 	Enum-valued style properties, named as CSS names their values. The
 	numbers are the codes the native layout tree reads, not the layout
 	engine's own; they match `blinc_abi`'s layout_router.rs.
-*/
-
+ */
 /** CSS's `display`: how a node lays out its children, or `None` to take it out of layout. **/
 enum abstract Display(Int) to Int {
 	var Block = 0;
@@ -33,6 +32,7 @@ enum abstract FlexWrap(Int) to Int {
 enum abstract Align(Int) to Int {
 	/** The container's alignment for self, or the layout engine's default for items. **/
 	var Auto = -1;
+
 	var Start = 0;
 	var End = 1;
 	var FlexStart = 2;
@@ -60,8 +60,10 @@ enum abstract Justify(Int) to Int {
 enum abstract Position(Int) to Int {
 	var Relative = 0;
 	var Absolute = 1;
+
 	/** Parent-relative Absolute alias, not viewport-fixed positioning. git-bug: 7977648 / 8780d6b. **/
 	var Fixed = 1;
+
 	/** Stays in normal flow, held by its insets at its scroll container's edge. **/
 	var Sticky = 2;
 }
@@ -76,6 +78,7 @@ enum abstract TextOverflow(Int) to Int {
 enum abstract Visibility(Int) to Int {
 	var Visible = 0;
 	var Hidden = 1;
+
 	/** Hides like Hidden; table collapsing remains unimplemented. git-bug: 4512d6f / 8780d6b. **/
 	var Collapse = 2;
 }

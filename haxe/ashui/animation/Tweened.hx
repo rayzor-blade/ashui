@@ -34,6 +34,7 @@ class Tweened<T> {
 	var source:Null<Watch<T>> = null;
 	final node:Node;
 	final prop:PropertyId;
+
 	/** The move being recorded, while a motion trace records. **/
 	var track:Null<ashui.debug.MotionTrack> = null;
 
@@ -173,24 +174,21 @@ class Tweened<T> {
 			return false;
 		var x:Dynamic = a, y:Dynamic = b;
 		return switch prop.getDataType() {
-			case TypeColor:
-				var c:Color = x, d:Color = y;
-				c.rgb == d.rgb && c.alpha == d.alpha;
-			case TypeBrush:
-				var c:Brush = x, d:Brush = y;
-				c.solidRgb >= 0 && c.solidRgb == d.solidRgb && c.solidAlpha == d.solidAlpha;
+			case TypeColor: var c:Color = x, d:Color = y; c.rgb == d.rgb && c.alpha == d.alpha;
+			case TypeBrush: var c:Brush = x, d:Brush = y; c.solidRgb >= 0 && c.solidRgb == d.solidRgb && c.solidAlpha == d.solidAlpha;
 			case TypeCornerRadius:
-				if (!Std.isOfType(x, ashui.types.CornerRadius) || !Std.isOfType(y, ashui.types.CornerRadius))
-					false;
-				else {
-					var c:ashui.types.CornerRadius = x, d:ashui.types.CornerRadius = y;
-					c.topLeft == d.topLeft && c.topRight == d.topRight && c.bottomRight == d.bottomRight && c.bottomLeft == d.bottomLeft;
+				if (!Std.isOfType(x, ashui.types.CornerRadius) || !Std.isOfType(y, ashui.types.CornerRadius)) false; else {
+					var c:ashui.types.CornerRadius = x,
+						d:ashui.types.CornerRadius = y;
+					c.topLeft == d.topLeft
+					&& c.topRight == d.topRight
+					&& c.bottomRight == d.bottomRight
+					&& c.bottomLeft == d.bottomLeft
+					;
 				}
 			case TypeShadow:
 				var c:Shadow = x, d:Shadow = y;
-				if (c.layers.length != d.layers.length)
-					false;
-				else {
+				if (c.layers.length != d.layers.length) false; else {
 					var equal = true;
 					for (i in 0...c.layers.length)
 						for (k in 0...c.layers[i].length)
@@ -200,8 +198,13 @@ class Tweened<T> {
 				}
 			case TypeTransform:
 				var c:ashui.types.Transform = x, d:ashui.types.Transform = y;
-				c.translateX == d.translateX && c.translateY == d.translateY && c.rotate == d.rotate && c.scaleX == d.scaleX && c.scaleY == d.scaleY
-					&& c.skewX == d.skewX && c.skewY == d.skewY;
+				c.translateX == d.translateX
+				&& c.translateY == d.translateY
+				&& c.rotate == d.rotate
+				&& c.scaleX == d.scaleX
+				&& c.scaleY == d.scaleY
+				&& c.skewX == d.skewX
+				&& c.skewY == d.skewY;
 			case _:
 				false;
 		}
@@ -223,7 +226,8 @@ class Tweened<T> {
 				'#${StringTools.hex(c.rgb, 6).toLowerCase()}' + (c.alpha < 1 ? '/${Math.round(c.alpha * 100) / 100}' : "");
 			case TypeBrush:
 				var b:Brush = d;
-				b.solidRgb >= 0 ? '#${StringTools.hex(b.solidRgb, 6).toLowerCase()}' + (b.solidAlpha < 1 ? '/${Math.round(b.solidAlpha * 100) / 100}' : "") : "gradient";
+				b.solidRgb >= 0 ? '#${StringTools.hex(b.solidRgb, 6).toLowerCase()}' +
+					(b.solidAlpha < 1 ? '/${Math.round(b.solidAlpha * 100) / 100}' : "") : "gradient";
 			case TypeTransform:
 				var t:ashui.types.Transform = d;
 				var parts = [];
@@ -322,7 +326,8 @@ class Tweened<T> {
 		// Qualified: PropertyId's values, which share these names, are in scope.
 		if (!Std.isOfType(a, ashui.types.CornerRadius) || !Std.isOfType(b, ashui.types.CornerRadius))
 			return null;
-		var x:ashui.types.CornerRadius = cast a, y:ashui.types.CornerRadius = cast b;
+		var x:ashui.types.CornerRadius = cast a,
+			y:ashui.types.CornerRadius = cast b;
 		return new ashui.types.CornerRadius(mix(x.topLeft, y.topLeft, t), mix(x.topRight, y.topRight, t), mix(x.bottomRight, y.bottomRight, t),
 			mix(x.bottomLeft, y.bottomLeft, t));
 	}

@@ -58,6 +58,8 @@ final class ShapeTokens {
 	}
 
 	public function equals(other:ShapeTokens):Bool {
-		return cornerSmoothing == other.cornerSmoothing && cornerExponent == other.cornerExponent && smoothingThreshold == other.smoothingThreshold;
+		return cornerSmoothing == other.cornerSmoothing
+			&& cornerExponent == other.cornerExponent
+			&& smoothingThreshold == other.smoothingThreshold;
 	}
 }

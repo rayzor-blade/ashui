@@ -14,20 +14,26 @@ import ashui.ui.Div;
 typedef Inspected = {
 	id:haxe.Int64,
 	label:String,
+
 	/** Its ancestors' labels, the root first. **/
 	path:Array<String>,
+
 	x:Float,
 	y:Float,
 	w:Float,
 	h:Float,
+
 	/** Margin, border and padding as layout resolved them, in layout units: top, right, bottom, left. **/
 	margin:Array<Float>,
+
 	border:Array<Float>,
 	padding:Array<Float>,
 	states:Array<String>,
 	handlers:Array<String>,
+
 	/** The CSS declarations that win for it, `var()`s replaced, each with where it came from; custom properties left out. **/
 	style:Array<{name:String, value:String, from:String}>,
+
 	/** How many declarations that match it were overridden. **/
 	overridden:Int
 }
@@ -142,7 +148,10 @@ class InspectorOverlay implements FrameOverlay {
 				// Margin outside the border box, then the border, the padding and the content inside it, as a browser shades them.
 				band(own, out, e.x - m[3], e.y - m[0], e.w + m[1] + m[3], e.h + m[0] + m[2], m, MARGIN);
 				band(own, out, e.x, e.y, e.w, e.h, b, BORDER);
-				var px = e.x + b[3], py = e.y + b[0], pw = e.w - b[1] - b[3], ph = e.h - b[0] - b[2];
+				var px = e.x + b[3],
+					py = e.y + b[0],
+					pw = e.w - b[1] - b[3],
+					ph = e.h - b[0] - b[2];
 				band(own, out, px, py, pw, ph, p, PADDING);
 				out.push(MotionOverlay.box(own, px + p[3], py + p[0], pw - p[1] - p[3], ph - p[0] - p[2], CONTENT, 0.25));
 				out.push(MotionOverlay.box(own, e.x, e.y, e.w, e.h, null, 0, 0x4cc9f0, 0.9));
@@ -180,9 +189,10 @@ class InspectorOverlay implements FrameOverlay {
 		out.push(MotionOverlay.box(own, x, y, w, h, 0x0b0d14, 0.95, 0x4cc9f0, 0.8, 6));
 		out.push(MotionOverlay.text(own, x + 10, y + 8, shorten('${e.label}  ${round(e.w)} × ${round(e.h)}', w - 20, 12), 0xffffff, 1, 12));
 		out.push(MotionOverlay.text(own, x + 10, y + 26, shorten(e.path.concat([e.label]).join(" > "), w - 20, 10), dim, 1, 10));
-		out.push(MotionOverlay.text(own, x + 10, y + 44, shorten('margin ${list(e.margin)}  border ${list(e.border)}  padding ${list(e.padding)}', w - 20, 10),
-			0xd0d5e0, 1, 10));
-		out.push(MotionOverlay.text(own, x + 10, y + 60, shorten('states ${e.states.length == 0 ? "none" : e.states.join(", ")}', w - 20, 10), 0xd0d5e0, 1, 10));
+		out.push(MotionOverlay.text(own, x + 10, y + 44,
+			shorten('margin ${list(e.margin)}  border ${list(e.border)}  padding ${list(e.padding)}', w - 20, 10), 0xd0d5e0, 1, 10));
+		out.push(MotionOverlay.text(own, x + 10, y + 60, shorten('states ${e.states.length == 0 ? "none" : e.states.join(", ")}', w - 20, 10), 0xd0d5e0, 1,
+			10));
 		out.push(MotionOverlay.text(own, x + 10, y + 76, shorten('handlers ${e.handlers.length == 0 ? "none" : e.handlers.join(", ")}', w - 20, 10), 0xd0d5e0,
 			1, 10));
 		out.push(MotionOverlay.text(own, x + 10, y + 94, e.overridden > 0 ? 'css · ${e.overridden} overridden' : "css", dim, 1, 10));
@@ -196,7 +206,9 @@ class InspectorOverlay implements FrameOverlay {
 	}
 
 	static function list(sides:Array<Float>):String
-		return sides[0] == sides[1] && sides[1] == sides[2] && sides[2] == sides[3] ? round(sides[0]) : [for (s in sides) round(s)].join(" ");
+		return sides[0] == sides[1]
+			&& sides[1] == sides[2]
+			&& sides[2] == sides[3] ? round(sides[0]) : [for (s in sides) round(s)].join(" ");
 
 	static function round(v:Float):String
 		return Std.string(Math.round(v * 10) / 10);

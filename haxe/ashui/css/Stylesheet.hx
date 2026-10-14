@@ -54,6 +54,7 @@ typedef Diagnostic = {
 class Stylesheet {
 	/** The files it imported, directly or through another, in the order read. **/
 	public final imports:Array<String> = [];
+
 	public final diagnostics:Array<Diagnostic> = [];
 
 	/** The CSS text it was parsed from, and the file it names. **/

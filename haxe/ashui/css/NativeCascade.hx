@@ -67,14 +67,22 @@ class NativeCascade {
 		var frames:Array<Stylesheet.Keyframe> = [];
 		for (record in text(b).split(RECORD)) {
 			var at = record.indexOf(PAIR);
-			var offsets = record.substr(0, at), declared = record.substr(at + 1);
+			var offsets = record.substr(0, at),
+				declared = record.substr(at + 1);
 			frames.push({
 				offsets: [for (o in offsets.split(" ")) if (o != "") Std.parseFloat(o)],
 				declarations: [
-					for (item in declared.split(ITEM)) if (item != "") {
-						var split = item.indexOf("\x04");
-						{name: item.substr(0, split), value: item.substr(split + 1), important: false, line: 0, column: 0};
-					}
+					for (item in declared.split(ITEM))
+						if (item != "") {
+							var split = item.indexOf("\x04");
+							{
+								name: item.substr(0, split),
+								value: item.substr(split + 1),
+								important: false,
+								line: 0,
+								column: 0
+							};
+						}
 				]
 			});
 		}
@@ -89,7 +97,9 @@ class NativeCascade {
 
 	/** The theme's variables, `var()`'s last answer. **/
 	public static function setTheme(variables:Map<String, String>):Void {
-		var records = [for (name => value in variables) (StringTools.startsWith(name, "--") ? name.substr(2) : name) + PAIR + value];
+		var records = [
+			for (name => value in variables) (StringTools.startsWith(name, "--") ? name.substr(2) : name) + PAIR + value
+		];
 		CssNative.blinc_css_set_theme(css(), utf8(records.join(RECORD)));
 	}
 
@@ -238,7 +248,8 @@ class NativeCascade {
 		var set = false;
 		var capacity = 64;
 		while (true) {
-			var nodes = new hl.Bytes(capacity * 8), bits = new hl.Bytes(capacity * 4);
+			var nodes = new hl.Bytes(capacity * 8),
+				bits = new hl.Bytes(capacity * 4);
 			var n = CssNative.blinc_css_take_watched(css(), nodes, bits, capacity);
 			for (i in 0...n) {
 				var node = haxe.Int64.make(nodes.getI32(i * 8 + 4), nodes.getI32(i * 8));
@@ -267,8 +278,22 @@ class NativeCascade {
 	}
 
 	static final STATES = [
-		"hover", "active", "focus", "focus-visible", "focus-within", "disabled", "enabled", "checked", "indeterminate", "placeholder-shown", "valid",
-		"invalid", "user-valid", "user-invalid", "required", "optional"
+		"hover",
+		"active",
+		"focus",
+		"focus-visible",
+		"focus-within",
+		"disabled",
+		"enabled",
+		"checked",
+		"indeterminate",
+		"placeholder-shown",
+		"valid",
+		"invalid",
+		"user-valid",
+		"user-invalid",
+		"required",
+		"optional"
 	];
 
 	/** Watches state `bit` of `node`; true when it found a state set, which the engine was told. **/
@@ -291,7 +316,15 @@ class NativeCascade {
 	}
 
 	/** A form control's states, which its `Interaction` keeps by name. **/
-	static final FORM_STATES = ["placeholder-shown", "valid", "invalid", "user-valid", "user-invalid", "required", "optional"];
+	static final FORM_STATES = [
+		"placeholder-shown",
+		"valid",
+		"invalid",
+		"user-valid",
+		"user-invalid",
+		"required",
+		"optional"
+	];
 
 	static function stateSignal(identity:Identity, name:String):ashui.reactive.Signal<Bool> {
 		var interaction = ashui.input.Interaction.of(identity.node);

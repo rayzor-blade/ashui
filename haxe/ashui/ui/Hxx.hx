@@ -16,7 +16,7 @@ using haxe.macro.TypeTools;
 /**
 	Templates lowered at compile time:
 
-	    hxx('<div width={w} bg={color}><text>Value: ${count}</text></div>')
+		hxx('<div width={w} bg={color}><text>Value: ${count}</text></div>')
 
 	`<svg>` is SVG, written as it is: it is parsed and checked at compile
 	time and becomes an `Svg` element (see `lowerSvg`).
@@ -112,12 +112,12 @@ class Hxx {
 					ones.push(e);
 				case Many(e):
 					if (ones.length > 0)
-						append(macro ($a{ones} : Array<ashui.layout.Element>));
+						append(macro($a{ones} : Array<ashui.layout.Element>));
 					ones = [];
 					append(e);
 			}
 		if (ones.length > 0 || result == null)
-			append(macro ($a{ones} : Array<ashui.layout.Element>));
+			append(macro($a{ones} : Array<ashui.layout.Element>));
 		return result;
 	}
 
@@ -150,7 +150,7 @@ class Hxx {
 				case CIf(cond, cons, alt):
 					endText();
 					var then = group(elements(cons), child.pos);
-					var otherwise = alt == null || alt.value.length == 0 ? macro null : macro () -> ${group(elements(alt), alt.pos)};
+					var otherwise = alt == null || alt.value.length == 0 ? macro null : macro() -> ${group(elements(alt), alt.pos)};
 					out.push(One(macro @:pos(child.pos) new ashui.ui.Show(() -> ${read(cond)}, () -> $then, $otherwise)));
 				case CFor(head, body):
 					endText();
@@ -170,7 +170,7 @@ class Hxx {
 								throw e;
 							}
 							locals.pop();
-							out.push(One(macro @:pos(child.pos) new ashui.ui.For(() -> $each, ($name : $valueType) -> $item)));
+							out.push(One(macro @:pos(child.pos) new ashui.ui.For(() -> $each, ($name:$valueType) -> $item)));
 						case _:
 							Context.error('hxx: a for loop is <for {value in list}>', head.pos);
 					}
@@ -254,7 +254,9 @@ class Hxx {
 	/** The class a component tag names: `my-card` is `MyCard`, `ui.my-card` is `ui.MyCard`. **/
 	static function className(tag:String):String {
 		var parts = tag.split('.');
-		var last = [for (word in parts.pop().split('-')) word.charAt(0).toUpperCase() + word.substr(1)].join('');
+		var last = [
+			for (word in parts.pop().split('-')) word.charAt(0).toUpperCase() + word.substr(1)
+		].join('');
 		parts.push(last);
 		return parts.join('.');
 	}
@@ -281,23 +283,66 @@ class Hxx {
 		`strong`'s weight, `code`'s face). Inline elements inside one sit
 		beside its text in a wrapping row; text does not yet flow across them.
 	**/
-	static final TEXT_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u", "ins", "del", "abbr", "output"];
+	static final TEXT_TAGS = [
+		"h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u", "ins", "del", "abbr", "output"
+	];
 
 	/** HTML's elements built in as boxes of their type, with no behaviour of their own. **/
 	static final BOX_TAGS = [
-		"button", "hr", "br", "legend", "blockquote", "caption", "thead", "tbody", "tfoot", "tr", "dl", "dt", "dd", "figure", "figcaption", "section",
-		"article", "aside", "header", "footer", "nav", "main"
+		"button",
+		"hr",
+		"br",
+		"legend",
+		"blockquote",
+		"caption",
+		"thead",
+		"tbody",
+		"tfoot",
+		"tr",
+		"dl",
+		"dt",
+		"dd",
+		"figure",
+		"figcaption",
+		"section",
+		"article",
+		"aside",
+		"header",
+		"footer",
+		"nav",
+		"main"
 	];
 
 	/** Elements whose text and inline elements are laid out as one flow (see `ashui.text.InlineFlow`). **/
-	static final FLOW_TAGS = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "dt", "dd", "caption", "legend", "figcaption"];
+	static final FLOW_TAGS = [
+		"p",
+		"h1",
+		"h2",
+		"h3",
+		"h4",
+		"h5",
+		"h6",
+		"dt",
+		"dd",
+		"caption",
+		"legend",
+		"figcaption"
+	];
 
 	/** Inside a `<pre>`, whose text does not wrap. **/
 	static var preformatted = 0;
 
 	/** Built-in elements whose class is not named after their tag. **/
-	static final BUILT_IN_CLASSES = ["a" => "Anchor", "textarea" => "TextArea", "ul" => "Lists.Ul", "ol" => "Lists.Ol", "colgroup" => "Table.Colgroup",
-		"col" => "Table.Col", "td" => "Table.Td", "th" => "Table.Th"];
+	static final BUILT_IN_CLASSES = [
+		"a" => "Anchor",
+		"textarea" => "TextArea",
+		"ul" => "Lists.Ul",
+		"ol" => "Lists.Ol",
+		"colgroup" => "Table.Colgroup",
+		"col" => "Table.Col",
+		"td" => "Table.Td",
+		"th" => "Table.Th"
+	];
 
 	static function lowerDiv(node:Node, ?tag:String):Expr {
 		var el = '__div${counter++}';
@@ -310,7 +355,9 @@ class Hxx {
 					classes = classes.concat(classSetters(value, el));
 				case Regular(name, value) if (name.value == 'id'):
 					own.push(idSetter(value, el));
-				case Regular(name, value) if ((['type', 'name', 'value'].indexOf(name.value) >= 0 && tag == 'button') || ((name.value == 'for' || name.value == 'name') && tag == 'output')):
+				case Regular(name, value)
+					if ((['type', 'name', 'value'].indexOf(name.value) >= 0 && tag == 'button')
+						|| ((name.value == 'for' || name.value == 'name') && tag == 'output')):
 					own.push(macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setAttribute($v{name.value}, ($value : String)));
 				case Regular(name, value) if (name.value == 'style'):
 					styles.push(macro @:pos(value.pos) ($value : ashui.style.Style).apply($i{el}.node));
@@ -371,8 +418,10 @@ class Hxx {
 		if (src == null)
 			Context.error("hxx: <img> needs src={bitmap}", node.name.pos);
 		var sets = classes.concat(styles).concat(own);
-		if (fit == null) fit = macro null;
-		if (position == null) position = macro null;
+		if (fit == null)
+			fit = macro null;
+		if (position == null)
+			position = macro null;
 		var attributes = macro {fit: $fit, objectPosition: $position};
 		return macro @:pos(node.name.pos) {
 			var $el = new ashui.ui.Image($src, $attributes);
@@ -500,7 +549,9 @@ class Hxx {
 		var tag = node.name.value;
 		// A built-in element's class is ashui.ui's, needing no import.
 		var builtIn = BUILT_IN_CLASSES.exists(tag) ? BUILT_IN_CLASSES.get(tag) : className(tag);
-		var type = try Context.getType(className(tag)) catch (_:Dynamic) try Context.getType("ashui.ui." + builtIn) catch (_:Dynamic)
+		var type = try Context.getType(className(tag)) catch (_:Dynamic) try
+			Context.getType("ashui.ui." + builtIn)
+		catch (_:Dynamic)
 			Context.error('hxx: unknown tag <$tag>', node.name.pos);
 		var cls = switch type {
 			case TInst(c, _): c.get();
@@ -596,10 +647,19 @@ class Hxx {
 
 	/** Handler attributes and the event each takes. **/
 	static final HANDLERS = [
-		"onClick" => "PointerEvent", "onPointerDown" => "PointerEvent", "onPointerUp" => "PointerEvent",
-		"onPointerMove" => "PointerEvent", "onPointerEnter" => "PointerEvent", "onPointerLeave" => "PointerEvent",
-		"onWheel" => "PointerEvent", "onKeyDown" => "KeyEvent", "onKeyUp" => "KeyEvent", "onTextInput" => "TextInputEvent",
-		"onFocus" => "FocusEvent", "onBlur" => "FocusEvent", "onComposition" => "CompositionEvent"
+		"onClick" => "PointerEvent",
+		"onPointerDown" => "PointerEvent",
+		"onPointerUp" => "PointerEvent",
+		"onPointerMove" => "PointerEvent",
+		"onPointerEnter" => "PointerEvent",
+		"onPointerLeave" => "PointerEvent",
+		"onWheel" => "PointerEvent",
+		"onKeyDown" => "KeyEvent",
+		"onKeyUp" => "KeyEvent",
+		"onTextInput" => "TextInputEvent",
+		"onFocus" => "FocusEvent",
+		"onBlur" => "FocusEvent",
+		"onComposition" => "CompositionEvent"
 	];
 
 	/**
@@ -713,10 +773,13 @@ class Hxx {
 		var found = false;
 		function visit(e:Expr)
 			switch e.expr {
-				case EConst(CIdent(name)) if (names.contains(name) && !shadowed.contains(name)): found = true;
-				case EField({expr: EConst(CIdent('this'))}, name) if (names.contains(name)): found = true;
+				case EConst(CIdent(name)) if (names.contains(name) && !shadowed.contains(name)):
+					found = true;
+				case EField({expr: EConst(CIdent('this'))}, name) if (names.contains(name)):
+					found = true;
 				case EFunction(_, _): // a nested function reads when it is called, not here
-				case _: e.iter(visit);
+				case _:
+					e.iter(visit);
 			}
 		visit(e);
 		return found;
@@ -726,9 +789,11 @@ class Hxx {
 		var found = false;
 		function visit(e:Expr)
 			switch e.expr {
-				case ECall({expr: EField(_, 'get')}, []): found = true;
+				case ECall({expr: EField(_, 'get')}, []):
+					found = true;
 				case EFunction(_, _): // a nested function reads when it is called, not here
-				case _: e.iter(visit);
+				case _:
+					e.iter(visit);
 			}
 		visit(e);
 		return found;
@@ -737,9 +802,8 @@ class Hxx {
 	static function isReactive(type:Type):Bool {
 		return switch type {
 			case TAbstract(_.get() => {pack: ['ashui', 'reactive'], name: 'Signal' | 'Computed'}, _): true;
-			case TInst(_, _):
-				Context.unify(type, (macro :ashui.reactive.ISignal<Dynamic>).toType())
-				|| Context.unify(type, (macro :ashui.reactive.IComputed<Dynamic>).toType());
+			case TInst(_, _): Context.unify(type,
+					(macro :ashui.reactive.ISignal<Dynamic>).toType()) || Context.unify(type, (macro :ashui.reactive.IComputed<Dynamic>).toType());
 			case TType(_, _) | TLazy(_): isReactive(Context.follow(type, true));
 			case _: false;
 		}

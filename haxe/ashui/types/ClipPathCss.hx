@@ -71,8 +71,7 @@ class ClipPathCss {
 				var polygon = Polygon([
 					for (p in items) {
 						var xy = words(p);
-						if (xy.length != 2)
-							throw 'a polygon point is two lengths, not "$p"';
+						if (xy.length != 2) throw 'a polygon point is two lengths, not "$p"';
 						{x: length(xy[0]), y: length(xy[1])};
 					}
 				]);
@@ -157,12 +156,14 @@ class ClipPathCss {
 		}
 		return switch w.length {
 			case 0: {x: Percent(50), y: Percent(50)};
-			case 1:
-				// One word: a vertical keyword sets y, anything else x.
+			case 1: // One word: a vertical keyword sets y, anything else x.
 				w[0] == "top" || w[0] == "bottom" ? {x: Percent(50), y: one(w[0], true)} : {x: one(w[0], false), y: Percent(50)};
 			case 2:
 				// Keywords may come in either order: `top left` is `left top`.
-				w[0] == "top" || w[0] == "bottom" || w[1] == "left" || w[1] == "right" ? {x: one(w[1], false), y: one(w[0], true)} : {
+				w[0] == "top"
+				|| w[0] == "bottom"
+				|| w[1] == "left"
+				|| w[1] == "right" ? {x: one(w[1], false), y: one(w[0], true)} : {
 					x: one(w[0], false),
 					y: one(w[1], true)
 				};

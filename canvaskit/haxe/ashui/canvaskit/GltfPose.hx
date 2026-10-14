@@ -245,8 +245,10 @@ class GltfPose {
 		#if (ash_simd && hl)
 		if (simd) {
 			var pa:hl.Bytes = a, pb:hl.Bytes = b, po:hl.Bytes = out;
-			var c0 = ash.simd.Float32x4.load(pa, ai), c1 = ash.simd.Float32x4.load(pa, ai + 16);
-			var c2 = ash.simd.Float32x4.load(pa, ai + 32), c3 = ash.simd.Float32x4.load(pa, ai + 48);
+			var c0 = ash.simd.Float32x4.load(pa, ai),
+				c1 = ash.simd.Float32x4.load(pa, ai + 16);
+			var c2 = ash.simd.Float32x4.load(pa, ai + 32),
+				c3 = ash.simd.Float32x4.load(pa, ai + 48);
 			// Each column of the product: `a`'s columns weighted by that column of `b`.
 			for (j in 0...4) {
 				var o = bi + j * 16;

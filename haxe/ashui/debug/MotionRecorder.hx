@@ -80,7 +80,14 @@ class MotionRecorder {
 		var frames = o.frames == null ? 60 : o.frames;
 		if (SceneWindow.wanted()) {
 			SceneWindow.open(name, width, height, build, o.before, fps, frames);
-			return {dir: "", frames: [], filmstrip: "", curves: null, report: 'motion $name opened in a window', trace: MotionTrace.start()};
+			return {
+				dir: "",
+				frames: [],
+				filmstrip: "",
+				curves: null,
+				report: 'motion $name opened in a window',
+				trace: MotionTrace.start()
+			};
 		}
 		var scale = o.scale == null ? 1.0 : o.scale;
 		var dir = haxe.io.Path.join([Snapshot.dir(), "motion", name]);
@@ -158,7 +165,8 @@ class MotionRecorder {
 				pngs.push(png);
 				times.push(MotionTrace.clock() - trace.started);
 				// Done once nothing has moved for three frames; a looping animation never stops, so it does not count.
-				var moving = Lambda.exists(trace.tracks, t -> t.running && !(t.kind == Keyframes && t.iterations == Math.POSITIVE_INFINITY));
+				var moving = Lambda.exists(trace.tracks, t -> t.running
+					&& !(t.kind == Keyframes && t.iterations == Math.POSITIVE_INFINITY));
 				quiet = moving ? 0 : quiet + 1;
 				if (i + 1 >= minFrames && quiet >= 3 && trace.tracks.length > 0)
 					break;
@@ -198,8 +206,9 @@ class MotionRecorder {
 		taken `times` seconds into it) and curves to `dir`, and the line in
 		`events.log` that says so.
 	**/
-	public static function write(name:String, dir:String, offscreen:Offscreen, trace:MotionTrace, pngs:Array<haxe.io.Bytes>, times:Array<Float>,
-			width:Int, height:Int, thumbs:Int):{report:String, filmstrip:String, curves:Null<String>} {
+	public static function write(name:String, dir:String, offscreen:Offscreen, trace:MotionTrace, pngs:Array<haxe.io.Bytes>, times:Array<Float>, width:Int,
+			height:Int, thumbs:Int):{report:String, filmstrip:String, curves:Null<String>
+	} {
 		var report = MotionCheck.report(trace);
 		sys.io.File.saveContent(haxe.io.Path.join([dir, "report.txt"]), report);
 		sys.io.File.saveContent(haxe.io.Path.join([dir, "frames.json"]), haxe.Json.stringify({width: width, height: height, times: times}));
@@ -240,7 +249,12 @@ class MotionRecorder {
 	/** A UI built in a tree of its own, drawn at `width` × `height` on a dark page, saved as PNG at `path`. **/
 	static function sheet(offscreen:Offscreen, width:Int, height:Int, build:LayoutTree->Element, path:String):String {
 		var tree = new LayoutTree();
-		var saved = {clear: offscreen.clear, alpha: offscreen.clearAlpha, scale: offscreen.scale, overlays: offscreen.overlays.copy()};
+		var saved = {
+			clear: offscreen.clear,
+			alpha: offscreen.clearAlpha,
+			scale: offscreen.scale,
+			overlays: offscreen.overlays.copy()
+		};
 		offscreen.clear = 0x11131a;
 		offscreen.clearAlpha = 1;
 		offscreen.scale = 1;
@@ -272,9 +286,11 @@ class MotionRecorder {
 		}
 		var columns = Std.int(Math.min(3, picks.length));
 		var rows = Math.ceil(picks.length / Math.max(columns, 1));
-		var thumbWidth = Math.min(480.0, width * offscreen.scale), thumbHeight = thumbWidth * height / width;
+		var thumbWidth = Math.min(480.0, width * offscreen.scale),
+			thumbHeight = thumbWidth * height / width;
 		var gap = 10.0, caption = 16.0;
-		var sheetWidth = Math.ceil(columns * (thumbWidth + gap) + gap), sheetHeight = Math.ceil(rows * (thumbHeight + caption + gap) + gap);
+		var sheetWidth = Math.ceil(columns * (thumbWidth + gap) + gap),
+			sheetHeight = Math.ceil(rows * (thumbHeight + caption + gap) + gap);
 		return sheet(offscreen, sheetWidth, sheetHeight, tree -> {
 			var cells:Array<Element> = [];
 			for (k in 0...picks.length) {
@@ -298,7 +314,8 @@ class MotionRecorder {
 		var w = 320.0, h = 200.0, gap = 10.0;
 		var columns = Std.int(Math.min(3, trace.tracks.length));
 		var rows = Math.ceil(trace.tracks.length / columns);
-		var sheetWidth = Math.ceil(columns * (w + gap) + gap), sheetHeight = Math.ceil(rows * (h + gap) + gap);
+		var sheetWidth = Math.ceil(columns * (w + gap) + gap),
+			sheetHeight = Math.ceil(rows * (h + gap) + gap);
 		return sheet(offscreen, sheetWidth, sheetHeight, tree -> {
 			var out:Array<Element> = [];
 			for (k in 0...trace.tracks.length)

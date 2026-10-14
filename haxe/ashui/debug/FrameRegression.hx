@@ -7,11 +7,20 @@ import haxe.io.Bytes;
 typedef FrameDifference = {
 	/** Pixels whose colour moved by more than the tolerance on any channel. **/
 	changed:Int,
+
 	total:Int,
+
 	/** The largest change on any channel of any pixel, 0 to 255. **/
 	maxDelta:Int,
+
 	/** The box around every changed pixel; null when none changed. **/
-	box:Null<{x:Int, y:Int, w:Int, h:Int}>,
+	box:Null<{
+		x:Int,
+		y:Int,
+		w:Int,
+		h:Int
+	}>,
+
 	/** Whether the two are of different sizes, which is a change in itself. **/
 	resized:Bool
 }
@@ -19,14 +28,19 @@ typedef FrameDifference = {
 /** A recording against its baseline: each frame's difference, and what the baseline has that it does not. **/
 typedef RegressionResult = {
 	name:String,
+
 	/** By frame, in order; null for a frame the baseline does not have. **/
 	frames:Array<Null<FrameDifference>>,
+
 	/** Frames the baseline has past the recording's last. **/
 	missing:Int,
+
 	/** Frames with any pixel changed. **/
 	failed:Int,
+
 	/** Where the report and diff images went. **/
 	dir:String,
+
 	/** Whether this run wrote the baseline rather than comparing with one. **/
 	recorded:Bool
 }
@@ -53,7 +67,18 @@ class FrameRegression {
 		if (x.width != y.width || x.height != y.height) {
 			var total = y.width * y.height;
 			return {
-				difference: {changed: total, total: total, maxDelta: 255, box: {x: 0, y: 0, w: y.width, h: y.height}, resized: true},
+				difference: {
+					changed: total,
+					total: total,
+					maxDelta: 255,
+					box: {
+						x: 0,
+						y: 0,
+						w: y.width,
+						h: y.height
+					},
+					resized: true
+				},
 				diff: null
 			};
 		}
@@ -102,7 +127,12 @@ class FrameRegression {
 				changed: changed,
 				total: w * h,
 				maxDelta: maxDelta,
-				box: changed == 0 ? null : {x: left, y: top, w: right - left + 1, h: bottom - top + 1},
+				box: changed == 0 ? null : {
+					x: left,
+					y: top,
+					w: right - left + 1,
+					h: bottom - top + 1
+				},
 				resized: false
 			},
 			diff: changed == 0 ? null : Png.encode(w, h, out)
@@ -162,8 +192,10 @@ class FrameRegression {
 	/** A result as text: a summary line, then a line per frame that changed or that the baseline lacks. **/
 	public static function report(r:RegressionResult):String {
 		var extra = [for (f in r.frames) if (f == null) f].length;
-		var out = ['regression ${r.name}: ${r.failed} of ${r.frames.length} frames changed'
-			+ (extra > 0 ? ', $extra new' : "") + (r.missing > 0 ? ', ${r.missing} missing' : "")];
+		var out = [
+			'regression ${r.name}: ${r.failed} of ${r.frames.length} frames changed' + (extra > 0 ? ', $extra new' : "") +
+			(r.missing > 0 ? ', ${r.missing} missing' : "")
+		];
 		for (i => f in r.frames) {
 			if (f == null)
 				out.push('frame ${pad(i)}: not in the baseline');

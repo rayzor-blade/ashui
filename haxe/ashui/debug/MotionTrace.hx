@@ -28,11 +28,15 @@ class MotionTrace {
 	public static var current(default, null):Null<MotionTrace> = null;
 
 	public final tracks:Array<MotionTrack> = [];
+
 	/** The scheduler's clock when it started. **/
 	public final started:Float;
+
 	public var stopped(default, null):Null<Float> = null;
+
 	/** Whether `observe` has been called: only then do missing drawn rects mean anything. **/
 	public var observed(default, null) = false;
+
 	var nextId = 1;
 
 	function new() {
@@ -76,8 +80,8 @@ class MotionTrace {
 			return null;
 		var name = label != null ? label : describe(tree, node);
 		var now = clock();
-		var track = new MotionTrack(trace.nextId++, kind, tree, node, name, property, from, to, delay, duration, easing, curveText(easing, spring),
-			spring, now);
+		var track = new MotionTrack(trace.nextId++, kind, tree, node, name, property, from, to, delay, duration, easing, curveText(easing, spring), spring,
+			now);
 		var key = track.key();
 		// A move retargeted the instant it began never ran: it is replaced, as a frame's style changes are one change.
 		for (t in trace.tracks.copy())
@@ -126,7 +130,13 @@ class MotionTrace {
 					h = s.h;
 				}
 			}
-			t.rects.push({clock: now, x: x, y: y, w: w, h: h});
+			t.rects.push({
+				clock: now,
+				x: x,
+				y: y,
+				w: w,
+				h: h
+			});
 		}
 	}
 

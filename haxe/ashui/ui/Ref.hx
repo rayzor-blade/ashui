@@ -8,9 +8,9 @@ import ashui.reactive.Signal;
 	A name for an element a template builds, so code can reach it without
 	the template being broken up:
 
-	    var panel = new Ref<Div>();
-	    hxx('<div ref={panel} class="rounded-3xl">...</div>');
-	    panel.get().node.set(Prop.Opacity, 0.5);
+		var panel = new Ref<Div>();
+		hxx('<div ref={panel} class="rounded-3xl">...</div>');
+		panel.get().node.set(Prop.Opacity, 0.5);
 
 	`ref={x}` takes a `Ref` of the element's own type: a `Ref<Div>` on a
 	`<div>`, a `Ref<Card>` on a `<card>`; another is a compile error. It is

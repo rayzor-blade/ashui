@@ -57,31 +57,46 @@ typedef MotionRect = {
 class MotionTrack {
 	public final id:Int;
 	public final kind:MotionKind;
+
 	/** The tree and node it moves, when it moves one. **/
 	public final tree:Null<ashui.layout.LayoutTree>;
+
 	public final node:Null<haxe.Int64>;
+
 	/** The element as a selector, `button.ui-button#save`, or what moves when no element does. **/
 	public final label:String;
+
 	public final property:String;
 	public final from:String;
 	public final to:String;
+
 	/** Seconds, as declared. **/
 	public final delay:Float;
+
 	public final duration:Float;
+
 	/** The curve, when the track has one; its CSS text for the report. **/
 	public final easing:Null<Easing>;
+
 	public final curve:String;
+
 	/** A spring's constants, for a spring track. **/
 	public final spring:Null<ashui.animation.SpringConfig>;
+
 	/** A keyframes run's iterations and direction, as CSS's `animation-iteration-count` and `animation-direction`. **/
 	public var iterations = 1.0;
+
 	public var direction = "normal";
+
 	/** A keyframes run's keyframes, for its first property: each one's offset and the curve to the next. **/
 	public var keyframes:Null<Array<{offset:Float, easing:Easing}>> = null;
+
 	/** A spring's speed when released, in moves per second. **/
 	public var v0 = 0.0;
+
 	/** The scheduler's clock when it was asked to start. **/
 	public final began:Float;
+
 	public var ended(default, null):Null<Float> = null;
 	public var end(default, null):MotionEnd = Running;
 	public final samples:Array<MotionSample> = [];
@@ -112,7 +127,12 @@ class MotionTrack {
 		return end == Running;
 
 	/** Records a frame at the scheduler's clock. **/
-	public function sample(progress:Float, local:Float, ?value:String, ?visual:{dx:Float, dy:Float, w:Float, h:Float}, ?eased:Float):Void {
+	public function sample(progress:Float, local:Float, ?value:String, ?visual:{
+		dx:Float,
+		dy:Float,
+		w:Float,
+		h:Float
+	}, ?eased:Float):Void {
 		if (end != Running)
 			return;
 		var s:MotionSample = {clock: MotionTrace.clock(), progress: progress, local: local};

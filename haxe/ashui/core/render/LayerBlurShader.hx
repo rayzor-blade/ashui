@@ -10,17 +10,13 @@ package ashui.core.render;
 class LayerBlurShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		@param var layer : Sampler2D;
-
-		var output : { position : Vec4, color : Vec4 };
-
+		@param var layer:Sampler2D;
+		var output:{position:Vec4, color:Vec4};
 		function vertex() {
 			var b = primitive.bounds;
 			var pixel = placed(b.xy, primitive.affine, quadCorner(vertexID) * b.zw);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
 		function fragment() {
 			var size = textureSize(layer);
 			var sigma = max(primitive.color.x, 0.0001);

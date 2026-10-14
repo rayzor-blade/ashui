@@ -27,5 +27,8 @@ enum abstract SpacingToken(String) {
 	var Space28 = "space28";
 	var Space32 = "space32";
 
-	public static final ALL:Array<SpacingToken> = [Space0, Space0_5, Space1, Space1_5, Space2, Space2_5, Space3, Space3_5, Space4, Space5, Space6, Space7, Space8, Space9, Space10, Space11, Space12, Space14, Space16, Space20, Space24, Space28, Space32];
+	public static final ALL:Array<SpacingToken> = [
+		Space0, Space0_5, Space1, Space1_5, Space2, Space2_5, Space3, Space3_5, Space4, Space5, Space6, Space7, Space8, Space9, Space10, Space11, Space12,
+		Space14, Space16, Space20, Space24, Space28, Space32
+	];
 }

@@ -57,8 +57,8 @@ class CanvasFrame {
 	final target:gpu.GpuTextureView;
 
 	@:allow(ashui.core.render.Renderer)
-	function new(renderer:Renderer, device:GpuDevice, encoder:GpuEncoder, format:TextureFormat, record:Int, width:Float, height:Float,
-			transform:Affine, scale:Float, pixelRatio:Float, scissor:Array<Int>, target:gpu.GpuTextureView) {
+	function new(renderer:Renderer, device:GpuDevice, encoder:GpuEncoder, format:TextureFormat, record:Int, width:Float, height:Float, transform:Affine,
+			scale:Float, pixelRatio:Float, scissor:Array<Int>, target:gpu.GpuTextureView) {
 		this.renderer = renderer;
 		this.target = target;
 		this.device = device;

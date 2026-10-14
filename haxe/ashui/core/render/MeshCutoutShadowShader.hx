@@ -10,25 +10,20 @@ class MeshCutoutShadowShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.MeshDraw;
-
-		@input var input : { position : Vec3, uv : Vec2 };
-		var output : { position : Vec4, color : Vec4 };
-
-		@param var baseColorMap : Sampler2D;
-		@param var scene : StorageBuffer<Vec4>;
-		@param var draws : StorageBuffer<Vec4>;
-
-		var clip : Vec4;
-		var texcoord : Vec2;
-		var drawIndex : Int;
-
+		@input var input:{position:Vec3, uv:Vec2};
+		var output:{position:Vec4, color:Vec4};
+		@param var baseColorMap:Sampler2D;
+		@param var scene:StorageBuffer<Vec4>;
+		@param var draws:StorageBuffer<Vec4>;
+		var clip:Vec4;
+		var texcoord:Vec2;
+		var drawIndex:Int;
 		function vertex() {
 			clip = worldToShadow(modelToWorld(instanceID, vec4(input.position, 1.)));
 			texcoord = drawTexcoord(instanceID, input.uv);
 			drawIndex = instanceID;
 			output.position = clip;
 		}
-
 		function fragment() {
 			var alpha = texture(baseColorMap, texcoord).a * drawBaseColor(drawIndex).a;
 			var mode = drawFlags(drawIndex).z;

@@ -24,6 +24,7 @@ typedef LiProps = {
 class Li extends Component<LiProps> {
 	static final byNode = new Map<String, Li>();
 	static var hooked = false;
+
 	var ordinal = 1;
 	var defaultStyle:Null<String> = null;
 
@@ -37,7 +38,8 @@ class Li extends Component<LiProps> {
 	@:noCompletion public static function cssType(value:String):String {
 		var key = StringTools.trim(value).toLowerCase();
 		return switch key {
-			case "none" | "disc" | "circle" | "square" | "decimal" | "decimal-leading-zero" | "lower-alpha" | "upper-alpha" | "lower-latin" | "upper-latin" | "lower-roman" | "upper-roman": key;
+			case "none" | "disc" | "circle" | "square" | "decimal" | "decimal-leading-zero" | "lower-alpha" | "upper-alpha" | "lower-latin" | "upper-latin" |
+				"lower-roman" | "upper-roman": key;
 			case _: throw "list-style-type supports none, disc, circle, square, decimal, decimal-leading-zero, alpha, latin or roman keywords";
 		};
 	}
@@ -50,7 +52,8 @@ class Li extends Component<LiProps> {
 	}
 
 	function restyle():Void {
-		if (defaultStyle == null) return;
+		if (defaultStyle == null)
+			return;
 		var identity = ashui.css.Identity.of(tree, node.id);
 		var value = identity == null ? null : ashui.css.Css.resolved(identity, "list-style-type");
 		var style = value == null ? defaultStyle : try cssType(value) catch (_:String) defaultStyle;
@@ -78,11 +81,13 @@ class Li extends Component<LiProps> {
 	}
 
 	static function hook():Void {
-		if (hooked) return;
+		if (hooked)
+			return;
 		hooked = true;
 		ashui.css.Css.restyled.push(identity -> {
 			var li = at(identity.node.id);
-			if (li != null) li.restyle();
+			if (li != null)
+				li.restyle();
 		});
 		ashui.css.Identity.forgetHooks.push(identity -> byNode.remove(haxe.Int64.toStr(identity.node.id)));
 	}
@@ -91,10 +96,8 @@ class Li extends Component<LiProps> {
 		hook();
 		var content = new Div({classes: ["content"]}, children);
 		var box = new Div({tag: "li", id: props.id}, [
-			new Div({classes: Computed.make(() -> bullet.get() == "" ? ["marker"] : ["marker", bullet.get()])}, [
-				new Text(marker, {wrap: false}),
-				new Div({classes: ["bullet"]})
-			]),
+			new Div({classes: Computed.make(() -> bullet.get() == "" ? ["marker"] : ["marker", bullet.get()])},
+				[new Text(marker, {wrap: false}), new Div({classes: ["bullet"]})]),
 			content
 		]);
 		// Its text and inline elements flow as one paragraph; a list in it takes a line of its own.

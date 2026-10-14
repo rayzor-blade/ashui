@@ -26,16 +26,13 @@ package ashui.core.render;
 class LayerShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		@param var layer : Sampler2D;
-		@param var shadow : Sampler2D;
-
-		var output : { position : Vec4, color : Vec4 };
+		@param var layer:Sampler2D;
+		@param var shadow:Sampler2D;
+		var output:{position:Vec4, color:Vec4};
 		/** Where the fragment is in layout units, as the record's clip rows are. **/
-		var pixel : Vec2;
-
+		var pixel:Vec2;
 		/** The mask's alpha at target pixel `pixel`; 1 without a mask. **/
-		function maskAlpha(pixel : Vec2) : Float {
+		function maskAlpha(pixel:Vec2):Float {
 			var kind = primitive.borderTop.x;
 			var alpha = 1.;
 			if (kind > 0.5) {
@@ -66,13 +63,11 @@ class LayerShader implements UiShader {
 			}
 			return alpha;
 		}
-
 		function vertex() {
 			var b = primitive.bounds;
 			pixel = placed(b.xy, primitive.affine, quadCorner(vertexID) * b.zw);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
 		function fragment() {
 			// The layer is the target's size, so the fragment's position is its texel.
 			var x = int(fragCoord.x);

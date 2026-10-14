@@ -44,7 +44,8 @@ class VolumeControl extends Component<VolumeControlProps> {
 			</popover-content>
 		</popover>;
 		identity(mute.get()).bindAttribute("aria-label", Computed.make(() -> player.muted.get() ? "Unmute" : "Mute"));
-		identity(trigger.get()).bindAttribute("aria-label", Computed.make(() -> player.muted.get() ? "Volume: muted" : "Volume: " + Math.round(player.volume.get() * 100) + "%"));
+		identity(trigger.get()).bindAttribute("aria-label",
+			Computed.make(() -> player.muted.get() ? "Volume: muted" : "Volume: " + Math.round(player.volume.get() * 100) + "%"));
 		return root;
 	}
 

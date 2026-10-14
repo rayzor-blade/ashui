@@ -32,6 +32,7 @@ abstract class Component<Props> extends Element {
 
 	/** The props it was built with. **/
 	public final props:Props;
+
 	final children:Array<Element>;
 	final parentOwner:Null<Owner>;
 	var owner:Owner;

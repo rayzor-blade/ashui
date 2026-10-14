@@ -9,3 +9,5 @@ debugger/bin/
 /native/*/
 /release/
 __pycache__/
+
+.claude/

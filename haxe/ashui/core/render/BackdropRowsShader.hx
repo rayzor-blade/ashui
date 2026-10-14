@@ -9,11 +9,8 @@ package ashui.core.render;
 class BackdropRowsShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		@param var layer : Sampler2D;
-
-		var output : { position : Vec4, color : Vec4 };
-
+		@param var layer:Sampler2D;
+		var output:{position:Vec4, color:Vec4};
 		function vertex() {
 			var b = primitive.bounds;
 			var m = primitive.affine;
@@ -26,7 +23,6 @@ class BackdropRowsShader implements UiShader {
 			var hi = max(max(c0, c1), max(c2, c3)) + vec2(primitive.color.y, primitive.color.y);
 			output.position = pixelToClip(mix(lo, hi, quadCorner(vertexID)), viewport);
 		}
-
 		function fragment() {
 			var size = textureSize(layer);
 			var sigma = max(primitive.color.x, 0.0001);

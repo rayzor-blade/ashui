@@ -69,22 +69,29 @@ extern class BlincNative {
 	// --- Any type: `touch` reads it, so the computed or effect running depends on it ---
 	static function blinc_signal_touch(sig:hl.Abstract<"blinc_signal">):Void;
 	static function blinc_computed_touch(comp:hl.Abstract<"blinc_computed">):Void;
+
 	/** Queues the computed for release at the next flush, before its handle is collected. **/
 	static function blinc_computed_release(comp:hl.Abstract<"blinc_computed">):Void;
 
 	// --- Effects: `run` runs now and again whenever a signal or computed it read changes ---
 	static function blinc_effect(run:Void->Void):hl.Abstract<"blinc_effect">;
+
 	/** Stops the effect; it is removed at the next flush. **/
 	static function blinc_effect_release(effect:hl.Abstract<"blinc_effect">):Void;
 
 	// --- Host-run effects: Haxe runs the body, and what it reads between begin and end is what it depends on ---
+
 	/** A new host effect's slot; it starts due, and its first run is the caller's. **/
 	static function blinc_host_effect_new():Int;
+
 	/** Writes up to `capacity` due slots into `out`, as 32-bit ints; how many. **/
 	static function blinc_host_effects_due(out:hl.Bytes, capacity:Int):Int;
+
 	static function blinc_host_effect_begin(slot:Int):Bool;
+
 	/** Ends the body and applies the signal writes it made; called on every way out of it. **/
 	static function blinc_host_effect_end(slot:Int):Void;
+
 	/** Stops the effect; the slot may name another, and it is removed from the graph at the next flush. **/
 	static function blinc_host_effect_release(slot:Int):Void;
 
@@ -135,10 +142,12 @@ extern class BlincNative {
 
 	/** A polygon clip path, `count` points of x and y in `values`, each a percentage where its byte in `percent` is 1; a path's are pixels, rings apart by a 1e30 point. **/
 	static function blinc_clip_polygon(values:hl.Bytes, percent:hl.Bytes, count:Int, path:Bool):hl.Abstract<"blinc_value">;
+
 	/** A clip-path value filling by the even-odd rule, from a polygon or path one; null for another shape. **/
 	static function blinc_clip_even_odd(clip:hl.Abstract<"blinc_value">):hl.Abstract<"blinc_value">;
-	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int,
-		alpha:Single, inset:Bool):Void;
+
+	static function blinc_shadow_push(shadow:hl.Abstract<"blinc_value">, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single,
+		inset:Bool):Void;
 
 	/**
 		A text decoration: `lines` is `UNDERLINE` (1), `OVERLINE` (2) and

@@ -105,7 +105,10 @@ class Viewport2D {
 			return;
 		}
 		var run = moving;
-		var fromX = panX.get(), fromY = panY.get(), fromZoom = Math.log(zoom.get()), endZoom = Math.log(toZoom);
+		var fromX = panX.get(),
+			fromY = panY.get(),
+			fromZoom = Math.log(zoom.get()),
+			endZoom = Math.log(toZoom);
 		var t = 0.0;
 		ashui.animation.AnimationScheduler.main.addTicker(dt -> {
 			if (run != moving)

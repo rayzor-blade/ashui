@@ -53,8 +53,8 @@ class Keyframes {
 		loop(1, t -> {
 			var bounds = node.tree != null ? node.tree.getBounds(node) : null;
 			var rise = bounds != null ? bounds.height * 0.25 : 0;
-			var y = t < 0.5 ? -rise * (1 - EasingTools.evaluate(CubicBezier(0.8, 0, 1, 1), t * 2)) : -rise * EasingTools.evaluate(CubicBezier(0, 0, 0.2,
-				1), (t - 0.5) * 2);
+			var y = t < 0.5 ? -rise * (1 - EasingTools.evaluate(CubicBezier(0.8, 0, 1, 1), t * 2)) :
+				-rise * EasingTools.evaluate(CubicBezier(0, 0, 0.2, 1), (t - 0.5) * 2);
 			out.set(Transform.translation(0, y));
 		});
 		return out;

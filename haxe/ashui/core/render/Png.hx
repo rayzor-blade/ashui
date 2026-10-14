@@ -101,7 +101,9 @@ class Png {
 
 	static inline function paeth(a:Int, b:Int, c:Int):Int {
 		var p = a + b - c;
-		var pa = Std.int(Math.abs(p - a)), pb = Std.int(Math.abs(p - b)), pc = Std.int(Math.abs(p - c));
+		var pa = Std.int(Math.abs(p - a)),
+			pb = Std.int(Math.abs(p - b)),
+			pc = Std.int(Math.abs(p - c));
 		return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 	}
 

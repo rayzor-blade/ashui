@@ -6,17 +6,23 @@ import ashui.layout.LayoutTree;
 typedef ElementShot = {
 	/** Its node id, as text. **/
 	id:String,
+
 	parent:Null<String>,
+
 	/** Its selector, `button.primary#save`. **/
 	label:String,
+
 	/** Its absolute box; `laidOut` false and zeros before layout. **/
 	x:Float,
+
 	y:Float,
 	w:Float,
 	h:Float,
 	laidOut:Bool,
+
 	/** Its computed CSS values with their `var()`s replaced, inherited ones and custom properties included. **/
 	style:Map<String, String>,
+
 	/** Its interaction states that hold: `hover`, `active`, `focus`, `focus-visible`, `disabled`. **/
 	states:Array<String>
 }
@@ -27,8 +33,10 @@ typedef ElementChange = {
 	label:String,
 	/** Its box before and after, when it moved or resized. **/
 	?box:{from:String, to:String},
+
 	/** Each property whose computed value changed: null where it had none. **/
 	style:Array<{name:String, from:Null<String>, to:Null<String>}>,
+
 	?states:{from:Array<String>, to:Array<String>}
 }
 
@@ -187,7 +195,9 @@ class TreeSnapshot {
 		var identity = ashui.css.Identity.of(tree, haxe.Int64.parseString(id));
 		if (identity == null)
 			return null;
-		return [for (o in ashui.css.Css.explain(identity)) if (o.wins) o.name => ashui.css.Css.where(o)];
+		return [
+			for (o in ashui.css.Css.explain(identity)) if (o.wins) o.name => ashui.css.Css.where(o)
+		];
 	}
 
 	/** The snapshot as JSON, for a debugger or a script to read. **/

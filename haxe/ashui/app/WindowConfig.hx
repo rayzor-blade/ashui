@@ -65,11 +65,11 @@ typedef WindowConfigData = {
 	How `WindowedApp.run` opens its window, written either way: as an
 	object,
 
-	    WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
+		WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
 
 	or built, each setter named as its field and returning the config:
 
-	    WindowedApp.run(new WindowConfig().title("ashui").size(640, 480).transparent(true), page);
+		WindowedApp.run(new WindowConfig().title("ashui").size(640, 480).transparent(true), page);
 
 	An object given where a config is wanted is the config itself, so the
 	builder carries on from one: `({title: "ashui"} : WindowConfig).size(640, 480)`.
@@ -238,30 +238,54 @@ abstract WindowConfig(WindowConfigData) from WindowConfigData to WindowConfigDat
 		a.width(c.width != null ? c.width : 800);
 		a.height(c.height != null ? c.height : 600);
 		a.resizable(c.resizable != false);
-		if (c.minWidth != null) a.minWidth(c.minWidth);
-		if (c.minHeight != null) a.minHeight(c.minHeight);
-		if (c.maxWidth != null) a.maxWidth(c.maxWidth);
-		if (c.maxHeight != null) a.maxHeight(c.maxHeight);
-		if (c.x != null) a.x(c.x);
-		if (c.y != null) a.y(c.y);
-		if (c.resizeIncrementWidth != null) a.resizeIncrementWidth(c.resizeIncrementWidth);
-		if (c.resizeIncrementHeight != null) a.resizeIncrementHeight(c.resizeIncrementHeight);
-		if (c.maximized != null) a.maximized(c.maximized);
-		if (c.fullscreen != null) a.fullscreen(c.fullscreen);
-		if (c.visible != null) a.visible(c.visible);
-		if (c.active != null) a.active(c.active);
-		if (c.decorations != null) a.decorations(c.decorations);
-		if (c.closeButton != null) a.closeButton(c.closeButton);
-		if (c.minimizeButton != null) a.minimizeButton(c.minimizeButton);
-		if (c.maximizeButton != null) a.maximizeButton(c.maximizeButton);
-		if (c.transparent != null) a.transparent(c.transparent);
-		if (c.blur != null) a.blur(c.blur);
-		if (c.blurRadius != null) a.blurRadius(c.blurRadius);
-		if (c.shadow != null) a.hasShadow(c.shadow);
-		if (c.contentProtected != null) a.contentProtected(c.contentProtected);
-		if (c.level != null) a.windowLevel(c.level);
-		if (c.appearance != null) a.theme(c.appearance);
-		if (c.scaleSizing != null) a.scaleSizing(c.scaleSizing);
+		if (c.minWidth != null)
+			a.minWidth(c.minWidth);
+		if (c.minHeight != null)
+			a.minHeight(c.minHeight);
+		if (c.maxWidth != null)
+			a.maxWidth(c.maxWidth);
+		if (c.maxHeight != null)
+			a.maxHeight(c.maxHeight);
+		if (c.x != null)
+			a.x(c.x);
+		if (c.y != null)
+			a.y(c.y);
+		if (c.resizeIncrementWidth != null)
+			a.resizeIncrementWidth(c.resizeIncrementWidth);
+		if (c.resizeIncrementHeight != null)
+			a.resizeIncrementHeight(c.resizeIncrementHeight);
+		if (c.maximized != null)
+			a.maximized(c.maximized);
+		if (c.fullscreen != null)
+			a.fullscreen(c.fullscreen);
+		if (c.visible != null)
+			a.visible(c.visible);
+		if (c.active != null)
+			a.active(c.active);
+		if (c.decorations != null)
+			a.decorations(c.decorations);
+		if (c.closeButton != null)
+			a.closeButton(c.closeButton);
+		if (c.minimizeButton != null)
+			a.minimizeButton(c.minimizeButton);
+		if (c.maximizeButton != null)
+			a.maximizeButton(c.maximizeButton);
+		if (c.transparent != null)
+			a.transparent(c.transparent);
+		if (c.blur != null)
+			a.blur(c.blur);
+		if (c.blurRadius != null)
+			a.blurRadius(c.blurRadius);
+		if (c.shadow != null)
+			a.hasShadow(c.shadow);
+		if (c.contentProtected != null)
+			a.contentProtected(c.contentProtected);
+		if (c.level != null)
+			a.windowLevel(c.level);
+		if (c.appearance != null)
+			a.theme(c.appearance);
+		if (c.scaleSizing != null)
+			a.scaleSizing(c.scaleSizing);
 		if (c.icon != null) {
 			a.icon(c.icon.pixels);
 			a.iconWidth(c.icon.width);

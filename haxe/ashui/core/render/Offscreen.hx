@@ -34,6 +34,7 @@ class Offscreen {
 
 	/** What each frame is cleared to before drawing: `clear` is RGB, `clearAlpha` 0 to 1. **/
 	public var clear = 0x000000;
+
 	public var clearAlpha = 0.0;
 
 	/**
@@ -45,15 +46,23 @@ class Offscreen {
 
 	/** The target texture's size in pixels, when it is not the size drawn at times `scale` rounded: a window's surface. **/
 	public var targetWidth:Null<Int> = null;
+
 	public var targetHeight:Null<Int> = null;
 
 	/** Seconds the last `render` spent flushing, laying out, building the display list and encoding the draw. **/
-	public var timings(default, null) = {flush: 0.0, layout: 0.0, list: 0.0, draw: 0.0};
+	public var timings(default, null) = {
+		flush: 0.0,
+		layout: 0.0,
+		list: 0.0,
+		draw: 0.0
+	};
 
 	/** Drawn over every frame, in order, after the UI: a debugger's overlays. **/
 	public final overlays:Array<FrameOverlay> = [];
+
 	/** Opt-in native hit-map debugger, enabled by `ASHUI_HIT_MAP=1`. **/
 	public final hitMap:Null<ashui.debug.HitOverlay> = ashui.debug.HitOverlay.fromEnvironment();
+
 	/** Opt-in element inspector, enabled by `ASHUI_INSPECT=1`. **/
 	public final inspector:Null<ashui.debug.InspectorOverlay> = ashui.debug.InspectorOverlay.fromEnvironment();
 
@@ -111,8 +120,8 @@ class Offscreen {
 		timings.list = t1 - t0;
 		var pixelWidth = targetWidth != null ? targetWidth : Math.round(width * scale);
 		var pixelHeight = targetHeight != null ? targetHeight : Math.round(height * scale);
-		renderer.draw(list, view, width, height, (clear >> 16 & 0xff) / 255, (clear >> 8 & 0xff) / 255, (clear & 0xff) / 255, clearAlpha,
-			pixelWidth, pixelHeight);
+		renderer.draw(list, view, width, height, (clear >> 16 & 0xff) / 255, (clear >> 8 & 0xff) / 255, (clear & 0xff) / 255, clearAlpha, pixelWidth,
+			pixelHeight);
 		for (overlay in overlays)
 			overlay.draw(tree, root, width, height, element -> {
 				element.tree.flush();
@@ -164,8 +173,7 @@ class Offscreen {
 		`render` does. Stepping a fixed `dt` gives the same frames each run,
 		for recording a UI to video or testing its motion frame by frame.
 	**/
-	public function renderAnimated(root:Element, view:GpuTextureView, width:Int, height:Int, dt:Float,
-			?scheduler:ashui.animation.AnimationScheduler):Void {
+	public function renderAnimated(root:Element, view:GpuTextureView, width:Int, height:Int, dt:Float, ?scheduler:ashui.animation.AnimationScheduler):Void {
 		advance(dt, scheduler);
 		render(root, view, width, height);
 	}

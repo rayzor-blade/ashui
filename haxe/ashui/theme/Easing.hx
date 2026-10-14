@@ -7,6 +7,7 @@ enum Easing {
 	EaseOut;
 	EaseInOut;
 	CubicBezier(x1:Float, y1:Float, x2:Float, y2:Float);
+
 	/** CSS's `steps()`: `count` equal jumps, the first at the start when `jumpStart`, else at the end of the first step. **/
 	Steps(count:Int, jumpStart:Bool);
 }

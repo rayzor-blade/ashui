@@ -21,7 +21,8 @@ class DeclaredCss {
 	public static function include(classes:Array<String>):Void {
 		for (name in classes) {
 			compiled.set(name, true);
-			if (cached != null) cached.set(name, true);
+			if (cached != null)
+				cached.set(name, true);
 		}
 	}
 

@@ -32,7 +32,7 @@ class Watch<T> {
 
 	final read:Void->T;
 	final react:T->Void;
-	final same:(T, T)->Bool;
+	final same:(T, T) -> Bool;
 	final slot:Int;
 	var latest:T;
 	var reacted:T;
@@ -44,7 +44,7 @@ class Watch<T> {
 		locked while it runs. `same` decides when a new value needs no
 		reaction; by default `==`.
 	**/
-	public function new(read:Void->T, react:T->Void, ?same:(T, T)->Bool) {
+	public function new(read:Void->T, react:T->Void, ?same:(T, T) -> Bool) {
 		this.read = read;
 		this.react = react;
 		this.same = same != null ? same : (a, b) -> a == b;

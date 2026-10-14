@@ -22,6 +22,7 @@ class Pointer {
 
 	/** Seconds and layout units within which presses count as one double- or triple-click. **/
 	static inline var MULTI_CLICK_TIME = 0.5;
+
 	static inline var MULTI_CLICK_SLOP = 4.0;
 	// Wheel mice have no phase boundaries. Expire their ownership lazily,
 	// without scheduling a timer or keeping an idle window awake (095fab4).
@@ -29,6 +30,7 @@ class Pointer {
 
 	/** Called after each move, press, release and leave in a tree, as pointer queries need. **/
 	public static final hooks:Array<LayoutTree->Void> = [];
+
 	static final EMPTY:Array<Hit> = [];
 
 	@:allow(ashui.input.Cursor)
@@ -44,9 +46,24 @@ class Pointer {
 	}
 
 	/** Where the pointer is over `tree`, whether it is over the window, and whether a button is down. **/
-	public static function at(tree:LayoutTree):{x:Float, y:Float, inside:Bool, pressed:Bool} {
+	public static function at(tree:LayoutTree):{
+		x:Float,
+		y:Float,
+		inside:Bool,
+		pressed:Bool
+	} {
 		var s = states.get(tree);
-		return s == null ? {x: 0, y: 0, inside: false, pressed: false} : {x: s.x, y: s.y, inside: s.inside, pressed: s.pressed};
+		return s == null ? {
+			x: 0,
+			y: 0,
+			inside: false,
+			pressed: false
+		} : {
+			x: s.x,
+			y: s.y,
+			inside: s.inside,
+			pressed: s.pressed
+			};
 	}
 
 	static inline function moved(tree:LayoutTree):Void
@@ -65,7 +82,8 @@ class Pointer {
 		if (ashui.debug.InputLog.current != null)
 			ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.Move(x, y, modifiers));
 		var s = state(tree);
-		if (s.wheelTail != null && (x != s.x || y != s.y)) s.wheelTail = null;
+		if (s.wheelTail != null && (x != s.x || y != s.y))
+			s.wheelTail = null;
 		var reuse = quiet(tree, s) && x >= s.left && y >= s.top && x < s.right && y < s.bottom;
 		s.x = x;
 		s.y = y;
@@ -169,23 +187,25 @@ class Pointer {
 	**/
 	public static function wheel(tree:LayoutTree, dx:Float, dy:Float, ?phase:window.TouchPhase):Void {
 		if (ashui.debug.InputLog.current != null)
-			ashui.debug.InputLog.note(tree, phase == null ? ashui.debug.InputLog.InputRecord.Wheel(dx, dy)
-				: ashui.debug.InputLog.InputRecord.WheelPhase(dx, dy, phase));
-		if (dx != 0 || dy != 0) refresh(tree);
+			ashui.debug.InputLog.note(tree,
+				phase == null ? ashui.debug.InputLog.InputRecord.Wheel(dx, dy) : ashui.debug.InputLog.InputRecord.WheelPhase(dx, dy, phase));
+		if (dx != 0 || dy != 0)
+			refresh(tree);
 		var s = state(tree);
 		var now = InputClock.now();
 		// winit reports macOS momentum as a second Started/Ended pair. A
 		// recent scroll at the same pointer position retains its owner;
 		// movement or the wheel gap allows a deliberate new target (095fab4).
-		var continuation = s.wheelOwner == null && s.wheelTail != null && now - s.lastWheelEnd <= WHEEL_GAP
-			&& phase != window.TouchPhase.Cancelled;
+		var continuation = s.wheelOwner == null && s.wheelTail != null && now - s.lastWheelEnd <= WHEEL_GAP && phase != window.TouchPhase.Cancelled;
 		if (phase == window.TouchPhase.Started || (!s.wheelPhased && now - s.lastWheel > WHEEL_GAP)) {
 			s.wheelOwner = null;
 			s.wheelSequence++;
 		}
-		if (continuation) s.wheelOwner = s.wheelTail;
+		if (continuation)
+			s.wheelOwner = s.wheelTail;
 		s.wheelTail = null;
-		if (phase == window.TouchPhase.Started) s.wheelPhased = true;
+		if (phase == window.TouchPhase.Started)
+			s.wheelPhased = true;
 		// Removed scroll containers must not keep a captured gesture alive.
 		if (s.wheelOwner != null && Interaction.byId(tree, s.wheelOwner.node.id) != s.wheelOwner) {
 			s.wheelOwner = null;
@@ -195,10 +215,18 @@ class Pointer {
 			var from = 0;
 			if (s.wheelOwner != null) {
 				from = -1;
-				for (index => hit in s.chain) if (hit.id == s.wheelOwner.node.id) { from = index; break; }
+				for (index => hit in s.chain)
+					if (hit.id == s.wheelOwner.node.id) {
+						from = index;
+						break;
+					}
 				// Ownership is scoped to its container. Leaving it starts a new
 				// target, with fresh local coordinates and no retained hit arrays.
-				if (from < 0) { s.wheelOwner = null; s.wheelSequence++; from = 0; }
+				if (from < 0) {
+					s.wheelOwner = null;
+					s.wheelSequence++;
+					from = 0;
+				}
 			}
 			bubble(tree, s, s.chain, from, "wheel", null, dx, dy);
 		}
@@ -220,7 +248,8 @@ class Pointer {
 			s.wheelOwner = null;
 			s.wheelPhased = false;
 		}
-		if (s != null && s.wheelTail != null && s.wheelTail.node.id == node.id) s.wheelTail = null;
+		if (s != null && s.wheelTail != null && s.wheelTail.node.id == node.id)
+			s.wheelTail = null;
 	}
 
 	/** The modifier keys now held, for the events that follow. **/
@@ -240,9 +269,19 @@ class Pointer {
 		return s.inside && !s.pressed && hooks.length == 0 && s.quiet && s.revision == tree.hitRevision;
 
 	/** A hit region in layout units where movement has no handler or hook to notify. **/
-	@:noCompletion public static function quietRegion(tree:LayoutTree):Null<{left:Float, top:Float, right:Float, bottom:Float}> {
+	@:noCompletion public static function quietRegion(tree:LayoutTree):Null<{
+		left:Float,
+		top:Float,
+		right:Float,
+		bottom:Float
+	}> {
 		var s = states.get(tree);
-		return s != null && quiet(tree, s) ? {left: s.left, top: s.top, right: s.right, bottom: s.bottom} : null;
+		return s != null && quiet(tree, s) ? {
+			left: s.left,
+			top: s.top,
+			right: s.right,
+			bottom: s.bottom
+		} : null;
 	}
 
 	static function hit(tree:LayoutTree, s:PointerState):Array<Hit> {
@@ -294,8 +333,7 @@ class Pointer {
 	}
 
 	/** Hands a `kind` event to the handlers along `chain` from `from` outward, until one stops it. **/
-	static function bubble(tree:LayoutTree, s:PointerState, chain:Array<Hit>, from:Int, kind:String, button:Null<MouseButton>, dx = 0.0,
-			dy = 0.0):Void {
+	static function bubble(tree:LayoutTree, s:PointerState, chain:Array<Hit>, from:Int, kind:String, button:Null<MouseButton>, dx = 0.0, dy = 0.0):Void {
 		var e:Null<PointerEvent> = null;
 		for (index in from...chain.length) {
 			var hit = chain[index];
@@ -304,8 +342,7 @@ class Pointer {
 				continue;
 			if (e == null) {
 				var target = Interaction.byId(tree, chain[from].id);
-				e = new PointerEvent(target != null ? target.node : i.node, s.x, s.y, button, s.modifiers, dx, dy,
-					kind == "wheel" ? s.wheelSequence : 0);
+				e = new PointerEvent(target != null ? target.node : i.node, s.x, s.y, button, s.modifiers, dx, dy, kind == "wheel" ? s.wheelSequence : 0);
 				if (button != null)
 					e.count(s.clicks);
 			}
@@ -358,8 +395,10 @@ private class PointerState {
 	public var chain:Array<Hit> = [];
 	public var pressChain:Array<Hit> = [];
 	public var modifiers:Modifiers = InputEvent.NO_MODIFIERS;
+
 	/** The last press's time and place, and how many presses in a row it made. **/
 	public var lastPress = -1.0;
+
 	public var lastX = 0.0;
 	public var lastY = 0.0;
 	public var clicks = 0;

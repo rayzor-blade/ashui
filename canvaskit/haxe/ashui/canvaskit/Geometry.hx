@@ -12,7 +12,10 @@ import ashui.math.Vec3;
 class Geometry {
 	/** A box `width` by `height` by `depth`, each face its own four vertices so its edges stay sharp. **/
 	public static function box(width = 1.0, height = 1.0, depth = 1.0, ?material:Material):MeshData {
-		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
+		var p:Array<Float> = [],
+			n:Array<Float> = [],
+			uv:Array<Float> = [],
+			idx:Array<Int> = [];
 		var half = new Vec3(width / 2, height / 2, depth / 2);
 		for (f in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
 			var normal = new Vec3(f[0], f[1], f[2]);
@@ -39,12 +42,17 @@ class Geometry {
 
 	/** A sphere of `radius`, in `rings` from pole to pole and `segments` round. **/
 	public static function sphere(radius = 0.5, rings = 32, segments = 48, ?material:Material):MeshData {
-		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
+		var p:Array<Float> = [],
+			n:Array<Float> = [],
+			uv:Array<Float> = [],
+			idx:Array<Int> = [];
 		for (r in 0...rings + 1) {
 			var phi = r / rings * Math.PI;
 			for (s in 0...segments + 1) {
 				var theta = s / segments * Math.PI * 2;
-				var x = -Math.cos(theta) * Math.sin(phi), y = Math.cos(phi), z = Math.sin(theta) * Math.sin(phi);
+				var x = -Math.cos(theta) * Math.sin(phi),
+					y = Math.cos(phi),
+					z = Math.sin(theta) * Math.sin(phi);
 				p.push(x * radius);
 				p.push(y * radius);
 				p.push(z * radius);
@@ -66,7 +74,10 @@ class Geometry {
 
 	/** A flat square `width` by `depth` on the ground, facing up, in `divisions` each way. **/
 	public static function plane(width = 1.0, depth = 1.0, divisions = 1, ?material:Material):MeshData {
-		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
+		var p:Array<Float> = [],
+			n:Array<Float> = [],
+			uv:Array<Float> = [],
+			idx:Array<Int> = [];
 		var d = Std.int(Math.max(1, divisions));
 		for (j in 0...d + 1)
 			for (i in 0...d + 1) {
@@ -97,8 +108,7 @@ class Geometry {
 		can repeat a texture over it. Use it with a terrain height map or a
 		material's displacement map.
 	**/
-	public static function terrain(heightMap:ashui.types.Bitmap, width = 10.0, depth = 10.0, height = 1.0, divisions = 256,
-			?material:Material):MeshData {
+	public static function terrain(heightMap:ashui.types.Bitmap, width = 10.0, depth = 10.0, height = 1.0, divisions = 256, ?material:Material):MeshData {
 		var d = Std.int(Math.max(1, divisions));
 		var px = heightMap.pixels(d + 1, d + 1);
 		if (px == null)
@@ -126,7 +136,10 @@ class Geometry {
 		var d = Std.int(Math.max(1, divisions)), w = d + 1, ring = d + 3;
 		// Heights from -1 to d + 1 each way: a ring past the edges.
 		var h = [for (j in -1...d + 2) for (i in -1...d + 2) heightAt(i, j)];
-		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
+		var p:Array<Float> = [],
+			n:Array<Float> = [],
+			uv:Array<Float> = [],
+			idx:Array<Int> = [];
 		var dx = width / d, dz = depth / d;
 		inline function at(i:Int, j:Int)
 			return h[(j + 1) * ring + i + 1];
@@ -136,7 +149,8 @@ class Geometry {
 				p.push(at(i, j));
 				p.push((j / d - 0.5) * depth);
 				// The slope each way, by the neighbours on either side; the normal leans away from it.
-				var sx = (at(i + 1, j) - at(i - 1, j)) / (2 * dx), sz = (at(i, j + 1) - at(i, j - 1)) / (2 * dz);
+				var sx = (at(i + 1, j) - at(i - 1, j)) / (2 * dx),
+					sz = (at(i, j + 1) - at(i, j - 1)) / (2 * dz);
 				var len = Math.sqrt(sx * sx + 1 + sz * sz);
 				n.push(-sx / len);
 				n.push(1 / len);
@@ -155,7 +169,10 @@ class Geometry {
 
 	/** An upright cylinder of `radius` and `height`, closed at both ends, in `segments` round. **/
 	public static function cylinder(radius = 0.5, height = 1.0, segments = 48, ?material:Material):MeshData {
-		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
+		var p:Array<Float> = [],
+			n:Array<Float> = [],
+			uv:Array<Float> = [],
+			idx:Array<Int> = [];
 		inline function vertex(x:Float, y:Float, z:Float, nx:Float, ny:Float, nz:Float, u:Float, v:Float) {
 			p.push(x);
 			p.push(y);
@@ -199,13 +216,18 @@ class Geometry {
 
 	/** A ring lying flat, `radius` to the middle of its tube and the tube `tube` thick, in `rings` round and `sides` round the tube. **/
 	public static function torus(radius = 0.5, tube = 0.2, rings = 48, sides = 24, ?material:Material):MeshData {
-		var p:Array<Float> = [], n:Array<Float> = [], uv:Array<Float> = [], idx:Array<Int> = [];
+		var p:Array<Float> = [],
+			n:Array<Float> = [],
+			uv:Array<Float> = [],
+			idx:Array<Int> = [];
 		for (r in 0...rings + 1) {
 			var u = r / rings * Math.PI * 2;
 			var cx = Math.sin(u), cz = Math.cos(u);
 			for (s in 0...sides + 1) {
 				var v = s / sides * Math.PI * 2;
-				var nx = cx * Math.cos(v), ny = Math.sin(v), nz = cz * Math.cos(v);
+				var nx = cx * Math.cos(v),
+					ny = Math.sin(v),
+					nz = cz * Math.cos(v);
 				p.push(cx * radius + nx * tube);
 				p.push(ny * tube);
 				p.push(cz * radius + nz * tube);

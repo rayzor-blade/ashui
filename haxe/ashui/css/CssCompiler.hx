@@ -110,8 +110,16 @@ class CssCompiler {
 		if (local.match(manifest)) {
 			var checkout = haxe.io.Path.join([root(), local.matched(1)]);
 			var code = Sys.command("cargo", [
-				"build", "--quiet", "--release", "--manifest-path", haxe.io.Path.join([checkout, "Cargo.toml"]), "--bin", "blinc-css",
-				"--no-default-features", "--features", "css-cli"
+				"build",
+				"--quiet",
+				"--release",
+				"--manifest-path",
+				haxe.io.Path.join([checkout, "Cargo.toml"]),
+				"--bin",
+				"blinc-css",
+				"--no-default-features",
+				"--features",
+				"css-cli"
 			]);
 			var built = haxe.io.Path.join([checkout, "target", "release", exe]);
 			if (code != 0 || !sys.FileSystem.exists(built))
@@ -126,8 +134,20 @@ class CssCompiler {
 		if (!sys.FileSystem.exists(built)) {
 			Sys.println('[ashui] building blinc-css ${pin.matched(2).substr(0, 7)}, once');
 			var code = Sys.command("cargo", [
-				"install", "--quiet", "--git", pin.matched(1), "--rev", pin.matched(2), "blinc_abi", "--bin", "blinc-css", "--no-default-features",
-				"--features", "css-cli", "--root", dir
+				"install",
+				"--quiet",
+				"--git",
+				pin.matched(1),
+				"--rev",
+				pin.matched(2),
+				"blinc_abi",
+				"--bin",
+				"blinc-css",
+				"--no-default-features",
+				"--features",
+				"css-cli",
+				"--root",
+				dir
 			]);
 			if (code != 0 || !sys.FileSystem.exists(built))
 				Context.fatalError("blinc-css: cargo install failed; set BLINC_CSS to the tool", Context.currentPos());

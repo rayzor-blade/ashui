@@ -28,8 +28,20 @@ class Quat {
 
 	/** This after `q`: `q`'s rotation first, then this one. **/
 	public inline function mul(q:Quat):Quat
-		return new Quat(w * q.x + x * q.w + y * q.z - z * q.y, w * q.y - x * q.z + y * q.w + z * q.x, w * q.z + x * q.y - y * q.x + z * q.w,
-			w * q.w - x * q.x - y * q.y - z * q.z);
+		return new Quat(w * q.x
+			+ x * q.w
+			+ y * q.z
+			- z * q.y, w * q.y
+			- x * q.z
+			+ y * q.w
+			+ z * q.x, w * q.z
+			+ x * q.y
+			- y * q.x
+			+ z * q.w,
+			w * q.w
+			- x * q.x
+			- y * q.y
+			- z * q.z);
 
 	public inline function conjugate():Quat
 		return new Quat(-x, -y, -z, w);

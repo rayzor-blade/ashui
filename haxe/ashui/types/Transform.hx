@@ -14,6 +14,7 @@ class Transform implements IValue {
 
 	/** Pixels. **/
 	public final translateX:Float;
+
 	public final translateY:Float;
 
 	/** Degrees, clockwise. **/
@@ -24,6 +25,7 @@ class Transform implements IValue {
 
 	/** Degrees. **/
 	public final skewX:Float;
+
 	public final skewY:Float;
 
 	public function new(translateX = 0.0, translateY = 0.0, rotate = 0.0, scaleX = 1.0, scaleY = 1.0, skewX = 0.0, skewY = 0.0) {
@@ -57,7 +59,8 @@ class Transform implements IValue {
 	public function matrix():Array<Float> {
 		var r = rotate * Math.PI / 180;
 		var cos = Math.cos(r), sin = Math.sin(r);
-		var kx = Math.tan(skewX * Math.PI / 180), ky = Math.tan(skewY * Math.PI / 180);
+		var kx = Math.tan(skewX * Math.PI / 180),
+			ky = Math.tan(skewY * Math.PI / 180);
 		// Rotation, then the skews: [cos -sin; sin cos] · [1 kx; 0 1] · [1 0; ky 1].
 		var a = cos - sin * ky, c = cos * kx - sin;
 		var b = sin + cos * ky, d = sin * kx + cos;

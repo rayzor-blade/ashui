@@ -7,8 +7,8 @@ import ashui.layout.Node;
 	made by `LayoutTree.createTextNode`.
 **/
 class TextNode extends Node {
-    // Takes an id the tree has already made; see `LayoutTree.createTextNode`.
-    public function new(id: haxe.Int64) {
-        super(id);
-    }
+	// Takes an id the tree has already made; see `LayoutTree.createTextNode`.
+	public function new(id:haxe.Int64) {
+		super(id);
+	}
 }

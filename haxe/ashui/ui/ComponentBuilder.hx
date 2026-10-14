@@ -75,41 +75,41 @@ class ComponentBuilder {
 						$i{signal} = ashui.reactive.Signal.make(($init : $type));
 					$i{signal};
 				} : macro $i{signal};
-				[
-					{
-						name: signal,
-						pos: pos,
-						access: [APrivate],
-						kind: FVar(macro :ashui.reactive.Signal<$type>, macro ashui.reactive.Signal.make(($init : $type))),
-					},
-					{
-						name: field.name,
-						pos: pos,
-						access: field.access,
-						meta: field.meta,
-						doc: field.doc,
-						kind: FProp('get', 'set', type),
-					},
-					{
-						name: 'get_${field.name}',
-						pos: pos,
-						access: [APrivate, AInline],
-						kind: FFun({args: [], ret: type, expr: macro return $read.get()}),
-					},
-					{
-						name: 'set_${field.name}',
-						pos: pos,
-						access: [APrivate, AInline],
-						kind: FFun({
-							args: [{name: 'value', type: type}],
-							ret: type,
-							expr: macro {
-								$read.set(value);
-								return value;
-							},
-						}),
-					},
-				];
+					[
+						{
+							name: signal,
+							pos: pos,
+							access: [APrivate],
+							kind: FVar(macro :ashui.reactive.Signal<$type>, macro ashui.reactive.Signal.make(($init : $type))),
+						},
+						{
+							name: field.name,
+							pos: pos,
+							access: field.access,
+							meta: field.meta,
+							doc: field.doc,
+							kind: FProp('get', 'set', type),
+						},
+						{
+							name: 'get_${field.name}',
+							pos: pos,
+							access: [APrivate, AInline],
+							kind: FFun({args: [], ret: type, expr: macro return $read.get()}),
+						},
+						{
+							name: 'set_${field.name}',
+							pos: pos,
+							access: [APrivate, AInline],
+							kind: FFun({
+								args: [{name: 'value', type: type}],
+								ret: type,
+								expr: macro {
+									$read.set(value);
+									return value;
+								},
+							}),
+						},
+					];
 			case _:
 				Context.error('@:state goes on a var', pos);
 		}
@@ -122,8 +122,7 @@ class ComponentBuilder {
 					case EConst(CString(_)):
 						var template = fn.expr;
 						fn.expr = macro @:pos(template.pos) return ashui.ui.Hxx.hxx($template);
-						if (fn.ret == null)
-							fn.ret = macro :ashui.layout.Element;
+						if (fn.ret == null) fn.ret = macro :ashui.layout.Element;
 					case _:
 				}
 			case _:

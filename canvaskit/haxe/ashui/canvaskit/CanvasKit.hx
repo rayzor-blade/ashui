@@ -121,7 +121,13 @@ class CanvasKit extends Component<CanvasKitProps> {
 	var height = 0.0;
 
 	/** The selection box being drawn, in content coordinates, and the selection it adds to. **/
-	var marquee:Null<{x0:Float, y0:Float, x1:Float, y1:Float, base:Array<String>}> = null;
+	var marquee:Null<{
+		x0:Float,
+		y0:Float,
+		x1:Float,
+		y1:Float,
+		base:Array<String>
+	}> = null;
 
 	/** Registers a region the pointer can hit, in content coordinates, on top of those before it. Call it from `draw`. **/
 	public function region(id:String, x:Float, y:Float, width:Float, height:Float):Void
@@ -129,12 +135,14 @@ class CanvasKit extends Component<CanvasKitProps> {
 
 	/** Asks for a frame after content drawn by `paint` changes. **/
 	public function repaint():Void {
-		if (canvas != null) canvas.repaint();
+		if (canvas != null)
+			canvas.repaint();
 	}
 
 	/** Whether the content rect is at least partly in view: draw only what is, for large scenes. **/
 	public function visible(x:Float, y:Float, w:Float, h:Float):Bool {
-		var a = viewport.screenToContent(0, 0), b = viewport.screenToContent(width, height);
+		var a = viewport.screenToContent(0, 0),
+			b = viewport.screenToContent(width, height);
 		return x <= b.x && x + w >= a.x && y <= b.y && y + h >= a.y;
 	}
 
@@ -147,7 +155,10 @@ class CanvasKit extends Component<CanvasKitProps> {
 	/** Shows every region, or the selected ones with `selected`, whole, easing there. **/
 	public function fitContent(selected = false, seconds = 0.26):Void {
 		var ids = selected ? selection.ids.get() : null;
-		var x0 = Math.POSITIVE_INFINITY, y0 = Math.POSITIVE_INFINITY, x1 = Math.NEGATIVE_INFINITY, y1 = Math.NEGATIVE_INFINITY;
+		var x0 = Math.POSITIVE_INFINITY,
+			y0 = Math.POSITIVE_INFINITY,
+			x1 = Math.NEGATIVE_INFINITY,
+			y1 = Math.NEGATIVE_INFINITY;
 		for (id in (ids != null ? ids : index.query(-1e12, -1e12, 2e12, 2e12))) {
 			var r = index.get(id);
 			if (r == null)
@@ -192,7 +203,8 @@ class CanvasKit extends Component<CanvasKitProps> {
 			}
 		});
 		canvas = c;
-		if (props.interactive != false) attachInput(c.node);
+		if (props.interactive != false)
+			attachInput(c.node);
 		return c;
 	}
 
@@ -202,7 +214,10 @@ class CanvasKit extends Component<CanvasKitProps> {
 		var m = marquee;
 		if (m == null)
 			return;
-		var x = Math.min(m.x0, m.x1), y = Math.min(m.y0, m.y1), w = Math.abs(m.x1 - m.x0), h = Math.abs(m.y1 - m.y0);
+		var x = Math.min(m.x0, m.x1),
+			y = Math.min(m.y0, m.y1),
+			w = Math.abs(m.x1 - m.x0),
+			h = Math.abs(m.y1 - m.y0);
 		ctx.fillRect(x, y, w, h, Brush.solid(0x3380ff, 0.12));
 		ctx.strokeRect(x, y, w, h, new ashui.draw.Stroke(1 / zoom, null, null, 4, [4 / zoom, 3 / zoom]), Brush.solid(0x3380ff, 0.85));
 	}
@@ -263,7 +278,13 @@ class CanvasKit extends Component<CanvasKitProps> {
 					// A plain press on a selected region narrows the selection to it, if it does not become a drag.
 					pendingNarrow = true;
 			} else if (mode == "marquee") {
-				marquee = {x0: at.x, y0: at.y, x1: at.x, y1: at.y, base: shift ? selection.ids.get().copy() : []};
+				marquee = {
+					x0: at.x,
+					y0: at.y,
+					x1: at.x,
+					y1: at.y,
+					base: shift ? selection.ids.get().copy() : []
+				};
 				marqueeDrawn.set(marqueeDrawn.get() + 1);
 			} else if (mode == "pan" && p.button == Left && tool == Pan && !shift)
 				selection.clear();
@@ -298,7 +319,8 @@ class CanvasKit extends Component<CanvasKitProps> {
 					return;
 				moved = true;
 				var dx = now.x - last.x, dy = now.y - last.y;
-				var t1 = haxe.Timer.stamp(), dt = Math.max(t1 - lastAt, 1 / 240);
+				var t1 = haxe.Timer.stamp(),
+					dt = Math.max(t1 - lastAt, 1 / 240);
 				switch mode {
 					case "pan":
 						viewport.panBy(dx, dy);
@@ -309,7 +331,8 @@ class CanvasKit extends Component<CanvasKitProps> {
 						heldX += dx / z;
 						heldY += dy / z;
 						// Reported as the snapped total less what was sent, so items land on the grid however the pointer moves.
-						var toX = snap(heldX) - sentX, toY = snap(heldY) - sentY;
+						var toX = snap(heldX) - sentX,
+							toY = snap(heldY) - sentY;
 						if ((toX != 0 || toY != 0) && props.onDrag != null) {
 							props.onDrag(selection.ids.get(), toX, toY);
 							sentX += toX;

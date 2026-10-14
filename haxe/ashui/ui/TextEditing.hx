@@ -22,55 +22,77 @@ typedef CaretStop = {index:Int, x:Float, line:Int};
 class TextEditing {
 	/** Seconds the caret shows, then hides, while the view has focus. **/
 	static inline var BLINK = 0.53;
+
 	/** Seconds each blink fades over, eased, as macOS softens its caret. **/
 	static inline var FADE = 0.06;
 
 	/** The text being edited, which edits set. **/
 	public final value:Signal<String>;
+
 	/** Where the caret is, and where the selection started; equal when nothing is selected. **/
 	public final caret = Signal.make(0);
+
 	public final anchor = Signal.make(0);
+
 	/** Whether the view has focus. **/
 	public final focused = Signal.make(false);
+
 	/** The caret's opacity: 1 shown, 0 hidden, between while it fades. **/
 	public final caretAlpha = Signal.make(1.0);
+
 	/** An input method's text being composed at the caret, not yet in the value; empty when none. **/
 	public final composing = Signal.make("");
+
 	/** Where the input method's caret is in `composing`, or -1 for its end. **/
 	var composeCursor = -1;
+
 	/** What a press selects as it is dragged: 1 characters, 2 words, 3 paragraphs; and what the press first selected. **/
 	var granularity = 1;
+
 	var pressRange = {from: 0, to: 0};
+
 	/** The view's resolved CSS font size; the theme's small text size before it is styled (e8a1b50). **/
 	public final fontSize:Computed<Single>;
+
 	/** Whether Enter starts a new line and Up and Down move between lines, as in a text area. **/
 	public final multiline:Bool;
+
 	/** The width lines wrap at; 0 keeps the text on one line. **/
 	public var wrapWidth(default, set):Float;
+
 	final styledSize = Signal.make((null : Null<Single>));
 	final geometry = Signal.make(0);
+
 	static final byText = new haxe.ds.ObjectMap<ashui.css.Identity, TextEditing>();
 	static var styledHook = false;
 	static final FONT_FIELDS = ["font-family", "font-weight", "font-style", "line-height", "letter-spacing"];
+
 	var fontFields:Array<Null<String>> = [];
 
 	/** Called with the new value after each edit. **/
 	public var onInput:Null<String->Void>;
+
 	/** Called with the value on Enter, or Command+Enter when multiline. **/
 	public var onSubmit:Null<String->Void>;
+
 	/** Takes focus away, as Escape does. **/
 	public var onEscape:Null<Void->Void>;
+
 	/** Lines a page moves by, for Page Up and Page Down. **/
 	public var pageLines:Void->Int = () -> 10;
 
 	/** The text node the stops are measured for; set by the view. **/
 	public var text:Null<Text>;
+
 	/** A password's: the character each of the value's is shown and measured as, and copying and cutting are refused; null shows the value. **/
 	public var mask:Null<String> = null;
+
 	/** While true, a masked value shows as it is, as a password's reveal button makes it; copying stays refused. **/
 	public final revealed = ashui.reactive.Signal.make(false);
+
 	/** What may be typed or pasted: the inserted text, with anything refused taken out; null takes everything. **/
 	public var accept:Null<String->String> = null;
+
 	/** Called first with each key going down; true when it handled the key, so editing does not. **/
 	public var onKey:Null<KeyEvent->Bool> = null;
 
@@ -81,11 +103,15 @@ class TextEditing {
 	var measured:Null<String> = null;
 	var measuredSize = 0.0;
 	var measuredWidth = 0.0;
+
 	/** The height of a line, and how many the value takes, as last measured. **/
 	public var lineHeight(default, null) = 0.0;
+
 	public var lines(default, null) = 1;
+
 	/** The x the caret keeps to across Up and Down, until it moves another way. **/
 	var goalX:Null<Float> = null;
+
 	var dragging = false;
 	var caretOn = true;
 	var fadeId = 0;
@@ -108,7 +134,8 @@ class TextEditing {
 			styledHook = true;
 			ashui.css.Css.restyled.push(identity -> {
 				var edit = byText.get(identity);
-				if (edit != null) edit.restyled(identity);
+				if (edit != null)
+					edit.restyled(identity);
 			});
 		}
 		ashui.reactive.Owner.onCleanup(() -> byText.remove(identity));
@@ -119,9 +146,13 @@ class TextEditing {
 		var changed = size != styledSize.get();
 		for (i in 0...FONT_FIELDS.length) {
 			var value = ashui.css.Css.computed(identity, FONT_FIELDS[i]);
-			if (fontFields[i] != value) { fontFields[i] = value; changed = true; }
+			if (fontFields[i] != value) {
+				fontFields[i] = value;
+				changed = true;
+			}
 		}
-		if (!changed) return;
+		if (!changed)
+			return;
 		styledSize.set(size);
 		measured = null;
 		geometry.set(geometry.get() + 1);
@@ -151,7 +182,9 @@ class TextEditing {
 		var info = new hl.Bytes(16);
 		var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.encode(s), size, wrapWidth, out, capacity, info);
 		if (n > 0 && n <= capacity) {
-			stops = [for (i in 0...n) {index: Std.int(out.getF32(i * 12)), x: out.getF32(i * 12 + 4), line: Std.int(out.getF32(i * 12 + 8))}];
+			stops = [
+				for (i in 0...n) {index: Std.int(out.getF32(i * 12)), x: out.getF32(i * 12 + 4), line: Std.int(out.getF32(i * 12 + 8))}
+			];
 			lineHeight = info.getF32(0);
 			lines = Std.int(info.getF32(4));
 			measured = key;
@@ -380,9 +413,11 @@ class TextEditing {
 		var length = value.get().length;
 		switch e.key {
 			case Named(ArrowLeft):
-				move(byLine ? lineEdge(at, false) : e.alt ? word(at, false) : selected && !e.shift ? selectionRange().from : step(at, false), e.shift);
+				move(byLine ? lineEdge(at, false) : e.alt ? word(at, false) : selected
+					&& !e.shift ? selectionRange().from : step(at, false), e.shift);
 			case Named(ArrowRight):
-				move(byLine ? lineEdge(at, true) : e.alt ? word(at, true) : selected && !e.shift ? selectionRange().to : step(at, true), e.shift);
+				move(byLine ? lineEdge(at, true) : e.alt ? word(at, true) : selected
+					&& !e.shift ? selectionRange().to : step(at, true), e.shift);
 			case Named(ArrowUp):
 				if (multiline && !byLine)
 					move(vertical(at, -1), e.shift, true);

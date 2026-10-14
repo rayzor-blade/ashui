@@ -111,9 +111,13 @@ class Focus {
 		var scope = scopes.get(tree);
 		if (scope != null && scope.length > 0) {
 			var inside = scope[scope.length - 1];
-			if (target == null || (target.node.id != inside.id && tree.ancestors(target.node.id).indexOf(inside.id) < 0)) return;
+			if (target == null || (target.node.id != inside.id && tree.ancestors(target.node.id).indexOf(inside.id) < 0))
+				return;
 		}
-		if (target != null) set(target, false) else clear(tree);
+		if (target != null)
+			set(target, false)
+		else
+			clear(tree);
 	}
 
 	public static function move(tree:LayoutTree, backward = false):Void {
@@ -122,7 +126,10 @@ class Focus {
 		var order = [];
 		for (id in tree.order()) {
 			var i = Interaction.byId(tree, id);
-			if (i != null && i.focusable && !i.disabled.get() && (inside == null || id == inside.id || tree.ancestors(id).indexOf(inside.id) >= 0))
+			if (i != null
+				&& i.focusable
+				&& !i.disabled.get()
+				&& (inside == null || id == inside.id || tree.ancestors(id).indexOf(inside.id) >= 0))
 				order.push(i);
 		}
 		if (order.length == 0)

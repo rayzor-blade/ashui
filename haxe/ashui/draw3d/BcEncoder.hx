@@ -111,8 +111,10 @@ class BcEncoder {
 	static inline function gather(rgba:Bytes, width:Int, height:Int, bx:Int, by:Int, block:haxe.ds.Vector<Int>):Void
 		for (i in 0...16) {
 			var x = (bx << 2) + (i & 3), y = (by << 2) + (i >> 2);
-			if (x >= width) x = width - 1;
-			if (y >= height) y = height - 1;
+			if (x >= width)
+				x = width - 1;
+			if (y >= height)
+				y = height - 1;
 			var p = (y * width + x) << 2;
 			block[i * 3] = rgba.get(p);
 			block[i * 3 + 1] = rgba.get(p + 1);
@@ -122,8 +124,10 @@ class BcEncoder {
 	static inline function gatherChannel(rgba:Bytes, width:Int, height:Int, bx:Int, by:Int, c:Int, channel:haxe.ds.Vector<Int>):Void
 		for (i in 0...16) {
 			var x = (bx << 2) + (i & 3), y = (by << 2) + (i >> 2);
-			if (x >= width) x = width - 1;
-			if (y >= height) y = height - 1;
+			if (x >= width)
+				x = width - 1;
+			if (y >= height)
+				y = height - 1;
 			channel[i] = rgba.get(((y * width + x) << 2) + c);
 		}
 
@@ -132,12 +136,18 @@ class BcEncoder {
 		var r0 = 255, g0 = 255, b0 = 255, r1 = 0, g1 = 0, b1 = 0, sr = 0, sg = 0, sb = 0;
 		for (i in 0...16) {
 			var r = block[i * 3], g = block[i * 3 + 1], b = block[i * 3 + 2];
-			if (r < r0) r0 = r;
-			if (g < g0) g0 = g;
-			if (b < b0) b0 = b;
-			if (r > r1) r1 = r;
-			if (g > g1) g1 = g;
-			if (b > b1) b1 = b;
+			if (r < r0)
+				r0 = r;
+			if (g < g0)
+				g0 = g;
+			if (b < b0)
+				b0 = b;
+			if (r > r1)
+				r1 = r;
+			if (g > g1)
+				g1 = g;
+			if (b > b1)
+				b1 = b;
 			sr += r;
 			sg += g;
 			sb += b;
@@ -176,8 +186,12 @@ class BcEncoder {
 		var idx = 0;
 		if (c0 != c1) {
 			// The endpoints as the GPU expands them, and each pixel's place between them, in sixths.
-			var er0 = expand5(c0 >> 11), eg0 = expand6((c0 >> 5) & 63), eb0 = expand5(c0 & 31);
-			var er1 = expand5(c1 >> 11), eg1 = expand6((c1 >> 5) & 63), eb1 = expand5(c1 & 31);
+			var er0 = expand5(c0 >> 11),
+				eg0 = expand6((c0 >> 5) & 63),
+				eb0 = expand5(c0 & 31);
+			var er1 = expand5(c1 >> 11),
+				eg1 = expand6((c1 >> 5) & 63),
+				eb1 = expand5(c1 & 31);
 			var dr = er1 - er0, dg = eg1 - eg0, db = eb1 - eb0;
 			var dd = dr * dr + dg * dg + db * db;
 			for (i in 0...16) {
@@ -197,8 +211,10 @@ class BcEncoder {
 	static function channelBlock(v:haxe.ds.Vector<Int>, out:Bytes, o:Int):Void {
 		var lo = 255, hi = 0;
 		for (i in 0...16) {
-			if (v[i] < lo) lo = v[i];
-			if (v[i] > hi) hi = v[i];
+			if (v[i] < lo)
+				lo = v[i];
+			if (v[i] > hi)
+				hi = v[i];
 		}
 		var range = hi - lo;
 		var bits0 = 0, bits1 = 0;
@@ -207,7 +223,10 @@ class BcEncoder {
 				// Its level, 0 at lo to 7 at hi, rounded to nearest.
 				var level = Std.int(((v[i] - lo) * 14 + range) / (range * 2));
 				var q = levelIndex(level);
-				if (i < 8) bits0 |= q << (i * 3) else bits1 |= q << ((i - 8) * 3);
+				if (i < 8)
+					bits0 |= q << (i * 3)
+				else
+					bits1 |= q << ((i - 8) * 3);
 			}
 		writeChannel(out, o, hi, lo, bits0, bits1);
 	}
@@ -218,11 +237,14 @@ class BcEncoder {
 		var data:hl.Bytes = rgba;
 		for (i in 0...16) {
 			var x = (bx << 2) + (i & 3), y = (by << 2) + (i >> 2);
-			if (x >= width) x = width - 1;
-			if (y >= height) y = height - 1;
+			if (x >= width)
+				x = width - 1;
+			if (y >= height)
+				y = height - 1;
 			s.setUI8(i, data.getUI8(((y * width + x) << 2) + c));
 		}
-		var lo = ash.simd.Vec.u8x16MinLane(s, 0), hi = ash.simd.Vec.u8x16MaxLane(s, 0);
+		var lo = ash.simd.Vec.u8x16MinLane(s, 0),
+			hi = ash.simd.Vec.u8x16MaxLane(s, 0);
 		var range = hi - lo;
 		var bits0 = 0, bits1 = 0;
 		if (range > 0) {
@@ -235,7 +257,10 @@ class BcEncoder {
 			}
 			for (i in 0...16) {
 				var q = levelIndex(s.getUI8(48 + i));
-				if (i < 8) bits0 |= q << (i * 3) else bits1 |= q << ((i - 8) * 3);
+				if (i < 8)
+					bits0 |= q << (i * 3)
+				else
+					bits1 |= q << ((i - 8) * 3);
 			}
 		}
 		writeChannel(out, o, hi, lo, bits0, bits1);

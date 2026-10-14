@@ -16,18 +16,26 @@ import ashui.ui.Text;
 /** A run of text in a flow: one `Text`, its whitespace collapsed, and where each of its characters ends. **/
 private class Run {
 	public final probe:Text;
+
 	/** Whether the author owned display before the flow suppressed its measurement text. **/
 	public final authoredDisplay:Bool;
+
 	/** The node its pieces are placed under: the flow's root or an inline element in it. **/
 	public final parent:haxe.Int64;
+
 	public var text = "";
+
 	/** The x at each string index of `text`, its end included. **/
 	public var stops:Array<Float> = [0];
+
 	/** From a piece's top to its baseline, and from the baseline to its bottom. **/
 	public var above = 0.0;
+
 	public var below = 0.0;
+
 	/** The pieces shown, made as lines need them and kept for the next flow. **/
 	public final pieces:Array<Piece> = [];
+
 	/** The inline element that paints a box around it, as `code` does, when it is that element's text. **/
 	public var deco:Null<Deco> = null;
 
@@ -48,6 +56,7 @@ private class Piece {
 	public final left = Signal.make((0 : Single));
 	public final top = Signal.make((0 : Single));
 	public final shown = Signal.make(Display.None);
+
 	var limited = false;
 	var limitWidth = 0.0;
 
@@ -84,7 +93,12 @@ private class Deco {
 	public final authoredDisplay:Bool;
 	public final tag:String;
 	public final classes:Array<String>;
-	public var padding = {top: 0.0, right: 0.0, bottom: 0.0, left: 0.0};
+	public var padding = {
+		top: 0.0,
+		right: 0.0,
+		bottom: 0.0,
+		left: 0.0
+	};
 	public final boxes:Array<DecoBox> = [];
 
 	public function new(node:Node, tag:String, classes:Array<String>, authoredDisplay:Bool) {
@@ -122,10 +136,13 @@ private class Atom {
 	public final top = Signal.make((0 : Single));
 	public var width = 0.0;
 	public var height = 0.0;
+
 	/** From its top to its baseline: its first text's, or its bottom. **/
 	public var above = 0.0;
+
 	/** A block, as a list in an item is: on a line of its own, as wide as the flow. **/
 	public final block:Bool;
+
 	public final fill = Signal.make((0 : Single));
 
 	public function new(node:Node, block:Bool) {
@@ -143,6 +160,7 @@ private class Atom {
 private enum Item {
 	/** A word of a run, `start` to `end`, and the width of the space after it, 0 if none; a word may be empty, holding a space alone. **/
 	Word(run:Run, start:Int, end:Int, width:Float, space:Float);
+
 	Box(atom:Atom);
 	Break;
 }
@@ -151,6 +169,7 @@ private typedef Line = {
 	var items:Array<{item:Item, x:Float}>;
 	var above:Float;
 	var below:Float;
+
 	/** The last line of the flow or before a break, which justifying leaves as it is. **/
 	var ends:Bool;
 }
@@ -204,7 +223,25 @@ class InlineFlow {
 
 	/** HTML's block elements: in a flow, each starts a line of its own and ends it. **/
 	public static final BLOCK = [
-		"div", "p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "dl", "table", "pre", "blockquote", "figure", "details", "fieldset", "hr", "form"
+		"div",
+		"p",
+		"h1",
+		"h2",
+		"h3",
+		"h4",
+		"h5",
+		"h6",
+		"ul",
+		"ol",
+		"dl",
+		"table",
+		"pre",
+		"blockquote",
+		"figure",
+		"details",
+		"fieldset",
+		"hr",
+		"form"
 	];
 
 	static final flows = new haxe.ds.ObjectMap<LayoutTree, Array<InlineFlow>>();
@@ -214,10 +251,13 @@ class InlineFlow {
 
 	final root:Div;
 	final tree:LayoutTree;
+
 	/** Laid out in the flow's place, sized to its lines, so the root sizes itself around them. **/
 	final spacer:Div;
+
 	/** At the origin absolute positions are measured from, so pieces can be placed against the spacer. **/
 	final anchor:Div;
+
 	final spacerWidth = Signal.make((0 : Single));
 	final spacerMin = Signal.make((0 : Single));
 	final spacerHeight = Signal.make((0 : Single));
@@ -242,6 +282,7 @@ class InlineFlow {
 	var nowrap = false;
 	var intrinsic:Null<FlowWidths>;
 	var widthListeners:Null<Array<Void->Void>>;
+
 	/** Only authored nodes currently excluded by CSS; ordinary text pieces add no bindings. **/
 	var excluded = new Map<String, Bool>();
 
@@ -269,12 +310,14 @@ class InlineFlow {
 
 	/** Re-sizes a table only when a cell's intrinsic widths change, not when its lines merely rewrap. **/
 	public function onWidthsChanged(listener:Void->Void):Void->Void {
-		if (widthListeners == null) widthListeners = [];
+		if (widthListeners == null)
+			widthListeners = [];
 		widthListeners.push(listener);
 		return () -> {
 			if (widthListeners != null) {
 				widthListeners.remove(listener);
-				if (widthListeners.length == 0) widthListeners = null;
+				if (widthListeners.length == 0)
+					widthListeners = null;
 			}
 		};
 	}
@@ -283,18 +326,26 @@ class InlineFlow {
 	public static function onMeasured(tree:LayoutTree, work:Void->Bool):Void {
 		hook();
 		var list = measured.get(tree);
-		if (list == null) measured.set(tree, list = []);
+		if (list == null)
+			measured.set(tree, list = []);
 		list.push(work);
 		Owner.onCleanup(() -> {
 			list.remove(work);
-			if (list.length == 0) measured.remove(tree);
+			if (list.length == 0)
+				measured.remove(tree);
 		});
 	}
 
 	function new(root:Div) {
 		this.root = root;
 		tree = root.tree;
-		anchor = new Div({position: Absolute, left: 0, top: 0, width: 0, height: 0}, tree);
+		anchor = new Div({
+			position: Absolute,
+			left: 0,
+			top: 0,
+			width: 0,
+			height: 0
+		}, tree);
 		// As wide as its longest line when what holds it sizes to it, as wide as what holds it when that is wider, so lines align across it.
 		spacer = new Div({
 			width: spacerWidth,
@@ -311,7 +362,8 @@ class InlineFlow {
 		// The root's id, kept: taking a flow away removes its nodes before its owner's cleanup stops this watch.
 		var rootId = root.node.id;
 		var key = haxe.Int64.toStr(rootId);
-		AfterChildren.watch(tree, "flow " + key, parent -> parent == rootId || members.indexOf(haxe.Int64.toStr(parent)) >= 0, () -> structureChanged = true);
+		AfterChildren.watch(tree, "flow " + key, parent -> parent == rootId
+			|| members.indexOf(haxe.Int64.toStr(parent)) >= 0, () -> structureChanged = true);
 	}
 
 	function forget():Void {
@@ -336,7 +388,8 @@ class InlineFlow {
 			var after = measured.get(tree);
 			if (after != null)
 				for (work in after)
-					if (work()) changed = true;
+					if (work())
+						changed = true;
 			changed;
 		});
 		ashui.css.Css.restyled.push(identity -> {
@@ -393,19 +446,24 @@ class InlineFlow {
 				return;
 			members.push(k);
 			var identity = Identity.of(tree, node);
-			if (identity != null && cssHidden(identity)) excluded.set(k, true);
+			if (identity != null && cssHidden(identity))
+				excluded.set(k, true);
 			var run = kept.get(k);
 			if (run != null) {
 				seen.set(k, true);
-				for (piece in run.pieces) piece.shown.set(Display.None);
+				for (piece in run.pieces)
+					piece.shown.set(Display.None);
 			}
 			var deco = decos.get(k);
 			if (deco != null) {
 				seenDecos.set(k, true);
-				for (box in deco.boxes) box.shown.set(Display.None);
+				for (box in deco.boxes)
+					box.shown.set(Display.None);
 			}
-			if (keptAtoms.exists(k)) seen.set(k, true);
-			for (child in tree.children(node)) retainHidden(child);
+			if (keptAtoms.exists(k))
+				seen.set(k, true);
+			for (child in tree.children(node))
+				retainHidden(child);
 		}
 		/** The texts under `node` when they are all it holds, the flow's own pieces aside. **/
 		function onlyText(node:haxe.Int64):Null<Array<haxe.Int64>> {
@@ -451,7 +509,10 @@ class InlineFlow {
 					continue;
 				}
 				var edges = tree.boxEdges(child);
-				var plain = isInline(identity) && edges != null && !edges.painted && edges.top + edges.right + edges.bottom + edges.left == 0;
+				var plain = isInline(identity)
+					&& edges != null
+					&& !edges.painted
+					&& edges.top + edges.right + edges.bottom + edges.left == 0;
 				var texts = !plain && isInline(identity) ? onlyText(child) : null;
 				if (texts != null && texts.length == 1) {
 					// A box around one text: a box on each line it is on.
@@ -550,7 +611,12 @@ class InlineFlow {
 		for (d in decos) {
 			var e = tree.boxEdges(d.node.id);
 			if (e != null)
-				d.padding = {top: e.top, right: e.right, bottom: e.bottom, left: e.left};
+				d.padding = {
+					top: e.top,
+					right: e.right,
+					bottom: e.bottom,
+					left: e.left
+				};
 		}
 		for (atom in atoms) {
 			var b = tree.getBounds(atom.node);
@@ -585,7 +651,9 @@ class InlineFlow {
 			stops[at++] = last;
 		run.stops = stops;
 		if (n > 0) {
-			var lineHeight = info.getF32(0), ascender = info.getF32(8), descender = info.getF32(12);
+			var lineHeight = info.getF32(0),
+				ascender = info.getF32(8),
+				descender = info.getF32(12);
 			// As the text is drawn: half the leading above the ascender.
 			run.above = (lineHeight - (ascender - descender)) / 2 + ascender;
 			run.below = lineHeight - run.above;
@@ -601,9 +669,13 @@ class InlineFlow {
 				continue;
 			var b = tree.getBounds(text.node), a = tree.getBounds(atom.node);
 			var bytes = new hl.Bytes(12 * 4);
-			if (b == null || a == null || TextNative.blinc_text_carets(tree.ptr, text.node.id, ashui.core.Utf8.encode("x"), 0, 0, bytes, 4, info) == 0)
+			if (b == null
+				|| a == null
+				|| TextNative.blinc_text_carets(tree.ptr, text.node.id, ashui.core.Utf8.encode("x"), 0, 0, bytes, 4, info) == 0)
 				break;
-			var lineHeight = info.getF32(0), ascender = info.getF32(8), descender = info.getF32(12);
+			var lineHeight = info.getF32(0),
+				ascender = info.getF32(8),
+				descender = info.getF32(12);
 			return b.y - a.y + (lineHeight - (ascender - descender)) / 2 + ascender;
 		}
 		return atom.height;
@@ -656,12 +728,22 @@ class InlineFlow {
 	function lines(list:Array<Item>, width:Float):Array<Line> {
 		var breaking = !nowrap && breaksWords();
 		var out:Array<Line> = [];
-		var line:Line = {items: [], above: 0, below: 0, ends: false};
+		var line:Line = {
+			items: [],
+			above: 0,
+			below: 0,
+			ends: false
+		};
 		var x = 0.0;
 		function end(ends = false) {
 			line.ends = ends;
 			out.push(line);
-			line = {items: [], above: 0, below: 0, ends: false};
+			line = {
+				items: [],
+				above: 0,
+				below: 0,
+				ends: false
+			};
 			x = 0;
 		}
 		var queue = list.copy();
@@ -803,12 +885,14 @@ class InlineFlow {
 			var min = (nowrap ? spacerWidth.get() : spacerMin.get()) + inset;
 			var max = spacerWidth.get() + inset;
 			if (intrinsic == null || min != intrinsic.min || max != intrinsic.max) {
-				if (intrinsic == null) intrinsic = {min: min, max: max};
+				if (intrinsic == null)
+					intrinsic = {min: min, max: max};
 				else {
 					intrinsic.min = min;
 					intrinsic.max = max;
 				}
-				for (listener in widthListeners) listener();
+				for (listener in widthListeners)
+					listener();
 			}
 		}
 		for (atom in atoms)
@@ -876,12 +960,11 @@ class InlineFlow {
 			// A space stretches unless it is inside a box around text, which keeps its words together.
 			function stretches(k:Int):Bool
 				return switch line.items[k].item {
-					case Word(run, _, _, _, space) if (space > 0 && k < line.items.length - 1):
-						run.deco == null || !line.items[k + 1].item.match(Word(_, _, _, _, _)) || switch line.items[k + 1].item {
+					case Word(run, _, _, _, space) if (space > 0 && k < line.items.length - 1): run.deco == null || !line.items[k + 1].item.match(Word(_, _,
+							_, _, _)) || switch line.items[k + 1].item {
 							case Word(next, _, _, _, _): next != run;
 							case _: true;
-						}
-					case _: false;
+						} case _: false;
 				}
 			for (k => p in line.items) {
 				natural = Math.max(natural, p.x + itemWidth(p.item));

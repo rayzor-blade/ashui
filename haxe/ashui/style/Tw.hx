@@ -10,8 +10,8 @@ import haxe.macro.Type;
 	Tailwind-style utility classes over the theme's tokens, resolved at
 	compile time:
 
-	    final card = tw("p-4 gap-2 bg-surface rounded-lg shadow-md");
-	    hxx('<div class="flex flex-col p-4 bg-surface-elevated">...</div>');
+		final card = tw("p-4 gap-2 bg-surface rounded-lg shadow-md");
+		hxx('<div class="flex flex-col p-4 bg-surface-elevated">...</div>');
 
 	The classes come from the token families, so a token added to the theme
 	gets its classes with it:
@@ -139,17 +139,22 @@ class Tw {
 	/** `classes`, a string literal, as a `Style`. **/
 	public static macro function tw(classes:ExprOf<String>):ExprOf<Style> {
 		var sets = setters(classes, macro __node);
-		return macro @:pos(classes.pos) ashui.style.Style.of([(__node : ashui.layout.Node) -> $b{sets}]);
+		return macro @:pos(classes.pos) ashui.style.Style.of([(__node:ashui.layout.Node) -> $b{sets}]);
 	}
 
 	#if macro
 	static var known:Null<Map<String, Expr->Array<Expr>>>;
 	// The sides a spacing class names, and the properties' suffixes for them.
 	static final SIDES = [
-		{name: "t", keys: ["Top"]}, {name: "r", keys: ["Right"]}, {name: "b", keys: ["Bottom"]}, {name: "l", keys: ["Left"]},
-		{name: "x", keys: ["Left", "Right"]}, {name: "y", keys: ["Top", "Bottom"]}
+		{name: "t", keys: ["Top"]},
+		{name: "r", keys: ["Right"]},
+		{name: "b", keys: ["Bottom"]},
+		{name: "l", keys: ["Left"]},
+		{name: "x", keys: ["Left", "Right"]},
+		{name: "y", keys: ["Top", "Bottom"]}
 	];
 	static var refused:Null<Array<{pattern:EReg, why:String}>>;
+
 	/** Colour class names to `ColorToken` names: `surface-elevated` is `SurfaceElevated`. **/
 	@:allow(ashui.style.Gradient) static var colors:Map<String, String>;
 
@@ -249,14 +254,18 @@ class Tw {
 			for (k in ashui.css.DeclaredCss.classes().keys())
 				candidates.set(k, true);
 			var near = nearest(word, candidates);
-			Context.error('tw: unknown class $word' + (near != null ? '; did you mean $near?' : "")
-				+ (Context.definedValue("ashui_css") == null ? "" : ", or a class of the CSS in -D ashui_css"), pos);
+			Context.error('tw: unknown class $word'
+				+ (near != null ? '; did you mean $near?' : "")
+				+ (Context.definedValue("ashui_css") == null ? "" : ", or a class of the CSS in -D ashui_css"),
+				pos);
 		}
 		if (backdrop == null && backdropColor != null)
 			backdrop = {radius: 0.0, pos: backdropColor};
 		var glassBackground = Lambda.exists(out, e -> {
 			var kv = keyValue(e);
-			kv != null && kv.key == "css:background" && switch kv.value.expr {
+			kv != null
+			&& kv.key == "css:background"
+			&& switch kv.value.expr {
 				case EConst(CString("glass", _)): true;
 				case _: false;
 			};
@@ -272,7 +281,8 @@ class Tw {
 				Context.error("tw: a state variant of the background would replace the backdrop blur; vary something else", backdrop.pos);
 			var set = Lambda.find(out, e -> {
 				var kv = keyValue(e);
-				kv != null && kv.key == "Background";
+				kv != null
+				&& kv.key == "Background";
 			});
 			if (set != null && background == null)
 				Context.error("tw: backdrop-blur paints a background colour over the blur, not a gradient or an image", backdrop.pos);
@@ -328,7 +338,8 @@ class Tw {
 			// A signal's or computed's value is read; a constant is used as it is.
 			function mark(name:String, value:Expr) {
 				var type = try haxe.macro.TypeTools.toString(Context.typeof(value)) catch (_:Dynamic) "";
-				reactive.set(name, StringTools.startsWith(type, "ashui.reactive.Computed") || StringTools.startsWith(type, "ashui.reactive.Signal"));
+				reactive.set(name, StringTools.startsWith(type, "ashui.reactive.Computed")
+					|| StringTools.startsWith(type, "ashui.reactive.Signal"));
 			}
 			function read(name:String):Expr
 				return reactive.get(name) ? macro $i{name}.get() : macro $i{name};
@@ -354,7 +365,8 @@ class Tw {
 					var field = signalOf(state.substr(group ? 6 : 5));
 					macro {
 						var __other = $i{other}.get();
-						__other != null && __other.$field.get();
+						__other != null
+					&& __other.$field.get();
 					}
 				} else {
 					interaction = true;
@@ -458,7 +470,10 @@ class Tw {
 				macro ashui.types.ClipPath.polygon([$a{items}]);
 			case Path(d):
 				// Checked now, so a mistake in the path data is a compile error too.
-				try ashui.svg.PathData.parse(d) catch (e:haxe.Exception) Context.error('tw: path data: ${e.message}', pos);
+				try
+					ashui.svg.PathData.parse(d)
+				catch (e:haxe.Exception)
+					Context.error('tw: path data: ${e.message}', pos);
 				macro ashui.types.ClipPath.path($v{d});
 			case EvenOdd(inner):
 				var made = clipExpr(inner, pos);
@@ -471,7 +486,10 @@ class Tw {
 
 	static final RELATED = ["hover", "focus", "focus-visible", "focus-within", "active", "disabled"];
 
-	@:noCompletion public static final STATES = ["dark"].concat([for (s in RELATED) 'group-$s']).concat([for (s in RELATED) 'peer-$s']).concat(["focus-within"]).concat(OWN);
+	@:noCompletion public static final STATES = ["dark"].concat([for (s in RELATED) 'group-$s'])
+		.concat([for (s in RELATED) 'peer-$s'])
+		.concat(["focus-within"])
+		.concat(OWN);
 
 	@:noCompletion public static final VARIANT = new EReg('^(' + [for (s in STATES) StringTools.replace(s, "-", "\\-")].join("|") + '):(.+)$$', "");
 
@@ -515,9 +533,19 @@ class Tw {
 			var step = token.substr("Space".length).split("_").join(".");
 			var value = macro ashui.theme.Themed.spacing(ashui.theme.SpacingToken.$token);
 			for (entry in [
-				["p", "Padding"], ["m", "Margin"], ["gap", "Gap"], ["w", "Width"], ["h", "Height"], ["min-w", "MinWidth"],
-				["max-w", "MaxWidth"], ["min-h", "MinHeight"], ["max-h", "MaxHeight"], ["top", "Top"], ["right", "Right"],
-				["bottom", "Bottom"], ["left", "Left"]
+				["p", "Padding"],
+				["m", "Margin"],
+				["gap", "Gap"],
+				["w", "Width"],
+				["h", "Height"],
+				["min-w", "MinWidth"],
+				["max-w", "MaxWidth"],
+				["min-h", "MinHeight"],
+				["max-h", "MaxHeight"],
+				["top", "Top"],
+				["right", "Right"],
+				["bottom", "Bottom"],
+				["left", "Left"]
 			])
 				one('${entry[0]}-$step', entry[1], value);
 			v.set('size-$step', node -> [set(node, "Width", value), set(node, "Height", value)]);
@@ -539,7 +567,15 @@ class Tw {
 		one("m-auto", "Margin", auto);
 		for (side in SIDES)
 			v.set('m${side.name}-auto', node -> [for (k in side.keys) set(node, "Margin" + k, auto)]);
-		for (entry in [["w", "Width"], ["h", "Height"], ["basis", "FlexBasis"], ["top", "Top"], ["right", "Right"], ["bottom", "Bottom"], ["left", "Left"]])
+		for (entry in [
+			["w", "Width"],
+			["h", "Height"],
+			["basis", "FlexBasis"],
+			["top", "Top"],
+			["right", "Right"],
+			["bottom", "Bottom"],
+			["left", "Left"]
+		])
 			one('${entry[0]}-auto', entry[1], auto);
 		v.set("size-auto", node -> [set(node, "Width", auto), set(node, "Height", auto)]);
 		v.set("inset-auto", node -> [for (k in ["Top", "Right", "Bottom", "Left"]) set(node, k, auto)]);
@@ -552,14 +588,21 @@ class Tw {
 		for (f in fractions) {
 			var name = f.name, value = macro($v{f.value} : Single);
 			for (entry in [
-				["w", "WidthPercent"], ["h", "HeightPercent"], ["min-w", "MinWidthPercent"], ["max-w", "MaxWidthPercent"],
-				["min-h", "MinHeightPercent"], ["max-h", "MaxHeightPercent"], ["basis", "FlexBasisPercent"]
+				["w", "WidthPercent"],
+				["h", "HeightPercent"],
+				["min-w", "MinWidthPercent"],
+				["max-w", "MaxWidthPercent"],
+				["min-h", "MinHeightPercent"],
+				["max-h", "MaxHeightPercent"],
+				["basis", "FlexBasisPercent"]
 			])
 				one('${entry[0]}-$name', entry[1], value);
 			v.set('size-$name', node -> [set(node, "WidthPercent", value), set(node, "HeightPercent", value)]);
 			for (side in ["Top", "Right", "Bottom", "Left"])
 				one('${side.toLowerCase()}-$name', side + "Percent", value);
-			v.set('inset-$name', node -> [for (side in ["Top", "Right", "Bottom", "Left"]) set(node, side + "Percent", value)]);
+			v.set('inset-$name', node -> [
+				for (side in ["Top", "Right", "Bottom", "Left"]) set(node, side + "Percent", value)
+			]);
 		}
 
 		// Colours, from ColorToken, named as their CSS variables (tooltipBg is
@@ -574,8 +617,10 @@ class Tw {
 			}
 		// The glass utilities are CSS declarations, composed by the same background handler as a stylesheet.
 		for (word in ["bg-glass", "glass-liquid", "glass-frosted", "glass-inset", "glass-outset"].concat([for (name in colorNames()) 'glass-tint-$name'])
-			.concat([for (i in 0...101) 'glass-blur-$i']).concat([for (i in 0...101) 'glass-aberration-$i'])
-			.concat([for (i in 0...101) 'glass-noise-$i']).concat([for (i in 0...101) 'glass-bevel-$i'])) {
+			.concat([for (i in 0...101) 'glass-blur-$i'])
+			.concat([for (i in 0...101) 'glass-aberration-$i'])
+			.concat([for (i in 0...101) 'glass-noise-$i'])
+			.concat([for (i in 0...101) 'glass-bevel-$i'])) {
 			var declaration = glassCss(word, Context.currentPos());
 			var name = declaration.name, value = declaration.value;
 			v.set(word, node -> [macro ashui.css.Identity.declare($node, $v{name}, $v{value})]);
@@ -597,12 +642,10 @@ class Tw {
 		one("text-shadow-none", "TextShadow", macro new ashui.types.Shadow(0, 0, 0, 0, 0));
 		one("text-shadow-2xs", "TextShadow", macro new ashui.types.Shadow(0, 1, 0, 0x000000, 0.15));
 		one("text-shadow-xs", "TextShadow", macro new ashui.types.Shadow(0, 1, 1, 0x000000, 0.2));
-		one("text-shadow-sm", "TextShadow",
-			macro new ashui.types.Shadow(0, 1, 0, 0x000000, 0.075).and(0, 1, 1, 0x000000, 0.075).and(0, 2, 2, 0x000000, 0.075));
-		one("text-shadow-md", "TextShadow",
-			macro new ashui.types.Shadow(0, 1, 1, 0x000000, 0.1).and(0, 1, 2, 0x000000, 0.1).and(0, 2, 4, 0x000000, 0.1));
-		one("text-shadow-lg", "TextShadow",
-			macro new ashui.types.Shadow(0, 1, 2, 0x000000, 0.1).and(0, 3, 2, 0x000000, 0.1).and(0, 4, 8, 0x000000, 0.1));
+		one("text-shadow-sm", "TextShadow", macro new ashui.types.Shadow(0, 1, 0, 0x000000, 0.075).and(0, 1, 1, 0x000000, 0.075)
+			.and(0, 2, 2, 0x000000, 0.075));
+		one("text-shadow-md", "TextShadow", macro new ashui.types.Shadow(0, 1, 1, 0x000000, 0.1).and(0, 1, 2, 0x000000, 0.1).and(0, 2, 4, 0x000000, 0.1));
+		one("text-shadow-lg", "TextShadow", macro new ashui.types.Shadow(0, 1, 2, 0x000000, 0.1).and(0, 3, 2, 0x000000, 0.1).and(0, 4, 8, 0x000000, 0.1));
 
 		// Type, from TypographyToken: TextXs is text-xs, FontBold font-bold, LeadingSnug leading-snug.
 		for (token in tokenNames("ashui.theme.TypographyToken")) {
@@ -635,26 +678,46 @@ class Tw {
 		keyword("flex-wrap", "FlexWrap", "FlexWrap", "Wrap");
 		keyword("flex-wrap-reverse", "FlexWrap", "FlexWrap", "WrapReverse");
 		keyword("flex-nowrap", "FlexWrap", "FlexWrap", "NoWrap");
-		for (entry in [["start", "Start"], ["end", "End"], ["center", "Center"], ["baseline", "Baseline"], ["stretch", "Stretch"]]) {
+		for (entry in [
+			["start", "Start"],
+			["end", "End"],
+			["center", "Center"],
+			["baseline", "Baseline"],
+			["stretch", "Stretch"]
+		]) {
 			keyword('items-${entry[0]}', "AlignItems", "Align", entry[1]);
 			keyword('self-${entry[0]}', "AlignSelf", "Align", entry[1]);
 			keyword('justify-items-${entry[0]}', "JustifyItems", "Align", entry[1]);
 			keyword('justify-self-${entry[0]}', "JustifySelf", "Align", entry[1]);
 			var aligned = entry[1];
-			v.set('place-items-${entry[0]}', node -> [set(node, "AlignItems", macro $style.Align.$aligned), set(node, "JustifyItems", macro $style.Align.$aligned)]);
-			v.set('place-self-${entry[0]}', node -> [set(node, "AlignSelf", macro $style.Align.$aligned), set(node, "JustifySelf", macro $style.Align.$aligned)]);
+			v.set('place-items-${entry[0]}', node -> [
+				set(node, "AlignItems", macro $style.Align.$aligned),
+				set(node, "JustifyItems", macro $style.Align.$aligned)
+			]);
+			v.set('place-self-${entry[0]}', node -> [
+				set(node, "AlignSelf", macro $style.Align.$aligned),
+				set(node, "JustifySelf", macro $style.Align.$aligned)
+			]);
 		}
 		keyword("self-auto", "AlignSelf", "Align", "Auto");
 		keyword("justify-self-auto", "JustifySelf", "Align", "Auto");
 		keyword("justify-items-normal", "JustifyItems", "Align", "Auto");
 		for (entry in [
-			["start", "Start"], ["end", "End"], ["center", "Center"], ["stretch", "Stretch"], ["between", "SpaceBetween"],
-			["around", "SpaceAround"], ["evenly", "SpaceEvenly"]
+			["start", "Start"],
+			["end", "End"],
+			["center", "Center"],
+			["stretch", "Stretch"],
+			["between", "SpaceBetween"],
+			["around", "SpaceAround"],
+			["evenly", "SpaceEvenly"]
 		]) {
 			keyword('justify-${entry[0]}', "JustifyContent", "Justify", entry[1]);
 			keyword('content-${entry[0]}', "AlignContent", "Justify", entry[1]);
 			var aligned = entry[1];
-			v.set('place-content-${entry[0]}', node -> [set(node, "AlignContent", macro $style.Justify.$aligned), set(node, "JustifyContent", macro $style.Justify.$aligned)]);
+			v.set('place-content-${entry[0]}', node -> [
+				set(node, "AlignContent", macro $style.Justify.$aligned),
+				set(node, "JustifyContent", macro $style.Justify.$aligned)
+			]);
 		}
 		keyword("content-normal", "AlignContent", "Justify", "Normal");
 		for (entry in [["visible", "Visible"], ["hidden", "Hidden"], ["clip", "Clip"]]) {
@@ -664,14 +727,16 @@ class Tw {
 		}
 		// Scroll containers: the content moves under the wheel or trackpad along the axes they name.
 		for (entry in [
-			{name: "auto", x: true, y: true}, {name: "scroll", x: true, y: true}, {name: "x-auto", x: true, y: false},
+			   {name: "auto", x: true, y: true},    {name: "scroll", x: true, y: true}, {name: "x-auto", x: true, y: false},
 			{name: "y-auto", x: false, y: true}, {name: "x-scroll", x: true, y: false}, {name: "y-scroll", x: false, y: true}
 		]) {
 			var x = entry.x, y = entry.y;
 			v.set('overflow-${entry.name}', node -> {
 				var writes = [];
-				if (x) writes.push(set(node, "OverflowX", macro $style.Overflow.Scroll));
-				if (y) writes.push(set(node, "OverflowY", macro $style.Overflow.Scroll));
+				if (x)
+					writes.push(set(node, "OverflowX", macro $style.Overflow.Scroll));
+				if (y)
+					writes.push(set(node, "OverflowY", macro $style.Overflow.Scroll));
 				return writes;
 			});
 		}
@@ -680,7 +745,7 @@ class Tw {
 		keyword("fixed", "Position", "Position", "Fixed");
 		keyword("sticky", "Position", "Position", "Sticky");
 		// git-bug: 7977648. These use the same typed writes for base and state classes.
-		one("order-first", "Order", macro -9999);
+		one("order-first", "Order", macro - 9999);
 		one("order-last", "Order", macro 9999);
 		one("order-none", "Order", macro 0);
 		for (order in 1...13) {
@@ -725,15 +790,25 @@ class Tw {
 		// An element whose state what is inside it, or its later siblings, can follow.
 		v.set("group", node -> [macro ashui.input.Interaction.of($node).markGroup()]);
 		v.set("peer", node -> [macro ashui.input.Interaction.of($node).markPeer()]);
-		v.set("flex-auto", node -> [set(node, "FlexGrow", macro(1 : Single)), set(node, "FlexShrink", macro(1 : Single))]);
-		v.set("flex-none", node -> [set(node, "FlexGrow", macro(0 : Single)), set(node, "FlexShrink", macro(0 : Single))]);
+		v.set("flex-auto", node -> [
+			set(node, "FlexGrow", macro(1 : Single)),
+			set(node, "FlexShrink", macro(1 : Single))
+		]);
+		v.set("flex-none", node -> [
+			set(node, "FlexGrow", macro(0 : Single)),
+			set(node, "FlexShrink", macro(0 : Single))
+		]);
 		float("border", "BorderWidth", 1);
 		for (width in [0, 2, 4, 8])
 			float('border-$width', "BorderWidth", width);
 		// One side, or two: a side's width over the border's.
 		var sideKeys = [
-			"t" => ["BorderTopWidth"], "r" => ["BorderRightWidth"], "b" => ["BorderBottomWidth"], "l" => ["BorderLeftWidth"],
-			"x" => ["BorderLeftWidth", "BorderRightWidth"], "y" => ["BorderTopWidth", "BorderBottomWidth"]
+			"t" => ["BorderTopWidth"],
+			"r" => ["BorderRightWidth"],
+			"b" => ["BorderBottomWidth"],
+			"l" => ["BorderLeftWidth"],
+			"x" => ["BorderLeftWidth", "BorderRightWidth"],
+			"y" => ["BorderTopWidth", "BorderBottomWidth"]
 		];
 		for (side => keys in sideKeys)
 			for (width in [null, 0, 2, 4, 8]) {
@@ -765,15 +840,55 @@ class Tw {
 			float('saturate-$p', "FilterSaturate", p / 100);
 		// Tailwind 4's blur scale, in pixels.
 		for (entry in [
-			{name: "none", px: 0}, {name: "xs", px: 4}, {name: "sm", px: 8}, {name: "md", px: 12}, {name: "lg", px: 16}, {name: "xl", px: 24},
-			{name: "2xl", px: 40}, {name: "3xl", px: 64}
+			{name: "none", px: 0},
+			{name: "xs", px: 4},
+			{name: "sm", px: 8},
+			{name: "md", px: 12},
+			{name: "lg", px: 16},
+			{name: "xl", px: 24},
+			{name: "2xl", px: 40},
+			{name: "3xl", px: 64}
 		])
 			float('blur-${entry.name}', "FilterBlur", entry.px);
 		float("blur", "FilterBlur", 8);
 		// Tailwind 4's drop shadows: offset y, blur radius, black's alpha.
 		for (entry in [
-			{name: "xs", y: 1, blur: 1, alpha: 0.05}, {name: "sm", y: 1, blur: 2, alpha: 0.15}, {name: "md", y: 3, blur: 3, alpha: 0.12},
-			{name: "lg", y: 4, blur: 4, alpha: 0.15}, {name: "xl", y: 9, blur: 7, alpha: 0.1}, {name: "2xl", y: 25, blur: 25, alpha: 0.15}
+			{
+				name: "xs",
+				y: 1,
+				blur: 1,
+				alpha: 0.05
+			},
+			{
+				name: "sm",
+				y: 1,
+				blur: 2,
+				alpha: 0.15
+			},
+			{
+				name: "md",
+				y: 3,
+				blur: 3,
+				alpha: 0.12
+			},
+			{
+				name: "lg",
+				y: 4,
+				blur: 4,
+				alpha: 0.15
+			},
+			{
+				name: "xl",
+				y: 9,
+				blur: 7,
+				alpha: 0.1
+			},
+			{
+				name: "2xl",
+				y: 25,
+				blur: 25,
+				alpha: 0.15
+			}
 		])
 			one('drop-shadow-${entry.name}', "DropShadow", macro new ashui.types.Shadow(0, $v{entry.y}, $v{entry.blur}, 0x000000, $v{entry.alpha}));
 		one("drop-shadow", "DropShadow", macro new ashui.types.Shadow(0, 1, 2, 0x000000, 0.15));
@@ -789,7 +904,8 @@ class Tw {
 			{pattern: ~/^-/, why: "only translate, rotate, skew and hue-rotate take a minus sign"},
 			{pattern: ~/^backdrop-opacity/, why: "backdrop-opacity is not drawn; tint the background with bg-*/opacity instead"},
 			{pattern: ~/^-?translate-[xy]-(full|\d+\/\d+)$/, why: "translating by a fraction of the element's own size is not bound yet"},
-			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/, why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
+			{pattern: ~/-(screen|svh|dvh|lvh|min|max|fit)$/,
+				why: "sizes relative to the window or the content are not bound; size a full-window root with w-full and h-full"},
 			{pattern: ~/^animate-/, why: "the animations are animate-spin, animate-ping, animate-pulse, animate-bounce and animate-none"},
 			{pattern: ~/\[.*\]/, why: "arbitrary values are supported for [clip-path:…] and [glass-*:…]; use a token or an attribute otherwise"}
 		];
@@ -821,8 +937,15 @@ class Tw {
 
 	/** Tailwind's backdrop blur sizes, in pixels of deviation. **/
 	static final BACKDROP_BLUR:Map<String, Float> = [
-		"backdrop-blur-none" => 0.0, "backdrop-blur-xs" => 4.0, "backdrop-blur-sm" => 8.0, "backdrop-blur" => 8.0, "backdrop-blur-md" => 12.0,
-		"backdrop-blur-lg" => 16.0, "backdrop-blur-xl" => 24.0, "backdrop-blur-2xl" => 40.0, "backdrop-blur-3xl" => 64.0
+		"backdrop-blur-none" => 0.0,
+		"backdrop-blur-xs" => 4.0,
+		"backdrop-blur-sm" => 8.0,
+		"backdrop-blur" => 8.0,
+		"backdrop-blur-md" => 12.0,
+		"backdrop-blur-lg" => 16.0,
+		"backdrop-blur-xl" => 24.0,
+		"backdrop-blur-2xl" => 40.0,
+		"backdrop-blur-3xl" => 64.0
 	];
 
 	/** What colour classes set: `bg-` a brush, the rest a colour, to each of `props`. **/
@@ -899,14 +1022,38 @@ class Tw {
 				return {name: "background-repeat", value: value};
 			if (["auto", "cover", "contain"].indexOf(value) >= 0)
 				return {name: "background-size", value: value};
-			if (["center", "left", "right", "top", "bottom", "left-top", "left-bottom", "right-top", "right-bottom", "top-left", "top-right", "bottom-left", "bottom-right"].indexOf(value) >= 0)
+			if ([
+				"center",
+				"left",
+				"right",
+				"top",
+				"bottom",
+				"left-top",
+				"left-bottom",
+				"right-top",
+				"right-bottom",
+				"top-left",
+				"top-right",
+				"bottom-left",
+				"bottom-right"
+			].indexOf(value) >= 0)
 				return {name: "background-position", value: StringTools.replace(value, "-", " ")};
 		}
 		if (StringTools.startsWith(word, "object-")) {
 			var value = word.substr(7);
 			if (["cover", "contain", "fill", "none", "scale-down"].indexOf(value) >= 0)
 				return {name: "object-fit", value: value};
-			if (["center", "left", "right", "top", "bottom", "left-top", "left-bottom", "right-top", "right-bottom"].indexOf(value) >= 0)
+			if ([
+				"center",
+				"left",
+				"right",
+				"top",
+				"bottom",
+				"left-top",
+				"left-bottom",
+				"right-top",
+				"right-bottom"
+			].indexOf(value) >= 0)
 				return {name: "object-position", value: StringTools.replace(value, "-", " ")};
 		}
 		if (StringTools.startsWith(word, "scrollbar-")) {
@@ -916,12 +1063,62 @@ class Tw {
 		}
 		if (StringTools.startsWith(word, "list-")) {
 			var value = word.substr(5);
-			if (["none", "disc", "circle", "square", "decimal", "decimal-leading-zero", "lower-alpha", "upper-alpha", "lower-latin", "upper-latin", "lower-roman", "upper-roman"].indexOf(value) >= 0)
+			if ([
+				"none",
+				"disc",
+				"circle",
+				"square",
+				"decimal",
+				"decimal-leading-zero",
+				"lower-alpha",
+				"upper-alpha",
+				"lower-latin",
+				"upper-latin",
+				"lower-roman",
+				"upper-roman"
+			].indexOf(value) >= 0)
 				return {name: "list-style-type", value: value};
 		}
 		if (StringTools.startsWith(word, "cursor-")) {
 			var value = word.substr(7);
-			if (["auto", "default", "none", "context-menu", "help", "pointer", "progress", "wait", "cell", "crosshair", "text", "vertical-text", "alias", "copy", "move", "no-drop", "not-allowed", "grab", "grabbing", "e-resize", "n-resize", "ne-resize", "nw-resize", "s-resize", "se-resize", "sw-resize", "w-resize", "ew-resize", "ns-resize", "nesw-resize", "nwse-resize", "col-resize", "row-resize", "all-scroll", "zoom-in", "zoom-out"].indexOf(value) >= 0)
+			if ([
+				"auto",
+				"default",
+				"none",
+				"context-menu",
+				"help",
+				"pointer",
+				"progress",
+				"wait",
+				"cell",
+				"crosshair",
+				"text",
+				"vertical-text",
+				"alias",
+				"copy",
+				"move",
+				"no-drop",
+				"not-allowed",
+				"grab",
+				"grabbing",
+				"e-resize",
+				"n-resize",
+				"ne-resize",
+				"nw-resize",
+				"s-resize",
+				"se-resize",
+				"sw-resize",
+				"w-resize",
+				"ew-resize",
+				"ns-resize",
+				"nesw-resize",
+				"nwse-resize",
+				"col-resize",
+				"row-resize",
+				"all-scroll",
+				"zoom-in",
+				"zoom-out"
+			].indexOf(value) >= 0)
 				return {name: "cursor", value: value};
 		}
 		return null;
@@ -976,8 +1173,8 @@ class Tw {
 			target.brush ? macro ashui.types.Brush.solid($v{fixed.hex}, $v{a}) : macro new ashui.types.Color($v{fixed.hex}, $v{a});
 		} else {
 			var token = colors.get(name);
-			target.brush ? macro ashui.theme.Themed.brush(ashui.theme.ColorToken.$token, $v{alpha}) : macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token,
-				$v{alpha});
+			target.brush ? macro ashui.theme.Themed.brush(ashui.theme.ColorToken.$token,
+				$v{alpha}) : macro ashui.theme.Themed.color(ashui.theme.ColorToken.$token, $v{alpha});
 		}
 		return node -> [for (key in target.props) macro $node.set(ashui.layout.Prop.$key, $value)];
 	}
@@ -1011,7 +1208,8 @@ class Tw {
 				for (f in a.get().impl.get().statics.get())
 					if (f.name == name)
 						switch f.expr() {
-							case {expr: TCast({expr: TConst(TString(s))}, _)} | {expr: TConst(TString(s))}: return s;
+							case {expr: TCast({expr: TConst(TString(s))}, _)}
+								| {expr: TConst(TString(s))}: return s;
 							case _:
 						}
 			case _:
@@ -1155,7 +1353,10 @@ private class TransformClasses {
 				return macro $node.set(ashui.layout.Prop.$key, $value);
 			var sets = switch animation {
 				case "spin": [set("Transform", macro ashui.animation.Keyframes.spin())];
-				case "ping": [set("Transform", macro ashui.animation.Keyframes.pingScale()), set("Opacity", macro ashui.animation.Keyframes.pingOpacity())];
+				case "ping": [
+						set("Transform", macro ashui.animation.Keyframes.pingScale()),
+						set("Opacity", macro ashui.animation.Keyframes.pingOpacity())
+					];
 				case "pulse": [set("Opacity", macro ashui.animation.Keyframes.pulse())];
 				case "bounce": [set("Transform", macro ashui.animation.Keyframes.bounce($node))];
 				case _: [];
@@ -1187,15 +1388,31 @@ private class TransformClasses {
 /** The transition classes of one class string, composed into one `Transition`. **/
 private class Motion {
 	static final GROUPS = [
-		"transition" => "DEFAULT", "transition-all" => "ALL", "transition-colors" => "COLORS", "transition-opacity" => "opacity",
-		"transition-shadow" => "shadow", "transition-transform" => "transform", "transition-none" => "none"
+		"transition" => "DEFAULT",
+		"transition-all" => "ALL",
+		"transition-colors" => "COLORS",
+		"transition-opacity" => "opacity",
+		"transition-shadow" => "shadow",
+		"transition-transform" => "transform",
+		"transition-none" => "none"
 	];
 	static final DURATIONS = [
-		"fastest" => "DurationFastest", "faster" => "DurationFaster", "fast" => "DurationFast", "normal" => "DurationNormal",
-		"slow" => "DurationSlow", "slower" => "DurationSlower", "slowest" => "DurationSlowest"
+		"fastest" => "DurationFastest",
+		"faster" => "DurationFaster",
+		"fast" => "DurationFast",
+		"normal" => "DurationNormal",
+		"slow" => "DurationSlow",
+		"slower" => "DurationSlower",
+		"slowest" => "DurationSlowest"
 	];
 	static final EASINGS = [
-		"default" => "Default", "in" => "In", "out" => "Out", "in-out" => "InOut", "state" => "State", "nav" => "Nav", "spring" => "Spring",
+		"default" => "Default",
+		"in" => "In",
+		"out" => "Out",
+		"in-out" => "InOut",
+		"state" => "State",
+		"nav" => "Nav",
+		"spring" => "Spring",
 		"sheet" => "Sheet"
 	];
 	// Tailwind's millisecond steps for durations and delays.
@@ -1292,8 +1509,14 @@ private class Motion {
 private class Gradient {
 	// Start and end of each direction, as fractions of the box; y down.
 	static final DIRECTIONS:Map<String, Array<Float>> = [
-		"t" => [0.5, 1, 0.5, 0], "tr" => [0, 1, 1, 0], "r" => [0, 0.5, 1, 0.5], "br" => [0, 0, 1, 1],
-		"b" => [0.5, 0, 0.5, 1], "bl" => [1, 0, 0, 1], "l" => [1, 0.5, 0, 0.5], "tl" => [1, 1, 0, 0]
+		"t" => [0.5, 1, 0.5, 0],
+		"tr" => [0, 1, 1, 0],
+		"r" => [0, 0.5, 1, 0.5],
+		"br" => [0, 0, 1, 1],
+		"b" => [0.5, 0, 0.5, 1],
+		"bl" => [1, 0, 0, 1],
+		"l" => [1, 0.5, 0, 0.5],
+		"tl" => [1, 1, 0, 0]
 	];
 
 	var geometry:Null<Array<Float>> = null;
@@ -1357,7 +1580,9 @@ private class Gradient {
 			var any = stops.iterator().next();
 			Context.error("tw: from-, via- and to- need a direction, such as bg-linear-to-r or bg-radial", any.pos);
 		}
-		var from = stops.get("from"), via = stops.get("via"), to = stops.get("to");
+		var from = stops.get("from"),
+			via = stops.get("via"),
+			to = stops.get("to");
 		var colored = [for (s in [from, via, to]) if (s != null && s.token != null) s];
 		if (colored.length == 0)
 			Context.error("tw: a gradient needs at least one of from-, via- or to- with a colour", at);

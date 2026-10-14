@@ -10,6 +10,7 @@ import window.CursorIcon;
 class Cursor {
 	/** `none` hides the native cursor; other values are hlwindow's CursorIcon. **/
 	@:noCompletion public static inline var HIDDEN = -1;
+
 	static final sinks = new haxe.ds.ObjectMap<LayoutTree, {write:Int->Void, value:Null<String>, code:Int}>();
 	static final pending = new haxe.ds.ObjectMap<LayoutTree, Bool>();
 	static var hooked = false;
@@ -61,10 +62,12 @@ class Cursor {
 		if (!hooked) {
 			hooked = true;
 			Css.restyled.push(identity -> {
-				if (sinks.exists(identity.tree)) pending.set(identity.tree, true);
+				if (sinks.exists(identity.tree))
+					pending.set(identity.tree, true);
 			});
 			LayoutTree.flushHooks.push(tree -> {
-				if (pending.remove(tree)) retarget(tree, ashui.input.Pointer.hoverChain(tree));
+				if (pending.remove(tree))
+					retarget(tree, ashui.input.Pointer.hoverChain(tree));
 			});
 		}
 		sinks.set(tree, {write: write, value: null, code: -2});
@@ -79,15 +82,20 @@ class Cursor {
 	/** Called only on hit-test paths; quiet moves return before reaching it. **/
 	@:noCompletion public static function retarget(tree:LayoutTree, chain:Array<Hit>):Void {
 		var sink = sinks.get(tree);
-		if (sink == null) return;
+		if (sink == null)
+			return;
 		var value:Null<String> = null;
 		for (hit in chain) {
 			var identity = Identity.of(tree, hit.id);
-			if (identity != null) value = Css.resolved(identity, "cursor");
-			if (value != null) break;
+			if (identity != null)
+				value = Css.resolved(identity, "cursor");
+			if (value != null)
+				break;
 		}
-		if (value == null) value = "auto";
-		if (sink.value == value) return;
+		if (value == null)
+			value = "auto";
+		if (sink.value == value)
+			return;
 		var code = try parse(value) catch (_:String) CursorIcon.Default;
 		sink.value = value;
 		if (code != sink.code) {

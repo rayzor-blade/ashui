@@ -29,6 +29,7 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 
 	/** For bloom's glow pass: its pipeline, and settings and a bind group flagged for glow. **/
 	var glowPipeline:Null<gpu.GpuPipeline> = null;
+
 	var glowSettings:Null<gpu.GpuBuffer> = null;
 	var glowGroup:Null<gpu.GpuBindGroup> = null;
 
@@ -44,7 +45,8 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 			builder.depth(frame.depthFormat, false, Always);
 			builder.primitive(TriangleList, None, Ccw);
 			pipeline = builder.build();
-			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(ROWS * 16, ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
+			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(ROWS * 16,
+				ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
 		}
 		var b = haxe.io.Bytes.alloc(ROWS * 16);
 		inline function row(at:Int, x:Float, y:Float, z:Float, w:Float) {
@@ -78,7 +80,8 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 				var o = o != null ? o : {};
 				row(5, 3, 0, o.intensity != null ? o.intensity : 1, 0);
 				// Texels a radian round, for the mip level a pixel's share of the sky asks for.
-				row(9, o.spread != null ? o.spread : 1, o.upsideDown == true ? 1 : 0, image.width / (2 * Math.PI), (o.turn != null ? o.turn : 0) / (2 * Math.PI));
+				row(9, o.spread != null ? o.spread : 1, o.upsideDown == true ? 1 : 0, image.width / (2 * Math.PI),
+					(o.turn != null ? o.turn : 0) / (2 * Math.PI));
 				var c = o.centre != null ? o.centre : ashui.math.Vec3.ZERO;
 				row(10, c.x, c.y, c.z, o.radius != null ? o.radius : 0);
 			case Sky(e, blur, intensity):
@@ -111,7 +114,8 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 		if (glowPipeline == null) {
 			var builder = frame.glowPipelineBuilder(SkyShader.WGSL);
 			glowPipeline = builder.build();
-			glowSettings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(ROWS * 16, ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
+			glowSettings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(ROWS * 16,
+				ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
 		}
 		row(11, 1, 0, 0, 0);
 		frame.device.queue().writeBuffer(glowSettings, 0, b, b.length);

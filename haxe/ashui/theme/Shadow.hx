@@ -30,8 +30,12 @@ final class Shadow {
 
 	/** From `from` to `to` by `t`; the offsets, blur and spread are not clamped, the colour is; inside or out is `to`'s. **/
 	public static function lerp(from:Shadow, to:Shadow, t:Float):Shadow {
-		return new Shadow(from.offsetX + (to.offsetX - from.offsetX) * t, from.offsetY + (to.offsetY - from.offsetY) * t,
-			from.blur + (to.blur - from.blur) * t, from.spread + (to.spread - from.spread) * t, Rgba.lerp(from.color, to.color, t), to.inset);
+		return new Shadow(from.offsetX
+			+ (to.offsetX - from.offsetX) * t, from.offsetY
+			+ (to.offsetY - from.offsetY) * t,
+			from.blur
+			+ (to.blur - from.blur) * t, from.spread
+			+ (to.spread - from.spread) * t, Rgba.lerp(from.color, to.color, t), to.inset);
 	}
 
 	/** Two stacks layer by layer, the shorter padded with `none()`. **/

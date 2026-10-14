@@ -36,8 +36,8 @@ class Scene3D {
 	public final antialias:Bool;
 	public final motionBlur:Float;
 
-	public function new(camera:Camera, lighting:SceneLighting, exposure = 1.0, background = 0x000000, backgroundAlpha = 0.0, ?fog:Fog, lens = 0.0, ?bloom:Bloom, vignette = 0.0,
-			grain = 0.0, aberration = 0.0, ?grade:ColorGrade, antialias = false, motionBlur = 0.0) {
+	public function new(camera:Camera, lighting:SceneLighting, exposure = 1.0, background = 0x000000, backgroundAlpha = 0.0, ?fog:Fog, lens = 0.0,
+			?bloom:Bloom, vignette = 0.0, grain = 0.0, aberration = 0.0, ?grade:ColorGrade, antialias = false, motionBlur = 0.0) {
 		this.camera = camera;
 		this.lighting = lighting;
 		this.exposure = exposure;
@@ -54,13 +54,11 @@ class Scene3D {
 		this.motionBlur = motionBlur;
 	}
 
-	public function with(?camera:Camera, ?lighting:SceneLighting, ?exposure:Float, ?background:Int, ?backgroundAlpha:Float, ?fog:Fog,
-			?lens:Float, ?bloom:Bloom, ?vignette:Float, ?grain:Float, ?aberration:Float, ?grade:ColorGrade, ?antialias:Bool,
-			?motionBlur:Float):Scene3D
+	public function with(?camera:Camera, ?lighting:SceneLighting, ?exposure:Float, ?background:Int, ?backgroundAlpha:Float, ?fog:Fog, ?lens:Float,
+			?bloom:Bloom, ?vignette:Float, ?grain:Float, ?aberration:Float, ?grade:ColorGrade, ?antialias:Bool, ?motionBlur:Float):Scene3D
 		return new Scene3D(camera != null ? camera : this.camera, lighting != null ? lighting : this.lighting, exposure != null ? exposure : this.exposure,
-			background != null ? background : this.background, backgroundAlpha != null ? backgroundAlpha : this.backgroundAlpha,
-			fog != null ? fog : this.fog, lens != null ? lens : this.lens,
-			bloom != null ? bloom : this.bloom, vignette != null ? vignette : this.vignette, grain != null ? grain : this.grain,
-			aberration != null ? aberration : this.aberration, grade != null ? grade : this.grade,
+			background != null ? background : this.background, backgroundAlpha != null ? backgroundAlpha : this.backgroundAlpha, fog != null ? fog : this.fog,
+			lens != null ? lens : this.lens, bloom != null ? bloom : this.bloom, vignette != null ? vignette : this.vignette,
+			grain != null ? grain : this.grain, aberration != null ? aberration : this.aberration, grade != null ? grade : this.grade,
 			antialias != null ? antialias : this.antialias, motionBlur != null ? motionBlur : this.motionBlur);
 }

@@ -68,8 +68,8 @@ class Snapshot {
 		captured. The time is the frame count's, not the clock's, so the
 		frames are the same each run. Returns the paths.
 	**/
-	public static function sequence(name:String, width:Int, height:Int, build:Void->Element, fps = 30, frames = 30, ?before:(frame:Int,
-			tree:LayoutTree, root:Element) -> Void, clear = 0xffffff, clearAlpha = 1.0, scale = 1.0):Array<String> {
+	public static function sequence(name:String, width:Int, height:Int, build:Void->Element, fps = 30, frames = 30,
+			?before:(frame:Int, tree:LayoutTree, root:Element) -> Void, clear = 0xffffff, clearAlpha = 1.0, scale = 1.0):Array<String> {
 		try {
 			var tree = new LayoutTree();
 			var root:Element = Owner.root(tree, _ -> build());
@@ -98,8 +98,7 @@ class Snapshot {
 		`scale` times that size cleared to `clear`, and writes it as `name`.
 		Returns the PNG's path.
 	**/
-	public static function capture(name:String, tree:LayoutTree, root:Node, width:Int, height:Int, clear = 0xffffff, clearAlpha = 1.0,
-			scale = 1.0):String {
+	public static function capture(name:String, tree:LayoutTree, root:Node, width:Int, height:Int, clear = 0xffffff, clearAlpha = 1.0, scale = 1.0):String {
 		if (offscreen == null)
 			offscreen = Offscreen.create();
 		offscreen.clear = clear;

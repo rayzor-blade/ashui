@@ -38,21 +38,17 @@ class PathShader implements UiShader {
 
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
 		// The atlas first: its sampler is used and the canvas's is not, so bindings made in order run images, sampler, canvas.
-		@param var canvasImages : Sampler2D;
-		@param var canvas : Sampler2D;
-
-		var output : { position : Vec4, color : Vec4 };
-		var pixel : Vec2;
-		var coverage : Float;
-		var paint : Float;
-		var edges : Vec4;
-
-		function canvasTexel(t : Int) : Vec4 {
+		@param var canvasImages:Sampler2D;
+		@param var canvas:Sampler2D;
+		var output:{position:Vec4, color:Vec4};
+		var pixel:Vec2;
+		var coverage:Float;
+		var paint:Float;
+		var edges:Vec4;
+		function canvasTexel(t:Int):Vec4 {
 			return canvas.fetch(ivec2(t % 2048, t / 2048));
 		}
-
 		function vertex() {
 			var v = canvasTexel(vertexID * 2);
 			pixel = v.xy;
@@ -61,13 +57,11 @@ class PathShader implements UiShader {
 			edges = canvasTexel(vertexID * 2 + 1);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
-		function premultiplied(c : Vec4) : Vec4 {
+		function premultiplied(c:Vec4):Vec4 {
 			return vec4(c.rgb * c.a, c.a);
 		}
-
 		// How much of this pixel the clip at texel `t` keeps: inside by half a pixel or more, all of it.
-		function drawClipCoverage(t : Int) : Float {
+		function drawClipCoverage(t:Int):Float {
 			var head = canvasTexel(t);
 			var row0 = canvasTexel(t + 1);
 			var row1 = canvasTexel(t + 2);
@@ -85,9 +79,8 @@ class PathShader implements UiShader {
 			}
 			return head.x > 0.5 ? clamp(0.5 - d * head.w, 0., 1.) : 0.;
 		}
-
 		// How much of this pixel a pattern of `kind` every `step` covers at `p`, `unit` of its units to a pixel, `size` pixels across.
-		function patternCoverage(kind : Float, p : Vec2, step : Float, unit : Float, size : Float) : Float {
+		function patternCoverage(kind:Float, p:Vec2, step:Float, unit:Float, size:Float):Float {
 			var d = 0.;
 			if (kind < 1.5) {
 				d = length(p - step * floor(p / step + 0.5)) / unit;
@@ -101,7 +94,6 @@ class PathShader implements UiShader {
 			}
 			return clamp(size * 0.5 - d + 0.5, 0., 1.);
 		}
-
 		function fragment() {
 			var at = int(paint + 0.5);
 			var head = canvasTexel(at);

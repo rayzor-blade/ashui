@@ -28,6 +28,7 @@ typedef SceneRegion = {
 **/
 class Selection3D {
 	public final id = Signal.make((null : String));
+
 	final regions = new Map<String, SceneRegion>();
 	final materials = new haxe.ds.ObjectMap<Material, {selected:Material, used:Int}>();
 	final edges = new SelectionEdges();
@@ -37,7 +38,8 @@ class Selection3D {
 
 	/** Selects one registered object, or clears selection with null. **/
 	public function select(next:Null<String>):Void
-		if (id.get() != next) id.set(next);
+		if (id.get() != next)
+			id.set(next);
 
 	public function clear():Void
 		select(null);
@@ -54,15 +56,24 @@ class Selection3D {
 
 	@:allow(ashui.canvaskit.SceneKit)
 	function end(ctx:DrawContext):Void {
-		for (key => r in regions) if (r.frame != frame) regions.remove(key);
-		for (source => entry in materials) if (entry.used != frame) materials.remove(source);
-		if (!edges.empty()) ctx.drawPass(edges); else edges.clear();
+		for (key => r in regions)
+			if (r.frame != frame)
+				regions.remove(key);
+		for (source => entry in materials)
+			if (entry.used != frame)
+				materials.remove(source);
+		if (!edges.empty())
+			ctx.drawPass(edges);
+		else
+			edges.clear();
 	}
 
 	/** Release callbacks and bounds when the viewport's owner is disposed. **/
 	@:allow(ashui.canvaskit.SceneKit)
 	function forgetRegions():Void {
-		regions.clear(); materials.clear(); edges.dispose();
+		regions.clear();
+		materials.clear();
+		edges.dispose();
 	}
 
 	/**
@@ -74,18 +85,24 @@ class Selection3D {
 	public function draw(object:String, ctx:DrawContext, draw:Void->Void):Void {
 		var selected = has(object), first = ctx.ops.length;
 		draw();
-		if (!selected) return;
-		for (i in first...ctx.ops.length) switch ctx.ops[i] {
-			case Mesh3D(mesh, at, scene, opacity, material):
-				var entry = materials.get(material);
-				if (entry == null) { entry = {selected: material.with({selected: true}), used: frame}; materials.set(material, entry); }
-				entry.used = frame;
-				ctx.ops[i] = Mesh3D(mesh, at, scene, opacity, entry.selected);
-				// Mesh edges cannot describe texture cutouts or a custom shader's moved vertices.
-				// Those still get the mask/rim through the mesh shader's alpha and deformation rules.
-				if (material.alphaMode == Opaque && material.shader == null) edges.add(mesh, at, opacity);
-			case _:
-		}
+		if (!selected)
+			return;
+		for (i in first...ctx.ops.length)
+			switch ctx.ops[i] {
+				case Mesh3D(mesh, at, scene, opacity, material):
+					var entry = materials.get(material);
+					if (entry == null) {
+						entry = {selected: material.with({selected: true}), used: frame};
+						materials.set(material, entry);
+					}
+					entry.used = frame;
+					ctx.ops[i] = Mesh3D(mesh, at, scene, opacity, entry.selected);
+					// Mesh edges cannot describe texture cutouts or a custom shader's moved vertices.
+					// Those still get the mask/rim through the mesh shader's alpha and deformation rules.
+					if (material.alphaMode == Opaque && material.shader == null)
+						edges.add(mesh, at, opacity);
+				case _:
+			}
 	}
 
 	/**
@@ -97,17 +114,42 @@ class Selection3D {
 		into the object's scale. A uniform drag changes all three.
 		`onMove` receives world-space translation deltas; add them to its position.
 	**/
-	public function region(object:String, min:Vec3, max:Vec3, ?transform:Mat4, ?onRotate:Quat->Void, ?pivot:Vec3, ?onScale:Vec3->Void, ?onMove:Vec3->Void):Void {
+	public function region(object:String, min:Vec3, max:Vec3, ?transform:Mat4, ?onRotate:Quat->Void, ?pivot:Vec3, ?onScale:Vec3->Void,
+			?onMove:Vec3->Void):Void {
 		var at = transform != null ? transform : Mat4.IDENTITY;
 		var r = regions.get(object);
 		if (r == null) {
-			regions.set(object, {id: object, min: min, max: max, transform: at, inverse: at.inverse(),
-				pivot: pivot != null ? pivot : at.position(), onRotate: onRotate, onScale: onScale, onMove: onMove, frame: frame});
+			regions.set(object, {
+				id: object,
+				min: min,
+				max: max,
+				transform: at,
+				inverse: at.inverse(),
+				pivot: pivot != null ? pivot : at.position(),
+				onRotate: onRotate,
+				onScale: onScale,
+				onMove: onMove,
+				frame: frame
+			});
 		} else {
 			var changed = false;
-			if (at != r.transform) for (i in 0...16) if (at.m[i] != r.transform.m[i]) { changed = true; break; }
-			if (changed) { r.transform = at; r.inverse = at.inverse(); }
-			r.min = min; r.max = max; r.pivot = pivot != null ? pivot : at.position(); r.onRotate = onRotate; r.onScale = onScale; r.onMove = onMove; r.frame = frame;
+			if (at != r.transform)
+				for (i in 0...16)
+					if (at.m[i] != r.transform.m[i]) {
+						changed = true;
+						break;
+					}
+			if (changed) {
+				r.transform = at;
+				r.inverse = at.inverse();
+			}
+			r.min = min;
+			r.max = max;
+			r.pivot = pivot != null ? pivot : at.position();
+			r.onRotate = onRotate;
+			r.onScale = onScale;
+			r.onMove = onMove;
+			r.frame = frame;
 		}
 	}
 
@@ -121,10 +163,13 @@ class Selection3D {
 
 	/** Nearest oriented bounding box along a world ray; singular transforms cannot be picked. **/
 	public function pick(origin:Vec3, direction:Vec3, near = 0.0, ?far:Float):Null<String> {
-		var best = far != null ? far : Math.POSITIVE_INFINITY, found:Null<String> = null;
+		var best = far != null ? far : Math.POSITIVE_INFINITY,
+			found:Null<String> = null;
 		for (r in regions) {
-			if (r.inverse == null) continue;
-			var p = r.inverse.transformPoint(origin), d = r.inverse.transformDirection(direction);
+			if (r.inverse == null)
+				continue;
+			var p = r.inverse.transformPoint(origin),
+				d = r.inverse.transformDirection(direction);
 			var enter = near, leave = best;
 			for (axis in 0...3) {
 				var o = axis == 0 ? p.x : axis == 1 ? p.y : p.z;
@@ -132,12 +177,16 @@ class Selection3D {
 				var lo = axis == 0 ? r.min.x : axis == 1 ? r.min.y : r.min.z;
 				var hi = axis == 0 ? r.max.x : axis == 1 ? r.max.y : r.max.z;
 				if (Math.abs(v) < 1e-10) {
-					if (o < lo || o > hi) { leave = -1; break; }
+					if (o < lo || o > hi) {
+						leave = -1;
+						break;
+					}
 				} else {
 					var a = (lo - o) / v, b = (hi - o) / v;
 					enter = Math.max(enter, Math.min(a, b));
 					leave = Math.min(leave, Math.max(a, b));
-					if (enter > leave) break;
+					if (enter > leave)
+						break;
 				}
 			}
 			if (enter <= leave && (enter < best || (enter == best && (found == null || r.id < found)))) {

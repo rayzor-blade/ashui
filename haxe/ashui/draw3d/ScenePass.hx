@@ -3,6 +3,7 @@ package ashui.draw3d;
 #if ashui_gpu
 typedef ScenePassFrame = ashui.core.render.ScenePassFrame;
 #else
+
 /** A build without the renderer records passes and never draws them. **/
 typedef ScenePassFrame = Dynamic;
 #end

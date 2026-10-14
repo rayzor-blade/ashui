@@ -40,12 +40,14 @@ enum DismissReason {
 /** One entry of the top layer; `close` takes it out. **/
 class TopEntry {
 	public final content:Element;
+
 	final layer:Div;
 	final dim:Div;
 	final holder:Div;
 	final onClose:Null<Void->Void>;
 	final placement:Placement;
 	var closed = false;
+
 	/** Where the holder was last put, so placing it again only moves it when the content's size moved it. **/
 	var placed:Null<{left:Float, top:Float}> = null;
 
@@ -220,7 +222,8 @@ class TopLayer {
 		if (root == null)
 			throw "TopLayer.open needs a tree that has been laid out";
 		var rootBounds = tree.getBounds(root);
-		var w = rootBounds == null ? 0.0 : rootBounds.width, h = rootBounds == null ? 0.0 : rootBounds.height;
+		var w = rootBounds == null ? 0.0 : rootBounds.width,
+			h = rootBounds == null ? 0.0 : rootBounds.height;
 		var shade = new Div({
 			position: Absolute,
 			left: 0,
@@ -247,19 +250,39 @@ class TopLayer {
 				new Div({}, [content], tree);
 			case Below(_, _, bw, _):
 				// At least as wide as its box, the content stretched to it, as a select's list matches the select.
-				new Div({position: Absolute, minWidth: bw, flexDirection: FlexDirection.Column, alignItems: Align.Stretch}, [content], tree);
+				new Div({
+					position: Absolute,
+					minWidth: bw,
+					flexDirection: FlexDirection.Column,
+					alignItems: Align.Stretch
+				}, [content], tree);
 			case Beside(_, _, _, _, _, _, _) | At(_, _):
 				new Div({position: Absolute}, [content], tree);
 			case Edge(side):
 				// Pinned to its edge and stretched along it; the content stretches with it.
-				var holder = new Div({position: Absolute, flexDirection: side == "left" || side == "right" ? FlexDirection.Row : FlexDirection.Column,
-					alignItems: Align.Stretch}, [content], tree);
+				var holder = new Div({
+					position: Absolute,
+					flexDirection: side == "left" || side == "right" ? FlexDirection.Row : FlexDirection.Column,
+					alignItems: Align.Stretch
+				}, [content], tree);
 				var n = holder.node;
 				switch side {
-					case "left": n.set(ashui.layout.Prop.Left, 0); n.set(ashui.layout.Prop.Top, 0); n.set(ashui.layout.Prop.Bottom, 0);
-					case "top": n.set(ashui.layout.Prop.Left, 0); n.set(ashui.layout.Prop.Right, 0); n.set(ashui.layout.Prop.Top, 0);
-					case "bottom": n.set(ashui.layout.Prop.Left, 0); n.set(ashui.layout.Prop.Right, 0); n.set(ashui.layout.Prop.Bottom, 0);
-					case _: n.set(ashui.layout.Prop.Right, 0); n.set(ashui.layout.Prop.Top, 0); n.set(ashui.layout.Prop.Bottom, 0);
+					case "left":
+						n.set(ashui.layout.Prop.Left, 0);
+						n.set(ashui.layout.Prop.Top, 0);
+						n.set(ashui.layout.Prop.Bottom, 0);
+					case "top":
+						n.set(ashui.layout.Prop.Left, 0);
+						n.set(ashui.layout.Prop.Right, 0);
+						n.set(ashui.layout.Prop.Top, 0);
+					case "bottom":
+						n.set(ashui.layout.Prop.Left, 0);
+						n.set(ashui.layout.Prop.Right, 0);
+						n.set(ashui.layout.Prop.Bottom, 0);
+					case _:
+						n.set(ashui.layout.Prop.Right, 0);
+						n.set(ashui.layout.Prop.Top, 0);
+						n.set(ashui.layout.Prop.Bottom, 0);
 				}
 				holder;
 		}
@@ -268,15 +291,22 @@ class TopLayer {
 		Interaction.of(shade.node).onPointerDown(e -> {
 			// A press on the backdrop itself, not on what it holds.
 			if (!e.defaultPrevented && (e.target == shade.node || e.target == dim.node) && entry != null && dismissible) {
-				if (onDismiss != null) onDismiss(Backdrop) else entry.close();
+				if (onDismiss != null)
+					onDismiss(Backdrop)
+				else
+					entry.close();
 			}
 		});
 		Interaction.of(shade.node).onKeyDown(e -> switch e.key {
 			case Named(Escape):
-				if (e.defaultPrevented) return;
+				if (e.defaultPrevented)
+					return;
 				e.preventDefault();
 				if (entry != null && dismissible) {
-					if (onDismiss != null) onDismiss(Escape) else entry.close();
+					if (onDismiss != null)
+						onDismiss(Escape)
+					else
+						entry.close();
 				}
 			case _:
 		});

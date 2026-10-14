@@ -38,8 +38,16 @@ class Affine {
 
 	/** This one after `inner`: a point goes through `inner` first. **/
 	public function after(inner:Affine):Affine
-		return new Affine(a * inner.a + c * inner.b, b * inner.a + d * inner.b, a * inner.c + c * inner.d, b * inner.c + d * inner.d,
-			a * inner.e + c * inner.f + e, b * inner.e + d * inner.f + f);
+		return new Affine(a * inner.a
+			+ c * inner.b, b * inner.a
+			+ d * inner.b, a * inner.c
+			+ c * inner.d, b * inner.c
+			+ d * inner.d,
+			a * inner.e
+			+ c * inner.f
+			+ e, b * inner.e
+			+ d * inner.f
+			+ f);
 
 	public inline function x(px:Float, py:Float):Float
 		return a * px + c * py + e;

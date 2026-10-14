@@ -23,30 +23,37 @@ typedef ScrollbarColors = {final thumb:ScrollbarColor; final track:ScrollbarColo
 **/
 class Scroll {
 	static final byNode = new haxe.ds.ObjectMap<Node, Scroll>();
+
 	/** Only reactive overflow needs a Haxe watch; constant overflow stays allocation-free until scrolling is enabled. **/
 	static final overflowWatches = new haxe.ds.ObjectMap<Node, Map<Int, Watch<Int>>>();
+
 	static var hooked = false;
 
 	static function hook():Void {
-		if (hooked) return;
+		if (hooked)
+			return;
 		hooked = true;
 		ashui.css.Css.restyled.push(identity -> {
 			var scroll = byNode.get(identity.node);
 			if (scroll != null) {
 				var visibility = ashui.css.Css.resolved(identity, "scrollbar-visibility");
-				if (visibility == null) visibility = "auto";
-				if (scroll.visibility != visibility) scroll.visibility = visibility;
+				if (visibility == null)
+					visibility = "auto";
+				if (scroll.visibility != visibility)
+					scroll.visibility = visibility;
 				scroll.restyle(identity);
 			}
 		});
 		ashui.css.Identity.forgetHooks.push(identity -> {
 			var watches = overflowWatches.get(identity.node);
 			if (watches != null) {
-				for (watch in watches) watch.stop();
+				for (watch in watches)
+					watch.stop();
 				overflowWatches.remove(identity.node);
 			}
 			var scroll = byNode.get(identity.node);
-			if (scroll != null) scroll.dispose();
+			if (scroll != null)
+				scroll.dispose();
 		});
 	}
 
@@ -55,15 +62,19 @@ class Scroll {
 		var watches = overflowWatches.get(node);
 		if (watches != null) {
 			var old = watches.get(field);
-			if (old != null) old.stop();
+			if (old != null)
+				old.stop();
 			watches.remove(field);
-			if (!watches.iterator().hasNext()) overflowWatches.remove(node);
+			if (!watches.iterator().hasNext())
+				overflowWatches.remove(node);
 		}
 		switch (value : ashui.layout.IntoReactive.ReactiveType<Int>) {
-			case Const(v): configure(node, field, v == ashui.types.Style.Overflow.Scroll);
+			case Const(v):
+				configure(node, field, v == ashui.types.Style.Overflow.Scroll);
 			case Bound(_) | Derived(_):
 				hook();
-				if (watches == null) watches = new Map();
+				if (watches == null)
+					watches = new Map();
 				overflowWatches.set(node, watches);
 				var read = switch (value : ashui.layout.IntoReactive.ReactiveType<Int>) {
 					case Bound(s): () -> s.get();
@@ -74,14 +85,17 @@ class Scroll {
 				watches.set(field, watch);
 				ashui.reactive.Owner.onCleanup(() -> {
 					watch.stop();
-					if (watches.get(field) == watch) watches.remove(field);
-					if (overflowWatches.get(node) == watches && !watches.iterator().hasNext()) overflowWatches.remove(node);
+					if (watches.get(field) == watch)
+						watches.remove(field);
+					if (overflowWatches.get(node) == watches && !watches.iterator().hasNext())
+						overflowWatches.remove(node);
 				});
 		}
 	}
 
 	/** Seconds the thumb stays after the last scroll, then the seconds it takes to fade. **/
 	static inline var THUMB_STAYS = 0.8;
+
 	static inline var THUMB_FADES = 0.25;
 
 	/** The scroll container. **/
@@ -89,6 +103,7 @@ class Scroll {
 
 	/** How far the content is scrolled right and down, in layout units. **/
 	public final x:Signal<Float>;
+
 	public final y:Signal<Float>;
 
 	var alongX:Bool;
@@ -110,8 +125,8 @@ class Scroll {
 
 	function restyle(identity:ashui.css.Identity):Void {
 		var colors = ashui.css.Css.resolved(identity, "scrollbar-color");
-		var current = colors != null && colors.toLowerCase().indexOf("currentcolor") >= 0
-			? ashui.css.Css.resolved(identity, "color") : null;
+		var current = colors != null
+			&& colors.toLowerCase().indexOf("currentcolor") >= 0 ? ashui.css.Css.resolved(identity, "color") : null;
 		if (colors != lastColors || current != lastCurrentColor) {
 			var next = try ashui.css.Properties.scrollbarColors(colors == null ? "auto" : colors,
 				current == null ? Rgba(0, 1) : ashui.css.CssValue.color(current)) catch (_:String) null;
@@ -125,23 +140,31 @@ class Scroll {
 
 	/** Restyles the existing thumb watch; no additional watcher or ticker. Null restores the theme. **/
 	@:noCompletion public function setScrollbarColors(colors:Null<ScrollbarColors>):Void {
-		if (colors == null && scrollbarColors == null) return;
-		if (colors != null && scrollbarColors != null && colors.thumb.rgb == scrollbarColors.thumb.rgb
-			&& colors.thumb.alpha == scrollbarColors.thumb.alpha && colors.track.rgb == scrollbarColors.track.rgb
-			&& colors.track.alpha == scrollbarColors.track.alpha) return;
+		if (colors == null && scrollbarColors == null)
+			return;
+		if (colors != null
+			&& scrollbarColors != null
+			&& colors.thumb.rgb == scrollbarColors.thumb.rgb
+			&& colors.thumb.alpha == scrollbarColors.thumb.alpha
+			&& colors.track.rgb == scrollbarColors.track.rgb
+			&& colors.track.alpha == scrollbarColors.track.alpha)
+			return;
 		scrollbarColors = colors;
 		appearance.set(appearance.get() + 1);
 	}
 
 	/** Overlay widths in layout units: auto 4, thin 2, none 0. **/
 	@:noCompletion public function setScrollbarWidth(width:Float):Void {
-		if (scrollbarWidth == width) return;
+		if (scrollbarWidth == width)
+			return;
 		scrollbarWidth = width;
 		if (width == 0) {
-			if (stay != null) stay.cancel();
+			if (stay != null)
+				stay.cancel();
 			stay = null;
 			fading = false;
-			if (visibility == "auto") thumb.set(0);
+			if (visibility == "auto")
+				thumb.set(0);
 		}
 		appearance.set(appearance.get() + 1);
 	}
@@ -158,11 +181,14 @@ class Scroll {
 
 	function set_visibility(v:String):String {
 		if (v == visibility) {
-			if (v == "always" && (alongX || alongY)) thumb.set(1);
-			if (v == "hidden") thumb.set(0);
+			if (v == "always" && (alongX || alongY))
+				thumb.set(1);
+			if (v == "hidden")
+				thumb.set(0);
 			return v;
 		}
-		if (stay != null) stay.cancel();
+		if (stay != null)
+			stay.cancel();
 		stay = null;
 		fading = false;
 		visibility = v;
@@ -210,8 +236,7 @@ class Scroll {
 			{
 				x: x.get(),
 				y: y.get(),
-				thumb: colors == null ? packed(color != null ? color.rgb() : 0x808080, shown * 0.7)
-					: packed(colors.thumb.rgb, shown * colors.thumb.alpha),
+				thumb: colors == null ? packed(color != null ? color.rgb() : 0x808080, shown * 0.7) : packed(colors.thumb.rgb, shown * colors.thumb.alpha),
 				track: colors == null ? 0 : packed(colors.track.rgb, shown * colors.track.alpha),
 				width: scrollbarWidth
 			};
@@ -224,7 +249,8 @@ class Scroll {
 					lastTrack = s.track;
 				}
 			}
-		}, (a, b) -> a.x == b.x && a.y == b.y && a.thumb == b.thumb && a.track == b.track && a.width == b.width);
+		},
+			(a, b) -> a.x == b.x && a.y == b.y && a.thumb == b.thumb && a.track == b.track && a.width == b.width);
 	}
 
 	/** Makes `node` a scroll container along the axes given; once per node. **/
@@ -242,13 +268,15 @@ class Scroll {
 	}
 
 	function dispose():Void {
-		if (disposed) return;
+		if (disposed)
+			return;
 		disposed = true;
 		Pointer.cancelWheel(node);
 		byNode.remove(node);
 		hoverWatch.stop();
 		offsetWatch.stop();
-		if (stay != null) stay.cancel();
+		if (stay != null)
+			stay.cancel();
 		stay = null;
 		fading = false;
 	}
@@ -261,8 +289,7 @@ class Scroll {
 				attach(node, field != ashui.layout.PropertyId.OverflowY, field != ashui.layout.PropertyId.OverflowX);
 			return;
 		}
-		s.setAxes(field == ashui.layout.PropertyId.OverflowY ? s.alongX : enabled,
-			field == ashui.layout.PropertyId.OverflowX ? s.alongY : enabled);
+		s.setAxes(field == ashui.layout.PropertyId.OverflowY ? s.alongX : enabled, field == ashui.layout.PropertyId.OverflowX ? s.alongY : enabled);
 	}
 
 	function setAxes(nextX:Bool, nextY:Bool):Void {
@@ -271,11 +298,15 @@ class Scroll {
 		Pointer.cancelWheel(node);
 		alongX = nextX;
 		alongY = nextY;
-		if ((alongX || alongY) && (visibility == "always" || visibility == "hover" && Interaction.of(node).hovered.get())) thumb.set(1);
-		if (!alongX) x.set(0);
-		if (!alongY) y.set(0);
+		if ((alongX || alongY) && (visibility == "always" || visibility == "hover" && Interaction.of(node).hovered.get()))
+			thumb.set(1);
+		if (!alongX)
+			x.set(0);
+		if (!alongY)
+			y.set(0);
 		if (!alongX && !alongY) {
-			if (stay != null) stay.cancel();
+			if (stay != null)
+				stay.cancel();
 			stay = null;
 			fading = false;
 			thumb.set(0);
@@ -337,7 +368,8 @@ class Scroll {
 	}
 
 	function wheel(e:PointerEvent):Void {
-		if (disposed) return;
+		if (disposed)
+			return;
 		// A vertical wheel scrolls a container that only scrolls sideways.
 		var dx = e.deltaX, dy = e.deltaY;
 		if (alongX && !alongY && dx == 0) {
@@ -348,7 +380,8 @@ class Scroll {
 		var max = limits();
 		// Even at a boundary, scrolling must not begin editing an input that
 		// moves under the pointer. Outer scrollers still receive unused deltas (095fab4).
-		if (dx != 0 && max.x > 0 || dy != 0 && max.y > 0) e.captureWheel();
+		if (dx != 0 && max.x > 0 || dy != 0 && max.y > 0)
+			e.captureWheel();
 		if (bounded(x.get() - dx, y.get() - dy, max.x, max.y))
 			e.stopPropagation();
 	}

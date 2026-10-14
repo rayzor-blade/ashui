@@ -58,6 +58,7 @@ class CanvasPainter {
 
 	/** The clip table: each clip once, in the order written, and the texel each starts at, from the table's start. **/
 	final clipOrder:Array<DrawClip> = [];
+
 	final clipAt = new haxe.ds.ObjectMap<DrawClip, Int>();
 
 	/** Each path drawn last frame, and its triangles once it has been drawn twice: a path drawn again is moved, not tessellated again. **/
@@ -65,6 +66,7 @@ class CanvasPainter {
 
 	/** Counts builds, so a shape not drawn in the last one is forgotten. **/
 	var builds = 0;
+
 	var bytes:Null<haxe.io.Bytes> = null;
 
 	/** The record's runs, in order: of paths, by their vertices, and of meshes, each drawn by `scenes`. **/
@@ -175,7 +177,12 @@ class CanvasPainter {
 							made;
 					}
 					switch op {
-						case Mesh3D(m, transform, _, opacity, material): run.draws.push({mesh: m, transform: transform, opacity: opacity, material: material});
+						case Mesh3D(m, transform, _, opacity, material): run.draws.push({
+								mesh: m,
+								transform: transform,
+								opacity: opacity,
+								material: material
+							});
 						case Pass3D(pass, _): run.passes.push(pass);
 						case _:
 					}
@@ -230,7 +237,8 @@ class CanvasPainter {
 		var d = mesh.data;
 		for (i in 0...draws) {
 			var paintTexel = vertexCount * PathShader.VERTEX_TEXELS + i * PathShader.PAINT_TEXELS;
-			var k = starts[i] * Mesh.STRIDE, end = (i + 1 < draws ? starts[i + 1] : vertexCount) * Mesh.STRIDE;
+			var k = starts[i] * Mesh.STRIDE,
+				end = (i + 1 < draws ? starts[i + 1] : vertexCount) * Mesh.STRIDE;
 			while (k < end) {
 				put(d[k]);
 				put(d[k + 1]);
@@ -283,7 +291,10 @@ class CanvasPainter {
 		var known = shapes.get(path);
 		if (!contours && known != null && known.data != null && known.a == m.a && known.b == m.b && known.c == m.c && known.d == m.d
 			&& known.tolerance == tolerance && known.aa == aa && known.rule == rule && known.stroke == stroke && known.commands == path.commands.length) {
-			var dx = m.e - known.e, dy = m.f - known.f, data = known.data, out = mesh.data;
+			var dx = m.e - known.e,
+				dy = m.f - known.f,
+				data = known.data,
+				out = mesh.data;
 			var i = 0;
 			while (i < data.length) {
 				out.push(data[i] + dx);
@@ -336,8 +347,24 @@ class CanvasPainter {
 					out.push(0);
 			return;
 		}
-		for (v in [3.0, 0, opacity, 0, inverse.a, inverse.c, inverse.e, 0, inverse.b, inverse.d, inverse.f, 0, rect.x, rect.y, rect.x + rect.width,
-			rect.y + rect.height])
+		for (v in [
+			3.0,
+			0,
+			opacity,
+			0,
+			inverse.a,
+			inverse.c,
+			inverse.e,
+			0,
+			inverse.b,
+			inverse.d,
+			inverse.f,
+			0,
+			rect.x,
+			rect.y,
+			rect.x + rect.width,
+			rect.y + rect.height
+		])
 			out.push(v);
 		for (_ in 0...16)
 			out.push(0);
@@ -397,7 +424,24 @@ class CanvasPainter {
 			kind = 0;
 			inverse = Affine.IDENTITY;
 		}
-		return [kind, next, radius, m.scale() * frame.pixelRatio, inverse.a, inverse.c, inverse.e, 0, inverse.b, inverse.d, inverse.f, 0, cx, cy, hw, hh];
+		return [
+			kind,
+			next,
+			radius,
+			m.scale() * frame.pixelRatio,
+			inverse.a,
+			inverse.c,
+			inverse.e,
+			0,
+			inverse.b,
+			inverse.d,
+			inverse.f,
+			0,
+			cx,
+			cy,
+			hw,
+			hh
+		];
 	}
 
 	static function encode(brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
@@ -441,7 +485,10 @@ class CanvasPainter {
 		}
 		four(g.radial ? 2 : 1, Math.min(4, g.stops.length), opacity, 0);
 		if (g.boundingBox) {
-			var x0 = Math.POSITIVE_INFINITY, y0 = Math.POSITIVE_INFINITY, x1 = Math.NEGATIVE_INFINITY, y1 = Math.NEGATIVE_INFINITY;
+			var x0 = Math.POSITIVE_INFINITY,
+				y0 = Math.POSITIVE_INFINITY,
+				x1 = Math.NEGATIVE_INFINITY,
+				y1 = Math.NEGATIVE_INFINITY;
 			for (c in contours)
 				for (i in 0...c.count()) {
 					x0 = Math.min(x0, c.x(i));

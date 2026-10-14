@@ -101,7 +101,7 @@ class Animations {
 		var left = 0.0;
 		if (list != null)
 			for (r in list)
-				if (!@:privateAccess r.finished && !r.stopped)
+				if (! @:privateAccess r.finished && !r.stopped)
 					left = Math.max(left, @:privateAccess r.spec.delay + r.spec.duration * r.spec.iterations - r.elapsed);
 		return left;
 	}
@@ -150,18 +150,23 @@ class Animations {
 private class Run {
 	public final identity:Identity;
 	public final key:String;
+
 	final spec:AnimationSpec;
+
 	public final tracks = new Map<String, Track>();
 
 	/** Each track's pairs of keyframes, read once, as they are first mixed. **/
 	final pairs = new Map<String, Array<Null<CssMotion.PreparedPair>>>();
+
 	public final fields:Array<Int> = [];
 	public var paused:Bool;
 	public var ctx:ApplyContext;
 	public var stopped(default, null) = false;
+
 	var finished = false;
 	var elapsed = 0.0;
 	final reported = new Map<String, Bool>();
+
 	/** The run being recorded, while a motion trace records. **/
 	var motion:Null<ashui.debug.MotionTrack> = null;
 
@@ -223,7 +228,9 @@ private class Run {
 				motion.iterations = spec.iterations;
 				motion.direction = spec.direction;
 				if (first != null)
-					motion.keyframes = [for (f in first) {offset: f.offset, easing: f.easing != null ? f.easing : spec.easing}];
+					motion.keyframes = [
+						for (f in first) {offset: f.offset, easing: f.easing != null ? f.easing : spec.easing}
+					];
 			}
 		}
 		frame();

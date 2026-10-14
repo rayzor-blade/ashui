@@ -23,8 +23,8 @@ final class Theme {
 	public final shadows:ShadowTokens;
 	public final animations:AnimationTokens;
 
-	public function new(name:String, colorScheme:ColorScheme, colors:ColorTokens, typography:TypographyTokens, spacing:SpacingTokens,
-			radii:RadiusTokens, shadows:ShadowTokens, animations:AnimationTokens, ?shape:ShapeTokens) {
+	public function new(name:String, colorScheme:ColorScheme, colors:ColorTokens, typography:TypographyTokens, spacing:SpacingTokens, radii:RadiusTokens,
+			shadows:ShadowTokens, animations:AnimationTokens, ?shape:ShapeTokens) {
 		this.name = name;
 		this.colorScheme = colorScheme;
 		this.colors = colors;

@@ -27,6 +27,7 @@ class LayoutTree {
 
 	/** Invalidates pointer hit regions when layout, drawing or handlers change. **/
 	@:noCompletion public var hitRevision(default, null) = 0;
+
 	var hitCapacity = 32;
 	var hitBytes:Null<hl.Bytes>;
 
@@ -71,8 +72,8 @@ class LayoutTree {
 	public function createTextNode(content:String, fontSize:Single = 16.0, lineHeight:Single = 1.2, wrap:Bool = true, ?fontName:String,
 			genericFont:GenericFont = System, fontWeight:Int = 400, italic:Bool = false):TextNode {
 		var flags = (wrap ? 1 : 0) | (italic ? 2 : 0);
-		var node = new TextNode(LayoutTreeNative.blinc_tree_create_text_node(this.ptr, Utf8.encode(content), Utf8.encode(fontName), fontSize,
-			lineHeight, fontWeight, genericFont, flags));
+		var node = new TextNode(LayoutTreeNative.blinc_tree_create_text_node(this.ptr, Utf8.encode(content), Utf8.encode(fontName), fontSize, lineHeight,
+			fontWeight, genericFont, flags));
 		@:privateAccess node.tree = this;
 		return node;
 	}
@@ -342,7 +343,8 @@ class LayoutTree {
 			data.setI32(i * 8, rows[i].low);
 			data.setI32(i * 8 + 4, rows[i].high);
 		}
-		if (!LayoutTreeNative.blinc_tree_set_grid_rows(this.ptr, group, data, rows.length)) return false;
+		if (!LayoutTreeNative.blinc_tree_set_grid_rows(this.ptr, group, data, rows.length))
+			return false;
 		markDrawn();
 		return true;
 	}
@@ -503,11 +505,23 @@ class LayoutTree {
 	}
 
 	/** `node`'s padding as laid out, and whether it paints a box of its own: a background, a border or a shadow. **/
-	public function boxEdges(node:haxe.Int64):Null<{top:Float, right:Float, bottom:Float, left:Float, painted:Bool}> {
+	public function boxEdges(node:haxe.Int64):Null<{
+		top:Float,
+		right:Float,
+		bottom:Float,
+		left:Float,
+		painted:Bool
+	}> {
 		var out = new hl.Bytes(20);
 		if (!LayoutTreeNative.blinc_tree_box_edges(this.ptr, node, out))
 			return null;
-		return {top: out.getF32(0), right: out.getF32(4), bottom: out.getF32(8), left: out.getF32(12), painted: out.getF32(16) != 0};
+		return {
+			top: out.getF32(0),
+			right: out.getF32(4),
+			bottom: out.getF32(8),
+			left: out.getF32(12),
+			painted: out.getF32(16) != 0
+		};
 	}
 
 	/**
@@ -529,12 +543,14 @@ class LayoutTree {
 		if (hitBytes == null)
 			hitBytes = new hl.Bytes(hitCapacity * 16);
 		while (true) {
-			var n = region == null
-				? LayoutTreeNative.blinc_tree_hit_test(this.ptr, root.id, x, y, hitBytes, hitCapacity)
-				: LayoutTreeNative.blinc_tree_hit_test_region(this.ptr, root.id, x, y, hitBytes, hitCapacity, region);
+			var n = region == null ? LayoutTreeNative.blinc_tree_hit_test(this.ptr, root.id, x, y, hitBytes,
+				hitCapacity) : LayoutTreeNative.blinc_tree_hit_test_region(this.ptr, root.id, x, y, hitBytes, hitCapacity, region);
 			if (n <= hitCapacity)
-				return [for (i in 0...n) new Hit(haxe.Int64.make(hitBytes.getI32(i * 16 + 4), hitBytes.getI32(i * 16)),
-					hitBytes.getF32(i * 16 + 8), hitBytes.getF32(i * 16 + 12))];
+				return [
+					for (i in 0...n)
+						new Hit(haxe.Int64.make(hitBytes.getI32(i * 16 + 4), hitBytes.getI32(i * 16)), hitBytes.getF32(i * 16 + 8),
+							hitBytes.getF32(i * 16 + 12))
+				];
 			hitCapacity = n;
 			hitBytes = new hl.Bytes(hitCapacity * 16);
 		}
@@ -584,11 +600,15 @@ class LayoutTree {
 	/** The layout rectangle after ancestor scrolling, for controls anchored in the top layer. **/
 	public function getScrolledBounds(node:Node):Null<Bounds> {
 		var b = getBounds(node);
-		if (b == null) return null;
+		if (b == null)
+			return null;
 		var x:Float = b.x, y:Float = b.y;
 		for (id in ancestors(node.id)) {
 			var scroll = ashui.input.Scroll.at(id, this);
-			if (scroll != null) { x -= scroll.x.get(); y -= scroll.y.get(); }
+			if (scroll != null) {
+				x -= scroll.x.get();
+				y -= scroll.y.get();
+			}
 		}
 		return new Bounds(x, y, b.width, b.height);
 	}

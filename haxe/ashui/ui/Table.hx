@@ -123,10 +123,13 @@ private class TableColumns {
 		InlineFlow.onMeasured(tree, afterMeasure);
 		// Visibility only invalidates placement when it changes; row hover stays cheap (471d54e).
 		var displayChanged = (node:Node) -> {
-			if (node.tree != tree) return;
+			if (node.tree != tree)
+				return;
 			var key = haxe.Int64.toStr(node.id);
-			if (!hidden.exists(key)) return;
-			if (hidden[key] != hiddenValue(node)) placementDirty = true;
+			if (!hidden.exists(key))
+				return;
+			if (hidden[key] != hiddenValue(node))
+				placementDirty = true;
 			switch node.displayValue {
 				case Bound(_) | Derived(_): placementDirty = true;
 				case _:
@@ -139,14 +142,16 @@ private class TableColumns {
 			unsubscribe();
 			Node.displayHooks.remove(displayChanged);
 			LayoutTree.flushHooks.remove(flush);
-			for (grid in grids) tree.setGridRows(grid.node.id, []);
+			for (grid in grids)
+				tree.setGridRows(grid.node.id, []);
 			grids.clear();
 		});
 		refresh();
 	}
 
 	function unsubscribe():Void {
-		for (stop in stops) stop();
+		for (stop in stops)
+			stop();
 		stops = [];
 	}
 
@@ -170,22 +175,38 @@ private class TableColumns {
 				var rowHidden = isHidden(r);
 				for (node in tree.children(r)) {
 					var cell = Cell.at(node);
-					if (cell == null) continue;
+					if (cell == null)
+						continue;
 					var cellHidden = isHidden(node);
-					if (rowHidden || cellHidden) continue;
-					var columns = cell.span(), height = cell.rowSpan(group.rows.length - y);
+					if (rowHidden || cellHidden)
+						continue;
+					var columns = cell.span(),
+						height = cell.rowSpan(group.rows.length - y);
 					// A colspan needs consecutive free slots, including earlier rowspans.
 					while (true) {
 						var collision = -1;
-						for (i in x...x + columns) if (i < occupied.length && occupied[i] > y) { collision = i; break; }
-						if (collision < 0) break;
+						for (i in x...x + columns)
+							if (i < occupied.length && occupied[i] > y) {
+								collision = i;
+								break;
+							}
+						if (collision < 0)
+							break;
 						x = collision + 1;
 					}
-					var slot:CellSlot = {cell: cell, start: x, end: x + columns, row: y, height: height};
+					var slot:CellSlot = {
+						cell: cell,
+						start: x,
+						end: x + columns,
+						row: y,
+						height: height
+					};
 					cells.push(slot);
 					placed.push(slot);
-					while (occupied.length < slot.end) occupied.push(0);
-					for (i in x...slot.end) occupied[i] = y + height;
+					while (occupied.length < slot.end)
+						occupied.push(0);
+					for (i in x...slot.end)
+						occupied[i] = y + height;
 					x = slot.end;
 					count = Std.int(Math.max(count, x));
 				}
@@ -196,36 +217,57 @@ private class TableColumns {
 				slot.cell.place('grid-row', shared ? '${slot.row + 1} / span ${slot.height}' : null);
 			}
 			if (shared) {
-				var key = haxe.Int64.toStr(group.node.id), previous = nextGrids.get(key);
-				if (previous == null) nextGrids.set(key, group);
-				else for (r in group.rows) previous.rows.push(r);
+				var key = haxe.Int64.toStr(group.node.id),
+					previous = nextGrids.get(key);
+				if (previous == null)
+					nextGrids.set(key, group);
+				else
+					for (r in group.rows)
+						previous.rows.push(r);
 			}
 		}
-		for (key => grid in grids) if (!nextGrids.exists(key)) tree.setGridRows(grid.node.id, []);
+		for (key => grid in grids)
+			if (!nextGrids.exists(key))
+				tree.setGridRows(grid.node.id, []);
 		for (key => grid in nextGrids) {
 			var previous = grids.get(key);
 			var changed = previous == null || previous.rows.length != grid.rows.length;
-			if (!changed) for (i in 0...grid.rows.length) if (grid.rows[i] != previous.rows[i]) { changed = true; break; }
+			if (!changed)
+				for (i in 0...grid.rows.length)
+					if (grid.rows[i] != previous.rows[i]) {
+						changed = true;
+						break;
+					}
 			if (changed)
-				if (!tree.setGridRows(grid.node.id, grid.rows)) throw "Table rows must be direct children of their group";
+				if (!tree.setGridRows(grid.node.id, grid.rows))
+					throw "Table rows must be direct children of their group";
 		}
 		grids = nextGrids;
-		while (given.length < count) given.push(null);
+		while (given.length < count)
+			given.push(null);
 		min = [for (_ in given) 0.0];
 		max = [for (_ in given) 0.0];
-		fixed = [for (t in given) t != null && StringTools.endsWith(t, "px") ? Std.parseFloat(t) : 0.0];
-		percentages = [for (i => t in given) if (t != null && StringTools.endsWith(t, "%")) {column: i, fraction: Std.parseFloat(t) / 100}];
+		fixed = [
+			for (t in given) t != null && StringTools.endsWith(t, "px") ? Std.parseFloat(t) : 0.0
+		];
+		percentages = [
+			for (i => t in given) if (t != null && StringTools.endsWith(t, "%")) {column: i, fraction: Std.parseFloat(t) / 100}
+		];
 		spans = [];
 		needsWidth = false;
 		for (row in rows) {
 			for (slot in row.cells) {
 				var cell = slot.cell, automatic = false;
-				for (i in slot.start...slot.end) if (given[i] == null) automatic = true;
+				for (i in slot.start...slot.end)
+					if (given[i] == null)
+						automatic = true;
 				if (automatic) {
 					stops.push(cell.flow.onWidthsChanged(() -> dirty = true));
 					if (cell.span() > 1) {
 						spans.push({cell: cell, start: slot.start, end: slot.end});
-						for (p in percentages) if (p.column >= slot.start && p.column < slot.end) needsWidth = true;
+						for (p in percentages)
+							if (p.column >= slot.start && p.column < slot.end)
+								needsWidth = true;
 					}
 				}
 			}
@@ -251,7 +293,8 @@ private class TableColumns {
 
 	function measure(force = false):Bool {
 		dirty = false;
-		for (i in 0...given.length) min[i] = max[i] = 0;
+		for (i in 0...given.length)
+			min[i] = max[i] = 0;
 		for (row in rows) {
 			for (slot in row.cells) {
 				var cell = slot.cell, column = slot.start;
@@ -262,21 +305,28 @@ private class TableColumns {
 				}
 			}
 		}
-		for (p in percentages) fixed[p.column] = basisWidth * p.fraction;
+		for (p in percentages)
+			fixed[p.column] = basisWidth * p.fraction;
 		for (span in spans) {
 			var widths = span.cell.flow.widths();
-			if (widths == null) continue;
+			if (widths == null)
+				continue;
 			constrain(span, min, widths.min);
-			for (i in span.start...span.end) max[i] = Math.max(max[i], min[i]);
+			for (i in span.start...span.end)
+				max[i] = Math.max(max[i], min[i]);
 			constrain(span, max, widths.max);
 		}
 		var shares = Lambda.exists(given, t -> t != null && t.indexOf("fr") >= 0);
-		var tracks = [for (i => t in given) t != null ? t :
-			'minmax(${min[i]}px, ${shares ? Math.max(min[i], max[i]) + "px" : Math.max(max[i], 1) + "fr"})'];
+		var tracks = [
+			for (i => t in given)
+				t != null ? t : 'minmax(${min[i]}px, ${shares ? Math.max(min[i], max[i]) + "px" : Math.max(max[i], 1) + "fr"})'
+		];
 		var next = tracks.length == 0 ? "none" : tracks.join(" ");
-		if (!force && next == template) return false;
+		if (!force && next == template)
+			return false;
 		template = next;
-		for (row in rows) row.node.set(Prop.GridTemplateColumns, next);
+		for (row in rows)
+			row.node.set(Prop.GridTemplateColumns, next);
 		return true;
 	}
 
@@ -292,16 +342,19 @@ private class TableColumns {
 				total += sizes[i];
 				weight += Math.max(max[i], 1);
 				last = i;
-			} else total += fixed[i];
+			} else
+				total += fixed[i];
 		}
 		var missing = width - total;
-		if (missing <= 0 || last < 0) return;
+		if (missing <= 0 || last < 0)
+			return;
 		var left = missing;
-		for (i in span.start...span.end) if (given[i] == null) {
-			var add = i == last ? left : missing * Math.max(max[i], 1) / weight;
-			sizes[i] += add;
-			left -= add;
-		}
+		for (i in span.start...span.end)
+			if (given[i] == null) {
+				var add = i == last ? left : missing * Math.max(max[i], 1) / weight;
+				sizes[i] += add;
+				left -= add;
+			}
 	}
 
 	/** A column's track: its width, or an equal share that may shrink below its content. **/
@@ -347,12 +400,13 @@ private class TableColumns {
 		return value;
 	}
 
-	static function hiddenValue(node:Node):Bool return switch node.displayValue {
-		case Const(v): v == ashui.types.Style.Display.None;
-		case Bound(s): s.get() == ashui.types.Style.Display.None;
-		case Derived(c): c.get() == ashui.types.Style.Display.None;
-		case null: false;
-	};
+	static function hiddenValue(node:Node):Bool
+		return switch node.displayValue {
+			case Const(v): v == ashui.types.Style.Display.None;
+			case Bound(s): s.get() == ashui.types.Style.Display.None;
+			case Derived(c): c.get() == ashui.types.Style.Display.None;
+			case null: false;
+		};
 
 	/** Sections and consecutive direct rows have independent occupied slots (471d54e). **/
 	static function groupsOf(tree:LayoutTree, table:haxe.Int64):Array<TableGroup> {
@@ -399,13 +453,15 @@ class Col extends Component<ColProps> {
 /** What `<td>` and `<th>` share: their spans, and a way for the table to find them. **/
 abstract class Cell extends Component<CellProps> {
 	static final byNode = new Map<String, Cell>();
+
 	/** The existing cell flow also supplies its cached column measurements. **/
 	public var flow(default, null):InlineFlow;
 
 	function cell(tag:String):Element {
 		var box = new Div({tag: tag, id: props.id}, children);
 		flow = InlineFlow.attach(box);
-		if (span() > 1) Identity.of(box.tree, box.node.id).setInline("grid-column", 'span ${span()}');
+		if (span() > 1)
+			Identity.of(box.tree, box.node.id).setInline("grid-column", 'span ${span()}');
 		var key = haxe.Int64.toStr(box.node.id);
 		byNode.set(key, this);
 		Owner.onCleanup(() -> byNode.remove(key));
@@ -421,8 +477,10 @@ abstract class Cell extends Component<CellProps> {
 
 	/** Cached placement is an inline declaration, so cascade restyles cannot overwrite it. **/
 	public function place(name:String, value:Null<String>):Void {
-		var identity = Identity.of(tree, node.id), own = identity.inlineDeclarations();
-		if ((own == null ? null : own.get(name)) != value) identity.setInline(name, value);
+		var identity = Identity.of(tree, node.id),
+			own = identity.inlineDeclarations();
+		if ((own == null ? null : own.get(name)) != value)
+			identity.setInline(name, value);
 	}
 
 	public static function at(node:haxe.Int64):Null<Cell>

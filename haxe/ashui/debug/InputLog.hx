@@ -19,6 +19,7 @@ enum InputRecord {
 	Text(text:String, modifiers:Null<Modifiers>);
 	Composition(text:String, cursor:Int);
 	WindowFocus(on:Bool);
+
 	/** Native gesture boundaries, retained for faithful wheel replay (095fab4). **/
 	WheelPhase(dx:Float, dy:Float, phase:window.TouchPhase);
 }
@@ -54,12 +55,15 @@ class InputLog {
 	public static var current(default, null):Null<InputLog> = null;
 
 	public final entries:Array<InputEntry>;
+
 	/** The tree it records; the first that received input. **/
 	var tree:Null<LayoutTree> = null;
+
 	final started:Float;
 
 	/** While a log plays, the entry being sent, which `InputClock` reads the time of; nothing records meanwhile. **/
 	static var sending:Null<InputEntry> = null;
+
 	static var playing = false;
 
 	function new(?entries:Array<InputEntry>) {
@@ -111,7 +115,9 @@ class InputLog {
 
 	/** A line per input: its time in milliseconds and what it was. **/
 	public function lines():String
-		return [for (e in entries) '${Std.string(Math.round(e.time * 1000))}ms\t${Std.string(e.record)}'].join("\n") + "\n";
+		return [
+			for (e in entries) '${Std.string(Math.round(e.time * 1000))}ms\t${Std.string(e.record)}'
+		].join("\n") + "\n";
 
 	/**
 		The step that plays the log into a tree, one call a frame: it sends

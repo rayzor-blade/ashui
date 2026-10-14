@@ -131,21 +131,36 @@ class Div extends Element {
 			&& attr.onComposition == null && attr.onFocus == null && attr.onBlur == null && attr.focusable == null && attr.disabled == null)
 			return;
 		var i = ashui.input.Interaction.of(node);
-		if (attr.onClick != null) i.onClick(attr.onClick);
-		if (attr.onPointerDown != null) i.onPointerDown(attr.onPointerDown);
-		if (attr.onPointerUp != null) i.onPointerUp(attr.onPointerUp);
-		if (attr.onPointerMove != null) i.onPointerMove(attr.onPointerMove);
-		if (attr.onPointerEnter != null) i.onPointerEnter(attr.onPointerEnter);
-		if (attr.onPointerLeave != null) i.onPointerLeave(attr.onPointerLeave);
-		if (attr.onWheel != null) i.onWheel(attr.onWheel);
-		if (attr.onKeyDown != null) i.onKeyDown(attr.onKeyDown);
-		if (attr.onKeyUp != null) i.onKeyUp(attr.onKeyUp);
-		if (attr.onTextInput != null) i.onTextInput(attr.onTextInput);
-		if (attr.onComposition != null) i.onComposition(attr.onComposition);
-		if (attr.onFocus != null) i.onFocus(attr.onFocus);
-		if (attr.onBlur != null) i.onBlur(attr.onBlur);
-		if (attr.focusable != null) i.setFocusable(attr.focusable);
-		if (attr.disabled != null) i.setDisabled(attr.disabled);
+		if (attr.onClick != null)
+			i.onClick(attr.onClick);
+		if (attr.onPointerDown != null)
+			i.onPointerDown(attr.onPointerDown);
+		if (attr.onPointerUp != null)
+			i.onPointerUp(attr.onPointerUp);
+		if (attr.onPointerMove != null)
+			i.onPointerMove(attr.onPointerMove);
+		if (attr.onPointerEnter != null)
+			i.onPointerEnter(attr.onPointerEnter);
+		if (attr.onPointerLeave != null)
+			i.onPointerLeave(attr.onPointerLeave);
+		if (attr.onWheel != null)
+			i.onWheel(attr.onWheel);
+		if (attr.onKeyDown != null)
+			i.onKeyDown(attr.onKeyDown);
+		if (attr.onKeyUp != null)
+			i.onKeyUp(attr.onKeyUp);
+		if (attr.onTextInput != null)
+			i.onTextInput(attr.onTextInput);
+		if (attr.onComposition != null)
+			i.onComposition(attr.onComposition);
+		if (attr.onFocus != null)
+			i.onFocus(attr.onFocus);
+		if (attr.onBlur != null)
+			i.onBlur(attr.onBlur);
+		if (attr.focusable != null)
+			i.setFocusable(attr.focusable);
+		if (attr.disabled != null)
+			i.setDisabled(attr.disabled);
 	}
 
 	public function new(?attr:DivAttributes, ?children:Array<Element>, ?tree:LayoutTree) {
@@ -183,8 +198,10 @@ class Div extends Element {
 				node.set(Prop.CornerShape, attr.cornerShape);
 			if (attr.opacity != null)
 				node.set(Prop.Opacity, attr.opacity);
-			if (attr.visibility != null) node.set(Prop.Visibility, attr.visibility);
-			if (attr.pointerEvents != null) node.set(Prop.PointerEvents, attr.pointerEvents);
+			if (attr.visibility != null)
+				node.set(Prop.Visibility, attr.visibility);
+			if (attr.pointerEvents != null)
+				node.set(Prop.PointerEvents, attr.pointerEvents);
 			if (attr.color != null)
 				node.set(Prop.Color, attr.color);
 			if (attr.clipPath != null)

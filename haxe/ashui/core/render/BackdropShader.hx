@@ -37,42 +37,34 @@ package ashui.core.render;
 class BackdropShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		@param var layer : Sampler2D;
-
-		var output : { position : Vec4, color : Vec4 };
-
+		@param var layer:Sampler2D;
+		var output:{position:Vec4, color:Vec4};
 		/** A pseudo-random value in [0, 1) for each cell of the plane. **/
-		function hash(p : Vec2) : Float {
+		function hash(p:Vec2):Float {
 			return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 		}
-
 		/** Value noise: the cells' hashes, smoothly interpolated. **/
-		function noise(p : Vec2) : Float {
+		function noise(p:Vec2):Float {
 			var i = floor(p);
 			var f = fract(p);
 			var u = f * f * (3. - 2. * f);
 			return mix(mix(hash(i), hash(i + vec2(1., 0.)), u.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), u.x), u.y);
 		}
-
-		function rimLine(inner : Float, width : Float) : Float {
+		function rimLine(inner:Float, width:Float):Float {
 			return smoothstep(0., width * 0.3, inner) * (1. - smoothstep(width, width * 1.5, inner));
 		}
-
-		function rimLens(inner : Float, rim : Float) : Float {
+		function rimLens(inner:Float, rim:Float):Float {
 			var bevel = 1. - clamp(inner / rim, 0., 1.);
 			return bevel * bevel;
 		}
-
 		/** A neutral environment to bend where the desktop is outside the render target. **/
-		function glassEnvironment(p : Vec2) : Float {
+		function glassEnvironment(p:Vec2):Float {
 			var direction = dot(p, vec2(0.55, 0.83));
 			var broad = 0.5 + 0.5 * sin(direction * 7. + 0.8);
 			var streak = 0.5 + 0.5 * sin(direction * 18. - 1.2);
 			return 0.25 + broad * broad * 0.55 + pow(streak, 6.) * 0.2;
 		}
-		var place : Vec4;
-
+		var place:Vec4;
 		function vertex() {
 			var b = primitive.bounds;
 			var m = primitive.affine;
@@ -82,7 +74,6 @@ class BackdropShader implements UiShader {
 			place = vec4(local, pixel);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
 		function fragment() {
 			var local = place.xy;
 			var aa = halfPixel(local);
@@ -95,11 +86,10 @@ class BackdropShader implements UiShader {
 			var nt = primitive.notchTop;
 			var nb = primitive.notchBottom;
 			var d = boxDistance(local, box, radius, shape, nc, nt, nb);
-			var cover = (1. - smoothstep(-aa, aa, d))
-				* clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, clips, n)
-				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, clips, n, aa)
-				* fadeCoverage(place.zw, primitive.fadeBounds, primitive.fade)
-				* shapeCoverage(place.zw);
+			var cover = (1. - smoothstep(-aa, aa,
+				d)) * clipCoverage(place.zw, primitive.clipBounds, primitive.clipRadius, clips,
+					n) * localClipCoverage(local, primitive.shadow, primitive.shadowColor, clips, n,
+					aa) * fadeCoverage(place.zw, primitive.fadeBounds, primitive.fade) * shapeCoverage(place.zw);
 			if (cover < 0.001)
 				discard;
 			var size = textureSize(layer);
@@ -172,62 +162,61 @@ class BackdropShader implements UiShader {
 				var width = primitive.gradient.z;
 				var line = rimLine(inner, width) * bevel;
 				var lightShift = aberration * width * 0.75;
-				var light = vec2(cos(primitive.gradient.w), sin(primitive.gradient.w)) * (primitive.gradient.y < 0. ? -1. : 1.);
-				var litRgb = vec3(rimLine(inner + lightShift, width) * bevel, line, rimLine(inner - lightShift, width) * bevel)
-					* (0.6 * (0.2 + 0.8 * max(0., dot(normal, -light))));
-				var lit = max(litRgb.r, max(litRgb.g, litRgb.b));
-				var edge = primitive.borderTop;
-				var s0 = width * 2.5;
-				var s1 = width * 8.;
-				var shade = smoothstep(s0, s1, inner) * (1. - smoothstep(s1, s1 * 3., inner)) * 0.04 * bevel;
-				var via = clamp(primitive.via.a, 0., 1.);
-				if (edge.a > 0.001) {
-					rgb = mix(rgb, edge.rgb, line * edge.a);
-					var k = line * edge.a;
-					tint = tint * (1. - k) + edge.rgb * k;
-					tintAlpha = k + tintAlpha * (1. - k);
-				} else {
-					tint = tint * (1. - lit) + litRgb;
-					tintAlpha = lit + tintAlpha * (1. - lit);
-				}
-				rgb = rgb - vec3(shade, shade, shade);
-				rgb = clamp(mix(rgb, primitive.via.rgb, via), vec3(0., 0., 0.), vec3(1., 1., 1.));
-				// Reflections belong to the glass surface, above its tint. An opaque
-				// state tint must not erase its chromatic rim when the pointer enters.
-				if (edge.a <= 0.001)
-					rgb = clamp(rgb * (1. - lit) + litRgb, vec3(0., 0., 0.), vec3(1., 1., 1.));
-				tint = tint * (1. - shade) * (1. - via) + primitive.via.rgb * via;
-				tintAlpha = via + (shade + tintAlpha * (1. - shade)) * (1. - via);
-				// The desktop is composited later, so bend a procedural environment in its place. Only the bevel
-				// receives these translucent light bands; no synthetic background fills the clear centre.
-				if (texel.a < 0.999 && lens > 0.) {
-					var span = max(min(box.x, box.y), 1.);
-					var bend = localNormal * lens * (60. / span) * primitive.gradient.y;
-					var point = (local - box * 0.5) / span + bend;
-					var separation = bend * (dispersion / max(bevel, 0.0001));
-					var middle = glassEnvironment(point);
-					var environment = vec3(glassEnvironment(point + separation), middle, glassEnvironment(point - separation));
-					// Share neutral light across channels to keep the chromatic fringe subtle.
-					environment = mix(vec3(middle, middle, middle), environment, 0.35);
-					var strength = (lens * (1. - lens) * 4. * 0.18 + lens * 0.06) * bevel;
-					var environmentAlpha = max(environment.r, max(environment.g, environment.b)) * strength;
-					tint = tint * (1. - environmentAlpha) + environment * strength;
-					tintAlpha = environmentAlpha + tintAlpha * (1. - environmentAlpha);
-				}
-				// A darker inner band and light gathered toward the edge complete the curved bevel.
-				var band = lens * (1. - lens) * 4. * 0.12 * bevel;
-				tint = tint * (1. - band);
-				tintAlpha = band + tintAlpha * (1. - band);
-				var specShift = primitive.stops.x * 0.6;
-				var spectrum = vec3(rimLens(inner + specShift, rim), lens, rimLens(inner - specShift, rim));
-				var reflected = 0.85 * max(0., dot(normal, -light)) + 0.35 * max(0., dot(normal, light));
-				var neutralSpec = lens * lens * reflected;
-				var specRgb = mix(vec3(neutralSpec, neutralSpec, neutralSpec), spectrum * spectrum * reflected, 0.35) * bevel;
-				var spec = max(specRgb.r, max(specRgb.g, specRgb.b));
-				tint = tint * (1. - spec) + specRgb;
-				tintAlpha = spec + tintAlpha * (1. - spec);
-				// Enough of it that the system blurs what is behind even a clear one.
-				tintAlpha = max(tintAlpha, 0.04);
+				var light = vec2(cos(primitive.gradient.w), sin(primitive.gradient.w)) * (primitive.gradient.y < 0.? -1.:1.);
+					var litRgb = vec3(rimLine(inner + lightShift, width) * bevel, line,
+						rimLine(inner - lightShift, width) * bevel) * (0.6 * (0.2 + 0.8 * max(0., dot(normal, -light))));
+					var lit = max(litRgb.r, max(litRgb.g, litRgb.b));
+					var edge = primitive.borderTop;
+					var s0 = width * 2.5;
+					var s1 = width * 8.;
+					var shade = smoothstep(s0, s1, inner) * (1. - smoothstep(s1, s1 * 3., inner)) * 0.04 * bevel;
+					var via = clamp(primitive.via.a, 0., 1.);
+					if (edge.a > 0.001) {
+						rgb = mix(rgb, edge.rgb, line * edge.a);
+						var k = line * edge.a;
+						tint = tint * (1. - k) + edge.rgb * k;
+						tintAlpha = k + tintAlpha * (1. - k);
+					} else {
+						tint = tint * (1. - lit) + litRgb;
+						tintAlpha = lit + tintAlpha * (1. - lit);
+					}
+					rgb = rgb - vec3(shade, shade, shade);
+					rgb = clamp(mix(rgb, primitive.via.rgb, via), vec3(0., 0., 0.), vec3(1., 1., 1.));
+					// Reflections belong to the glass surface, above its tint. An opaque
+					// state tint must not erase its chromatic rim when the pointer enters.
+					if (edge.a <= 0.001) rgb = clamp(rgb * (1. - lit) + litRgb, vec3(0., 0., 0.), vec3(1., 1., 1.));
+					tint = tint * (1. - shade) * (1. - via) + primitive.via.rgb * via;
+					tintAlpha = via + (shade + tintAlpha * (1. - shade)) * (1. - via);
+					// The desktop is composited later, so bend a procedural environment in its place. Only the bevel
+					// receives these translucent light bands; no synthetic background fills the clear centre.
+					if (texel.a < 0.999 && lens > 0.) {
+						var span = max(min(box.x, box.y), 1.);
+						var bend = localNormal * lens * (60. / span) * primitive.gradient.y;
+						var point = (local - box * 0.5) / span + bend;
+						var separation = bend * (dispersion / max(bevel, 0.0001));
+						var middle = glassEnvironment(point);
+						var environment = vec3(glassEnvironment(point + separation), middle, glassEnvironment(point - separation));
+						// Share neutral light across channels to keep the chromatic fringe subtle.
+						environment = mix(vec3(middle, middle, middle), environment, 0.35);
+						var strength = (lens * (1. - lens) * 4. * 0.18 + lens * 0.06) * bevel;
+						var environmentAlpha = max(environment.r, max(environment.g, environment.b)) * strength;
+						tint = tint * (1. - environmentAlpha) + environment * strength;
+						tintAlpha = environmentAlpha + tintAlpha * (1. - environmentAlpha);
+					}
+					// A darker inner band and light gathered toward the edge complete the curved bevel.
+					var band = lens * (1. - lens) * 4. * 0.12 * bevel;
+					tint = tint * (1. - band);
+					tintAlpha = band + tintAlpha * (1. - band);
+					var specShift = primitive.stops.x * 0.6;
+					var spectrum = vec3(rimLens(inner + specShift, rim), lens, rimLens(inner - specShift, rim));
+					var reflected = 0.85 * max(0., dot(normal, -light)) + 0.35 * max(0., dot(normal, light));
+					var neutralSpec = lens * lens * reflected;
+					var specRgb = mix(vec3(neutralSpec, neutralSpec, neutralSpec), spectrum * spectrum * reflected, 0.35) * bevel;
+					var spec = max(specRgb.r, max(specRgb.g, specRgb.b));
+					tint = tint * (1. - spec) + specRgb;
+					tintAlpha = spec + tintAlpha * (1. - spec);
+					// Enough of it that the system blurs what is behind even a clear one.
+					tintAlpha = max(tintAlpha, 0.04);
 			}
 			// What is drawn behind it, filtered, and the desktop's share where nothing is.
 			var under = texel.a;

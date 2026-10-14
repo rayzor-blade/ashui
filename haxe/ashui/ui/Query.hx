@@ -19,9 +19,9 @@ import ashui.reactive.Watch;
 	One handle on elements, to drive them from code: their handlers, focus,
 	attributes, classes and properties, each call returning the handle.
 
-	    query(button).onClick(_ -> save()).focusable();
-	    query(panel).addClass("open").set(Prop.Opacity, 0.9);
-	    query(".row", list).onClick(e -> pick(e)).removeClass("stale");
+		query(button).onClick(_ -> save()).focusable();
+		query(panel).addClass("open").set(Prop.Opacity, 0.9);
+		query(".row", list).onClick(e -> pick(e)).removeClass("stale");
 
 	`query` takes an element, a `Ref`, a `RefList`, or a selector with where to look, an
 	element or a tree; anything else is a compile error, and a quoted
@@ -71,8 +71,8 @@ class Query {
 			}
 			var whereType = Context.typeof(within);
 			var inTree = try Context.unify(whereType, Context.getType('ashui.layout.LayoutTree')) catch (_:Dynamic) false;
-			return inTree ? macro @:pos(target.pos) ashui.ui.Query.select($target, $within, null) : macro @:pos(target.pos) ashui.ui.Query.select($target,
-				$within.tree, $within.node.id);
+			return inTree ? macro @:pos(target.pos) ashui.ui.Query.select($target, $within,
+				null) : macro @:pos(target.pos) ashui.ui.Query.select($target, $within.tree, $within.node.id);
 		}
 		return Context.error('query takes an element, a Ref, or a selector and where to look, not ${haxe.macro.TypeTools.toString(type)}', target.pos);
 	}
@@ -137,7 +137,9 @@ class Query {
 	@:noCompletion public static function select(selector:String, tree:LayoutTree, root:Null<haxe.Int64>):Query {
 		var start = root != null ? root : tree.root != null ? tree.root.id : null;
 		// Each element's own node, which its Interaction is kept by.
-		var nodes = start == null ? [] : [for (id in ashui.css.Css.query(tree, start, selector)) Identity.of(tree, id).node];
+		var nodes = start == null ? [] : [
+			for (id in ashui.css.Css.query(tree, start, selector)) Identity.of(tree, id).node
+		];
 		return new Query(tree, () -> nodes, null);
 	}
 

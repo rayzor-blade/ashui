@@ -4,20 +4,17 @@ package ashui.canvaskit;
 class SelectionEdgeShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
-		var output : { position : Vec4, color : Vec4 };
-		@param var scene : StorageBuffer<Vec4>;
-		@param var edges : StorageBuffer<Vec4>;
-		@param var settings : StorageBuffer<Vec4>;
-		var across : Float;
-
-		function placed(p : Vec3) : Vec3 {
+		var output:{position:Vec4, color:Vec4};
+		@param var scene:StorageBuffer<Vec4>;
+		@param var edges:StorageBuffer<Vec4>;
+		@param var settings:StorageBuffer<Vec4>;
+		var across:Float;
+		function placed(p:Vec3):Vec3 {
 			return (settings[0] * p.x + settings[1] * p.y + settings[2] * p.z + settings[3]).xyz;
 		}
-
-		function normal(n : Vec3) : Vec3 {
+		function normal(n:Vec3):Vec3 {
 			return normalize((settings[4] * n.x + settings[5] * n.y + settings[6] * n.z).xyz);
 		}
-
 		function vertex() {
 			var i = instanceID * 4;
 			var a = placed(edges[i].xyz), b = placed(edges[i + 1].xyz);
@@ -29,8 +26,10 @@ class SelectionEdgeShader implements hlwgpu.hxsl.Shader {
 			var visible = n0.w > 0.5 ? front0 : front0 != front1;
 			var ca = worldToClip(vec4(a, 1.)), cb = worldToClip(vec4(b, 1.));
 			// Clip to the near plane before division, including edges crossing behind the eye.
-			if (ca.z < 0. && cb.z >= 0.) ca = mix(ca, cb, -ca.z / (cb.z - ca.z));
-			if (cb.z < 0. && ca.z >= 0.) cb = mix(cb, ca, -cb.z / (ca.z - cb.z));
+			if (ca.z < 0. && cb.z >= 0.)
+				ca = mix(ca, cb, -ca.z / (cb.z - ca.z));
+			if (cb.z < 0. && ca.z >= 0.)
+				cb = mix(cb, ca, -cb.z / (ca.z - cb.z));
 			var viewport = settings[7];
 			var delta = (cb.xy / max(cb.w, 0.00001) - ca.xy / max(ca.w, 0.00001)) * viewport.xy;
 			var perpendicular = vec2(-delta.y, delta.x) / max(length(delta), 0.00001);
@@ -42,9 +41,8 @@ class SelectionEdgeShader implements hlwgpu.hxsl.Shader {
 			clip = vec4(clip.xy + offset, clip.zw);
 			// Just in front of its own surface; other meshes still hide it.
 			clip.z -= 0.000002 * clip.w;
-			output.position = visible && ca.z >= 0. && cb.z >= 0. && ca.w > 0. && cb.w > 0. ? clip : vec4(2., 2., 2., 1.);
+			output.position = visible && ca.z >= 0. && cb.z >= 0. && ca.w > 0. && cb.w > 0.?clip:vec4(2., 2., 2., 1.);
 		}
-
 		function fragment() {
 			var cover = 1. - smoothstep(settings[7].z - 0.5, settings[7].z + 0.75, abs(across));
 			output.color = vec4(settings[8].rgb, cover * settings[8].a);

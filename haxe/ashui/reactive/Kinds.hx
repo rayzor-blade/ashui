@@ -50,7 +50,7 @@ class Kinds {
 				{pack: pack, name: prefix + kind};
 		}
 		var target:ComplexType = TPath({pack: pack, name: prefix, params: [TPType(ct)]});
-		return macro (cast new $path(cast $arg) : $target);
+		return macro(cast new $path(cast $arg) : $target);
 	}
 }
 #end

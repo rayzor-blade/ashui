@@ -3,6 +3,7 @@ package ashui.theme;
 typedef AnimationTokensData = {
 	/** Durations in milliseconds. **/
 	final durationFastest:Int;
+
 	final durationFaster:Int;
 	final durationFast:Int;
 	final durationNormal:Int;
@@ -14,12 +15,16 @@ typedef AnimationTokensData = {
 	final easeIn:Easing;
 	final easeOut:Easing;
 	final easeInOut:Easing;
+
 	/** Hover, press and other state changes. **/
 	final easeState:Easing;
+
 	/** Navigation and page transitions. **/
 	final easeNav:Easing;
+
 	/** Popovers and badges, which overshoot a little. **/
 	final easeSpring:Easing;
+
 	/** Sheets and drawers. **/
 	final easeSheet:Easing;
 }

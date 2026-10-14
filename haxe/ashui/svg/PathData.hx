@@ -9,12 +9,16 @@ package ashui.svg;
 enum PathCommand {
 	MoveTo(x:Float, y:Float);
 	LineTo(x:Float, y:Float);
+
 	/** A cubic Bézier curve through two control points. **/
 	CubicTo(x1:Float, y1:Float, x2:Float, y2:Float, x:Float, y:Float);
+
 	/** A quadratic Bézier curve through one control point. **/
 	QuadTo(x1:Float, y1:Float, x:Float, y:Float);
+
 	/** An elliptical arc of radii `rx`, `ry`, its x axis turned by `rotation` degrees, to `(x, y)`. **/
 	ArcTo(rx:Float, ry:Float, rotation:Float, largeArc:Bool, sweep:Bool, x:Float, y:Float);
+
 	Close;
 }
 
@@ -82,8 +86,14 @@ class PathData {
 					var n = steps(len(x0, y0, x1, y1) + len(x1, y1, x2, y2) + len(x2, y2, nx, ny));
 					for (k in 1...n + 1) {
 						var t = k / n, u = 1 - t;
-						to(u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * nx,
-							u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * ny);
+						to(u * u * u * x0
+							+ 3 * u * u * t * x1
+							+ 3 * u * t * t * x2
+							+ t * t * t * nx,
+							u * u * u * y0
+							+ 3 * u * u * t * y1
+							+ 3 * u * t * t * y2
+							+ t * t * t * ny);
 					}
 				case ArcTo(rx, ry, rotation, largeArc, sweep, nx, ny):
 					arc(x, y, rx, ry, rotation, largeArc, sweep, nx, ny, step, to);
@@ -106,7 +116,9 @@ class PathData {
 			to(x2, y2);
 			return;
 		}
-		var phi = rotation * Math.PI / 180, cos = Math.cos(phi), sin = Math.sin(phi);
+		var phi = rotation * Math.PI / 180,
+			cos = Math.cos(phi),
+			sin = Math.sin(phi);
 		var dx = (x1 - x2) / 2, dy = (y1 - y2) / 2;
 		var px = cos * dx + sin * dy, py = -sin * dx + cos * dy;
 		// Radii too small to reach are scaled up until they just do.
@@ -119,7 +131,8 @@ class PathData {
 		var den = rx * rx * py * py + ry * ry * px * px;
 		var coef = (largeArc == sweep ? -1 : 1) * Math.sqrt(Math.max(0, num / den));
 		var cpx = coef * rx * py / ry, cpy = -coef * ry * px / rx;
-		var cx = cos * cpx - sin * cpy + (x1 + x2) / 2, cy = sin * cpx + cos * cpy + (y1 + y2) / 2;
+		var cx = cos * cpx - sin * cpy + (x1 + x2) / 2,
+			cy = sin * cpx + cos * cpy + (y1 + y2) / 2;
 		function angle(ux:Float, uy:Float, vx:Float, vy:Float)
 			return Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
 		var start = angle(1, 0, (px - cpx) / rx, (py - cpy) / ry);

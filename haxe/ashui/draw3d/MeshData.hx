@@ -41,10 +41,16 @@ class MeshData {
 		this.material = material;
 		vertexCount = Std.int(vertices.length / STRIDE);
 		indexCount = indices.length >> 2;
-		var x0 = Math.POSITIVE_INFINITY, y0 = Math.POSITIVE_INFINITY, z0 = Math.POSITIVE_INFINITY;
-		var x1 = Math.NEGATIVE_INFINITY, y1 = Math.NEGATIVE_INFINITY, z1 = Math.NEGATIVE_INFINITY;
+		var x0 = Math.POSITIVE_INFINITY,
+			y0 = Math.POSITIVE_INFINITY,
+			z0 = Math.POSITIVE_INFINITY;
+		var x1 = Math.NEGATIVE_INFINITY,
+			y1 = Math.NEGATIVE_INFINITY,
+			z1 = Math.NEGATIVE_INFINITY;
 		for (i in 0...vertexCount) {
-			var x = vertices.getFloat(i * STRIDE), y = vertices.getFloat(i * STRIDE + 4), z = vertices.getFloat(i * STRIDE + 8);
+			var x = vertices.getFloat(i * STRIDE),
+				y = vertices.getFloat(i * STRIDE + 4),
+				z = vertices.getFloat(i * STRIDE + 8);
 			x0 = Math.min(x0, x);
 			y0 = Math.min(y0, y);
 			z0 = Math.min(z0, z);
@@ -98,7 +104,9 @@ class MeshData {
 		var t = 0;
 		while (t + 2 < indices.length) {
 			var a = indices[t], b = indices[t + 1], c = indices[t + 2];
-			var pa = at(positions, a), pb = at(positions, b), pc = at(positions, c);
+			var pa = at(positions, a),
+				pb = at(positions, b),
+				pc = at(positions, c);
 			var face = pb.sub(pa).cross(pc.sub(pa));
 			for (v in [a, b, c]) {
 				out[v * 3] += face.x;
@@ -128,9 +136,12 @@ class MeshData {
 		var t = 0;
 		while (t + 2 < indices.length) {
 			var a = indices[t], b = indices[t + 1], c = indices[t + 2];
-			var e1 = at(positions, b).sub(at(positions, a)), e2 = at(positions, c).sub(at(positions, a));
-			var du1 = uvs[b * 2] - uvs[a * 2], dv1 = uvs[b * 2 + 1] - uvs[a * 2 + 1];
-			var du2 = uvs[c * 2] - uvs[a * 2], dv2 = uvs[c * 2 + 1] - uvs[a * 2 + 1];
+			var e1 = at(positions, b).sub(at(positions, a)),
+				e2 = at(positions, c).sub(at(positions, a));
+			var du1 = uvs[b * 2] - uvs[a * 2],
+				dv1 = uvs[b * 2 + 1] - uvs[a * 2 + 1];
+			var du2 = uvs[c * 2] - uvs[a * 2],
+				dv2 = uvs[c * 2 + 1] - uvs[a * 2 + 1];
 			var det = du1 * dv2 - du2 * dv1;
 			if (Math.abs(det) > 1e-12) {
 				var r = 1 / det;

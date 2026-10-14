@@ -16,8 +16,7 @@ import window.PhysicalKey;
 **/
 class InputEvent {
 	/** No modifier key held. **/
-	public static final NO_MODIFIERS:Modifiers = State(false, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown,
-		Unknown);
+	public static final NO_MODIFIERS:Modifiers = State(false, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
 
 	/** Where the event started: the topmost node under the pointer, or the focused one. **/
 	public var target(default, null):Node;
@@ -110,6 +109,7 @@ class PointerEvent extends InputEvent {
 
 	/** Identifies a wheel gesture; numeric controls discard fractions from older gestures (095fab4). **/
 	public final wheelSequence:Int;
+
 	@:allow(ashui.input.Pointer)
 	var wheelCapture:Null<Node> = null;
 

@@ -81,8 +81,11 @@ class Video extends Component<VideoProps> {
 			var within = interaction.focusWithin.get();
 			var focused = ashui.input.Focus.of(root.tree);
 			return popupOpen.get() || (within && focused != null && focused.focusVisible.get());
-		}, value -> { held = value; machine.send(Activity); });
-		new Watch(() -> { visible: controlsVisible.get(), controls: controls.get() }, value -> {
+		}, value -> {
+			held = value;
+			machine.send(Activity);
+		});
+		new Watch(() -> {visible: controlsVisible.get(), controls: controls.get()}, value -> {
 			if (value.controls != null) {
 				root.tree.setPassThrough(value.controls.node.id, !value.visible);
 				ashui.css.Identity.of(value.controls.tree, value.controls.node.id).setAttribute("aria-hidden", value.visible ? null : "true");

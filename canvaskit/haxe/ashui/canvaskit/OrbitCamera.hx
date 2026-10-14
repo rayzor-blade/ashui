@@ -29,7 +29,12 @@ class OrbitCamera {
 	/** How far above and below the level it may go: a little short of straight up or down, where the view would turn over. **/
 	public var maxElevation = 1.55;
 
-	final initial:{azimuth:Float, elevation:Float, distance:Float, target:Vec3};
+	final initial:{
+		azimuth:Float,
+		elevation:Float,
+		distance:Float,
+		target:Vec3
+	};
 
 	public function new(azimuth = 0.4, elevation = 0.3, distance = 4.0, ?target:Vec3, fovY = 0.8) {
 		var t = target != null ? target : Vec3.ZERO;
@@ -38,7 +43,12 @@ class OrbitCamera {
 		this.distance = Signal.make(distance);
 		this.target = Signal.make(t);
 		this.fovY = Signal.make(fovY);
-		initial = {azimuth: azimuth, elevation: elevation, distance: distance, target: t};
+		initial = {
+			azimuth: azimuth,
+			elevation: elevation,
+			distance: distance,
+			target: t
+		};
 	}
 
 	/** Where it is. **/

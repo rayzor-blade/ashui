@@ -65,7 +65,13 @@ class PointerQueries {
 		}
 		if (tracker == null)
 			trackers.set(identity, tracker = new Tracker(identity));
-		tracker.config = config != null ? config : {space: "self", origin: "center", min: -1, max: 1, smoothing: 0};
+		tracker.config = config != null ? config : {
+			space: "self",
+			origin: "center",
+			min: -1,
+			max: 1,
+			smoothing: 0
+		};
 		tracker.live = live;
 		tracker.ctx = ctx;
 		tracker.from = from;
@@ -80,8 +86,10 @@ class PointerQueries {
 
 	/** Reads `config` from an element's values; null when it sets no `pointer-` property. Throws a `String` for a bad one. **/
 	public static function config(values:Map<String, String>):Null<PointerConfig> {
-		var space = values.get("pointer-space"), origin = values.get("pointer-origin");
-		var range = values.get("pointer-range"), smoothing = values.get("pointer-smoothing");
+		var space = values.get("pointer-space"),
+			origin = values.get("pointer-origin");
+		var range = values.get("pointer-range"),
+			smoothing = values.get("pointer-smoothing");
 		if (space == null && origin == null && range == null && smoothing == null)
 			return null;
 		var s = space == null ? "self" : StringTools.trim(space).toLowerCase();
@@ -104,7 +112,13 @@ class PointerQueries {
 				throw 'pointer-smoothing is a time, not "$smoothing"';
 			d.unit == "ms" ? d.value / 1000 : d.value;
 		}
-		return {space: s, origin: o, min: min, max: max, smoothing: smooth};
+		return {
+			space: s,
+			origin: o,
+			min: min,
+			max: max,
+			smoothing: smooth
+		};
 	}
 
 	static function moved(tree:LayoutTree):Void {
@@ -152,12 +166,32 @@ private class Tracker {
 		if (own == null)
 			return false;
 		var box = switch config.space {
-			case "viewport": {x: 0.0, y: 0.0, w: Css.viewportWidth, h: Css.viewportHeight};
+			case "viewport": {
+					x: 0.0,
+					y: 0.0,
+					w: Css.viewportWidth,
+					h: Css.viewportHeight
+				};
 			case "parent":
 				var up = tree.ancestors(identity.node.id);
 				var b = up.length == 0 ? null : tree.getBounds(new ashui.layout.Node(up[0]));
-				b == null ? {x: own.x, y: own.y, w: own.width, h: own.height} : {x: b.x, y: b.y, w: b.width, h: b.height};
-			case _: {x: own.x, y: own.y, w: own.width, h: own.height};
+				b == null ? {
+					x: own.x,
+					y: own.y,
+					w: own.width,
+					h: own.height
+				} : {
+					x: b.x,
+					y: b.y,
+					w: b.width,
+					h: b.height
+				};
+			case _: {
+					x: own.x,
+					y: own.y,
+					w: own.width,
+					h: own.height
+				};
 		}
 		var u = box.w > 0 ? (p.x - box.x) / box.w : 0.0;
 		var v = box.h > 0 ? (p.y - box.y) / box.h : 0.0;

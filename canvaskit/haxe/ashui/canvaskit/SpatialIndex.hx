@@ -33,7 +33,14 @@ class SpatialIndex {
 	/** Puts `id` at this rectangle, on top of all before it; moves it there if it is in already. **/
 	public function set(id:String, x:Float, y:Float, width:Float, height:Float):Void {
 		remove(id);
-		var r:Region = {id: id, x: x, y: y, width: width, height: height, order: counter++};
+		var r:Region = {
+			id: id,
+			x: x,
+			y: y,
+			width: width,
+			height: height,
+			order: counter++
+		};
 		regions.set(id, r);
 		length++;
 		forCells(x, y, x + width, y + height, key -> {

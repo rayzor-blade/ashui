@@ -64,8 +64,10 @@ class Player {
 	public final equalizer = Signal.make((null : Null<Equalizer>));
 	public final videoWidth = Signal.make(0);
 	public final videoHeight = Signal.make(0);
+
 	/** Changes on each new frame and whenever the retained frame is cleared. **/
 	public final frameVersion = Signal.make(0);
+
 	public var disposed(default, null) = false;
 
 	final scheduler:AnimationScheduler;
@@ -81,7 +83,8 @@ class Player {
 	var detachEqualizer:Null<Void->Void> = null;
 
 	public function new(?source:String, ?options:PlayerOptions) {
-		if (options == null) options = {};
+		if (options == null)
+			options = {};
 		scheduler = options.scheduler == null ? AnimationScheduler.main : options.scheduler;
 		machine = new Machine<PlayerState, PlayerEvent>(Empty, (state, event) -> switch [state, event] {
 			case [Closed, _]: null;
@@ -101,65 +104,82 @@ class Player {
 		machine.after(Opening, 20, OpenTimeout);
 		machine.after(Seeking, 2, SeekTimeout);
 		machine.onEnter(Failed, _ -> {
-			if (error.get() == null) error.set("Timed out opening media");
+			if (error.get() == null)
+				error.set("Timed out opening media");
 			release();
 		});
 		machine.onEnter(Closed, _ -> release());
 		autoplay = options.autoplay == true;
 		looping.set(options.loop == true);
-		if (options.volume != null) volume.set(level(options.volume));
+		if (options.volume != null)
+			volume.set(level(options.volume));
 		muted.set(options.muted == true);
-		if (options.equalizer != null) setEqualizer(options.equalizer);
-		if (source != null && source != "") load(source);
+		if (options.equalizer != null)
+			setEqualizer(options.equalizer);
+		if (source != null && source != "")
+			load(source);
 	}
 
 	/** Replaces the source, releases its frames, and opens it paused unless autoplay is true. Empty unloads it. **/
 	public function load(path:String, ?autoplay:Bool):Void {
 		checkOpen();
 		release();
-		if (autoplay != null) this.autoplay = autoplay;
+		if (autoplay != null)
+			this.autoplay = autoplay;
 		source.set(path == null ? "" : path);
 		error.set(null);
 		position.set(0);
 		duration.set(0);
 		machine.send(Unload);
-		if (path == null || path == "") return;
+		if (path == null || path == "")
+			return;
 		playIntent.set(this.autoplay);
 		try {
 			native = MediaPlayer.open(path);
 			native.setVolume(muted.get() ? 0 : volume.get());
 			var eq = equalizer.get();
-			if (eq != null) native.setEqualizer(eq.handle());
+			if (eq != null)
+				native.setEqualizer(eq.handle());
 			machine.send(Open);
-			if (this.autoplay) native.play();
+			if (this.autoplay)
+				native.play();
 			wake();
-		} catch (e:Dynamic) fail(e);
+		} catch (e:Dynamic)
+			fail(e);
 	}
 
 	public function play():Void {
 		checkOpen();
-		if (native == null) return;
+		if (native == null)
+			return;
 		try {
 			playIntent.set(true);
-			if (state.get() == Ended) native.seek(0);
+			if (state.get() == Ended)
+				native.seek(0);
 			native.play();
 			refresh();
 			wake();
-		} catch (e:Dynamic) fail(e);
+		} catch (e:Dynamic)
+			fail(e);
 	}
 
 	public function pause():Void {
 		checkOpen();
-		if (native == null) return;
+		if (native == null)
+			return;
 		try {
 			playIntent.set(false);
 			native.pause();
 			refresh();
-		} catch (e:Dynamic) fail(e);
+		} catch (e:Dynamic)
+			fail(e);
 	}
 
 	public function toggle():Void {
-		if (isPlaying()) pause(); else play();
+		if (isPlaying())
+			pause();
+		else
+			play();
 	}
 
 	/** Playback intent, including a seek or buffering while playing. Paused seeking stays paused. **/
@@ -171,18 +191,22 @@ class Player {
 	/** Seeks to a bounded position; a paused seek also updates the displayed frame. **/
 	public function seek(seconds:Float):Void {
 		checkOpen();
-		if (native == null) return;
-		if (!Math.isFinite(seconds)) throw "Media seek must be finite";
+		if (native == null)
+			return;
+		if (!Math.isFinite(seconds))
+			throw "Media seek must be finite";
 		try {
 			var end = native.duration();
 			var target = Math.max(0, end > 0 ? Math.min(end, seconds) : seconds);
 			native.seek(target);
 			// Restart the FSM's seek timer on a second seek before the first completes.
-			if (state.get() == Seeking) machine.send(FrameReady);
+			if (state.get() == Seeking)
+				machine.send(FrameReady);
 			machine.send(StartSeek);
 			position.set(target);
 			wake();
-		} catch (e:Dynamic) fail(e);
+		} catch (e:Dynamic)
+			fail(e);
 	}
 
 	public function setVolume(value:Float):Void {
@@ -205,16 +229,25 @@ class Player {
 	/** Attach shared settings. Later edits apply immediately, including while paused. Null restores flat playback. **/
 	public function setEqualizer(value:Null<Equalizer>):Void {
 		checkOpen();
-		if (value != null) value.handle(); // Validate before replacing a working equalizer.
-		if (detachEqualizer != null) { detachEqualizer(); detachEqualizer = null; }
+		if (value != null)
+			value.handle(); // Validate before replacing a working equalizer.
+		if (detachEqualizer != null) {
+			detachEqualizer();
+			detachEqualizer = null;
+		}
 		equalizer.set(value);
-		if (value != null) detachEqualizer = value.listen(() -> {
-			if (value.disposed) clearEqualizer(); else applyEqualizer();
-		});
+		if (value != null)
+			detachEqualizer = value.listen(() -> {
+				if (value.disposed)
+					clearEqualizer();
+				else
+					applyEqualizer();
+			});
 		applyEqualizer();
 	}
 
-	public inline function clearEqualizer():Void setEqualizer(null);
+	public inline function clearEqualizer():Void
+		setEqualizer(null);
 
 	/** A clone of the latest frame; null for audio or before the first video frame. **/
 	public function currentFrame():Null<VideoFrame>
@@ -222,12 +255,14 @@ class Player {
 
 	/** Poll once on the same thread that opened it. Normally the scheduler does this. **/
 	public function update():Void {
-		if (disposed || native == null) return;
+		if (disposed || native == null)
+			return;
 		try {
 			var received = native.pollFrame();
 			if (received) {
 				var next = native.takeFrame();
-				if (frame != null) frame.close();
+				if (frame != null)
+					frame.close();
 				frame = next;
 				videoWidth.set(haxe.Int64.toInt(next.displayWidth()));
 				videoHeight.set(haxe.Int64.toInt(next.displayHeight()));
@@ -249,37 +284,47 @@ class Player {
 				native.play();
 				refresh();
 			}
-		} catch (e:Dynamic) fail(e);
+		} catch (e:Dynamic)
+			fail(e);
 	}
 
 	/** Releases the native player and retained frame. Terminal and idempotent. **/
 	public function close():Void {
-		if (disposed) return;
-		if (detachEqualizer != null) { detachEqualizer(); detachEqualizer = null; }
+		if (disposed)
+			return;
+		if (detachEqualizer != null) {
+			detachEqualizer();
+			detachEqualizer = null;
+		}
 		equalizer.set(null);
 		disposed = true;
 		machine.send(Dispose);
 		machine.dispose();
 	}
 
-	public inline function dispose():Void close();
+	public inline function dispose():Void
+		close();
 
 	function wake():Void {
-		if (running || native == null || disposed) return;
+		if (running || native == null || disposed)
+			return;
 		running = true;
 		var ticket = generation;
 		scheduler.addTicker(_ -> {
-			if (disposed || ticket != generation) return false;
+			if (disposed || ticket != generation)
+				return false;
 			update();
 			var s = state.get();
 			var keep = native != null && (s == Seeking || s == Opening || s == Playing || s == Buffering);
-			if (ticket == generation) running = keep;
+			if (ticket == generation)
+				running = keep;
 			return ticket == generation && keep;
 		});
 	}
 
 	function refresh():Void {
-		if (native == null) return;
+		if (native == null)
+			return;
 		nativeState = switch native.state() {
 			case PlaybackState.Opening: Opening;
 			case PlaybackState.Paused: Paused;
@@ -294,15 +339,24 @@ class Player {
 	}
 
 	function applyVolume():Void {
-		if (native != null) try native.setVolume(muted.get() ? 0 : volume.get()) catch (e:Dynamic) fail(e);
+		if (native != null)
+			try
+				native.setVolume(muted.get() ? 0 : volume.get())
+			catch (e:Dynamic)
+				fail(e);
 	}
 
 	function applyEqualizer():Void {
-		if (native == null) return;
+		if (native == null)
+			return;
 		try {
 			var eq = equalizer.get();
-			if (eq == null) native.clearEqualizer(); else native.setEqualizer(eq.handle());
-		} catch (e:Dynamic) fail(e);
+			if (eq == null)
+				native.clearEqualizer();
+			else
+				native.setEqualizer(eq.handle());
+		} catch (e:Dynamic)
+			fail(e);
 	}
 
 	function release():Void {
@@ -310,8 +364,14 @@ class Player {
 		running = false;
 		nativeState = Empty;
 		playIntent.set(false);
-		if (native != null) { native.close(); native = null; }
-		if (frame != null) { frame.close(); frame = null; }
+		if (native != null) {
+			native.close();
+			native = null;
+		}
+		if (frame != null) {
+			frame.close();
+			frame = null;
+		}
 		videoWidth.set(0);
 		videoHeight.set(0);
 		frameVersion.set(frameVersion.get() + 1);
@@ -328,11 +388,13 @@ class Player {
 		return Type.enumConstructor(state.get()).toLowerCase();
 
 	function checkOpen():Void {
-		if (disposed) throw "Media player is closed";
+		if (disposed)
+			throw "Media player is closed";
 	}
 
 	static function level(value:Float):Float {
-		if (!Math.isFinite(value)) throw "Media volume must be finite";
+		if (!Math.isFinite(value))
+			throw "Media volume must be finite";
 		return Math.max(0, Math.min(1, value));
 	}
 }

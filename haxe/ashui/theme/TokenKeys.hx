@@ -33,7 +33,8 @@ class TokenKeys {
 				Context.error('$record.$name has no key here', pos);
 		var recordType = Context.toComplexType(Context.getType(record));
 		var valueType = switch Context.parse('(null : $value)', pos) {
-			case {expr: EParenthesis({expr: ECheckType(_, t)})} | {expr: ECheckType(_, t)}: t;
+			case {expr: EParenthesis({expr: ECheckType(_, t)})}
+				| {expr: ECheckType(_, t)}: t;
 			case _: Context.error('$value is not a type', pos);
 		}
 		var body:Expr = {expr: ESwitch(macro this, cases, macro throw 'no token ' + this), pos: pos};

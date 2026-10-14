@@ -25,8 +25,9 @@ abstract Computed<T>(IComputed<T>) from IComputed<T> to IComputed<T> {
 #else
 abstract Computed<T>(Dynamic) {
 #end
-	/** A computed of the native kind matching what `compute` returns. **/
-	macro public static function make(compute:Expr):Expr {
-		return Kinds.build("Computed", Context.typeof(macro $compute()), compute);
-	}
+
+/** A computed of the native kind matching what `compute` returns. **/
+macro public static function make(compute:Expr):Expr {
+	return Kinds.build("Computed", Context.typeof(macro $compute()), compute);
+}
 }

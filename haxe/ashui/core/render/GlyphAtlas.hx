@@ -59,7 +59,10 @@ class GlyphAtlas {
 					return;
 		}
 		seen = info.getInt32(8);
-		var x = info.getInt32(12), y = info.getInt32(16), w = info.getInt32(20), h = info.getInt32(24);
+		var x = info.getInt32(12),
+			y = info.getInt32(16),
+			w = info.getInt32(20),
+			h = info.getInt32(24);
 		if (w <= 0 || h <= 0)
 			return;
 		var origin = new GpuOrigin3D();

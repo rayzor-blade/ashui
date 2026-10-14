@@ -28,6 +28,7 @@ typedef SvgAttributes = {
 class Svg extends Element {
 	static final intrinsic = new haxe.ds.ObjectMap<ashui.css.Identity, Svg>();
 	static var intrinsicHook = false;
+
 	final naturalWidth:Bool;
 	final naturalHeight:Bool;
 
@@ -42,10 +43,14 @@ class Svg extends Element {
 		node = this.tree.createNode();
 		var identity = ashui.css.Identity.register(this.tree, node, "svg");
 		// Intrinsic dimensions are defaults; explicit attributes still win over CSS (git-bug e8a1b50).
-		if (attr != null && attr.width != null) node.set(Prop.Width, attr.width);
-		else @:privateAccess node.style(Prop.Width, (document.width : Single));
-		if (attr != null && attr.height != null) node.set(Prop.Height, attr.height);
-		else @:privateAccess node.style(Prop.Height, (document.height : Single));
+		if (attr != null && attr.width != null)
+			node.set(Prop.Width, attr.width);
+		else
+			@:privateAccess node.style(Prop.Width, (document.width : Single));
+		if (attr != null && attr.height != null)
+			node.set(Prop.Height, attr.height);
+		else
+			@:privateAccess node.style(Prop.Height, (document.height : Single));
 		if (naturalWidth || naturalHeight) {
 			intrinsic.set(identity, this);
 			ashui.reactive.Owner.onCleanup(() -> intrinsic.remove(identity));
@@ -53,7 +58,8 @@ class Svg extends Element {
 				intrinsicHook = true;
 				ashui.css.Css.restyled.push(identity -> {
 					var svg = intrinsic.get(identity);
-					if (svg != null) svg.restoreIntrinsic(identity);
+					if (svg != null)
+						svg.restoreIntrinsic(identity);
 				});
 			}
 		}
@@ -65,7 +71,8 @@ class Svg extends Element {
 
 	/** Removing a size rule restores the document's dimensions, without owning them (e8a1b50). **/
 	function restoreIntrinsic(identity:ashui.css.Identity):Void {
-		var width = ashui.css.Css.computed(identity, "width"), height = ashui.css.Css.computed(identity, "height");
+		var width = ashui.css.Css.computed(identity, "width"),
+			height = ashui.css.Css.computed(identity, "height");
 		if (naturalWidth && (width == null || width == "auto"))
 			@:privateAccess node.style(Prop.Width, (document.width : Single));
 		if (naturalHeight && (height == null || height == "auto"))

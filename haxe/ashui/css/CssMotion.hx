@@ -65,14 +65,45 @@ class CssMotion {
 		var widths = [2, 60, 61, 62, 63];
 		var outline = [9, 66];
 		var m = [
-			"background" => [0], "background-color" => [0], "color" => [7], "opacity" => [4], "transform" => [5], "box-shadow" => [6], "text-shadow" => [119],
-			"border-color" => colors, "border-width" => widths, "border" => colors.concat(widths), "border-radius" => [3],
-			"outline-color" => outline, "outline-width" => [64], "outline-offset" => [65], "outline" => outline.concat([64, 65]),
-			"width" => [10, 53], "height" => [11, 54], "min-width" => [12, 55], "max-width" => [13, 56], "min-height" => [14, 57],
-			"max-height" => [15, 58], "flex-basis" => [26, 59], "flex-grow" => [23], "flex-shrink" => [24], "padding" => [43, 44, 45, 46],
-			"margin" => [47, 48, 49, 50], "gap" => [51, 52], "row-gap" => [52], "column-gap" => [51], "top" => [30], "right" => [31],
-			"bottom" => [32], "left" => [33], "inset" => [30, 31, 32, 33], "font-size" => [34], "letter-spacing" => [38],
-			"line-height" => [39], "filter" => [76, 77, 78, 79, 80, 81, 82, 83, 84], "overflow-fade" => [71, 72, 73, 74]
+			"background" => [0],
+			"background-color" => [0],
+			"color" => [7],
+			"opacity" => [4],
+			"transform" => [5],
+			"box-shadow" => [6],
+			"text-shadow" => [119],
+			"border-color" => colors,
+			"border-width" => widths,
+			"border" => colors.concat(widths),
+			"border-radius" => [3],
+			"outline-color" => outline,
+			"outline-width" => [64],
+			"outline-offset" => [65],
+			"outline" => outline.concat([64, 65]),
+			"width" => [10, 53],
+			"height" => [11, 54],
+			"min-width" => [12, 55],
+			"max-width" => [13, 56],
+			"min-height" => [14, 57],
+			"max-height" => [15, 58],
+			"flex-basis" => [26, 59],
+			"flex-grow" => [23],
+			"flex-shrink" => [24],
+			"padding" => [43, 44, 45, 46],
+			"margin" => [47, 48, 49, 50],
+			"gap" => [51, 52],
+			"row-gap" => [52],
+			"column-gap" => [51],
+			"top" => [30],
+			"right" => [31],
+			"bottom" => [32],
+			"left" => [33],
+			"inset" => [30, 31, 32, 33],
+			"font-size" => [34],
+			"letter-spacing" => [38],
+			"line-height" => [39],
+			"filter" => [76, 77, 78, 79, 80, 81, 82, 83, 84],
+			"overflow-fade" => [71, 72, 73, 74]
 		];
 		for (i => side in ["top", "right", "bottom", "left"]) {
 			m.set('padding-$side', [43 + i]);
@@ -86,7 +117,10 @@ class CssMotion {
 
 	/** The transition `values` give, from `transition` and its longhands; null for none. Throws a `String` for a bad one. **/
 	public static function transition(values:Map<String, String>):Null<CssTransition> {
-		var props:Array<String> = [], durations:Array<String> = [], easings:Array<String> = [], delays:Array<String> = [];
+		var props:Array<String> = [],
+			durations:Array<String> = [],
+			easings:Array<String> = [],
+			delays:Array<String> = [];
 		var shorthand = values.get("transition");
 		if (shorthand != null && StringTools.trim(shorthand).toLowerCase() != "none")
 			for (item in CssValue.split(shorthand, ",")) {
@@ -151,8 +185,14 @@ class CssMotion {
 
 	/** The animations `values` give, from `animation` and its longhands. Throws a `String` for a bad one. **/
 	public static function animations(values:Map<String, String>):Array<AnimationSpec> {
-		var names:Array<String> = [], durations:Array<String> = [], easings:Array<String> = [], delays:Array<String> = [];
-		var counts:Array<String> = [], directions:Array<String> = [], fills:Array<String> = [], states:Array<String> = [];
+		var names:Array<String> = [],
+			durations:Array<String> = [],
+			easings:Array<String> = [],
+			delays:Array<String> = [];
+		var counts:Array<String> = [],
+			directions:Array<String> = [],
+			fills:Array<String> = [],
+			states:Array<String> = [];
 		var shorthand = values.get("animation");
 		if (shorthand != null && StringTools.trim(shorthand).toLowerCase() != "none")
 			for (item in CssValue.split(shorthand, ",")) {
@@ -223,7 +263,8 @@ class CssMotion {
 
 	static function isEasing(w:String):Bool
 		return ["linear", "ease", "ease-in", "ease-out", "ease-in-out", "step-start", "step-end"].indexOf(w) >= 0
-			|| StringTools.startsWith(w, "cubic-bezier(") || StringTools.startsWith(w, "steps(");
+			|| StringTools.startsWith(w, "cubic-bezier(")
+			|| StringTools.startsWith(w, "steps(");
 
 	public static function easing(text:String):Easing {
 		return switch CssValue.easing(text) {
@@ -256,7 +297,13 @@ class CssMotion {
 			b = identity(a);
 		var na = numbers(normalize(a)), nb = numbers(normalize(b));
 		var mixes = na.skeleton == nb.skeleton && na.values.length == nb.values.length;
-		return {a: a, b: b, from: na, to: nb, mixes: mixes};
+		return {
+			a: a,
+			b: b,
+			from: na,
+			to: nb,
+			mixes: mixes
+		};
 	}
 
 	/** A prepared pair mixed `t` of the way from its first to its second; one or the other, at the halfway point, where they cannot mix. **/
@@ -277,9 +324,22 @@ class CssMotion {
 
 	/** What a property is where nothing sets it, for keyframes that leave out their first or last frame. **/
 	public static final INITIAL:Map<String, String> = [
-		"opacity" => "1", "transform" => "none", "background-color" => "transparent", "background" => "transparent", "color" => "black",
-		"border-color" => "transparent", "box-shadow" => "none", "text-shadow" => "none", "filter" => "none", "border-radius" => "0px", "padding" => "0px", "margin" => "0px",
-		"gap" => "0px", "letter-spacing" => "0px", "outline-offset" => "0px", "outline-width" => "0px"
+		"opacity" => "1",
+		"transform" => "none",
+		"background-color" => "transparent",
+		"background" => "transparent",
+		"color" => "black",
+		"border-color" => "transparent",
+		"box-shadow" => "none",
+		"text-shadow" => "none",
+		"filter" => "none",
+		"border-radius" => "0px",
+		"padding" => "0px",
+		"margin" => "0px",
+		"gap" => "0px",
+		"letter-spacing" => "0px",
+		"outline-offset" => "0px",
+		"outline-width" => "0px"
 	];
 
 	/** A transform list with each function's identity arguments, its numbers 0 or, for scale, 1. **/
@@ -299,7 +359,8 @@ class CssMotion {
 			return try switch CssValue.color(word) {
 				case Rgba(rgb, alpha): 'rgba(${(rgb >> 16) & 255}, ${(rgb >> 8) & 255}, ${rgb & 255}, $alpha)';
 				case CurrentColor: null;
-			} catch (_:String) null;
+			} catch (_:String)
+				null;
 		}
 		// Colour functions and hex colours, then names.
 		var out = Patterns.RE2.map(text, r -> {
@@ -316,7 +377,12 @@ class CssMotion {
 	}
 
 	/** `text` as the text around its numbers, the numbers and their units; units count as part of the shape only when both have one. **/
-	static function numbers(text:String):{skeleton:String, parts:Array<String>, values:Array<Float>, units:Array<String>} {
+	static function numbers(text:String):{
+		skeleton:String,
+		parts:Array<String>,
+		values:Array<Float>,
+		units:Array<String>
+	} {
 		var parts = [], values = [], units = [];
 		var r = Patterns.RE4;
 		var rest = text;
@@ -329,7 +395,12 @@ class CssMotion {
 		parts.push(rest);
 		// "0" and "10px" have the same shape: a unitless zero takes the other's unit.
 		var skeleton = [for (i in 0...values.length) parts[i] + "#"].join("") + rest;
-		return {skeleton: skeleton, parts: parts, values: values, units: units};
+		return {
+			skeleton: skeleton,
+			parts: parts,
+			values: values,
+			units: units
+		};
 	}
 }
 

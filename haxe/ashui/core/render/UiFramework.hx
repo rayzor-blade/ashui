@@ -33,9 +33,34 @@ class UiFramework extends Extension {
 
 	/** The record's fields, a row each, in `DisplayList`'s order. **/
 	public static final FIELDS = [
-		"bounds", "cornerRadius", "color", "color2", "border", "borderColor", "shadow", "shadowColor", "clipBounds", "clipRadius", "gradient",
-		"typeInfo", "cornerShape", "via", "stops", "affine", "borderTop", "borderRight", "borderBottom", "borderLeft",
-		"fadeBounds", "fade", "shapeFrame", "shapeRest", "shape", "notchCorners", "notchTop", "notchBottom"
+		"bounds",
+		"cornerRadius",
+		"color",
+		"color2",
+		"border",
+		"borderColor",
+		"shadow",
+		"shadowColor",
+		"clipBounds",
+		"clipRadius",
+		"gradient",
+		"typeInfo",
+		"cornerShape",
+		"via",
+		"stops",
+		"affine",
+		"borderTop",
+		"borderRight",
+		"borderBottom",
+		"borderLeft",
+		"fadeBounds",
+		"fade",
+		"shapeFrame",
+		"shapeRest",
+		"shape",
+		"notchCorners",
+		"notchTop",
+		"notchBottom"
 	];
 
 	/**
@@ -53,24 +78,25 @@ class UiFramework extends Extension {
 
 	override function prelude():Null<haxe.macro.Expr> {
 		var fields:Array<haxe.macro.Expr.Field> = [
-			for (f in FIELDS) {name: f, kind: FVar(macro :Vec4), pos: haxe.macro.Context.currentPos()}
+			for (f in FIELDS)
+				{name: f, kind: FVar(macro :Vec4), pos: haxe.macro.Context.currentPos()}
 		];
 		var struct = haxe.macro.Expr.ComplexType.TAnonymous(fields);
 		return macro {
-			@param var records : Sampler2D;
-			@global var viewport : Vec2;
+			@param var records:Sampler2D;
+			@global var viewport:Vec2;
 			// What the shader reads; each field read becomes a `__field` load, so it is never a vertex input.
-			@input var primitive : $struct;
-			var recordIndex : Int;
+			@input var primitive:$struct;
+			var recordIndex:Int;
 			function __init__vertex() {
 				recordIndex = instanceID;
 			}
 			// Texels in reading order, `ROW_TEXELS` to a row of the texture.
-			function __texel(t : Int) : Vec4 {
+			function __texel(t:Int):Vec4 {
 				return records.fetch(ivec2(t % $v{ashui.layout.RecordLayout.ROW_TEXELS}, t / $v{ashui.layout.RecordLayout.ROW_TEXELS}));
 			}
 			// A record is `RECORD_ROWS` texels.
-			function __field(row : Int) : Vec4 {
+			function __field(row:Int):Vec4 {
 				return __texel(recordIndex * $v{ashui.layout.RecordLayout.RECORD_ROWS} + row);
 			}
 			// How much of the point `q` the polygon of `count` points from texel `first`, two to a texel, covers,
@@ -78,11 +104,11 @@ class UiFramework extends Extension {
 			// The winding is also taken at four points around `q`: all four inside is covered whatever edge is
 			// near, so the crossings inside a self-crossing polygon leave no seam, and only where they differ, at
 			// the outline, does the distance to the nearest edge smooth it.
-			function __inside(w : Int, evenOdd : Float) : Bool {
+			function __inside(w:Int, evenOdd:Float):Bool {
 				var odd = w - (w / 2) * 2;
 				return evenOdd > 0.5 ? odd != 0 : w != 0;
 			}
-			function __polygonCoverage(q : Vec2, first : Int, count : Int, aa : Float, evenOdd : Float) : Float {
+			function __polygonCoverage(q:Vec2, first:Int, count:Int, aa:Float, evenOdd:Float):Float {
 				var d = 1e20;
 				var s = aa * 0.7;
 				var w0 = 0;
@@ -132,7 +158,7 @@ class UiFramework extends Extension {
 			}
 			// What the edge from `a` to `b` adds to the winding around `q`: 1 crossing `q`'s row upward with `q`
 			// to its left, -1 downward with `q` to its right.
-			function __crossing(a : Vec2, b : Vec2, q : Vec2) : Int {
+			function __crossing(a:Vec2, b:Vec2, q:Vec2):Int {
 				var side = (b.x - a.x) * (q.y - a.y) - (q.x - a.x) * (b.y - a.y);
 				var w = 0;
 				if (a.y <= q.y) {
@@ -153,20 +179,18 @@ class UiFramework extends Extension {
 				clip-path and opacity at `p`, a screen position, as boxes and
 				images are clipped.
 			**/
-			function canvasClip(p : Vec2) : Float {
+			function canvasClip(p:Vec2):Float {
 				var b = primitive.bounds;
 				var m = primitive.affine;
 				var d = p - b.xy;
 				var local = vec2(m.w * d.x - m.z * d.y, m.x * d.y - m.y * d.x) / (m.x * m.w - m.z * m.y);
 				var aa = halfPixel(local);
-				return clipCoverage(p, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
-					* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa)
-					* fadeCoverage(p, primitive.fadeBounds, primitive.fade)
-					* shapeCoverage(p)
-					* primitive.color2.a;
+				return clipCoverage(p, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z,
+					primitive.typeInfo.w) * localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w,
+						aa) * fadeCoverage(p, primitive.fadeBounds, primitive.fade) * shapeCoverage(p) * primitive.color2.a;
 			}
 
-			function shapeCoverage(p : Vec2) : Float {
+			function shapeCoverage(p:Vec2):Float {
 				var frame = primitive.shapeFrame;
 				var rest = primitive.shapeRest;
 				var shape = primitive.shape;

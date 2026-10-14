@@ -82,18 +82,22 @@ private class SceneLayer {
 	/** For a fish-eye lens: the texture the bent layer is drawn into, with its settings buffer and bind group. **/
 	/** For bloom: a half-float texture holding the scene's glowing light, as the glow pass draws it. **/
 	public var glow:Null<GpuTexture> = null;
+
 	public var glowView:Null<GpuTextureView> = null;
 
 	/** The glow pass's own depth, at its half size, which the meshes write as they draw. **/
 	public var glowDepth:Null<GpuTexture> = null;
+
 	public var glowDepthView:Null<GpuTextureView> = null;
 
 	/** The glow pass's size: half the layer's each way, as glow and velocities need no finer detail. **/
 	public var glowWidth = 0;
+
 	public var glowHeight = 0;
 
 	/** For motion blur: how far each pixel moved on screen since the previous frame, drawn with the glow. **/
 	public var velocity:Null<GpuTexture> = null;
+
 	public var velocityView:Null<GpuTextureView> = null;
 
 	/** The velocity view the finishing pass's bind group was made with. **/
@@ -101,6 +105,7 @@ private class SceneLayer {
 
 	/** The previous frame's view-projection, and each mesh's transforms in it (by mesh, in drawing order), for motion blur. **/
 	public var previousViewProjection:Null<Mat4> = null;
+
 	public var previousModels = new haxe.ds.ObjectMap<MeshData, Array<Mat4>>();
 
 	public var lensColor:Null<GpuTexture> = null;
@@ -111,6 +116,7 @@ private class SceneLayer {
 
 	/** The bloom chain's levels. The first is half the layer's size, and each further level is half the one before. **/
 	public final bloomLevels:Array<BloomLevel> = [];
+
 	public var bloomAdd:Null<{settings:gpu.GpuBuffer, group:GpuBindGroup}> = null;
 	public var width = 0;
 	public var height = 0;
@@ -202,10 +208,23 @@ class ScenePainter {
 
 	final layers:Array<SceneLayer> = [];
 	final meshes = new haxe.ds.ObjectMap<MeshData, {vertices:GpuBuffer, indices:GpuBuffer, used:Int}>();
-	final materials = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, environment:Int, shadow:Int, textures:Int}>();
+	final materials = new haxe.ds.ObjectMap<Material, {
+		group:GpuBindGroup,
+		used:Int,
+		buffers:Int,
+		environment:Int,
+		shadow:Int,
+		textures:Int
+	}>();
 
 	/** Each masked or blended material's group for the shadow pass, its base colour bound for the cutout. **/
-	final cutouts = new haxe.ds.ObjectMap<Material, {group:GpuBindGroup, used:Int, buffers:Int, textures:Int}>();
+	final cutouts = new haxe.ds.ObjectMap<Material, {
+		group:GpuBindGroup,
+		used:Int,
+		buffers:Int,
+		textures:Int
+	}>();
+
 	/** A black cube, bound where a scene has no environment. **/
 	static var noEnvironment:Null<Uploaded> = null;
 
@@ -214,6 +233,7 @@ class ScenePainter {
 	/** Pipelines, by shader, culling and blending. **/
 	/** Each shader's pipelines, by its WGSL string's identity: single-sided or double, opaque or blended. **/
 	final pipelines = new haxe.ds.ObjectMap<String, Array<Null<GpuPipeline>>>();
+
 	var defaults:Null<{white:Uploaded, flat:Uploaded}> = null;
 	var sampler:Null<GpuSampler> = null;
 	var layerSampler:Null<GpuSampler> = null;
@@ -236,6 +256,7 @@ class ScenePainter {
 
 	static var frameNumber = 0;
 	static var sweepQueued = false;
+
 	var paintedFrame = -1;
 	var paintedAt = 0.0;
 
@@ -551,8 +572,11 @@ class ScenePainter {
 			var shadows = lighting.shadows();
 			if (shadows != null)
 				passFrame.shadowMap = shadowTarget(frame, shadows.size).view;
-			device.queue().writeBuffer(sceneBuffer, 0, sceneBytes(scene, viewProjection, environment, shadows, order.length,
-				layer.previousViewProjection != null ? layer.previousViewProjection : viewProjection), ashui.shaders.Scene.ROWS * 16);
+			device.queue()
+				.writeBuffer(sceneBuffer, 0,
+					sceneBytes(scene, viewProjection, environment, shadows, order.length,
+						layer.previousViewProjection != null ? layer.previousViewProjection : viewProjection),
+					ashui.shaders.Scene.ROWS * 16);
 			inline function stage(at:ashui.draw3d.ScenePass.SceneStage)
 				for (p in passes)
 					if (p.stage() == at)
@@ -561,7 +585,9 @@ class ScenePainter {
 				p.prepare(passFrame);
 			if (shadows != null)
 				drawShadows(frame, encoder, passFrame, draws, order, solid, passes, shadows.viewProjection);
-			var groups = [for (i in order) materialGroup(frame, draws[i].material, passFrame.environment, passFrame.shadowMap)];
+			var groups = [
+				for (i in order) materialGroup(frame, draws[i].material, passFrame.environment, passFrame.shadowMap)
+			];
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
 			color.viewTextureView(layer.colorView);
 			// Premultiplied, as the layer is composited.
@@ -575,7 +601,9 @@ class ScenePainter {
 			var glowing = blooming || scene.motionBlur > 0;
 			depth.depthStoreOp(Discard);
 			#if ashui_scene_stencil
-			depth.stencilClearValue(0); depth.stencilLoadOp(Clear); depth.stencilStoreOp(Discard);
+			depth.stencilClearValue(0);
+			depth.stencilLoadOp(Clear);
+			depth.stencilStoreOp(Discard);
 			#end
 			var pass = new GpuRenderPassDescriptor();
 			pass.addColorAttachments(color);
@@ -634,7 +662,9 @@ class ScenePainter {
 		// Each bit is a plane all corners so far are outside of: left, right, bottom, top, near, far.
 		var outside = 63;
 		for (k in 0...8) {
-			var x = (k & 1) == 0 ? lo.x : hi.x, y = (k & 2) == 0 ? lo.y : hi.y, z = (k & 4) == 0 ? lo.z : hi.z;
+			var x = (k & 1) == 0 ? lo.x : hi.x,
+				y = (k & 2) == 0 ? lo.y : hi.y,
+				z = (k & 4) == 0 ? lo.z : hi.z;
 			var cx = m[0] * x + m[4] * y + m[8] * z + m[12];
 			var cy = m[1] * x + m[5] * y + m[9] * z + m[13];
 			var cz = m[2] * x + m[6] * y + m[10] * z + m[14];
@@ -658,8 +688,8 @@ class ScenePainter {
 		index is raised by the draw count, which tells the mesh shader to write
 		untone-mapped light. Then each `GlowCaster` pass draws its own glow.
 	**/
-	function drawGlow(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, draws:Array<SceneDraw>, order:Array<Int>,
-			groups:Array<GpuBindGroup>, firstBlended:Int, passes:Array<ashui.draw3d.ScenePass>, passFrame:ScenePassFrame, inView:Array<Bool>):Void {
+	function drawGlow(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, draws:Array<SceneDraw>, order:Array<Int>, groups:Array<GpuBindGroup>,
+			firstBlended:Int, passes:Array<ashui.draw3d.ScenePass>, passFrame:ScenePassFrame, inView:Array<Bool>):Void {
 		var device = frame.device;
 		if (layer.glow == null) {
 			layer.glowWidth = Std.int(Math.max(1, layer.width >> 1));
@@ -685,7 +715,9 @@ class ScenePainter {
 		depth.depthLoadOp(Clear);
 		depth.depthStoreOp(Discard);
 		#if ashui_scene_stencil
-		depth.stencilClearValue(0); depth.stencilLoadOp(Clear); depth.stencilStoreOp(Discard);
+		depth.stencilClearValue(0);
+		depth.stencilLoadOp(Clear);
+		depth.stencilStoreOp(Discard);
 		#end
 		var pass = new GpuRenderPassDescriptor();
 		pass.addColorAttachments(color);
@@ -708,6 +740,7 @@ class ScenePainter {
 				(cast p : ashui.draw3d.ScenePass.GlowCaster).drawGlow(passFrame);
 		encoder.renderEnd();
 	}
+
 	var bloomUp:Null<GpuPipeline> = null;
 	var bloomOnto:Null<GpuPipeline> = null;
 
@@ -784,7 +817,8 @@ class ScenePainter {
 		}
 		// Down: each level is made from the one above it; the first keeps only what passes the threshold.
 		for (i in 0...levels.length) {
-			var srcW = i == 0 ? layer.glowWidth : levels[i - 1].width, srcH = i == 0 ? layer.glowHeight : levels[i - 1].height;
+			var srcW = i == 0 ? layer.glowWidth : levels[i - 1].width,
+				srcH = i == 0 ? layer.glowHeight : levels[i - 1].height;
 			settings(levels[i].downSettings, 1 / srcW, 1 / srcH, i == 0 ? 0 : 1, bloom.threshold);
 			pass(levels[i].view, false, bloomDown, levels[i].downGroup);
 		}
@@ -801,7 +835,8 @@ class ScenePainter {
 
 	/** Whether the scene needs the finishing pass: a fish-eye, vignette, grain, chromatic aberration, colour grade or anti-aliasing. **/
 	static function finishing(scene:Scene3D):Bool
-		return scene.lens > 0 || scene.vignette > 0 || scene.grain > 0 || scene.aberration > 0 || scene.grade != null || scene.antialias || scene.motionBlur > 0;
+		return scene.lens > 0 || scene.vignette > 0 || scene.grain > 0 || scene.aberration > 0 || scene.grade != null || scene.antialias
+			|| scene.motionBlur > 0;
 
 	/** The finishing pass: draws the rendered layer into the layer's lens texture through the fish-eye (`strength`), with anti-aliasing, chromatic aberration, a colour grade, vignette and grain. **/
 	function bend(frame:CanvasFrame, encoder:gpu.GpuEncoder, layer:SceneLayer, strength:Float, vignette:Float, grain:Float, aberration:Float,
@@ -848,7 +883,9 @@ class ScenePainter {
 		b.setFloat(28, layer.width);
 		// A tint changes colour, not brightness: each is divided by its own luminance.
 		inline function tint(c:Int, at:Int) {
-			var r = linear(c >> 16 & 0xff), g = linear(c >> 8 & 0xff), bl = linear(c & 0xff);
+			var r = linear(c >> 16 & 0xff),
+				g = linear(c >> 8 & 0xff),
+				bl = linear(c & 0xff);
 			var l = Math.max(0.0001, r * 0.299 + g * 0.587 + bl * 0.114);
 			b.setFloat(at, r / l);
 			b.setFloat(at + 4, g / l);
@@ -1010,11 +1047,13 @@ class ScenePainter {
 		return builder.build();
 	}
 
-
 	/** Its textures, the environment, the scene and the draws: a material's bind group, made for its pipeline. **/
 	function materialGroup(frame:CanvasFrame, material:Material, environment:GpuTextureView, shadow:GpuTextureView):GpuBindGroup {
 		var known = materials.get(material);
-		if (known != null && known.buffers == buffers && known.environment == (environment : Int) && known.shadow == (shadow : Int)
+		if (known != null
+			&& known.buffers == buffers
+			&& known.environment == (environment : Int)
+			&& known.shadow == (shadow : Int)
 			&& known.textures == MeshTextures.revision) {
 			known.used = frameCount;
 			return known.group;
@@ -1047,7 +1086,14 @@ class ScenePainter {
 		// Under the shared layout: the default pipeline's group binds under an extension's too.
 		var group = frame.device.bindGroup(pipeline(frame, Material.DEFAULT, false), 0, bindings);
 		bindings.destroy();
-		materials.set(material, {group: group, used: frameCount, buffers: buffers, environment: (environment : Int), shadow: (shadow : Int), textures: MeshTextures.revision});
+		materials.set(material, {
+			group: group,
+			used: frameCount,
+			buffers: buffers,
+			environment: (environment : Int),
+			shadow: (shadow : Int),
+			textures: MeshTextures.revision
+		});
 		return group;
 	}
 
@@ -1112,7 +1158,8 @@ class ScenePainter {
 				}
 			var extent = new GpuExtent3D(size);
 			extent.height(size);
-			var c = frame.device.texture(new GpuTextureDescriptor(extent, ScenePassFrame.SHADOW_FORMAT, GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
+			var c = frame.device.texture(new GpuTextureDescriptor(extent, ScenePassFrame.SHADOW_FORMAT,
+				GpuFlags.TEXTURE_RENDER_ATTACHMENT | GpuFlags.TEXTURE_BINDING));
 			var d = frame.device.texture(new GpuTextureDescriptor(extent, ScenePassFrame.SHADOW_DEPTH_FORMAT, GpuFlags.TEXTURE_RENDER_ATTACHMENT));
 			shadowColor = {texture: c, view: c.createView(new GpuTextureViewDescriptor())};
 			shadowDepth = {texture: d, view: d.createView(new GpuTextureViewDescriptor())};
@@ -1127,8 +1174,8 @@ class ScenePainter {
 		makes it solid, then each pass that casts shadows. A blended mesh
 		drawn in two halves casts once.
 	**/
-	function drawShadows(frame:CanvasFrame, encoder:gpu.GpuEncoder, passFrame:ScenePassFrame, draws:Array<SceneDraw>, order:Array<Int>,
-			solid:Array<Bool>, passes:Array<ashui.draw3d.ScenePass>, lightView:Mat4):Void {
+	function drawShadows(frame:CanvasFrame, encoder:gpu.GpuEncoder, passFrame:ScenePassFrame, draws:Array<SceneDraw>, order:Array<Int>, solid:Array<Bool>,
+			passes:Array<ashui.draw3d.ScenePass>, lightView:Mat4):Void {
 		var device = frame.device;
 		if (shadowPipeline == null) {
 			var builder = passFrame.shadowPipelineBuilder(MeshShadowShader.WGSL);
@@ -1183,7 +1230,12 @@ class ScenePainter {
 					bindings.sampler(sampler);
 					bindings.buffer(sceneBuffer);
 					bindings.buffer(drawBuffer);
-					known = {group: device.bindGroup(cutoutPipeline, 0, bindings), used: frameCount, buffers: buffers, textures: MeshTextures.revision};
+					known = {
+						group: device.bindGroup(cutoutPipeline, 0, bindings),
+						used: frameCount,
+						buffers: buffers,
+						textures: MeshTextures.revision
+					};
 					bindings.destroy();
 					cutouts.set(m, known);
 				}
@@ -1349,13 +1401,28 @@ class ScenePainter {
 		// The normal matrix, the inverse transpose of the transform's 3×3 part: its columns are the cross products of
 		// the transform's columns, over the determinant. Worked out here so that no matrix is made for it.
 		var a = d.transform.m;
-		var c0x = a[5] * a[10] - a[6] * a[9], c0y = a[6] * a[8] - a[4] * a[10], c0z = a[4] * a[9] - a[5] * a[8];
-		var c1x = a[9] * a[2] - a[10] * a[1], c1y = a[10] * a[0] - a[8] * a[2], c1z = a[8] * a[1] - a[9] * a[0];
-		var c2x = a[1] * a[6] - a[2] * a[5], c2y = a[2] * a[4] - a[0] * a[6], c2z = a[0] * a[5] - a[1] * a[4];
+		var c0x = a[5] * a[10] - a[6] * a[9],
+			c0y = a[6] * a[8] - a[4] * a[10],
+			c0z = a[4] * a[9] - a[5] * a[8];
+		var c1x = a[9] * a[2] - a[10] * a[1],
+			c1y = a[10] * a[0] - a[8] * a[2],
+			c1z = a[8] * a[1] - a[9] * a[0];
+		var c2x = a[1] * a[6] - a[2] * a[5],
+			c2y = a[2] * a[4] - a[0] * a[6],
+			c2z = a[0] * a[5] - a[1] * a[4];
 		var det = a[0] * c0x + a[1] * c0y + a[2] * c0z;
 		var k = Math.abs(det) > 1e-30 ? 1 / det : 0;
 		if (k == 0) {
-			c0x = 1; c0y = 0; c0z = 0; c1x = 0; c1y = 1; c1z = 0; c2x = 0; c2y = 0; c2z = 1; k = 1;
+			c0x = 1;
+			c0y = 0;
+			c0z = 0;
+			c1x = 0;
+			c1y = 1;
+			c1z = 0;
+			c2x = 0;
+			c2y = 0;
+			c2z = 1;
+			k = 1;
 		}
 		row(out, Std.int(offset / 16) + 4, c0x * k, c0y * k, c0z * k, t.offsetX);
 		row(out, Std.int(offset / 16) + 5, c1x * k, c1y * k, c1z * k, t.offsetY);

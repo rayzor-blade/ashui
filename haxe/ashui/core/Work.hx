@@ -23,7 +23,7 @@ class Work {
 			#if target.threaded
 			if (sys.thread.Thread.current() != owner)
 			#end
-				callback();
+			callback();
 		}
 	}
 }

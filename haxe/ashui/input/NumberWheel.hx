@@ -31,7 +31,8 @@ class NumberWheel {
 			remainder += e.deltaY;
 			var steps = Std.int(remainder / 40);
 			remainder -= steps * 40;
-			if (steps != 0) step(steps);
+			if (steps != 0)
+				step(steps);
 			e.preventDefault();
 			e.stopPropagation();
 		});

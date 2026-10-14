@@ -481,9 +481,8 @@ class ThemeState {
 	static function cssShadow(stack:Array<Shadow>):String {
 		var layers = [
 			for (l in stack)
-				if (l.color.a > 0 || l.blur > 0 || l.spread != 0)
-					(l.inset ? "inset " : "") + '${px(l.offsetX)} ${px(l.offsetY)} ${px(l.blur)} ${px(l.spread)} ${cssColor(l.color)}'
-		];
+				if (l.color.a > 0 || l.blur > 0 || l.spread != 0) (l.inset ? "inset " : "")
+					+ '${px(l.offsetX)} ${px(l.offsetY)} ${px(l.blur)} ${px(l.spread)} ${cssColor(l.color)}'];
 		return layers.length == 0 ? "none" : layers.join(", ");
 	}
 

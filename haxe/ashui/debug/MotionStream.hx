@@ -26,9 +26,17 @@ class MotionStream {
 
 	public final overlay:MotionOverlay;
 	public final streaming:Bool;
+
 	final offscreen:Offscreen;
 	var trace:MotionTrace;
-	var burst:Null<{dir:String, name:String, pngs:Array<haxe.io.Bytes>, times:Array<Float>, quiet:Int, started:Float}> = null;
+	var burst:Null<{
+		dir:String,
+		name:String,
+		pngs:Array<haxe.io.Bytes>,
+		times:Array<Float>,
+		quiet:Int,
+		started:Float
+	}> = null;
 	var bursts = 0;
 	var owed = false;
 
@@ -74,7 +82,14 @@ class MotionStream {
 			var name = 'live-${++bursts}';
 			var dir = haxe.io.Path.join([Snapshot.dir(), "motion", name]);
 			MotionRecorder.clean(dir);
-			burst = {dir: dir, name: name, pngs: [], times: [], quiet: 0, started: MotionTrace.clock()};
+			burst = {
+				dir: dir,
+				name: name,
+				pngs: [],
+				times: [],
+				quiet: 0,
+				started: MotionTrace.clock()
+			};
 		}
 		var b = burst;
 		var png = MotionRecorder.capture(offscreen, tree, root, width, height, 1);

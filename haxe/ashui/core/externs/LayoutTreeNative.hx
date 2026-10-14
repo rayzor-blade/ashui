@@ -18,8 +18,8 @@ extern class LayoutTreeNative {
 	static function blinc_tree_create_node(tree:hl.Abstract<"blinc_tree">):haxe.Int64;
 
 	/** A new node that draws `content` in the given font; its id. `flags`: bit 0 wrap, bit 1 italic. **/
-	static function blinc_tree_create_text_node(tree:hl.Abstract<"blinc_tree">, content:hl.Bytes, fontName:hl.Bytes, fontSize:Single,
-		lineHeight:Single, fontWeight:Int, genericFont:Int, flags:Int):haxe.Int64;
+	static function blinc_tree_create_text_node(tree:hl.Abstract<"blinc_tree">, content:hl.Bytes, fontName:hl.Bytes, fontSize:Single, lineHeight:Single,
+		fontWeight:Int, genericFont:Int, flags:Int):haxe.Int64;
 
 	static function blinc_tree_add_child(tree:hl.Abstract<"blinc_tree">, parent:haxe.Int64, child:haxe.Int64):Void;
 	static function blinc_tree_remove_node(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64):Void;
@@ -64,8 +64,9 @@ extern class LayoutTreeNative {
 	static function blinc_tree_set_image(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
 
 	/** Optional bitmap fit/object-position, free-space fractions plus pixel offsets. git-bug: a8ca996 / ABI 4d9ea6a. **/
-	static function blinc_tree_set_image_mapping(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, fit:Int, x:Single, y:Single,
-		offsetX:Single, offsetY:Single):Void;
+	static function blinc_tree_set_image_mapping(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, fit:Int, x:Single, y:Single, offsetX:Single,
+		offsetY:Single):Void;
+
 	static function blinc_tree_set_canvas(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, slot:Int):Void;
 
 	/**
@@ -74,7 +75,9 @@ extern class LayoutTreeNative {
 		and the point in that node's coordinates as two F32s. At most
 		`capacity`; returns how many there are.
 	**/
-	static function blinc_tree_hit_test_region(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int, region:hl.Bytes):Int;
+	static function blinc_tree_hit_test_region(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int,
+		region:hl.Bytes):Int;
+
 	static function blinc_tree_hit_test(tree:hl.Abstract<"blinc_tree">, root:haxe.Int64, x:Single, y:Single, out:hl.Bytes, capacity:Int):Int;
 
 	/** Visible nodes in authored document order, independent of CSS order/z-index. git-bug: 7977648 / ABI 62aa0b0. **/
@@ -85,6 +88,7 @@ extern class LayoutTreeNative {
 
 	/** Scrolls container `node`'s content by `(x, y)` and colours its thumb `thumb`, `0xAARRGGBB`; 0 hides it. **/
 	static function blinc_tree_set_scroll(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, x:Single, y:Single, thumb:Int):Void;
+
 	/** Overlay scrollbar width and 0xAARRGGBB track; zero hides both. git-bug: 4512d6f / ABI a00b6d0. **/
 	static function blinc_tree_set_scrollbar_style(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, width:Single, track:Int):Void;
 

@@ -170,7 +170,8 @@ class Sweep {
 		for (e in 0...sx.length)
 			if (Math.abs(ey[e] - sy[e]) <= EPS && Math.abs(ex[e] - sx[e]) > EPS) {
 				var mx = (sx[e] + ex[e]) / 2, my = sy[e], h = Math.max(1e-6, aa * 1e-3);
-				var above = filled(winding(mx, my - h)), below = filled(winding(mx, my + h));
+				var above = filled(winding(mx, my - h)),
+					below = filled(winding(mx, my + h));
 				if (above != below) {
 					levelEdge.push(e);
 					levelBelow.push(below ? 1 : -1);
@@ -268,7 +269,10 @@ class Sweep {
 			if (now)
 				left = e;
 			else if (left >= 0) {
-				var la = xAt(left, y0), lb = xAt(left, y1), ra = xAt(e, y0), rb = xAt(e, y1);
+				var la = xAt(left, y0),
+					lb = xAt(left, y1),
+					ra = xAt(e, y0),
+					rb = xAt(e, y1);
 				if (ra - la > EPS || rb - lb > EPS)
 					trapezoid(left, e, y0, y1, la, lb, ra, rb, aa, mesh, c);
 				left = -1;
@@ -302,10 +306,11 @@ class Sweep {
 		inward(r, -1);
 		var rnx = ox, rny = oy;
 		var lx = xAt(l, y0), rx = xAt(r, y0);
-		var top = alongLevel(y0, la, ra, 1), bottom = alongLevel(y1, lb, rb, -1);
+		var top = alongLevel(y0, la, ra, 1),
+			bottom = alongLevel(y1, lb, rb, -1);
 		inline function v(px:Float, py:Float)
-			mesh.vertex(px, py, c, ((px - lx) * lnx + (py - y0) * lny) / aa, ((px - rx) * rnx + (py - y0) * rny) / aa,
-				top ? (py - y0) / aa : Mesh.FAR, bottom ? (y1 - py) / aa : Mesh.FAR);
+			mesh.vertex(px, py, c, ((px - lx) * lnx + (py - y0) * lny) / aa, ((px - rx) * rnx + (py - y0) * rny) / aa, top ? (py - y0) / aa : Mesh.FAR,
+				bottom ? (y1 - py) / aa : Mesh.FAR);
 		v(la, y0);
 		v(ra, y0);
 		v(rb, y1);

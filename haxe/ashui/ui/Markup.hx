@@ -12,10 +12,10 @@ using haxe.macro.ExprTools;
 	Templates written as Haxe's own inline markup, with no `hxx('...')`
 	around them: an element where an expression goes, as JSX writes one.
 
-	    function card(title:String):Element
-	        return <card><card-header><card-title>{title}</card-title></card-header></card>;
+		function card(title:String):Element
+			return <card><card-header><card-title>{title}</card-title></card-header></card>;
 
-	    var list = <ul><for {item in items}><li>{item}</li></for></ul>;
+		var list = <ul><for {item in items}><li>{item}</li></for></ul>;
 
 	Each is what `hxx` makes of the same template, typed as the element it
 	builds; the expressions inside keep their place in the file, so the
@@ -28,7 +28,9 @@ class Markup {
 	static var enabled = false;
 
 	/** Packages whose classes hold no templates: the standard library and the compiler's own. **/
-	static final SKIPPED = ["haxe", "sys", "hl", "cpp", "js", "jvm", "eval", "neko", "php", "python", "cs", "java", "lua", "flash", "tink"];
+	static final SKIPPED = [
+		"haxe", "sys", "hl", "cpp", "js", "jvm", "eval", "neko", "php", "python", "cs", "java", "lua", "flash", "tink"
+	];
 
 	/** Macros that take inline markup as it is written: `hxx(<div/>)`, `SvgDocument.of(<svg/>)`, `SvgDocument.embed`. **/
 	static final READERS = ["hxx", "of", "embed"];

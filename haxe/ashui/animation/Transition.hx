@@ -21,13 +21,48 @@ class Transition {
 
 	/** Everything that can move between two values. **/
 	public static final ALL:Array<PropertyId> = DEFAULT.concat([
-		Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight, Padding, Margin, Gap, Top, Right, Bottom, Left, BorderWidth, CornerRadius, FontSize,
-		LetterSpacing, LineHeight, FlexGrow, FlexShrink, FlexBasis, PaddingTop, PaddingRight, PaddingBottom, PaddingLeft, MarginTop, MarginRight,
-		MarginBottom, MarginLeft, GapX, GapY, WidthPercent, HeightPercent, MinWidthPercent, MaxWidthPercent, MinHeightPercent, MaxHeightPercent,
+		Width,
+		Height,
+		MinWidth,
+		MaxWidth,
+		MinHeight,
+		MaxHeight,
+		Padding,
+		Margin,
+		Gap,
+		Top,
+		Right,
+		Bottom,
+		Left,
+		BorderWidth,
+		CornerRadius,
+		FontSize,
+		LetterSpacing,
+		LineHeight,
+		FlexGrow,
+		FlexShrink,
+		FlexBasis,
+		PaddingTop,
+		PaddingRight,
+		PaddingBottom,
+		PaddingLeft,
+		MarginTop,
+		MarginRight,
+		MarginBottom,
+		MarginLeft,
+		GapX,
+		GapY,
+		WidthPercent,
+		HeightPercent,
+		MinWidthPercent,
+		MaxWidthPercent,
+		MinHeightPercent,
+		MaxHeightPercent,
 		FlexBasisPercent
 	]);
 
 	public final properties:Array<PropertyId>;
+
 	final duration:Null<AnimationToken>;
 	final milliseconds:Null<Int>;
 	final easing:Null<EasingToken>;
@@ -35,8 +70,7 @@ class Transition {
 	final delayMilliseconds:Int;
 
 	/** `duration` as a theme token, or `milliseconds`; the curve as a theme token, or `curve`. **/
-	public function new(properties:Array<PropertyId>, ?duration:AnimationToken, ?milliseconds:Int, ?easing:EasingToken, ?curve:ashui.theme.Easing,
-			delay = 0) {
+	public function new(properties:Array<PropertyId>, ?duration:AnimationToken, ?milliseconds:Int, ?easing:EasingToken, ?curve:ashui.theme.Easing, delay = 0) {
 		this.properties = properties;
 		this.duration = duration;
 		this.milliseconds = milliseconds;

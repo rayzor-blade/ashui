@@ -27,8 +27,15 @@ class SvgParser {
 	static final IGNORED = ["title", "desc", "metadata"];
 
 	/** The shapes this model reads into paths. **/
-	static final SHAPES = ["path" => true, "rect" => true, "circle" => true, "ellipse" => true, "line" => true, "polyline" => true,
-		"polygon" => true];
+	static final SHAPES = [
+		"path" => true,
+		"rect" => true,
+		"circle" => true,
+		"ellipse" => true,
+		"line" => true,
+		"polyline" => true,
+		"polygon" => true
+	];
 
 	/** Reads `xml`, an `<svg>` element or a document holding one; throws `SvgError` at the first mistake. **/
 	public static function parse(xml:Xml):Parsed {
@@ -260,8 +267,18 @@ class SvgParser {
 /** The paint properties in effect on an element, after what it inherits. **/
 private class Style {
 	public static final NAMES = [
-		"fill", "fill-opacity", "fill-rule", "stroke", "stroke-opacity", "stroke-width", "stroke-linecap", "stroke-linejoin",
-		"stroke-miterlimit", "color", "display", "visibility"
+		"fill",
+		"fill-opacity",
+		"fill-rule",
+		"stroke",
+		"stroke-opacity",
+		"stroke-width",
+		"stroke-linecap",
+		"stroke-linejoin",
+		"stroke-miterlimit",
+		"color",
+		"display",
+		"visibility"
 	];
 
 	public var fill = "black";
@@ -273,8 +290,10 @@ private class Style {
 	public var lineCap = "butt";
 	public var lineJoin = "miter";
 	public var miterLimit = 4.0;
+
 	/** What `currentColor` is: the element's own colour unless an SVG `color` sets one. **/
 	public var color:Null<String> = null;
+
 	public var hidden = false;
 
 	public function new() {}

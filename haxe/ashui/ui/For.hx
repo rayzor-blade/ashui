@@ -47,6 +47,7 @@ class For<T> extends Div {
 			rows = next;
 			this.tree.replaceChildren(node.id, [for (row in rows) row.element.node.id]);
 		}, (_, _) -> false);
-		Owner.onCleanup(() -> for (row in rows) row.owner.dispose());
+		Owner.onCleanup(() -> for (row in rows)
+			row.owner.dispose());
 	}
 }

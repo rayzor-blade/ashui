@@ -41,16 +41,14 @@ enum abstract Platform(Int) {
 		return query != null && query.matches ? Dark : Light;
 		#elseif sys
 		return switch current() {
-			case MacOS:
-				var out = run("defaults", ["read", "-g", "AppleInterfaceStyle"]);
-				out != null && StringTools.trim(out).toLowerCase() == "dark" ? Dark : Light;
+			case MacOS: var out = run("defaults",
+					["read", "-g", "AppleInterfaceStyle"]); out != null && StringTools.trim(out).toLowerCase() == "dark" ? Dark : Light;
 			case Linux:
 				var gtk = Sys.getEnv("GTK_THEME");
-				if (gtk != null && gtk.toLowerCase().indexOf("dark") >= 0)
-					Dark;
-				else {
+				if (gtk != null && gtk.toLowerCase().indexOf("dark") >= 0) Dark; else {
 					var out = run("gsettings", ["get", "org.gnome.desktop.interface", "color-scheme"]);
-					out != null && out.indexOf("dark") >= 0 ? Dark : Light;
+					out != null
+					&& out.indexOf("dark") >= 0 ? Dark : Light;
 				}
 			case _: Light;
 		}

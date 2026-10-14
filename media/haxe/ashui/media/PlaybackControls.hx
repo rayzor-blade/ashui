@@ -31,8 +31,7 @@ class PlaybackControls extends Component<PlaybackControlsProps> {
 		var volumeOpen = Signal.make(false);
 		var menuOpen = Signal.make(false);
 		var progress = Signal.make(0.0);
-		new Watch(() -> player.duration.get() > 0 ? player.position.get() / player.duration.get() : 0.0,
-			v -> progress.set(Math.max(0, Math.min(1, v))));
+		new Watch(() -> player.duration.get() > 0 ? player.position.get() / player.duration.get() : 0.0, v -> progress.set(Math.max(0, Math.min(1, v))));
 		if (props.onEngagedChange != null) {
 			new Watch(() -> volumeOpen.get() || menuOpen.get(), props.onEngagedChange);
 			Owner.onCleanup(() -> props.onEngagedChange(false));
@@ -94,6 +93,7 @@ class PlaybackControls extends Component<PlaybackControlsProps> {
 		var hours = Std.int(value / 3600);
 		var minutes = Std.int(value / 60) % 60;
 		return (hours > 0 ? hours + ":" + StringTools.lpad(Std.string(minutes), "0", 2) : Std.string(minutes))
-			+ ":" + StringTools.lpad(Std.string(value % 60), "0", 2);
+			+ ":"
+			+ StringTools.lpad(Std.string(value % 60), "0", 2);
 	}
 }

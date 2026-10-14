@@ -12,7 +12,15 @@ final class FontFamily {
 	}
 
 	public static function systemSans():FontFamily {
-		return new FontFamily("system-ui", ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "sans-serif"]);
+		return new FontFamily("system-ui", [
+			"-apple-system",
+			"BlinkMacSystemFont",
+			"Segoe UI",
+			"Roboto",
+			"Oxygen",
+			"Ubuntu",
+			"sans-serif"
+		]);
 	}
 
 	public static function systemMono():FontFamily {

@@ -8,9 +8,9 @@ import ashui.reactive.Signal;
 	The elements a template builds under one `ref=`, each item of a `<for>`
 	its own, in the order they were built:
 
-	    var rows = new RefList<Div>();
-	    <for {item in items}><div ref={rows}>{item}</div></for>;
-	    query(rows).onClick(e -> pick(e));
+		var rows = new RefList<Div>();
+		<for {item in items}><div ref={rows}>{item}</div></for>;
+		query(rows).onClick(e -> pick(e));
 
 	An element joins it as it is built and leaves when its owner disposes
 	it, as an item does when its value leaves the list. Reading it with

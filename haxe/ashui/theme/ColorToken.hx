@@ -43,5 +43,44 @@ enum abstract ColorToken(String) {
 	var TooltipText = "tooltipText";
 
 	/** Every colour token, in declaration order. **/
-	public static final ALL:Array<ColorToken> = [Primary, PrimaryHover, PrimaryActive, Secondary, SecondaryHover, SecondaryActive, Success, SuccessBg, Warning, WarningBg, Error, ErrorBg, Info, InfoBg, Background, Surface, SurfaceElevated, SurfaceOverlay, TextPrimary, TextSecondary, TextTertiary, TextInverse, TextLink, Border, BorderSecondary, BorderHover, BorderFocus, BorderError, InputBg, InputBgHover, InputBgFocus, InputBgDisabled, Selection, SelectionText, Accent, AccentSubtle, TooltipBackground, TooltipText];
+	public static final ALL:Array<ColorToken> = [
+		Primary,
+		PrimaryHover,
+		PrimaryActive,
+		Secondary,
+		SecondaryHover,
+		SecondaryActive,
+		Success,
+		SuccessBg,
+		Warning,
+		WarningBg,
+		Error,
+		ErrorBg,
+		Info,
+		InfoBg,
+		Background,
+		Surface,
+		SurfaceElevated,
+		SurfaceOverlay,
+		TextPrimary,
+		TextSecondary,
+		TextTertiary,
+		TextInverse,
+		TextLink,
+		Border,
+		BorderSecondary,
+		BorderHover,
+		BorderFocus,
+		BorderError,
+		InputBg,
+		InputBgHover,
+		InputBgFocus,
+		InputBgDisabled,
+		Selection,
+		SelectionText,
+		Accent,
+		AccentSubtle,
+		TooltipBackground,
+		TooltipText
+	];
 }

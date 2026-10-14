@@ -119,7 +119,8 @@ class Identity {
 	/** A boolean HTML attribute is present while true, absent while false. **/
 	public function bindBooleanAttribute(name:String, value:IntoReactive<Bool>):Identity {
 		switch (value : ashui.layout.IntoReactive.ReactiveType<Bool>) {
-			case Const(v): setAttribute(name, v ? "" : null);
+			case Const(v):
+				setAttribute(name, v ? "" : null);
 			case Bound(s):
 				setAttribute(name, s.get() ? "" : null);
 				new ashui.reactive.Watch(() -> s.get(), v -> setAttribute(name, v ? "" : null));
@@ -190,7 +191,8 @@ class Identity {
 	/** Releases every styling identity before its tree's native memory is disposed. **/
 	public static function forgetTree(tree:LayoutTree):Void {
 		var nodes = trees.get(tree);
-		if (nodes == null) return;
+		if (nodes == null)
+			return;
 		trees.remove(tree);
 		for (identity in nodes)
 			for (hook in forgetHooks)

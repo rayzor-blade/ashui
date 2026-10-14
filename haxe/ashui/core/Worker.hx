@@ -21,7 +21,8 @@ class Worker {
 		if (queue == null) {
 			queue = new sys.thread.Deque();
 			var jobs = queue;
-			sys.thread.Thread.create(() -> while (true) jobs.pop(true)());
+			sys.thread.Thread.create(() -> while (true)
+				jobs.pop(true)());
 		}
 		queue.add(() -> {
 			// A job that throws is reported and skipped; the thread goes on to the next.

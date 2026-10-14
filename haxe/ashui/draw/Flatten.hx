@@ -90,7 +90,9 @@ class Flatten {
 						current.closed = true;
 						// Its last point back at its first is the closing step itself.
 						var n = current.count();
-						if (n > 1 && Math.abs(current.x(n - 1) - current.x(0)) < 1e-9 && Math.abs(current.y(n - 1) - current.y(0)) < 1e-9) {
+						if (n > 1
+							&& Math.abs(current.x(n - 1) - current.x(0)) < 1e-9
+							&& Math.abs(current.y(n - 1) - current.y(0)) < 1e-9) {
 							current.points.pop();
 							current.points.pop();
 						}
@@ -104,21 +106,19 @@ class Flatten {
 	}
 
 	/** A cubic from `(x0, y0)`, its points taken through `m` first, as Béziers are kept by affine maps. **/
-	static function cubic(c:Contour, m:Affine, x0:Float, y0:Float, x1:Float, y1:Float, x2:Float, y2:Float, x3:Float, y3:Float,
-			tolerance:Float):Void
+	static function cubic(c:Contour, m:Affine, x0:Float, y0:Float, x1:Float, y1:Float, x2:Float, y2:Float, x3:Float, y3:Float, tolerance:Float):Void
 		subdivide(c, m.x(x0, y0), m.y(x0, y0), m.x(x1, y1), m.y(x1, y1), m.x(x2, y2), m.y(x2, y2), m.x(x3, y3), m.y(x3, y3), tolerance, 0);
 
 	/** Halves the curve until its controls lie within `tolerance` of its chord, then steps to its end. **/
-	static function subdivide(c:Contour, x0:Float, y0:Float, x1:Float, y1:Float, x2:Float, y2:Float, x3:Float, y3:Float, tolerance:Float,
-			depth:Int):Void {
+	static function subdivide(c:Contour, x0:Float, y0:Float, x1:Float, y1:Float, x2:Float, y2:Float, x3:Float, y3:Float, tolerance:Float, depth:Int):Void {
 		var dx = x3 - x0, dy = y3 - y0;
 		var d1 = Math.abs((x1 - x3) * dy - (y1 - y3) * dx);
 		var d2 = Math.abs((x2 - x3) * dy - (y2 - y3) * dx);
 		var chord2 = dx * dx + dy * dy;
 		// The curve strays from its chord by at most three quarters of its controls' farthest distance from it; with no chord, by their spread.
 		var far = Math.max(d1, d2);
-		var flat = chord2 > 1e-18 ? far * far * 0.5625 <= tolerance * tolerance * chord2 : Math.max(Math.abs(x1 - x0)
-			+ Math.abs(y1 - y0), Math.abs(x2 - x0) + Math.abs(y2 - y0)) <= tolerance;
+		var flat = chord2 > 1e-18 ? far * far * 0.5625 <= tolerance * tolerance * chord2 : Math.max(Math.abs(x1 - x0) + Math.abs(y1 - y0),
+			Math.abs(x2 - x0) + Math.abs(y2 - y0)) <= tolerance;
 		if (flat || depth >= 16) {
 			c.add(x3, y3);
 			return;
@@ -138,15 +138,17 @@ class Flatten {
 		quarter turn or less: its centre found as SVG's implementation notes
 		do, its radii grown if they cannot reach.
 	**/
-	static function arc(c:Contour, m:Affine, x1:Float, y1:Float, rx:Float, ry:Float, rotation:Float, large:Bool, sweep:Bool, x2:Float,
-			y2:Float, tolerance:Float):Void {
+	static function arc(c:Contour, m:Affine, x1:Float, y1:Float, rx:Float, ry:Float, rotation:Float, large:Bool, sweep:Bool, x2:Float, y2:Float,
+			tolerance:Float):Void {
 		rx = Math.abs(rx);
 		ry = Math.abs(ry);
 		if (rx < 1e-12 || ry < 1e-12 || (x1 == x2 && y1 == y2)) {
 			c.add(m.x(x2, y2), m.y(x2, y2));
 			return;
 		}
-		var phi = rotation * Math.PI / 180, cos = Math.cos(phi), sin = Math.sin(phi);
+		var phi = rotation * Math.PI / 180,
+			cos = Math.cos(phi),
+			sin = Math.sin(phi);
 		var dx2 = (x1 - x2) / 2, dy2 = (y1 - y2) / 2;
 		var x1p = cos * dx2 + sin * dy2, y1p = -sin * dx2 + cos * dy2;
 		var lambda = x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry);
@@ -158,7 +160,8 @@ class Flatten {
 		var den = rx * rx * y1p * y1p + ry * ry * x1p * x1p;
 		var coef = (large == sweep ? -1 : 1) * Math.sqrt(Math.max(0, num / den));
 		var cxp = coef * rx * y1p / ry, cyp = -coef * ry * x1p / rx;
-		var cx = cos * cxp - sin * cyp + (x1 + x2) / 2, cy = sin * cxp + cos * cyp + (y1 + y2) / 2;
+		var cx = cos * cxp - sin * cyp + (x1 + x2) / 2,
+			cy = sin * cxp + cos * cyp + (y1 + y2) / 2;
 		inline function angle(ux:Float, uy:Float, vx:Float, vy:Float)
 			return Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
 		var ux = (x1p - cxp) / rx, uy = (y1p - cyp) / ry;

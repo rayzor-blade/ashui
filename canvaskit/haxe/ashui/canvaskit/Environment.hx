@@ -56,7 +56,8 @@ class Environment {
 		var extent = new gpu.GpuExtent3D(size);
 		extent.height(size);
 		extent.depthOrArrayLayers(6);
-		var descriptor = new gpu.GpuTextureDescriptor(extent, Rgba16float, ashui.core.render.GpuFlags.TEXTURE_BINDING | ashui.core.render.GpuFlags.TEXTURE_COPY_DST);
+		var descriptor = new gpu.GpuTextureDescriptor(extent, Rgba16float,
+			ashui.core.render.GpuFlags.TEXTURE_BINDING | ashui.core.render.GpuFlags.TEXTURE_COPY_DST);
 		descriptor.mipLevelCount(levels);
 		var t = device.texture(descriptor);
 		for (level in 0...levels) {
@@ -107,7 +108,8 @@ class Environment {
 		var h = [lin(horizon, 16), lin(horizon, 8), lin(horizon, 0)];
 		var g = [lin(ground, 16), lin(ground, 8), lin(ground, 0)];
 		return fill(size, (x, y, z2, out) -> {
-			var to = y >= 0 ? z : g, t = y >= 0 ? Math.pow(y, 0.6) : Math.min(1, -y * 4);
+			var to = y >= 0 ? z : g,
+				t = y >= 0 ? Math.pow(y, 0.6) : Math.min(1, -y * 4);
 			for (c in 0...3)
 				out[c] = h[c] + (to[c] - h[c]) * t;
 		});
@@ -145,12 +147,30 @@ class Environment {
 						// The way through (u, v) on this face, as `direction` gives it, unnormalized.
 						var dx = 0.0, dy = 0.0, dz = 0.0;
 						switch face {
-							case 0: dx = 1; dy = -v; dz = -u;
-							case 1: dx = -1; dy = -v; dz = u;
-							case 2: dx = u; dy = 1; dz = v;
-							case 3: dx = u; dy = -1; dz = -v;
-							case 4: dx = u; dy = -v; dz = 1;
-							case _: dx = -u; dy = -v; dz = -1;
+							case 0:
+								dx = 1;
+								dy = -v;
+								dz = -u;
+							case 1:
+								dx = -1;
+								dy = -v;
+								dz = u;
+							case 2:
+								dx = u;
+								dy = 1;
+								dz = v;
+							case 3:
+								dx = u;
+								dy = -1;
+								dz = -v;
+							case 4:
+								dx = u;
+								dy = -v;
+								dz = 1;
+							case _:
+								dx = -u;
+								dy = -v;
+								dz = -1;
 						}
 						var l = 1 / Math.sqrt(dx * dx + dy * dy + dz * dz);
 						sample(dx * l, dy * l, dz * l, one);
@@ -183,7 +203,8 @@ class Environment {
 				var m = n >> 1;
 				current = [
 					for (face in 0...6) {
-						var src = current[face], dst = new haxe.ds.Vector<Float>(m * m * 3);
+						var src = current[face],
+							dst = new haxe.ds.Vector<Float>(m * m * 3);
 						for (y in 0...m)
 							for (x in 0...m)
 								for (c in 0...3)
@@ -304,14 +325,16 @@ class Environment {
 	public function sampleInto(dx:Float, dy:Float, dz:Float, out:haxe.ds.Vector<Float>):Void {
 		var u = 0.5 + Math.atan2(dx, -dz) / (2 * Math.PI);
 		var v = Math.acos(Math.max(-1, Math.min(1, dy))) / Math.PI;
-		var fx = u * width - 0.5, fy = Math.max(0, Math.min(height - 1, v * height - 0.5));
+		var fx = u * width - 0.5,
+			fy = Math.max(0, Math.min(height - 1, v * height - 0.5));
 		var x0 = Math.floor(fx), y0 = Math.floor(fy);
 		var tx = fx - x0, ty = fy - y0;
 		var r = 0.0, g = 0.0, bl = 0.0;
 		for (j in 0...2)
 			for (i in 0...2) {
 				var w = (i == 0 ? 1 - tx : tx) * (j == 0 ? 1 - ty : ty);
-				var x = ((x0 + i) % width + width) % width, y = Std.int(Math.min(height - 1, y0 + j));
+				var x = ((x0 + i) % width + width) % width,
+					y = Std.int(Math.min(height - 1, y0 + j));
 				var o = (y * width + x) * 4;
 				var s = SCALE[pixels.get(o + 3)] * w;
 				r += (pixels.get(o) + 0.5) * s;

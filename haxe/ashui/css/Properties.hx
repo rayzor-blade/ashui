@@ -33,6 +33,7 @@ typedef ApplyContext = {
 
 	/** The element's `background-size`, which a `url()` image in its background is fitted by. **/
 	final ?backgroundSize:String;
+
 	final ?backgroundRepeat:String;
 	final ?backgroundPosition:String;
 
@@ -68,7 +69,13 @@ class Properties {
 			"inset" => sides.copy(),
 			"gap" => ["row-gap", "column-gap"],
 			"flex" => ["flex-grow", "flex-shrink", "flex-basis"],
-			"background" => ["background-color", "background-image", "background-size", "background-repeat", "background-position"],
+			"background" => [
+				"background-color",
+				"background-image",
+				"background-size",
+				"background-repeat",
+				"background-position"
+			],
 			"overflow" => ["overflow-x", "overflow-y"],
 			"place-content" => ["align-content", "justify-content"],
 			"place-items" => ["align-items", "justify-items"],
@@ -110,10 +117,16 @@ class Properties {
 
 	static function build():Map<String, (Node, String, ApplyContext) -> Array<Int>> {
 		var h = new Map<String, (Node, String, ApplyContext) -> Array<Int>>();
-		h.set("visibility", (n, v, _) -> [enumWrite(n, Prop.Visibility, v,
-			["visible" => Visibility.Visible, "hidden" => Visibility.Hidden, "collapse" => Visibility.Collapse])]);
-		h.set("pointer-events", (n, v, _) -> [enumWrite(n, Prop.PointerEvents, v,
-			["auto" => PointerEvents.Auto, "none" => PointerEvents.None])]);
+		h.set("visibility", (n, v, _) -> [
+			enumWrite(n, Prop.Visibility, v, [
+				"visible" => Visibility.Visible,
+				"hidden" => Visibility.Hidden,
+				"collapse" => Visibility.Collapse
+			])
+		]);
+		h.set("pointer-events", (n, v, _) -> [
+			enumWrite(n, Prop.PointerEvents, v, ["auto" => PointerEvents.Auto, "none" => PointerEvents.None])
+		]);
 		h.set("cursor", (_, v, _) -> {
 			ashui.input.Cursor.parse(v);
 			[];
@@ -161,34 +174,51 @@ class Properties {
 					[Node.field(keys[i])];
 				});
 		}
-		sides("padding", [Prop.PaddingTop, Prop.PaddingRight, Prop.PaddingBottom, Prop.PaddingLeft],
-			[Prop.PaddingTopPercent, Prop.PaddingRightPercent, Prop.PaddingBottomPercent, Prop.PaddingLeftPercent], false, false);
-		sides("margin", [Prop.MarginTop, Prop.MarginRight, Prop.MarginBottom, Prop.MarginLeft],
-			[Prop.MarginTopPercent, Prop.MarginRightPercent, Prop.MarginBottomPercent, Prop.MarginLeftPercent], true, true);
+		sides("padding", [Prop.PaddingTop, Prop.PaddingRight, Prop.PaddingBottom, Prop.PaddingLeft], [
+			Prop.PaddingTopPercent,
+			Prop.PaddingRightPercent,
+			Prop.PaddingBottomPercent,
+			Prop.PaddingLeftPercent
+		], false, false);
+		sides("margin", [Prop.MarginTop, Prop.MarginRight, Prop.MarginBottom, Prop.MarginLeft], [
+			Prop.MarginTopPercent,
+			Prop.MarginRightPercent,
+			Prop.MarginBottomPercent,
+			Prop.MarginLeftPercent
+		], true, true);
 		h.set("row-gap", (n, v, c) -> [lengthWrite(n, Prop.GapY, Prop.GapYPercent, v, c, false, false)]);
 		h.set("column-gap", (n, v, c) -> [lengthWrite(n, Prop.GapX, Prop.GapXPercent, v, c, false, false)]);
 		h.set("gap", (n, v, c) -> {
 			var parts = CssValue.split(v, " ");
 			if (parts.length < 1 || parts.length > 2)
 				throw "gap takes a row gap and an optional column gap";
-			[lengthWrite(n, Prop.GapY, Prop.GapYPercent, parts[0], c, false, false),
-				lengthWrite(n, Prop.GapX, Prop.GapXPercent, parts.length > 1 ? parts[1] : parts[0], c, false, false)];
+			[
+				lengthWrite(n, Prop.GapY, Prop.GapYPercent, parts[0], c, false, false),
+				lengthWrite(n, Prop.GapX, Prop.GapXPercent, parts.length > 1 ? parts[1] : parts[0], c, false, false)
+			];
 		});
 
 		// --- Position ---
 		var insets:Array<{name:String, prop:Prop<Single>, percent:Prop<Single>}> = [
-			{name: "top", prop: Prop.Top, percent: Prop.TopPercent}, {name: "right", prop: Prop.Right, percent: Prop.RightPercent},
-			{name: "bottom", prop: Prop.Bottom, percent: Prop.BottomPercent}, {name: "left", prop: Prop.Left, percent: Prop.LeftPercent}
+			         {name: "top", prop: Prop.Top, percent: Prop.TopPercent}, {name: "right", prop: Prop.Right, percent: Prop.RightPercent},
+			{name: "bottom", prop: Prop.Bottom, percent: Prop.BottomPercent},    {name: "left", prop: Prop.Left, percent: Prop.LeftPercent}
 		];
 		for (inset in insets)
 			h.set(inset.name, (n, v, c) -> [lengthWrite(n, inset.prop, inset.percent, v, c, true)]);
 		h.set("inset", (n, v, c) -> {
 			var four = boxSides(CssValue.split(v, " "), "inset");
-				[for (i in 0...4) lengthWrite(n, insets[i].prop, insets[i].percent, four[i], c, true)];
+			[
+				for (i in 0...4) lengthWrite(n, insets[i].prop, insets[i].percent, four[i], c, true)
+			];
 		});
 		h.set("position", (n, v, _) -> [
-			enumWrite(n, Prop.Position, v, ["relative" => Position.Relative, "static" => Position.Relative, "absolute" => Position.Absolute,
-				"fixed" => Position.Fixed, "sticky" => Position.Sticky])
+			enumWrite(n, Prop.Position, v, [
+				"relative" => Position.Relative,
+				"static" => Position.Relative,
+				"absolute" => Position.Absolute,
+				"fixed" => Position.Fixed,
+				"sticky" => Position.Sticky
+			])
 		]);
 		// git-bug: 7977648 / ABI 62aa0b0: keep signed integers on the native i32 path.
 		h.set("order", (n, v, _) -> {
@@ -210,7 +240,12 @@ class Properties {
 			[];
 		});
 		h.set("display", (n, v, _) -> [
-			enumWrite(n, Prop.Display, v, ["flex" => Display.Flex, "block" => Display.Block, "grid" => Display.Grid, "none" => Display.None])
+			enumWrite(n, Prop.Display, v, [
+				"flex" => Display.Flex,
+				"block" => Display.Block,
+				"grid" => Display.Grid,
+				"none" => Display.None
+			])
 		]);
 		h.set("flex-direction", (n, v, _) -> [
 			enumWrite(n, Prop.FlexDirection, v, [
@@ -221,11 +256,21 @@ class Properties {
 			])
 		]);
 		h.set("flex-wrap", (n, v, _) -> [
-			enumWrite(n, Prop.FlexWrap, v, ["nowrap" => FlexWrap.NoWrap, "wrap" => FlexWrap.Wrap, "wrap-reverse" => FlexWrap.WrapReverse])
+			enumWrite(n, Prop.FlexWrap, v, [
+				"nowrap" => FlexWrap.NoWrap,
+				"wrap" => FlexWrap.Wrap,
+				"wrap-reverse" => FlexWrap.WrapReverse
+			])
 		]);
 		var aligns = [
-			"start" => Align.Start, "end" => Align.End, "flex-start" => Align.FlexStart, "flex-end" => Align.FlexEnd, "center" => Align.Center,
-			"baseline" => Align.Baseline, "stretch" => Align.Stretch, "normal" => Align.Auto
+			"start" => Align.Start,
+			"end" => Align.End,
+			"flex-start" => Align.FlexStart,
+			"flex-end" => Align.FlexEnd,
+			"center" => Align.Center,
+			"baseline" => Align.Baseline,
+			"stretch" => Align.Stretch,
+			"normal" => Align.Auto
 		];
 		h.set("align-items", (n, v, _) -> [enumWrite(n, Prop.AlignItems, v, aligns)]);
 		h.set("justify-items", (n, v, _) -> [enumWrite(n, Prop.JustifyItems, v, aligns)]);
@@ -234,9 +279,16 @@ class Properties {
 		h.set("align-self", (n, v, _) -> [enumWrite(n, Prop.AlignSelf, v, selfAligns)]);
 		h.set("justify-self", (n, v, _) -> [enumWrite(n, Prop.JustifySelf, v, selfAligns)]);
 		var justifies = [
-			"start" => Justify.Start, "end" => Justify.End, "flex-start" => Justify.FlexStart, "flex-end" => Justify.FlexEnd,
-			"center" => Justify.Center, "stretch" => Justify.Stretch, "space-between" => Justify.SpaceBetween,
-			"space-evenly" => Justify.SpaceEvenly, "space-around" => Justify.SpaceAround, "normal" => Justify.Normal
+			"start" => Justify.Start,
+			"end" => Justify.End,
+			"flex-start" => Justify.FlexStart,
+			"flex-end" => Justify.FlexEnd,
+			"center" => Justify.Center,
+			"stretch" => Justify.Stretch,
+			"space-between" => Justify.SpaceBetween,
+			"space-evenly" => Justify.SpaceEvenly,
+			"space-around" => Justify.SpaceAround,
+			"normal" => Justify.Normal
 		];
 		h.set("justify-content", (n, v, _) -> [enumWrite(n, Prop.JustifyContent, v, justifies)]);
 		h.set("align-content", (n, v, _) -> [enumWrite(n, Prop.AlignContent, v, justifies)]);
@@ -260,16 +312,12 @@ class Properties {
 				case "initial": ["0", "1", "auto"];
 				case _:
 					var p = CssValue.split(t, " ");
-					if (p.length == 1 && CssValue.dimension(p[0]) != null && CssValue.dimension(p[0]).unit == "") [p[0], "1", "0%"]
-					else if (p.length == 2) [p[0], p[1], "0%"]
-					else p;
+					if (p.length == 1 && CssValue.dimension(p[0]) != null && CssValue.dimension(p[0])
+						.unit == "") [p[0], "1", "0%"] else if (p.length == 2) [p[0], p[1], "0%"] else p;
 			}
 			if (parts.length != 3)
 				throw "flex takes a grow, a shrink and a basis";
-			[
-				number(n, Prop.FlexGrow, parts[0], 0),
-				number(n, Prop.FlexShrink, parts[1], 0)
-			].concat(handlers.get("flex-basis")(n, parts[2], c));
+			[number(n, Prop.FlexGrow, parts[0], 0), number(n, Prop.FlexShrink, parts[1], 0)].concat(handlers.get("flex-basis")(n, parts[2], c));
 		});
 		// Width over height: "16 / 9", a number, or auto for none.
 		h.set("aspect-ratio", (n, v, _) -> {
@@ -277,7 +325,8 @@ class Properties {
 			var ratio:Float = Math.NaN;
 			if (t != "auto") {
 				var parts = t.split("/").map(StringTools.trim);
-				var w = Std.parseFloat(parts[0]), hh = parts.length > 1 ? Std.parseFloat(parts[1]) : 1.0;
+				var w = Std.parseFloat(parts[0]),
+					hh = parts.length > 1 ? Std.parseFloat(parts[1]) : 1.0;
 				if (parts.length > 2 || Math.isNaN(w) || Math.isNaN(hh) || w <= 0 || hh <= 0)
 					throw "aspect-ratio takes a width over a height, 16 / 9, a number or auto";
 				ratio = w / hh;
@@ -305,8 +354,13 @@ class Properties {
 			[];
 		});
 		// Scrolling along one axis or both makes the element a scroll container, as Tw's `overflow-auto` does.
-		var overflows = ["visible" => Overflow.Visible, "clip" => Overflow.Clip, "hidden" => Overflow.Hidden, "scroll" => Overflow.Scroll,
-			"auto" => Overflow.Scroll];
+		var overflows = [
+			"visible" => Overflow.Visible,
+			"clip" => Overflow.Clip,
+			"hidden" => Overflow.Hidden,
+			"scroll" => Overflow.Scroll,
+			"auto" => Overflow.Scroll
+		];
 		function overflow(n:Node, prop:Prop<Overflow>, v:String):Int {
 			return enumWrite(n, prop, v, overflows);
 		}
@@ -314,9 +368,15 @@ class Properties {
 			var parts = CssValue.split(v, " ");
 			if (parts.length < 1 || parts.length > 2)
 				throw "overflow takes one value or a pair of axes";
-			return [overflow(n, Prop.OverflowX, parts[0]), overflow(n, Prop.OverflowY, parts.length == 1 ? parts[0] : parts[1])];
+			return [
+				overflow(n, Prop.OverflowX, parts[0]),
+				overflow(n, Prop.OverflowY, parts.length == 1 ? parts[0] : parts[1])
+			];
 		});
-		for (axis in [{name: "overflow-x", prop: Prop.OverflowX}, {name: "overflow-y", prop: Prop.OverflowY}]) {
+		for (axis in [
+			{name: "overflow-x", prop: Prop.OverflowX},
+			{name: "overflow-y", prop: Prop.OverflowY}
+		]) {
 			h.set(axis.name, (n, v, _) -> [overflow(n, axis.prop, v)]);
 		}
 
@@ -371,9 +431,18 @@ class Properties {
 			[Node.field(Prop.Background)];
 		});
 		// Read by `background`'s `url()` images, through the context; nothing of its own to write.
-		h.set("background-size", (_, v, _) -> { backgroundFit(v); []; });
-		h.set("background-repeat", (_, v, _) -> { imageRepeat(v); []; });
-		h.set("background-position", (_, v, c) -> { imagePosition(v, c); []; });
+		h.set("background-size", (_, v, _) -> {
+			backgroundFit(v);
+			[];
+		});
+		h.set("background-repeat", (_, v, _) -> {
+			imageRepeat(v);
+			[];
+		});
+		h.set("background-position", (_, v, c) -> {
+			imagePosition(v, c);
+			[];
+		});
 		h.set("object-fit", (n, v, _) -> {
 			ashui.ui.Image.styleFit(n, ashui.ui.Image.cssFit(v));
 			[];
@@ -383,7 +452,15 @@ class Properties {
 			[];
 		});
 		// These settings belong to the glass background; they have no separate native field.
-		for (name in ["glass-blur", "glass-tint", "glass-aberration", "glass-bevel", "glass-curvature", "glass-noise", "glass-mode"])
+		for (name in [
+			"glass-blur",
+			"glass-tint",
+			"glass-aberration",
+			"glass-bevel",
+			"glass-curvature",
+			"glass-noise",
+			"glass-mode"
+		])
 			h.set(name, (_, v, c) -> {
 				validateGlass(name, v, c);
 				[];
@@ -391,8 +468,13 @@ class Properties {
 		h.set("background", (n, v, c) -> {
 			var t = StringTools.trim(v);
 			var blur = c.backdropBlur == null ? -1.0 : c.backdropBlur;
-			var brush = if (t.toLowerCase() == "glass") glass(c) else if (t.toLowerCase() == "none") blur >= 0 ? Brush.blur(blur) : Brush.solid(0, 0) else if (StringTools.startsWith(t.toLowerCase(), "url(")) image(t, c) else if (CssValue.call(t) != null
-				&& CssValue.call(t).name.indexOf("gradient") >= 0 || CssValue.call(t) != null && CssValue.call(t).name == "url") image(t, c) else {
+			var brush = if (t.toLowerCase() == "glass") glass(c) else if (t.toLowerCase() == "none") blur >= 0 ? Brush.blur(blur) : Brush.solid(0,
+				0) else if (StringTools.startsWith(t.toLowerCase(),
+				"url(")) image(t,
+					c) else if (CssValue.call(t) != null
+				&& CssValue.call(t).name.indexOf("gradient") >= 0
+				|| CssValue.call(t) != null
+				&& CssValue.call(t).name == "url") image(t, c) else {
 				var col = colorOf(CssValue.color(t), c);
 				blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
 			}
@@ -401,8 +483,18 @@ class Properties {
 		});
 
 		// --- Borders and outlines ---
-		var widthProps:Array<Prop<Single>> = [Prop.BorderTopWidth, Prop.BorderRightWidth, Prop.BorderBottomWidth, Prop.BorderLeftWidth];
-		var colorProps:Array<Prop<Color>> = [Prop.BorderTopColor, Prop.BorderRightColor, Prop.BorderBottomColor, Prop.BorderLeftColor];
+		var widthProps:Array<Prop<Single>> = [
+			Prop.BorderTopWidth,
+			Prop.BorderRightWidth,
+			Prop.BorderBottomWidth,
+			Prop.BorderLeftWidth
+		];
+		var colorProps:Array<Prop<Color>> = [
+			Prop.BorderTopColor,
+			Prop.BorderRightColor,
+			Prop.BorderBottomColor,
+			Prop.BorderLeftColor
+		];
 		function borderWidth(part:String, c:ApplyContext):Float {
 			return switch part.toLowerCase() {
 				case "thin": 1;
@@ -413,17 +505,21 @@ class Properties {
 		}
 		h.set("border-width", (n, v, c) -> {
 			var four = boxSides(CssValue.split(v, " "), "border-width");
-			[for (i in 0...4) {
-				write(n, widthProps[i], borderWidth(four[i], c));
-				Node.field(widthProps[i]);
-			}];
+			[
+				for (i in 0...4) {
+					write(n, widthProps[i], borderWidth(four[i], c));
+					Node.field(widthProps[i]);
+				}
+			];
 		});
 		h.set("border-color", (n, v, c) -> {
 			var four = boxSides(CssValue.split(v, " "), "border-color");
-			[for (i in 0...4) {
-				write(n, colorProps[i], colorOf(CssValue.color(four[i]), c));
-				Node.field(colorProps[i]);
-			}];
+			[
+				for (i in 0...4) {
+					write(n, colorProps[i], colorOf(CssValue.color(four[i]), c));
+					Node.field(colorProps[i]);
+				}
+			];
 		});
 		h.set("border-style", (n, v, _) -> {
 			// Only whether there is a border: none and hidden draw none; every other style draws solid.
@@ -431,10 +527,13 @@ class Properties {
 			if (none.indexOf(true) < 0)
 				return [];
 			var four = boxSides([for (x in none) x ? "1" : "0"], "border-style");
-			[for (i in 0...4) if (four[i] == "1") {
-				write(n, widthProps[i], 0);
-				Node.field(widthProps[i]);
-			}];
+			[
+				for (i in 0...4)
+					if (four[i] == "1") {
+						write(n, widthProps[i], 0);
+						Node.field(widthProps[i]);
+					}
+			];
 		});
 		/** `1px solid red`: a width, a style and a colour, any of them, in any order. **/
 		function border(n:Node, v:String, c:ApplyContext, which:Array<Int>):Array<Int> {
@@ -473,12 +572,13 @@ class Properties {
 			if (v.indexOf("/") >= 0)
 				throw "elliptical corners (a / in border-radius) are not supported";
 			var four = boxSides(CssValue.split(v, " "), "border-radius");
-			var r = [for (part in four) {
-				var l = CssValue.length(part);
-				if (l.match(Percent(_)))
-					throw "border-radius in % is not supported";
-				Math.max(0, pixels(l, c));
-			}];
+			var r = [
+				for (part in four) {
+					var l = CssValue.length(part);
+					if (l.match(Percent(_))) throw "border-radius in % is not supported";
+					Math.max(0, pixels(l, c));
+				}
+			];
 			write(n, Prop.CornerRadius, new CornerRadius(r[0], r[1], r[2], r[3]));
 			[Node.field(Prop.CornerRadius)];
 		});
@@ -531,8 +631,12 @@ class Properties {
 			var shadow:Null<Shadow> = null;
 			for (s in layers) {
 				var col = colorOf(s.color, c);
-				var x = pixels(s.x, c), y = pixels(s.y, c), blur = pixels(s.blur, c), spread = pixels(s.spread, c);
-				shadow = shadow == null ? new Shadow(x, y, blur, col.rgb, col.alpha, spread, s.inset) : shadow.and(x, y, blur, col.rgb, col.alpha, spread, s.inset);
+				var x = pixels(s.x, c),
+					y = pixels(s.y, c),
+					blur = pixels(s.blur, c),
+					spread = pixels(s.spread, c);
+				shadow = shadow == null ? new Shadow(x, y, blur, col.rgb, col.alpha, spread,
+					s.inset) : shadow.and(x, y, blur, col.rgb, col.alpha, spread, s.inset);
 			}
 			write(n, Prop.Shadow, shadow == null ? new Shadow(0, 0, 0, 0, 0) : shadow);
 			[Node.field(Prop.Shadow)];
@@ -545,7 +649,9 @@ class Properties {
 				for (part in CssValue.split(v, ",")) {
 					var s = CssValue.shadow(part, false);
 					var col = colorOf(s.color, c);
-					var x = pixels(s.x, c), y = pixels(s.y, c), blur = pixels(s.blur, c);
+					var x = pixels(s.x, c),
+						y = pixels(s.y, c),
+						blur = pixels(s.blur, c);
 					shadow = shadow == null ? new Shadow(x, y, blur, col.rgb, col.alpha) : shadow.and(x, y, blur, col.rgb, col.alpha);
 				}
 			write(n, Prop.TextShadow, shadow == null ? new Shadow(0, 0, 0, 0, 0) : shadow);
@@ -553,8 +659,14 @@ class Properties {
 		});
 		// Set on the element that declares one; its text and its descendants' stack with their
 		// own, as a node's draw does walking its ancestors, so none here does not undo one above.
-		for (name in ["text-decoration", "text-decoration-line", "text-decoration-style", "text-decoration-color", "text-decoration-thickness",
-			"text-underline-offset"])
+		for (name in [
+			"text-decoration",
+			"text-decoration-line",
+			"text-decoration-style",
+			"text-decoration-color",
+			"text-decoration-thickness",
+			"text-underline-offset"
+		])
 			h.set(name, (n, v, c) -> {
 				var d = decoration(name, v, c);
 				if (d == null)
@@ -569,8 +681,14 @@ class Properties {
 		h.set("filter", (n, v, c) -> {
 			// Every filter back to its identity first, so one a rule leaves out is off.
 			var props:Array<Prop<Single>> = [
-				Prop.FilterBrightness, Prop.FilterContrast, Prop.FilterGrayscale, Prop.FilterHueRotate, Prop.FilterInvert, Prop.FilterSaturate,
-				Prop.FilterSepia, Prop.FilterBlur
+				Prop.FilterBrightness,
+				Prop.FilterContrast,
+				Prop.FilterGrayscale,
+				Prop.FilterHueRotate,
+				Prop.FilterInvert,
+				Prop.FilterSaturate,
+				Prop.FilterSepia,
+				Prop.FilterBlur
 			];
 			var values = [1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 			var dropped:Null<Shadow> = null;
@@ -604,14 +722,21 @@ class Properties {
 		h.set("backdrop-filter", (n, v, c) -> {
 			var r = backdropBlur(v, c);
 			var props:Array<Prop<Single>> = [
-				Prop.BackdropBrightness, Prop.BackdropContrast, Prop.BackdropGrayscale, Prop.BackdropHueRotate, Prop.BackdropInvert, Prop.BackdropSaturate,
+				Prop.BackdropBrightness,
+				Prop.BackdropContrast,
+				Prop.BackdropGrayscale,
+				Prop.BackdropHueRotate,
+				Prop.BackdropInvert,
+				Prop.BackdropSaturate,
 				Prop.BackdropSepia
 			];
 			var values = backdropColors(v);
-			var out = [for (i => p in props) {
-				write(n, p, values[i]);
-				Node.field(p);
-			}];
+			var out = [
+				for (i => p in props) {
+					write(n, p, values[i]);
+					Node.field(p);
+				}
+			];
 			if (c.hasBackground != true) {
 				write(n, Prop.Background, r >= 0 ? Brush.blur(r) : Brush.solid(0, 0));
 				out.push(Node.field(Prop.Background));
@@ -657,7 +782,11 @@ class Properties {
 			[Node.field(Prop.FontWeight)];
 		});
 		h.set("font-style", (n, v, _) -> [
-			enumWrite(n, Prop.FontStyle, v, ["normal" => FontStyle.Normal, "italic" => FontStyle.Italic, "oblique" => FontStyle.Italic])
+			enumWrite(n, Prop.FontStyle, v, [
+				"normal" => FontStyle.Normal,
+				"italic" => FontStyle.Italic,
+				"oblique" => FontStyle.Italic
+			])
 		]);
 		h.set("font-family", (n, v, _) -> {
 			// The whole stack: the first family installed is used, or the first generic name, as the theme's monospace.
@@ -712,7 +841,9 @@ class Properties {
 		return h;
 	}
 
-	static final STYLES = ["none", "hidden", "solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"];
+	static final STYLES = [
+		"none", "hidden", "solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"
+	];
 
 	// --- Helpers ---
 
@@ -727,8 +858,10 @@ class Properties {
 		var r = 0.0;
 		for (f in CssValue.filters(v))
 			switch f {
-				case Blur(l): r = pixels(l, c);
-				case Opacity(_) | DropShadow(_): throw "backdrop-filter takes blur() and the colour filters, not opacity() or drop-shadow()";
+				case Blur(l):
+					r = pixels(l, c);
+				case Opacity(_) | DropShadow(_):
+					throw "backdrop-filter takes blur() and the colour filters, not opacity() or drop-shadow()";
 				case _:
 			}
 		return r;
@@ -741,13 +874,20 @@ class Properties {
 			return values;
 		for (f in CssValue.filters(v))
 			switch f {
-				case Brightness(x): values[0] = x;
-				case Contrast(x): values[1] = x;
-				case Grayscale(x): values[2] = clamp01(x);
-				case HueRotate(r): values[3] = r * 180 / Math.PI;
-				case Invert(x): values[4] = clamp01(x);
-				case Saturate(x): values[5] = x;
-				case Sepia(x): values[6] = clamp01(x);
+				case Brightness(x):
+					values[0] = x;
+				case Contrast(x):
+					values[1] = x;
+				case Grayscale(x):
+					values[2] = clamp01(x);
+				case HueRotate(r):
+					values[3] = r * 180 / Math.PI;
+				case Invert(x):
+					values[4] = clamp01(x);
+				case Saturate(x):
+					values[5] = x;
+				case Sepia(x):
+					values[6] = clamp01(x);
 				case _:
 			}
 		return values;
@@ -817,8 +957,7 @@ class Properties {
 					if (args.length != 1 || (count != "auto-fill" && count != "auto-fit" && !Patterns.RE3.match(count)))
 						throw 'expected repeat(count, tracks), not "$part"';
 					'repeat($count, ${[for (t in topLevel(args[0], " ")) track(t)].join(" ")})';
-				} else
-					track(part);
+				} else track(part);
 			}
 		].join(" ");
 	}
@@ -847,14 +986,15 @@ class Properties {
 			return try {
 				validateGlass(name, value, c);
 				value;
-			} catch (_:String) fallback;
+			} catch (_:String)
+				fallback;
 		}
 		var tint = colorOf(CssValue.color(setting("glass-tint", "rgba(255,255,255,0.1)")), c);
 		var blur = c.backdropBlur != null && c.backdropBlur >= 0 ? '${c.backdropBlur}px' : "12px";
 		return Brush.glass(pixels(CssValue.length(setting("glass-blur", blur)), c), tint.rgb, tint.alpha,
-			StringTools.trim(setting("glass-mode", "liquid")).toLowerCase() == "frosted",
-			CssValue.amount(setting("glass-noise", "0")), CssValue.amount(setting("glass-aberration", "0.3")),
-			CssValue.amount(setting("glass-bevel", "1")), StringTools.trim(setting("glass-curvature", "outset")).toLowerCase() == "inset");
+			StringTools.trim(setting("glass-mode", "liquid")).toLowerCase() == "frosted", CssValue.amount(setting("glass-noise", "0")),
+			CssValue.amount(setting("glass-aberration", "0.3")), CssValue.amount(setting("glass-bevel", "1")),
+			StringTools.trim(setting("glass-curvature", "outset")).toLowerCase() == "inset");
 	}
 
 	static function validateGlass(name:String, value:String, c:ApplyContext):Void {
@@ -863,7 +1003,8 @@ class Properties {
 				var blur = pixels(CssValue.length(value), c);
 				if (!Math.isFinite(blur) || blur < 0)
 					throw "expected a nonnegative length";
-			case "glass-tint": CssValue.color(value);
+			case "glass-tint":
+				CssValue.color(value);
 			case "glass-aberration" | "glass-noise" | "glass-bevel":
 				var amount = CssValue.amount(value);
 				if (!Math.isFinite(amount) || amount < 0 || amount > 1)
@@ -878,23 +1019,40 @@ class Properties {
 	}
 
 	/** The single bitmap layer’s shorthand settings; longhands in the cascade override these. **/
-	@:noCompletion public static function backgroundImageSettings(v:String):Null<{image:String, size:String, repeat:String, position:String}> {
-		if (v == null || !StringTools.startsWith(StringTools.trim(v).toLowerCase(), "url(")) return null;
+	@:noCompletion public static function backgroundImageSettings(v:String):Null<{
+		image:String,
+		size:String,
+		repeat:String,
+		position:String
+	}> {
+		if (v == null || !StringTools.startsWith(StringTools.trim(v).toLowerCase(), "url("))
+			return null;
 		var slash = CssValue.split(v, "/");
-		if (slash.length > 2) throw "expected a single background image layer";
+		if (slash.length > 2)
+			throw "expected a single background image layer";
 		var position = [], size = [], repeat = [], source:String = null;
-		for (side in 0...slash.length) for (word in CssValue.split(slash[side], " ")) {
-			var call = CssValue.call(word);
-			if (call != null && call.name == "url") {
-				if (source != null || side != 0) throw "expected a single background url()";
-				source = word;
-			} else if (["repeat", "no-repeat", "repeat-x", "repeat-y", "space", "round"].indexOf(word.toLowerCase()) >= 0) repeat.push(word);
-			else if (side == 0) position.push(word);
-			else size.push(word);
-		}
+		for (side in 0...slash.length)
+			for (word in CssValue.split(slash[side], " ")) {
+				var call = CssValue.call(word);
+				if (call != null && call.name == "url") {
+					if (source != null || side != 0)
+						throw "expected a single background url()";
+					source = word;
+				} else if (["repeat", "no-repeat", "repeat-x", "repeat-y", "space", "round"].indexOf(word.toLowerCase()) >= 0)
+					repeat.push(word);
+				else if (side == 0)
+					position.push(word);
+				else
+					size.push(word);
+			}
 		if (source == null || slash.length == 2 && (position.length == 0 || size.length == 0))
 			throw "background-size in a shorthand needs position / size";
-		return {image: source, size: size.length == 0 ? "auto" : size.join(" "), repeat: repeat.length == 0 ? "repeat" : repeat.join(" "), position: position.length == 0 ? "0% 0%" : position.join(" ")};
+		return {
+			image: source,
+			size: size.length == 0 ? "auto" : size.join(" "),
+			repeat: repeat.length == 0 ? "repeat" : repeat.join(" "),
+			position: position.length == 0 ? "0% 0%" : position.join(" ")
+		};
 	}
 
 	static function backgroundFit(v:String):ashui.types.Brush.ImageFit {
@@ -922,47 +1080,73 @@ class Properties {
 	@:noCompletion public static function imagePosition(v:String, c:ApplyContext):ashui.ui.Image.ImagePosition {
 		var words = CssValue.split(v.toLowerCase(), " ");
 		function axis(word:String, vertical:Bool):{fraction:Float, offset:Float} {
-			if (word == "center") return {fraction: 0.5, offset: 0};
-			if (word == (vertical ? "top" : "left")) return {fraction: 0, offset: 0};
-			if (word == (vertical ? "bottom" : "right")) return {fraction: 1, offset: 0};
+			if (word == "center")
+				return {fraction: 0.5, offset: 0};
+			if (word == (vertical ? "top" : "left"))
+				return {fraction: 0, offset: 0};
+			if (word == (vertical ? "bottom" : "right"))
+				return {fraction: 1, offset: 0};
 			return switch CssValue.length(word) {
 				case Percent(p): {fraction: p / 100, offset: 0};
 				case length:
-					if (word.indexOf("%") >= 0) throw "image position calc() supports pixel terms only";
+					if (word.indexOf("%") >= 0)
+						throw "image position calc() supports pixel terms only";
 					{fraction: 0, offset: pixels(length, c)};
 			};
 		}
 		var x = {fraction: 0.5, offset: 0.0}, y = {fraction: 0.5, offset: 0.0};
 		if (words.length == 1) {
-			if (words[0] == "top" || words[0] == "bottom") y = axis(words[0], true);
-			else x = axis(words[0], false);
+			if (words[0] == "top" || words[0] == "bottom")
+				y = axis(words[0], true);
+			else
+				x = axis(words[0], false);
 		} else if (words.length == 2) {
 			var a = words[0], b = words[1];
 			if (a == "top" || a == "bottom" || a == "center" && (b == "left" || b == "right")) {
-				var swap = a; a = b; b = swap;
+				var swap = a;
+				a = b;
+				b = swap;
 			}
-			x = axis(a, false); y = axis(b, true);
+			x = axis(a, false);
+			y = axis(b, true);
 		} else if (words.length == 3 || words.length == 4) {
 			var hasX = false, hasY = false, i = 0;
 			while (i < words.length) {
 				var edge = words[i++];
 				var vertical = edge == "top" || edge == "bottom";
-				if (!vertical && edge != "left" && edge != "right") throw "expected two object-position edges and their offsets";
-				if (vertical ? hasY : hasX) throw "image position needs one horizontal and one vertical edge";
+				if (!vertical && edge != "left" && edge != "right")
+					throw "expected two object-position edges and their offsets";
+				if (vertical ? hasY : hasX)
+					throw "image position needs one horizontal and one vertical edge";
 				var at = axis(edge, vertical);
 				if (i < words.length && ["top", "right", "bottom", "left"].indexOf(words[i]) < 0) {
-					if (words[i].indexOf("%") >= 0) throw "image position edge offsets support lengths, not percentages";
+					if (words[i].indexOf("%") >= 0)
+						throw "image position edge offsets support lengths, not percentages";
 					var offset = CssValue.length(words[i++]);
-					if (offset.match(Percent(_))) throw "image position edge offsets support lengths, not percentages";
+					if (offset.match(Percent(_)))
+						throw "image position edge offsets support lengths, not percentages";
 					at.offset = pixels(offset, c) * (edge == "right" || edge == "bottom" ? -1 : 1);
 				}
-				if (vertical) { y = at; hasY = true; } else { x = at; hasX = true; }
+				if (vertical) {
+					y = at;
+					hasY = true;
+				} else {
+					x = at;
+					hasX = true;
+				}
 			}
-			if (!hasX || !hasY) throw "image position needs both axes";
-		} else throw "expected an object-position keyword, pair or edge offsets";
+			if (!hasX || !hasY)
+				throw "image position needs both axes";
+		} else
+			throw "expected an object-position keyword, pair or edge offsets";
 		if (!Math.isFinite(x.fraction) || !Math.isFinite(y.fraction) || !Math.isFinite(x.offset) || !Math.isFinite(y.offset))
 			throw "image position must be finite";
-		return {x: x.fraction, y: y.fraction, offsetX: x.offset, offsetY: y.offset};
+		return {
+			x: x.fraction,
+			y: y.fraction,
+			offsetX: x.offset,
+			offsetY: y.offset
+		};
 	}
 
 	static function pixels(l:CssLength, c:ApplyContext):Float {
@@ -1026,7 +1210,6 @@ class Properties {
 	}
 
 	// --- Text decoration ---
-
 	static final DECORATION_STYLES = ["solid" => Solid, "double" => Double, "dotted" => Dotted, "dashed" => Dashed];
 
 	/** `text-decoration-line`'s bits, or `none`'s 0. **/
@@ -1034,12 +1217,18 @@ class Properties {
 		var lines = 0, none = false;
 		for (word in CssValue.split(v, " "))
 			switch word.toLowerCase() {
-				case "none": none = true;
-				case "underline": lines |= ashui.types.DecorationLine.Underline;
-				case "overline": lines |= ashui.types.DecorationLine.Overline;
-				case "line-through": lines |= ashui.types.DecorationLine.LineThrough;
-				case "blink" | "spelling-error" | "grammar-error": throw 'text-decoration-line $word is not supported';
-				case _: throw 'expected none, underline, overline or line-through, not "$word"';
+				case "none":
+					none = true;
+				case "underline":
+					lines |= ashui.types.DecorationLine.Underline;
+				case "overline":
+					lines |= ashui.types.DecorationLine.Overline;
+				case "line-through":
+					lines |= ashui.types.DecorationLine.LineThrough;
+				case "blink" | "spelling-error" | "grammar-error":
+					throw 'text-decoration-line $word is not supported';
+				case _:
+					throw 'expected none, underline, overline or line-through, not "$word"';
 			}
 		if (none && lines != 0)
 			throw "none stands alone in text-decoration-line";
@@ -1077,8 +1266,14 @@ class Properties {
 	}
 
 	/** What `text-decoration`'s shorthand names: a line, a style, a colour and a thickness, in any order. **/
-	static function decorationShorthand(v:String, c:ApplyContext):{lines:Null<Int>, style:Null<ashui.types.DecorationStyle>, colorSet:Bool,
-		color:Null<Color>, thicknessSet:Bool, thickness:Null<Float>} {
+	static function decorationShorthand(v:String, c:ApplyContext):{
+		lines:Null<Int>,
+		style:Null<ashui.types.DecorationStyle>,
+		colorSet:Bool,
+		color:Null<Color>,
+		thicknessSet:Bool,
+		thickness:Null<Float>
+	} {
 		var lineWords = [];
 		var style:Null<ashui.types.DecorationStyle> = null;
 		var colorSet = false, color:Null<Color> = null;
@@ -1213,12 +1408,15 @@ class Properties {
 
 	/** Plain color data: scrollbar CSS does not allocate native style-value handles. **/
 	@:noCompletion public static function scrollbarColors(value:String, current:CssColor):Null<ashui.input.Scroll.ScrollbarColors> {
-		if (StringTools.trim(value).toLowerCase() == "auto") return null;
+		if (StringTools.trim(value).toLowerCase() == "auto")
+			return null;
 		var parts = CssValue.split(value, " ");
-		if (parts.length != 2) throw "scrollbar-color takes auto or a thumb and track color";
+		if (parts.length != 2)
+			throw "scrollbar-color takes auto or a thumb and track color";
 		function rgba(value:String):ashui.input.Scroll.ScrollbarColor {
 			var color = CssValue.color(value);
-			if (color == CurrentColor) color = current;
+			if (color == CurrentColor)
+				color = current;
 			return switch color {
 				case Rgba(rgb, alpha): {rgb: rgb, alpha: alpha};
 				case CurrentColor: {rgb: 0, alpha: 1};
@@ -1282,8 +1480,10 @@ class Properties {
 		}
 		for (s in placed(stops))
 			switch s.color {
-				case Rgba(rgb, a): brush.stop(s.offset, rgb, a);
-				case CurrentColor: brush.stop(s.offset, 0, 1);
+				case Rgba(rgb, a):
+					brush.stop(s.offset, rgb, a);
+				case CurrentColor:
+					brush.stop(s.offset, 0, 1);
 			}
 		return brush;
 	}

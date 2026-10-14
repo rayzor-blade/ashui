@@ -15,29 +15,24 @@ package ashui.core.render;
 class TextShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		@param var atlas : Sampler2D;
-		@param var colorAtlas : Sampler2D;
-
-		var output : { position : Vec4, color : Vec4 };
-		var pixel : Vec2;
+		@param var atlas:Sampler2D;
+		@param var colorAtlas:Sampler2D;
+		var output:{position:Vec4, color:Vec4};
+		var pixel:Vec2;
 		/** Where the fragment is in the glyph's quad, 0 to 1. **/
-		var uv : Vec2;
-
+		var uv:Vec2;
 		function vertex() {
 			var b = primitive.bounds;
 			uv = quadCorner(vertexID);
 			pixel = placed(b.xy, primitive.affine, uv * b.zw);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
 		function fragment() {
 			var local = uv * primitive.bounds.zw;
 			var aa = halfPixel(local);
-			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
-				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa)
-				* fadeCoverage(pixel, primitive.fadeBounds, primitive.fade)
-				* shapeCoverage(pixel);
+			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z,
+				primitive.typeInfo.w) * localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w,
+					aa) * fadeCoverage(pixel, primitive.fadeBounds, primitive.fade) * shapeCoverage(pixel);
 			if (clip < 0.001)
 				discard;
 			var rect = primitive.gradient;

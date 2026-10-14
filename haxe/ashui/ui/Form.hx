@@ -68,14 +68,16 @@ class Form extends Component<FormProps> {
 		var tree = box.tree, id = box.node.id;
 		var interaction = Interaction.of(box.node);
 		interaction.onClick(e -> {
-			if (e.defaultPrevented) return;
+			if (e.defaultPrevented)
+				return;
 			// The button the click is on, if any, between the target and the form.
 			var path = [e.target.id].concat(tree.ancestors(e.target.id));
 			for (n in path) {
 				if (n == id)
 					break;
 				var identity = Identity.of(tree, n);
-				if (identity.types.indexOf("form") >= 0) return;
+				if (identity.types.indexOf("form") >= 0)
+					return;
 				if (identity != null && identity.types.indexOf("button") >= 0) {
 					switch identity.attribute("type") {
 						case "reset": reset();
@@ -88,7 +90,8 @@ class Form extends Component<FormProps> {
 		});
 		interaction.onKeyDown(e -> switch e.key {
 			case Named(Enter):
-				if (e.defaultPrevented) return;
+				if (e.defaultPrevented)
+					return;
 				var input = Input.at(tree, e.target.id);
 				if (input != null && input.submitsOnEnter()) {
 					e.preventDefault();
@@ -105,11 +108,15 @@ class Form extends Component<FormProps> {
 		function find(id:haxe.Int64):Null<Node> {
 			for (child in tree.children(id)) {
 				var identity = Identity.of(tree, child);
-				if (identity.types.indexOf("form") >= 0) continue;
-				if (identity.types.indexOf("button") >= 0 && identity.attribute("type") != "button" && identity.attribute("type") != "reset")
+				if (identity.types.indexOf("form") >= 0)
+					continue;
+				if (identity.types.indexOf("button") >= 0
+					&& identity.attribute("type") != "button"
+					&& identity.attribute("type") != "reset")
 					return identity.node;
 				var found = find(child);
-				if (found != null) return found;
+				if (found != null)
+					return found;
 			}
 			return null;
 		}
@@ -122,7 +129,8 @@ class Form extends Component<FormProps> {
 		var tree = node.tree;
 		function walk(n:haxe.Int64) {
 			for (c in tree.children(n)) {
-				if (Identity.of(tree, c).types.indexOf("form") >= 0) continue;
+				if (Identity.of(tree, c).types.indexOf("form") >= 0)
+					continue;
 				var control = controlAt(c);
 				if (control != null) {
 					found.push(control);
@@ -137,8 +145,10 @@ class Form extends Component<FormProps> {
 
 	function controlAt(id:haxe.Int64):Null<FormControl> {
 		var control:Null<FormControl> = Input.at(tree, id);
-		if (control == null) control = TextArea.at(id);
-		if (control == null) control = Select.at(id);
+		if (control == null)
+			control = TextArea.at(id);
+		if (control == null)
+			control = Select.at(id);
 		return control;
 	}
 
@@ -169,27 +179,35 @@ class Form extends Component<FormProps> {
 
 	/** Submits it, as its submit button does: checked first unless `novalidate`. **/
 	public function requestSubmit(?submitter:Node):Void {
-		if (submitter != null && submitter.tree != tree) throw "requestSubmit needs a submit button belonging to this form";
+		if (submitter != null && submitter.tree != tree)
+			throw "requestSubmit needs a submit button belonging to this form";
 		var button = submitter == null ? null : Identity.of(tree, submitter.id);
 		if (button != null) {
-			if (button.types.indexOf("button") < 0 || button.attribute("type") == "button"
-				|| button.attribute("type") == "reset" || tree.ancestors(submitter.id).indexOf(node.id) < 0)
+			if (button.types.indexOf("button") < 0
+				|| button.attribute("type") == "button"
+				|| button.attribute("type") == "reset"
+				|| tree.ancestors(submitter.id).indexOf(node.id) < 0)
 				throw "requestSubmit needs a submit button belonging to this form";
 			var interaction = Interaction.byId(tree, submitter.id);
-			if (interaction != null && interaction.disabled.get()) return;
+			if (interaction != null && interaction.disabled.get())
+				return;
 		}
 		if (props.novalidate != true && !reportValidity())
 			return;
 		var data = new FormData();
 		function gather(id:haxe.Int64) {
 			for (child in tree.children(id)) {
-				if (Identity.of(tree, child).types.indexOf("form") >= 0) continue;
+				if (Identity.of(tree, child).types.indexOf("form") >= 0)
+					continue;
 				if (submitter != null && child == submitter.id && button.attribute("name") != null)
 					data.entries.push({name: button.attribute("name"), value: button.attribute("value") == null ? "" : button.attribute("value")});
 				var control = controlAt(child);
-				if (control == null) gather(child) else {
+				if (control == null)
+					gather(child)
+				else {
 					var name = control.name(), value = control.formValue();
-					if (name != null && value != null) data.entries.push({name: name, value: value});
+					if (name != null && value != null)
+						data.entries.push({name: name, value: value});
 				}
 			}
 		}
@@ -198,7 +216,8 @@ class Form extends Component<FormProps> {
 			props.onSubmit(data);
 		if (props.method != null && StringTools.trim(props.method).toLowerCase() == "dialog") {
 			var dialog = Dialog.near(tree, node.id);
-			if (dialog != null) dialog.close(button == null ? null : button.attribute("value") == null ? "" : button.attribute("value"));
+			if (dialog != null)
+				dialog.close(button == null ? null : button.attribute("value") == null ? "" : button.attribute("value"));
 		}
 	}
 

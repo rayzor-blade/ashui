@@ -12,6 +12,7 @@ import ashui.reactive.Watch;
 #if ashui_gpu
 typedef CanvasPaint = ashui.core.render.CanvasFrame->Void;
 #else
+
 /** A build without the renderer lays a canvas out and never paints it. **/
 typedef CanvasPaint = Dynamic->Void;
 #end
@@ -82,8 +83,11 @@ class Canvas extends Component<CanvasProps> {
 	#end
 
 	static function removeSettledHook(hook:LayoutTree->Void):Void {
-		for(i in 0...LayoutTree.settledHooks.length)
-			if(Reflect.compareMethods(LayoutTree.settledHooks[i],hook)) {LayoutTree.settledHooks.splice(i,1);return;}
+		for (i in 0...LayoutTree.settledHooks.length)
+			if (Reflect.compareMethods(LayoutTree.settledHooks[i], hook)) {
+				LayoutTree.settledHooks.splice(i, 1);
+				return;
+			}
 	}
 
 	function render():Element {
@@ -142,8 +146,7 @@ class Canvas extends Component<CanvasProps> {
 				repaint();
 			}
 			var first:LayoutTree->Void = null;
-			first = laid -> if (laid == tree && !setUp && w.get() > 0 && h.get() > 0)
-				step(0);
+			first = laid -> if (laid == tree && !setUp && w.get() > 0 && h.get() > 0) step(0);
 			LayoutTree.settledHooks.push(first);
 			Owner.onCleanup(() -> removeSettledHook(first));
 			AnimationScheduler.main.addTicker(dt -> {

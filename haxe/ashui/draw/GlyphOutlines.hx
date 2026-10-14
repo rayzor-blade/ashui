@@ -68,8 +68,11 @@ class GlyphOutlines {
 		var info = new hl.Bytes(16);
 		var font = style.family == null ? null : ashui.core.Utf8.encode(style.family);
 		var bytes = ashui.core.Utf8.encode(text);
-		var weight:Int = style.weight != null ? style.weight : 400, italic = style.italic == true, generic:Int = style.generic != null ? style.generic : 0;
-		var spacing:Float = style.letterSpacing != null ? style.letterSpacing : 0.0, leading:Float = style.lineHeight != null ? style.lineHeight : 0.0;
+		var weight:Int = style.weight != null ? style.weight : 400,
+			italic = style.italic == true,
+			generic:Int = style.generic != null ? style.generic : 0;
+		var spacing:Float = style.letterSpacing != null ? style.letterSpacing : 0.0,
+			leading:Float = style.lineHeight != null ? style.lineHeight : 0.0;
 		var capacity = 4096;
 		var out = new hl.Bytes(capacity * 4);
 		var set = new hl.Bytes(24);

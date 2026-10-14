@@ -73,8 +73,10 @@ class SceneWindow {
 					return true;
 				since = 0;
 				var tree = app.tree;
-				var targets = [for (i in ashui.input.Interaction.inTree(tree)) if (i.focusable && tree.getBounds(i.node) != null
-					&& tree.getBounds(i.node).width > 0) i];
+				var targets = [
+					for (i in ashui.input.Interaction.inTree(tree))
+						if (i.focusable && tree.getBounds(i.node) != null && tree.getBounds(i.node).width > 0) i
+				];
 				if (targets.length > 0) {
 					seed = (seed * 1103515245 + 12345) & 0x7fffffff;
 					var pick = targets[seed % targets.length];
@@ -104,7 +106,9 @@ class SceneWindow {
 			// Wider than the window, it takes the window's width and lays out again, as a page does; narrower, it keeps its own.
 			if (width > MAX_WIDTH)
 				root.node.set(ashui.layout.Prop.WidthPercent, (1 : Single));
-			var scroller = new ashui.ui.Div({flexDirection: ashui.types.Style.FlexDirection.Column, alignItems: ashui.types.Style.Align.Start, overflow: ashui.types.Style.Overflow.Scroll}, [root]);
+			var scroller = new ashui.ui.Div({flexDirection: ashui.types.Style.FlexDirection.Column, alignItems: ashui.types.Style.Align.Start,
+				overflow: ashui.types.Style.Overflow.Scroll},
+				[root]);
 			scroller.node.set(ashui.layout.Prop.WidthPercent, (1 : Single));
 			scroller.node.set(ashui.layout.Prop.HeightPercent, (1 : Single));
 			ashui.input.Scroll.attach(scroller.node, true, true);

@@ -10,12 +10,14 @@ import ashui.reactive.Computed;
 	the three apart. Mirrors Blinc's `Reactive<T>`.
 **/
 enum ReactiveType<T> {
-    /** A value, applied once. **/
-    Const(value: T);
-    /** A signal, followed as it is set. **/
-    Bound(state: Signal<T>);
-    /** A computed's value; named apart from `Computed`, which this enum would otherwise shadow wherever it is imported. **/
-    Derived(computed: Computed<T>);
+	/** A value, applied once. **/
+	Const(value:T);
+
+	/** A signal, followed as it is set. **/
+	Bound(state:Signal<T>);
+
+	/** A computed's value; named apart from `Computed`, which this enum would otherwise shadow wherever it is imported. **/
+	Derived(computed:Computed<T>);
 }
 
 /**
@@ -35,48 +37,47 @@ enum ReactiveType<T> {
 **/
 @:forward
 abstract IntoReactive<T>(ReactiveType<T>) from ReactiveType<T> to ReactiveType<T> {
-    
-    /** A constant, applied once. **/
-    @:from 
-    public static inline function fromConst<T>(val: T): IntoReactive<T> {
-        return Const(val);
-    }
-    
-    /** Number literals for `Single` properties, which would otherwise need two implicit casts. **/
-    @:from
-    public static inline function fromInt(val: Int): IntoReactive<Single> {
-        return Const((val : Single));
-    }
+	/** A constant, applied once. **/
+	@:from
+	public static inline function fromConst<T>(val:T):IntoReactive<T> {
+		return Const(val);
+	}
 
-    /** As `fromInt`, for a `Float`. **/
-    @:from
-    public static inline function fromFloat(val: Float): IntoReactive<Single> {
-        return Const((val : Single));
-    }
+	/** Number literals for `Single` properties, which would otherwise need two implicit casts. **/
+	@:from
+	public static inline function fromInt(val:Int):IntoReactive<Single> {
+		return Const((val : Single));
+	}
 
-    /** A signal: the property follows each `set`. **/
-    @:from
-    public static inline function fromState<T>(state: Signal<T>): IntoReactive<T> {
-        return Bound(state);
-    }
-    
-    /**
-        A Float signal or computed on a `Single` property. The binding stays
-        on it and narrows on read, so it follows every change.
-    **/
-    @:from
-    public static inline function fromFloatSignal(state: Signal<Float>): IntoReactive<Single> {
-        return Bound(cast state);
-    }
+	/** As `fromInt`, for a `Float`. **/
+	@:from
+	public static inline function fromFloat(val:Float):IntoReactive<Single> {
+		return Const((val : Single));
+	}
 
-    @:from
-    public static inline function fromFloatComputed(comp: Computed<Float>): IntoReactive<Single> {
-        return Derived(cast comp);
-    }
+	/** A signal: the property follows each `set`. **/
+	@:from
+	public static inline function fromState<T>(state:Signal<T>):IntoReactive<T> {
+		return Bound(state);
+	}
 
-    /** A computed: the property follows each new value. **/
-    @:from 
-    public static inline function fromComputed<T>(comp: Computed<T>): IntoReactive<T> {
-        return Derived(comp);
-    }
+	/**
+		A Float signal or computed on a `Single` property. The binding stays
+		on it and narrows on read, so it follows every change.
+	**/
+	@:from
+	public static inline function fromFloatSignal(state:Signal<Float>):IntoReactive<Single> {
+		return Bound(cast state);
+	}
+
+	@:from
+	public static inline function fromFloatComputed(comp:Computed<Float>):IntoReactive<Single> {
+		return Derived(cast comp);
+	}
+
+	/** A computed: the property follows each new value. **/
+	@:from
+	public static inline function fromComputed<T>(comp:Computed<T>):IntoReactive<T> {
+		return Derived(comp);
+	}
 }

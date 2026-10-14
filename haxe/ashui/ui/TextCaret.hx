@@ -25,6 +25,7 @@ class TextCaret {
 					WindowState.textCaret.set(null);
 				mine = null;
 			}
-		}, (a, b) -> a == b || (a != null && b != null && a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height));
+		},
+			(a, b) -> a == b || (a != null && b != null && a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height));
 	}
 }

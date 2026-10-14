@@ -12,11 +12,9 @@ package ashui.core.render;
 class ShadowShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		var output : { position : Vec4, color : Vec4 };
-		var pixel : Vec2;
-		var local : Vec2;
-
+		var output:{position:Vec4, color:Vec4};
+		var pixel:Vec2;
+		var local:Vec2;
 		function vertex() {
 			var s = primitive.shadow;
 			var grow = s.z * 3. + abs(s.x) + abs(s.y) + max(s.w, 0.) + 1.;
@@ -25,11 +23,9 @@ class ShadowShader implements UiShader {
 			pixel = placed(b.xy, primitive.affine, local);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
 		function fragment() {
-			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
-				* fadeCoverage(pixel, primitive.fadeBounds, primitive.fade)
-				* shapeCoverage(pixel);
+			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z,
+				primitive.typeInfo.w) * fadeCoverage(pixel, primitive.fadeBounds, primitive.fade) * shapeCoverage(pixel);
 			if (clip < 0.001)
 				discard;
 			var p = local;
@@ -38,7 +34,8 @@ class ShadowShader implements UiShader {
 			var s = primitive.shadow;
 			var result = vec4(0., 0., 0., 0.);
 			// Outside the box for an outer shadow, inside it for an inset one.
-			var where = smoothstep(-0.75, 0.75, boxDistance(p, size, primitive.cornerRadius, primitive.cornerShape, primitive.notchCorners, primitive.notchTop, primitive.notchBottom));
+			var where = smoothstep(-0.75, 0.75,
+				boxDistance(p, size, primitive.cornerRadius, primitive.cornerShape, primitive.notchCorners, primitive.notchTop, primitive.notchBottom));
 			var notched = isNotch(primitive.notchCorners, primitive.notchTop, primitive.notchBottom);
 			if (primitive.typeInfo.y > 0.5) {
 				// Where the box offset and shrunk by the spread leaves off, its edge blurred.

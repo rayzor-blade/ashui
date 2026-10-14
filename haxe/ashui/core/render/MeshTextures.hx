@@ -95,7 +95,8 @@ class MeshTextures {
 		if (scratch == null || scratch.length < w * h * 4)
 			scratch = Bytes.alloc(w * h * 4);
 		for (level in 0...levels) {
-			var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
+			var lw = Std.int(Math.max(1, w >> level)),
+				lh = Std.int(Math.max(1, h >> level));
 			resample(bitmap, lw, lh, scratch);
 			write(gpu, t, level, scratch, lw * 4, lw, lh);
 		}
@@ -132,7 +133,8 @@ class MeshTextures {
 			var out = [];
 			var format = TextureFormat.Bc4RUnorm, blockBytes = 8;
 			for (level in 0...levels) {
-				var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
+				var lw = Std.int(Math.max(1, w >> level)),
+					lh = Std.int(Math.max(1, h >> level));
 				resample(bitmap, lw, lh, px);
 				switch role {
 					case Color:
@@ -153,17 +155,32 @@ class MeshTextures {
 						out.push(BcEncoder.bc5(px, lw, lh));
 				}
 			}
-			return {key: key, bitmap: bitmap, format: format, blockBytes: blockBytes, levels: out};
+			return {
+				key: key,
+				bitmap: bitmap,
+				format: format,
+				blockBytes: blockBytes,
+				levels: out
+			};
 		}, job -> upload(job));
 	}
 
 	/** On the main thread: a finished compression's texture in place of the uncompressed one. **/
-	static function upload(job:{key:String, bitmap:Bitmap, format:TextureFormat, blockBytes:Int, levels:Array<Bytes>}):Void {
+	static function upload(job:{
+		key:String,
+		bitmap:Bitmap,
+		format:TextureFormat,
+		blockBytes:Int,
+		levels:Array<Bytes>
+	}):Void {
 		if (device == null)
 			return;
 		var slot = job.bitmap.slot;
 		var left = running.get(slot) - 1;
-		if (left > 0) running.set(slot, left) else running.remove(slot);
+		if (left > 0)
+			running.set(slot, left)
+		else
+			running.remove(slot);
 		// Disposed while it was being compressed: nothing to put in place.
 		if (!pending.remove(job.key))
 			return;
@@ -175,7 +192,8 @@ class MeshTextures {
 		var t = device.texture(descriptor);
 		for (level in 0...job.levels.length) {
 			// A level smaller than a block is a whole block on the GPU.
-			var lw = Std.int(Math.max(1, w >> level)), lh = Std.int(Math.max(1, h >> level));
+			var lw = Std.int(Math.max(1, w >> level)),
+				lh = Std.int(Math.max(1, h >> level));
 			var bw = (lw + 3) >> 2, bh = (lh + 3) >> 2;
 			write(device, t, level, job.levels[level], bw * job.blockBytes, bw * 4, bh * 4, bh);
 		}

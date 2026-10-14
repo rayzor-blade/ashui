@@ -11,11 +11,24 @@ import gpu.GpuTextureViewDescriptor;
 /** One box measured: where it is, where its ink is, and how far the ink sits off its middle. **/
 typedef AlignResult = {
 	final label:String;
-	final box:{x:Float, y:Float, width:Float, height:Float};
+	final box:{
+		x:Float,
+		y:Float,
+		width:Float,
+		height:Float
+	};
+
 	/** The drawn content's bounds, null when nothing is drawn inside. **/
-	final ink:Null<{x:Float, y:Float, width:Float, height:Float}>;
+	final ink:Null<{
+		x:Float,
+		y:Float,
+		width:Float,
+		height:Float
+	}>;
+
 	/** Right of the middle is positive, in layout units. **/
 	final dx:Float;
+
 	/** Below the middle is positive, in layout units. **/
 	final dy:Float;
 }
@@ -59,7 +72,12 @@ class AlignProbe {
 			px.set(o + 2, rgb & 0xff);
 			px.set(o + 3, 255);
 		}
-		function frame(r:{x:Float, y:Float, width:Float, height:Float}, rgb:Int) {
+		function frame(r:{
+			x:Float,
+			y:Float,
+			width:Float,
+			height:Float
+		}, rgb:Int) {
 			var step = 1 / scale;
 			var x = r.x;
 			while (x <= r.x + r.width) {
@@ -111,14 +129,21 @@ class AlignProbe {
 				continue;
 			}
 			var b = r.box, i = r.ink;
-			var left = i.x - b.x, right = b.x + b.width - (i.x + i.width), top = i.y - b.y, bottom = b.y + b.height - (i.y + i.height);
+			var left = i.x - b.x,
+				right = b.x + b.width - (i.x + i.width),
+				top = i.y - b.y,
+				bottom = b.y + b.height - (i.y + i.height);
 			lines.push('${r.label}: dx ${f(r.dx)} dy ${f(r.dy)}  (left ${f(left)} right ${f(right)} top ${f(top)} bottom ${f(bottom)})');
 		}
 		return lines.join("\n");
 	}
 
-	static function draw(width:Int, height:Int, build:Void->Element, scale:Float,
-			page:Int):{results:Array<AlignResult>, pixels:haxe.io.Bytes, pw:Int, ph:Int} {
+	static function draw(width:Int, height:Int, build:Void->Element, scale:Float, page:Int):{
+		results:Array<AlignResult>,
+		pixels:haxe.io.Bytes,
+		pw:Int,
+		ph:Int
+	} {
 		var offscreen = Snapshot.renderer();
 		offscreen.clear = page;
 		offscreen.clearAlpha = 1;
@@ -153,8 +178,10 @@ class AlignProbe {
 			var b = tree.getBounds(new Node(id));
 			if (b == null || b.width <= 0 || b.height <= 0)
 				continue;
-			var x0 = Math.ceil((b.x + inset) * scale), x1 = Math.floor((b.x + b.width - inset) * scale);
-			var y0 = Math.ceil((b.y + inset) * scale), y1 = Math.floor((b.y + b.height - inset) * scale);
+			var x0 = Math.ceil((b.x + inset) * scale),
+				x1 = Math.floor((b.x + b.width - inset) * scale);
+			var y0 = Math.ceil((b.y + inset) * scale),
+				y1 = Math.floor((b.y + b.height - inset) * scale);
 			x0 = Std.int(Math.max(0, x0));
 			y0 = Std.int(Math.max(0, y0));
 			x1 = Std.int(Math.min(pw - 1, x1));
@@ -182,12 +209,28 @@ class AlignProbe {
 							maxY = y;
 					}
 				}
-			var box = {x: (b.x : Float), y: (b.y : Float), width: (b.width : Float), height: (b.height : Float)};
+			var box = {
+				x: (b.x : Float),
+				y: (b.y : Float),
+				width: (b.width : Float),
+				height: (b.height : Float)
+			};
 			if (maxX < 0) {
-				results.push({label: identity.id, box: box, ink: null, dx: 0, dy: 0});
+				results.push({
+					label: identity.id,
+					box: box,
+					ink: null,
+					dx: 0,
+					dy: 0
+				});
 				continue;
 			}
-			var ink = {x: minX / scale, y: minY / scale, width: (maxX + 1 - minX) / scale, height: (maxY + 1 - minY) / scale};
+			var ink = {
+				x: minX / scale,
+				y: minY / scale,
+				width: (maxX + 1 - minX) / scale,
+				height: (maxY + 1 - minY) / scale
+			};
 			results.push({
 				label: identity.id,
 				box: box,
@@ -196,6 +239,11 @@ class AlignProbe {
 				dy: (ink.y + ink.height / 2) - (b.y + b.height / 2)
 			});
 		}
-		return {results: results, pixels: pixels, pw: pw, ph: ph};
+		return {
+			results: results,
+			pixels: pixels,
+			pw: pw,
+			ph: ph
+		};
 	}
 }

@@ -39,6 +39,7 @@ class UserAgent {
 
 	/** An overlay opening, and going. **/
 	static inline var ENTER = "var(--duration-fast) var(--ease-sheet)";
+
 	static inline var EXIT = "var(--duration-faster) var(--ease-sheet) forwards";
 
 	public static final CSS = '

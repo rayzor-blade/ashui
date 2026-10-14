@@ -31,11 +31,18 @@ typedef ImageAttributes = {
 class Image extends Element {
 	static final byNode = new haxe.ds.ObjectMap<ashui.layout.Node, Image>();
 	static var hooked = false;
+
 	final authoredFit:Bool;
 	final authoredPosition:Bool;
 	var fitted:ObjectFit;
 	var positioned:ImagePosition;
-	static final CENTER:ImagePosition = {x: 0.5, y: 0.5, offsetX: 0, offsetY: 0};
+
+	static final CENTER:ImagePosition = {
+		x: 0.5,
+		y: 0.5,
+		offsetX: 0,
+		offsetY: 0
+	};
 
 	/** CSS object-fit through the existing bitmap renderer. **/
 	@:noCompletion public static function cssFit(value:String):ObjectFit {
@@ -50,11 +57,13 @@ class Image extends Element {
 	}
 
 	static function hook():Void {
-		if (hooked) return;
+		if (hooked)
+			return;
 		hooked = true;
 		ashui.css.Css.restyled.push(identity -> {
 			var image = byNode.get(identity.node);
-			if (image == null) return;
+			if (image == null)
+				return;
 			var value = ashui.css.Css.resolved(identity, "object-fit");
 			var fit:ObjectFit = value == null ? Fill : try cssFit(value) catch (_:String) Fill;
 			styleFit(identity.node, fit);
@@ -67,16 +76,19 @@ class Image extends Element {
 	/** Applies fitting without overriding the element's own fit attribute or utility. **/
 	@:noCompletion public static function styleFit(node:ashui.layout.Node, fit:ObjectFit):Void {
 		var image = byNode.get(node);
-		if (image == null || image.authoredFit || image.fitted == fit) return;
+		if (image == null || image.authoredFit || image.fitted == fit)
+			return;
 		image.fitted = fit;
 		image.applyMapping();
 	}
 
 	@:noCompletion public static function stylePosition(node:ashui.layout.Node, position:ImagePosition):Void {
 		var image = byNode.get(node);
-		if (image == null || image.authoredPosition) return;
+		if (image == null || image.authoredPosition)
+			return;
 		var old = image.positioned;
-		if (old.x == position.x && old.y == position.y && old.offsetX == position.offsetX && old.offsetY == position.offsetY) return;
+		if (old.x == position.x && old.y == position.y && old.offsetX == position.offsetX && old.offsetY == position.offsetY)
+			return;
 		image.positioned = position;
 		image.applyMapping();
 	}
@@ -101,7 +113,8 @@ class Image extends Element {
 		fitted = authoredFit ? attr.fit : Fill;
 		authoredPosition = attr != null && attr.objectPosition != null;
 		positioned = authoredPosition ? attr.objectPosition : CENTER;
-		if ((fitted : Int) < 0 || (fitted : Int) > 5) throw "invalid object fit";
+		if ((fitted : Int) < 0 || (fitted : Int) > 5)
+			throw "invalid object fit";
 		if (!Math.isFinite(positioned.x) || !Math.isFinite(positioned.y) || !Math.isFinite(positioned.offsetX) || !Math.isFinite(positioned.offsetY))
 			throw "object position must be finite";
 		node = this.tree.createNode();

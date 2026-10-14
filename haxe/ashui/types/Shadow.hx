@@ -10,6 +10,7 @@ import ashui.core.externs.BlincNative;
 **/
 class Shadow implements IValue {
 	public var ptr(default, null):hl.Abstract<"blinc_value">;
+
 	/** Each layer: offset x, offset y, blur, spread, colour, alpha, and 1 for inset. **/
 	public final layers:Array<Array<Float>> = [];
 

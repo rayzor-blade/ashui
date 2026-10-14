@@ -14,10 +14,13 @@ class AnimationScheduler {
 	public static final main = new AnimationScheduler();
 
 	final springs = new Map<Int, Spring>();
+
 	/** Each spring's move being recorded, while a motion trace records. **/
 	final springTracks = new Map<Int, {track:ashui.debug.MotionTrack, start:Float, target:Float}>();
+
 	/** Called each tick with the seconds passed; dropped once they return false. **/
 	final tickers:Array<Ticker> = [];
+
 	var nextId = 1;
 	var running = false;
 	final timers:Array<Timer> = [];
@@ -110,7 +113,8 @@ class AnimationScheduler {
 	public function isAnimating(id:Int):Bool {
 		return locked(() -> {
 			var spring = springs.get(id);
-			spring != null && !spring.isSettled();
+			spring != null
+			&& !spring.isSettled();
 		});
 	}
 
@@ -269,6 +273,7 @@ class Ticker {
 	final scheduler:AnimationScheduler;
 	@:allow(ashui.animation.AnimationScheduler)
 	final callback:Float->Bool;
+
 	@:allow(ashui.animation.AnimationScheduler)
 	public var cancelled(default, null) = false;
 
@@ -287,6 +292,7 @@ class Ticker {
 class Timer {
 	/** When it is due, on the scheduler's `clock`. **/
 	public final at:Float;
+
 	public final callback:Void->Void;
 	public var cancelled(default, null) = false;
 

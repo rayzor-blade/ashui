@@ -5,7 +5,7 @@ import ashui.reactive.Computed;
 /**
 	Token values as computeds for binding to a node's properties:
 
-	    node.set(Prop.Background, Themed.brush(Surface));
+		node.set(Prop.Background, Themed.brush(Surface));
 
 	Each reads `ThemeState.revision`, so the property follows scheme
 	switches, their colour transition and overrides, and nothing else is
@@ -99,7 +99,7 @@ class Themed {
 		return Computed.make(() -> {
 			state.revision.get();
 			var t = state.typography();
-			(t.get(tracking) * t.get(size) : Single);
+			(t.get(tracking) * t.get(size):Single);
 		});
 	}
 

@@ -13,27 +13,22 @@ package ashui.core.render;
 class ImageShader implements UiShader {
 	static var SRC = {
 		@:import ashui.core.render.Sdf;
-
-		@param var images : Sampler2D;
-
-		var output : { position : Vec4, color : Vec4 };
-		var pixel : Vec2;
-		var uv : Vec2;
-
+		@param var images:Sampler2D;
+		var output:{position:Vec4, color:Vec4};
+		var pixel:Vec2;
+		var uv:Vec2;
 		function vertex() {
 			var b = primitive.bounds;
 			uv = quadCorner(vertexID);
 			pixel = placed(b.xy, primitive.affine, uv * b.zw);
 			output.position = pixelToClip(pixel, viewport);
 		}
-
 		function fragment() {
 			var local = uv * primitive.bounds.zw;
 			var aa = halfPixel(local);
-			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z, primitive.typeInfo.w)
-				* localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w, aa)
-				* fadeCoverage(pixel, primitive.fadeBounds, primitive.fade)
-				* shapeCoverage(pixel);
+			var clip = clipCoverage(pixel, primitive.clipBounds, primitive.clipRadius, primitive.typeInfo.z,
+				primitive.typeInfo.w) * localClipCoverage(local, primitive.shadow, primitive.shadowColor, primitive.typeInfo.z, primitive.typeInfo.w,
+					aa) * fadeCoverage(pixel, primitive.fadeBounds, primitive.fade) * shapeCoverage(pixel);
 			if (clip < 0.001)
 				discard;
 			var rect = primitive.gradient;
@@ -43,10 +38,14 @@ class ImageShader implements UiShader {
 				var mapping = primitive.cornerRadius;
 				var sampleUv = (local - mapping.xy) / mapping.zw;
 				var repeats = primitive.color2.z;
-				if (repeats > 2.5 || repeats > 0.5 && repeats < 1.5) sampleUv.x = fract(sampleUv.x);
-				else clip *= 1. - smoothstep(-aa, aa, max(mapping.x - local.x, local.x - mapping.x - mapping.z));
-				if (repeats > 1.5) sampleUv.y = fract(sampleUv.y);
-				else clip *= 1. - smoothstep(-aa, aa, max(mapping.y - local.y, local.y - mapping.y - mapping.w));
+				if (repeats > 2.5 || repeats > 0.5 && repeats < 1.5)
+					sampleUv.x = fract(sampleUv.x);
+				else
+					clip *= 1. - smoothstep(-aa, aa, max(mapping.x - local.x, local.x - mapping.x - mapping.z));
+				if (repeats > 1.5)
+					sampleUv.y = fract(sampleUv.y);
+				else
+					clip *= 1. - smoothstep(-aa, aa, max(mapping.y - local.y, local.y - mapping.y - mapping.w));
 				at = clamp(mix(rect.xy, rect.zw, sampleUv), rect.xy + vec2(0.5, 0.5), rect.zw - vec2(0.5, 0.5));
 			} else if (primitive.typeInfo.y > 1.5) {
 				// Kept half a texel inside the cell, so filtering does not reach its neighbours in the atlas.

@@ -17,16 +17,12 @@ class GridShader implements hlwgpu.hxsl.Shader {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.Shadows;
-
-		var output : { position : Vec4, color : Vec4 };
-
-		@param var shadowMap : Sampler2D;
-		@param var environmentMap : SamplerCube;
-		@param var scene : StorageBuffer<Vec4>;
-		@param var grid : StorageBuffer<Vec4>;
-
-		var world : Vec3;
-
+		var output:{position:Vec4, color:Vec4};
+		@param var shadowMap:Sampler2D;
+		@param var environmentMap:SamplerCube;
+		@param var scene:StorageBuffer<Vec4>;
+		@param var grid:StorageBuffer<Vec4>;
+		var world:Vec3;
 		function vertex() {
 			var c = vec2(-1., -1.);
 			if (vertexID == 1 || vertexID == 4)
@@ -40,13 +36,11 @@ class GridShader implements hlwgpu.hxsl.Shader {
 			world = vec3(eye.x + c.x * reach, grid[3].x, eye.z + c.y * reach);
 			output.position = worldToClip(vec4(world, 1.));
 		}
-
-		function lineCoverage(coord : Vec2) : Float {
+		function lineCoverage(coord:Vec2):Float {
 			var deriv = max(fwidth(coord), vec2(0.000001, 0.000001));
 			var g = abs(fract(coord - vec2(0.5, 0.5)) - vec2(0.5, 0.5));
 			return 1. - min(min(g.x / deriv.x, g.y / deriv.y), 1.);
 		}
-
 		function fragment() {
 			var spacing = grid[0];
 			var hit = world.xz;

@@ -47,6 +47,7 @@ class GroundGrid implements ScenePass {
 
 	/** Whether the scene's shadows darken it; `<scene-kit>` turns this off while a grounded sky's floor catches them. **/
 	public var catchesShadows = true;
+
 	public final height:Float;
 
 	public function new(?o:GroundGridOptions) {
@@ -87,7 +88,8 @@ class GroundGrid implements ScenePass {
 			var builder = frame.pipelineBuilder(GridShader.WGSL, true, false);
 			builder.primitive(TriangleList, None, Ccw);
 			pipeline = builder.build();
-			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(64, ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
+			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(64,
+				ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
 		}
 		var b = haxe.io.Bytes.alloc(64);
 		inline function row(at:Int, x:Float, y:Float, z:Float, w:Float) {
@@ -102,7 +104,8 @@ class GroundGrid implements ScenePass {
 		row(3, height, axes ? 1 : 0, catchesShadows ? 1 : 0, 0);
 		frame.device.queue().writeBuffer(settings, 0, b, 64);
 		// The scene's buffer, shadow map and environment are made again as scenes change: the group follows them.
-		var shadow = (frame.shadowMap : Int), environment = (frame.environment : Int);
+		var shadow = (frame.shadowMap : Int),
+			environment = (frame.environment : Int);
 		if (group == null || groupScene != (frame.sceneBuffer : Int) || groupShadow != shadow || groupEnvironment != environment) {
 			if (group != null)
 				group.destroy();

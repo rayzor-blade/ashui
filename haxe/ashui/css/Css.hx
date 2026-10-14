@@ -11,6 +11,7 @@ private typedef Applied = {
 
 	final signature:String;
 	final fields:Array<Int>;
+
 	/** Pixel size already resolved by the cascade, for editable text metrics (git-bug e8a1b50). **/
 	final fontSize:Float;
 }
@@ -19,13 +20,18 @@ private typedef Applied = {
 typedef CssOrigin = {
 	name:String,
 	value:String,
+
 	/** The sheet of the rule it is in; null for the element's own declarations. **/
 	sheet:Null<Stylesheet>,
+
 	/** The selector that matched, as written; empty for its own. **/
 	selector:String,
+
 	/** The rule's line in its sheet; 0 for its own. **/
 	line:Int,
+
 	important:Bool,
+
 	/** Whether it is the value the cascade gave its property, rather than one a later or stronger declaration overrode. **/
 	wins:Bool
 }
@@ -426,12 +432,18 @@ class Css {
 		var sig = signature.join(";");
 		var last = applied.get(identity);
 		if (last != null && last.signature == sig) {
-			applied.set(identity, {values: values, signature: sig, fields: last.fields, fontSize: ownFontSize});
+			applied.set(identity, {
+				values: values,
+				signature: sig,
+				fields: last.fields,
+				fontSize: ownFontSize
+			});
 			// Intrinsic layout consumers can read custom properties even when
 			// they don't change a native declaration. Notify them without
 			// rebinding unchanged styles or restarting motion (095fab4).
 			if (variablesChanged(last.values, values))
-				for (hook in restyled) hook(identity);
+				for (hook in restyled)
+					hook(identity);
 			return;
 		}
 
@@ -441,7 +453,8 @@ class Css {
 			fontSize: fontSize,
 			rootFontSize: rootFontSize,
 			glassProperties: resolved,
-			currentColor: values.exists("color") ? (try CssValue.color(substitute(values.get("color"), values, identity)) catch (_:String) CurrentColor) : CurrentColor
+			currentColor: values.exists("color") ? (try CssValue.color(substitute(values.get("color"), values,
+				identity)) catch (_:String) CurrentColor) : CurrentColor
 		};
 		// The background frosts over a backdrop-filter's blur, so each reads whether the other is there.
 		if (resolved.exists("backdrop-filter")) {
@@ -458,7 +471,10 @@ class Css {
 			};
 		}
 		var background = try Properties.backgroundImageSettings(resolved.get("background")) catch (_:String) null;
-		if (background != null || resolved.exists("background-size") || resolved.exists("background-repeat") || resolved.exists("background-position"))
+		if (background != null
+			|| resolved.exists("background-size")
+			|| resolved.exists("background-repeat")
+			|| resolved.exists("background-position"))
 			ctx = {
 				viewportWidth: ctx.viewportWidth,
 				viewportHeight: ctx.viewportHeight,
@@ -491,7 +507,9 @@ class Css {
 		@:privateAccess ashui.layout.Node.restyling = last != null;
 		@:privateAccess identity.node.styleAll(() -> {
 			// font-size first: em in the rest is the element's own font size.
-			var names = [for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name];
+			var names = [
+				for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name
+			];
 			// Shorthands before their longhands, which a stronger rule declared when both are here.
 			names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Properties.rank(a) != Properties.rank(b) ? Properties.rank(a)
 				- Properties.rank(b) : Reflect.compare(a, b));
@@ -540,30 +558,54 @@ class Css {
 			for (f in last.fields)
 				if (fields.indexOf(f) < 0)
 					@:privateAccess identity.node.unstyle(f);
-		applied.set(identity, {values: values, signature: sig, fields: fields, fontSize: ownFontSize});
+		applied.set(identity, {
+			values: values,
+			signature: sig,
+			fields: fields,
+			fontSize: ownFontSize
+		});
 		for (hook in restyled)
 			hook(identity);
-
 	}
 
 	static function variablesChanged(before:Map<String, String>, after:Map<String, String>):Bool {
 		for (name => value in before)
-			if (StringTools.startsWith(name, "--") && after.get(name) != value) return true;
+			if (StringTools.startsWith(name, "--") && after.get(name) != value)
+				return true;
 		for (name => value in after)
-			if (StringTools.startsWith(name, "--") && before.get(name) != value) return true;
+			if (StringTools.startsWith(name, "--") && before.get(name) != value)
+				return true;
 		return false;
 	}
 
 	/** The motion properties, applied as a transition and animations rather than one by one. **/
 	static final MOTION = [
-		for (name in ["transition", "transition-property", "transition-duration", "transition-timing-function", "transition-delay", "animation", "animation-name",
-			"animation-duration", "animation-timing-function", "animation-delay", "animation-iteration-count", "animation-direction",
-			"animation-fill-mode", "animation-play-state"])
+		for (name in [
+			"transition",
+			"transition-property",
+			"transition-duration",
+			"transition-timing-function",
+			"transition-delay",
+			"animation",
+			"animation-name",
+			"animation-duration",
+			"animation-timing-function",
+			"animation-delay",
+			"animation-iteration-count",
+			"animation-direction",
+			"animation-fill-mode",
+			"animation-play-state"
+		])
 			name => true
 	];
 
 	/** A pointer query's settings, read by the tracker rather than applied. **/
-	static final POINTER = ["pointer-space" => true, "pointer-origin" => true, "pointer-range" => true, "pointer-smoothing" => true];
+	static final POINTER = [
+		"pointer-space" => true,
+		"pointer-origin" => true,
+		"pointer-range" => true,
+		"pointer-smoothing" => true
+	];
 
 	static function hasTransition(values:Map<String, String>):Bool
 		return values.exists("transition") || values.exists("transition-property");
@@ -578,7 +620,12 @@ class Css {
 	static function markAgain(identity:Identity):Void {
 		var last = applied.get(identity);
 		if (last != null)
-			applied.set(identity, {values: last.values, signature: "", fields: last.fields, fontSize: last.fontSize});
+			applied.set(identity, {
+				values: last.values,
+				signature: "",
+				fields: last.fields,
+				fontSize: last.fontSize
+			});
 		mark(identity);
 	}
 
@@ -681,5 +728,4 @@ class Css {
 		PointerQueries.track(identity, null, [], null, []);
 		Animations.release(identity);
 	}
-
 }

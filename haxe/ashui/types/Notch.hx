@@ -3,12 +3,16 @@ package ashui.types;
 /** What one edge of a notch carries at its centre. **/
 enum NotchEdge {
 	None;
+
 	/** A bowl carved in, `width` across and `depth` deep, its entry rounded by `radius` into ears, as the Dynamic Island's. **/
 	Scoop(width:Float, depth:Float, ?radius:Float);
+
 	/** An arc rising `height` out of the edge over `width`, its foot rounded by `radius`. **/
 	Bulge(width:Float, height:Float, ?radius:Float);
+
 	/** A V cut in, `width` across and `depth` deep. **/
 	Cut(width:Float, depth:Float);
+
 	/** A V rising `height` out of the edge over `width`, as a tooltip's arrow. **/
 	Peak(width:Float, height:Float);
 }

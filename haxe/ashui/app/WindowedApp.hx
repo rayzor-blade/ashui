@@ -24,7 +24,7 @@ import window.TouchPhase;
 	takes the window's settings and a function that builds the root
 	element:
 
-	    WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
+		WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
 
 	A frame is drawn only when something changed: the tree on flush, the
 	theme (a scheme transition draws until it settles), the window's size
@@ -39,22 +39,28 @@ class WindowedApp {
 
 	public final window:Window;
 	public final device:GpuDevice;
+
 	/** What draws the tree into the window's frames. **/
 	public final offscreen:Offscreen;
+
 	/** The tree the UI `build` made lives in. **/
 	public final tree:LayoutTree;
+
 	/** Frames presented so far. **/
 	public var frames(default, null) = 0;
 
 	final adapter:GpuAdapter;
+
 	/** What is under the window shows where the UI draws nothing. **/
 	final transparent:Bool;
+
 	final surface:GpuSurface;
 	final format:TextureFormat;
 	final scheduler = AnimationScheduler.main;
 	var root:Element;
 	var dirty = true;
 	var quitting = false;
+
 	/**
 		On Wayland a frame waits for the compositor's frame callback for the
 		last, which paces frames to the display (see `presentMode`).
@@ -65,14 +71,19 @@ class WindowedApp {
 
 	/** A frame is presented and the redraw asked for after it has not come: nothing is drawn until it does. **/
 	var awaitingFrame = false;
+
 	var awaitingSince = 0.0;
 	var opened = 0.0;
+
 	/** Whether the input method is on: while text has focus. **/
 	var imeOn = false;
+
 	/** Whether the input method is composing, so key events bring no text of their own. **/
 	var composing = false;
+
 	/** A commit was just typed; the key events of this batch bring nothing more. **/
 	var committed = false;
+
 	// Pointer moves and wheel deltas waiting to be applied: a batch of events
 	// collapses to the last position and the summed delta, as browsers do.
 	var pendingMove:Null<{x:Float, y:Float}> = null;
@@ -85,13 +96,15 @@ class WindowedApp {
 	/** `ASHUI_FRAME_LOG=<file>` writes each frame's phase timings and each wheel delta there; off when unset, safe either way. **/
 	final frameLog:Null<sys.io.FileOutput> = {
 		var path = Sys.getEnv("ASHUI_FRAME_LOG");
-		path != null && path != "" ? sys.io.File.write(path, false) : null;
+		path != null
+		&& path != "" ? sys.io.File.write(path, false) : null;
 	};
 
 	/** `ASHUI_WINDOW_SECONDS=<n>` closes the window after that many seconds, for benches and scripted runs; off when unset. **/
 	final closeAfter:Float = {
 		var s = Std.parseFloat(Sys.getEnv("ASHUI_WINDOW_SECONDS"));
-		Math.isNaN(s) || s <= 0 ? 0.0 : s;
+		Math.isNaN(s)
+		|| s <= 0 ? 0.0 : s;
 	};
 
 	/** `ASHUI_INPUT_LOG=<path>` records the window's input and writes it to the path when the loop ends (see `ashui.debug.InputLog`). **/
@@ -171,7 +184,8 @@ class WindowedApp {
 		tree = new LayoutTree();
 		ashui.input.Cursor.bind(tree, code -> {
 			window.setCursorVisible(code != ashui.input.Cursor.HIDDEN);
-			if (code != ashui.input.Cursor.HIDDEN) window.setCursorIcon(cast code);
+			if (code != ashui.input.Cursor.HIDDEN)
+				window.setCursorIcon(cast code);
 		});
 		paceOnRedraw = window.platform() == WAYLAND;
 	}
@@ -224,7 +238,9 @@ class WindowedApp {
 		return Math.round(window.height() / window.scaleFactor());
 
 	function loop(build:Void->Element, onFrame:Null<(Int, Float) -> Void>):Void {
-		ashui.core.Work.listen(() -> { Window.wake(); });
+		ashui.core.Work.listen(() -> {
+			Window.wake();
+		});
 		var last = haxe.Timer.stamp();
 		scheduler.useRealtime(motion == null);
 		var theme = ThemeState.get();
@@ -243,7 +259,8 @@ class WindowedApp {
 			}
 			if (area != null)
 				window.setImeCursorArea(area.x, area.y, area.width, area.height);
-		}, (a, b) -> a == b || (a != null && b != null && a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height));
+		},
+			(a, b) -> a == b || (a != null && b != null && a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height));
 		configure();
 		root = Owner.root(tree, _ -> build());
 		opened = haxe.Timer.stamp();
@@ -338,7 +355,8 @@ class WindowedApp {
 				if (draw()) {
 					// Hit-test the new layout, including a still pointer. Hover
 					// changes can require another frame after this one.
-					if (ashui.input.Pointer.refresh(tree)) dirty = true;
+					if (ashui.input.Pointer.refresh(tree))
+						dirty = true;
 					frames++;
 					var t4 = haxe.Timer.stamp();
 					if (frameLog != null) {
@@ -346,8 +364,19 @@ class WindowedApp {
 						inline function ms(s:Float)
 							return Std.string(Math.round(s * 10000) / 10);
 						frameLog.writeString([
-							Std.string(frames), ms(t4 - opened), ms(t4 - presented), ms(t1 - t0), ms(now - t1), Std.string(handled), ms(t2 - now),
-							ms(t3 - t2), ms(o.flush), ms(o.layout), ms(o.list), ms(o.draw), ms(t4 - t3 - o.flush - o.layout - o.list - o.draw),
+							Std.string(frames),
+							ms(t4 - opened),
+							ms(t4 - presented),
+							ms(t1 - t0),
+							ms(now - t1),
+							Std.string(handled),
+							ms(t2 - now),
+							ms(t3 - t2),
+							ms(o.flush),
+							ms(o.layout),
+							ms(o.list),
+							ms(o.draw),
+							ms(t4 - t3 - o.flush - o.layout - o.list - o.draw),
 							Std.string(offscreen.primitives)
 						].join("\t") + "\n");
 						frameLog.flush();
@@ -359,7 +388,8 @@ class WindowedApp {
 						onFrame(frames, haxe.Timer.stamp() - opened);
 						// git-bug 364d4b2: callback writes happen after this frame's
 						// flush. Apply them before sleeping, including a canvas resume.
-						if (tree.flush()) dirty = true;
+						if (tree.flush())
+							dirty = true;
 					}
 				}
 			}
@@ -379,12 +409,13 @@ class WindowedApp {
 	function applyPointer(readCursor = true):Void {
 		// Quiet native moves stay out of the event queue. Consume the latest
 		// position and clear the filter before input or application work.
-		if (readCursor) switch window.takeCursorMove() {
-			case CursorMoved(x, y, _):
-				var scale = window.scaleFactor();
-				pendingMove = {x: x / scale, y: y / scale};
-			case _:
-		}
+		if (readCursor)
+			switch window.takeCursorMove() {
+				case CursorMoved(x, y, _):
+					var scale = window.scaleFactor();
+					pendingMove = {x: x / scale, y: y / scale};
+				case _:
+			}
 		if (pendingMove != null) {
 			var at = pendingMove;
 			pendingMove = null;
@@ -406,8 +437,8 @@ class WindowedApp {
 			return;
 		}
 		var scale = window.scaleFactor();
-		window.coalesceCursorMoves(Math.max(0, region.left * scale), Math.max(0, region.top * scale),
-			Math.min(window.width(), region.right * scale), Math.min(window.height(), region.bottom * scale));
+		window.coalesceCursorMoves(Math.max(0, region.left * scale), Math.max(0, region.top * scale), Math.min(window.width(), region.right * scale),
+			Math.min(window.height(), region.bottom * scale));
 	}
 
 	function handle(event:window.Event):Void {
@@ -427,7 +458,8 @@ class WindowedApp {
 			case ThemeChanged(_):
 				WindowTheme.handle(event);
 			case Focused(on):
-				if (!on) ashui.input.Pointer.wheel(tree, 0, 0, TouchPhase.Cancelled);
+				if (!on)
+					ashui.input.Pointer.wheel(tree, 0, 0, TouchPhase.Cancelled);
 				if (ashui.debug.InputLog.current != null)
 					ashui.debug.InputLog.note(tree, ashui.debug.InputLog.InputRecord.WindowFocus(on));
 				if (ashui.input.WindowState.active.get() != on)
@@ -446,7 +478,8 @@ class WindowedApp {
 					dirty = true;
 			case CursorMoved(x, y, _):
 				// Keep already queued wheel input at its original pointer position (095fab4).
-				if (pendingWheel) applyPointer(false);
+				if (pendingWheel)
+					applyPointer(false);
 				var scale = window.scaleFactor();
 				pendingMove = {x: x / scale, y: y / scale};
 			case CursorLeft(_):
@@ -468,7 +501,8 @@ class WindowedApp {
 				}
 				// Coalesce only deltas within the same phase. Start/end boundaries
 				// reach the dispatcher intact, including zero-delta end events (095fab4).
-				if (pendingWheel && pendingWheelPhase != phase) applyPointer();
+				if (pendingWheel && pendingWheelPhase != phase)
+					applyPointer();
 				pendingWheel = true;
 				pendingWheelPhase = phase;
 				switch delta {
@@ -480,7 +514,8 @@ class WindowedApp {
 						pendingWheelX += x / scale;
 						pendingWheelY += y / scale;
 				}
-				if (phase != TouchPhase.Moved) applyPointer();
+				if (phase != TouchPhase.Moved)
+					applyPointer();
 			case ModifiersChanged(m):
 				modifiers = m;
 				ashui.input.Pointer.modifiers(tree, m);
@@ -608,10 +643,14 @@ class WindowedApp {
 	**/
 	function presentMode(capabilities:gpu.GpuSurfaceCapabilities):gpu.PresentMode {
 		switch Sys.getEnv("ASHUI_PRESENT_MODE") {
-			case "fifo": return Fifo;
-			case "fifo-relaxed": return FifoRelaxed;
-			case "mailbox": return Mailbox;
-			case "immediate": return Immediate;
+			case "fifo":
+				return Fifo;
+			case "fifo-relaxed":
+				return FifoRelaxed;
+			case "mailbox":
+				return Mailbox;
+			case "immediate":
+				return Immediate;
 			case _:
 		}
 		if (paceOnRedraw)
