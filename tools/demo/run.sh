@@ -30,8 +30,11 @@ Darwin) ext=dylib ;;
 esac
 mkdir -p bin
 # ashui's, hlwgpu's and hlwindow's libraries, built when missing or out of date.
+printf '[ashui] Native dependency: blinc_abi\n'
 cargo build --release --manifest-path "$repo/Cargo.toml"
+printf '[ashui] Native dependency: hlwgpu\n'
 cargo build --release --manifest-path "$vib/hlwgpu/Cargo.toml" -p hlwgpu
+printf '[ashui] Native dependency: hlwindow\n'
 cargo build --release --manifest-path "$vib/hlwindow/Cargo.toml"
 rm -f bin/blinc_abi.hdll
 cp "$repo/target/release/libblinc_abi.$ext" bin/blinc_abi.hdll
@@ -45,14 +48,17 @@ cp "$vib/hlwindow/target/release/libhlwindow.$ext" bin/xwindow.hdll
 media_args=""
 if [ "${ASHUI_MEDIA:-0}" = 1 ] || grep -q 'ashui\.media' "$demo"; then
 	if [ -z "${HLAVI_HDLL:-}" ]; then
+		printf '[ashui] Native dependency: hlavi\n'
 		cargo build --release --manifest-path "$vib/hlavi/Cargo.toml"
 		HLAVI_HDLL="$vib/hlavi/target/release/libhlavi.$ext"
 	fi
 	media_args="--macro hlavi.macro.NativeInstall.stage()"
 fi
+printf '[ashui] Compiling %s\n' "$name"
 haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" --class-path "$repo/media/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 	--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" --class-path "$vib/ash/haxelib/ash-simd" -D ash_simd \
 	--class-path "$vib/hlavi/haxe" -D "hlavi_hdll=${HLAVI_HDLL:-}" $media_args \
 	-D ashui_window -D "ashui_css=$css" --macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' \
 	--class-path "$(dirname "$demo")" -main "$name" -hl "bin/$name.hl"
+printf '[ashui] Launching %s\n' "$name"
 cd bin && exec "$vib/ash/target/release/ash" --mode "${ASH_MODE:-hybrid}" --preset application "$PWD/$name.hl"

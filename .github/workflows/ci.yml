@@ -31,6 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: ci-native
@@ -42,6 +44,8 @@ jobs:
             libxi-dev libxcursor-dev fonts-dejavu-core
       - name: Check every native target
         run: cargo check --locked --workspace --all-targets
+      - name: Lint every native target
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Run native tests
         run: cargo test --locked --workspace
 

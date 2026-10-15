@@ -111,7 +111,6 @@ class CssCompiler {
 			var checkout = haxe.io.Path.join([root(), local.matched(1)]);
 			var code = Sys.command("cargo", [
 				"build",
-				"--quiet",
 				"--release",
 				"--manifest-path",
 				haxe.io.Path.join([checkout, "Cargo.toml"]),
@@ -131,11 +130,14 @@ class CssCompiler {
 			Context.fatalError("blinc-css: no blinc_abi revision in Cargo.toml; set BLINC_CSS to the tool", Context.currentPos());
 		var dir = haxe.io.Path.join([root(), ".ashui", "blinc-css", pin.matched(2)]);
 		var built = haxe.io.Path.join([dir, "bin", exe]);
+		if (sys.FileSystem.exists(built)) return found = built;
+		var existing = localTool(exe, pin.matched(2));
+		if (existing != null) return found = existing;
 		if (!sys.FileSystem.exists(built)) {
 			Sys.println('[ashui] building blinc-css ${pin.matched(2).substr(0, 7)}, once');
 			var code = Sys.command("cargo", [
 				"install",
-				"--quiet",
+				"--locked",
 				"--git",
 				pin.matched(1),
 				"--rev",
@@ -147,12 +149,40 @@ class CssCompiler {
 				"--features",
 				"css-cli",
 				"--root",
-				dir
+				dir,
+				"--target-dir",
+				haxe.io.Path.join([root(), "target", "blinc-css"])
 			]);
 			if (code != 0 || !sys.FileSystem.exists(built))
 				Context.fatalError("blinc-css: cargo install failed; set BLINC_CSS to the tool", Context.currentPos());
 		}
 		return found = built;
+	}
+
+	/** Reuse a local build only when its depfile names Cargo's resolved pinned source (f360c44). **/
+	static function localTool(exe:String, revision:String):Null<String> {
+		var candidates = [for (profile in ["release", "debug"]) {
+			binary: haxe.io.Path.join([root(), "target", profile, exe]),
+			deps: haxe.io.Path.join([root(), "target", profile, "blinc-css.d"])
+		}];
+		candidates = candidates.filter(candidate -> sys.FileSystem.exists(candidate.binary) && sys.FileSystem.exists(candidate.deps));
+		if (candidates.length == 0) return null;
+		// Offline metadata neither fetches nor compiles. A missing checkout falls
+		// through to the normal install, whose live Cargo output shows progress.
+		var process = try new sys.io.Process("cargo", ["metadata", "--locked", "--offline", "--format-version", "1", "--manifest-path", haxe.io.Path.join([root(), "Cargo.toml"])]) catch (_:Dynamic) return null;
+		var output = process.stdout.readAll().toString();
+		process.stderr.readAll();
+		var code = process.exitCode();
+		process.close();
+		if (code != 0) return null;
+		var graph:{packages:Array<{name:String, source:Null<String>, manifest_path:String}>} = haxe.Json.parse(output);
+		for (packageInfo in graph.packages) {
+			if (packageInfo.name != "blinc_abi" || packageInfo.source == null || !StringTools.endsWith(packageInfo.source, "#" + revision)) continue;
+			var source = haxe.io.Path.join([haxe.io.Path.directory(packageInfo.manifest_path), "src", "bin", "blinc-css.rs"]);
+			var escaped = StringTools.replace(source, " ", "\\ ");
+			for (candidate in candidates) if (sys.io.File.getContent(candidate.deps).indexOf(escaped) >= 0) return candidate.binary;
+		}
+		return null;
 	}
 }
 #end
