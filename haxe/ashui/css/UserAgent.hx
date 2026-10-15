@@ -199,12 +199,14 @@ class UserAgent {
 		}
 		input[type="number"] { width: 120px; padding-right: 2px; }
 		input[type="number"] > .steppers { flex-direction: column; flex-shrink: 0; margin-left: 4px; }
-		input[type="number"] > .steppers > div {
+		/* Name the actual controls: a bare div:hover/active tail subscribes
+		   unrelated containers and HXX fragments before the parent test (0973e0c). */
+		input[type="number"] > .steppers > :is(.step-up, .step-down) {
 			width: 20px; height: 14px; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--text-secondary);
 			transition: background ${STATE}, color ${STATE}, transform ${PRESS};
 		}
-		input[type="number"] > .steppers > div:hover { background: var(--accent-subtle); color: var(--text-primary); }
-		input[type="number"] > .steppers > div:active { transform: scale(0.85); }
+		input[type="number"] > .steppers > :is(.step-up, .step-down):hover { background: var(--accent-subtle); color: var(--text-primary); }
+		input[type="number"] > .steppers > :is(.step-up, .step-down):active { transform: scale(0.85); }
 		input[type="number"] > .steppers svg { width: 10px; height: 10px; }
 
 		/* Ranges: a track, filled up to the thumb, which grows under the pointer. */
