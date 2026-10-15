@@ -735,7 +735,7 @@ class InlineFlow {
 			ends: false
 		};
 		var x = 0.0;
-		function end(ends = false) {
+		function endLine(ends = false) {
 			line.ends = ends;
 			out.push(line);
 			line = {
@@ -757,6 +757,11 @@ class InlineFlow {
 					var to = start;
 					while (to < end && run.x(to + 1) - run.x(start) <= room)
 						to++;
+					if (to == start && x > 0) {
+						queue.push(item);
+						endLine();
+						continue;
+					}
 					if (to == start && x == 0)
 						to = start + 1;
 					if (to > start && to < end) {
@@ -772,7 +777,7 @@ class InlineFlow {
 			}
 			switch item {
 				case Break:
-					end(true);
+					endLine(true);
 					continue;
 				case Word(_, _, _, w, _) if (w == 0 && x == 0):
 					// A space alone at the start of a line.
@@ -784,10 +789,10 @@ class InlineFlow {
 				case _: false;
 			}
 			if ((!nowrap && x > 0 && x + w > width + 0.01) || (block && line.items.length > 0))
-				end();
+				endLine();
 			line.items.push({item: item, x: x});
 			if (block) {
-				end(true);
+				endLine(true);
 				continue;
 			}
 			x += w + switch item {

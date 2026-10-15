@@ -1675,11 +1675,13 @@ class Smoke {
 				<p>Supercalifragilisticexpialidocious</p>
 				<p>Supercalifragilisticexpialidocious</p>
 				<p><strong>Lead</strong> in</p>
+				<p>/Users/artist/projects/a-world-with-a-long-name/editor/bin/recordings/Following-a-character-Follow-camera-1791897761-981235.mp4</p>
 			</div>
 		'));
 		var proseKids = proseTree.children(proseRoot.node.id);
 		ashui.css.Identity.of(proseTree, proseKids[2]).setClasses(["breaking"]);
 		ashui.css.Identity.of(proseTree, proseKids[3]).setClasses(["lead"]);
+		ashui.css.Identity.of(proseTree, proseKids[4]).setClasses(["breaking"]);
 		for (_ in 0...2) {
 			proseTree.flush();
 			proseTree.computeLayout(proseRoot.node, 160, 600);
@@ -1706,6 +1708,8 @@ class Smoke {
 		var overflowing = widestPiece(proseFlows[1]), broken = widestPiece(proseFlows[2]);
 		check("a word longer than its line overflows, unless overflow-wrap lets it break", overflowing.count == 1 && overflowing.width > 160
 			&& broken.count >= 2 && broken.width <= 160, [overflowing, broken]);
+		var pathPieces = widestPiece(proseFlows[4]);
+		check("every remainder of a long path is split to fit its line", pathPieces.count >= 4 && pathPieces.width <= 160, pathPieces);
 		var leadStrong = ashui.css.Identity.of(proseTree, proseTree.children(proseKids[3])[2]);
 		check("the flow's own nodes are not counted by :first-child", leadStrong.types.indexOf("strong") >= 0
 			&& ashui.css.Css.computed(leadStrong, "opacity") == "0.5", ashui.css.Css.computed(leadStrong, "opacity"));
