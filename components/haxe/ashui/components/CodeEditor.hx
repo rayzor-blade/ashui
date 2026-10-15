@@ -224,8 +224,9 @@ class CodeEditor extends Component<CodeEditorProps> {
 		i.onBlur(_ -> { phase.send(Blur); e.blur(); e.stopBlink(); });
 		e.onEscape = () -> Focus.clear(pane.tree);
 		e.pageLines = () -> Std.int(Math.max(1, Math.floor(viewHeight.get() / metrics.lineHeight) - 1));
-		var layout:LayoutTree->Bool = tree -> {
-			if (tree != pane.tree) return false;
+			var live = true, editorTree = pane.tree, probeIdentity = Identity.of(probe.tree, probe.node.id);
+			var layout:LayoutTree->Bool = tree -> {
+				if (!live || tree != editorTree) return false;
 			// CSS has now committed the text face to native nodes. Measuring in
 			// the restyle callback would cache positions for the previous font.
 			var changed = false;
@@ -239,13 +240,17 @@ class CodeEditor extends Component<CodeEditorProps> {
 			return changed;
 		};
 		LayoutTree.layoutHooks.push(layout);
-		var restyle:Identity->Void = id -> if (id == Identity.of(probe.tree, probe.node.id)) {
+			var restyle:Identity->Void = id -> if (live && id == probeIdentity) {
 			var font = [for (field in ["font-size", "font-family", "font-weight", "font-style", "line-height", "letter-spacing"]) Css.resolved(id, field)].join("|");
 			if (font != lastFont) { lastFont = font; fontDirty = true; }
 		};
 		Css.restyled.push(restyle);
 		Owner.onCleanup(() -> {
-			LayoutTree.layoutHooks.remove(layout); Css.restyled.remove(restyle);
+				live = false;
+				// Compare callback environments too: editor and viewer closures share
+				// a function body, and generic Array.remove can remove the other one (3e75041).
+				for (index in 0...LayoutTree.layoutHooks.length) if (Reflect.compareMethods(LayoutTree.layoutHooks[index], layout)) { LayoutTree.layoutHooks.splice(index, 1); break; }
+				for (index in 0...Css.restyled.length) if (Reflect.compareMethods(Css.restyled[index], restyle)) { Css.restyled.splice(index, 1); break; }
 			e.stopBlink(); metrics.invalidate(); history.clear(); cachedRows = [];
 		});
 		new Watch(() -> { revision.get(); e.caret.get(); e.anchor.get(); caret.get(); 0; }, _ -> reveal(gutter.get()), (_, _) -> false);

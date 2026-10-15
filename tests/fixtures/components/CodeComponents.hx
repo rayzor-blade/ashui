@@ -39,11 +39,11 @@ class CodeComponents {
 			ThemeState.init(DefaultTheme.bundle(), dark ? Dark : Light);
 			var hooks = LayoutTree.layoutHooks.length, tree = new LayoutTree(), dispose:Void->Void = null;
 			var editor = new Ref<CodeEditor>(), viewer = new Ref<CodeView>();
-			var value = signal(source), readOnly = signal(false), disabled = signal(false), changes = 0;
+			var value = signal(source), readOnly = signal(false), disabled = signal(false), mounted = signal(true), changes = 0;
 			var root = Owner.root(tree, stop -> {
 				dispose = stop;
 				return <div width={760} height={600} class="flex-col gap-4 p-4">
-					<code-editor ref={editor} id="editor" language="haxe" value={value} readOnly={readOnly} disabled={disabled} height={270} indentGuides={true} onInput={_ -> changes++} />
+					<if {mounted.get()}><code-editor ref={editor} id="editor" language="haxe" value={value} readOnly={readOnly} disabled={disabled} height={270} indentGuides={true} onInput={_ -> changes++} /></if>
 					<code-view ref={viewer} id="viewer" language="json" value={'{"name": "Ashui",\n "ready": true\n}'} height={200} />
 				</div>;
 			});
@@ -133,6 +133,15 @@ class CodeComponents {
 			for (_ in 0...2) { ashui.animation.AnimationScheduler.main.tick(1); settle(); }
 			check("unfocused code views have no idle animation or caret timer", !ashui.animation.AnimationScheduler.main.hasActive()
 				&& ashui.animation.AnimationScheduler.main.untilNextTimer() == null);
+			// A tab removes its editor while focus/CSS still have queued work (3e75041).
+			var restyleHooks = Css.restyled.length;
+			for (cycle in 0...4) {
+				editor.get().focus(); settle();
+				mounted.set(false); settle();
+				check('removed editor releases its CSS listener $cycle', Css.restyled.length == restyleHooks - 1, [restyleHooks, Css.restyled.length]);
+				mounted.set(true); settle();
+				check('remounted editor keeps CSS listener count stable $cycle', Css.restyled.length == restyleHooks);
+			}
 			dispose(); ashui.animation.AnimationScheduler.main.tick(1); tree.flush();
 			check("disposing code controls releases layout hooks", LayoutTree.layoutHooks.length == hooks);
 			tree.dispose();
