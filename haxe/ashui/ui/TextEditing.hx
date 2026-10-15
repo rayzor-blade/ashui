@@ -72,6 +72,15 @@ class TextEditing {
 	/** Called with the new value after each edit. **/
 	public var onInput:Null<String->Void>;
 
+	/** Called immediately before a replacement, for an editor's undo history (e53597f). **/
+	public var onBeforeInput:Null<Void->Void>;
+
+	/** Selection and copying remain available while edits are refused. **/
+	public var readOnly = false;
+
+	/** Optional geometry for virtualized text; ordinary fields use native shaping below. **/
+	public var metrics:Null<TextGeometry>;
+
 	/** Called with the value on Enter, or Command+Enter when multiline. **/
 	public var onSubmit:Null<String->Void>;
 
@@ -196,6 +205,10 @@ class TextEditing {
 
 	/** The stop the caret before string index `i` stands at. **/
 	public function stopAt(i:Int, s:String):CaretStop {
+		if (metrics != null) {
+			prepareMetrics(s);
+			return metrics.stopAt(i);
+		}
 		var list = stopsFor(s);
 		var best = list[0];
 		for (stop in list)
@@ -206,6 +219,10 @@ class TextEditing {
 
 	/** The stop nearest `x` on `line`, or on the nearest line there is. **/
 	public function indexAt(x:Float, line:Int):Int {
+		if (metrics != null) {
+			prepareMetrics(value.get());
+			return metrics.indexAt(x, line);
+		}
 		var list = stopsFor(value.get());
 		var last = list[list.length - 1].line;
 		var on = Std.int(Math.max(0, Math.min(last, line)));
@@ -229,6 +246,10 @@ class TextEditing {
 
 	/** The width of `line`: its last stop's x. **/
 	public function lineWidth(line:Int):Float {
+		if (metrics != null) {
+			prepareMetrics(value.get());
+			return metrics.lineWidth(line);
+		}
 		var w = 0.0;
 		for (stop in stopsFor(value.get()))
 			if (stop.line == line)
@@ -238,6 +259,10 @@ class TextEditing {
 
 	/** The stop after, or before, string index `i`. **/
 	function step(i:Int, forward:Bool):Int {
+		if (metrics != null) {
+			prepareMetrics(value.get());
+			return metrics.step(i, forward);
+		}
 		var list = stopsFor(value.get());
 		if (forward) {
 			for (stop in list)
@@ -278,6 +303,10 @@ class TextEditing {
 
 	/** The first, or last, stop on the line `i` is on. **/
 	function lineEdge(i:Int, end:Bool):Int {
+		if (metrics != null) {
+			prepareMetrics(value.get());
+			return metrics.lineEdge(i, end);
+		}
 		var line = stopAt(i, value.get()).line;
 		var edge = i;
 		var found = false;
@@ -299,12 +328,18 @@ class TextEditing {
 		if (goalX == null)
 			goalX = here.x;
 		var line = here.line + by;
-		var list = stopsFor(value.get());
 		if (line < 0)
 			return 0;
-		if (line > list[list.length - 1].line)
+		if (metrics == null) stopsFor(value.get());
+		if (line >= lines)
 			return value.get().length;
 		return indexAt(goalX, line);
+	}
+
+	function prepareMetrics(s:String):Void {
+		metrics.prepare(s);
+		lineHeight = metrics.lineHeight;
+		lines = metrics.lines;
 	}
 
 	// --- editing ---
@@ -362,7 +397,7 @@ class TextEditing {
 
 	/** An input method's composition changed; empty text when it ends, as it commits or cancels. **/
 	public function compose(e:CompositionEvent):Void {
-		if (disabled())
+		if (disabled() || readOnly)
 			return;
 		composeCursor = e.cursor;
 		composing.set(e.text);
@@ -371,9 +406,12 @@ class TextEditing {
 
 	/** Replaces the selection with `insert`, leaving the caret after it. **/
 	public function replace(insert:String):Void {
+		if (disabled() || readOnly) return;
 		var s = value.get();
 		var r = selectionRange();
 		var next = s.substr(0, r.from) + insert + s.substr(r.to);
+		if (next == s) { move(r.from + insert.length, false); return; }
+		if (onBeforeInput != null) onBeforeInput();
 		value.set(next);
 		move(r.from + insert.length, false);
 		if (onInput != null)
@@ -382,9 +420,15 @@ class TextEditing {
 
 	/** Deletes the selection, or from the caret to `to` when nothing is selected. **/
 	function erase(to:Int):Void {
+		if (disabled() || readOnly) return;
+		// Undo captures the user's caret before deletion expands its range (e53597f).
+		var before = onBeforeInput;
+		if (before != null) before();
+		onBeforeInput = null;
 		if (caret.get() == anchor.get())
 			anchor.set(to);
 		replace("");
+		onBeforeInput = before;
 	}
 
 	function disabled():Bool
@@ -392,7 +436,7 @@ class TextEditing {
 
 	/** Inserts typed text in place of the selection; a line break is a space unless multiline. **/
 	public function type(e:TextInputEvent):Void {
-		if (disabled())
+		if (disabled() || readOnly)
 			return;
 		var typed = accept == null ? e.text : accept(e.text);
 		if (typed != "")
@@ -587,6 +631,7 @@ class TextEditing {
 
 	/** Shows the caret at once and starts its blink afresh. **/
 	public function restartBlink():Void {
+		if (readOnly) { stopBlink(); return; }
 		if (blinkTimer != null)
 			blinkTimer.cancel();
 		// Typing or moving shows the caret at once, with no fade.

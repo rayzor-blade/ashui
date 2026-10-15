@@ -1196,6 +1196,53 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-chart-note { font-size: var(--text-xs); font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
 .ui-chart-note[data-tone="bad"] { color: var(--error); }
 .ui-chart-note[data-tone="good"] { color: var(--success); }
+
+/* Code views and editors share native text editing and viewport rows (e53597f). */
+.ui-code {
+	position: relative; flex-direction: column; align-self: stretch; height: 320px; min-width: 0;
+	border: 1px solid var(--ui-code-border, var(--border)); border-radius: var(--radius-lg);
+	background: var(--ui-code-bg, var(--surface)); color: var(--text-primary); overflow: hidden;
+}
+.ui-code:focus-within { border-color: var(--focus-ring); }
+.ui-code-viewport { position: relative; flex-grow: 1; min-height: 0; min-width: 0; overflow: auto; cursor: text; }
+.ui-code-viewport:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-code-content { position: relative; flex-shrink: 0; }
+.ui-code-text {
+	font-family: var(--ui-code-font, var(--font-mono)); font-size: var(--ui-code-font-size, var(--text-sm));
+	font-weight: 400; line-height: 1.6; letter-spacing: 0; white-space: pre;
+}
+.ui-code-probe { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.ui-code-line, .ui-code-token, .ui-code-guide, .ui-code-fold-hint, .ui-code-caret,
+.ui-code-selection, .ui-code-active-line, .ui-code-gutter, .ui-code-gutter-line { position: absolute; }
+.ui-code-token, .ui-code-line, .ui-code-guide, .ui-code-caret, .ui-code-selection, .ui-code-active-line { pointer-events: none; }
+.ui-code-active-line { background: var(--ui-code-active-line, color-mix(in srgb, var(--primary) 5%, transparent)); }
+.ui-code-selection { background: var(--selection); }
+.ui-code-caret { width: 1.5px; background: var(--text-primary); }
+.ui-code-guide { width: 1px; background: color-mix(in srgb, var(--border) 55%, transparent); }
+.ui-code-gutter { background: var(--ui-code-gutter-bg, var(--surface)); border-right: 1px solid var(--border); }
+.ui-code-gutter-line { left: 0; flex-direction: row; align-items: center; justify-content: flex-end; padding-right: 4px; gap: 2px; }
+.ui-code-line-number { text-align: right; color: var(--ui-code-line-number, var(--text-tertiary)); pointer-events: none; }
+.ui-code-fold.ui-button {
+	width: 20px; height: 20px; min-width: 0; padding: 0; flex-shrink: 0; border: 0; box-shadow: none;
+	border-radius: var(--radius-sm); color: var(--text-tertiary); background: transparent;
+}
+.ui-code-fold.ui-button:hover { color: var(--text-primary); background: var(--accent-subtle); }
+.ui-code-fold-hint { color: var(--text-tertiary); background: var(--accent-subtle); border-radius: var(--radius-sm); }
+.ui-code-token[data-token="plain"] { color: var(--text-primary); }
+.ui-code-token[data-token="keyword"] { color: var(--ui-code-keyword, #8b45b2); }
+.ui-code-token[data-token="string"] { color: var(--ui-code-string, #267342); }
+.ui-code-token[data-token="comment"] { color: var(--ui-code-comment, var(--text-tertiary)); }
+.ui-code-token[data-token="number"] { color: var(--ui-code-number, #a35d11); }
+.ui-code-token[data-token="type"] { color: var(--ui-code-type, #247e8a); }
+.ui-code-token[data-token="function"] { color: var(--ui-code-function, #245fc7); }
+.ui-code-token[data-token="operator"] { color: var(--ui-code-operator, var(--text-secondary)); }
+@media (prefers-color-scheme: dark) {
+	.ui-code-token[data-token="keyword"] { color: var(--ui-code-keyword, #c7a0ee); }
+	.ui-code-token[data-token="string"] { color: var(--ui-code-string, #9ccc92); }
+	.ui-code-token[data-token="number"] { color: var(--ui-code-number, #e5b980); }
+	.ui-code-token[data-token="type"] { color: var(--ui-code-type, #76ccc6); }
+	.ui-code-token[data-token="function"] { color: var(--ui-code-function, #92baff); }
+}
 .ui-chart[data-kind="pie"] { align-items: center; }
 .ui-chart[data-kind="pie"] > .ui-chart-plot { align-self: center; }
 .ui-chart-pie-total { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
