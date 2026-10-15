@@ -308,6 +308,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	function visibleRows():Array<Row> {
 		revision.get();
+		// Wait for the probe's CSS font before shaping and mounting token rows.
+		// Otherwise initial render builds the whole viewport in the default
+		// proportional face, only to discard it on the first layout (0973e0c).
+		if (fontDirty) return [];
 		var stamp = fontRevision;
 		var y = scroll == null ? 0 : scroll.y.get(), h = viewHeight.get(), lh = metrics.lineHeight;
 		var first = Std.int(Math.max(0, Math.floor((y - PAD) / lh) - 3));

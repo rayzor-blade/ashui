@@ -616,6 +616,10 @@ class WindowedApp {
 		var capabilities = surface.capabilities(adapter);
 		configuration.presentMode(presentMode(capabilities));
 		configuration.alphaMode(alphaMode(capabilities));
+		capabilities.destroy();
+		// Event-driven UI needs one queued frame, not an extra full Retina
+		// swapchain image and another frame of input latency (0973e0c).
+		configuration.desiredMaximumFrameLatency(1);
 		device.configureSurfaceWith(surface, configuration);
 	}
 

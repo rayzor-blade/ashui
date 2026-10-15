@@ -411,11 +411,16 @@ class Css {
 			for (identity in again)
 				if (changed.indexOf(identity) < 0 && Identity.of(tree, identity.node.id) == identity)
 					changed.push(identity);
+		// Equivalent code tokens/list rows share their immutable style maps.
+		// The batch owns the lookup strings; no cache retains detached nodes or
+		// obsolete themes. Applied styles retain only the maps they use (0973e0c).
+		var shared = new Map<String, ashui.css.NativeCascade.NativeComputedStyle>();
 		for (identity in changed) {
-			var style = NativeCascade.style(identity);
+			var style = NativeCascade.style(identity, shared);
 			var up = identity.tree.ancestors(identity.node.id);
 			var parent = up.length == 0 ? null : Identity.of(identity.tree, up[0]);
-			var fontSize = parent == null ? rootFontSize : NativeCascade.style(parent).fontSize;
+			// Parents have already been applied, and unchanged parents are cached.
+			var fontSize = parent == null ? rootFontSize : Css.fontSize(parent);
 			apply(identity, style.resolved, style.values, fontSize, style.fontSize, new Map());
 		}
 	}

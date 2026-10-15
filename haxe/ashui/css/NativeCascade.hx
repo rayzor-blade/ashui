@@ -4,6 +4,9 @@ import ashui.core.externs.CssNative;
 import ashui.css.Css.CssOrigin;
 import ashui.layout.LayoutTree;
 
+/** Immutable snapshot within one cascade application batch (0973e0c). **/
+typedef NativeComputedStyle = {resolved:Map<String, String>, values:Map<String, String>, fontSize:Float};
+
 /**
 	The cascade, run by the native CSS engine (`CssNative`): the sheets in
 	force, every element's names and states, the theme's variables and what
@@ -24,14 +27,21 @@ class NativeCascade {
 
 	/** A watch for each node state a selector tests, by `node:bit`. **/
 	static final watches = new Map<String, ashui.reactive.Watch<Bool>>();
+	/** Only states actually requested by selectors on this node (0973e0c). **/
+	static final watchedStates = new Map<String, Int>();
 
 	static inline final RECORD = "\x01";
 	static inline final PAIR = "\x02";
 	static inline final ITEM = "\x03";
 
 	static function css():hl.Abstract<"blinc_css"> {
-		if (handle == null)
+		if (handle == null) {
 			handle = CssNative.blinc_css_new();
+			ashui.input.Interaction.created.push(interaction -> {
+				var bits = watchedStates.get(haxe.Int64.toStr(interaction.node.id));
+				if (bits != null) for (bit in names.keys()) if ((bits & bit) != 0) watch(interaction.node.id, bit);
+			});
+		}
 		return handle;
 	}
 
@@ -124,7 +134,8 @@ class NativeCascade {
 	public static function forget(identity:Identity):Void {
 		var node = identity.node.id;
 		CssNative.blinc_css_forget(css(), node);
-		var prefix = haxe.Int64.toStr(node) + ":";
+		var nodeKey = haxe.Int64.toStr(node), prefix = nodeKey + ":";
+		watchedStates.remove(nodeKey);
 		for (key => w in watches)
 			if (StringTools.startsWith(key, prefix)) {
 				w.stop();
@@ -227,8 +238,13 @@ class NativeCascade {
 	}
 
 	/** `identity`'s style as the engine computed it. **/
-	public static function style(identity:Identity):{resolved:Map<String, String>, values:Map<String, String>, fontSize:Float} {
-		var records = text(CssNative.blinc_css_style(css(), identity.node.id)).split(RECORD);
+	public static function style(identity:Identity, ?shared:Map<String, NativeComputedStyle>):NativeComputedStyle {
+		var serialized = text(CssNative.blinc_css_style(css(), identity.node.id));
+		if (shared != null) {
+			var found = shared.get(serialized);
+			if (found != null) return found;
+		}
+		var records = serialized.split(RECORD);
 		function pairs(record:Null<String>):Map<String, String> {
 			var map = new Map<String, String>();
 			if (record != null && record != "")
@@ -240,7 +256,9 @@ class NativeCascade {
 			return map;
 		}
 		var size = records.length > 2 ? Std.parseFloat(records[2]) : Math.NaN;
-		return {resolved: pairs(records[0]), values: pairs(records[1]), fontSize: Math.isNaN(size) ? Css.rootFontSize : size};
+		var result = {resolved: pairs(records[0]), values: pairs(records[1]), fontSize: Math.isNaN(size) ? Css.rootFontSize : size};
+		if (shared != null) shared.set(serialized, result);
+		return result;
 	}
 
 	/** The states a selector began to test: each is watched, and its changes told to the engine. **/
@@ -305,6 +323,22 @@ class NativeCascade {
 		var identity = find(node);
 		if (name == null || identity == null)
 			return false;
+		var nodeKey = haxe.Int64.toStr(node), previous = watchedStates.get(nodeKey);
+		watchedStates.set(nodeKey, (previous == null ? 0 : previous) | bit);
+		// Focus, disabled and validation cannot change until a node gains an
+		// Interaction. Universal :focus-visible rules must not create eight
+		// signals and a watch on every static code token. Hover/press/within
+		// still register eagerly so pointer and descendant focus keep working.
+		var interaction = ashui.input.Interaction.find(identity.node);
+		if (interaction == null && (name == "hover" || name == "active" || name == "focus-within"))
+			interaction = ashui.input.Interaction.of(identity.node);
+		if (interaction == null) {
+			var states = mask(identity);
+			CssNative.blinc_css_set_states(css(), node, states);
+			return states != 0;
+		}
+		// Creating it above may already have attached this reader through the hook.
+		if (watches.exists(key)) return mask(identity) != 0;
 		var signal = stateSignal(identity, name);
 		watches.set(key, new ashui.reactive.Watch(() -> signal.get(), on -> {
 			CssNative.blinc_css_set_states(css(), node, mask(identity));
@@ -341,12 +375,16 @@ class NativeCascade {
 		}
 	}
 
-	/** Every state of `identity` the engine knows, as its mask; `:enabled` is not disabled. **/
+	/** Requested states only: reading hover must not allocate form-validation signals on code tokens. **/
 	static function mask(identity:Identity):Int {
 		stateName(0);
+		var watched = watchedStates.get(haxe.Int64.toStr(identity.node.id));
+		if (watched == null) return 0;
+		var interaction = ashui.input.Interaction.find(identity.node);
 		var out = 0;
 		for (bit => name in names) {
-			var on = stateSignal(identity, name).get();
+			if ((watched & bit) == 0) continue;
+			var on = interaction != null && stateSignal(identity, name).get();
 			if (name == "enabled")
 				on = !on;
 			if (on)

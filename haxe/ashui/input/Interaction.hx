@@ -25,6 +25,9 @@ import ashui.reactive.Signal;
 class Interaction {
 	static final byNode = new haxe.ds.ObjectMap<Node, Interaction>();
 	static final byTree = new haxe.ds.ObjectMap<LayoutTree, TreeInteractions>();
+	/** Lets the cascade attach deferred state readers when a node gains input (0973e0c). **/
+	@:allow(ashui.css.NativeCascade)
+	static final created:Array<Interaction->Void> = [];
 
 	public final node:Node;
 
@@ -105,6 +108,7 @@ class Interaction {
 			all.add(interaction);
 		}
 		Owner.onCleanup(interaction.dispose);
+		for (hook in created) hook(interaction);
 		return interaction;
 	}
 
