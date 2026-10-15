@@ -35,6 +35,7 @@ is a complete windowed example.
 | `lineNumbers` | `true` | Original source line numbers, including after folding. |
 | `folding` | `true` | Gutter buttons for multiline `{…}` and `[…]` blocks. |
 | `indentGuides` | `false` | Guides at each indentation level. |
+| `highlightBrackets` | `true` | Highlight the matching `{}`, `[]` or `()` pair beside the caret. |
 | `tabSize` | `4` | Spaces per tab stop, from 1 to 16. |
 | `insertSpaces` | `true` | Insert spaces when indenting; `false` inserts tabs. |
 | `readOnly` | `false` | Reactive edit lock; selection and copying remain available. |
@@ -46,10 +47,13 @@ Code stays unwrapped and scrolls in both directions; the gutter stays visible
 when scrolling horizontally. Closing a fold keeps its opening line visible.
 Nested folds keep their state. Folding does not alter the source.
 
-Built-in lexical highlighters cover Haxe, JavaScript (`js`), TypeScript (`ts`),
+Built-in lexical highlighters cover Haxe (`hxx`), JavaScript (`js`, `jsx`), TypeScript (`ts`, `tsx`),
 Rust (`rs`), JSON, CSS, Python (`py`) and Lua. Multiline comments and strings
 carry state between lines. Brackets inside those tokens do not create folds.
 These highlighters provide lexical colors rather than semantic language analysis.
+HXX/JSX markup keeps child text separate from host code. Tags, attributes,
+quoted values and embedded expressions get distinct tokens, including across
+lines; literal text such as `Add one` is not treated as a type name.
 
 ## Editing
 
@@ -57,6 +61,8 @@ The editor reuses Ashui's text editing engine: native grapheme positions,
 pointer selection, double-click word selection, keyboard navigation,
 clipboard and input-method composition. The caret follows the selection
 into view. A focused read-only view has no blinking caret.
+Click a brace or move the caret next to it to highlight its matching pair.
+Braces in strings, comments and literal markup text are excluded.
 
 - **Enter:** insert a newline with the current indentation; add one level
   after an opening brace, bracket or colon.
@@ -81,12 +87,18 @@ unchanged lines until their incoming lexical state changes. Native caret
 measurements retain at most 96 lines; disposal releases the view's watches,
 layout callbacks and caret timer.
 
+For editor tabs, keep panes mounted and bind their `display` to the selected
+tab, as CodeWorkbench does. Inactive panes retain undo history, selection,
+folds and shaped rows. An `<if>` intentionally disposes its inactive branch
+and builds a fresh editor when it returns.
+
 ## Styling
 
 The components follow the active theme's surfaces, typography, selection,
 borders and shape tokens. Customize `.ui-code`, `.ui-code-gutter`,
 `.ui-code-line-number`, `.ui-code-token[data-token="keyword"]`,
 `.ui-code-selection`, `.ui-code-caret`, `.ui-code-guide` and `.ui-code-fold`.
+`.ui-code-bracket` styles the matching-pair outline and background.
 The fold control is the existing icon Button component.
 
 ```css
@@ -101,7 +113,8 @@ The fold control is the existing icon Button component.
 Other custom properties are `--ui-code-font`, `--ui-code-border`,
 `--ui-code-active-line`, `--ui-code-line-number`, `--ui-code-string`,
 `--ui-code-comment`, `--ui-code-number`, `--ui-code-type`,
-`--ui-code-function` and `--ui-code-operator`. Syntax defaults have separate
+`--ui-code-function`, `--ui-code-operator`, `--ui-code-tag`,
+`--ui-code-attribute`, `--ui-code-bracket-bg` and `--ui-code-bracket-border`. Syntax defaults have separate
 light and dark palettes.
 
 ## Custom syntax
@@ -129,4 +142,5 @@ class NotesSyntax implements CodeHighlighter {
 
 Pass `highlighter={new NotesSyntax()}` to either component. The token kinds
 are `Plain`, `Keyword`, `StringLiteral`, `Comment`, `Number`, `Type`,
-`Function` and `Operator`; colors remain in CSS.
+`Function`, `Operator`, `Tag`, `Attribute` and `MarkupText`; colors remain in CSS.
+Use `MarkupText` for literal markup so bracket matching and folding skip it.

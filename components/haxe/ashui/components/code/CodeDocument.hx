@@ -23,6 +23,8 @@ class CodeDocument {
 	/** Number of lines re-lexed by the last update, useful in performance diagnostics. **/
 	public var highlighted(default, null) = 0;
 	public var generation(default, null) = 0;
+	/** Matching source offsets, filled alongside fold detection (357ddef). **/
+	public final brackets = new Map<Int, Int>();
 	var syntax:CodeHighlighter;
 
 	public function new(text:String, syntax:CodeHighlighter) update(text, syntax);
@@ -59,20 +61,23 @@ class CodeDocument {
 		}
 		// Brackets in comments and strings never become folds. Keep nested regions,
 		// including when an outer fold is closed, so opening it restores its children.
-		var stack:Array<{line:Int, char:String}> = [];
+		brackets.clear();
+		var stack:Array<{line:Int, char:String, index:Int}> = [];
 		for (i in 0...lines.length) {
 			var line = lines[i], tokenIndex = 0;
 			for (column in 0...line.text.length) {
 				while (tokenIndex < line.tokens.length && line.tokens[tokenIndex].to <= column) tokenIndex++;
 				if (tokenIndex < line.tokens.length && line.tokens[tokenIndex].from <= column
-					&& (line.tokens[tokenIndex].kind == Comment || line.tokens[tokenIndex].kind == StringLiteral)) continue;
+					&& (line.tokens[tokenIndex].kind == Comment || line.tokens[tokenIndex].kind == StringLiteral || line.tokens[tokenIndex].kind == MarkupText)) continue;
 				var c = line.text.charAt(column);
-				if (c == "{" || c == "[") stack.push({line: i, char: c});
-				else if ((c == "}" || c == "]") && stack.length > 0) {
+				if (c == "{" || c == "[" || c == "(") stack.push({line: i, char: c, index: line.start + column});
+				else if ((c == "}" || c == "]" || c == ")") && stack.length > 0) {
 					var open = stack[stack.length - 1];
-					if (open.char == (c == "}" ? "{" : "[")) {
+					if (open.char == (c == "}" ? "{" : c == "]" ? "[" : "(")) {
 						stack.pop();
-						if (open.line < i) lines[open.line].foldEnd = i;
+						brackets.set(open.index, line.start + column);
+						brackets.set(line.start + column, open.index);
+						if (open.line < i && open.char != "(") lines[open.line].foldEnd = i;
 					}
 				}
 			}
@@ -80,6 +85,13 @@ class CodeDocument {
 		for (line in lines) if (line.foldEnd < 0) line.folded = false;
 		mapRows();
 		return true;
+	}
+
+	/** Pair adjacent to a caret, with the opening offset first; strings/comments have none. **/
+	public function matchingBrackets(caret:Int):Array<Int> {
+		var at = brackets.exists(caret - 1) ? caret - 1 : caret;
+		var other = brackets.get(at);
+		return other == null ? [] : [Std.int(Math.min(at, other)), Std.int(Math.max(at, other))];
 	}
 
 	public function mapRows():Void {

@@ -10,6 +10,9 @@ enum abstract CodeTokenKind(String) to String {
 	var Type = "type";
 	var Function = "function";
 	var Operator = "operator";
+	var Tag = "tag";
+	var Attribute = "attribute";
+	var MarkupText = "markup-text";
 }
 
 typedef CodeToken = {final from:Int; final to:Int; final kind:CodeTokenKind;}

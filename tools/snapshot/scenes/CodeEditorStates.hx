@@ -17,13 +17,17 @@ class CodeEditorStates {
 			<div class="flex-row items-center justify-between"><text class="text-lg font-semibold">Welcome.hx</text><badge variant={Secondary}>Selection &amp; folding</badge></div>
 			<code-editor ref={editor} value={source} language="haxe" class="grow min-h-0" height={0} indentGuides={true} />
 		</div>;
-		Snapshot.sequence(light ? "CodeEditorStates-light" : "CodeEditorStates", 820, 460, build, 30, 3, (frame, tree, root) -> {
+		Snapshot.sequence(light ? "CodeEditorStates-light" : "CodeEditorStates", 820, 460, build, 30, 4, (frame, tree, root) -> {
 			if (frame == 1) {
 				editor.get().focus();
 				var from = source.get().indexOf('"Hello');
 				editor.get().select(from, from + '"Hello, world { 🌍 }"'.length);
 			}
 			if (frame == 2) editor.get().toggleFold(4);
+			if (frame == 3) {
+				var brace = source.get().indexOf("{");
+				editor.get().select(brace, brace);
+			}
 		}, light ? 0xf8fafc : 0x0e1420);
 	}
 }

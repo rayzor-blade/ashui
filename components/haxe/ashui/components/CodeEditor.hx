@@ -29,13 +29,15 @@ import ashui.ui.TextEditing;
 typedef CodeEditorProps = {
 	/** A shared signal, initial string, or derived source. Line endings should be LF. **/
 	?value:IntoReactive<String>,
-	/** haxe, javascript/js, typescript/ts, rust, json, css, python/py, lua or plain. **/
+	/** haxe/hxx, javascript/js/jsx, typescript/ts/tsx, rust, json, css, python/py, lua or plain. **/
 	?language:IntoReactive<String>,
 	/** An application grammar, in place of the built-in lexical highlighter. **/
 	?highlighter:CodeHighlighter,
 	?lineNumbers:Bool,
 	?folding:Bool,
 	?indentGuides:Bool,
+	/** Highlight the matching pair next to a caret or pointer selection. **/
+	?highlightBrackets:Bool,
 	/** Spaces per tab stop and indentation level, 4 by default. **/
 	?tabSize:Int,
 	/** Insert spaces for Tab by default; false inserts a tab character. **/
@@ -170,12 +172,27 @@ class CodeEditor extends Component<CodeEditorProps> {
 			}
 			result;
 		});
+		var matches = Computed.make(() -> {
+			revision.get();
+			var result:Array<{x:Single, top:Single, width:Single}> = [];
+			if (props.highlightBrackets == false || !e.focused.get() || e.composing.get() != "" || e.caret.get() != e.anchor.get()) return result;
+			for (index in document.matchingBrackets(e.caret.get())) {
+				var source = document.lineAt(index), row = document.rows[source], line = document.lines[source];
+				if (document.visible[row] != source) continue;
+				var x = metrics.xAt(line, index - line.start), end = metrics.xAt(line, index - line.start + 1);
+				result.push({x: (gutter.get() + PAD + x : Single), top: (PAD + row * metrics.lineHeight : Single), width: (Math.max(2, end - x) : Single)});
+			}
+			return result;
+		});
 		var content = <div class="ui-code-content" width={contentWidth} height={contentHeight}>
 			${probe}
 			<div class="ui-code-active-line" top={Computed.make(() -> (PAD + caret.get().line * metrics.lineHeight : Single))}
 				left={0} width={contentWidth} height={rowHeight} opacity={Computed.make(() -> (e.focused.get() ? 1 : 0 : Single))} />
 			<for {r in selections}>
 				<div class="ui-code-selection" left={r.x} top={r.top} width={r.width} height={r.height} />
+			</for>
+			<for {r in matches}>
+				<div class="ui-code-bracket" left={r.x} top={r.top} width={r.width} height={rowHeight} />
 			</for>
 			<for {row in rows}>
 				<div class="ui-code-line" left={Computed.make(() -> (gutter.get() + PAD : Single))} top={row.top} height={rowHeight} width={row.width}>
@@ -234,7 +251,9 @@ class CodeEditor extends Component<CodeEditorProps> {
 				fontDirty = false; fontRevision++; metrics.invalidate(); metrics.prepare(shown.get()); refresh(); changed = true;
 			}
 			var bounds = tree.getBounds(pane.node);
-			if (bounds == null) return changed;
+			// A retained, inactive tab has no layout box. Keep its last usable
+			// viewport, so hiding it does not discard and recreate its rows (2aca664).
+			if (bounds == null || bounds.width <= 0 || bounds.height <= 0) return changed;
 			if (viewHeight.get() != bounds.height) { viewHeight.set(bounds.height); changed = true; }
 			if (viewWidth.get() != bounds.width) { viewWidth.set(bounds.width); changed = true; }
 			return changed;

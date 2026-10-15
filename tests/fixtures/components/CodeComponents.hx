@@ -2,6 +2,7 @@ import ashui.components.CodeEditor;
 import ashui.components.CodeView;
 import ashui.components.code.CodeDocument;
 import ashui.components.code.CodeSyntax;
+import ashui.components.code.CodeHighlighter;
 import ashui.css.Css;
 import ashui.css.Identity;
 import ashui.input.Keyboard;
@@ -12,6 +13,7 @@ import ashui.reactive.Owner;
 import ashui.reactive.Reactive;
 import ashui.theme.ThemeState;
 import ashui.theme.themes.DefaultTheme;
+import ashui.types.Style.Display;
 import ashui.ui.Ref;
 
 /** Real input, native grapheme geometry, incremental lexing and viewport bounds (e53597f). **/
@@ -22,11 +24,21 @@ class CodeComponents {
 		checks++; Sys.println('ok   $name');
 	}
 	static function key(k:window.Key, code:window.KeyCode):window.KeyEvent return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
+	static function kindAt(doc:CodeDocument, line:Int, text:String):CodeTokenKind {
+		var at = doc.lines[line].text.indexOf(text);
+		for (token in doc.lines[line].tokens) if (token.from <= at && token.to > at) return token.kind;
+		throw 'No token for $text on line $line';
+	}
 	static function main() {
 		var syntax = CodeSyntax.forLanguage("haxe");
 		var source = 'class Greeting {\n    // not a fold: {\n    function hello() {\n        var text = "}";\n        return "Hello 🌍";\n    }\n}\n';
 		var doc = new CodeDocument(source, syntax);
 		check("folds ignore brackets in comments and strings", doc.lines[0].foldEnd == 6 && doc.lines[2].foldEnd == 5 && doc.lines[1].foldEnd == -1);
+		var opening = source.indexOf("{"), closing = source.lastIndexOf("}");
+		check("matching braces use actual code spans", doc.matchingBrackets(opening).join(",") == '$opening,$closing'
+			&& doc.matchingBrackets(closing + 1).join(",") == '$opening,$closing');
+		check("string and comment braces have no bracket match", !doc.brackets.exists(source.indexOf("// not a fold: {") + "// not a fold: ".length)
+			&& !doc.brackets.exists(source.indexOf('"}"') + 1));
 		doc.toggleFold(2); doc.toggleFold(0); doc.toggleFold(0);
 		check("nested folds survive closing and reopening their parent", doc.lines[2].folded && doc.visible.indexOf(3) < 0 && doc.visible.indexOf(6) >= 0);
 		doc.update(StringTools.replace(source, "Hello", "Goodbye"), syntax);
@@ -35,15 +47,36 @@ class CodeComponents {
 		check("block comments propagate to following lines", multiline.lines[1].tokens[0].kind == Comment && multiline.lines[1].foldEnd == -1);
 		multiline.update('/* start */\ninside {\nend */\nvar a = 1;', syntax);
 		check("changed lexical state re-highlights until it converges", multiline.lines[1].tokens[0].kind != Comment && multiline.highlighted >= 3);
+		// HXX text is language data, not an uppercase type identifier (fb9ee3b).
+		var markupSource = 'return <div class="stack">\n    <button onClick={_ -> {\n        trace("}");\n    }}>\n        Add one\n    </button>\n    <text>$' + '{count.get()}</text>\n    <Widget />\n</div>;\nvar count = 42;';
+		var markupDoc = new CodeDocument(markupSource, syntax);
+		check("HXX child text is a markup text token", kindAt(markupDoc, 4, "Add") == MarkupText && kindAt(markupDoc, 4, "one") == MarkupText);
+		check("HXX tags and attributes have distinct token kinds", kindAt(markupDoc, 0, "div") == Tag && kindAt(markupDoc, 0, "class") == Attribute
+			&& kindAt(markupDoc, 1, "onClick") == Attribute && kindAt(markupDoc, 7, "Widget") == Tag);
+		check("HXX attribute expressions use the host lexer across lines", kindAt(markupDoc, 2, "trace") == Function && kindAt(markupDoc, 2, '"}"') == StringLiteral);
+		check("HXX text interpolation returns to markup then host code", kindAt(markupDoc, 6, "get") == Function && kindAt(markupDoc, 9, "var") == Keyword && kindAt(markupDoc, 9, "42") == Number);
+		for (line in markupDoc.lines) {
+			var end = 0;
+			for (token in line.tokens) {
+				check("syntax spans are ordered and cover the source without gaps", token.from == end && token.to > token.from && token.to <= line.text.length);
+				end = token.to;
+			}
+			check("syntax spans keep original line offsets", end == line.text.length);
+		}
+		markupDoc.update(StringTools.replace(markupSource, "Add one", "Add two"), syntax);
+		check("markup text edits preserve incremental highlighting", markupDoc.highlighted == 1, markupDoc.highlighted);
+		var generic = new CodeDocument('var items:Map<String, Array<Int>>;\nif (a<b) return a;', syntax);
+		check("generic types and comparisons do not enter markup mode", kindAt(generic, 0, "String") == Type && kindAt(generic, 1, "return") == Keyword);
 		for (dark in [true, false]) {
 			ThemeState.init(DefaultTheme.bundle(), dark ? Dark : Light);
 			var hooks = LayoutTree.layoutHooks.length, tree = new LayoutTree(), dispose:Void->Void = null;
 			var editor = new Ref<CodeEditor>(), viewer = new Ref<CodeView>();
-			var value = signal(source), readOnly = signal(false), disabled = signal(false), mounted = signal(true), changes = 0;
+			var value = signal(source), readOnly = signal(false), disabled = signal(false), mounted = signal(true), shown = signal(true), changes = 0;
 			var root = Owner.root(tree, stop -> {
 				dispose = stop;
 				return <div width={760} height={600} class="flex-col gap-4 p-4">
-					<if {mounted.get()}><code-editor ref={editor} id="editor" language="haxe" value={value} readOnly={readOnly} disabled={disabled} height={270} indentGuides={true} onInput={_ -> changes++} /></if>
+					<if {mounted.get()}><code-editor ref={editor} id="editor" language="haxe" value={value} readOnly={readOnly} disabled={disabled} height={270} indentGuides={true}
+						display={computed(() -> shown.get() ? Display.Flex : Display.None)} onInput={_ -> changes++} /></if>
 					<code-view ref={viewer} id="viewer" language="json" value={'{"name": "Ashui",\n "ready": true\n}'} height={200} />
 				</div>;
 			});
@@ -52,6 +85,17 @@ class CodeComponents {
 			settle();
 			var ed = editor.get(), e = ed.editing;
 			check("native font metrics have a usable line height", ed.metrics.lineHeight > 10 && ed.metrics.characterWidth > 3);
+			ed.focus(); ed.select(opening, opening); settle();
+			check("a caret next to a brace highlights both matched glyphs", Css.query(tree, ed.node.id, ".ui-code-bracket").length == 2);
+			var editorBox = tree.getBounds(ed.scroll.node), gutterBox = tree.getBounds(Identity.of(tree, Css.query(tree, ed.node.id, ".ui-code-gutter")[0]).node);
+			var braceStop = e.stopAt(opening, value.get());
+			ed.select(0, 0); settle();
+			Pointer.move(tree, editorBox.x + gutterBox.width + 12 + braceStop.x + ed.metrics.characterWidth * .25, editorBox.y + 12 + braceStop.line * ed.metrics.lineHeight + ed.metrics.lineHeight / 2);
+			Pointer.press(tree); Pointer.release(tree); settle();
+			check("clicking a brace moves the caret and highlights its pair", (e.caret.get() == opening || e.caret.get() == opening + 1)
+				&& Css.query(tree, ed.node.id, ".ui-code-bracket").length == 2);
+			ed.select(source.indexOf('"}"') + 1, source.indexOf('"}"') + 1); settle();
+			check("clicking inside string braces does not highlight code pairs", Css.query(tree, ed.node.id, ".ui-code-bracket").length == 0);
 			var numberBounds = [for (id in Css.query(tree, ed.node.id, ".ui-code-line-number")) tree.getBounds(Identity.of(tree, id).node)];
 			check("line numbers align with and without fold carets", numberBounds.length >= 6
 				&& !Lambda.exists(numberBounds, b -> Math.abs(b.x - numberBounds[0].x) > .05 || Math.abs(b.width - numberBounds[0].width) > .05), numberBounds);
@@ -60,7 +104,18 @@ class CodeComponents {
 			check("typing writes the shared signal and callback", StringTools.startsWith(value.get(), "// Hello\n") && changes == 1);
 			ed.undo(); settle(); check("undo restores text and selection", value.get() == source && e.caret.get() == 0);
 			ed.redo(); settle(); check("redo restores the edit", StringTools.startsWith(value.get(), "// Hello\n"));
+			// Retained editor tabs must not rebuild signals, tokens or shaped rows (2aca664).
+			ed.toggleFold(3); settle();
+			var retainedRows = Css.query(tree, ed.node.id, ".ui-code-line").copy();
+			var retainedCaret = e.caret.get(), retainedHeight = @:privateAccess ed.viewHeight.get();
+			for (_ in 0...4) { shown.set(false); settle(); shown.set(true); settle(); }
+			check("tab visibility keeps the editor and its native row nodes", editor.get() == ed
+				&& retainedRows.join(",") == Css.query(tree, ed.node.id, ".ui-code-line").join(","));
+			check("inactive tabs retain selection, folds and viewport measurements", e.caret.get() == retainedCaret
+				&& ed.document.lines[3].folded && @:privateAccess ed.viewHeight.get() == retainedHeight);
+			ed.toggleFold(3); settle();
 			ed.undo(); settle();
+			check("undo history survives tab visibility changes", value.get() == source);
 			ed.select(source.indexOf("{") + 1, source.indexOf("{") + 1); press(Named(Enter), Enter);
 			check("Enter indents a new block line", value.get().indexOf("{\n    \n") >= 0, value.get());
 			ed.undo(); settle();

@@ -8,6 +8,7 @@ import ashui.css.Css;
 import ashui.layout.Element;
 import ashui.reactive.Reactive;
 import ashui.theme.themes.DefaultTheme;
+import ashui.types.Style.Display;
 import ashui.ui.Ref;
 #if ashui_window
 import ashui.app.WindowConfig;
@@ -40,9 +41,10 @@ class CodeWorkbench {
 						<div class="grow" />
 						<button type="button" variant={Ghost} size={Sm} onClick={_ -> { value.set(SAMPLE); changes.set(0); }}>Reset</button>
 					</div>
-					<if {tab.get() == "source"}>
-						<code-editor ref={editor} class="cw-editor" value={value} language="haxe" label="Counter source" indentGuides={true} onInput={_ -> changes.set(changes.get() + 1)} />
-					<else><div class="cw-notes"><text>Try typing, selecting text, or folding a block.</text><text>Tab indents. Shift+Tab removes indentation.</text><text>Undo and redo use the usual keyboard shortcuts.</text></div></if>
+					<!-- Retain editor history, folds and shaped rows across tab changes (2aca664). -->
+					<code-editor ref={editor} class="cw-editor" display={computed(() -> tab.get() == "source" ? Display.Flex : Display.None)}
+						value={value} language="haxe" label="Counter source" indentGuides={true} onInput={_ -> changes.set(changes.get() + 1)} />
+					<div class="cw-notes" display={computed(() -> tab.get() == "notes" ? Display.Flex : Display.None)}><text>Try typing, selecting text, or folding a block.</text><text>Tab indents. Shift+Tab removes indentation.</text><text>Undo and redo use the usual keyboard shortcuts.</text></div>
 					<div class="cw-status"><text>Haxe</text><text>UTF-8</text><div class="grow" /><text>${changes.get() == 0 ? "Ready to edit" : changes.get() + " edits"}</text></div>
 				</div>
 				<div class="cw-sidebar">
