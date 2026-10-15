@@ -15,7 +15,6 @@ import ashui.input.Scroll;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
 import ashui.layout.LayoutTree;
-import ashui.layout.Prop;
 import ashui.reactive.Computed;
 import ashui.reactive.Owner;
 import ashui.reactive.Signal;
@@ -185,12 +184,14 @@ class CodeEditor extends Component<CodeEditorProps> {
 					<if {folded(row)}><text class="ui-code-text ui-code-fold-hint" left={row.width + 8}> … </text></if>
 				</div>
 			</for>
-			<div class="ui-code-gutter" left={Computed.make(() -> (scroll == null ? 0 : scroll.x.get() : Single))} width={Computed.make(() -> (gutter.get() : Single))} height={contentHeight}>
+			<div class="ui-code-gutter" left={Computed.make(() -> { revision.get(); (scroll == null ? 0 : scroll.x.get() : Single); })} width={Computed.make(() -> (gutter.get() : Single))} height={contentHeight}>
 				<for {row in rows}>
 					<div class="ui-code-gutter-line" top={row.top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))}>
 						<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) : Single))}>${Std.string(row.source + 1)}</text></if>
-						<if {props.folding != false && row.line.foldEnd >= 0}>
-							${foldButton(row)}
+						<if {props.folding != false}>
+							<div class="ui-code-fold-slot">
+								<if {row.line.foldEnd >= 0}>${foldButton(row)}</if>
+							</div>
 						</if>
 					</div>
 				</for>
@@ -413,7 +414,12 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var beforeInput = e.onBeforeInput, input = e.onInput, replacement = next.join("\n");
 		e.onBeforeInput = null; e.onInput = null;
 		e.anchor.set(from); e.caret.set(to); e.replace(replacement);
-		e.anchor.set(from); e.caret.set(from + replacement.length);
+		if (range.from == range.to) {
+			var removed = lines[0].length - next[0].length;
+			e.caret.set(Std.int(Math.max(from, range.from - removed))); e.anchor.set(e.caret.get());
+		} else if (selection.caret < selection.anchor) {
+			e.caret.set(from); e.anchor.set(from + replacement.length);
+		} else { e.anchor.set(from); e.caret.set(from + replacement.length); }
 		e.onBeforeInput = beforeInput; e.onInput = input;
 		if (value.get() != s) {
 			history.record(s, value.get(), selection, {caret: e.caret.get(), anchor: e.anchor.get()});

@@ -1222,6 +1222,7 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-gutter { background: var(--ui-code-gutter-bg, var(--surface)); border-right: 1px solid var(--border); }
 .ui-code-gutter-line { left: 0; flex-direction: row; align-items: center; justify-content: flex-end; padding-right: 4px; gap: 2px; }
 .ui-code-line-number { text-align: right; color: var(--ui-code-line-number, var(--text-tertiary)); pointer-events: none; }
+.ui-code-fold-slot { width: 20px; height: 20px; flex-shrink: 0; align-items: center; justify-content: center; }
 .ui-code-fold.ui-button {
 	width: 20px; height: 20px; min-width: 0; padding: 0; flex-shrink: 0; border: 0; box-shadow: none;
 	border-radius: var(--radius-sm); color: var(--text-tertiary); background: transparent;

@@ -83,10 +83,15 @@ supplies the return value. See the [dialog and form guide](https://github.com/ra
 | Overlays | Dialog, Sheet, Drawer, Popover, Tooltip, HoverCard, Toast |
 | Navigation | Command, Tabs, Accordion, DropdownMenu, ContextMenu, Menubar, TreeView, Sidebar |
 | Content | Card, Badge, Avatar, Alert, Table, Chart, Progress, Spinner, Skeleton |
+| Code | CodeView, CodeEditor with syntax highlighting, line numbers and folding |
 | Layout | ScrollArea, Resizable, AspectRatio, Separator |
 
 Each [component source](https://github.com/rayzor-blade/ashui/tree/main/components/haxe/ashui/components) documents its props, parts,
 events and CSS hooks.
+
+[Code views and editors](https://github.com/rayzor-blade/ashui/blob/main/docs/code-editor.md)
+share native text editing, viewport rendering and theme styling. Use a signal
+for an editable source, or a read-only CodeView for selectable examples.
 
 ## Gallery
 

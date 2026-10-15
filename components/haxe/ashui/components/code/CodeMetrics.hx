@@ -30,9 +30,7 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 	public function prepare(value:String):Void {
 		if (document.update(value, syntax)) {
 			// Retain only live, unchanged lines; evicted document lines must be released.
-			var live = new haxe.ds.ObjectMap<CodeLine, Bool>();
-			for (line in document.lines) live.set(line, true);
-			for (line in recent.copy()) if (!live.exists(line)) { cache.remove(line); recent.remove(line); }
+			for (line in recent.copy()) if (line.generation != document.generation) { cache.remove(line); recent.remove(line); }
 		}
 		lines = document.visible.length;
 		if (!valid && text != null) {

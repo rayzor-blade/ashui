@@ -52,6 +52,10 @@ class CodeComponents {
 			settle();
 			var ed = editor.get(), e = ed.editing;
 			check("native font metrics have a usable line height", ed.metrics.lineHeight > 10 && ed.metrics.characterWidth > 3);
+			var numberBounds = [for (id in Css.query(tree, ed.node.id, ".ui-code-line-number")) tree.getBounds(Identity.of(tree, id).node)];
+			check("line numbers align with and without fold carets", numberBounds.length >= 6
+				&& !Lambda.exists(numberBounds, b -> Math.abs(b.x - numberBounds[0].x) > .05 || Math.abs(b.width - numberBounds[0].width) > .05), numberBounds);
+			check("every gutter row reserves its fold-caret column", Css.query(tree, ed.node.id, ".ui-code-fold-slot").length == numberBounds.length);
 			ed.focus(); ed.select(0, 0); Keyboard.text(tree, "// Hello\n"); settle();
 			check("typing writes the shared signal and callback", StringTools.startsWith(value.get(), "// Hello\n") && changes == 1);
 			ed.undo(); settle(); check("undo restores text and selection", value.get() == source && e.caret.get() == 0);
@@ -72,6 +76,11 @@ class CodeComponents {
 			ed.undo(); settle();
 			ed.select(5, 5); press(Named(Backspace), Backspace); ed.undo(); settle();
 			check("delete undo restores a collapsed caret", value.get() == source && e.caret.get() == 5 && e.anchor.get() == 5);
+			var shifted = window.Modifiers.State(true, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+			var indentedAt = source.indexOf("    //") + 4;
+			ed.select(indentedAt, indentedAt); press(Named(Tab), Tab, shifted);
+			check("Shift+Tab outdents without selecting the line", e.caret.get() == indentedAt - 4 && e.anchor.get() == e.caret.get());
+			ed.undo(); settle();
 			ed.select(0, 0); readOnly.set(true); settle(); Keyboard.text(tree, "refused"); press(Named(Delete), Delete);
 			check("read-only keeps source immutable", value.get() == source);
 			readOnly.set(false); settle();
@@ -95,6 +104,13 @@ class CodeComponents {
 			press(Named(Enter), Enter); check("keyboard activates the focused fold button", !ed.document.lines[0].folded);
 			var view = viewer.get(); view.focus(); view.select(0, 0); Keyboard.text(tree, "refused"); settle();
 			check("CodeView supports selection without mutation", StringTools.startsWith(view.value.get(), "{\"name\""));
+			value.set('class Wide {\n    var text = "' + [for (_ in 0...80) "long source"].join(" ") + '";\n}\n'); settle();
+			ed.scroll.jumpTo(160, 0); settle();
+			check("long source scrolls horizontally", ed.scroll.x.get() == 160);
+			var pinnedFold = tree.getBounds(Identity.of(tree, Css.query(tree, ed.node.id, ".ui-code-fold")[0]).node);
+			Pointer.move(tree, pinnedFold.x - ed.scroll.x.get() + pinnedFold.width / 2, pinnedFold.y - ed.scroll.y.get() + pinnedFold.height / 2);
+			Pointer.press(tree); Pointer.release(tree); settle();
+			check("gutter fold remains clickable after horizontal scrolling", ed.document.lines[0].folded);
 			var large = [for (i in 0...5000) 'var item$i = $i;'].join("\n");
 			value.set(large); settle();
 			check("large document retains all source lines", ed.document.lines.length == 5000);
@@ -105,8 +121,18 @@ class CodeComponents {
 			ed.scroll.jumpTo(0, 3000); settle();
 			check("scrolling renders later source rows", Std.parseInt(ashui.ui.Text.at(Css.query(tree, ed.node.id, ".ui-code-line-number")[0]).text()) > 50);
 			check("shaped line cache is bounded", @:privateAccess ed.metrics.recent.length <= 96);
+			var cacheBefore = @:privateAccess ed.metrics.recent.copy();
 			value.set("reset"); settle(); ed.undo(); settle();
 			check("external source reset clears incompatible undo history", value.get() == "reset");
+			check("reset releases shaped lines from the old document", !Lambda.exists(cacheBefore, line -> @:privateAccess ed.metrics.recent.indexOf(line) >= 0));
+			var widthBefore = ed.metrics.characterWidth;
+			Css.load('#editor { --ui-code-font-size: 24px; }'); settle();
+			check("CSS font changes invalidate native caret metrics", ed.metrics.characterWidth > widthBefore * 1.2);
+			Css.load('#editor { --ui-code-font-size: 14px; }'); settle();
+			ashui.input.Focus.clear(tree); settle();
+			for (_ in 0...2) { ashui.animation.AnimationScheduler.main.tick(1); settle(); }
+			check("unfocused code views have no idle animation or caret timer", !ashui.animation.AnimationScheduler.main.hasActive()
+				&& ashui.animation.AnimationScheduler.main.untilNextTimer() == null);
 			dispose(); ashui.animation.AnimationScheduler.main.tick(1); tree.flush();
 			check("disposing code controls releases layout hooks", LayoutTree.layoutHooks.length == hooks);
 			tree.dispose();

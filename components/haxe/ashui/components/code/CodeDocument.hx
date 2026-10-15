@@ -10,6 +10,7 @@ class CodeLine {
 	public var outgoing = "";
 	public var foldEnd = -1;
 	public var folded = false;
+	public var generation = 0;
 	public function new(text:String) this.text = text;
 }
 
@@ -21,6 +22,7 @@ class CodeDocument {
 	public var rows(default, null):Array<Int> = [];
 	/** Number of lines re-lexed by the last update, useful in performance diagnostics. **/
 	public var highlighted(default, null) = 0;
+	public var generation(default, null) = 0;
 	var syntax:CodeHighlighter;
 
 	public function new(text:String, syntax:CodeHighlighter) update(text, syntax);
@@ -30,6 +32,7 @@ class CodeDocument {
 		var sameSyntax = this.syntax == syntax;
 		this.syntax = syntax;
 		this.text = text;
+		generation++;
 		var raw = text.split("\n"), old = lines, prefix = 0, suffix = 0;
 		if (sameSyntax) {
 			while (prefix < old.length && prefix < raw.length && old[prefix].text == raw[prefix]) prefix++;
@@ -41,6 +44,7 @@ class CodeDocument {
 		for (i in 0...raw.length) {
 			var line = i < prefix ? old[i] : i >= raw.length - suffix ? old[old.length - raw.length + i] : new CodeLine(raw[i]);
 			line.start = start;
+			line.generation = generation;
 			line.foldEnd = -1;
 			if (line.incoming != state) {
 				var result = syntax.highlight(line.text, state);

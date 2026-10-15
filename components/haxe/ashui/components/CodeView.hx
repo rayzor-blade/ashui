@@ -1,5 +1,7 @@
 package ashui.components;
 
+typedef CodeViewProps = ashui.components.CodeEditor.CodeEditorProps;
+
 /**
 	Selectable code with highlighting, line numbers and folding (e53597f).
 	Accepts the same source, grammar and display options as CodeEditor;
