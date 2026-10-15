@@ -2268,8 +2268,10 @@ class Smoke {
 		check("removing the last pointer query releases its move hook", ashui.input.Pointer.hooks.length == pointerHooksBefore);
 		ashui.css.Css.remove(pointerSheet);
 
-		// --- CSS files: loaded, and read again when they change ---
-		var cssPath = "live.css";
+		// Generated fixtures stay ignored even when Smoke runs from the repo root (77939b8).
+		var cssDir = ".ashui/tests/smoke";
+		sys.FileSystem.createDirectory(cssDir);
+		var cssPath = haxe.io.Path.join([cssDir, "live.css"]);
 		sys.io.File.saveContent(cssPath, ".live { width: 10px; height: 10px; }");
 		var fileSheet = ashui.css.Css.loadFile(cssPath);
 		var fileTree = new LayoutTree();
@@ -2282,6 +2284,7 @@ class Smoke {
 		var firstWidth = liveWidth();
 		check("Css.loadFile puts a file in force", firstWidth == 10, firstWidth);
 		ashui.css.Css.remove(fileSheet);
+		sys.FileSystem.deleteFile(cssPath);
 
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);
