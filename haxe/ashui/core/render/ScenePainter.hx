@@ -493,15 +493,20 @@ class ScenePainter {
 		var viewProjection = projection.mul(view);
 		// Frustum culling: a draw whose bounds are wholly outside the camera's view is not drawn, nor drawn again for glow.
 		// Its buffers stay uploaded while the app keeps drawing it, so it shows again at once when it comes into view.
-		var inView = [for (d in draws) !d.material.culled || inside(viewProjection, d)];
+		var inView = inViewBuf;
+		inView.resize(draws.length);
 		culled = 0;
-		for (v in inView)
+		for (i in 0...draws.length) {
+			var v = !draws[i].material.culled || inside(viewProjection, draws[i]);
+			inView[i] = v;
 			if (!v)
 				culled++;
+		}
 		// A blended material at full opacity is drawn in two halves: its solid fragments with the opaque meshes,
 		// writing depth, so a shell its exporter marked blended hides what is inside it; then the rest, blended.
 		// Each entry is a draw's index times two, plus one for a solid half.
-		var entries = [];
+		var entries = entriesBuf;
+		entries.resize(0);
 		for (i in 0...draws.length) {
 			entries.push(i * 2);
 			if (draws[i].material.alphaMode == Blend && draws[i].opacity >= 1)
@@ -523,24 +528,34 @@ class ScenePainter {
 			var da = distance(a >> 1), db = distance(b >> 1);
 			return da > db ? -1 : da < db ? 1 : 0;
 		});
-		var order = [for (e in entries) e >> 1];
-		var solid = [for (e in entries) e & 1 == 1];
+		var order = orderBuf, solid = solidBuf;
+		order.resize(entries.length);
+		solid.resize(entries.length);
+		for (i in 0...entries.length) {
+			order[i] = entries[i] >> 1;
+			solid[i] = entries[i] & 1 == 1;
+		}
 		// Each draw's transform in the previous frame: the same mesh's, drawn as many times before it then; its own if it is new.
-		var models = new haxe.ds.ObjectMap<MeshData, Array<Mat4>>();
-		var before = [
-			for (d in draws) {
+		// Only motion blur reads it; without it, "no movement" is correct and free of the bookkeeping.
+		var before = beforeBuf;
+		before.resize(draws.length);
+		if (scene.motionBlur > 0) {
+			var models = new haxe.ds.ObjectMap<MeshData, Array<Mat4>>();
+			for (i in 0...draws.length) {
+				var d = draws[i];
 				var now = models.get(d.mesh);
 				if (now == null) {
 					now = [];
 					models.set(d.mesh, now);
 				}
 				var then = layer.previousModels.get(d.mesh);
-				var prior = then != null && now.length < then.length ? then[now.length] : d.transform;
+				before[i] = then != null && now.length < then.length ? then[now.length] : d.transform;
 				now.push(d.transform);
-				prior;
 			}
-		];
-		layer.previousModels = models;
+			layer.previousModels = models;
+		} else
+			for (i in 0...draws.length)
+				before[i] = draws[i].transform;
 		// The draws' rows, in a buffer kept from frame to frame.
 		var size = entries.length * ashui.shaders.MeshDraw.ROWS * 16;
 		if (drawBytes == null || drawBytes.length < size)
@@ -585,9 +600,10 @@ class ScenePainter {
 				p.prepare(passFrame);
 			if (shadows != null)
 				drawShadows(frame, encoder, passFrame, draws, order, solid, passes, shadows.viewProjection);
-			var groups = [
-				for (i in order) materialGroup(frame, draws[i].material, passFrame.environment, passFrame.shadowMap)
-			];
+			var groups = groupsBuf;
+			groups.resize(order.length);
+			for (i in 0...order.length)
+				groups[i] = materialGroup(frame, draws[order[i]].material, passFrame.environment, passFrame.shadowMap);
 			var color = new GpuRenderPassColorAttachment(Clear, Store);
 			color.viewTextureView(layer.colorView);
 			// Premultiplied, as the layer is composited.
@@ -644,6 +660,15 @@ class ScenePainter {
 
 	/** The draws' rows, kept between frames so that none are allocated. **/
 	var drawBytes:Null<haxe.io.Bytes> = null;
+
+	// Per-draw scratch, kept between frames and resized in place rather than
+	// rebuilt, since a scene's draw count is usually the same frame to frame.
+	var inViewBuf:Array<Bool> = [];
+	var entriesBuf:Array<Int> = [];
+	var orderBuf:Array<Int> = [];
+	var solidBuf:Array<Bool> = [];
+	var groupsBuf:Array<GpuBindGroup> = [];
+	var beforeBuf:Array<Mat4> = [];
 
 	static final cullScratch = new haxe.ds.Vector<Float>(16);
 
@@ -1101,17 +1126,34 @@ class ScenePainter {
 	static function sceneBounds(draws:Array<SceneDraw>):{min:Vec3, max:Vec3} {
 		if (draws.length == 0)
 			return {min: Vec3.ZERO, max: Vec3.ZERO};
-		var lo = new Vec3(Math.POSITIVE_INFINITY, Math.POSITIVE_INFINITY, Math.POSITIVE_INFINITY);
-		var hi = new Vec3(Math.NEGATIVE_INFINITY, Math.NEGATIVE_INFINITY, Math.NEGATIVE_INFINITY);
-		for (d in draws)
-			for (x in [d.mesh.min.x, d.mesh.max.x])
-				for (y in [d.mesh.min.y, d.mesh.max.y])
-					for (z in [d.mesh.min.z, d.mesh.max.z]) {
-						var p = d.transform.transformPoint(new Vec3(x, y, z));
-						lo = new Vec3(Math.min(lo.x, p.x), Math.min(lo.y, p.y), Math.min(lo.z, p.z));
-						hi = new Vec3(Math.max(hi.x, p.x), Math.max(hi.y, p.y), Math.max(hi.z, p.z));
+		var loX = Math.POSITIVE_INFINITY, loY = Math.POSITIVE_INFINITY, loZ = Math.POSITIVE_INFINITY;
+		var hiX = Math.NEGATIVE_INFINITY, hiY = Math.NEGATIVE_INFINITY, hiZ = Math.NEGATIVE_INFINITY;
+		// Each corner through the transform directly, in floats: the mesh's own
+		// 8 bounding corners, min and max of each axis, do not need a Vec3 each.
+		for (d in draws) {
+			var mn = d.mesh.min, mx = d.mesh.max, m = d.transform.m;
+			for (cx in 0...2) {
+				var x = cx == 0 ? mn.x : mx.x;
+				for (cy in 0...2) {
+					var y = cy == 0 ? mn.y : mx.y;
+					for (cz in 0...2) {
+						var z = cz == 0 ? mn.z : mx.z;
+						var w = m[3] * x + m[7] * y + m[11] * z + m[15];
+						var s = w != 0 ? 1 / w : 1;
+						var px = (m[0] * x + m[4] * y + m[8] * z + m[12]) * s,
+							py = (m[1] * x + m[5] * y + m[9] * z + m[13]) * s,
+							pz = (m[2] * x + m[6] * y + m[10] * z + m[14]) * s;
+						if (px < loX) loX = px;
+						if (py < loY) loY = py;
+						if (pz < loZ) loZ = pz;
+						if (px > hiX) hiX = px;
+						if (py > hiY) hiY = py;
+						if (pz > hiZ) hiZ = pz;
 					}
-		return {min: lo, max: hi};
+				}
+			}
+		}
+		return {min: new Vec3(loX, loY, loZ), max: new Vec3(hiX, hiY, hiZ)};
 	}
 
 	var shadowColor:Null<Uploaded> = null;
