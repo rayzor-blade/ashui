@@ -23,6 +23,39 @@ class PackageTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 PACKAGER.version_of(invalid)
 
+    def test_readme_links_and_embeds_become_absolute(self):
+        source = "\n".join([
+            "![Banner](docs/images/charts-dark.png)",
+            '<img src="./docs/images/ashui-logo.png" width="200">',
+            '<video src="docs/images/drawer-motion.gif" poster="docs/images/charts-light.png"></video>',
+            "See [debugging](docs/debugging.md#the-inspector), the [license](LICENSE) and the [components](components).",
+            "[ref]: canvaskit/README.md",
+            "[site](https://ash.rayzor.tech/) and [top](#usage) stay as they are.",
+            "```haxe",
+            '<a href="docs/not-a-link">code is left as written</a> and [x](also/not/a/link)',
+            "```",
+            "Inline `[x](still/code)` too.",
+        ])
+        out = PACKAGER.rewrite_links(source, ROOT)
+        raw, page = PACKAGER.README_IMAGE_BASE, PACKAGER.README_LINK_BASE
+        self.assertIn(f"![Banner]({raw}docs/images/charts-dark.png)", out)
+        self.assertIn(f'<img src="{raw}docs/images/ashui-logo.png" width="200">', out)
+        self.assertIn(f'<video src="{raw}docs/images/drawer-motion.gif" poster="{raw}docs/images/charts-light.png">', out)
+        self.assertIn(f"[debugging]({page}docs/debugging.md#the-inspector)", out)
+        self.assertIn(f"[license]({page}LICENSE)", out)
+        self.assertIn("[components](https://github.com/rayzor-blade/ashui/tree/main/components)", out)
+        self.assertIn(f"[ref]: {page}canvaskit/README.md", out)
+        self.assertIn("[site](https://ash.rayzor.tech/) and [top](#usage)", out)
+        self.assertIn('<a href="docs/not-a-link">code is left as written</a> and [x](also/not/a/link)', out)
+        self.assertIn("`[x](still/code)`", out)
+        self.assertEqual(PACKAGER.relative_references(out), [])
+        self.assertEqual(PACKAGER.relative_references(source),
+                         ["docs/images/charts-dark.png", "docs/debugging.md#the-inspector", "LICENSE", "components",
+                          "canvaskit/README.md", "./docs/images/ashui-logo.png", "docs/images/drawer-motion.gif",
+                          "docs/images/charts-light.png"])
+        with self.assertRaisesRegex(ValueError, "missing file"):
+            PACKAGER.rewrite_links("[gone](docs/no-such-file.md)", ROOT)
+
     def test_missing_platform_prevents_partial_release(self):
         with tempfile.TemporaryDirectory() as directory:
             assets = Path(directory)
@@ -71,6 +104,8 @@ class PackageTest(unittest.TestCase):
                         published = PACKAGER.README_IMAGE_BASE + source.relative_to(ROOT).as_posix()
                         self.assertIn(f'src="{published}"', packaged_readme)
                         self.assertNotIn(f'src="{image}"', packaged_readme)
+                    # Haxelib's page cannot follow a path into the repository: nothing relative may be left.
+                    self.assertEqual(PACKAGER.relative_references(packaged_readme), [])
                     self.assertIn("Apache License", archive.read("LICENSE").decode())
                     self.assertFalse(any(name.startswith(("tools/", "tests/", "target/"))
                                          for name in archive.namelist()))

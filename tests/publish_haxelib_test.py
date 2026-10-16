@@ -15,13 +15,15 @@ PUBLISHER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PUBLISHER)
 
 
-def archive(directory, name, dependencies=None, contributors=None):
+def archive(directory, name, dependencies=None, contributors=None, readme=None):
     path = directory / (name + ".zip")
     metadata = dict(name=name, version="0.1.0", contributors=["rayzor", "rayzor"] if contributors is None else contributors,
                     dependencies=dependencies or {})
     with ZipFile(path, "w") as output:
         output.writestr("haxelib.json", json.dumps(metadata))
         output.writestr("Example.hx", "class Example {}")
+        if readme is not None:
+            output.writestr("README.md", readme)
     return path, metadata
 
 
@@ -38,6 +40,15 @@ class PublishTest(unittest.TestCase):
             self.assertEqual(len(PUBLISHER.packages_in(directory, ["ashui", "ashui-components"], "rayzor", "v0.1.0")), 2)
             with self.assertRaisesRegex(ValueError, "does not match release"):
                 PUBLISHER.packages_in(directory, ["ashui"], "rayzor", "v0.2.0")
+
+    def test_relative_readme_links_block_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            archive(directory, "ashui", readme="![Banner](docs/images/banner.gif) and [help](docs/debugging.md)")
+            with self.assertRaisesRegex(ValueError, "must be absolute for Haxelib: docs/images/banner.gif, docs/debugging.md"):
+                PUBLISHER.packages_in(directory, ["ashui"], "rayzor", "v0.1.0")
+            archive(directory, "ashui", readme="![Banner](https://raw.githubusercontent.com/rayzor-blade/ashui/main/docs/images/banner.gif)")
+            self.assertEqual(len(PUBLISHER.packages_in(directory, ["ashui"], "rayzor", "v0.1.0")), 1)
 
     def test_publishing_owner_update_preserves_sources(self):
         with tempfile.TemporaryDirectory() as temporary:

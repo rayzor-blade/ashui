@@ -7,8 +7,12 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 from zipfile import ZipFile
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from package_haxelib import relative_references  # noqa: E402
 
 SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(alpha|beta|rc)(\.(0|[1-9]\d*))?)?")
 
@@ -63,6 +67,11 @@ def packages_in(directory, names, account, tag, independent_versions=False):
                 raise ValueError(f"{name}: invalid Haxelib version {version}")
             if expected_version and version != expected_version:
                 raise ValueError(f"{name}: {version} does not match release {tag}")
+            # Haxelib shows the README on its own site, where a path relative to the repository leads nowhere.
+            if "README.md" in archive.namelist():
+                left = relative_references(archive.read("README.md").decode())
+                if left:
+                    raise ValueError(f"{name}: README links and embeds must be absolute for Haxelib: " + ", ".join(left))
             manifest = json.loads(archive.read("native/hdlls.json")) if "native/hdlls.json" in archive.namelist() else None
             if manifest:
                 if "platforms" in manifest:

@@ -12,21 +12,87 @@ ROOT = Path(__file__).resolve().parent.parent
 SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(alpha|beta|rc)(\.(0|[1-9]\d*))?)?")
 PACKAGES = (ROOT, ROOT / "components", ROOT / "canvaskit", ROOT / "media")
 README_IMAGE_BASE = "https://raw.githubusercontent.com/rayzor-blade/ashui/main/"
+README_LINK_BASE = "https://github.com/rayzor-blade/ashui/blob/main/"
+# Files a README shows inline: served raw, so Haxelib's page can display them.
+EMBEDDED = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".mp4", ".webm", ".mov")
+# A target that already resolves anywhere: a scheme such as https: or mailto:, a protocol-relative URL, or a fragment.
+ABSOLUTE = re.compile(r"(?i)^(?:[a-z][a-z0-9+.-]*:|//|#)")
+# Where a README names a file: inline Markdown links and images, reference definitions, and HTML src, href and poster.
+REFERENCES = (
+    re.compile(r"(\]\()(<?)([^)\s>]+)(>?(?:\s+\"[^\"]*\")?\))"),
+    re.compile(r"(?m)(^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*<?)([^\s>]+)(>?)"),
+    re.compile(r"(?i)(\b(?:src|href|poster)\s*=\s*[\"'])([^\"']+)([\"'])"),
+)
+# Fenced code blocks and inline code spans: their text is code, not links, and is left as written.
+CODE = re.compile(r"(?ms)^(```|~~~).*?^\1[^\n]*$|`[^`\n]+`")
+
+
+def outside_code(text: str, change) -> str:
+    """`text` with `change` applied to everything but its code blocks and spans."""
+    out, at = [], 0
+    for code in CODE.finditer(text):
+        out.append(change(text[at:code.start()]))
+        out.append(code.group(0))
+        at = code.end()
+    out.append(change(text[at:]))
+    return "".join(out)
+
+
+def relative_references(text: str) -> list[str]:
+    """Every file a README names by a relative path, outside code: what Haxelib's page cannot resolve."""
+    found = []
+
+    def collect(part: str) -> str:
+        for pattern in REFERENCES:
+            for match in pattern.finditer(part):
+                target = match.group(match.lastindex - 1)
+                if not ABSOLUTE.match(target):
+                    found.append(target)
+        return part
+
+    outside_code(text, collect)
+    return found
+
+
+def rewrite_links(text: str, base: Path) -> str:
+    """
+    `text`, a README in `base`, with every relative link and embed pointing at the repository's main branch:
+    images and video served raw so they display, other files at their page on GitHub. Each must name a file or
+    folder in the repository; a fragment is kept. Raises if a target is missing or anything relative is left.
+    """
+    def published(target: str) -> str:
+        path, mark, fragment = target.partition("#")
+        source = (base / path).resolve()
+        if not source.exists():
+            raise ValueError(f"README links to a missing file: {source}")
+        relative = source.relative_to(ROOT).as_posix()
+        if source.suffix.lower() in EMBEDDED:
+            return README_IMAGE_BASE + relative + mark + fragment
+        page = README_LINK_BASE if source.is_file() else README_LINK_BASE.replace("/blob/", "/tree/")
+        return page + relative + mark + fragment
+
+    def change(part: str) -> str:
+        for pattern in REFERENCES:
+            def replace(match: re.Match) -> str:
+                target = match.group(match.lastindex - 1)
+                if ABSOLUTE.match(target):
+                    return match.group(0)
+                groups = list(match.groups())
+                groups[match.lastindex - 2] = published(target)
+                return "".join(groups)
+            part = pattern.sub(replace, part)
+        return part
+
+    rewritten = outside_code(text, change)
+    left = relative_references(rewritten)
+    if left:
+        raise ValueError("README links still relative after rewriting: " + ", ".join(left))
+    return rewritten
 
 
 def release_readme(readme: Path) -> str:
-    """Keep repository previews local; use published images on Haxelib."""
-    def image_url(match: re.Match) -> str:
-        source = (readme.parent / match[2]).resolve()
-        if not source.is_file():
-            raise ValueError(f"missing README image: {source}")
-        relative = source.relative_to(ROOT).as_posix()
-        return match[1] + README_IMAGE_BASE + relative + match[3]
-
-    contents = re.sub(r"(!\[[^\n]*?\]\()((?:\./|\.\./)?docs/images/[^)\s]+)(\))",
-                      image_url, readme.read_text())
-    return re.sub(r"(<img\b[^>]*?\bsrc\s*=\s*[\"'])((?:\./|\.\./)?docs/images/[^\"'\s]+)([\"'])",
-                  image_url, contents, flags=re.IGNORECASE)
+    """Keep repository previews local; on Haxelib, point every link and embed at the repository."""
+    return rewrite_links(readme.read_text(), readme.parent)
 
 
 def version_of(tag: str) -> str:
