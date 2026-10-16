@@ -1,0 +1,11 @@
+Model Information:
+* title:	Free Mazda 6 Sedan 2011 AR/VR, LowPoly 3D Model
+* source:	https://sketchfab.com/3d-models/free-mazda-6-sedan-2011-arvr-lowpoly-3d-model-5742c2b07f224d53916307cc1e0f9cc5
+* author:	3D_Mill (https://sketchfab.com/3D_Mill)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Free Mazda 6 Sedan 2011 AR/VR, LowPoly 3D Model" (https://sketchfab.com/3d-models/free-mazda-6-sedan-2011-arvr-lowpoly-3d-model-5742c2b07f224d53916307cc1e0f9cc5) by 3D_Mill (https://sketchfab.com/3D_Mill) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

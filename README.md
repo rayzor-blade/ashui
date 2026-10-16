@@ -10,6 +10,19 @@ classes, and add animations. Three built-in themes coordinate color, shape
 and motion. Optional libraries provide 2D/3D
 canvases and audio/video APIs.
 
+![An electric car's dashboard built with ashui, in light and dark: a car turning in a 3D studio under frosted glass panels, live gauges, a street map, and a notched island whose menus open as the pointer moves across it](docs/images/banner.gif)
+
+The dashboard above is one ashui window. The car is a glTF model in a
+[`<scene-kit>`](canvaskit/README.md) viewport. The gauges, the energy chart and
+the street map are drawn on canvases. The glass panels, the island and the dock
+are HXX elements styled with CSS. Its source is
+[Banner.hx](tools/snapshot/scenes/Banner.hx).
+
+<sub>Car: [Free Mazda 6 Sedan 2011 AR/VR, LowPoly 3D Model](https://sketchfab.com/3d-models/free-mazda-6-sedan-2011-arvr-lowpoly-3d-model-5742c2b07f224d53916307cc1e0f9cc5)
+by [3D_Mill](https://sketchfab.com/3D_Mill), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with its badges
+removed and its paint changed. Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors,
+[ODbL](https://opendatacommons.org/licenses/odbl/). The car on the map is by Freepik - Magnific.com.</sub>
+
 ## Usage
 
 Save this as `Hello.hx` in your app directory:

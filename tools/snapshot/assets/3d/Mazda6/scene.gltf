@@ -1,0 +1,672 @@
+{
+  "accessors": [
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 7773,
+      "max": [
+        101.19036102294922,
+        63.579139709472656,
+        239.5694580078125
+      ],
+      "min": [
+        -101.19036102294922,
+        -63.579139709472656,
+        -239.5694580078125
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 93276,
+      "componentType": 5126,
+      "count": 7773,
+      "max": [
+        1.0,
+        1.0,
+        0.9999645948410034
+      ],
+      "min": [
+        -1.0,
+        -1.0,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 7773,
+      "max": [
+        0.720356285572052,
+        0.9977461695671082
+      ],
+      "min": [
+        0.0015499209985136986,
+        0.003142833709716797
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 26112,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 186552,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        12.118833541870117,
+        33.29506301879883,
+        33.24577331542969
+      ],
+      "min": [
+        -12.118833541870117,
+        -33.29506301879883,
+        -33.24577331542969
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 205164,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        0.9999955892562866,
+        0.9999992847442627,
+        0.9999992847442627
+      ],
+      "min": [
+        -1.0,
+        -0.9999992847442627,
+        -0.9999992847442627
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 62184,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        0.9954126477241516,
+        0.7222566604614258
+      ],
+      "min": [
+        0.7265634536743164,
+        0.008590102195739746
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 104448,
+      "componentType": 5125,
+      "count": 5094,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 223776,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        12.041977882385254,
+        33.29506301879883,
+        33.24577331542969
+      ],
+      "min": [
+        -12.041977882385254,
+        -33.29506301879883,
+        -33.24577331542969
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 242388,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        1.0,
+        0.9999992847442627,
+        1.0
+      ],
+      "min": [
+        -0.9999955892562866,
+        -0.9999992847442627,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 74592,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        0.9963892102241516,
+        0.9959962368011475
+      ],
+      "min": [
+        0.7275400161743164,
+        0.008590102195739746
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 124824,
+      "componentType": 5125,
+      "count": 5094,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 261000,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        12.118833541870117,
+        33.29506301879883,
+        33.24577331542969
+      ],
+      "min": [
+        -12.118833541870117,
+        -33.29506301879883,
+        -33.24577331542969
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 279612,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        0.9999955892562866,
+        0.9999992847442627,
+        0.9999992847442627
+      ],
+      "min": [
+        -1.0,
+        -0.9999992847442627,
+        -0.9999992847442627
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 87000,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        0.9954126477241516,
+        0.7222566604614258
+      ],
+      "min": [
+        0.7265634536743164,
+        0.008590102195739746
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 145200,
+      "componentType": 5125,
+      "count": 5094,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 298224,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        12.041977882385254,
+        33.29506301879883,
+        33.24577331542969
+      ],
+      "min": [
+        -12.041977882385254,
+        -33.29506301879883,
+        -33.24577331542969
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 316836,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        1.0,
+        0.9999992847442627,
+        1.0
+      ],
+      "min": [
+        -0.9999955892562866,
+        -0.9999992847442627,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 99408,
+      "componentType": 5126,
+      "count": 1551,
+      "max": [
+        0.9963892102241516,
+        0.9959962368011475
+      ],
+      "min": [
+        0.7275400161743164,
+        0.008590102195739746
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 165576,
+      "componentType": 5125,
+      "count": 5094,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "3D_Mill (https://sketchfab.com/3D_Mill)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/free-mazda-6-sedan-2011-arvr-lowpoly-3d-model-5742c2b07f224d53916307cc1e0f9cc5",
+      "title": "Free Mazda 6 Sedan 2011 AR/VR, LowPoly 3D Model"
+    },
+    "generator": "Sketchfab-15.37.0",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 185952,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 111816,
+      "byteOffset": 185952,
+      "byteStride": 8,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 335448,
+      "byteOffset": 297768,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 633216,
+      "uri": "scene.bin"
+    }
+  ],
+  "images": [
+    {
+      "uri": "textures/Scene_-_Root_baseColor.jpeg"
+    },
+    {
+      "uri": "textures/Scene_-_Root_metallicRoughness.png"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Scene_-_Root",
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicFactor": 0.0,
+        "metallicRoughnessTexture": {
+          "index": 1
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Body__0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "FL__0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 5,
+            "POSITION": 4,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "FR__0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 9,
+            "POSITION": 8,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "RL__0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 13,
+            "POSITION": 12,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "RR__0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 17,
+            "POSITION": 16,
+            "TEXCOORD_0": 18
+          },
+          "indices": 19,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.220446049250313e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.220446049250313e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Sketchfab_model"
+    },
+    {
+      "children": [
+        2
+      ],
+      "matrix": [
+        0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.009999999776482582,
+        0.0,
+        0.0,
+        -0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "b572a4ab79834153adda41db0d98b73d.fbx"
+    },
+    {
+      "children": [
+        3
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        4,
+        6,
+        8,
+        10,
+        12
+      ],
+      "matrix": [
+        2.220446049250313e-16,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        2.220446049250313e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Mazda_6_Sedan_2011"
+    },
+    {
+      "children": [
+        5
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0240100260201437e-16,
+        82.00859832763672,
+        -0.4611731171607971,
+        1.0
+      ],
+      "name": "Body"
+    },
+    {
+      "mesh": 0,
+      "name": "Body__0"
+    },
+    {
+      "children": [
+        7
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        77.2340316772461,
+        33.25347900390625,
+        143.08448791503906,
+        1.0
+      ],
+      "name": "FL"
+    },
+    {
+      "mesh": 1,
+      "name": "FL__0"
+    },
+    {
+      "children": [
+        9
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -77.22518157958984,
+        33.25347900390625,
+        143.08448791503906,
+        1.0
+      ],
+      "name": "FR"
+    },
+    {
+      "mesh": 2,
+      "name": "FR__0"
+    },
+    {
+      "children": [
+        11
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        77.2340316772461,
+        33.25347900390625,
+        -133.781005859375,
+        1.0
+      ],
+      "name": "RL"
+    },
+    {
+      "mesh": 3,
+      "name": "RL__0"
+    },
+    {
+      "children": [
+        13
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -77.22518157958984,
+        33.25347900390625,
+        -133.781005859375,
+        1.0
+      ],
+      "name": "RR"
+    },
+    {
+      "mesh": 4,
+      "name": "RR__0"
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Sketchfab_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    }
+  ]
+}
