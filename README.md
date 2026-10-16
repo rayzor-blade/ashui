@@ -14,8 +14,8 @@ canvases and audio/video APIs.
 
 The dashboard above is one ashui window. The car is a glTF model in a
 [`<scene-kit>`](canvaskit/README.md) viewport. The gauges, the energy chart and
-the street map are drawn on canvases. The glass panels, the island and the dock
-are HXX elements styled with CSS. Its source is
+the street map are drawn on ashui canvases. The glass panels, the island and the dock
+are HXX elements styled with CSS. Demo source is available at
 [Banner.hx](tools/snapshot/scenes/Banner.hx).
 
 <sub>Car: [Free Mazda 6 Sedan 2011 AR/VR, LowPoly 3D Model](https://sketchfab.com/3d-models/free-mazda-6-sedan-2011-arvr-lowpoly-3d-model-5742c2b07f224d53916307cc1e0f9cc5)
