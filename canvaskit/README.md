@@ -159,14 +159,45 @@ draw reactively and keep no idle ticker. Try the
 [SceneGizmos demo](https://github.com/rayzor-blade/ashui/blob/main/tools/demo/SceneGizmos.hx)
 or select a model in Studio3D.
 
-- **Geometry and assets:** `Geometry` builds primitives and terrain;
-  `Gltf.load()` reads glTF/GLB models. `GltfPose` and `GltfAnimation` handle
+- **Geometry and assets:** `Geometry` builds primitives, terrain and
+  `lathe` surfaces turned from a profile; `Gltf.load()` reads glTF/GLB models. `GltfPose` and `GltfAnimation` handle
   node transforms, skins, morph targets and animation playback.
 - **Lighting:** configure lights and ambient strength, use `Environment`
   for HDR lighting, `Skybox` for a visible sky and `GroundGrid` for a floor.
   Directional lights can cast shadows.
 - **Effects:** exposure, fog, bloom, color grading, vignette, grain,
   chromatic aberration, lens distortion, motion blur and FXAA.
+
+### Modelling smooth shapes
+
+A `Cage` models a shape that primitives cannot, such as a car's body. You
+place a few hundred points and join them into faces. Catmull-Clark
+subdivision then smooths the cage into a surface. Creases keep chosen edges
+sharp, such as a shoulder line or a window's edge. Each face has a material
+slot, so one surface can be partly paint and partly glass:
+
+```haxe
+import ashui.canvaskit.Cage;
+import ashui.draw3d.Material;
+import ashui.math.Vec3;
+
+var cage = new Cage();
+// The right half of the shape: every point at x >= 0, the middle line at x = 0.
+var a = cage.add(new Vec3(0, 0, 0)), b = cage.add(new Vec3(1, 0, 0));
+var c = cage.add(new Vec3(1, 1, 0)), d = cage.add(new Vec3(0, 1, 0));
+cage.face([a, b, c, d], 0);         // counter-clockwise seen from outside, slot 0
+cage.crease(b, c);                  // a hard edge; crease(b, c, 2) softens after two levels
+var surface = cage.mirrored().subdivided(3);
+var meshes = surface.meshes([new Material({baseColor: 0xc8ccd2, metallic: 0.6}),
+    new Material({baseColor: 0x10151d, roughness: 0.2})]);
+```
+
+`grid` joins rows of points into quads. An edge with only one face is an
+opening, such as a wheel arch, and keeps its outline. `surface.band(path,
+width, lift)` lays a strip along the surface for a lamp, trim or a panel
+line; `surface.closest(p)` gives the surface point nearest `p` and its
+normal. `Spline` draws a smooth curve through points, for profiles and
+character lines.
 
 ## Reactive drawing
 

@@ -107,6 +107,97 @@ class Components {
 		// A torus's triangles face away from the middle of its tube, on the ring round its centre.
 		outward("torus", ashui.canvaskit.Geometry.torus(1, 0.25), p -> new ashui.math.Vec3(p.x, 0, p.z).normalize());
 		outward("plane", ashui.canvaskit.Geometry.plane(2, 2, 4), p -> p.sub(new ashui.math.Vec3(0, 1, 0)));
+		outward("lathe, a tube", ashui.canvaskit.Geometry.lathe([{r: 1, y: -1}, {r: 1, y: 1}], 24), p -> new ashui.math.Vec3(0, p.y, 0));
+		// A ring whose section is a circle round r = 2, turned counter-clockwise in the plane of r and y: it faces away from the section's middle.
+		var section = [for (i in 0...16) {r: 2 + 0.5 * Math.cos(i / 16 * Math.PI * 2), y: 0.5 * Math.sin(i / 16 * Math.PI * 2)}];
+		outward("lathe, a closed section", ashui.canvaskit.Geometry.lathe(section, 32, true), p -> new ashui.math.Vec3(p.x, 0, p.z).normalize().scale(2));
+
+		// Subdivision cages (ea32c0c).
+		function cube():ashui.canvaskit.Cage {
+			var c = new ashui.canvaskit.Cage();
+			for (z in [-1.0, 1.0])
+				for (y in [-1.0, 1.0])
+					for (x in [-1.0, 1.0])
+						c.add(new ashui.math.Vec3(x, y, z));
+			// Points are numbered x + 2y + 4z over 0 and 1; each face counter-clockwise seen from outside.
+			for (f in [[0, 2, 3, 1], [4, 5, 7, 6], [0, 1, 5, 4], [2, 6, 7, 3], [0, 4, 6, 2], [1, 3, 7, 5]])
+				c.face(f);
+			return c;
+		}
+		var once = cube().subdivided(1);
+		check("a cube cage subdivided once: a point for each corner, edge and face, four quads for each face",
+			once.points.length == 26 && once.faces.length == 24, [once.points.length, once.faces.length]);
+		outward("a subdivided cube cage", cube().subdivided(2).meshes([ashui.draw3d.Material.DEFAULT])[0]);
+		function reach(c:ashui.canvaskit.Cage):Float {
+			var most = 0.0;
+			for (p in c.points)
+				most = Math.max(most, p.x + p.y + p.z);
+			return most;
+		}
+		var smooth = reach(cube().subdivided(3));
+		var hard = cube(), semi = cube();
+		for (f in hard.faces)
+			hard.creaseLine(f, Math.POSITIVE_INFINITY, true);
+		for (f in semi.faces)
+			semi.creaseLine(f, 1, true);
+		var held = reach(hard.subdivided(3)), eased = reach(semi.subdivided(3));
+		check("smooth subdivision rounds a cube's corners in", smooth < 2.6, smooth);
+		check("infinitely sharp creases hold the corners", Math.abs(held - 3) < 1e-9, held);
+		check("a crease one level sharp rounds less than none and more than an infinite one", smooth < eased && eased < held, [smooth, eased, held]);
+		function normals(mesh:ashui.draw3d.MeshData):Array<ashui.math.Vec3> {
+			var out = [], v = mesh.vertices;
+			var o = ashui.draw3d.MeshData.NORMAL_OFFSET, stride = ashui.draw3d.MeshData.STRIDE;
+			for (i in 0...mesh.vertexCount)
+				out.push(new ashui.math.Vec3(v.getFloat(i * stride + o), v.getFloat(i * stride + o + 4), v.getFloat(i * stride + o + 8)));
+			return out;
+		}
+		var flat = 0;
+		for (nv in normals(hard.subdivided(2).meshes([ashui.draw3d.Material.DEFAULT])[0]))
+			if (Math.abs(Math.abs(nv.x) + Math.abs(nv.y) + Math.abs(nv.z) - 1) < 1e-6)
+				flat++;
+		var hardMesh = hard.subdivided(2).meshes([ashui.draw3d.Material.DEFAULT])[0];
+		check("normals split across hard creases: a hard cube shades as six flat faces", flat == hardMesh.vertexCount && flat > 0, [flat, hardMesh.vertexCount]);
+		var twoTone = cube();
+		twoTone.slots[3] = 1;
+		var parts = twoTone.subdivided(2).meshes([ashui.draw3d.Material.DEFAULT, new ashui.draw3d.Material({baseColor: 0xff0000})]);
+		check("a cage builds one mesh for each material slot it uses", parts.length == 2 && parts[1].material.baseColor == 0xff0000, parts.length);
+		check("the faces of each slot keep to their mesh: one face of six, subdivided twice, is sixteen quads",
+			parts[1].indexCount == 16 * 6 && parts[0].indexCount == 80 * 6, [parts[0].indexCount, parts[1].indexCount]);
+		var half = new ashui.canvaskit.Cage();
+		for (z in [-1.0, 1.0])
+			for (y in [-1.0, 1.0])
+				for (x in [0.0, 1.0])
+					half.add(new ashui.math.Vec3(x, y, z));
+		// The cube's right half, open at x = 0.
+		for (f in [[0, 2, 3, 1], [4, 5, 7, 6], [0, 1, 5, 4], [2, 6, 7, 3], [1, 3, 7, 5]])
+			half.face(f);
+		var whole = half.mirrored();
+		check("mirroring shares the seam's points and doubles the faces", whole.points.length == 12 && whole.faces.length == 10, [whole.points.length, whole.faces.length]);
+		outward("a mirrored cage", whole.subdivided(2).meshes([ashui.draw3d.Material.DEFAULT])[0]);
+		var closedUp = whole.subdivided(3), openEdge = 0.0;
+		for (p in closedUp.points)
+			openEdge = Math.max(openEdge, Math.abs(p.x));
+		check("a mirrored cage is closed at its seam: subdivision rounds it in from x = ±1", openEdge < 0.95, openEdge);
+
+		var line = new ashui.canvaskit.Spline([new ashui.math.Vec3(0, 0, 0), new ashui.math.Vec3(1, 2, 0), new ashui.math.Vec3(3, 2, 1), new ashui.math.Vec3(4, 0, 0)]);
+		check("a spline passes through its points", line.at(0).distance(new ashui.math.Vec3(0, 0, 0)) < 1e-9 && line.at(1 / 3).distance(new ashui.math.Vec3(1, 2, 0)) < 1e-9
+			&& line.at(2 / 3).distance(new ashui.math.Vec3(3, 2, 1)) < 1e-9 && line.at(1).distance(new ashui.math.Vec3(4, 0, 0)) < 1e-9, [line.at(1 / 3), line.at(2 / 3)]);
+		var straight = new ashui.canvaskit.Spline([new ashui.math.Vec3(0, 0, 0), new ashui.math.Vec3(1, 1, 0), new ashui.math.Vec3(2, 2, 0)]);
+		check("a straight spline runs straight", straight.tangent(0.3).distance(new ashui.math.Vec3(1, 1, 0).normalize()) < 1e-6 && straight.at(0.25).distance(new ashui.math.Vec3(0.5, 0.5, 0)) < 1e-6,
+			[straight.tangent(0.3), straight.at(0.25)]);
+		var loop = new ashui.canvaskit.Spline([new ashui.math.Vec3(1, 0, 0), new ashui.math.Vec3(0, 1, 0), new ashui.math.Vec3(-1, 0, 0), new ashui.math.Vec3(0, -1, 0)], true);
+		check("a closed spline comes back round to its first point", loop.at(1).distance(new ashui.math.Vec3(1, 0, 0)) < 1e-9 && loop.at(0.875).y < 0, loop.at(0.875));
+
+		var round = cube().subdivided(3), side = 0.0;
+		for (p in round.points)
+			side = Math.max(side, p.x);
+		var near = round.closest(new ashui.math.Vec3(5, 0.1, -0.2));
+		check("the nearest point of a surface lies on it, its normal facing the query", near.face >= 0 && near.normal.x > 0.95
+			&& Math.abs(near.point.x - side) < 0.05, [near.point, near.normal]);
+		// A path just off the surface, as one drawn on it is.
+		var strip = round.band([for (i in 0...9) new ashui.math.Vec3(side + 0.02, -0.4 + i * 0.1, 0.1)], f -> 0.1 + 0.1 * f, 0.01);
+		check("a band has two points for each point of its path", strip.vertexCount == 18 && strip.indexCount == 8 * 6, [strip.vertexCount, strip.indexCount]);
+		outward("a band laid on a surface", strip);
 
 		// Environments: HDR decoding, cube directions, mip levels.
 		var Env = ashui.canvaskit.Environment;

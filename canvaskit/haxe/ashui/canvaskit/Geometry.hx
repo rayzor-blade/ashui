@@ -246,4 +246,49 @@ class Geometry {
 			}
 		return MeshData.build(p, idx, n, uv, null, material);
 	}
+
+	/**
+		A surface turned round the upright axis, as on a lathe: `profile`'s
+		points, each a radius `r` from the axis and a height `y`, swept round
+		in `segments`. The surface faces the side to the right of the profile's
+		direction in the plane of `r` and `y`: going up at a positive radius,
+		it faces out. A closed profile, such as a tyre's section, joins its last
+		point to its first; a profile that reaches the axis closes there.
+		Normals are smooth, from each point's neighbours along the profile.
+	**/
+	public static function lathe(profile:Array<{r:Float, y:Float}>, segments = 48, closed = false, ?material:Material):MeshData {
+		var pts = closed ? profile.concat([profile[0]]) : profile;
+		var count = pts.length;
+		var p:Array<Float> = [],
+			n:Array<Float> = [],
+			uv:Array<Float> = [],
+			idx:Array<Int> = [];
+		for (i in 0...count) {
+			// Along the profile at this point, from its neighbours; round a closed profile's seam, from either side of it.
+			var before = i > 0 ? pts[i - 1] : closed ? pts[count - 2] : pts[i];
+			var after = i < count - 1 ? pts[i + 1] : closed ? pts[1] : pts[i];
+			var dr = after.r - before.r, dy = after.y - before.y;
+			var len = Math.sqrt(dr * dr + dy * dy);
+			var nr = len > 0 ? dy / len : 1.0, ny = len > 0 ? -dr / len : 0.0;
+			for (s in 0...segments + 1) {
+				var a = s / segments * Math.PI * 2;
+				var sx = Math.sin(a), cz = Math.cos(a);
+				p.push(sx * pts[i].r);
+				p.push(pts[i].y);
+				p.push(cz * pts[i].r);
+				n.push(sx * nr);
+				n.push(ny);
+				n.push(cz * nr);
+				uv.push(s / segments);
+				uv.push(i / (count - 1));
+			}
+		}
+		for (i in 0...count - 1)
+			for (s in 0...segments) {
+				var a = i * (segments + 1) + s, b = a + segments + 1;
+				for (k in [a, a + 1, b, a + 1, b + 1, b])
+					idx.push(k);
+			}
+		return MeshData.build(p, idx, n, uv, null, material);
+	}
 }
