@@ -1411,7 +1411,9 @@ class Smoke {
 			&& level.get() == 20, [pressedAt, draggedTo, level.get()]);
 
 		var fieldsetKids = formsTree.children(formKids[4]);
-		var legendBox = ashui.input.Interaction.byId(formsTree, formsTree.children(fieldsetKids[0])[0]);
+		// Legend's decorative rules have no input state; query the control (0973e0c).
+		var legendInput = ashui.css.Css.query(formsTree, fieldsetKids[0], "input")[0];
+		var legendBox = ashui.input.Interaction.byId(formsTree, legendInput);
 		var heldBox = ashui.input.Interaction.byId(formsTree, fieldsetKids[1]);
 		locked.set(true);
 		formsSettle();

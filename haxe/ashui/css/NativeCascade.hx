@@ -244,19 +244,28 @@ class NativeCascade {
 			var found = shared.get(serialized);
 			if (found != null) return found;
 		}
-		var records = serialized.split(RECORD);
-		function pairs(record:Null<String>):Map<String, String> {
+		var first = serialized.indexOf(RECORD);
+		var second = first < 0 ? -1 : serialized.indexOf(RECORD, first + 1);
+		// Decode fields directly from the response. split() copied every whole
+		// entry before copying its key and value again on each restyle (e1a026f).
+		function pairs(start:Int, end:Int):Map<String, String> {
 			var map = new Map<String, String>();
-			if (record != null && record != "")
-				for (item in record.split(ITEM)) {
-					var at = item.indexOf(PAIR);
-					if (at > 0)
-						map.set(item.substr(0, at), item.substr(at + 1));
-				}
+			while (start < end) {
+				var next = serialized.indexOf(ITEM, start);
+				if (next < 0 || next > end) next = end;
+				var at = serialized.indexOf(PAIR, start);
+				if (at > start && at < next)
+					map.set(serialized.substring(start, at), serialized.substring(at + 1, next));
+				start = next + 1;
+			}
 			return map;
 		}
-		var size = records.length > 2 ? Std.parseFloat(records[2]) : Math.NaN;
-		var result = {resolved: pairs(records[0]), values: pairs(records[1]), fontSize: Math.isNaN(size) ? Css.rootFontSize : size};
+		var size = second < 0 ? Math.NaN : Std.parseFloat(serialized.substr(second + 1));
+		var result = {
+			resolved: pairs(0, first < 0 ? serialized.length : first),
+			values: first < 0 ? new Map() : pairs(first + 1, second < 0 ? serialized.length : second),
+			fontSize: Math.isNaN(size) ? Css.rootFontSize : size
+		};
 		if (shared != null) shared.set(serialized, result);
 		return result;
 	}

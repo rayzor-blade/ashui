@@ -119,6 +119,11 @@ enum CssFilter {
 	that called it reports that against its declaration.
 **/
 class CssValue {
+	// Primitive enum values contain no node, theme, or layout context. Keep a
+	// small FIFO of repeated CSS literals instead of reparsing every state
+	// restyle. Context-dependent resolution still runs on every apply (e1a026f).
+	static final lengths = new LiteralCache<CssLength>();
+	static final colors = new LiteralCache<CssColor>();
 	// --- Pieces ---
 
 	/**
@@ -227,6 +232,22 @@ class CssValue {
 
 	/** A length; `auto` only where `auto` is allowed. A bare number other than 0 is not a length. **/
 	public static function length(text:String, auto = false):CssLength {
+		var cached = lengths.get(text);
+		if (cached != null) {
+			if (!auto && cached == Auto)
+				throw '"auto" is not allowed here';
+			return cached;
+		}
+		var value = readLength(text, auto);
+		// calc() expressions contain arrays; callers receive their own tree.
+		switch value {
+			case Calc(_): return value;
+			case _: lengths.put(text, value);
+		}
+		return value;
+	}
+
+	static function readLength(text:String, auto:Bool):CssLength {
 		var t = StringTools.trim(text).toLowerCase();
 		if (t == "auto") {
 			if (!auto)
@@ -393,6 +414,15 @@ class CssValue {
 	// --- Colours ---
 
 	public static function color(text:String):CssColor {
+		var cached = colors.get(text);
+		if (cached != null)
+			return cached;
+		var value = readColor(text);
+		colors.put(text, value);
+		return value;
+	}
+
+	static function readColor(text:String):CssColor {
 		var t = StringTools.trim(text).toLowerCase();
 		if (t == "currentcolor")
 			return CurrentColor;
@@ -1081,6 +1111,30 @@ private class CalcReader {
 
 	inline function peek():Int
 		return StringTools.fastCodeAt(text, at);
+}
+
+/** Bounded literal reuse, with constant work on eviction and no node ownership. **/
+private class LiteralCache<T> {
+	static inline var CAPACITY = 128;
+	static inline var MAX_KEY_LENGTH = 128;
+	final values = new Map<String, T>();
+	final keys:Array<String> = [];
+	var next = 0;
+
+	public function new() {}
+	public inline function get(text:String):Null<T> return text.length > MAX_KEY_LENGTH ? null : values.get(text);
+	public function put(text:String, value:T):Void {
+		if (text.length > MAX_KEY_LENGTH)
+			return;
+		if (keys.length == CAPACITY) {
+			values.remove(keys[next]);
+			keys[next] = text;
+			next = (next + 1) % CAPACITY;
+		} else {
+			keys.push(text);
+		}
+		values.set(text, value);
+	}
 }
 
 /** The patterns above, each made once: a `~/…/` written in a function is compiled again every time it runs. **/

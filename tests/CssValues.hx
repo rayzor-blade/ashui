@@ -64,6 +64,22 @@ class CssValues {
 		var tilt = CssValue.calc("calc(env(pointer-x) * 20deg)");
 		check("env() reads the environment, and makes it dynamic", CssValue.isDynamic(tilt) && !CssValue.isDynamic(CssValue.calc("calc(1px + 2px)")));
 		check("fixed lengths are told apart", CssValue.isFixed(CssValue.length("calc(1px + 2px)")) && !CssValue.isFixed(CssValue.length("calc(1px + 2%)")));
+		// Reuse must retain CSS context semantics and bounded ownership (e1a026f).
+		var relative = CssValue.length("2em");
+		check("reused lengths resolve against the current context", CssValue.resolve(relative, ctx) == 40
+			&& CssValue.resolve(relative, {percentOf: 200, fontSize: 30, rootFontSize: 16, viewportWidth: 1000, viewportHeight: 500}) == 60);
+		var first = switch CssValue.length("min(1px, 2px)") { case Calc(Min(items)): items; case _: null; };
+		var second = switch CssValue.length("min(1px, 2px)") { case Calc(Min(items)): items; case _: null; };
+		check("calculation arrays remain private to each parse", first != null && second != null && first != second);
+		for (i in 0...300) {
+			CssValue.length('${i}px');
+			CssValue.color('#${StringTools.hex(i, 6)}');
+		}
+		check("literal reuse stays bounded under changing values", @:privateAccess CssValue.lengths.keys.length <= 128
+			&& @:privateAccess CssValue.colors.keys.length <= 128);
+		check("evicted values still parse correctly", px("12px") == 12 && rgba("#f80") == "FF8800/1" && rgba("currentColor") == "current");
+		var longLiteral = StringTools.lpad("3px", " ", 512);
+		check("long literals parse without being retained", px(longLiteral) == 3 && !@:privateAccess CssValue.lengths.keys.contains(longLiteral));
 
 		// --- Angles, times, easings ---
 		check("angles in radians", Math.abs(CssValue.angle("180deg") - Math.PI) < 1e-9 && Math.abs(CssValue.angle("0.25turn") - Math.PI / 2) < 1e-9

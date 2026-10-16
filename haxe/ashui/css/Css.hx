@@ -12,6 +12,10 @@ private typedef Applied = {
 	final signature:String;
 	final fields:Array<Int>;
 
+	/** Resolved timing declarations; hover/focus restyles can reuse the parsed transition (e1a026f). **/
+	final transitionValues:Null<Array<Null<String>>>;
+	final transition:Null<ashui.css.CssMotion.CssTransition>;
+
 	/** Pixel size already resolved by the cascade, for editable text metrics (git-bug e8a1b50). **/
 	final fontSize:Float;
 }
@@ -441,6 +445,8 @@ class Css {
 				values: values,
 				signature: sig,
 				fields: last.fields,
+				transitionValues: last.transitionValues,
+				transition: last.transition,
 				fontSize: ownFontSize
 			});
 			// Intrinsic layout consumers can read custom properties even when
@@ -495,10 +501,22 @@ class Css {
 			};
 		var fields:Array<Int> = [];
 		// The transition first, so the changes below move by it.
+		var transitionValues = [for (name in TRANSITION_VALUES) resolved.get(name)];
+		var sameTransition = last != null && last.transitionValues != null;
+		if (sameTransition)
+			for (i in 0...transitionValues.length)
+				if (transitionValues[i] != last.transitionValues[i]) {
+					sameTransition = false;
+					break;
+				}
+		var transition = sameTransition ? last.transition : null;
 		try {
-			if (@:privateAccess identity.node.styleTransition(CssMotion.transition(resolved)) && hasTransition(resolved))
+			if (!sameTransition)
+				transition = CssMotion.transition(resolved);
+			if (@:privateAccess identity.node.styleTransition(transition) && hasTransition(resolved))
 				fields.push(ashui.layout.Node.TRANSITION);
 		} catch (e:String) {
+			transitionValues = null;
 			report(from.get("transition"), e);
 		}
 		// Animations: started, kept running or stopped as the element's animation values change.
@@ -513,12 +531,15 @@ class Css {
 		@:privateAccess identity.node.styleAll(() -> {
 			// font-size first: em in the rest is the element's own font size.
 			var names = [
-				for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name)) name
+				for (name in resolved.keys()) if (!MOTION.exists(name) && !POINTER.exists(name) && !held.exists(name) && !live.exists(name))
+					{name: name, rank: name == "font-size" ? -1 : Properties.rank(name)}
 			];
 			// Shorthands before their longhands, which a stronger rule declared when both are here.
-			names.sort((a, b) -> a == "font-size" ? -1 : b == "font-size" ? 1 : Properties.rank(a) != Properties.rank(b) ? Properties.rank(a)
-				- Properties.rank(b) : Reflect.compare(a, b));
-			for (name in names) {
+			// Ranking a shorthand enumerates the longhand table. Compute it once,
+			// rather than materializing map iterators in every comparison (e1a026f).
+			names.sort((a, b) -> a.rank != b.rank ? a.rank - b.rank : Reflect.compare(a.name, b.name));
+			for (entry in names) {
+				var name = entry.name;
 				var v = resolved.get(name);
 				if (!Properties.known(name)) {
 					report(from.get(name), '$name is not a property this supports');
@@ -567,6 +588,8 @@ class Css {
 			values: values,
 			signature: sig,
 			fields: fields,
+			transitionValues: transitionValues,
+			transition: transition,
 			fontSize: ownFontSize
 		});
 		for (hook in restyled)
@@ -582,6 +605,9 @@ class Css {
 				return true;
 		return false;
 	}
+
+	/** Inputs to transition parsing, kept per applied element rather than in a global cache. **/
+	static final TRANSITION_VALUES = ["transition", "transition-property", "transition-duration", "transition-timing-function", "transition-delay"];
 
 	/** The motion properties, applied as a transition and animations rather than one by one. **/
 	static final MOTION = [
@@ -629,6 +655,8 @@ class Css {
 				values: last.values,
 				signature: "",
 				fields: last.fields,
+				transitionValues: last.transitionValues,
+				transition: last.transition,
 				fontSize: last.fontSize
 			});
 		mark(identity);
