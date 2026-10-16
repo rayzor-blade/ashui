@@ -56,6 +56,8 @@ extern class BlincNative {
 	static function blinc_signal_string(initial:hl.Bytes):hl.Abstract<"blinc_signal">;
 	static function blinc_signal_get_string(sig:hl.Abstract<"blinc_signal">):hl.Bytes;
 	static function blinc_signal_set_string(sig:hl.Abstract<"blinc_signal">, v:hl.Bytes):Void;
+	/** Bumps on every `set`; untracked. Lets a reader skip re-decoding an unchanged value. **/
+	static function blinc_signal_string_version(sig:hl.Abstract<"blinc_signal">):Int;
 	static function blinc_computed_string(compute:Void->Void):hl.Abstract<"blinc_computed">;
 	static function blinc_computed_get_string(comp:hl.Abstract<"blinc_computed">):hl.Bytes;
 	static function blinc_return_string(v:hl.Bytes):Void;

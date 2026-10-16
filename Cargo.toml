@@ -14,7 +14,8 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 # git-bug a8d3dd7: shared CSS order/row grids and equal-write idle suppression.
 # git-bug e8233fb: shared native text alignment and exact inline line-edge checks.
-blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "ecdb2f03b9309f692767218f862e229ac83cbc1b", default-features = false, features = ["hashlink"] }
+# git-bug 2059910: a native version check for string signals, so SignalString can cache its decode.
+blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "d26858bf813ec795551f1875a4f6b0d979166407", default-features = false, features = ["hashlink"] }
 
 [workspace]
 resolver = "3"
