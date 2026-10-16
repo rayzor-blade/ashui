@@ -544,15 +544,18 @@ class ThemeState {
 		#end
 	}
 
+	static var debugChecked = false;
 	static var debugSeen:Null<Map<String, Bool>>;
 
 	/** With `ASHUI_DEBUG_COLOR_TOKEN=1`, prints each token and colour pair the first time it is resolved. **/
 	static function debugColor(token:ColorToken, value:Rgba):Void {
-		if (debugSeen == null) {
-			if (Sys.getEnv("ASHUI_DEBUG_COLOR_TOKEN") != "1")
-				return;
-			debugSeen = new Map();
+		if (!debugChecked) {
+			debugChecked = true;
+			if (Sys.getEnv("ASHUI_DEBUG_COLOR_TOKEN") == "1")
+				debugSeen = new Map();
 		}
+		if (debugSeen == null)
+			return;
 		var key = '$token ${value.r} ${value.g} ${value.b} ${value.a}';
 		if (debugSeen.exists(key))
 			return;
