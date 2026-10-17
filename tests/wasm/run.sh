@@ -8,8 +8,8 @@
 #   tests/wasm/run.sh [PageSmoke|Smoke|WindowPage]
 #
 # Needs nightly Rust with rust-src (the side modules), Node 22 or later, Google
-# Chrome (CHROME=/path/to/chrome to name one) with WebGPU, an Ash with libm and
-# the side-module loader fixes in its wasm runtime (ASH=/path/to/ash), and
+# Chrome (CHROME=/path/to/chrome to name one) with WebGPU, Ash 0.1.10 or later
+# (ASH=/path/to/ash), and
 # ImageMagick for the canvas check. Work files go to tests/bin/wasm.
 #
 # ASHUI_WASM_SMALL=1 builds for size, as a site would ship: blinc_abi with fat
@@ -93,7 +93,12 @@ window_page() {
   dir="$out/window-page"
   mkdir -p "$dir"
   (cd "$vib/hlwindow" && sh scripts/build_wasm.sh "$here/$dir") || return 1
-  (cd "$vib/hlwgpu" && sh scripts/build_wasm.sh "$here/$dir") || return 1
+  # A new directory each time: hlwgpu's build script writes gpu-agent.mjs only when cargo runs it, and cargo runs it only when this path changes.
+  gpu=$(mktemp -d)
+  (cd "$vib/hlwgpu" && sh scripts/build_wasm.sh "$gpu") || { rm -rf "$gpu"; return 1; }
+  cp "$gpu"/* "$dir/"
+  rm -rf "$gpu"
+  [ -f "$dir/gpu-agent.mjs" ] || { echo "wasm: hlwgpu's build wrote no gpu-agent.mjs"; return 1; }
   cp "$out/blinc_abi.wasm" "$dir/"
   $haxe_ui -D wasm -D ashui_no_hdll -D ashui_window --macro "ashui.core.render.UiFramework.register()" --macro "ashui.macro.DefaultFonts.stage()" \
     --class-path ../components/haxe --class-path ../icons/haxe --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
