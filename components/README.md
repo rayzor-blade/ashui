@@ -82,7 +82,7 @@ supplies the return value. See the [dialog and form guide](https://github.com/ra
 | Selection | Select, Combobox, Calendar with `minYear` and `maxYear` |
 | Overlays | Dialog, Sheet, Drawer, Popover, Tooltip, HoverCard, Toast |
 | Navigation | Command, Tabs, Accordion, DropdownMenu, ContextMenu, Menubar, TreeView, Sidebar |
-| Content | Card, Badge, Avatar, Alert, Table, Chart, Progress, Spinner, Skeleton |
+| Content | Card, Badge, Avatar, Alert, Icon, Table, Chart, Progress, Spinner, Skeleton |
 | Code | CodeView, CodeEditor with syntax highlighting, line numbers and folding |
 | Layout | ScrollArea, Resizable, AspectRatio, Separator |
 

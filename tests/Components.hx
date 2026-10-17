@@ -1,5 +1,6 @@
 import ashui.canvaskit.SceneKit;
 import ashui.canvaskit.CanvasKit;
+import ashui.components.Icon;
 import ashui.components.Accordion;
 import ashui.components.Slider;
 import ashui.components.Alert;
@@ -1956,6 +1957,24 @@ class Components {
 		check("a revealable password's eye shows its value and hides it, keeping focus in the field", dotted == "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
 			&& shownText == "hunter22" && label == "Hide password" && focusedField && pwField.editing.display() == dotted,
 			[dotted, shownText, label, focusedField]);
+
+		// --- <icon>: a document in a template, sized and tinted by CSS (git-bug abb6355) ---
+		var iconTree = new LayoutTree();
+		var iconSource = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>';
+		var iconRoot:Div = Owner.root(iconTree, _ -> hxx('<div class="text-primary" width={200} height={100}>
+			<icon document={ashui.svg.SvgDocument.parse(iconSource)} class="size-5" id="sized" />
+			<icon document={iconSource} id="natural" />
+		</div>'));
+		iconTree.flush();
+		iconTree.computeLayout(iconRoot.node, 200, 100);
+		function iconBounds(id:String) return iconTree.getBounds(ashui.css.Identity.of(iconTree, ashui.css.Css.query(iconTree, iconRoot.node.id, "#" + id)[0]).node);
+		var sizedBox = iconBounds("sized"), naturalBox = iconBounds("natural");
+		check("an <icon> takes its size from CSS, or its document's", Math.abs(sizedBox.width - 20) < 0.5 && Math.abs(sizedBox.height - 20) < 0.5
+			&& Math.abs(naturalBox.width - 24) < 0.5, [sizedBox, naturalBox]);
+		var sizedId = ashui.css.Identity.of(iconTree, ashui.css.Css.query(iconTree, iconRoot.node.id, "#sized")[0]);
+		check("an <icon> has the class ui-icon and the colour of the text it is in",
+			sizedId.classes().indexOf("ui-icon") >= 0 && ashui.css.Css.computed(sizedId, "color") == ashui.css.Css.computed(ashui.css.Identity.of(iconTree, iconRoot.node.id), "color"),
+			[sizedId.classes(), ashui.css.Css.computed(sizedId, "color")]);
 
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
