@@ -17,6 +17,10 @@ crate-type = ["cdylib", "staticlib"]
 # git-bug 2059910: a native version check for string signals, so SignalString can cache its decode.
 blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "d26858bf813ec795551f1875a4f6b0d979166407", default-features = false, features = ["hashlink"] }
 
+# The wasm side module allocates from the program's heap (native/lib.rs).
+[target.'cfg(target_family = "wasm")'.dependencies]
+hl_abi = { git = "https://github.com/rayzor-blade/hl_abi", branch = "main" }
+
 [workspace]
 resolver = "3"
 

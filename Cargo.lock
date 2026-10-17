@@ -72,6 +72,7 @@ name = "ashui-native"
 version = "0.1.0"
 dependencies = [
  "blinc_abi",
+ "hl_abi",
 ]
 
 [[package]]
