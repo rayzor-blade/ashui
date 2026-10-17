@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":5,"timestamp":1792166406,"nonce":"XsL/7djioYjVnH+evV96RUHr/nA=","added":["bug","area:ui"],"removed":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":2,"timestamp":1792228741,"nonce":"wY6M2aGVX2Y2RlRA+hw6vuRpA5w=","title":"Dialog's motion is the user-agent grow from nothing, not the rise popovers, menus and hover cards use","was":"Dialog has no open/close animation, unlike sheets, drawers, popovers and tooltips"}]}
