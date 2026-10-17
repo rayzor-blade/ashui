@@ -192,14 +192,21 @@ class Renderer {
 				BlendOperation.Add);
 		builder.primitive(PrimitiveTopology.TriangleList, CullMode.None, FrontFace.Ccw);
 		var pipeline = builder.build();
+		// A page sends a frame's commands together, and reading the error here, in the frame that first
+		// needs the pipeline, would send them early: the frame's texture would be gone by its submit.
+		// The frame's own check reports it.
+		#if !wasm
 		var error = device.takeError();
 		var messages = error != null ? shader.messages() : null;
+		#end
 		// Pipelines retain what they need; the integer shader handle is not GC-owned.
 		shader.destroy();
+		#if !wasm
 		if (error != null) {
 			pipeline.destroy();
 			throw 'gpu error building a pipeline: $messages: $error';
 		}
+		#end
 		// An inferred layout is the pipeline's own, so each pipeline gets its own group.
 		var group:Null<GpuBindGroup> = null;
 		if (bind) {

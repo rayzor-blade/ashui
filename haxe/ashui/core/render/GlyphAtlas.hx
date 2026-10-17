@@ -29,6 +29,10 @@ class GlyphAtlas {
 	var pixels:haxe.io.Bytes = haxe.io.Bytes.alloc(0);
 	var texture:Null<GpuTexture> = null;
 
+	// The texture's size as allocated: asking the GPU would be a round trip, which a page's frame cannot have.
+	var textureWidth = 0;
+	var textureHeight = 0;
+
 	/** The texture's view; replaced, with `revision` bumped, when the atlas grows. **/
 	public var view(default, null):GpuTextureView;
 
@@ -51,7 +55,7 @@ class GlyphAtlas {
 		var width = info.getInt32(0), height = info.getInt32(4);
 		if (width <= 0 || height <= 0)
 			return;
-		if (texture == null || texture.width() != width || texture.height() != height) {
+		if (texture == null || textureWidth != width || textureHeight != height) {
 			allocate(width, height);
 			// A new texture takes the whole atlas, whatever changed of it.
 			if (info.getInt32(20) != width || info.getInt32(24) != height)
@@ -101,6 +105,8 @@ class GlyphAtlas {
 		texture = device.texture(new GpuTextureDescriptor(size, color ? TextureFormat.Rgba8unorm : TextureFormat.R8unorm,
 			GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
 		view = texture.createView(new GpuTextureViewDescriptor());
+		textureWidth = width;
+		textureHeight = height;
 		revision++;
 	}
 }
