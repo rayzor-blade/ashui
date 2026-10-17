@@ -1,0 +1,22 @@
+{
+  "name": "ashui-icons",
+  "url": "https://github.com/rayzor-blade/ashui",
+  "license": "Apache",
+  "tags": [
+    "ui",
+    "icons",
+    "svg",
+    "ashui"
+  ],
+  "description": "The Remix icon set as typed ashui constants, compiled into a program, with the macro that makes a set from any directory of SVG files.",
+  "contributors": [
+    "rayzor",
+    "darmie"
+  ],
+  "version": "0.1.3",
+  "releasenote": "New: Remix Icon 4.8.0 (3188 icons, Apache-2.0) as ashui.icons.Remix, and ashui.svg.IconSet for sets of your own, with the icon element in ashui-components.",
+  "classPath": "haxe",
+  "dependencies": {
+    "ashui": "0.1.3"
+  }
+}

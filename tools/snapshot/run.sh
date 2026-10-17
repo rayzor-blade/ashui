@@ -103,7 +103,7 @@ print(pathlib.Path(package["manifest_path"]).parent / "src")')
 		fi
 		media_args="--macro hlavi.macro.NativeInstall.stage()"
 	fi
-	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" --class-path "$repo/media/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
+	if ! out=$(haxe --class-path "$repo/haxe" --class-path "$repo/components/haxe" --class-path "$repo/canvaskit/haxe" --class-path "$repo/media/haxe" --class-path "$repo/icons/haxe" -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--class-path "$vib/hlwgpu/haxe" --class-path "$vib/hlwindow/haxe" --class-path "$vib/ash/haxelib/ash-future" --class-path "$vib/ash/haxelib/ash-simd" -D ash_simd \
 		--class-path "$vib/hlavi/haxe" -D "hlavi_hdll=${media_hdll:-}" $media_args \
 		--macro 'ashui.core.render.UiFramework.register()' --macro 'ashui.ui.Markup.enable()' -D "ashui_css=$css" $defines ${ASHUI_HAXE_FLAGS:-} \
