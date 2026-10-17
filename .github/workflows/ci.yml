@@ -61,6 +61,7 @@ jobs:
           haxelib dev ashui-components "$PWD/components"
           haxelib dev ashui-canvaskit "$PWD/canvaskit"
           haxelib dev ashui-media "$PWD/media"
+          haxelib dev ashui-icons "$PWD/icons"
       - name: Read CSS values and test native drawing data
         run: |
           haxe -cp haxe -cp tests -main CssValues --interp

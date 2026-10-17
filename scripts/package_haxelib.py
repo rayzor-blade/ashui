@@ -10,7 +10,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(alpha|beta|rc)(\.(0|[1-9]\d*))?)?")
-PACKAGES = (ROOT, ROOT / "components", ROOT / "canvaskit", ROOT / "media")
+PACKAGES = (ROOT, ROOT / "components", ROOT / "canvaskit", ROOT / "media", ROOT / "icons")
 README_IMAGE_BASE = "https://raw.githubusercontent.com/rayzor-blade/ashui/main/"
 README_LINK_BASE = "https://github.com/rayzor-blade/ashui/blob/main/"
 # Files a README shows inline: served raw, so Haxelib's page can display them.

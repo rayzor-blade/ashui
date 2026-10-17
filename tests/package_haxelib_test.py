@@ -78,7 +78,7 @@ class PackageTest(unittest.TestCase):
             self.assertEqual(list(assets.glob("*.zip")), [])
             outputs = PACKAGER.package(assets, "2026.10.7")
             self.assertEqual({path.stem for path in outputs},
-                             {"ashui", "ashui-components", "ashui-canvaskit", "ashui-media"})
+                             {"ashui", "ashui-components", "ashui-canvaskit", "ashui-media", "ashui-icons"})
             for path in outputs:
                 with ZipFile(path) as archive:
                     lib = json.loads(archive.read("haxelib.json"))
@@ -126,6 +126,11 @@ class PackageTest(unittest.TestCase):
                                 self.assertEqual(archive.read(tool["packagePath"]), f"{name} {platform}".encode())
                                 mode = archive.getinfo(tool["packagePath"]).external_attr >> 16
                                 self.assertTrue(mode & 0o111, f"{tool['packagePath']} is not executable")
+                    elif path.stem == "ashui-icons":
+                        # The catalogue, its icons and the licence they are under.
+                        for member in ("haxe/ashui/icons/Remix.hx", "haxe/ashui/icons/remix/LICENSE", "haxe/ashui/icons/remix/Media/play-line.svg"):
+                            self.assertIn(member, archive.namelist())
+                        self.assertGreater(len([n for n in archive.namelist() if n.endswith(".svg")]), 3000)
                     elif path.stem in ("ashui-components", "ashui-media"):
                         name = path.stem.removeprefix("ashui-")
                         self.assertIn(f"css/{name}.css", archive.namelist())

@@ -167,7 +167,7 @@ jobs:
 
       - name: Install the release packages
         run: |
-          for name in ashui ashui-components ashui-canvaskit ashui-media; do
+          for name in ashui ashui-components ashui-canvaskit ashui-media ashui-icons; do
             haxelib install "release/$name.zip" --always --skip-dependencies
           done
 
@@ -181,7 +181,7 @@ jobs:
           {
             echo '## Haxelib packages'
             echo
-            echo 'Validated: ashui, ashui-components, ashui-canvaskit and ashui-media.'
+            echo 'Validated: ashui, ashui-components, ashui-canvaskit, ashui-media and ashui-icons.'
             echo
             echo 'Bundled native platforms: Linux x86_64/aarch64, macOS x86_64/aarch64 and Windows x86_64.'
             echo

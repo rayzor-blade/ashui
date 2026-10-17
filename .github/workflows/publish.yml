@@ -39,7 +39,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: rayzor-blade/ashui
       RELEASE_TAG: ${{ inputs.release_tag }}
-      PACKAGES: ashui ashui-components ashui-canvaskit ashui-media
+      PACKAGES: ashui ashui-components ashui-canvaskit ashui-media ashui-icons
     steps:
       # Use the maintained publisher even when submitting an older release.
       - uses: actions/checkout@v7

@@ -2,6 +2,7 @@
 -lib ashui-components
 -lib ashui-canvaskit
 -lib ashui-media
+-lib ashui-icons
 -lib ash-simd
 
 -D ash_future_stock

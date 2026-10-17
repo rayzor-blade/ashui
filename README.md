@@ -206,6 +206,7 @@ Import `ashui.reactive.Reactive` for these shortcuts. Components can also use
 | [`ashui-components`](https://github.com/rayzor-blade/ashui/blob/main/components/README.md) | Buttons, forms, menus, dialogs, calendars and more |
 | [`ashui-canvaskit`](https://github.com/rayzor-blade/ashui/blob/main/canvaskit/README.md) | Interactive 2D canvases and 3D scenes |
 | [`ashui-media`](https://github.com/rayzor-blade/ashui/blob/main/media/README.md) | Audio/video playback, codecs, streams and equalization through hlavi |
+| [`ashui-icons`](https://github.com/rayzor-blade/ashui/blob/main/icons/README.md) | The Remix icon set as typed constants, and the macro that makes a set from your own SVG files |
 
 ## Showcase
 
@@ -245,6 +246,8 @@ for more examples. The repository's
 captures PNGs offscreen; `--watch` captures again when a scene,
 styles or framework change. These development tools live in the source
 repository, rather than the installed packages.
+
+[Icons](docs/icons.md) are typed constants compiled into the program, from the Remix catalogue or your own SVG files.
 
 [Visual debugging](docs/debugging.md) includes native hit maps, exact
 pointer paths, motion trails, easing curves and filmstrips.

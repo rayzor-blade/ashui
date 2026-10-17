@@ -99,7 +99,7 @@ jobs:
           haxelib newrepo
           haxelib install hashlink --always
           haxelib install tink_hxx --always
-          for name in ash-future ash-simd hlwgpu hlwindow hlavi ashui ashui-components ashui-canvaskit ashui-media; do
+          for name in ash-future ash-simd hlwgpu hlwindow hlavi ashui ashui-components ashui-canvaskit ashui-media ashui-icons; do
             case "$name" in
               ash-future|ash-simd) archives=("release/$name-"*.zip) ;;
               *) archives=("release/$name.zip") ;;

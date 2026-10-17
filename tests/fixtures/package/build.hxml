@@ -2,6 +2,7 @@
 -lib ashui-components
 -lib ashui-canvaskit
 -lib ashui-media
+-lib ashui-icons
 
 -D hlwgpu_no_hdll
 -D hlwindow_no_hdll

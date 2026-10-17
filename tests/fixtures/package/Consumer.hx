@@ -3,8 +3,10 @@ import ashui.canvaskit.CanvasKit;
 import ashui.canvaskit.Geometry;
 import ashui.canvaskit.SceneKit;
 import ashui.components.Button;
+import ashui.components.Icon;
 import ashui.css.CompiledCss;
 import ashui.css.Css;
+import ashui.icons.Remix;
 import ashui.media.Audio;
 import ashui.media.Equalizer;
 import ashui.media.Video;
@@ -22,6 +24,7 @@ class Consumer {
 			var box = Geometry.box();
 			return <div class="consumer p-4 gap-3" width={640} height={480}>
 				<button type="button" onClick={_ -> count.set(count.get() + 1)}>${label.get()}</button>
+				<icon document={Remix.PLAY_LINE} class="size-4" />
 				<canvas-kit width={160} height={100} />
 				<scene-kit width={160} height={100} antialias={true} draw={ctx -> ctx.drawMesh(box)} />
 				<video src={"video.mp4"} controls={false} equalizer={equalizer} />

@@ -32,8 +32,9 @@ Haxelibs and verifies that the core's build macro stages the host HDLL before
 publication.
 
 Assets include `ashui.zip`, `ashui-components.zip`, `ashui-canvaskit.zip`,
-`ashui-media.zip`, and the five platform HDLLs. The core ZIP bundles every
-desktop HDLL; all four packages use matching internal dependency versions.
+`ashui-media.zip`, `ashui-icons.zip`, and the five platform HDLLs. The core ZIP
+bundles every desktop HDLL; all five packages use matching internal dependency
+versions.
 Nightlies retain the version from `haxelib.json` and are marked as prereleases.
 
 ## Manual validation or release
@@ -71,8 +72,8 @@ in this order:
 1. Ash publishes `ash-future`, then `ash-simd`. These have their own package
    versions, independent of the Ash runtime tag.
 2. `hlwgpu`, `hlwindow` and `hlavi` publish their bindings and native libraries.
-3. ashui publishes `ashui`, `ashui-components`, `ashui-canvaskit`, then
-   `ashui-media`, with matching internal dependency versions.
+3. ashui publishes `ashui`, `ashui-components`, `ashui-canvaskit`,
+   `ashui-media`, then `ashui-icons`, with matching internal dependency versions.
 
 The stack workflow only needs the secret in ashui; individual repository
 publication uses that repository's secret. Missing registry dependencies
