@@ -1,8 +1,8 @@
 # ashui in a page
 
-An ashui program can run in a browser. [Ash](https://ash.rayzor.tech) compiles its
-bytecode to a WebAssembly module for the `wasm32-wasip1-threads` target, and the
-page runs it. The window is the page's canvas: hlwindow's `xwindow.wasm` takes
+An ashui program can run in a browser. [Ash](https://ash.rayzor.tech), 0.1.10 or
+later, compiles its bytecode to a WebAssembly module for the
+`wasm32-wasip1-threads` target, and the page runs it. The window is the page's canvas: hlwindow's `xwindow.wasm` takes
 the pointer, keyboard and size events from it, and hlwgpu's `xgpu.wasm` draws
 into it with the browser's WebGPU. ashui's own native library, `blinc_abi`, is a
 third module beside them. `tests/wasm/WindowPage.hx` is a whole example.

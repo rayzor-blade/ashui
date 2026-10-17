@@ -34,11 +34,9 @@ nm=$(find "$sysroot/lib/rustlib" -name llvm-nm -type f | head -1)
 exports=$("$nm" --defined-only --extern-only "$archive" 2>/dev/null | sed -n 's/.* T \(hlp_[A-Za-z0-9_]*\)$/--export=\1/p' | sort -u)
 [ -n "$exports" ] || { echo "no hlp_ primitives in $archive" >&2; exit 1; }
 
-# -Bsymbolic: the module addresses its own functions and statics relative to its base,
-# so no global-offset-table entry needs the loader to place it.
 # shellcheck disable=SC2086
 "$lld" -flavor wasm \
-  --experimental-pic -shared -Bsymbolic --no-entry \
+  --experimental-pic -shared --no-entry \
   --unresolved-symbols=import-dynamic --gc-sections --no-export-dynamic \
   --shared-memory --max-memory=1073741824 \
   $exports \
