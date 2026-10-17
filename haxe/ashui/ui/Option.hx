@@ -18,8 +18,11 @@ typedef OptionProps = {
 	an element of type `option`, `:checked` while it is the select's value.
 **/
 class Option extends Component<OptionProps> {
-	function render():Element
-		return new Div({tag: "option", display: ashui.types.Style.Display.None}, children);
+	function render():Element {
+		var box = new Div({tag: "option", display: ashui.types.Style.Display.None}, children);
+		Select.register(this, box);
+		return box;
+	}
 
 	/** What the select shows for it. **/
 	public function labelText():String {

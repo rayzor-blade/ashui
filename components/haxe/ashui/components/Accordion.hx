@@ -2,9 +2,11 @@ package ashui.components;
 
 import ashui.input.Focus;
 import ashui.input.Interaction;
+import ashui.layout.AfterChildren;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
 import ashui.reactive.Computed;
+import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 import ashui.ui.Component;
@@ -29,7 +31,8 @@ typedef AccordionProps = {
 	arrows, Home and End move among them. CSS: `.ui-accordion`,
 	`.ui-accordion-item`, `.ui-accordion-trigger` (its `.ui-accordion-chevron`
 	turning while open), `.ui-accordion-content`, each `[data-state]` open
-	or closed.
+	or closed. Its items may come from `<for>` and `<if>`, and are taken up
+	as they come and go.
 **/
 class Accordion extends Component<AccordionProps> {
 	/** The values of the items open; the caller's signal when `value` was one. **/
@@ -47,20 +50,53 @@ class Accordion extends Component<AccordionProps> {
 		}
 		var open = value;
 		var multiple = props.type == "multiple";
-		var items:Array<AccordionItem> = [for (c in children) if (Std.isOfType(c, AccordionItem)) cast c];
-		for (item in items) {
-			var v = item.props.value;
-			item.bind(Computed.make(() -> (open.get().indexOf(v) >= 0 ? "open" : "closed" : Null<String>)), () -> {
-				var now = open.get();
-				var next = if (now.indexOf(v) >= 0) {
-					if (multiple || props.collapsible != false) now.filter(x -> x != v) else now;
-				} else multiple ? now.concat([v]) : [v];
-				open.set(next);
-				if (props.onValueChange != null)
-					props.onValueChange(next);
-			});
-		}
 		var box = Library.part("ui-accordion", null, null, children, props.id);
+		var tree = box.tree, id = box.node.id, owner = Owner.current;
+		var items:Array<AccordionItem> = [];
+		var scopes = new haxe.ds.ObjectMap<AccordionItem, Owner>();
+		// Finds the mounted items, going through fragments but not into an item, so a nested accordion keeps its own. Each item is bound once, under a scope of its own.
+		function index() {
+			var mounted:Array<AccordionItem> = [];
+			function walk(node:haxe.Int64) {
+				var item = AccordionItem.items.get(ashui.css.Identity.of(tree, node));
+				if (item != null) {
+					mounted.push(item);
+					return;
+				}
+				for (child in tree.children(node))
+					walk(child);
+			}
+			for (child in tree.children(id))
+				walk(child);
+			for (item => scope in scopes)
+				if (mounted.indexOf(item) < 0) {
+					scope.dispose();
+					scopes.remove(item);
+				}
+			for (item in mounted) {
+				if (scopes.exists(item))
+					continue;
+				var scope = new Owner(tree, owner);
+				scopes.set(item, scope);
+				var v = item.props.value;
+				scope.run(() -> item.bind(Computed.make(() -> (open.get().indexOf(v) >= 0 ? "open" : "closed" : Null<String>)), () -> {
+					var now = open.get();
+					var next = if (now.indexOf(v) >= 0) {
+						if (multiple || props.collapsible != false) now.filter(x -> x != v) else now;
+					} else multiple ? now.concat([v]) : [v];
+					open.set(next);
+					if (props.onValueChange != null)
+						props.onValueChange(next);
+				}));
+			}
+			items = mounted;
+		}
+		index();
+		AfterChildren.watch(tree, "accordion " + haxe.Int64.toStr(id), parent -> parent == id || tree.ancestors(parent).indexOf(id) >= 0, index);
+		Owner.onCleanup(() -> {
+			items = [];
+			scopes.clear();
+		});
 		// The arrows, Home and End move among the triggers.
 		Interaction.of(box.node).onKeyDown(e -> {
 			var triggers = [for (i in items) if (i.trigger != null) i.trigger.interaction];
@@ -89,6 +125,9 @@ class AccordionItem extends Component<{value:String, ?disabled:Bool, ?id:String}
 	var content:Null<AccordionContent> = null;
 	final state = Signal.make((null : Null<Computed<Null<String>>>));
 
+	/** The items that exist, found by the identity of the element each draws. **/
+	@:allow(ashui.components) static final items = new haxe.ds.ObjectMap<ashui.css.Identity, AccordionItem>();
+
 	function render():Element {
 		for (c in children)
 			if (Std.isOfType(c, AccordionTrigger))
@@ -105,6 +144,9 @@ class AccordionItem extends Component<{value:String, ?disabled:Bool, ?id:String}
 		if (content != null)
 			content.state.set(shown);
 		var box = Library.part("ui-accordion-item", null, ["state" => shown], children, props.id);
+		var identity = ashui.css.Identity.of(box.tree, box.node.id);
+		items.set(identity, this);
+		Owner.onCleanup(() -> items.remove(identity));
 		// Items below one opening make room as smoothly as it opens.
 		ashui.animation.LayoutAnimation.attach(box.node);
 		return box;

@@ -23,13 +23,12 @@ class Select extends Component<SelectProps> {
 		var el = new ashui.ui.Select(props, children);
 		var size = props.size == null ? Size.Md : props.size;
 		ashui.css.Identity.of(el.tree, el.node.id).addClasses(["ui-select"]).setAttribute("data-size", size);
-		// The core picker copies option classes into its top layer, including virtual rows (e8a1b50).
-		function sizeOption(option:ashui.ui.Option):Void
-			ashui.css.Identity.of(option.tree, option.node.id).addClasses(["ui-select-item-" + (size : String)]);
-		for (child in children)
-			if (Std.isOfType(child, ashui.ui.Option)) sizeOption(cast child);
-			else if (Std.isOfType(child, ashui.ui.Optgroup))
-				for (option in (cast child : ashui.ui.Optgroup).options()) sizeOption(option);
+		// The core picker copies option classes into its top layer, including virtual rows (e8a1b50); options a fragment brings later get them too.
+		function sized(options:Array<ashui.ui.Option>):Void
+			for (option in options)
+				ashui.css.Identity.of(option.tree, option.node.id).addClasses(["ui-select-item-" + (size : String)]);
+		sized(el.options());
+		el.onOptions = sized;
 		return el;
 	}
 }

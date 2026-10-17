@@ -2,6 +2,7 @@ package ashui.ui;
 
 import ashui.input.Focus;
 import ashui.input.Interaction;
+import ashui.layout.AfterChildren;
 import ashui.layout.Element;
 import ashui.layout.IntoReactive;
 import ashui.reactive.Computed;
@@ -57,6 +58,9 @@ private typedef Choice = {
 	Enter or a click chooses; Escape, Tab or a click outside closes it
 	without choosing. Closed and focused, typing chooses by label too.
 
+	Its options may come from `<for>` and `<if>` as from authored children,
+	and are listed as they come and go.
+
 	Its look is the user-agent stylesheet's: `select`, its list `listbox`,
 	the options in it `option` (`:checked` the chosen one, `:focus` the one
 	the keys are on) and the group headings `optgroup`.
@@ -76,6 +80,7 @@ class Select extends Component<SelectProps> implements FormControl {
 	public var value(default, null):Signal<String>;
 
 	var choices:Array<Choice> = [];
+	final revision = Signal.make(0);
 	var button:Div;
 	var interaction:Interaction;
 	final touched = Signal.make(false);
@@ -85,17 +90,72 @@ class Select extends Component<SelectProps> implements FormControl {
 	var typed = "";
 	var typedAt = 0.0;
 
-	function render():Element {
-		choices = [];
+	/** The options and option groups that exist, found by the identity of the element each draws. **/
+	static final parts = new haxe.ds.ObjectMap<ashui.css.Identity, Component<Dynamic>>();
+
+	@:allow(ashui.ui)
+	static function register(part:Component<Dynamic>, box:Element):Void {
+		var identity = ashui.css.Identity.of(box.tree, box.node.id);
+		parts.set(identity, part);
+		Owner.onCleanup(() -> parts.remove(identity));
+	}
+
+	/** Calls `found` with each option at or under `node` and the group it is in, going through the fragments of `<for>` and `<if>`. Returns whether it went through a fragment. **/
+	@:allow(ashui.ui)
+	static function walk(tree:ashui.layout.LayoutTree, node:haxe.Int64, group:Null<Optgroup>, found:(Option, Null<Optgroup>) -> Void):Bool {
+		var fragment = tree.isFragment(node);
+		var part = parts.get(ashui.css.Identity.of(tree, node));
+		if (Std.isOfType(part, Option)) {
+			found(cast part, group);
+			return fragment;
+		}
+		if (Std.isOfType(part, Optgroup)) {
+			if (group != null)
+				return fragment;
+			group = cast part;
+		}
+		for (child in tree.children(node))
+			if (walk(tree, child, group, found))
+				fragment = true;
+		return fragment;
+	}
+
+	/** Collects the choices, and reports whether any came through a fragment, since those can change. **/
+	function collect():{choices:Array<Choice>, fragments:Bool} {
+		var out:Array<Choice> = [], fragments = false;
 		for (c in children)
-			if (Std.isOfType(c, Option)) {
-				var o:Option = cast c;
-				choices.push({option: o, group: null, disabled: o.isDisabled()});
-			} else if (Std.isOfType(c, Optgroup)) {
-				var g:Optgroup = cast c;
-				for (o in g.options())
-					choices.push({option: o, group: g.props.label, disabled: o.isDisabled() || g.props.disabled == true});
-			}
+			if (walk(tree, c.node.id, null, (o, g) -> out.push({
+				option: o,
+				group: g == null ? null : g.props.label,
+				disabled: o.isDisabled() || (g != null && g.props.disabled == true)
+			})))
+				fragments = true;
+		return {choices: out, fragments: fragments};
+	}
+
+	/** Collects the choices again after a fragment changed them. If the value is no longer one of them, the first enabled option is chosen, as when the select is built. **/
+	function refresh():Void {
+		choices = collect().choices;
+		if (props.placeholder == null && !Lambda.exists(choices, c -> c.option.valueText() == value.get())) {
+			var first = Lambda.find(choices, c -> !c.disabled);
+			if (first != null)
+				value.set(first.option.valueText());
+		}
+		revision.set(revision.get() + 1);
+		if (onOptions != null)
+			onOptions([for (c in choices) c.option]);
+	}
+
+	/** The options it lists now, in order. **/
+	public function options():Array<Option>
+		return [for (c in choices) c.option];
+
+	/** Called with the options after each change a fragment makes to them, so a library can dress the new ones. **/
+	@:allow(ashui.components) var onOptions:Null<Array<Option>->Void> = null;
+
+	function render():Element {
+		var found = collect();
+		choices = found.choices;
 		value = switch props.value {
 			case null: Signal.make("");
 			case Const(v): Signal.make(v);
@@ -140,6 +200,14 @@ class Select extends Component<SelectProps> implements FormControl {
 				choose(match.option.valueText(), false);
 		});
 		Owner.onCleanup(() -> if (open != null) open.close());
+		if (found.fragments) {
+			var roots = new Map<String, Bool>();
+			for (c in children)
+				roots.set(haxe.Int64.toStr(c.node.id), true);
+			var tree = this.tree;
+			AfterChildren.watch(tree, "select " + haxe.Int64.toStr(button.node.id), parent -> roots.exists(haxe.Int64.toStr(parent))
+				|| Lambda.exists(tree.ancestors(parent), a -> roots.exists(haxe.Int64.toStr(a))), refresh);
+		}
 		initial = value.get();
 		validityOf = new FormStates.Validity(problems);
 		FormStates.keep(interaction, props.required == true, validityOf, touched);
@@ -150,6 +218,7 @@ class Select extends Component<SelectProps> implements FormControl {
 	}
 
 	function labelOf(v:String):String {
+		revision.get();
 		var c = Lambda.find(choices, c -> c.option.valueText() == v);
 		return c == null ? "" : c.option.labelText();
 	}
