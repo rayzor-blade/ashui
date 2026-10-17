@@ -1,11 +1,21 @@
 // Runs a program Ash built for a page in a Chrome started with
 // --remote-debugging-port, and prints what it wrote to the page.
 //
-//     node run_page.mjs <page url> <debugging port> [seconds]
+//     node run_page.mjs <page url> <debugging port> [seconds] [--shot file.png --when regex]
+//
+// With --shot, the page is captured to file.png once the program has written a
+// line matching the regex, while it still draws.
 //
 // Exits 0 when the program ended without trapping, its output holds no line
 // beginning FAIL or "Uncaught exception", and it exited 0.
-const [url, port, seconds = "120"] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const flag = (name) => {
+  const at = args.indexOf(name);
+  return at < 0 ? undefined : args.splice(at, 2)[1];
+};
+const shot = flag("--shot");
+const when = new RegExp(flag("--when") ?? "drawing");
+const [url, port, seconds = "120"] = args;
 if (!port) {
   console.error("usage: node run_page.mjs <page url> <debugging port> [seconds]");
   process.exit(2);
@@ -59,13 +69,26 @@ await send("Page.navigate", { url });
 
 const output = async () => (await evaluate("document.getElementById('out')?.textContent")) ?? "";
 const end = Date.now() + Number(seconds) * 1000;
-let finished = false, printed = 0;
+let finished = false, printed = 0, shotTaken = false;
 // What the program writes is shown as it arrives, so a program that stalls shows where.
 while (Date.now() < end && !(finished = await ended())) {
   const so_far = await output();
   if (so_far.length > printed) {
     process.stdout.write(so_far.slice(printed));
     printed = so_far.length;
+  }
+  if (shot && !shotTaken && when.test(so_far)) {
+    shotTaken = true;
+    await sleep(500);
+    const { data } = await send("Page.captureScreenshot", { format: "png" });
+    const fs = await import("node:fs");
+    fs.writeFileSync(shot, Buffer.from(data, "base64"));
+    // Where the canvas is in the capture, in its pixels, for a checker to crop to.
+    const box = await evaluate(`(() => {
+      const r = document.getElementById("screen")?.getBoundingClientRect();
+      return r && { x: r.x * devicePixelRatio, y: r.y * devicePixelRatio, width: r.width * devicePixelRatio, height: r.height * devicePixelRatio };
+    })()`);
+    if (box) fs.writeFileSync(shot + ".json", JSON.stringify(box));
   }
   await sleep(200);
 }
