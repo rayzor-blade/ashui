@@ -1209,6 +1209,8 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-viewport { position: relative; flex-grow: 1; min-height: 0; min-width: 0; overflow: auto; cursor: text; }
 .ui-code-viewport:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-code-content { position: relative; flex-shrink: 0; }
+/* The code's own height, or the view's when that is shorter, so the gutter's background and border run to the bottom. */
+.ui-code-content, .ui-code-gutter { min-height: 100%; }
 .ui-code-text {
 	font-family: var(--ui-code-font, var(--font-mono)); font-size: var(--ui-code-font-size, var(--text-sm));
 	font-weight: 400; line-height: 1.6; letter-spacing: 0; white-space: pre;

@@ -88,6 +88,9 @@ class CodeComponents {
 			ed.focus(); ed.select(opening, opening); settle();
 			check("a caret next to a brace highlights both matched glyphs", Css.query(tree, ed.node.id, ".ui-code-bracket").length == 2);
 			var editorBox = tree.getBounds(ed.scroll.node), gutterBox = tree.getBounds(Identity.of(tree, Css.query(tree, ed.node.id, ".ui-code-gutter")[0]).node);
+			var contentBox = tree.getBounds(Identity.of(tree, Css.query(tree, ed.node.id, ".ui-code-content")[0]).node);
+			check("the gutter and the content fill the view when the code is shorter than it", gutterBox.height >= editorBox.height - 1 && contentBox.height >= editorBox.height - 1,
+				[gutterBox.height, contentBox.height, editorBox.height]);
 			var braceStop = e.stopAt(opening, value.get());
 			ed.select(0, 0); settle();
 			Pointer.move(tree, editorBox.x + gutterBox.width + 12 + braceStop.x + ed.metrics.characterWidth * .25, editorBox.y + 12 + braceStop.line * ed.metrics.lineHeight + ed.metrics.lineHeight / 2);
@@ -201,6 +204,19 @@ class CodeComponents {
 			check("disposing code controls releases layout hooks", LayoutTree.layoutHooks.length == hooks);
 			tree.dispose();
 		}
+		// Code longer than the view keeps its own height, and the view scrolls over it.
+		ThemeState.init(DefaultTheme.bundle(), Light);
+		var longTree = new LayoutTree(), longEditor = new Ref<CodeEditor>(), longDispose:Void->Void = null;
+		var longRoot = Owner.root(longTree, stop -> {
+			longDispose = stop;
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={longEditor} language="haxe" value={[for (i in 0...200) 'var v$i = $i;'].join("\n")} height={270} /></div>;
+		});
+		longTree.flush(); longTree.computeLayout(longRoot.node, 760, 400); longTree.flush();
+		var long = longEditor.get();
+		var longGutter = longTree.getBounds(Identity.of(longTree, Css.query(longTree, long.node.id, ".ui-code-gutter")[0]).node);
+		var lines200 = 200 * long.metrics.lineHeight;
+		check("long code keeps its own height in the gutter", longGutter.height >= lines200 && longGutter.height < lines200 + 100, [longGutter.height, lines200]);
+		longDispose(); longTree.dispose();
 		Sys.println('$checks checks: ALL PASSED');
 	}
 }
