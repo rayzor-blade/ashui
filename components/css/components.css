@@ -320,7 +320,7 @@
 
 /* ---------------------------------------------------------------- Dialog */
 
-/* The panel: elevated, a hairline round it, on --shadow-xl; it grows in and shrinks away as the user-agent dialog does. */
+/* The panel: elevated, a hairline round it, on --shadow-xl; it rises into place and sinks away as the popovers and menus do, in place of the user-agent dialog's grow from nothing. */
 .ui-dialog-root { flex-direction: row; align-self: flex-start; }
 .ui-dialog {
 	flex-direction: column; gap: var(--ui-dialog-gap, 16px); padding: var(--ui-dialog-padding, 24px);
@@ -329,6 +329,8 @@
 	background: var(--ui-dialog-bg, var(--surface-elevated)); color: var(--text-primary);
 	box-shadow: var(--ui-dialog-shadow, var(--shadow-xl));
 }
+dialog.ui-dialog[open] { animation: ui-rise-in var(--duration-normal) var(--ease-sheet); }
+dialog.ui-dialog[closing] { animation: ui-rise-out var(--duration-fast) var(--ease-in) forwards; }
 .ui-dialog[data-size="sm"] { max-width: var(--ui-dialog-width, 400px); }
 .ui-dialog[data-size="lg"] { max-width: var(--ui-dialog-width, 600px); }
 .ui-dialog[data-size="full"] { max-width: var(--ui-dialog-width, 800px); }

@@ -680,9 +680,18 @@ class Components {
 		press("open");
 		var opened = dlgOpen.get() && ashui.ui.TopLayer.openEntries().length == 1;
 		var focusRing = ashui.input.Focus.of(dlgTree) != null && ashui.input.Focus.of(dlgTree).focusVisible.get();
+		// The panel's motion as it opens and as it closes: the rise the popovers and menus use, not the user-agent dialog's grow.
+		function panelMotion():String {
+			var found = ashui.css.Css.query(dlgTree, dlgTree.root.id, "dialog.ui-dialog");
+			return found.length == 0 ? "none" : ashui.css.Css.computed(ashui.css.Identity.of(dlgTree, found[0]), "animation");
+		}
+		var opening = panelMotion();
 		press("close");
+		var closing = panelMotion();
 		check("a DialogTrigger opens it, a DialogClose closes it; opened by a press, its first control takes focus without a ring",
 			opened && !focusRing && !dlgOpen.get(), [opened, focusRing, dlgOpen.get()]);
+		check("a Dialog's panel rises in as the popovers and menus do, and sinks away as it closes", StringTools.startsWith(opening, "ui-rise-in ") && StringTools.startsWith(closing, "ui-rise-out "),
+			[opening, closing]);
 		press("open");
 		ashui.input.Keyboard.input(dlgTree, key(Named(Escape), Escape));
 		dlgSettle();
