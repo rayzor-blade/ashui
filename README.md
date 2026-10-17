@@ -247,6 +247,8 @@ captures PNGs offscreen; `--watch` captures again when a scene,
 styles or framework change. These development tools live in the source
 repository, rather than the installed packages.
 
+[ashui in a page](docs/web.md) runs a program in the browser through Ash's WebAssembly target, drawn with WebGPU.
+
 [Icons](docs/icons.md) are typed constants compiled into the program, from the Remix catalogue or your own SVG files.
 
 [Visual debugging](docs/debugging.md) includes native hit maps, exact

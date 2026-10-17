@@ -66,7 +66,7 @@ jobs:
         run: |
           haxe -cp haxe -cp tests -main CssValues --interp
           haxe -cp haxe -cp tests -main Draw --interp
-      - name: Compile all four packages through Haxelib
+      - name: Compile every package through Haxelib
         # Source CI has no built native library; the release workflow checks
         # the same consumer with the actual packaged HDLL and installer.
         run: haxe tests/fixtures/package/build.hxml -D ashui_no_hdll
