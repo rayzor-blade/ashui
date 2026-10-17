@@ -8,6 +8,13 @@ package ashui.core.externs;
 @:hlNative("blinc_abi")
 extern class TextNative {
 	/**
+		Adds the faces in `len` bytes of TTF, OpenType, a collection or WOFF2 to
+		the installed fonts, found by the family names they carry; how many
+		faces it added, 0 when the bytes are none of those. `Fonts` wraps it.
+	**/
+	static function blinc_font_register(bytes:hl.Bytes, len:Int):Int;
+
+	/**
 		The coverage atlas (`color` 0, a byte a pixel) or the colour-glyph
 		atlas (`color` 1, RGBA). Each change bumps its revision. When that is
 		not `seen`, writes its width, height and revision as three i32s to
