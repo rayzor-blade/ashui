@@ -39,6 +39,10 @@ class Anchor extends Component<AnchorProps> {
 
 	/** Opens `url` with the system's handler for it. **/
 	public static function open(url:String):Void {
+		#if wasm
+		// A page starts no process, and xwindow has no command to ask it to open a link.
+		return;
+		#end
 		var command = switch Sys.systemName() {
 			case "Mac": "open";
 			case "Windows": "explorer";

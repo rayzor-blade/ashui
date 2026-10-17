@@ -12,7 +12,7 @@ enum abstract Platform(Int) {
 
 	/** The platform this program runs on. **/
 	public static function current():Platform {
-		#if js
+		#if (js || wasm)
 		return Web;
 		#elseif ios
 		return IOS;
