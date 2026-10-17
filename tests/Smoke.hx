@@ -1114,9 +1114,12 @@ class Smoke {
 		check("BC4 blocks are the same whether ash-simd or plain Haxe searches them", same);
 
 		// Glyphs the face lacks come from Blinc's fallback faces: CJK text on a canvas is outlined, each character about an em wide.
+		// A web build carries no CJK face.
+		#if !wasm
 		var cjk = ashui.draw.GlyphOutlines.of("你好", {size: 20});
 		check("canvas text in Chinese is drawn from a CJK face, an em a character", cjk != null && cjk.commands.length > 20 && Math.abs(cjk.width - 40) < 4,
 			cjk == null ? null : cjk.width);
+		#end
 
 		// Text on a canvas: its glyphs' outlines, set by the text engine, placed by its alignment.
 		var regular = ashui.draw.GlyphOutlines.of("Canvas", {size: 20}), bold = ashui.draw.GlyphOutlines.of("Canvas", {size: 20, weight: 700});
@@ -2270,7 +2273,8 @@ class Smoke {
 		check("removing the last pointer query releases its move hook", ashui.input.Pointer.hooks.length == pointerHooksBefore);
 		ashui.css.Css.remove(pointerSheet);
 
-		// Generated fixtures stay ignored even when Smoke runs from the repo root (77939b8).
+		// Generated fixtures stay ignored even when Smoke runs from the repo root (77939b8). A page has no files.
+		#if !wasm
 		var cssDir = ".ashui/tests/smoke";
 		sys.FileSystem.createDirectory(cssDir);
 		var cssPath = haxe.io.Path.join([cssDir, "live.css"]);
@@ -2287,6 +2291,7 @@ class Smoke {
 		check("Css.loadFile puts a file in force", firstWidth == 10, firstWidth);
 		ashui.css.Css.remove(fileSheet);
 		sys.FileSystem.deleteFile(cssPath);
+		#end
 
 		ashui.css.Css.remove(sheet);
 		var after = boundsOf(card);

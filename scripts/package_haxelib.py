@@ -136,7 +136,7 @@ def package(assets: Path, version: str | None = None, check: bool = False) -> li
             archive.write(ROOT / "LICENSE", "LICENSE")
             readme = source_root / "README.md"
             archive.writestr("README.md", release_readme(readme if readme.is_file() else ROOT / "README.md"))
-            for directory in (lib["classPath"], "css"):
+            for directory in (lib["classPath"], "css", "fonts"):
                 for source in sorted((source_root / directory).rglob("*")):
                     if source.is_file():
                         archive.write(source, source.relative_to(source_root))

@@ -115,6 +115,10 @@ class PackageTest(unittest.TestCase):
                     if path.stem == "ashui":
                         self.assertIn("ashui.ui.Markup.enable()", archive.read("extraParams.hxml").decode())
                         self.assertIn("haxe/ashui/macro/NativeInstall.hx", archive.namelist())
+                        # The fonts a web build carries, with the licence they are under.
+                        self.assertIn("ashui.macro.DefaultFonts.stage()", archive.read("extraParams.hxml").decode())
+                        for font in ("Arimo.woff2", "Arimo-Italic.woff2", "OFL.txt"):
+                            self.assertIn(f"fonts/{font}", archive.namelist())
                         for platform, entry in platforms.items():
                             self.assertEqual(archive.read(entry["packagePath"]), platform.encode())
                             self.assertIn("blinc-css", entry["tools"])

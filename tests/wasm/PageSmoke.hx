@@ -76,6 +76,26 @@ class PageSmoke {
 		var width = fontTree.getBounds(text.node).width;
 		check("text is set in a bundled face: four capital Ms at 16px are 32px wide", near(width, 32), width);
 
+		// Arimo has Arial's advances: a capital W is 0.9438 em, an i 0.2222. A text box is whole pixels.
+		function widthOf(text:String, family:Null<String>):Float {
+			var t = new LayoutTree();
+			var label = new Text(text, {fontSize: 16}, t);
+			if (family != null)
+				label.node.set(Prop.FontFamily, family);
+			var column = new Div({flexDirection: Column, alignItems: Start}, [label], t);
+			t.flush();
+			t.computeLayout(column.node, 400, 100);
+			var width = t.getBounds(label.node).width;
+			t.dispose();
+			return width;
+		}
+		var wide = widthOf("WWWWWW", null), narrow = widthOf("iiiiii", null);
+		check("text with no family is set in the bundled Arimo: six Ws and six is at 16px", Math.abs(wide - 6 * 0.94384765625 * 16) <= 0.5
+			&& Math.abs(narrow - 6 * 0.22216796875 * 16) <= 0.5, [wide, narrow]);
+		check("system-ui and sans-serif are the same face", widthOf("WWWWWW", "system-ui") == wide && widthOf("WWWWWW", "sans-serif") == wide,
+			[widthOf("WWWWWW", "system-ui"), widthOf("WWWWWW", "sans-serif")]);
+		check("a stack names Arimo among others: the first one installed is used", widthOf("WWWWWW", "\"Helvetica Neue\", Arimo, sans-serif") == wide);
+
 		Sys.println(failures == 0 ? 'ALL PASSED ($checks)' : '$failures FAILED');
 		if (failures > 0)
 			Sys.exit(1);

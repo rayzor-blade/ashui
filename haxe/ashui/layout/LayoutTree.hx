@@ -39,6 +39,10 @@ class LayoutTree {
 	public var root(default, null):Null<Node>;
 
 	public function new() {
+		#if wasm
+		// A page has no system fonts; the build's own are registered before any text is.
+		ashui.text.Fonts.ensureDefaults();
+		#end
 		this.ptr = LayoutTreeNative.blinc_tree_new();
 	}
 
