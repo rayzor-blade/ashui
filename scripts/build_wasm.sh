@@ -19,7 +19,7 @@ rm -f "$out/blinc_abi.wasm"
 # imports the HashLink runtime the program supplies.
 CARGO_PROFILE_RELEASE_LTO=${CARGO_PROFILE_RELEASE_LTO:-false} \
 RUSTFLAGS="-C relocation-model=pic -C target-feature=+mutable-globals -C panic=abort -C link-arg=--unresolved-symbols=import-dynamic" \
-  cargo +nightly rustc --manifest-path "$here/Cargo.toml" --lib --crate-type staticlib \
+  cargo +nightly rustc --locked --manifest-path "$here/Cargo.toml" --lib --crate-type staticlib \
     --target wasm32-wasip1-threads --release \
     -Z build-std=std,panic_abort
 

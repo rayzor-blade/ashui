@@ -72,7 +72,7 @@ class PackageTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "missing release tools"):
                 PACKAGER.package(assets, check=True)
             for platform, entry in platforms.items():
-                for name, tool in entry["tools"].items():
+                for name, tool in entry.get("tools", {}).items():
                     (assets / tool["releaseAsset"]).write_bytes(f"{name} {platform}".encode())
             PACKAGER.package(assets, check=True)
             self.assertEqual(list(assets.glob("*.zip")), [])
@@ -119,8 +119,11 @@ class PackageTest(unittest.TestCase):
                         self.assertIn("ashui.macro.DefaultFonts.stage()", archive.read("extraParams.hxml").decode())
                         for font in ("Arimo.woff2", "Arimo-Italic.woff2", "OFL.txt"):
                             self.assertIn(f"fonts/{font}", archive.namelist())
+                        self.assertIn("wasm32-wasip1-threads", platforms)
                         for platform, entry in platforms.items():
                             self.assertEqual(archive.read(entry["packagePath"]), platform.encode())
+                            if platform == "wasm32-wasip1-threads":
+                                continue  # The page's library has no build tools.
                             self.assertIn("blinc-css", entry["tools"])
                             for name, tool in entry["tools"].items():
                                 self.assertEqual(archive.read(tool["packagePath"]), f"{name} {platform}".encode())

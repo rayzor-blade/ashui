@@ -143,9 +143,38 @@ jobs:
           path: out/
           if-no-files-found: error
 
+  wasm:
+    name: wasm32-wasip1-threads
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: wasm32-wasip1-threads
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-wasm
+
+      - name: Build the library a page loads
+        run: |
+          # The side module, as small as it goes: fat LTO, size optimised, no names.
+          CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_OPT_LEVEL=z CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
+            sh scripts/build_wasm.sh wasm-out
+          mkdir -p out
+          python3 scripts/strip_wasm_names.py wasm-out/blinc_abi.wasm out/blinc_abi.wasm
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hdll-wasm32
+          path: out/
+          if-no-files-found: error
+
   package:
     name: package and validate Haxelibs
-    needs: [plan, native]
+    needs: [plan, native, wasm]
     if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -176,6 +205,11 @@ jobs:
           haxe tests/fixtures/package/build.hxml
           cmp release/blinc_abi-linux-x86_64.hdll tests/bin/blinc_abi.hdll
 
+      - name: Compile a web build and check that the page's library is staged
+        run: |
+          haxe tests/fixtures/package/build.hxml -D wasm -hl tests/bin/web/package-consumer.hl
+          cmp release/blinc_abi.wasm tests/bin/web/blinc_abi.wasm
+
       - name: Describe the packages
         run: |
           {
@@ -185,7 +219,7 @@ jobs:
             echo
             echo 'Bundled native platforms: Linux x86_64/aarch64, macOS x86_64/aarch64 and Windows x86_64.'
             echo
-            echo 'The installed packages compile HXX and CSS, and stage the host blinc_abi.hdll, automatically.'
+            echo 'The installed packages compile HXX and CSS, and stage the host blinc_abi.hdll, automatically; a web build, defined wasm, gets blinc_abi.wasm.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v7
@@ -221,6 +255,7 @@ jobs:
           files: |
             release/*.zip
             release/*.hdll
+            release/*.wasm
             release/blinc-css-*
           generate_release_notes: true
           prerelease: ${{ env.TAG == 'nightly' }}

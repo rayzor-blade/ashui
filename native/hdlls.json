@@ -48,5 +48,9 @@
         "packagePath": "native/windows-x86_64/blinc-css.exe"
       }
     }
+  },
+  "wasm32-wasip1-threads": {
+    "releaseAsset": "blinc_abi.wasm",
+    "packagePath": "native/wasm32-wasip1-threads/blinc_abi.wasm"
   }
 }

@@ -32,9 +32,9 @@ Haxelibs and verifies that the core's build macro stages the host HDLL before
 publication.
 
 Assets include `ashui.zip`, `ashui-components.zip`, `ashui-canvaskit.zip`,
-`ashui-media.zip`, `ashui-icons.zip`, and the five platform HDLLs. The core ZIP
-bundles every desktop HDLL; all five packages use matching internal dependency
-versions.
+`ashui-media.zip`, `ashui-icons.zip`, the five platform HDLLs and `blinc_abi.wasm`,
+the library a web build loads. The core ZIP bundles every desktop HDLL and the
+wasm library; all five packages use matching internal dependency versions.
 Nightlies retain the version from `haxelib.json` and are marked as prereleases.
 
 ## Manual validation or release

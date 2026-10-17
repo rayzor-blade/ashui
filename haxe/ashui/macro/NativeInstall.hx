@@ -12,7 +12,9 @@ import sys.io.Process;
 /**
 	The native parts a release package bundles for each platform, listed in
 	`native/hdlls.json`: `blinc_abi.hdll`, copied beside HashLink bytecode,
-	and the build tools macros run, such as the `blinc-css` CSS compiler.
+	and the build tools macros run, such as the `blinc-css` CSS compiler. A
+	build defined `wasm` is for a page, so it gets `blinc_abi.wasm`, the
+	module ash loads there, in place of the desktop library.
 **/
 class NativeInstall {
 	static var registered = false;
@@ -39,26 +41,31 @@ class NativeInstall {
 		return path;
 	}
 
+	/** The manifest's name for the web build's library. **/
+	static inline var WEB = "wasm32-wasip1-threads";
+
 	public static function stage():Void {
 		if (registered || !Context.defined("hl") || Context.defined("hlc") || Context.defined("ashui_no_hdll"))
 			return;
 		registered = true;
+		var web = Context.defined("wasm");
 		Context.onAfterGenerate(() -> {
-			var platform = hostPlatform();
+			var platform = web ? WEB : hostPlatform();
+			var file = web ? "blinc_abi.wasm" : "blinc_abi.hdll";
 			var root = root();
 			var manifest:Dynamic = Json.parse(File.getContent(Path.join([root, "native/hdlls.json"])));
 			var entry:Dynamic = Reflect.field(manifest, platform);
 			if (entry == null) {
-				Context.fatalError('ashui has no blinc_abi.hdll for $platform', Context.currentPos());
+				Context.fatalError('ashui has no $file for $platform', Context.currentPos());
 				return;
 			}
 			var source = Path.join([root, entry.packagePath]);
 			if (!FileSystem.exists(source)) {
-				Context.fatalError('ashui is missing $source; install the release Haxelib ZIP, or define ashui_no_hdll and supply blinc_abi.hdll yourself',
+				Context.fatalError('ashui is missing $source; install the release Haxelib ZIP, or define ashui_no_hdll and supply $file yourself',
 					Context.currentPos());
 				return;
 			}
-			var destination = Path.join([Path.directory(Compiler.getOutput()), "blinc_abi.hdll"]);
+			var destination = Path.join([Path.directory(Compiler.getOutput()), file]);
 			if (Path.normalize(source) != Path.normalize(destination))
 				File.copy(source, destination);
 		});

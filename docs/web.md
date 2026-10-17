@@ -22,7 +22,7 @@ libraries it loads, and ash writes the page and its scripts there too:
 
 | File | From |
 | --- | --- |
-| `blinc_abi.wasm` | `scripts/build_wasm.sh` in ashui |
+| `blinc_abi.wasm` | the release package, which a build defined `wasm` copies beside its output; `scripts/build_wasm.sh` from a source checkout |
 | `xwindow.wasm`, `xwindow.mjs`, `xwindow_wire.mjs` | `scripts/build_wasm.sh` in hlwindow |
 | `xgpu.wasm`, `gpu.mjs`, `gpu-worker.mjs`, `gpu-agent.mjs`, `hlwgpu.js` | `scripts/build_wasm.sh` in hlwgpu |
 
@@ -64,7 +64,7 @@ file's size:
 - `blinc_abi` with fat LTO and `opt-level=z`: 6.9 MB becomes 5.5 MB;
 - the programs with `ASH_LLVM_PASSES='default<Oz>'`: 15.2 MB becomes 14.6 MB;
 - the name section, which only helps debugging, dropped from every module with
-  `tests/wasm/strip_names.py`: about 1.4 MB between them.
+  `scripts/strip_wasm_names.py`: about 1.4 MB between them.
 
 Together that is about 21 MB of files, 4.4 MB with brotli and 5.8 MB with gzip.
 Binaryen's `wasm-opt` is not worth running: its output compresses worse than ash's,

@@ -1,6 +1,6 @@
 """Drops the name section of a wasm module, which holds function names for debugging.
 
-    python3 strip_names.py in.wasm out.wasm
+    python3 strip_wasm_names.py in.wasm out.wasm
 
 Only that section goes: a side module's dylink.0 must stay, which wasm-strip would remove.
 """

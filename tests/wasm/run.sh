@@ -37,7 +37,7 @@ sh ../scripts/build_wasm.sh "$out"
 shrink() {
   [ -n "${ASHUI_WASM_SMALL:-}" ] || return 0
   for module in "$1"/*.wasm; do
-    python3 wasm/strip_names.py "$module" "$module.tmp" > /dev/null && mv "$module.tmp" "$module"
+    python3 ../scripts/strip_wasm_names.py "$module" "$module.tmp" > /dev/null && mv "$module.tmp" "$module"
     echo "wasm: $(basename "$module") $(wc -c < "$module" | tr -d ' ') bytes, $(brotli -q 9 -c "$module" 2> /dev/null | wc -c | tr -d ' ') brotli"
   done
 }
