@@ -18,7 +18,7 @@ class Mesh {
 	/** A distance that leaves a pixel fully covered: no edge near. **/
 	public static inline var FAR = 1e6;
 
-	public final data:Array<Float> = [];
+	public var data(default, null):Array<Float> = [];
 
 	public function new() {}
 
@@ -27,6 +27,10 @@ class Mesh {
 
 	public inline function clear():Void
 		data.resize(0);
+
+	/** Empties it and gives its storage back, which `clear` keeps for the next triangles. **/
+	public function release():Void
+		data = [];
 
 	public inline function vertex(x:Float, y:Float, c:Float, d0:Float = FAR, d1:Float = FAR, d2:Float = FAR, d3:Float = FAR):Void {
 		data.push(x);

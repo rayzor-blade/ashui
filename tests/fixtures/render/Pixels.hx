@@ -412,6 +412,30 @@ class Pixels {
 		probe("a shape past the canvas's edge, cut there", 6, 48, near(0xffffff));
 		probe("and inside it, drawn", 9, 48, (r, g, b) -> r > 200 && g < 60 && b > 200);
 
+		// A canvas left unbuilt for a while gives back what it tessellated and goes on drawing the same from the GPU; drawn differently, it builds again.
+		var shade = ashui.reactive.Signal.make(0xff0000);
+		var keptTree = new LayoutTree();
+		var keptRoot:Div = ashui.reactive.Owner.root(keptTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> ctx.fillRect(0, 0, 24, 24, Brush.solid(shade.get()), 0)
+			});
+			canvas.node.set(Prop.Width, (24 : Single));
+			canvas.node.set(Prop.Height, (24 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		pixels = offscreen.renderToRgba8(keptRoot, SIZE, SIZE);
+		label = "canvas built, then left: ";
+		probe("it draws", 16, 16, near(0xff0000));
+		ashui.animation.AnimationScheduler.main.tick(3.0, 3.0);
+		pixels = offscreen.renderToRgba8(keptRoot, SIZE, SIZE);
+		label = "canvas after it gave back its build: ";
+		probe("it draws as it did", 16, 16, near(0xff0000));
+		probe("and not outside its box", 40, 40, near(0xffffff));
+		shade.set(0x0000ff);
+		pixels = offscreen.renderToRgba8(keptRoot, SIZE, SIZE);
+		label = "canvas drawn differently after that: ";
+		probe("it builds again", 16, 16, near(0x0000ff));
+
 		// CSS backdrop-filter: a black stripe under a frosted box blurs; outside it, the stripe stays sharp.
 		var frostSheet = ashui.css.Css.load('.frost { backdrop-filter: blur(4px); background: rgba(255, 255, 255, 0); }');
 		var frostTree = new LayoutTree();

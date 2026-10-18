@@ -69,6 +69,29 @@ class CanvasPainter {
 
 	var bytes:Null<haxe.io.Bytes> = null;
 
+	/** How long after its last build a canvas keeps what it tessellated and uploaded, in seconds, for the next build to reuse. **/
+	static inline var KEEP = 2.0;
+
+	var releasing:Null<ashui.animation.AnimationScheduler.Timer> = null;
+
+	/**
+		Gives back what a build left on the CPU: the triangles, each path's copy, the bytes uploaded, and the lists of draws and
+		clips. A canvas that redraws every frame keeps them, to build into again; one that has not been built for a while is only
+		drawn from what is on the GPU, and these, which can be tens of megabytes for a detailed drawing, are of no use until the
+		next build makes them again.
+	**/
+	function release():Void {
+		releasing = null;
+		mesh.release();
+		shapes.clear();
+		bytes = null;
+		starts.resize(0);
+		paints.resize(0);
+		drawClips.resize(0);
+		clipOrder.resize(0);
+		clipAt.clear();
+	}
+
 	/** The record's runs, in order: of paths, by their vertices, and of meshes, each drawn by `scenes`. **/
 	final steps:Array<CanvasStep> = [];
 
@@ -86,11 +109,15 @@ class CanvasPainter {
 	public function new() {}
 
 	/** Frees what its 3D draws uploaded. **/
-	public function dispose():Void
+	public function dispose():Void {
+		if (releasing != null)
+			releasing.cancel();
+		releasing = null;
 		if (scenes != null) {
 			scenes.dispose();
 			scenes = null;
 		}
+	}
 
 	public function play(frame:CanvasFrame, ctx:DrawContext):Void {
 		var t = frame.transform, m = madeTransform;
@@ -267,6 +294,9 @@ class CanvasPainter {
 			group = null;
 		}
 		frame.device.queue().writeTexture(texture, bytes, PathShader.ROW_TEXELS, needed, PathShader.ROW_TEXELS * 16);
+		if (releasing != null)
+			releasing.cancel();
+		releasing = ashui.animation.AnimationScheduler.main.after(KEEP, release);
 	}
 
 	/** Whether the record draws an image, so a reset of the image atlas makes its triangles again. **/
