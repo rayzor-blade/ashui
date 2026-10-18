@@ -24,7 +24,7 @@ if (!target) { console.error(`no page target on debugging port ${port}`); proces
 
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
-let id = 0, ready = false, broken = null;
+let id = 0, ready = false, broken = null, liveMegabytes = null;
 const pending = new Map();
 ws.onmessage = ({ data }) => {
   const msg = JSON.parse(data);
@@ -34,7 +34,9 @@ ws.onmessage = ({ data }) => {
     msg.error ? reject(new Error(JSON.stringify(msg.error))) : resolve(msg.result);
   } else if (msg.method === "Runtime.consoleAPICalled") {
     const line = msg.params.args.map((a) => a.value ?? a.description).join(" ");
-    console.log(`console.${msg.params.type}: ${line.slice(0, 300)}`);
+    const gc = /\[gc\] #\d+ .*live=\d+ blocks \(([\d.]+)MB\)/.exec(line);
+    if (gc) liveMegabytes = Number(gc[1]);
+    if (!/\[gc/.test(line)) console.log(`console.${msg.params.type}: ${line.slice(0, 300)}`);
     if (/ashui: ready/.test(line)) ready = true;
     if (/^FAIL|^Uncaught exception/.test(line)) broken ??= line;
   } else if (msg.method === "Runtime.exceptionThrown") {
@@ -95,7 +97,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", { source: `
   const make = document.createElement.bind(document);
   document.createElement = function (t, ...r) { const e = make(t, ...r); if (String(t).toLowerCase() === "audio") window.__audios.push(e); return e; };
 ` });
-await send("Page.navigate", { url });
+await send("Page.navigate", { url: url + (url.includes("?") ? "&" : "?") + "env=ASH_GC_STATS=1" });
 for (let i = 0; i < 600 && !ready && !broken; i++) await sleep(100);
 check("the app reports it is ready", ready, broken ?? "");
 await sleep(1500);
@@ -170,6 +172,30 @@ await click(294, 620);
 await sleep(700);
 const ended = (await shoot()).hash;
 check("the call can be ended", ended !== calling);
+
+// Memory: going through every page again and again, with the car turned between, must not fill the program's heap. A page that
+// builds tens of megabytes it never gives back fills it in about ten laps, and from then on the program does little but collect
+// (the page stops drawing while the music plays on).
+await click(508, 738);
+await sleep(600);
+for (let lap = 0; lap < 8; lap++) {
+  for (const x of Object.values(dock)) {
+    await click(x, 738);
+    await sleep(300);
+    if (x === dock.Vehicle) {
+      await mouse("mouseMoved", 640, 400);
+      await mouse("mousePressed", 640, 400);
+      for (let i = 1; i <= 8; i++) { await mouse("mouseMoved", 640 + i * 20, 400); await sleep(16); }
+      await mouse("mouseReleased", 800, 400);
+    }
+  }
+}
+await click(508, 738);
+await sleep(800);
+const moving = [await shoot(), (await sleep(500), await shoot())];
+check("the page still draws after many page changes", moving[0].hash !== moving[1].hash);
+if (liveMegabytes === null) console.log("wasm: the collector reported no statistics, so the heap was not checked");
+else check("the heap stays well below its limit through eight laps of the pages", liveMegabytes < 300, `${liveMegabytes} MB live`);
 
 check("no error was raised", !broken, broken ?? "");
 console.log(failures === 0 ? "ALL PASSED" : `FAIL: ${failures} checks failed`);
