@@ -32,15 +32,16 @@ enum abstract TextureRole(Int) to Int {
 	Meshes' textures on the GPU, shared by every canvas on the one device,
 	kept until their bitmap is disposed.
 
-	A texture is uploaded as it is, eight bits a channel with every mip
-	level, the first time a material asks for it, so it is drawn at once.
 	Where the GPU samples block-compressed textures (BC, on desktop GPUs),
-	the `Worker` thread then compresses each level (`BcEncoder`) as its
-	role says, one texture after another,
-	and the compressed texture takes the uncompressed one's place on the
-	main thread: a quarter of its memory for colour, an eighth for
-	occlusion. `revision` counts the replacements, and each painter's
-	`repaint` is called after them, to draw with the new ones.
+	the `Worker` thread compresses each level (`BcEncoder`) as its role says,
+	one texture after another, and the mesh is drawn once they are on the
+	GPU: a quarter of the memory for colour, an eighth for occlusion.
+	`revision` counts the textures put in place, and each painter's
+	`repaint` is called after them, to draw with the new ones. Otherwise,
+	and always in a page, where compressing in Haxe takes seconds a texture
+	and the mesh waits for it, a texture is uploaded as it is, eight bits a
+	channel with every mip level, the first time a material asks for it, so
+	it is drawn at once.
 
 	A `gpuOnly` bitmap's pixels are freed once nothing more is made from them.
 **/
@@ -71,8 +72,8 @@ class MeshTextures {
 	/** Bitmaps whose pixels go at the end of the frame, nothing more to be made from them. **/
 	static final releasing:Array<Bitmap> = [];
 
-	/** Whether to compress at all: a GPU that cannot sample BC, or `-D ashui_no_bc`, leaves textures as they are. **/
-	public static var compress = #if ashui_no_bc false #else true #end;
+	/** Whether to compress at all: a GPU that cannot sample BC, `-D ashui_no_bc`, or a page, where it takes seconds and the mesh waits, leaves textures as they are. **/
+	public static var compress = #if (ashui_no_bc || wasm) false #else true #end;
 
 	/** Keys of textures being compressed, not yet on the GPU. **/
 	static final pending = new Map<String, Bool>();

@@ -32,7 +32,8 @@ class BannerCar {
 
 	/** The car with its paint multiplied by `paint`, and `metallic` (the model's own map marks it all metal-capable, its roughness keeping trim and tyres matte), and with `toon` shaded in bands (`CarToon`). **/
 	public function new(paint:Int, metallic = 0.0, toon = false) {
-		model = Gltf.load(PATH);
+		// A page draws the scene at most a few thousand pixels wide, and decodes and uploads each texture in the time it has.
+		model = Gltf.load(PATH, #if wasm {maxTextureSize: 2048} #else null #end);
 		blankBadge(model.meshes[0].primitives[0].mesh);
 		pose = new GltfPose(model);
 		var size = model.max.sub(model.min), centre = model.min.add(model.max).scale(0.5);
