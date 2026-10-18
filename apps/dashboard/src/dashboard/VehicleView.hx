@@ -338,20 +338,23 @@ class VehicleView {
 		</div>;
 
 	public function build():Element {
-		var page = <div position={Absolute} left={0} top={0} widthPercent={1} heightPercent={1}>
-			<canvas ref={canvas} widthPercent={1} heightPercent={1} draw={leaders} position={Absolute} left={0} top={0} />
+		// The page has no size of its own, so the car's scene takes the pointer, to orbit, wherever a panel is not over it.
+		var right = Computed.make(() -> screen.width.get() - 24 - 340.0);
+		var barTop = Computed.make(() -> screen.height.get() - 108 - 40.0);
+		var page = <div position={Absolute} left={0} top={0} width={0} height={0}>
+			<canvas ref={canvas} width={screen.width} height={screen.height} draw={leaders} position={Absolute} left={0} top={0} pointerEvents={PointerEvents.None} />
 			{callout(0)}{callout(1)}{callout(2)}
 			<if {screen.wide.get() || screen.medium.get()}>
 				<div flexDirection={Column} gap={16} position={Absolute} left={24} top={24} width={316}>
 					{drivePanel()}
 					<if {screen.wide.get()}>{batteryPanel()}{tyresPanel()}</if>
 				</div>
-				<div flexDirection={Column} gap={12} position={Absolute} right={24} top={24} width={340}>
+				<div flexDirection={Column} gap={12} position={Absolute} left={right} top={24} width={340}>
 					{climatePanel()}
 					<if {screen.wide.get()}>{energyPanel()}{chargersPanel()}</if>
 				</div>
 			</if>
-			<div position={Absolute} left={0} right={0} bottom={108} flexDirection={Row} justifyContent={Justify.Center} alignItems={Center} gap={12}>
+			<div position={Absolute} left={0} top={barTop} width={screen.width} height={40} flexDirection={Row} justifyContent={Justify.Center} alignItems={Center} gap={12}>
 				{paintPill()}
 				<if {!screen.medium.get()}>{glance()}</if>
 			</div>

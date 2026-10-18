@@ -42,8 +42,6 @@ class Dashboard {
 		profileView = new ProfileView(model);
 		moreView = new MoreView(model);
 		islandWidth = () -> screen.width.get();
-		// The paint follows what was chosen.
-		new ashui.reactive.Watch(() -> model.paint.get(), i -> stage.car.setPaint(Paint.ALL[i].color, Paint.ALL[i].metallic));
 	}
 
 	static function toon():Bool {
@@ -52,8 +50,10 @@ class Dashboard {
 	}
 
 	function scene(inView:Computed<Bool>):Element {
+		// The paint is applied as the scene is drawn: a reaction to the signal runs after the draw is recorded, a selection late.
 		var draw = (ctx:ashui.draw.DrawContext) -> {
-			model.paint.get();
+			var p = Paint.ALL[model.paint.get()];
+			stage.car.setPaint(p.color, p.metallic);
 			stage.draw(ctx);
 		};
 		return <div position={Absolute} left={0} top={0} widthPercent={1} heightPercent={1} hidden={Computed.make(() -> !inView.get())}>
