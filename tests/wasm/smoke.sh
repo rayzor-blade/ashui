@@ -3,11 +3,12 @@
 # for a page, and runs them in headless Chrome: PageSmoke, a short check of what
 # a page needs; ashui's whole smoke test; WindowPage, an ashui window drawn by
 # xgpu in the page's canvas, for which hlwindow and hlwgpu are built too and the
-# canvas is checked for pixels; and Banner, the README's dashboard, which has
-# to keep running and drawing for the length of the run. The windows are built
+# canvas is checked for pixels; Banner, the README's dashboard, which has
+# to keep running and drawing for the length of the run; and Dashboard, the app
+# in apps/dashboard, which is clicked through. The windows are built
 # as an app is: ashui's page and the libraries' web builds come from their macros.
 #
-#   tests/wasm/smoke.sh [PageSmoke|Smoke|MediaPage|WindowPage|Banner]
+#   tests/wasm/smoke.sh [PageSmoke|Smoke|MediaPage|WindowPage|Banner|Dashboard]
 #
 # Needs nightly Rust with rust-src (the side modules), Node 22 or later, Google
 # Chrome (CHROME=/path/to/chrome to name one) with WebGPU, Ash 0.1.10 or later
@@ -45,7 +46,7 @@ run_page() {
   browser=$!
   sleep 2
   code=0
-  node wasm/run_page.mjs "http://127.0.0.1:$port/index.html" "$debug" "$seconds" "$@" || code=$?
+  node "${PAGE_SCRIPT:-wasm/run_page.mjs}" "http://127.0.0.1:$port/index.html" "$debug" "$seconds" "$@" || code=$?
   kill $server $browser 2>/dev/null || true
   wait $server $browser 2>/dev/null || true
   rm -rf "$profile" 2>/dev/null || true
@@ -124,10 +125,21 @@ w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 *
   CHROME_FLAGS="--autoplay-policy=no-user-gesture-required" run_page "$dir" 120
 }
 
+# Dashboard: apps/dashboard, the website's demo, built as a user would and driven in the page: the dock's pages open, the music
+# plays, and the window follows the system's scheme (dashboard_check.mjs).
+dashboard_page() {
+  [ -z "$only" ] || [ "$only" = "Dashboard" ] || return 0
+  echo "== Dashboard"
+  build_dashboard || return 1
+  dir="$out/dashboard"
+  PAGE_SCRIPT=wasm/dashboard_check.mjs CHROME_FLAGS="--autoplay-policy=no-user-gesture-required" run_page "$dir" 120 "$dir"
+}
+
 status=0
 program page-smoke PageSmoke wasm || status=$?
 [ $status -ne 0 ] || program smoke Smoke . -D ashui_css=fixtures/css/smoke.css --macro 'ashui.core.Assets.embed("fixtures/assets", "embedded")' || status=$?
 [ $status -ne 0 ] || media_page || status=$?
 [ $status -ne 0 ] || window_page || status=$?
 [ $status -ne 0 ] || banner_page || status=$?
+[ $status -ne 0 ] || dashboard_page || status=$?
 exit $status

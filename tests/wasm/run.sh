@@ -2,7 +2,7 @@
 # Builds a demo for a page, serves it and opens it in a browser. It runs no tests;
 # smoke.sh does.
 #
-#   tests/wasm/run.sh [Banner|WindowPage] [--port N] [--no-open] [--rebuild]
+#   tests/wasm/run.sh [Dashboard|Banner|WindowPage] [--port N] [--no-open] [--rebuild]
 #
 # The default is Banner, the README's dashboard. BROWSER="Google Chrome" names the
 # browser to open on macOS, which needs WebGPU: Chrome, Edge or a recent Safari.
@@ -27,7 +27,7 @@ while [ $# -gt 0 ]; do
     --no-open) open=0 ;;
     --rebuild) rebuild=1 ;;
     -h | --help) sed -n '2,13p' wasm/run.sh | sed 's/^# \{0,1\}//'; exit 0 ;;
-    Banner | WindowPage) demo=$1 ;;
+    Dashboard | Banner | WindowPage) demo=$1 ;;
     *) echo "run.sh: unknown demo or option $1" >&2; exit 2 ;;
   esac
   shift
@@ -36,6 +36,7 @@ done
 [ $rebuild -eq 0 ] || rm -rf "$out/blinc_abi.wasm" "$out/hlwindow-web" "$out/hlwgpu-web" "$out/web-libraries.stamp"
 [ -f "$out/blinc_abi.wasm" ] || build_abi
 case "$demo" in
+  Dashboard) build_dashboard; dir=$out/dashboard ;;
   Banner) build_banner; dir=$out/banner ;;
   WindowPage) build_window_page; dir=$out/window-page ;;
 esac

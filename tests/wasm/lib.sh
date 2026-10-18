@@ -129,6 +129,19 @@ build_window() {
   shrink "$dir"
 }
 
+# Dashboard: apps/dashboard, the demo for the website: a car's dashboard with working pages and sound. The app's own build is what a user
+# would make with docs/web.md; this adds the checkouts' web builds in place of release packages.
+build_dashboard() {
+  web_media || return 1
+  app=$(cd ../apps/dashboard && pwd)
+  build_window dashboard dashboard.Main "$app/src" -D "ashui_css=$app/src/dashboard/dashboard.css" \
+    --class-path ../media/haxe --class-path ../../hlavi/haxe -D "hlavi_web=$here/$out/hlavi-web" --macro "hlavi.macro.NativeInstall.stage()" \
+    --macro "ashui.core.Assets.embed(\"../tools/snapshot/assets/3d/Mazda6\", \"assets/3d/Mazda6\")" \
+    --macro "ashui.core.Assets.embed(\"../tools/snapshot/assets/map\", \"assets/map\")" \
+    --macro "ashui.core.Assets.embed(\"$app/levels\", \"assets/levels\")" \
+    --macro "ashui.macro.WebPage.copy(\"$app/audio\", \"audio\")"
+}
+
 # WindowPage: a small window that draws and quits.
 build_window_page() {
   build_window window-page WindowPage wasm

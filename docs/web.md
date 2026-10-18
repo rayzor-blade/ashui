@@ -134,6 +134,7 @@ browser, and runs no tests:
 
 ```sh
 tests/wasm/run.sh            # the README's banner: a glTF car, glass panels, gauges, a street map
+tests/wasm/run.sh Dashboard  # apps/dashboard: the same dashboard as an app, with working pages and music
 tests/wasm/run.sh WindowPage
 ```
 
@@ -146,7 +147,9 @@ first build, Ash (`ASH=` names one), and a browser with WebGPU.
 `tests/wasm/smoke.sh` is the check: it builds the same libraries and four
 programs, and runs each in headless Chrome: a short check of what a page needs,
 ashui's whole smoke test, a small window whose canvas is checked for pixels, and the
-banner, which has to be running and drawing at the end of 25 seconds.
+banner, which has to be running and drawing at the end of 25 seconds, and the
+dashboard app, which is clicked through: its pages, its music, and its light
+and dark.
 `tests/wasm/smoke.sh Banner` runs only that. It needs Node 22 or later, Google
 Chrome (`CHROME=` names one) and ImageMagick besides.
 
