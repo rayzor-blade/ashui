@@ -83,8 +83,7 @@ class Model {
 	public final minutesToLimit:Computed<Float>;
 
 	var elapsed = 0.0;
-	var sinceMeters = 0.0;
-	var sinceClock = 0.0;
+	var sinceMinute = 0.0;
 
 	public function new() {
 		range = Computed.make(() -> charge.get() * 5.72);
@@ -166,19 +165,12 @@ class Model {
 			case _: 0;
 		}
 
-	/** Moves the world on by `dt` seconds. The speed and the charge are set at a few times a second, so what draws them is not made to draw at every frame. **/
+	/** Moves the world on by `dt` seconds; called each frame. **/
 	public function step(dt:Float):Void {
+		// Each frame, so what moves on the pages moves at the rate they are drawn: a step that changes nothing drawn slows the app's loop.
 		elapsed += dt;
-		sinceClock += dt;
-		if (sinceClock >= 0.066) {
-			sinceClock = 0;
-			clock.set(elapsed);
-		}
-		sinceMeters += dt;
-		if (sinceMeters < 0.05)
-			return;
-		var d = sinceMeters;
-		sinceMeters = 0;
+		clock.set(elapsed);
+		var d = dt;
 		var s = speed.get(), goal = cruising(gear.get(), elapsed);
 		// Pulls toward the goal: harder to stop than to start.
 		s += (goal - s) * Math.min(1, d * (goal < s ? 1.6 : 0.9));
@@ -200,9 +192,13 @@ class Model {
 			charge.set(Math.min(limit.get(), charge.get() + d * 0.02));
 		else if (charge.get() >= limit.get() && charging.get())
 			charging.set(false);
-		var m = wallMinute();
-		if (m != minute.get())
-			minute.set(m);
+		sinceMinute += dt;
+		if (sinceMinute >= 1) {
+			sinceMinute = 0;
+			var m = wallMinute();
+			if (m != minute.get())
+				minute.set(m);
+		}
 	}
 
 	/** Runs `step` each frame, for as long as the app does. **/
