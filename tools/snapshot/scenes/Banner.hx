@@ -540,8 +540,17 @@ class Banner {
 				}
 			});
 			Sys.println(result.report.split("\n")[0]);
-		} else
+		} else {
+			// In a window the scene plays live: the clock runs, and the camera draws back as the car turns.
+			if (ashui.debug.SceneWindow.wanted())
+				ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+					var t = clock.get() + dt;
+					clock.set(t);
+					camera.distance.set(distance(t));
+					return true;
+				});
 			Snapshot.scene(light ? "banner-light" : "banner", WIDTH, HEIGHT, build, page.rgb(), page.a, 2.0, 1.0);
+		}
 		for (p in ashui.css.Css.problems)
 			Sys.println("css: " + p);
 	}

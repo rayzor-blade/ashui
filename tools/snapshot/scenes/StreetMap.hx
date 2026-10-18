@@ -32,7 +32,7 @@ class StreetMap {
 
 	/** The map at `path`, and the car drawn from above, nose up, at `carIcon`. **/
 	public function new(path:String, ?carIcon:String) {
-		data = haxe.Json.parse(sys.io.File.getContent(path));
+		data = haxe.Json.parse(ashui.core.Assets.text(path));
 		car = carIcon == null ? null : ashui.types.Bitmap.load(carIcon);
 	}
 

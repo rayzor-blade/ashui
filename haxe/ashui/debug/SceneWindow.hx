@@ -23,9 +23,11 @@ class SceneWindow {
 
 	static inline var MAX_HEIGHT = 860;
 
-	/** Whether scenes open in a window. **/
+	/** Whether scenes open in a window: always in a page, which has no environment to ask, else when `ASHUI_WINDOW` is set. **/
 	public static function wanted():Bool {
-		#if (hlwindow || ashui_window)
+		#if (wasm && ashui_window)
+		return true;
+		#elseif (hlwindow || ashui_window)
 		return Sys.getEnv("ASHUI_WINDOW") != null;
 		#else
 		return false;
