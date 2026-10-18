@@ -70,13 +70,25 @@ class StreetMap {
 				p.close();
 			return p;
 		}
+		// Whether any of `points`, `reach` pixels round, can be inside the map's box: what lies beyond it is clipped, so it is not made.
+		function near(points:Array<Array<Float>>, reach:Float):Bool {
+			var left = true, right = true, above = true, below = true;
+			for (q in points) {
+				var x = sx(q[0]), y = sy(q[1]);
+				left = left && x < -reach;
+				right = right && x > w + reach;
+				above = above && y < -reach;
+				below = below && y > h + reach;
+			}
+			return !(left || right || above || below);
+		}
 		function fill(layer:String, colour:Int, alpha = 1.0)
 			for (shape in (Reflect.field(data.layers, layer) : Array<Array<Array<Float>>>))
-				if (shape.length > 2)
+				if (shape.length > 2 && near(shape, 1))
 					ctx.fillPath(path(shape, true), Brush.solid(colour, alpha));
 		function stroke(layer:String, width:Float, colour:Int, ?dash:Array<Float>)
 			for (line in (Reflect.field(data.layers, layer) : Array<Array<Array<Float>>>))
-				if (line.length > 1)
+				if (line.length > 1 && near(line, width))
 					ctx.strokePath(path(line, false), new Stroke(width, Round, Round, 4, dash), Brush.solid(colour));
 
 		ctx.pushClipRect(0, 0, w, h, 12);
