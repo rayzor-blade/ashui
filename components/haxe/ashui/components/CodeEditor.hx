@@ -5,6 +5,7 @@ import ashui.components.code.CodeDocument.CodeLine;
 import ashui.components.code.CodeHighlighter;
 import ashui.components.code.CodeHistory;
 import ashui.components.code.CodeMetrics;
+import ashui.components.code.CodeMinimap;
 import ashui.components.code.CodeSyntax;
 import ashui.css.Css;
 import ashui.css.Identity;
@@ -38,6 +39,10 @@ typedef CodeEditorProps = {
 	?indentGuides:Bool,
 	/** Highlight the matching pair next to a caret or pointer selection. **/
 	?highlightBrackets:Bool,
+	/** A strip down the right edge that draws the whole document scaled down, with a slider over what is on screen; pressing it, dragging the slider or the wheel over it scroll the editor. **/
+	?minimap:Bool,
+	/** The widest the minimap gets, 96 by default; it is a quarter of the editor's width when that is less. **/
+	?minimapWidth:Float,
 	/** Spaces per tab stop and indentation level, 4 by default. **/
 	?tabSize:Int,
 	/** Insert spaces for Tab by default; false inserts a tab character. **/
@@ -223,7 +228,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 		pane = Library.part("ui-code-viewport", null, null, [content]);
 		scroll = Scroll.attach(pane.node, true, true);
 		refresh();
-		var box = Library.part("ui-code", null, ["mode" => editable() ? "editor" : "view"], [pane], props.id);
+		var strip:Array<Element> = [pane];
+		if (props.minimap == true)
+			strip.push(CodeMinimap.make({
+				document: document, metrics: metrics, scroll: scroll, viewHeight: viewHeight, viewWidth: viewWidth, revision: revision, tabSize: tabSize,
+				pad: PAD, maxWidth: props.minimapWidth == null ? 96 : props.minimapWidth
+			}));
+		var data:Map<String, IntoReactive<Null<String>>> = ["mode" => editable() ? "editor" : "view"];
+		if (props.minimap == true)
+			data.set("minimap", "on");
+		var box = Library.part("ui-code", null, data, strip, props.id);
 		var identity = Identity.of(pane.tree, pane.node.id);
 		identity.setAttribute("role", "textbox").setAttribute("aria-multiline", "true").setAttribute("aria-label", props.label == null ? "Code" : props.label);
 		new Watch(() -> readOnly.get(), on -> identity.setAttribute("aria-readonly", on ? "true" : "false"));

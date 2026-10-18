@@ -242,7 +242,47 @@ class CodeComponents {
 		var longGutter = longTree.getBounds(Identity.of(longTree, Css.query(longTree, long.node.id, ".ui-code-gutter")[0]).node);
 		var lines200 = 200 * long.metrics.lineHeight;
 		check("long code keeps its own height in the gutter", longGutter.height >= lines200 && longGutter.height < lines200 + 100, [longGutter.height, lines200]);
+		check("an editor has no minimap unless asked for", Css.query(longTree, long.node.id, ".ui-code-minimap").length == 0);
 		longDispose(); longTree.dispose();
+		// The minimap: a strip beside the viewport, a slider over what the viewport shows, and the editor follows what is pressed in it.
+		var hooksBefore = LayoutTree.layoutHooks.length, restylesBefore = Css.restyled.length;
+		var mapTree = new LayoutTree(), mapEditor = new Ref<CodeEditor>(), mapDispose:Void->Void = null;
+		var mapRoot = Owner.root(mapTree, stop -> {
+			mapDispose = stop;
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={mapEditor} language="haxe" value={[for (i in 0...300) 'var v$i = $i;'].join("\n")} height={270} minimap={true} /></div>;
+		});
+		function mapSettle() { mapTree.flush(); mapTree.computeLayout(mapRoot.node, 760, 400); mapTree.flush(); }
+		mapSettle(); mapSettle();
+		var map = mapEditor.get(), mapLine = map.metrics.lineHeight;
+		function box(selector:String) return mapTree.getBounds(Identity.of(mapTree, Css.query(mapTree, map.node.id, selector)[0]).node);
+		var viewport = box(".ui-code-viewport"), strip = box(".ui-code-minimap");
+		check("the minimap is a strip beside the viewport, as high as it", strip.x >= viewport.x + viewport.width - 1 && strip.width > 20 && strip.width <= 97
+			&& Math.abs(strip.height - viewport.height) < 2, [strip, viewport]);
+		var pitch = Math.min(2, viewport.height / 300);
+		var sliderSize = Math.max(12, viewport.height / mapLine * pitch);
+		check("the slider covers the part of the document on screen", Math.abs(box(".ui-code-minimap-slider").height - sliderSize) < 1.5 && Math.abs(box(".ui-code-minimap-slider").y - strip.y) < 1.5,
+			[box(".ui-code-minimap-slider"), sliderSize]);
+		map.scroll.jumpTo(0, 1500); mapSettle();
+		check("the slider follows the scrolling", Math.abs(box(".ui-code-minimap-slider").y - strip.y - (1500 - 12) / mapLine * pitch) < 1.5, [box(".ui-code-minimap-slider").y - strip.y, (1500 - 12) / mapLine * pitch]);
+		// Pressing beside the slider puts the slider's middle where the pointer is.
+		map.scroll.jumpTo(0, 0); mapSettle();
+		var at = strip.y + strip.height * .7;
+		Pointer.move(mapTree, strip.x + strip.width / 2, at); Pointer.press(mapTree); Pointer.release(mapTree); mapSettle();
+		var expected = 12 + (at - strip.y - sliderSize / 2) / pitch * mapLine;
+		check("pressing the strip scrolls the editor to that line", Math.abs(map.scroll.y.get() - expected) < 2, [map.scroll.y.get(), expected]);
+		// Dragging from the slider moves it with the pointer, from where it was taken.
+		var slider = box(".ui-code-minimap-slider"), before = map.scroll.y.get();
+		Pointer.move(mapTree, strip.x + strip.width / 2, slider.y + 3); Pointer.press(mapTree);
+		Pointer.move(mapTree, strip.x + strip.width / 2, slider.y + 3 + 20); mapSettle(); Pointer.release(mapTree); mapSettle();
+		check("dragging the slider scrolls as it moves", Math.abs(map.scroll.y.get() - before - 20 / pitch * mapLine) < 2, [map.scroll.y.get() - before, 20 / pitch * mapLine]);
+		before = map.scroll.y.get();
+		Pointer.move(mapTree, strip.x + strip.width / 2, strip.y + 10); Pointer.wheel(mapTree, 0, -60); mapSettle();
+		check("the wheel over the strip scrolls the editor", map.scroll.y.get() > before, [map.scroll.y.get(), before]);
+		map.focus(); map.select(0, 0); mapSettle();
+		mapDispose(); mapTree.dispose();
+		ashui.animation.AnimationScheduler.main.tick(1);
+		check("a disposed minimap leaves no hook or timer behind", LayoutTree.layoutHooks.length == hooksBefore && Css.restyled.length == restylesBefore
+			&& ashui.animation.AnimationScheduler.main.untilNextTimer() == null, [LayoutTree.layoutHooks.length, hooksBefore, Css.restyled.length, restylesBefore]);
 		Sys.println('$checks checks: ALL PASSED');
 	}
 }

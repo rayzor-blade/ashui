@@ -1206,6 +1206,19 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 	background: var(--ui-code-bg, var(--surface)); color: var(--text-primary); overflow: hidden;
 }
 .ui-code:focus-within { border-color: var(--focus-ring); }
+.ui-code[data-minimap="on"] { flex-direction: row; }
+/* The minimap: a strip beside the viewport, its rows drawn in one canvas and a slider over what the viewport shows. */
+.ui-code-minimap {
+	position: relative; flex-shrink: 0; overflow: hidden; cursor: default;
+	background: var(--ui-code-minimap-bg, transparent); border-left: 1px solid var(--ui-code-minimap-border, var(--border));
+}
+.ui-code-minimap-slider {
+	position: absolute; left: 0; right: 0; pointer-events: none;
+	background: var(--ui-code-minimap-slider, color-mix(in srgb, var(--text-primary) 8%, transparent));
+}
+.ui-code-minimap:hover .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-hover, color-mix(in srgb, var(--text-primary) 14%, transparent)); }
+.ui-code-minimap[data-dragging="true"] .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-active, color-mix(in srgb, var(--text-primary) 22%, transparent)); }
+.ui-code-minimap-probe { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
 .ui-code-viewport { position: relative; flex-grow: 1; min-height: 0; min-width: 0; overflow: auto; cursor: text; }
 .ui-code-viewport:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-code-content { position: relative; flex-shrink: 0; }
