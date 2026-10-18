@@ -124,16 +124,16 @@ class Island {
 			ctx.fillCircle(w * done, 6, 6, Brush.solid(0xffffff));
 		};
 
-	/** The island, centred across a page `width` wide, its equalizer moving with `clock`, in seconds. **/
-	public static function build(width:Float, clock:Signal<Float>):Element {
+	/** The island, centred across a page `width()` wide, which it follows if that changes; its equalizer moves with `clock`, in seconds. **/
+	public static function build(width:Void->Float, clock:Signal<Float>):Element {
 		var active = Signal.make("");
 		// What the panel shows: the open item's, kept while the panel folds away.
 		var shown = Signal.make("");
-		var centre = new Sprung(width / 2, SpringConfig.gentle());
+		var centre = new Sprung(width() / 2, SpringConfig.gentle());
 		var span = new Sprung(0, SpringConfig.snappy());
 		var depth = new Sprung(0, SpringConfig.snappy());
 		var bar = new Ref<Div>(), panel = new Ref<Div>();
-		var barLeft = (width - BAR_WIDTH) / 2;
+		var barLeft = Computed.make(() -> (width() - BAR_WIDTH) / 2);
 
 		function forecast(time:String, markup:String, temp:String):Element
 			return <div flexDirection={Column} alignItems={Center} gap={5} flexGrow={1}>
@@ -240,7 +240,8 @@ class Island {
 				return;
 			// Centred under the item, kept to the bar's flat foot so the panel's shoulders meet it.
 			var half = item.width / 2 + PANEL_SHOULDER;
-			var lo = barLeft + SHOULDER + FOOT + half, hi = barLeft + BAR_WIDTH - SHOULDER - FOOT - half;
+			var left = barLeft.get();
+			var lo = left + SHOULDER + FOOT + half, hi = left + BAR_WIDTH - SHOULDER - FOOT - half;
 			var x = Math.max(lo, Math.min(hi, at.x + at.width / 2));
 			if (active.get() == "") {
 				// Opening afresh: it unfolds where it is wanted, narrow first, rather than sliding in from where it last was.

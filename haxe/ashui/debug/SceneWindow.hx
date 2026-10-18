@@ -11,7 +11,8 @@ import ashui.layout.LayoutTree;
 	the pointer and keys, and `ASHUI_MOTION=overlay` draws the motion
 	overlay over it. The scene keeps its own size, in a window no larger
 	than a screen holds, which scrolls it; one wider than that window
-	takes the window's width instead and lays out again. `ASHUI_WINDOW_CLICKS`,
+	takes the window's width instead and lays out again; in a page, where the window is the whole canvas, the scene fills it.
+	`ASHUI_WINDOW_CLICKS`,
 	a number, clicks that many times, one every 150ms, each at the middle
 	of a focusable element picked at random from those in view, a seeded
 	pick so a run repeats: for finding what interaction breaks. `ASHUI_WINDOW_SECONDS` closes it after that long, for
@@ -104,8 +105,14 @@ class SceneWindow {
 		var config = new ashui.app.WindowConfig().title(name).size(Std.int(Math.min(width, MAX_WIDTH)), Std.int(Math.min(height, MAX_HEIGHT)));
 		ashui.app.WindowedApp.run(config, () -> {
 			root = build();
+			#if wasm
+			// A page's window is all of its canvas: the scene fills it, whatever size it was designed at, and lays itself out for it.
+			root.node.set(ashui.layout.Prop.WidthPercent, (1 : Single));
+			root.node.set(ashui.layout.Prop.HeightPercent, (1 : Single));
+			root;
+			#else
 			root.node.set(ashui.layout.Prop.FlexShrink, (0 : Single));
-			// Wider than the window, it takes the window's width and lays out again, as a page does; narrower, it keeps its own.
+			// Wider than the window, it takes the window's width and lays out again; narrower, it keeps its own.
 			if (width > MAX_WIDTH)
 				root.node.set(ashui.layout.Prop.WidthPercent, (1 : Single));
 			var scroller = new ashui.ui.Div({flexDirection: ashui.types.Style.FlexDirection.Column, alignItems: ashui.types.Style.Align.Start,
@@ -115,6 +122,7 @@ class SceneWindow {
 			scroller.node.set(ashui.layout.Prop.HeightPercent, (1 : Single));
 			ashui.input.Scroll.attach(scroller.node, true, true);
 			scroller;
+			#end
 		});
 		#end
 	}

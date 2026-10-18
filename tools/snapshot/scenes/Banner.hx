@@ -149,14 +149,29 @@ class Banner {
 		var camera = new OrbitCamera(2.25, 0.38, DISTANCE, new Vec3(0.05, 0.62, 0.2), 0.5);
 		var rig = [Directional(new Vec3(-0.35, -1, 0.3), 0xffffff, light ? 1.6 : 2.2)];
 
+		// The banner's size as laid out, which a window sets to its own and a snapshot leaves at the design's: what the callouts are
+		// placed against. The leaders' canvas fills the banner, so it is how the size is read.
+		var leadersCanvas = new ashui.ui.Ref<ashui.ui.Canvas>();
+		function viewWidth():Float {
+			var c = leadersCanvas.get();
+			var w = c == null ? 0.0 : c.laidWidth();
+			return w > 0 ? w : WIDTH;
+		}
+		function viewHeight():Float {
+			var c = leadersCanvas.get();
+			var h = c == null ? 0.0 : c.laidHeight();
+			return h > 0 ? h : HEIGHT;
+		}
+
 		/** Where a point of the scene lands in the banner, in layout units. **/
 		function project(p:Vec3):{x:Float, y:Float} {
 			var cam = camera.camera();
-			var m = cam.projection(WIDTH / HEIGHT).mul(cam.view());
+			var width = viewWidth(), height = viewHeight();
+			var m = cam.projection(width / height).mul(cam.view());
 			var cx = m.get(0, 0) * p.x + m.get(1, 0) * p.y + m.get(2, 0) * p.z + m.get(3, 0);
 			var cy = m.get(0, 1) * p.x + m.get(1, 1) * p.y + m.get(2, 1) * p.z + m.get(3, 1);
 			var cw = m.get(0, 3) * p.x + m.get(1, 3) * p.y + m.get(2, 3) * p.z + m.get(3, 3);
-			return {x: (cx / cw * 0.5 + 0.5) * WIDTH, y: (0.5 - cy / cw * 0.5) * HEIGHT};
+			return {x: (cx / cw * 0.5 + 0.5) * width, y: (0.5 - cy / cw * 0.5) * height};
 		}
 
 		function speedometer(ctx:DrawContext) {
@@ -301,6 +316,7 @@ class Banner {
 		];
 		var chipWidth = 172.0, chipHeight = 40.0;
 		var placed = Computed.make(() -> {
+			var width = viewWidth(), height = viewHeight();
 			var spin = Mat4.rotation(ashui.math.Quat.axisAngle(Vec3.UP, turn(clock.get())));
 			var away = DISTANCE / camera.distance.get();
 			var eye = camera.eye(), middle = project(new Vec3(0, 0.65, 0));
@@ -318,8 +334,8 @@ class Banner {
 					}
 					var dx = (best.x - middle.x) / 300 + c.lean.x, dy = (best.y - middle.y) / 170 + c.lean.y;
 					var len = Math.max(1e-6, Math.sqrt(dx * dx + dy * dy));
-					var cx = Math.max(LEFT_PANEL + 16 + chipWidth / 2, Math.min(WIDTH - RIGHT_PANEL - 16 - chipWidth / 2, middle.x + dx / len * 400 * away));
-					var cy = Math.max(72 + chipHeight / 2, Math.min(HEIGHT - 140 - chipHeight / 2, middle.y + dy / len * 235 * away));
+					var cx = Math.max(LEFT_PANEL + 16 + chipWidth / 2, Math.min(width - RIGHT_PANEL - 16 - chipWidth / 2, middle.x + dx / len * 400 * away));
+					var cy = Math.max(72 + chipHeight / 2, Math.min(height - 140 - chipHeight / 2, middle.y + dy / len * 235 * away));
 					{x: best.x, y: best.y, cx: cx, cy: cy, opacity: Math.max(0, Math.min(1, (best.seen - 0.12) / 0.25))};
 				}
 			];
@@ -338,7 +354,7 @@ class Banner {
 						b.cx += way * need / 2;
 					}
 			for (c in chips)
-				c.cx = Math.max(LEFT_PANEL + 16 + chipWidth / 2, Math.min(WIDTH - RIGHT_PANEL - 16 - chipWidth / 2, c.cx));
+				c.cx = Math.max(LEFT_PANEL + 16 + chipWidth / 2, Math.min(width - RIGHT_PANEL - 16 - chipWidth / 2, c.cx));
 			chips;
 		});
 		function leaders(ctx:DrawContext) {
@@ -431,7 +447,7 @@ class Banner {
 		var build = () -> <div width={WIDTH} height={HEIGHT}>
 			<scene-kit camera={camera} lights={rig} environment={sky} environmentIntensity={light ? 0.9 : 1.0} background={studio} shadows={true}
 				shadowStrength={light ? 0.45 : 0.6} shadowReach={4.5} draw={draw} widthPercent={1} heightPercent={1} />
-			<canvas width={WIDTH} height={HEIGHT} draw={leaders} position={Absolute} left={0} top={0} pointerEvents={PointerEvents.None} />
+			<canvas ref={leadersCanvas} widthPercent={1} heightPercent={1} draw={leaders} position={Absolute} left={0} top={0} pointerEvents={PointerEvents.None} />
 			{callout(0)}{callout(1)}{callout(2)}
 
 			<div flexDirection={Column} gap={16} position={Absolute} left={24} top={24} width={316}>
@@ -512,7 +528,7 @@ class Banner {
 					{dockItem(MORE, "More", false)}
 				</div>
 			</div>
-			{Island.build(WIDTH, clock)}
+			{Island.build(viewWidth, clock)}
 		</div>;
 		if (motion) {
 			// Each half recorded on its own, from where it starts on the clock, half a second past its end so the halves can be
