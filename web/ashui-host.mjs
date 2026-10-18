@@ -167,7 +167,7 @@ worker.onmessage = ({ data }) => {
   if (data.kind === "spawn-agent") {
     if (data.name === "gpu") phase = "Drawing the first frame";
     import(new URL(`./${data.name}.mjs`, location.href))
-      .then((shim) => shim.start({ memory: data.memory, address: data.address, canvas: screen }))
+      .then((shim) => shim.start({ memory: data.memory, address: data.address, canvas: screen, report: fail }))
       .catch((e) => fail(`${data.name} did not start`, e && e.message ? e.message : String(e)));
     return;
   }

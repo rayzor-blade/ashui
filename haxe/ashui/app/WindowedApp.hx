@@ -116,7 +116,10 @@ class WindowedApp {
 	/** hlwindow's platform code for Wayland. **/
 	static inline var WAYLAND = 4;
 
-	/** How long a frame waits for the redraw after the last before drawing anyway, in seconds: a compositor sends none to a window it does not show. **/
+	/** hlwindow's platform code for a page's canvas, whose redraws are the browser's animation frames. **/
+	static inline var WEB_CANVAS = 7;
+
+	/** How long a frame waits for the redraw after the last before drawing anyway, in seconds: a compositor or a browser sends none to a window it does not show. **/
 	static inline var FRAME_WAIT_LIMIT = 1.0;
 
 	/** When the surface last gave no frame to draw into. **/
@@ -187,7 +190,7 @@ class WindowedApp {
 			if (code != ashui.input.Cursor.HIDDEN)
 				window.setCursorIcon(cast code);
 		});
-		paceOnRedraw = window.platform() == WAYLAND;
+		paceOnRedraw = window.platform() == WAYLAND || window.platform() == WEB_CANVAS;
 	}
 
 	/** Closes the window after the frame being drawn. **/
