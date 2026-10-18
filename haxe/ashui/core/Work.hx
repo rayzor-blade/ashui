@@ -22,8 +22,19 @@ class Work {
 		if (callback != null) {
 			#if target.threaded
 			if (sys.thread.Thread.current() != owner)
+				deliver(callback);
+			else
 			#end
 			callback();
 		}
 	}
+
+	#if target.threaded
+	/** A wake from another thread is a hint: one that cannot be delivered, as from a thread in a page, leaves the work queued all the same. **/
+	static function deliver(callback:Void->Void):Void {
+		try
+			callback()
+		catch (_:haxe.Exception) {}
+	}
+	#end
 }
