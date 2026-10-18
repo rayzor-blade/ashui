@@ -154,7 +154,7 @@ class Css {
 	**/
 	public static function loadFile(path:String):Stylesheet {
 		#if sys
-		var sheet = Stylesheet.parse(sys.io.File.getContent(path), path);
+		var sheet = Stylesheet.parse(ashui.core.Assets.text(path), path);
 		files.set(sheet, {path: path, times: times(sheet, path)});
 		add(sheet);
 		return sheet;

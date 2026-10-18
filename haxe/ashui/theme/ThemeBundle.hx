@@ -30,15 +30,11 @@ final class ThemeBundle {
 
 	/** Adds the style sheet in `path`; one that cannot be read becomes a CSS comment saying why. **/
 	public function withCssFile(path:String):ThemeBundle {
-		#if sys
 		try {
-			cssSources.push(sys.io.File.getContent(path));
+			cssSources.push(ashui.core.Assets.text(path));
 		} catch (e:haxe.Exception) {
 			cssSources.push('/* ThemeBundle.withCssFile($path) failed: ${e.message} */');
 		}
-		#else
-		cssSources.push('/* ThemeBundle.withCssFile($path) failed: no file system */');
-		#end
 		return this;
 	}
 

@@ -14,3 +14,5 @@
 -hl bin/smoke.hl
 # Templates as inline markup, with no hxx(...) around them
 --macro ashui.ui.Markup.enable()
+# Files a page cannot read, embedded under another path to tell them from the files
+--macro ashui.core.Assets.embed("fixtures/assets", "embedded")

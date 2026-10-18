@@ -25,7 +25,8 @@ import haxe.macro.Expr;
 	`system-ui` and `sans-serif` are set in it. To use another face, `embed`
 	its file in your program and let it carry the family name `Helvetica`,
 	`Helvetica Neue` or `Arial`, which is looked for before Arimo; a page has
-	no files to read when it runs, so `embed` is the way there. Define
+	no files to read when it runs, so `embed` is the way there, or `Assets.embed`
+	for a directory of them and `load` at run time. Define
 	`ashui_no_default_fonts` to leave Arimo out. The `monospace` and `serif`
 	families have no face in a page unless the program brings one.
 **/
@@ -60,10 +61,8 @@ class Fonts {
 				register(haxe.Resource.getBytes(name));
 	}
 
-	#if sys
-	/** The font file at `path`, registered; gives how many faces it added. **/
+	/** The font at `path`, a file or what `Assets` has embedded there, registered; gives how many faces it added. **/
 	public static function load(path:String):Int
-		return register(sys.io.File.getBytes(path));
-	#end
+		return register(ashui.core.Assets.bytes(path));
 	#end
 }

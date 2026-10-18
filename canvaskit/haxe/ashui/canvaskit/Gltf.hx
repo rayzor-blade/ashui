@@ -209,13 +209,11 @@ class Gltf {
 		for (d in draws)
 			ctx.drawMesh(d.mesh, transform != null ? transform.mul(d.transform) : d.transform);
 
-	#if sys
-	/** The `.gltf` or `.glb` file at `path`, its buffers and images read from beside it, as `options` say. **/
+	/** The `.gltf` or `.glb` at `path`, a file or what `Assets` has embedded there, its buffers and images read from beside it, as `options` say. **/
 	public static function load(path:String, ?options:GltfOptions):Gltf {
 		var dir = haxe.io.Path.directory(path);
-		return parse(sys.io.File.getBytes(path), uri -> sys.io.File.getBytes(dir == "" ? uri : haxe.io.Path.join([dir, uri])), options);
+		return parse(ashui.core.Assets.bytes(path), uri -> ashui.core.Assets.bytes(dir == "" ? uri : haxe.io.Path.join([dir, uri])), options);
 	}
-	#end
 
 	/**
 		A scene from the bytes of a `.gltf` or `.glb`; `read` gives the bytes

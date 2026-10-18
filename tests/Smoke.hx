@@ -1073,6 +1073,18 @@ class Smoke {
 			Std.parseFloat(twSize) == ashui.theme.Themed.fontSize(TextXl).get() && twWeight == "700" && twColor != null && twColor.indexOf("50%") >= 0
 			&& twParaSize != null && Std.parseFloat(twParaSize) == ashui.theme.Themed.fontSize(TextSm).get(), [twSize, twWeight, twColor, twParaSize]);
 
+		// Assets: the file at a path when there is one, else what is embedded under it; with neither, an error.
+		var embeddedText = ashui.core.Assets.text("embedded/greeting.txt");
+		check("Assets reads what is embedded under a path", embeddedText == "hello from a file\n", embeddedText);
+		#if !wasm
+		check("Assets reads the file at a path", ashui.core.Assets.text("../fixtures/assets/greeting.txt") == embeddedText);
+		#end
+		var neither = try {
+			ashui.core.Assets.bytes("embedded/nothing-here.txt");
+			false;
+		} catch (_:haxe.Exception) true;
+		check("Assets throws for a path that is neither a file nor embedded", neither);
+
 		// A <for> whose list changes to the same items places nothing again, as a scroll that moves no row would otherwise restyle every sibling.
 		var sameTree = new LayoutTree();
 		var sameItems = Signal.make([1, 2, 3]);

@@ -78,17 +78,15 @@ class Bitmap {
 		return new Bitmap(slot);
 	}
 
-	#if sys
-	/** The image file at `path`, read once: loading the same path again gives the same bitmap. **/
+	/** The image at `path`, a file or what `Assets` has embedded there, read once: loading the same path again gives the same bitmap. **/
 	public static function load(path:String):Bitmap {
 		var known = loaded.get(path);
 		if (known != null)
 			return known;
-		var made = fromBytes(sys.io.File.getBytes(path));
+		var made = fromBytes(ashui.core.Assets.bytes(path));
 		loaded.set(path, made);
 		return made;
 	}
-	#end
 
 	@:noCompletion public static function fromResource(name:String):Bitmap {
 		var known = loaded.get(name);

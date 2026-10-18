@@ -124,6 +124,6 @@ window_page() {
 
 status=0
 program page-smoke PageSmoke wasm || status=$?
-[ $status -ne 0 ] || program smoke Smoke . -D ashui_css=fixtures/css/smoke.css || status=$?
+[ $status -ne 0 ] || program smoke Smoke . -D ashui_css=fixtures/css/smoke.css --macro 'ashui.core.Assets.embed("fixtures/assets", "embedded")' || status=$?
 [ $status -ne 0 ] || window_page || status=$?
 exit $status
