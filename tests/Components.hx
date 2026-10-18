@@ -1652,7 +1652,10 @@ class Components {
 		var rzHandles = rzFind(i -> i.hasClass("ui-resizable-handle"));
 		var h0 = rzBounds(rzHandles[0]);
 		var hcx = h0.x + h0.width / 2, hcy = h0.y + h0.height / 2;
+		var rzCursor = -1;
+		ashui.input.Cursor.bind(rzTree, code -> rzCursor = code);
 		ashui.input.Pointer.move(rzTree, hcx, hcy);
+		var overHandle = rzCursor;
 		ashui.input.Pointer.press(rzTree);
 		rzFrames(1);
 		var draggingSet = identity2(rzTree, rzHandles[0]).attribute("data-dragging") != null;
@@ -1665,11 +1668,16 @@ class Components {
 		ashui.input.Pointer.move(rzTree, hcx - 400, hcy);
 		rzFrames(1);
 		var atMin = rzLeft.get(), leftWidth = rzBounds(rzFind(i -> i.hasClass("ui-resizable-panel"))[0]).width;
+		var heldAway = rzCursor;
 		ashui.input.Pointer.release(rzTree);
 		rzFrames(1);
+		var afterRelease = rzCursor;
 		check("a Resizable handle drags its panel's size, kept within its min and max, marked while it drags",
 			draggingSet && dragged == 230 && atMax == 300 && atMin == 100 && leftWidth == 100
 			&& identity2(rzTree, rzHandles[0]).attribute("data-dragging") == null, [draggingSet, dragged, atMax, atMin, leftWidth]);
+		check("a Resizable handle has the resize cursor over it, keeps it while it drags wherever the pointer goes, and gives it up on release",
+			overHandle == (window.CursorIcon.ColResize : Int) && heldAway == (window.CursorIcon.ColResize : Int) && afterRelease == (window.CursorIcon.Default : Int),
+			[overHandle, heldAway, afterRelease]);
 		ashui.input.Keyboard.input(rzTree, key(Named(ArrowRight), ArrowRight));
 		ashui.input.Keyboard.input(rzTree, key(Named(ArrowRight), ArrowRight));
 		var stepped = rzLeft.get();
@@ -1690,6 +1698,29 @@ class Components {
 		check("a Resizable handle gives a panel's space to the one beyond it, down to the panel's min, the last still filling the group",
 			midAfter == 60 && Math.abs(endAfter - (endBefore + midBefore - 60)) <= 1, [midBefore, endBefore, midAfter, endAfter]);
 
+
+		// A vertical group's handle is a bar across, and its cursor says rows resize.
+		var rvTree = new LayoutTree();
+		var rvRoot:Div = Owner.root(rvTree, _ -> hxx('
+			<div width={200} height={300} flexDirection={Column}>
+				<resizable direction="vertical" height={300}>
+					<resizable-panel size={100.0}><div /></resizable-panel>
+					<resizable-panel><div /></resizable-panel>
+				</resizable>
+			</div>
+		'));
+		for (_ in 0...2) {
+			ashui.animation.AnimationScheduler.main.tick(1 / 60);
+			rvTree.flush();
+			rvTree.computeLayout(rvRoot.node, 200, 300);
+			rvTree.flush();
+		}
+		var rvCursor = -1;
+		ashui.input.Cursor.bind(rvTree, code -> rvCursor = code);
+		var rvHandle = [for (id in rvTree.order()) if (identity2(rvTree, id) != null && identity2(rvTree, id).hasClass("ui-resizable-handle")) id][0];
+		var rvBounds = rvTree.getBounds(new ashui.layout.Node(rvHandle));
+		ashui.input.Pointer.move(rvTree, rvBounds.x + rvBounds.width / 2, rvBounds.y + rvBounds.height / 2);
+		check("a vertical Resizable handle has the row-resize cursor over it", rvCursor == (window.CursorIcon.RowResize : Int), rvCursor);
 
 		// --- Drawer: a short pull springs back, a long one or a flick closes it; its controls keep their presses ---
 		var drTree = new LayoutTree();

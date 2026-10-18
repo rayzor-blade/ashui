@@ -1025,8 +1025,8 @@ input.ui-input-otp-field { position: absolute; top: 0; right: 0; bottom: 0; left
 }
 .ui-resizable[data-direction="vertical"] { flex-direction: column; }
 .ui-resizable-panel { flex-direction: column; overflow: hidden; }
-.ui-resizable-handle { flex-shrink: 0; width: 9px; align-items: center; justify-content: center; outline: none; }
-.ui-resizable[data-direction="vertical"] > .ui-resizable-handle { width: auto; height: 9px; }
+.ui-resizable-handle { flex-shrink: 0; width: 9px; align-items: center; justify-content: center; outline: none; cursor: col-resize; }
+.ui-resizable[data-direction="vertical"] > .ui-resizable-handle { width: auto; height: 9px; cursor: row-resize; }
 .ui-resizable-line {
 	width: 1px; height: 100%; align-items: center; justify-content: center; background: var(--border);
 	transition: width var(--duration-fast) var(--ease-out), height var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-state);

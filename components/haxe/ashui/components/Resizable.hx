@@ -23,7 +23,9 @@ typedef ResizableProps = {
 	Panels in a row or a column with a handle between each two: dragging a
 	handle, or its arrow keys while it has focus, moves the space between
 	the panels either side, each kept within its `minSize` and `maxSize`.
-	A double click on a handle puts the two back as they began. CSS:
+	A double click on a handle puts the two back as they began. A handle's
+	cursor is `col-resize`, or `row-resize` in a vertical group, and it keeps
+	it for as long as it is dragged, wherever the pointer goes. CSS:
 	`.ui-resizable` (`[data-direction]`), `.ui-resizable-panel`,
 	`.ui-resizable-handle` (`[data-dragging]`, `:hover`, `:focus-visible`),
 	its `.ui-resizable-line` and `.ui-resizable-grip`.

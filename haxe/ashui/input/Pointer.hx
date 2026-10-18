@@ -33,10 +33,16 @@ class Pointer {
 
 	static final EMPTY:Array<Hit> = [];
 
+	/**
+		What the cursor follows: the nodes the left button went down on while it is held, as a captured pointer is,
+		so a divider keeps its resize cursor when the pointer runs ahead of it; otherwise what the pointer is over.
+	**/
 	@:allow(ashui.input.Cursor)
-	static function hoverChain(tree:LayoutTree):Array<Hit> {
+	static function cursorChain(tree:LayoutTree):Array<Hit> {
 		var s = states.get(tree);
-		return s == null ? EMPTY : s.chain;
+		if (s == null)
+			return EMPTY;
+		return s.pressed && s.pressChain.length > 0 ? s.pressChain : s.chain;
 	}
 
 	/** Releases cached input and the native cursor callback when its window or tree closes. **/
@@ -160,6 +166,8 @@ class Pointer {
 		var s = state(tree);
 		s.pressed = false;
 		moved(tree);
+		// What was held while the button was down gives way to what the pointer is over.
+		Cursor.retarget(tree);
 		var blocked = disabledIn(tree, s.chain);
 		if (!blocked)
 			bubble(tree, s, s.chain, 0, "pointerup", button);
@@ -328,7 +336,7 @@ class Pointer {
 				}
 			}
 		}
-		Cursor.retarget(tree, chain);
+		Cursor.retarget(tree);
 		return changed;
 	}
 
