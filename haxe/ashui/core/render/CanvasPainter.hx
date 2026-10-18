@@ -61,8 +61,48 @@ class CanvasPainter {
 
 	final clipAt = new haxe.ds.ObjectMap<DrawClip, Int>();
 
-	/** Each path drawn last frame, and its triangles once it has been drawn twice: a path drawn again is moved, not tessellated again. **/
-	final shapes = new haxe.ds.ObjectMap<ashui.draw.Path, Shape>();
+	/**
+		Each path drawn last frame, and its triangles once it has been drawn twice: a path drawn again is moved, not tessellated
+		again. A path is found again by what it contains, by its signature, so one made afresh each frame is the same path as the
+		last frame's.
+	**/
+	final shapes = new haxe.ds.IntMap<Array<Shape>>();
+
+	/** Signatures whose shapes were all forgotten in a build, to drop from `shapes`. **/
+	final emptied:Array<Int> = [];
+
+	/** The shape drawn from a path with `path`'s commands, if there is one. **/
+	function shapeOf(path:ashui.draw.Path):Null<Shape> {
+		var bucket = shapes.get(path.signature());
+		if (bucket != null)
+			for (known in bucket)
+				if (ashui.draw.Path.same(known.path, path))
+					return known;
+		return null;
+	}
+
+	function keep(shape:Shape):Void {
+		var sig = shape.path.signature();
+		var bucket = shapes.get(sig);
+		if (bucket == null)
+			shapes.set(sig, bucket = []);
+		bucket.push(shape);
+	}
+
+	/** Forgets what the last build did not draw. **/
+	function forgetUnused():Void {
+		for (sig => bucket in shapes) {
+			var i = bucket.length;
+			while (i-- > 0)
+				if (bucket[i].build != builds)
+					bucket.splice(i, 1);
+			if (bucket.length == 0)
+				emptied.push(sig);
+		}
+		for (sig in emptied)
+			shapes.remove(sig);
+		emptied.resize(0);
+	}
 
 	/** Counts builds, so a shape not drawn in the last one is forgotten. **/
 	var builds = 0;
@@ -238,8 +278,7 @@ class CanvasPainter {
 			}
 		}
 		endPaths();
-		for (path in [for (p in shapes.keys()) if (shapes.get(p).build != builds) p])
-			shapes.remove(path);
+		forgetUnused();
 		vertexCount = mesh.vertexCount();
 		if (vertexCount == 0)
 			return;
@@ -318,9 +357,9 @@ class CanvasPainter {
 	**/
 	function tessellate(path:ashui.draw.Path, m:Affine, tolerance:Float, aa:Float, rule:FillRule, stroke:Null<ashui.draw.Stroke>,
 			contours:Bool):Array<ashui.draw.Flatten.Contour> {
-		var known = shapes.get(path);
+		var known = shapeOf(path);
 		if (!contours && known != null && known.data != null && known.a == m.a && known.b == m.b && known.c == m.c && known.d == m.d
-			&& known.tolerance == tolerance && known.aa == aa && known.rule == rule && known.stroke == stroke && known.commands == path.commands.length) {
+			&& known.tolerance == tolerance && known.aa == aa && known.rule == rule && (stroke == null ? known.stroke == null : stroke.same(known.stroke))) {
 			var dx = m.e - known.e,
 				dy = m.f - known.f,
 				data = known.data,
@@ -344,9 +383,14 @@ class CanvasPainter {
 			Tessellate.fill(flat, rule, aa, mesh);
 		// Kept the second time a path is drawn: one made afresh each frame is never copied.
 		var data = known != null ? mesh.data.slice(from) : null;
-		shapes.set(path, {
+		if (known != null) {
+			// The same path drawn another way: what was made for it before is replaced.
+			var bucket = shapes.get(path.signature());
+			bucket.remove(known);
+		}
+		keep({
 			build: builds,
-			commands: path.commands.length,
+			path: path,
 			a: m.a,
 			b: m.b,
 			c: m.c,
@@ -564,7 +608,7 @@ enum CanvasStep {
 /** A path as last drawn: the transform it was drawn through, how, and its triangles once kept. **/
 private typedef Shape = {
 	build:Int,
-	commands:Int,
+	path:ashui.draw.Path,
 	a:Float,
 	b:Float,
 	c:Float,

@@ -37,4 +37,17 @@ class Stroke {
 		this.dash = dash == null ? [] : dash;
 		this.dashOffset = dashOffset;
 	}
+
+	/** Whether `other` strokes the same way: the same width, caps, joins, miter limit and dashes. **/
+	public function same(other:Null<Stroke>):Bool {
+		if (other == this)
+			return true;
+		if (other == null || width != other.width || cap != other.cap || join != other.join || miterLimit != other.miterLimit
+			|| dashOffset != other.dashOffset || dash.length != other.dash.length)
+			return false;
+		for (i in 0...dash.length)
+			if (dash[i] != other.dash[i])
+				return false;
+		return true;
+	}
 }

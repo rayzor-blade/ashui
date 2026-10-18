@@ -28,6 +28,84 @@ class Path {
 
 	public function new() {}
 
+	/** The number of commands `signed` was worked out for. **/
+	var signedFor = -1;
+
+	var signed = 0;
+
+	/**
+		A number that paths with the same commands share and others seldom do, worked out once for the commands it has and again
+		if more are added: what a cache that finds a path again by what it contains asks first, and then `same`.
+	**/
+	public function signature():Int {
+		if (signedFor != commands.length) {
+			var h = 17;
+			inline function mix(v:Float)
+				h = h * 31 + Std.int(v * 64);
+			for (c in commands) {
+				switch c {
+					case MoveTo(x, y):
+						h = h * 31 + 1;
+						mix(x);
+						mix(y);
+					case LineTo(x, y):
+						h = h * 31 + 2;
+						mix(x);
+						mix(y);
+					case CubicTo(x1, y1, x2, y2, x, y):
+						h = h * 31 + 3;
+						mix(x1);
+						mix(y1);
+						mix(x2);
+						mix(y2);
+						mix(x);
+						mix(y);
+					case QuadTo(x1, y1, x, y):
+						h = h * 31 + 4;
+						mix(x1);
+						mix(y1);
+						mix(x);
+						mix(y);
+					case ArcTo(rx, ry, rotation, largeArc, sweep, x, y):
+						h = h * 31 + (largeArc ? 5 : 6) + (sweep ? 2 : 0);
+						mix(rx);
+						mix(ry);
+						mix(rotation);
+						mix(x);
+						mix(y);
+					case Close:
+						h = h * 31 + 7;
+				}
+			}
+			signed = h;
+			signedFor = commands.length;
+		}
+		return signed;
+	}
+
+	/** Whether `a` and `b` have the same commands, in the same order. **/
+	public static function same(a:Path, b:Path):Bool {
+		if (a == b)
+			return true;
+		var x = a.commands, y = b.commands;
+		if (x.length != y.length)
+			return false;
+		for (i in 0...x.length) {
+			var equal = switch [x[i], y[i]] {
+				case [MoveTo(x1, y1), MoveTo(x2, y2)] | [LineTo(x1, y1), LineTo(x2, y2)]: x1 == x2 && y1 == y2;
+				case [CubicTo(a1, b1, c1, d1, e1, f1), CubicTo(a2, b2, c2, d2, e2, f2)]: a1 == a2 && b1 == b2 && c1 == c2 && d1 == d2 && e1 == e2 && f1 == f2;
+				case [QuadTo(a1, b1, c1, d1), QuadTo(a2, b2, c2, d2)]: a1 == a2 && b1 == b2 && c1 == c2 && d1 == d2;
+				case [ArcTo(a1, b1, c1, l1, s1, x1, y1), ArcTo(a2, b2, c2, l2, s2, x2, y2)]:
+					a1 == a2 && b1 == b2 && c1 == c2 && l1 == l2 && s1 == s2 && x1 == x2 && y1 == y2;
+				case [Close, Close]: true;
+				case _: false;
+			}
+			if (!equal)
+				return false;
+		}
+		return true;
+	}
+
 	/** The path SVG path data `d` draws. **/
 	public static function svg(d:String):Path {
 		var p = new Path();

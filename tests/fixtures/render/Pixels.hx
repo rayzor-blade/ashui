@@ -888,6 +888,40 @@ class Pixels {
 		probe("third, from the second's triangles, where it was put", 44, 32, red);
 		probe("and nothing between them", 20, 32, near(0xffffff));
 
+		// Paths made afresh each frame with the same commands are the same path: the third frame onward draws them from the second's
+		// triangles, moved, and a path drawn another way, as a wider stroke, is made again.
+		var step = ashui.reactive.Signal.make(0);
+		var freshTree = new LayoutTree();
+		var freshRoot:Div = ashui.reactive.Owner.root(freshTree, _ -> {
+			var canvas = new ashui.ui.Canvas({
+				draw: ctx -> {
+					var n = step.get();
+					ctx.pushTransform(new ashui.draw.Affine(1, 0, 0, 1, 4 + (n % 3) * 12, 4));
+					ctx.fillPath(new ashui.draw.Path().rect(0, 0, 8, 8), Brush.solid(0xff0000));
+					ctx.popTransform();
+					ctx.strokePath(new ashui.draw.Path().moveTo(4, 30).lineTo(40, 30), new ashui.draw.Stroke(n >= 4 ? 8 : 2), Brush.solid(0x0000ff));
+				}
+			});
+			canvas.node.set(Prop.Width, (48 : Single));
+			canvas.node.set(Prop.Height, (48 : Single));
+			new Div({width: SIZE, height: SIZE, bg: Brush.solid(0xffffff), padding: 8}, [canvas]);
+		});
+		for (n in 0...6) {
+			step.set(n);
+			pixels = offscreen.renderToRgba8(freshRoot, SIZE, SIZE);
+			label = 'fresh paths, frame $n: ';
+			var x = 8 + 4 + (n % 3) * 12 + 4;
+			probe("the square where this frame puts it", x, 16, red);
+			for (other in 0...3)
+				if (other != n % 3)
+					probe("and not where it was", 8 + 4 + other * 12 + 4, 16, near(0xffffff));
+			probe("the line", 28, 38, (r, g, b) -> b > 200 && r < 60);
+			if (n >= 4)
+				probe("a wider line covers more", 28, 41, (r, g, b) -> b > 200 && r < 60);
+			else
+				probe("a thin line does not", 28, 41, near(0xffffff));
+		}
+
 		// A canvas's clips: what is drawn is kept inside them, nested, until each is popped.
 		var canvasClipTree = new LayoutTree();
 		var canvasClipRoot:Div = ashui.reactive.Owner.root(canvasClipTree, _ -> {
