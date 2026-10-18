@@ -46,5 +46,37 @@ class WebPage {
 				"__ASHUI_TITLE__", stem));
 		});
 	}
+
+	/**
+		Copies the files in `directory`, relative to where the compiler runs, and in its folders, beside a web build's page,
+		under `to`, which is the directory's own path when left out: `--macro ashui.macro.WebPage.copy("assets/audio", "audio")`.
+		A page reads media by URL, so what `hlavi`'s `MediaPlayer` is to open, `Video` or `Audio` is given, must be served beside
+		it; files the program reads itself are embedded instead (`ashui.core.Assets.embed`). A desktop build, which opens such
+		files from where they are, copies nothing. Files whose names start with a dot are left out.
+	**/
+	public static function copy(directory:String, ?to:String):Void {
+		if (!Context.defined("wasm") || !Context.defined("hl") || Context.defined("hlc"))
+			return;
+		if (!FileSystem.exists(directory) || !FileSystem.isDirectory(directory)) {
+			Context.fatalError('WebPage.copy: $directory is not a directory', Context.currentPos());
+			return;
+		}
+		var named = Path.normalize(to == null ? directory : to);
+		Context.onAfterGenerate(() -> copyInto(directory, Path.join([Path.directory(Compiler.getOutput()), named])));
+	}
+
+	static function copyInto(from:String, into:String):Void {
+		if (!FileSystem.exists(into))
+			FileSystem.createDirectory(into);
+		for (entry in FileSystem.readDirectory(from)) {
+			if (entry.charAt(0) == ".")
+				continue;
+			var source = Path.join([from, entry]), destination = Path.join([into, entry]);
+			if (FileSystem.isDirectory(source))
+				copyInto(source, destination);
+			else
+				File.copy(source, destination);
+		}
+	}
 }
 #end

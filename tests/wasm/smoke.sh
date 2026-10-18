@@ -7,7 +7,7 @@
 # to keep running and drawing for the length of the run. The windows are built
 # as an app is: ashui's page and the libraries' web builds come from their macros.
 #
-#   tests/wasm/smoke.sh [PageSmoke|Smoke|WindowPage|Banner]
+#   tests/wasm/smoke.sh [PageSmoke|Smoke|MediaPage|WindowPage|Banner]
 #
 # Needs nightly Rust with rust-src (the side modules), Node 22 or later, Google
 # Chrome (CHROME=/path/to/chrome to name one) with WebGPU, Ash 0.1.10 or later
@@ -41,7 +41,7 @@ run_page() {
   "$ash" serve --port "$port" "$dir" > "$dir/serve.log" 2>&1 &
   server=$!
   "$chrome" --headless=new --no-first-run --no-default-browser-check --user-data-dir="$profile" \
-    --remote-debugging-port="$debug" --window-size=1280,1000 about:blank > "$dir/chrome.log" 2>&1 &
+    --remote-debugging-port="$debug" --window-size=1280,1000 ${CHROME_FLAGS:-} about:blank > "$dir/chrome.log" 2>&1 &
   browser=$!
   sleep 2
   code=0
@@ -104,9 +104,30 @@ banner_page() {
   RUNNING=1 SHOT_WAIT=4 MIN_COLOURS=2000 window_program banner Banner 25 banner
 }
 
+# MediaPage: hlavi's media player in a page, on a two-second tone beside it. Headless Chrome is told it may play without a press, as
+# the program has no user; the agent's wait for one is tested apart (xavi's page_agent test).
+media_page() {
+  [ -z "$only" ] || [ "$only" = "MediaPage" ] || return 0
+  echo "== MediaPage"
+  web_media || return 1
+  dir="$out/media-page"
+  mkdir -p "$dir"
+  python3 -c '
+import math, struct, sys, wave
+w = wave.open(sys.argv[1], "wb")
+w.setnchannels(1); w.setsampwidth(2); w.setframerate(22050)
+w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / 22050))) for i in range(44100)))
+' "$dir/tone.wav"
+  $haxe_ui -D wasm -D ashui_no_hdll -D "hlavi_web=$here/$out/hlavi-web" --macro "hlavi.macro.NativeInstall.stage()" \
+    --class-path ../../hlavi/haxe --class-path ../../ash/haxelib/ash-future --class-path wasm -main MediaPage -hl "$dir/media-page.hl"
+  ASH_WASM_FIBERS=1 "$ash" --build "$dir/media-page.wasm" --target wasm32-wasip1-threads "$dir/media-page.hl" > "$dir/build.log" 2>&1 || { cat "$dir/build.log"; return 1; }
+  CHROME_FLAGS="--autoplay-policy=no-user-gesture-required" run_page "$dir" 120
+}
+
 status=0
 program page-smoke PageSmoke wasm || status=$?
 [ $status -ne 0 ] || program smoke Smoke . -D ashui_css=fixtures/css/smoke.css --macro 'ashui.core.Assets.embed("fixtures/assets", "embedded")' || status=$?
+[ $status -ne 0 ] || media_page || status=$?
 [ $status -ne 0 ] || window_page || status=$?
 [ $status -ne 0 ] || banner_page || status=$?
 exit $status

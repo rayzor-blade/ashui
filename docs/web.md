@@ -95,6 +95,22 @@ from when that is not where it compiles from: `("../tools/snapshot/assets/map",
 It has no system fonts either; the next section says what a build carries. The
 debugging tools that write files, such as `MotionRecorder`, are not for a page.
 
+## Media
+
+A page plays audio through `hlavi`, which has a web build as hlwgpu and hlwindow do. Add it to the build as a desktop
+one does, `-lib hlavi` with `-D wasm` and its `NativeInstall` macro: it stages `xavi.wasm` and its scripts beside the
+program. A page reads a media file by URL, so the file has to be served beside the page: copy it there when you compile,
+
+```hxml
+--macro ashui.macro.WebPage.copy("assets/audio", "audio")
+```
+
+and open it by the path the page has it under, as `MediaPlayer.open("audio/track.m4a")` does.
+What plays is what the browser plays: MP3, AAC in M4A, Ogg and WAV, usually. A browser lets sound start only after the user
+has pressed or typed in the page; a play it refuses is made at the next press or key, so a page that starts a track from a
+button, as a player does, plays at once. Audio only so far: there are no video frames and no equalizer in a page, and the
+rest of hlavi, its codecs, queues and muxers, says it is not available on the web.
+
 ## Fonts
 
 A build defined `wasm` carries Arimo, a sans with the widths of Helvetica and Arial,

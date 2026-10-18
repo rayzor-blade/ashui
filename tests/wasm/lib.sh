@@ -98,6 +98,18 @@ web_libraries() {
   echo "$stamp" > "$out/web-libraries.stamp"
 }
 
+# hlavi's web build, in $out/hlavi-web: what its release ZIP carries under web/, and what a build defined wasm stages from it. hlavi
+# builds from xavi and x-idl beside it, with no pins to patch.
+web_media() {
+  vib=$(cd ../.. && pwd)
+  [ -f "$vib/hlavi/scripts/build_wasm.sh" ] || { echo "wasm: media needs hlavi checked out beside ashui"; return 1; }
+  stamp="$(git -C "$vib/hlavi" rev-parse HEAD) $(git -C "$vib/hlavi" diff HEAD | shasum | cut -c1-12) $(git -C "$vib/xavi" rev-parse HEAD) $(git -C "$vib/xavi" diff HEAD | shasum | cut -c1-12)"
+  [ ! -d "$out/hlavi-web" ] || [ "$(cat "$out/hlavi-web.stamp" 2> /dev/null)" != "$stamp" ] || return 0
+  rm -rf "$out/hlavi-web"
+  (cd "$vib/hlavi" && sh scripts/build_wasm.sh "$here/$out/hlavi-web") || return 1
+  echo "$stamp" > "$out/hlavi-web.stamp"
+}
+
 # build_window <name> <main class> <class path> [haxe flags]: an ashui window built for a page as an app would be, in $out/<name>:
 # the libraries' web builds and ashui's page are staged by their macros, and ash builds the module and its host.
 build_window() {
