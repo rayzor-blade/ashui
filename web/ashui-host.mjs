@@ -188,6 +188,6 @@ worker.onerror = (e) => fail("The program could not start", e.message || "worker
 
 const agentPorts = await startThreadAgents(Math.max(1, (navigator.hardwareConcurrency || 4) - 1));
 worker.postMessage(
-  { module, args: [name, ...query.getAll("arg")], display: true, agents: agentPorts },
+  { module, args: [name, ...query.getAll("arg")], environ: query.getAll("env"), display: true, agents: agentPorts },
   agentPorts,
 );
