@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1792316014,"nonce":"kfp/Vs4SeA82I+K/5ANIcdHM5dI=","message":"Fixed in 224cf88b93c27240dc2abd4a520fd85979df77d0. The text cost is tracked in 03202df.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1792316014,"nonce":"hWr17kKTc/68jmz2f6vE74VmsTk=","status":2}]}
