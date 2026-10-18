@@ -358,6 +358,11 @@ class WindowedApp {
 					if (ashui.input.Pointer.refresh(tree))
 						dirty = true;
 					frames++;
+					#if wasm
+					// What the web page waits for before it shows the window: the first frame is on the GPU.
+					if (frames == 1)
+						Sys.println("ashui: ready");
+					#end
 					var t4 = haxe.Timer.stamp();
 					if (frameLog != null) {
 						var o = offscreen.timings;

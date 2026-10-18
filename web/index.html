@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="ashui-module" content="__ASHUI_MODULE__">
+<title>__ASHUI_TITLE__</title>
+<style>
+  :root { color-scheme: light dark; --page: #0e0e12; --ink: #e8e9ee; --muted: #9a9cab; --accent: #6d8cff; }
+  @media (prefers-color-scheme: light) { :root { --page: #f4f5f8; --ink: #1b1c22; --muted: #5b5d6b; } }
+  html, body { margin: 0; height: 100%; background: var(--page); overflow: hidden; }
+  /* The canvas is the program's window: it takes the whole page, and the program follows its size and scale. */
+  #screen { position: fixed; inset: 0; display: block; outline: none; width: 100%; height: 100%; }
+  #status { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: .6rem; padding: 1.5rem;
+    text-align: center; font: 15px/1.5 system-ui, sans-serif; color: var(--ink); background: var(--page); transition: opacity .25s; }
+  #status[hidden] { display: none; }
+  #status.fading { opacity: 0; pointer-events: none; }
+  #status h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+  #status p { margin: 0; max-width: 34rem; color: var(--muted); }
+  #status button { margin-top: .4rem; padding: .45rem 1rem; font: inherit; color: var(--page); background: var(--accent); border: 0; border-radius: .5rem; cursor: pointer; }
+  .spinner { width: 1.6rem; height: 1.6rem; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  #status.failed .spinner { display: none; }
+  @keyframes spin { to { transform: rotate(1turn); } }
+  /* The program's output goes to the browser's console; this shows it in the page too, with ?debug. */
+  #out { display: none; margin: 0; }
+  .debug #out { display: block; position: fixed; left: 0; right: 0; bottom: 0; max-height: 40vh; overflow: auto; z-index: 2; padding: .6rem .9rem;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; color: #ddd; background: #000d; }
+  #out .err { color: #ff8c8c; }
+  #out .meta { opacity: .6; }
+</style>
+<canvas id="screen" tabindex="0" data-xwindow="fit"></canvas>
+<div id="status" role="status" aria-live="polite">
+  <div class="spinner"></div>
+  <h1 id="status-title">Starting</h1>
+  <p id="status-detail"></p>
+</div>
+<pre id="out"></pre>
+<script type="module" src="./ashui-host.mjs"></script>

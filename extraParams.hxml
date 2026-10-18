@@ -2,3 +2,4 @@
 --macro ashui.ui.Markup.enable()
 --macro ashui.macro.NativeInstall.stage()
 --macro ashui.macro.DefaultFonts.stage()
+--macro ashui.macro.WebPage.stage()
