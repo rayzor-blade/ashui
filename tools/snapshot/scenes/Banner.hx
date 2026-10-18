@@ -362,7 +362,7 @@ class Banner {
 		}
 		function callout(i:Int):Element {
 			var c = callouts[i];
-			return <div class="dash-chip flex flex-row items-center gap-2 pl-2 pr-3" position={Absolute}
+			return <div class="dash-chip flex flex-row items-center gap-2 pl-2 pr-3" position={Absolute} pointerEvents={PointerEvents.None}
 				left={Computed.make(() -> placed.get()[i].cx - chipWidth / 2)} top={Computed.make(() -> placed.get()[i].cy - chipHeight / 2)}
 				opacity={Computed.make(() -> placed.get()[i].opacity)} width={chipWidth} height={chipHeight}>
 				<div class="dash-chip-icon flex items-center justify-center" width={26} height={26}>{icon(c.icon, "size-3.5")}</div>
@@ -429,7 +429,7 @@ class Banner {
 		var build = () -> <div width={WIDTH} height={HEIGHT}>
 			<scene-kit camera={camera} lights={rig} environment={sky} environmentIntensity={light ? 0.9 : 1.0} background={studio} shadows={true}
 				shadowStrength={light ? 0.45 : 0.6} shadowReach={4.5} draw={draw} widthPercent={1} heightPercent={1} />
-			<canvas width={WIDTH} height={HEIGHT} draw={leaders} position={Absolute} left={0} top={0} />
+			<canvas width={WIDTH} height={HEIGHT} draw={leaders} position={Absolute} left={0} top={0} pointerEvents={PointerEvents.None} />
 			{callout(0)}{callout(1)}{callout(2)}
 
 			<div flexDirection={Column} gap={16} position={Absolute} left={24} top={24} width={316}>
@@ -540,17 +540,9 @@ class Banner {
 				}
 			});
 			Sys.println(result.report.split("\n")[0]);
-		} else {
-			// In a window the scene plays live: the clock runs, and the camera draws back as the car turns.
-			if (ashui.debug.SceneWindow.wanted())
-				ashui.animation.AnimationScheduler.main.addTicker(dt -> {
-					var t = clock.get() + dt;
-					clock.set(t);
-					camera.distance.set(distance(t));
-					return true;
-				});
+		} else
+			// In a window the scene is at rest and the user moves it: drag to turn the camera round the car, scroll to come nearer.
 			Snapshot.scene(light ? "banner-light" : "banner", WIDTH, HEIGHT, build, page.rgb(), page.a, 2.0, 1.0);
-		}
 		for (p in ashui.css.Css.problems)
 			Sys.println("css: " + p);
 	}
