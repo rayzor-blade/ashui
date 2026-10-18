@@ -11,8 +11,8 @@ import gpu.GpuTextureViewDescriptor;
 class ComponentSizePixels {
 	static function main():Void {
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Dark);
-		// Use the gallery's TrueType font stack while the native CFF defect c2cfa79 is open.
-		var sheet = Css.load('.ui-input-otp-slot { color: #ff0000; font-family: Menlo, Consolas, "Liberation Mono", monospace; }');
+		// The theme's own monospace stack, which is SF Mono, a CFF font, on macOS (git-bug c2cfa79).
+		var sheet = Css.load('.ui-input-otp-slot { color: #ff0000; }');
 		var tree = new LayoutTree(), dispose = () -> {};
 		var root = Owner.root(tree, stop -> {
 			dispose = stop;
