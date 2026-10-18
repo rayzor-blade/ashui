@@ -1,6 +1,6 @@
 /* Frosted, tinted glass: a cool tint that is clearer toward its lower edge, a bright hairline round it and along its top, and a blur of what is behind. */
 .dash-glass {
-	background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(226, 234, 252, 0.34));
+	background: linear-gradient(150deg, rgba(255, 255, 255, 0.86), rgba(232, 238, 252, 0.68));
 	border: 1px solid var(--glass-edge);
 	border-radius: var(--radius-3xl);
 	corner-shape: squircle;
@@ -9,7 +9,7 @@
 }
 
 .dash-dock {
-	background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(226, 234, 252, 0.34));
+	background: linear-gradient(150deg, rgba(255, 255, 255, 0.86), rgba(232, 238, 252, 0.68));
 	border: 1px solid var(--glass-edge);
 	border-radius: var(--radius-3xl);
 	corner-shape: squircle;
@@ -45,7 +45,7 @@
 
 /* A callout's chip: as clear as the panels, a little rounder. */
 .dash-chip {
-	background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(226, 234, 252, 0.34));
+	background: linear-gradient(150deg, rgba(255, 255, 255, 0.86), rgba(232, 238, 252, 0.68));
 	border: 1px solid var(--glass-edge);
 	border-radius: var(--radius-xl);
 	corner-shape: squircle;
@@ -90,8 +90,8 @@
 	color: var(--text-primary);
 	--glass-edge: rgba(255, 255, 255, 0.8);
 	--glass-shadow: 0 16px 36px -14px rgba(40, 52, 80, 0.28);
-	--glass-tile: rgba(255, 255, 255, 0.5);
-	--glass-tile-hover: rgba(255, 255, 255, 0.72);
+	--glass-tile: rgba(255, 255, 255, 0.62);
+	--glass-tile-hover: rgba(255, 255, 255, 0.82);
 	--glass-tile-edge: rgba(255, 255, 255, 0.7);
 }
 @media (prefers-color-scheme: dark) {
@@ -101,8 +101,8 @@
 		--text-tertiary: #d2d7e0;
 		--glass-edge: rgba(255, 255, 255, 0.28);
 		--glass-shadow: 0 18px 40px -14px rgba(10, 12, 18, 0.55);
-		--glass-tile: rgba(22, 26, 36, 0.24);
-		--glass-tile-hover: rgba(22, 26, 36, 0.36);
+		--glass-tile: rgba(18, 22, 32, 0.32);
+		--glass-tile-hover: rgba(18, 22, 32, 0.46);
 		--glass-tile-edge: rgba(255, 255, 255, 0.16);
 	}
 }
@@ -170,5 +170,5 @@
 
 /* The glass in the dark scheme: smoked, a cool dark tint over the silver, so the light text on it reads. */
 @media (prefers-color-scheme: dark) {
-	.dash-glass, .dash-dock, .dash-chip { background: linear-gradient(150deg, rgba(36, 42, 58, 0.42), rgba(22, 26, 38, 0.30)); }
+	.dash-glass, .dash-dock, .dash-chip { background: linear-gradient(150deg, rgba(40, 46, 62, 0.70), rgba(26, 30, 42, 0.58)); }
 }
