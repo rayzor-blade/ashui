@@ -85,6 +85,7 @@ class Dashboard {
 			{scene(showsCar)}
 			<canvas widthPercent={1} heightPercent={1} position={Absolute} left={0} top={0} pointerEvents={PointerEvents.None} ref={screenProbe} />
 			<for {tab in [model.tab.get()]}>{page(tab)}</for>
+			{navigate.mapCard()}
 			{Island.build(islandWidth, model, music)}
 			{Dock.build(model, screen)}
 		</div>;

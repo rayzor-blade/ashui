@@ -34,9 +34,11 @@ class NavigateView {
 	function view():DrawContext->Void
 		return ctx -> {
 			follow();
+			// The moving light reads the clock, so with the page closed the map stands still and is not drawn again each frame.
+			var open = m.tab.get() == Navigate;
 			var free = [GREEN, AMBER, muted()];
-			map.draw(ctx, ctx.width, ctx.height, 36, light(), primary(), free, m.guiding.get() ? (m.clock.get() * 32) % 16 : 0, m.destination.get(), m.zoom.get(),
-				m.guiding.get());
+			map.draw(ctx, ctx.width, ctx.height, 36, light(), primary(), free, open && m.guiding.get() ? (m.clock.get() * 32) % 16 : 0, m.destination.get(),
+				m.zoom.get(), m.guiding.get());
 		};
 
 	function zoomKey(document:ashui.svg.Icon, by:Float):Element
@@ -106,6 +108,20 @@ class NavigateView {
 		</div>;
 	}
 
+	/**
+		The map: made once, when the dashboard is, and kept. Made again for each visit it would build the whole map's triangles
+		each time, tens of megabytes that a page does not give back before the program's heap is full. Where the page is closed it
+		stands off the screen, at the size it has when open, so that coming back draws what is already built.
+	**/
+	public function mapCard():Element {
+		var width = Computed.make(() -> Math.max(200.0, screen.width.get() - 48 - (screen.width.get() >= 820 ? 376.0 : 0.0)));
+		var left = Computed.make(() -> m.tab.get() == Navigate ? 24.0 : -(width.get() + 400.0));
+		return <div class="dash-glass" position={Absolute} left={left} top={78} bottom={100} width={width}>
+			<canvas widthPercent={1} heightPercent={1} draw={view()} retain={true} />
+			<div position={Absolute} right={16} bottom={16} flexDirection={Column} gap={8}>{zoomKey(Remix.ADD_LINE, 1.35)}{zoomKey(Remix.SUBTRACT_LINE, 1 / 1.35)}</div>
+		</div>;
+	}
+
 	public function build():Element {
 		function side()
 			return <div class="dash-glass flex flex-col gap-4 p-4" width={360}>
@@ -117,12 +133,7 @@ class NavigateView {
 			<div flexGrow={1} />
 			{guidance()}
 		</div>;
-		var mapCard = <div class="dash-glass" flexGrow={1} flexBasis={0} heightPercent={1}>
-			<canvas widthPercent={1} heightPercent={1} draw={view()} />
-			<div position={Absolute} right={16} bottom={16} flexDirection={Column} gap={8}>{zoomKey(Remix.ADD_LINE, 1.35)}{zoomKey(Remix.SUBTRACT_LINE, 1 / 1.35)}</div>
-		</div>;
-		return <div position={Absolute} left={24} right={24} top={78} bottom={100} flexDirection={Row} gap={16}>
-			{mapCard}
+		return <div position={Absolute} left={24} right={24} top={78} bottom={100} flexDirection={Row} justifyContent={Justify.End}>
 			<if {screen.width.get() >= 820}>{side()}</if>
 		</div>;
 	}
