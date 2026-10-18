@@ -36,6 +36,13 @@ typedef CanvasProps = {
 	/** Runs a sketch: drawn again every frame, on the animation scheduler's clock. **/
 	?sketch:ashui.draw.Sketch,
 
+	/**
+		Keeps what a build of `draw` left on the CPU for as long as the canvas lives. A canvas that is not built for a couple of
+		seconds gives it back, and makes it again at the next build; for one that is costly to build and comes into view again
+		and again, such as a map, that is the more expensive.
+	**/
+	?retain:Bool,
+
 	/** While true, a frame is drawn every tick of the animation scheduler, so `paint` animates. **/
 	?animate:IntoReactive<Bool>,
 
@@ -93,6 +100,7 @@ class Canvas extends Component<CanvasProps> {
 	function render():Element {
 		#if ashui_gpu
 		painter.repaint = () -> repaint();
+		painter.retain = props.retain == true;
 		if (props.onLoading != null)
 			painter.onLoading = props.onLoading;
 		if (props.onSceneFrame != null)

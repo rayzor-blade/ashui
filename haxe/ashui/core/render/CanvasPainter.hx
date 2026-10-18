@@ -114,6 +114,9 @@ class CanvasPainter {
 
 	var releasing:Null<ashui.animation.AnimationScheduler.Timer> = null;
 
+	/** Whether what a build left on the CPU is kept, not given back when the canvas has not been built for `KEEP` seconds. **/
+	public var retain = false;
+
 	/**
 		Gives back what a build left on the CPU: the triangles, each path's copy, the bytes uploaded, and the lists of draws and
 		clips. A canvas that redraws every frame keeps them, to build into again; one that has not been built for a while is only
@@ -335,7 +338,7 @@ class CanvasPainter {
 		frame.device.queue().writeTexture(texture, bytes, PathShader.ROW_TEXELS, needed, PathShader.ROW_TEXELS * 16);
 		if (releasing != null)
 			releasing.cancel();
-		releasing = ashui.animation.AnimationScheduler.main.after(KEEP, release);
+		releasing = retain ? null : ashui.animation.AnimationScheduler.main.after(KEEP, release);
 	}
 
 	/** Whether the record draws an image, so a reset of the image atlas makes its triangles again. **/
