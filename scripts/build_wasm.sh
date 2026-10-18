@@ -11,6 +11,8 @@
 set -e
 
 here=$(cd "$(dirname "$0")/.." && pwd)
+# The Rust toolchain to build with, as rustup names it. See the guard at the end.
+nightly=${RUST_NIGHTLY:-nightly}
 out=${1:-"$here/target/wasm"}
 mkdir -p "$out"
 rm -f "$out/blinc_abi.wasm"
@@ -19,12 +21,12 @@ rm -f "$out/blinc_abi.wasm"
 # imports the HashLink runtime the program supplies.
 CARGO_PROFILE_RELEASE_LTO=${CARGO_PROFILE_RELEASE_LTO:-false} \
 RUSTFLAGS="-C relocation-model=pic -C target-feature=+mutable-globals -C panic=abort -C link-arg=--unresolved-symbols=import-dynamic" \
-  cargo +nightly rustc --locked --manifest-path "$here/Cargo.toml" --lib --crate-type staticlib \
+  cargo +"$nightly" rustc --locked --manifest-path "$here/Cargo.toml" --lib --crate-type staticlib \
     --target wasm32-wasip1-threads --release \
     -Z build-std=std,panic_abort
 
 archive="${CARGO_TARGET_DIR:-$here/target}/wasm32-wasip1-threads/release/libblinc_abi.a"
-sysroot=$(rustc +nightly --print sysroot)
+sysroot=$(rustc +"$nightly" --print sysroot)
 lld=$(find "$sysroot/lib/rustlib" -name rust-lld -type f | head -1)
 nm=$(find "$sysroot/lib/rustlib" -name llvm-nm -type f | head -1)
 [ -n "$lld" ] && [ -n "$nm" ] || { echo "no rust-lld or llvm-nm in the nightly sysroot" >&2; exit 1; }
@@ -42,5 +44,11 @@ exports=$("$nm" --defined-only --extern-only "$archive" 2>/dev/null | sed -n 's/
   $exports \
   --whole-archive "$archive" --no-whole-archive \
   -o "$out/blinc_abi.wasm"
+
+# A newer nightly's std imports pthread keys, which Ash does not define: say so here, not when a program that loads it is built.
+if grep -q pthread_key_create "$out/blinc_abi.wasm"; then
+  echo "build_wasm: $out/blinc_abi.wasm imports pthread_key_create, which Ash does not define; this Rust nightly is too new. Build with RUST_NIGHTLY=nightly-2026-08-25." >&2
+  exit 1
+fi
 
 echo "wrote $out/blinc_abi.wasm ($(wc -c < "$out/blinc_abi.wasm" | tr -d ' ') bytes)"

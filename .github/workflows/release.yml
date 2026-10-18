@@ -22,6 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  RUST_NIGHTLY: nightly-2026-08-25
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -150,9 +151,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@nightly
+      # Rust's nightlies from October 2026 (1.101) make std import pthread_key_*, which Ash does not define, so a side module
+      # built with one cannot be loaded. This is the last that does not; RUST_NIGHTLY has the build script use it by name.
+      - uses: dtolnay/rust-toolchain@master
         with:
-          components: rust-src
+          toolchain: nightly-2026-08-25
+          components: rust-src, llvm-tools
           targets: wasm32-wasip1-threads
       - uses: Swatinem/rust-cache@v2
         with:

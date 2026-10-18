@@ -52,7 +52,10 @@ beside the bytecode, as a desktop build stages its native libraries, and
 The module is named after the bytecode: `app.hl` is run as `app.wasm`. From a
 source checkout of the three libraries, `scripts/build_wasm.sh` in each builds
 their web files, and `-D hlwgpu_web=<directory>` and `-D hlwindow_web=<directory>`
-name where.
+name where. They need a Rust nightly no newer than `nightly-2026-08-25`, which
+`RUST_NIGHTLY=nightly-2026-08-25` names: the standard library of 1.101's nightlies
+imports `pthread_key_*`, which Ash does not define yet, and the scripts stop with
+that message.
 
 ## The page
 
