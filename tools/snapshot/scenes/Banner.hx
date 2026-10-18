@@ -127,6 +127,8 @@ class Banner {
 		var motion = Sys.getEnv("MOTION") == "1";
 		var start = motion && !light ? HALF : 0.0;
 		var clock = Signal.make(start);
+		// The speedometer and the battery's charge run on their own clock, which a window lets run: nothing else is redrawn by it.
+		var meters = Signal.make(start);
 		inline function cycle(t:Float, period:Float):Float
 			return Math.sin(Math.PI * 2 * t / period);
 		// Far wider than the camera can see, even drawn back, so its edge never shows.
@@ -160,7 +162,7 @@ class Banner {
 		function speedometer(ctx:DrawContext) {
 			var cx = 142.0, cy = 112.0, r = 96.0, start = Math.PI * 0.75, sweep = Math.PI * 1.5, max = 200.0;
 			// Cruising, the speed rising and falling round 86.
-			var speed = 86 + 14 * cycle(clock.get(), 6) + 4 * cycle(clock.get(), 2);
+			var speed = 86 + 14 * cycle(meters.get(), 6) + 4 * cycle(meters.get(), 2);
 			// A faint inner ring, the track, and the speed along it.
 			ctx.strokePath(new Path().arc(cx, cy, r - 50, start, start + sweep), new Stroke(1, Round, Miter, 4, [2, 4]), Brush.solid(ink, 0.18));
 			ctx.strokePath(new Path().arc(cx, cy, r, start, start + sweep), new Stroke(10, Round), Brush.solid(muted, 0.18));
@@ -189,14 +191,14 @@ class Banner {
 			var n = 26, gap = 3.0, w = (284 - gap * (n - 1)) / n, on = Math.round(n * 0.72);
 			var fill = Brush.linear(0, 0, 284 * 0.72, 0).stop(0, 0x16a34a).stop(1, 0x84cc16);
 			// Charging: a wave of light runs along the charge toward its edge every 2 s, and the edge's glow breathes.
-			var wave = (clock.get() % 2) / 2 * (on + 6) - 3;
+			var wave = (meters.get() % 2) / 2 * (on + 6) - 3;
 			for (i in 0...n) {
 				ctx.fillRect(i * (w + gap), 2, w, 26, i < on ? fill : Brush.solid(muted, 0.16), 3);
 				var lift = i < on ? Math.exp(-(i - wave) * (i - wave) / 3) : 0.0;
 				if (lift > 0.02)
 					ctx.fillRect(i * (w + gap), 2, w, 26, Brush.solid(0xffffff, 0.55 * lift), 3);
 			}
-			var edge = (on - 1) * (w + gap) + w / 2, breathe = 0.33 + 0.17 * cycle(clock.get(), 1.5);
+			var edge = (on - 1) * (w + gap) + w / 2, breathe = 0.33 + 0.17 * cycle(meters.get(), 1.5);
 			ctx.fillCircle(edge, 15, 18, Brush.radial(edge, 15, 18).stop(0, 0xa3e635, breathe).stop(1, 0xa3e635, 0));
 			// The 80% charge limit.
 			var limit = Math.round(n * 0.8) * (w + gap) - gap / 2;
@@ -522,6 +524,7 @@ class Banner {
 				before: (frame, tree, root) -> {
 					var t = start + Math.max(0, frame - LEAD_IN) / FPS;
 					clock.set(t);
+					meters.set(t);
 					camera.distance.set(distance(t));
 					if (!script.exists(frame - LEAD_IN))
 						return;
@@ -540,9 +543,16 @@ class Banner {
 				}
 			});
 			Sys.println(result.report.split("\n")[0]);
-		} else
+		} else {
 			// In a window the scene is at rest and the user moves it: drag to turn the camera round the car, scroll to come nearer.
+			// The meters run by themselves.
+			if (ashui.debug.SceneWindow.wanted())
+				ashui.animation.AnimationScheduler.main.addTicker(dt -> {
+					meters.set(meters.get() + dt);
+					return true;
+				});
 			Snapshot.scene(light ? "banner-light" : "banner", WIDTH, HEIGHT, build, page.rgb(), page.a, 2.0, 1.0);
+		}
 		for (p in ashui.css.Css.problems)
 			Sys.println("css: " + p);
 	}
