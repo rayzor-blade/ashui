@@ -11,3 +11,4 @@ debugger/bin/
 __pycache__/
 
 .claude/
+apps/**/bin/

@@ -1,0 +1,174 @@
+/* Frosted, tinted glass: a cool tint that is clearer toward its lower edge, a bright hairline round it and along its top, and a blur of what is behind. */
+.dash-glass {
+	background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(226, 234, 252, 0.34));
+	border: 1px solid var(--glass-edge);
+	border-radius: var(--radius-3xl);
+	corner-shape: squircle;
+	backdrop-filter: blur(28px) saturate(1.5);
+	box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+}
+
+.dash-dock {
+	background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(226, 234, 252, 0.34));
+	border: 1px solid var(--glass-edge);
+	border-radius: var(--radius-3xl);
+	corner-shape: squircle;
+	backdrop-filter: blur(28px) saturate(1.6);
+	box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+}
+
+.dash-header { color: var(--text-secondary); font-size: var(--text-sm); font-weight: 500; }
+.ink-2 { color: var(--text-secondary); }
+.ink-3 { color: var(--text-tertiary); }
+.accent { color: var(--primary); }
+.charge { color: #22c55e; }
+
+.dash-item { color: var(--text-secondary); border-radius: var(--radius-xl); corner-shape: squircle; }
+.dash-item[on] { background: var(--accent-subtle); color: var(--primary); }
+.dash-item:hover { color: var(--text-primary); }
+.dash-item[on]:hover { color: var(--primary); }
+
+.dash-round {
+	color: var(--text-secondary);
+	background: var(--glass-tile);
+	border: 1px solid var(--glass-tile-edge);
+	border-radius: var(--radius-xl);
+	corner-shape: squircle;
+}
+.dash-round[on] { background: var(--accent-subtle); color: var(--primary); border-color: transparent; }
+.dash-round:hover { color: var(--text-primary); }
+.dash-round[on]:hover { color: var(--primary); }
+
+.ink-1 { color: var(--text-primary); }
+.good { color: #22c55e; }
+.dash-sep { background: var(--border); }
+
+/* A callout's chip: as clear as the panels, a little rounder. */
+.dash-chip {
+	background: linear-gradient(150deg, rgba(255, 255, 255, 0.66), rgba(226, 234, 252, 0.34));
+	border: 1px solid var(--glass-edge);
+	border-radius: var(--radius-xl);
+	corner-shape: squircle;
+	backdrop-filter: blur(24px) saturate(1.5);
+	box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+}
+.dash-chip-icon { color: var(--primary); background: var(--accent-subtle); border-radius: var(--radius-lg); corner-shape: squircle; }
+
+/* The gear selector's letters; the engaged one filled. */
+.dash-gear { color: var(--text-tertiary); font-size: var(--text-xs); font-weight: 600; border-radius: var(--radius-md); corner-shape: squircle; }
+.dash-gear[on] { color: var(--primary); background: var(--accent-subtle); }
+.dash-gear:hover { color: var(--text-primary); }
+
+.dash-play { color: var(--surface); background: var(--text-primary); border-radius: 9999px; }
+
+/* The island hanging from the top edge, black in both themes as a phone's is; its shoulders flare into the edge. */
+/* Its shadow falls at least as far as it blurs, as Blinc's notch dropdown's does, so none rises beside the shoulders. */
+.dash-island { background: #0b0d10; color: #f5f7fa; box-shadow: 0 12px 12px -6px rgba(0, 0, 0, 0.28); }
+.island-dim { color: rgba(245, 247, 250, 0.62); }
+.island-accent { color: #7cc4ff; }
+.island-sep { background: rgba(255, 255, 255, 0.16); }
+.island-item { border-radius: 9999px; }
+.island-badge { color: #7cc4ff; background: rgba(124, 196, 255, 0.16); border-radius: var(--radius-lg); corner-shape: squircle; }
+.island-sun { color: #fbbf24; }
+.island-play { color: #0b0d10; background: #f5f7fa; border-radius: 9999px; }
+.warn { color: #f59e0b; }
+.dash-row { border-radius: var(--radius-lg); corner-shape: squircle; }
+.dash-row[on] { background: var(--glass-tile-hover); }
+.dash-row:hover { background: var(--glass-tile); }
+/* The map sits in a recess: a soft shadow inside its top edge and a hairline round it. */
+.map-inset {
+	border-radius: 12px;
+	box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+/* What a press does: the hand. */
+.dash-press { cursor: pointer; }
+
+/* The page: a gray gradient, lighter at the top left, in either scheme; the glass sets its colours by the scheme too. */
+.dash-root {
+	background: linear-gradient(160deg, #f3f4f7 0%, #e1e4ea 55%, #cfd3dc 100%);
+	color: var(--text-primary);
+	--glass-edge: rgba(255, 255, 255, 0.8);
+	--glass-shadow: 0 16px 36px -14px rgba(40, 52, 80, 0.28);
+	--glass-tile: rgba(255, 255, 255, 0.5);
+	--glass-tile-hover: rgba(255, 255, 255, 0.72);
+	--glass-tile-edge: rgba(255, 255, 255, 0.7);
+}
+@media (prefers-color-scheme: dark) {
+	.dash-root {
+		background: linear-gradient(160deg, #a3a8b1 0%, #7f848d 45%, #62666f 100%);
+		--text-secondary: #eef0f5;
+		--text-tertiary: #d2d7e0;
+		--glass-edge: rgba(255, 255, 255, 0.28);
+		--glass-shadow: 0 18px 40px -14px rgba(10, 12, 18, 0.55);
+		--glass-tile: rgba(22, 26, 36, 0.24);
+		--glass-tile-hover: rgba(22, 26, 36, 0.36);
+		--glass-tile-edge: rgba(255, 255, 255, 0.16);
+	}
+}
+
+/* The climate dial's minus and plus. */
+.dash-nudge {
+	color: var(--text-secondary);
+	font-size: var(--text-lg);
+	background: var(--glass-tile);
+	border: 1px solid var(--glass-tile-edge);
+	border-radius: 9999px;
+}
+.dash-nudge:hover { color: var(--text-primary); background: var(--accent-subtle); }
+
+/* The paint's swatches: a dot, ringed in the accent when it is the one chosen. */
+.dash-swatch { border-radius: 9999px; border: 2px solid transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.dash-swatch[on] { border-color: var(--primary); }
+
+.island-key { cursor: pointer; }
+.island-key:hover { color: #f5f7fa; }
+.island-play { cursor: pointer; }
+
+/* The Media page: the keys of a player, its play key, and the tracks to pick from. */
+.media-key { color: var(--text-secondary); border-radius: 9999px; }
+.media-key:hover { color: var(--text-primary); background: var(--glass-tile); }
+.media-key[on] { color: var(--primary); background: var(--accent-subtle); }
+.media-play { color: var(--surface); background: var(--text-primary); border-radius: 9999px; box-shadow: var(--shadow-md); }
+.media-play:hover { background: var(--primary); color: #ffffff; }
+.media-row { border-radius: var(--radius-lg); corner-shape: squircle; }
+.media-row:hover { background: var(--glass-tile); }
+.media-row[on] { background: var(--glass-tile-hover); }
+
+/* A row of choices, the one chosen filled. */
+.dash-segs {
+	background: var(--glass-tile);
+	border: 1px solid var(--glass-tile-edge);
+	border-radius: 9999px;
+}
+.dash-seg { color: var(--text-secondary); border-radius: 9999px; }
+.dash-seg:hover { color: var(--text-primary); }
+.dash-seg[on] { color: var(--primary); background: var(--accent-subtle); }
+
+/* A page's card, and the title it opens with. */
+.dash-title { color: var(--text-primary); font-size: var(--text-lg); font-weight: 600; }
+.dash-big { font-size: var(--text-3xl); font-weight: 600; color: var(--text-primary); }
+
+/* A tile that is pressed: the pages' keys and rows. */
+.dash-tile {
+	background: var(--glass-tile);
+	border: 1px solid var(--glass-tile-edge);
+	border-radius: var(--radius-xl);
+	corner-shape: squircle;
+}
+.dash-tile:hover { background: var(--glass-tile-hover); }
+.dash-tile[on] { background: var(--accent-subtle); border-color: transparent; color: var(--primary); }
+
+.dash-danger { color: #ffffff; background: #ef4444; border-radius: 9999px; }
+.dash-danger:hover { background: #dc2626; }
+.dash-go { color: #ffffff; background: #22c55e; border-radius: 9999px; }
+.dash-go:hover { background: #16a34a; }
+.dash-avatar { color: #ffffff; font-weight: 600; border-radius: 9999px; }
+
+.dash-rec { border-radius: 9999px; background: var(--text-tertiary); }
+.dash-rec[on] { background: #ef4444; }
+
+/* The glass in the dark scheme: smoked, a cool dark tint over the silver, so the light text on it reads. */
+@media (prefers-color-scheme: dark) {
+	.dash-glass, .dash-dock, .dash-chip { background: linear-gradient(150deg, rgba(36, 42, 58, 0.42), rgba(22, 26, 38, 0.30)); }
+}
