@@ -162,6 +162,15 @@ the two GPU and window modules under 1 MB. Sent with brotli they are 4.9 MB, or
 does. The program is mostly compiled Haxe, with 2.5 MB of ash's Rust runtime and a
 4.7 MB data section that is half zero padding, which compression removes.
 
+For the dashboard app (`apps/dashboard`) the program is 23.0 MB, 5.5 MB sent with brotli: 13.2 MB of code, of which 9.9 MB is the
+Haxe program compiled by Ash (5,921 wasm functions from 3,095 Haxe functions) and 2.4 MB Ash's runtime, and 8.3 MB of data, of
+which about 3.5 MB is what the app embeds (the car, its textures, the map, the fonts) and the rest the bytecode. Haxe's dead code
+elimination is on for the standard library only; `-dce full` also drops what the program's own classes never use. It took the
+program to 20.4 MB (5.1 MB with brotli), and the app still passed its page test. A build that sets `ASHUI_HAXE_FLAGS="-dce full"`
+passes it on to the Haxe compiler (`tests/wasm` reads it as `tests/run.sh` does); whether an app can take it depends on whether it
+reaches classes only through reflection. Brotli is the larger lever: most hosts compress wasm on request, and the page loads in
+about half the time with it (20 Mbit/s: 19 s ready with the program sent as it is, 10 s with brotli).
+
 `ASHUI_WASM_SMALL=1 tests/wasm/smoke.sh` builds as a site would ship, and prints each
 file's size:
 

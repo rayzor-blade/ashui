@@ -8,7 +8,7 @@
 here=$(pwd)
 ash=${ASH:-$(command -v "$here/../../ash/target/release/ash" || command -v ash || true)}
 [ -x "$ash" ] || { echo "wasm: no ash; set ASH" >&2; exit 1; }
-haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated --macro ashui.ui.Markup.enable()"
+haxe_ui="haxe --class-path ../haxe --class-path ../../hlwindow/haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated --macro ashui.ui.Markup.enable() ${ASHUI_HAXE_FLAGS:-}"
 
 # blinc_abi as a wasm side module, in $out.
 build_abi() {
