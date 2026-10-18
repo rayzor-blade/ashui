@@ -146,7 +146,9 @@ class Banner {
 				ctx.drawMesh(ring, Mat4.translation(new Vec3(0, 0.004, 0)));
 			car.draw(ctx, turn(clock.get()));
 		}
-		var camera = new OrbitCamera(2.25, 0.38, DISTANCE, new Vec3(0.05, 0.62, 0.2), 0.5);
+		// VIEW=low brings the camera down to the floor, where the horizon shows.
+		var camera = new OrbitCamera(2.25, Sys.getEnv("VIEW") == "low" ? 0.05 : 0.38, DISTANCE, new Vec3(0.05, 0.62, 0.2), 0.5);
+		var horizon = new BannerSky(!light);
 		var rig = [Directional(new Vec3(-0.35, -1, 0.3), 0xffffff, light ? 1.6 : 2.2)];
 
 		// The banner's size as laid out, which a window sets to its own and a snapshot leaves at the design's: what the callouts are
@@ -445,7 +447,7 @@ class Banner {
 
 		var auto = Signal.make(true);
 		var build = () -> <div width={WIDTH} height={HEIGHT}>
-			<scene-kit camera={camera} lights={rig} environment={sky} environmentIntensity={light ? 0.9 : 1.0} background={studio} shadows={true}
+			<scene-kit camera={camera} lights={rig} environment={sky} environmentIntensity={light ? 0.9 : 1.0} background={horizon.haze} fog={horizon.fog} skybox={horizon.skybox} shadows={true}
 				shadowStrength={light ? 0.45 : 0.6} shadowReach={4.5} draw={draw} widthPercent={1} heightPercent={1} />
 			<canvas ref={leadersCanvas} widthPercent={1} heightPercent={1} draw={leaders} position={Absolute} left={0} top={0} pointerEvents={PointerEvents.None} />
 			{callout(0)}{callout(1)}{callout(2)}
