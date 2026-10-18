@@ -34,8 +34,10 @@ publication.
 Assets include `ashui.zip`, `ashui-components.zip`, `ashui-canvaskit.zip`,
 `ashui-media.zip`, `ashui-icons.zip`, the five platform HDLLs and `blinc_abi.wasm`,
 the library a web build loads. The core ZIP bundles every desktop HDLL and the
-wasm library; all five packages use matching internal dependency versions.
-Nightlies retain the version from `haxelib.json` and are marked as prereleases.
+wasm library and ashui's web page (`web/`); all five packages use matching
+internal dependency versions. hlwgpu's and hlwindow's ZIPs carry their own web
+builds, which a build defined `wasm` stages beside its output, so a web app needs
+no Rust toolchain. Nightlies retain the version from `haxelib.json` and are marked as prereleases.
 
 ## Manual validation or release
 

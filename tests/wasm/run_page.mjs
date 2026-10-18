@@ -1,20 +1,25 @@
 // Runs a program Ash built for a page in a Chrome started with
 // --remote-debugging-port, and prints what it wrote to the page.
 //
-//     node run_page.mjs <page url> <debugging port> [seconds] [--shot file.png --when regex]
+//     node run_page.mjs <page url> <debugging port> [seconds] [--shot file.png --when regex [--wait seconds]] [--running]
 //
 // With --shot, the page is captured to file.png once the program has written a
-// line matching the regex, while it still draws.
+// line matching the regex, and --wait seconds (half a second by default) more,
+// while it still draws.
 //
 // Exits 0 when the program ended without trapping, its output holds no line
-// beginning FAIL or "Uncaught exception", and it exited 0.
+// beginning FAIL or "Uncaught exception", and it exited 0. With --running the
+// program is an application that does not end: it passes when it is still
+// running when the time is up, and fails if it ended before.
 const args = process.argv.slice(2);
 const flag = (name) => {
   const at = args.indexOf(name);
   return at < 0 ? undefined : args.splice(at, 2)[1];
 };
+const running = args.includes("--running") && !!args.splice(args.indexOf("--running"), 1);
 const shot = flag("--shot");
 const when = new RegExp(flag("--when") ?? "drawing");
+const wait = Number(flag("--wait") ?? 0.5);
 const [url, port, seconds = "120"] = args;
 if (!port) {
   console.error("usage: node run_page.mjs <page url> <debugging port> [seconds]");
@@ -79,7 +84,7 @@ while (Date.now() < end && !(finished = await ended())) {
   }
   if (shot && !shotTaken && when.test(so_far)) {
     shotTaken = true;
-    await sleep(500);
+    await sleep(wait * 1000);
     const { data } = await send("Page.captureScreenshot", { format: "png" });
     const fs = await import("node:fs");
     fs.writeFileSync(shot, Buffer.from(data, "base64"));
@@ -100,7 +105,8 @@ process.stdout.write(text.slice(printed));
 if (!text.endsWith("\n")) console.log();
 console.log(`page title: ${title}`);
 const failures = [];
-if (!finished) failures.push("the program did not end");
+if (running && finished) failures.push("the program ended, and was meant to keep running");
+if (!running && !finished) failures.push("the program did not end");
 if (/trapped$/.test(title)) failures.push("the program trapped");
 const status = /exited with (-?\d+)/.exec(text)?.[1];
 if (finished && status !== undefined && status !== "0") failures.push(`the program exited with ${status}`);
