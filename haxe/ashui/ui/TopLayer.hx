@@ -48,6 +48,35 @@ class TopEntry {
 	final placement:Placement;
 	var closed = false;
 
+	/** Entries that have been closed and are still playing their way out, whose layers have yet to be taken out. **/
+	static final leaving:Array<TopEntry> = [];
+
+	/** The content was opened again in another entry while this one was leaving: it is no longer this one's to clean up. **/
+	var reclaimed = false;
+
+	/**
+		Opens `content` afresh while an entry that closed with it is still leaving: it is taken out from under that entry's
+		holder, which would otherwise still list it once it is under a new one, and lose it when the old layer goes. The
+		old entry's backdrop goes on fading; the content is no longer closing.
+	**/
+	@:allow(ashui.ui.TopLayer)
+	static function reclaim(content:Element):Void {
+		if (content.node == null)
+			return;
+		for (entry in leaving.copy()) {
+			if (entry.content != content || entry.holder.node == null)
+				continue;
+			var tree = entry.layer.tree;
+			var parent = tree.ancestors(content.node.id);
+			if (parent.length > 0 && parent[0] == entry.holder.node.id)
+				tree.detachChildren(entry.holder.node.id);
+			var identity = Identity.of(tree, content.node.id);
+			if (identity != null)
+				identity.setAttribute("closing", null);
+			entry.reclaimed = true;
+		}
+	}
+
 	/** Where the holder was last put, so placing it again only moves it when the content's size moved it. **/
 	var placed:Null<{left:Float, top:Float}> = null;
 
@@ -149,13 +178,15 @@ class TopEntry {
 		// While it goes, presses pass through it to what is beneath.
 		tree.setPassThrough(layer.node.id, true);
 		var layerNode = layer.node.id, holderNode = holder.node.id;
+		leaving.push(this);
 		function finish() {
+			leaving.remove(this);
 			for (identity in marked)
-				if (identity != null)
+				if (identity != null && !(reclaimed && identity == marked[1]))
 					identity.setAttribute("closing", null);
 			tree.setPassThrough(layerNode, false);
-			// The content is kept, to open again; only the layer around it goes. Opened again meanwhile, it is in another layer by now.
-			if (content.node != null) {
+			// The content is kept, to open again; only the layer around it goes. Opened again meanwhile, it was taken out of this one.
+			if (!reclaimed && content.node != null) {
 				var parent = tree.ancestors(content.node.id);
 				if (parent.length > 0 && parent[0] == holderNode)
 					tree.detachChildren(holderNode);
@@ -224,6 +255,7 @@ class TopLayer {
 		var rootBounds = tree.getBounds(root);
 		var w = rootBounds == null ? 0.0 : rootBounds.width,
 			h = rootBounds == null ? 0.0 : rootBounds.height;
+		TopEntry.reclaim(content);
 		var shade = new Div({
 			position: Absolute,
 			left: 0,
