@@ -1073,6 +1073,26 @@ class Smoke {
 			Std.parseFloat(twSize) == ashui.theme.Themed.fontSize(TextXl).get() && twWeight == "700" && twColor != null && twColor.indexOf("50%") >= 0
 			&& twParaSize != null && Std.parseFloat(twParaSize) == ashui.theme.Themed.fontSize(TextSm).get(), [twSize, twWeight, twColor, twParaSize]);
 
+		// A <for> whose list changes to the same items places nothing again, as a scroll that moves no row would otherwise restyle every sibling.
+		var sameTree = new LayoutTree();
+		var sameItems = Signal.make([1, 2, 3]);
+		var placements = 0;
+		var countPlacements = (t:LayoutTree, _:haxe.Int64) -> if (t == sameTree) placements++;
+		LayoutTree.childrenHooks.push(countPlacements);
+		var sameRoot:Div = Owner.root(sameTree, _ -> <div flexDirection={Column} width={100} height={100}>
+			<for {i in sameItems.get()}><div height={20} /></for>
+		</div>);
+		sameTree.flush();
+		var placedFirst = placements;
+		sameItems.set([1, 2, 3]);
+		sameTree.flush();
+		var placedAgain = placements;
+		sameItems.set([1, 2]);
+		sameTree.flush();
+		LayoutTree.childrenHooks.remove(countPlacements);
+		check("a <for> given the same items again places nothing, and one given fewer does", placedAgain == placedFirst && placements > placedAgain,
+			[placedFirst, placedAgain, placements]);
+
 		// A RefList holds each item a <for> builds under one ref=, and query does what it is told to each, even one added later.
 		var rlTree = new LayoutTree();
 		var rlItems = Signal.make([1, 2]);

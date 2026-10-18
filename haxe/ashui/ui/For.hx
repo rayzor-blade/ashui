@@ -25,6 +25,8 @@ class For<T> extends Div {
 		this.tree.makeFragment(node.id);
 		var owner = Owner.current;
 		var rows:Array<Row<T>> = [];
+		// The children as last placed: a reconcile that leaves them as they are places nothing, which restyles every sibling.
+		var placed:Array<haxe.Int64> = [];
 		// Every change to what `each` read reconciles, even when it returns
 		// the same array.
 		new Watch(each, list -> {
@@ -45,7 +47,18 @@ class For<T> extends Div {
 			for (row in unused)
 				row.owner.dispose();
 			rows = next;
-			this.tree.replaceChildren(node.id, [for (row in rows) row.element.node.id]);
+			var ids = [for (row in rows) row.element.node.id];
+			var same = ids.length == placed.length;
+			if (same)
+				for (i in 0...ids.length)
+					if (ids[i] != placed[i]) {
+						same = false;
+						break;
+					}
+			if (!same) {
+				placed = ids;
+				this.tree.replaceChildren(node.id, ids);
+			}
 		}, (_, _) -> false);
 		Owner.onCleanup(() -> for (row in rows)
 			row.owner.dispose());
