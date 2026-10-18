@@ -96,6 +96,8 @@ class Renderer {
 	var _backdropRowsPass:Null<Pass> = null;
 	var backdropPass(get, never):Pass;
 	var _backdropPass:Null<Pass> = null;
+	var liquidBackdropPass(get, never):Pass;
+	var _liquidBackdropPass:Null<Pass> = null;
 	var blitPass(get, never):Pass;
 	var _blitPass:Null<Pass> = null;
 
@@ -107,6 +109,7 @@ class Renderer {
 	var shadow:Null<LayerTarget> = null;
 	var rowsGroup:Null<GpuBindGroup> = null;
 	var backdropGroup:Null<GpuBindGroup> = null;
+	var liquidBackdropGroup:Null<GpuBindGroup> = null;
 	var shadowGroup:Null<GpuBindGroup> = null;
 	final format:TextureFormat;
 
@@ -178,6 +181,9 @@ class Renderer {
 
 	inline function get_backdropPass():Pass
 		return _backdropPass != null ? _backdropPass : (_backdropPass = pass(BackdropShader.WGSL, format, false));
+
+	inline function get_liquidBackdropPass():Pass
+		return _liquidBackdropPass != null ? _liquidBackdropPass : (_liquidBackdropPass = pass(LiquidBackdropShader.WGSL, format, false));
 
 	inline function get_blitPass():Pass
 		return _blitPass != null ? _blitPass : (_blitPass = pass(BlitShader.WGSL, format, false, false));
@@ -365,8 +371,14 @@ class Renderer {
 					if (under.backdropRowsGroup == null)
 						under.backdropRowsGroup = layerGroup(backdropRowsPass, BackdropRowsShader.FRAME_GROUP, under.view);
 					var blurredRows = reserveRows(layerWidth, layerHeight);
-					if (backdropGroup == null)
-						backdropGroup = layerGroup(backdropPass, BackdropShader.FRAME_GROUP, blurredRows.view);
+					// Liquid glass, with its lens, is a pipeline of its own: one with none does not make it.
+					var liquid = list.get(start, GRADIENT_FIELD) > 0.5;
+					if (liquid ? liquidBackdropGroup == null : backdropGroup == null) {
+						if (liquid)
+							liquidBackdropGroup = layerGroup(liquidBackdropPass, LiquidBackdropShader.FRAME_GROUP, blurredRows.view);
+						else
+							backdropGroup = layerGroup(backdropPass, BackdropShader.FRAME_GROUP, blurredRows.view);
+					}
 					encoder.renderEnd();
 					beginPass(encoder, blurredRows.view, true, 0, 0, 0, 0);
 					encoder.renderSetPipeline(backdropRowsPass.pipeline);
@@ -375,9 +387,15 @@ class Renderer {
 					encoder.renderDrawRange(6, 1, 0, start);
 					encoder.renderEnd();
 					beginPass(encoder, under.view, false, 0, 0, 0, 0);
-					encoder.renderSetPipeline(backdropPass.pipeline);
-					encoder.renderSetBindGroup(BackdropShader.FRAME_GROUP, backdropGroup);
-					encoder.renderSetBindGroup(BackdropShader.TEXTURE_records_GROUP, backdropPass.records);
+					if (liquid) {
+						encoder.renderSetPipeline(liquidBackdropPass.pipeline);
+						encoder.renderSetBindGroup(LiquidBackdropShader.FRAME_GROUP, liquidBackdropGroup);
+						encoder.renderSetBindGroup(LiquidBackdropShader.TEXTURE_records_GROUP, liquidBackdropPass.records);
+					} else {
+						encoder.renderSetPipeline(backdropPass.pipeline);
+						encoder.renderSetBindGroup(BackdropShader.FRAME_GROUP, backdropGroup);
+						encoder.renderSetBindGroup(BackdropShader.TEXTURE_records_GROUP, backdropPass.records);
+					}
 					encoder.renderDrawRange(6, 1, 0, start);
 					start++;
 					continue;
@@ -597,8 +615,11 @@ class Renderer {
 				rowsGroup.destroy();
 			if (backdropGroup != null)
 				backdropGroup.destroy();
+			if (liquidBackdropGroup != null)
+				liquidBackdropGroup.destroy();
 			rowsGroup = null;
 			backdropGroup = null;
+			liquidBackdropGroup = null;
 			if (rows != null) {
 				rows.view.destroy();
 				rows.texture.destroy();
