@@ -6,19 +6,19 @@ import ashui.media.Player.PlayerState;
 import ashui.reactive.Signal;
 import haxe.io.Bytes;
 
-typedef Track = {file:String, title:String, artist:String, album:String, hue:Int, bpm:Int, seconds:Float};
+typedef Track = {file:String, title:String, artist:String, album:String, hue:Int, genre:String, seconds:Float};
 
 /**
-	The soundtrack: three original instrumentals (`tools/compose.py`), played by an `ashui.media.Player`, which on a desktop
+	The soundtrack: an original instrumental (`tools/compose.py`) and two CC0 recordings (`tools/prepare.py`), played by an `ashui.media.Player`, which on a desktop
 	is hlavi's native player and in a page is hlavi's, on an audio element. This keeps what a player does not: the playlist, the
 	track that is current, going on to the next when one ends, and the loudness of each band of the sound, which the visualiser
 	reads from the track's `.bands` file by how far the track has played.
 **/
 class Music {
 	public static final TRACKS:Array<Track> = [
-		{file: "night-drive", title: "Night Drive", artist: "Ash Drive", album: "Original Soundtrack", hue: 265, bpm: 92, seconds: 65.6},
-		{file: "coastal-road", title: "Coastal Road", artist: "Ash Drive", album: "Original Soundtrack", hue: 195, bpm: 108, seconds: 65.2},
-		{file: "neon-rain", title: "Neon Rain", artist: "Ash Drive", album: "Original Soundtrack", hue: 320, bpm: 76, seconds: 72.5}
+		{file: "night-drive", title: "Night Drive", artist: "Ash Drive", album: "Original Soundtrack", hue: 265, genre: "Electronic", seconds: 65.6},
+		{file: "lofi-fusion", title: "Lofi Fusion", artist: "Seth Makes Sounds", album: "Freesound", hue: 195, genre: "Lo-fi", seconds: 131.2},
+		{file: "cosmic-dark-synthwave", title: "Cosmic Dark Synthwave", artist: "Projecteur", album: "Freesound", hue: 320, genre: "Synthwave", seconds: 104.4}
 	];
 
 	/** Bands the visualiser has, and how many sets of them a second. **/

@@ -60,6 +60,7 @@ class MoreView {
 			</div>
 			<text class="text-sm ink-2">Every page here is made of ashui's own parts: signals that change what is shown, a stylesheet, a 3D scene, a canvas and real audio. Nothing in it is a video.</text>
 			<text class="text-xs ink-3">${runtime()}</text>
+			<text class="text-xs ink-3">Music: Night Drive by Ash Drive; Lofi Fusion by Seth_Makes_Sounds and Cosmic Dark Synthwave by Projecteur, both CC0 from Freesound.</text>
 		</div>;
 		return <div position={Absolute} left={24} right={24} top={78} bottom={100} flexDirection={Row} justifyContent={Justify.Center} alignItems={Center} gap={16}>
 			{preferences}{about}

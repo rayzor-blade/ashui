@@ -59,5 +59,17 @@ it is a call (`{stopKey()}`) and not a variable that was made before.
 
 ## The music
 
-The three tracks in `audio/` are original, made by `tools/compose.py` (numpy for the synthesis, ffmpeg for the encoding), so there
-is nothing to license. Running it again rewrites `audio/` and `levels/`, which holds the loudness of 16 bands for the visualiser.
+Three tracks play, all free to share. **Night Drive** is original: `tools/compose.py` makes it (numpy for the synthesis, ffmpeg for
+the encoding), so there is nothing to license. The other two are recordings put in the public domain (CC0) by their makers:
+
+| Track                                                                   | By                | Source                                                      |
+| ----------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------- |
+| Lofi Fusion (the recording is titled "Lofi Fusion Background Music")    | Seth_Makes_Sounds | https://freesound.org/people/Seth_Makes_Sounds/sounds/655516 |
+| Cosmic Dark Synthwave (titled "Cosmic dark synthwave")                  | Projecteur        | https://freesound.org/people/Projecteur/sounds/615546        |
+
+CC0 asks for no credit, and the credit is given anyway, on the More page's About card. The files in `audio/` were made from
+Freesound's 128 kbps previews; a better source file, from a Freesound account, can be run through the same script.
+
+`tools/prepare.py <recording> <name>` makes a recording ready: it trims the silence at its end, brings it to -14 LUFS, encodes it and
+writes `levels/<name>.bands`, the loudness of 16 bands 30 times a second that the visualiser follows. It prints the length for
+`Music.TRACKS`. Running `tools/compose.py` again rewrites Night Drive's files.

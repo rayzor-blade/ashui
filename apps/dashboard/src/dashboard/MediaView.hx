@@ -66,7 +66,7 @@ class MediaView {
 			<canvas width={40} height={40} draw={Art.draw(40, t.hue)} />
 			<div flexDirection={Column} gap={2} flexGrow={1}>
 				<text class="text-sm font-semibold">${t.title}</text>
-				<text class="text-xs ink-3">${t.artist + " · " + t.bpm + " BPM"}</text>
+				<text class="text-xs ink-3">${t.artist + " · " + t.genre}</text>
 			</div>
 			<if {music.index.get() == i && music.playing()}><div class="accent">{icon(Remix.VOLUME_UP_LINE, "size-4")}</div></if>
 			<text class="text-xs ink-3">${Music.clockText(t.seconds)}</text>

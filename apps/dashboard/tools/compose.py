@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Composes the dashboard's soundtrack: three original, instrumental tracks made from nothing but arithmetic.
+"""Composes Night Drive, the dashboard's own track, an instrumental made from nothing but arithmetic. The other tracks are
+recordings that are licensed to be shared, which prepare.py makes ready.
 
     python3 apps/dashboard/tools/compose.py [the app's directory]     (needs numpy and ffmpeg)
 
-Each track is written as audio/<name>.m4a (AAC, stereo), which the page serves, and levels/<name>.bands, the loudness of 16
-bands, 30 times a second, one byte each, which the program embeds and the Media page's visualiser follows as the track plays. The tracks are fixed by their seeds, so running
-this again makes the same files. They are original to this repository, and carry no licence of their own beyond its.
+The track is written as audio/<name>.m4a (AAC, stereo), which the page serves, and levels/<name>.bands, the loudness of 16
+bands, 30 times a second, one byte each, which the program embeds and the Media page's visualiser follows as the track plays. The
+track is fixed by its seed, so running this again makes the same files. It is original to this repository, and carries no licence of its own beyond its.
 """
 import math
 import subprocess
@@ -229,7 +230,7 @@ def compose(spec):
     return master(wet)
 
 
-A, D, E = 57, 62, 52  # A3, D4, E3 as MIDI notes
+A = 57  # A3 as a MIDI note
 
 TRACKS = [
     {
@@ -240,23 +241,6 @@ TRACKS = [
         "kick": [1, 0, 1, 0], "snare": [0, 1, 0, 1], "hat": "off",
         "sections": (["pad"] * 2 + ["pad", "pad bass"] * 2 + ["pad bass arp"] * 4 + ["pad bass arp drums"] * 8 + ["pad bass"] * 2
                      + ["pad bass arp drums"] * 3 + ["pad"]),
-    },
-    {
-        "name": "coastal-road", "title": "Coastal Road", "seed": 23, "bpm": 108, "bars": 28, "room": 1.8, "wet": 0.26, "bright": 0.9,
-        "progression": [(D, "maj"), (D + 7, "dom"), (D + 9, "min"), (D + 5, "maj")],
-        "bass": [(0, 0), (1, 0), (1.5, 7), (2, 0), (3, 12), (3.5, 7)],
-        "arp": [0, 2, 4, 2, 1, 3, 5, 3],
-        "kick": [1, 0, 0, 1], "snare": [0, 1, 0, 1], "hat": "all",
-        "sections": (["pad"] * 2 + ["pad bass shaker"] * 2 + ["pad bass arp shaker"] * 4 + ["pad bass arp drums"] * 8
-                     + ["pad bass shaker"] * 2 + ["pad bass arp drums shaker"] * 8 + ["pad bass"] * 2 + ["pad"] * 0),
-    },
-    {
-        "name": "neon-rain", "title": "Neon Rain", "seed": 37, "bpm": 76, "bars": 22, "room": 2.8, "wet": 0.4, "bright": 0.2, "vinyl": True,
-        "progression": [(E, "min"), (E - 4, "maj"), (E - 7, "maj"), (E - 5, "sus")],
-        "bass": [(0, 0), (2.5, 0), (3.5, 7)],
-        "arp": [0, 3, 1, 4, 2, 5, 1, 3],
-        "kick": [1, 0, 0, 0], "snare": [0, 0, 1, 0], "hat": "off",
-        "sections": (["pad"] * 2 + ["pad bass"] * 2 + ["pad bass arp"] * 6 + ["pad bass arp drums"] * 8 + ["pad bass arp"] * 2 + ["pad"] * 2),
     },
 ]
 
