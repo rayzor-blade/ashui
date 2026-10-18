@@ -151,6 +151,7 @@ class Renderer {
 		sampler.minFilter(Linear);
 		glyphSampler = device.sampler(sampler);
 		this.format = format;
+		MeshTextures.prepare(device);
 	}
 
 	// Compile each shader once, when a display list first needs it. WGSL is a
@@ -487,6 +488,7 @@ class Renderer {
 		}
 		encoder.submit(queue);
 		failOnError("drawing");
+		MeshTextures.startCompressions();
 		// Canvases this frame left unpainted, scrolled away or hidden, give up their 3D layers after a while.
 		ScenePainter.sweep();
 	}

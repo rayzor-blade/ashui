@@ -55,8 +55,15 @@ class MeshTextures {
 	static var device:Null<GpuDevice> = null;
 	static var watchingDisposal = false;
 
-	/** Pixels resampled for an upload, reused from level to level and texture to texture. **/
+	/** Pixels resampled for an upload, kept for the next level or texture of the same size. **/
 	static var scratch:Null<Bytes> = null;
+
+	/** A buffer of `size` bytes and no more, as a write sends the whole of its buffer, whatever the level takes of it. **/
+	static function levelBuffer(size:Int):Bytes {
+		if (scratch == null || scratch.length != size)
+			scratch = Bytes.alloc(size);
+		return scratch;
+	}
 
 	/** Compressions running, by bitmap slot; its pixels are freed when they are done. **/
 	static final running = new Map<Int, Int>();
@@ -70,6 +77,17 @@ class MeshTextures {
 	/** Keys of textures being compressed, not yet on the GPU. **/
 	static final pending = new Map<String, Bool>();
 
+	static var asked:Null<GpuDevice> = null;
+	static var bcSampled = false;
+
+	/** Asks `gpu` whether it samples BC textures, once, and keeps the answer: in a page the question is a round trip, which in the middle of a frame would send its commands in two. **/
+	public static function prepare(gpu:GpuDevice):Void {
+		if (asked == gpu)
+			return;
+		asked = gpu;
+		bcSampled = gpu.supports(TextureCompressionBc);
+	}
+
 	/** `bitmap` on the GPU, as `role` reads it; null while it is being compressed. **/
 	public static function get(gpu:GpuDevice, bitmap:Bitmap, role:TextureRole):Null<{texture:GpuTexture, view:GpuTextureView}> {
 		var key = '${bitmap.slot}/${(role : Int)}';
@@ -81,7 +99,7 @@ class MeshTextures {
 		var w = bitmap.width, h = bitmap.height;
 		var levels = levelCount(w, h);
 		// BC blocks are 4×4: a texture whose sides are not a multiple of 4 stays as it is.
-		if (compress && bitmap.compressible && w % 4 == 0 && h % 4 == 0 && gpu.supports(TextureCompressionBc)) {
+		if (compress && bitmap.compressible && w % 4 == 0 && h % 4 == 0 && bcSupport(gpu)) {
 			pending.set(key, true);
 			compressLater(key, bitmap, role, levels);
 			return null;
@@ -92,19 +110,23 @@ class MeshTextures {
 			GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
 		descriptor.mipLevelCount(levels);
 		var t = gpu.texture(descriptor);
-		if (scratch == null || scratch.length < w * h * 4)
-			scratch = Bytes.alloc(w * h * 4);
 		for (level in 0...levels) {
 			var lw = Std.int(Math.max(1, w >> level)),
 				lh = Std.int(Math.max(1, h >> level));
-			resample(bitmap, lw, lh, scratch);
-			write(gpu, t, level, scratch, lw * 4, lw, lh);
+			var pixels = levelBuffer(lw * lh * 4);
+			resample(bitmap, lw, lh, pixels);
+			write(gpu, t, level, pixels, lw * 4, lw, lh);
 		}
 		var made = {texture: t, view: t.createView(new GpuTextureViewDescriptor())};
 		textures.set(key, made);
 		if (bitmap.gpuOnly)
 			releasing.push(bitmap);
 		return made;
+	}
+
+	static inline function bcSupport(gpu:GpuDevice):Bool {
+		prepare(gpu);
+		return bcSampled;
 	}
 
 	/** Whether textures are still being compressed: what waits for a scene to look as it will, as a snapshot does, waits for this. **/
@@ -122,11 +144,24 @@ class MeshTextures {
 	/** Pixels the worker resamples a level into, reused from level to level and texture to texture: only the worker uses it. **/
 	static var workBuffer:Null<Bytes> = null;
 
+	/** Compressions asked for while a frame was drawn, started after it: a page sends a frame's commands together, and waking a thread in the middle of them would send them in two. **/
+	static final starting:Array<Void->Void> = [];
+
+	/** Starts the compressions the frame just drawn asked for; called after its commands are submitted. **/
+	public static function startCompressions():Void {
+		if (starting.length == 0)
+			return;
+		var jobs = starting.copy();
+		starting.resize(0);
+		for (job in jobs)
+			job();
+	}
+
 	/** Compresses `bitmap`'s levels on the worker, then has them put in place on the main thread. **/
 	static function compressLater(key:String, bitmap:Bitmap, role:TextureRole, levels:Int):Void {
 		running.set(bitmap.slot, (running.exists(bitmap.slot) ? running.get(bitmap.slot) : 0) + 1);
 		var w = bitmap.width, h = bitmap.height;
-		ashui.core.Worker.run(() -> {
+		starting.push(() -> ashui.core.Worker.run(() -> {
 			if (workBuffer == null || workBuffer.length < w * h * 4)
 				workBuffer = Bytes.alloc(w * h * 4);
 			var px = workBuffer;
@@ -162,7 +197,7 @@ class MeshTextures {
 				blockBytes: blockBytes,
 				levels: out
 			};
-		}, job -> upload(job));
+		}, job -> upload(job)));
 	}
 
 	/** On the main thread: a finished compression's texture in place of the uncompressed one. **/
