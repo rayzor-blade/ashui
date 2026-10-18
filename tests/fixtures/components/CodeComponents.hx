@@ -177,7 +177,33 @@ class CodeComponents {
 			Pointer.move(tree, pane.x + pane.width / 2, pane.y + pane.height / 2); Pointer.wheel(tree, 0, -80); settle();
 			check("wheel scrolls the code viewport", ed.scroll.y.get() > 0);
 			ed.scroll.jumpTo(0, 3000); settle();
-			check("scrolling renders later source rows", Std.parseInt(ashui.ui.Text.at(Css.query(tree, ed.node.id, ".ui-code-line-number")[0]).text()) > 50);
+			// The row elements are pooled and a row is in slot `row % capacity`: a slot with no row shows no number, and the order is not the document's.
+			var shownNumbers = [for (id in Css.query(tree, ed.node.id, ".ui-code-line-number")) Std.parseInt(ashui.ui.Text.at(id).text())].filter(n -> n != null);
+			check("scrolling renders later source rows", shownNumbers.length > 10 && Lambda.foreach(shownNumbers, n -> n > 50), shownNumbers);
+			var windowOf = () -> [@:privateAccess ed.windowStart(), @:privateAccess ed.windowEnd()].join("-");
+			var builtRows:Dynamic = null, stayed = false;
+			for (attempt in 0...12) {
+				ed.scroll.jumpTo(0, 3000 + attempt * 7); settle();
+				builtRows = @:privateAccess ed.cachedRows;
+				var window = windowOf();
+				ed.scroll.jumpTo(0, 3000 + attempt * 7 + 0.5); settle();
+				if (windowOf() == window) { stayed = true; break; }
+			}
+			var rowsNow:Dynamic = @:privateAccess ed.cachedRows;
+			check("a scroll that stays inside the built window builds nothing", stayed && rowsNow == builtRows);
+			// Scrolling lines moves rows between the pooled elements: no element is made, and each number stays level with its own row.
+			// A slot builds its token elements the first time it shows a row, so the window is walked through every slot before counting.
+			for (_ in 0...40) { ed.scroll.jumpTo(0, ed.scroll.y.get() + ed.metrics.lineHeight); settle(); }
+			var elementsBefore = Css.query(tree, ed.node.id, "*"), lh = ed.metrics.lineHeight;
+			ed.scroll.jumpTo(0, ed.scroll.y.get() + lh * 12); settle();
+			var elementsAfter = Css.query(tree, ed.node.id, "*");
+			check("scrolling by lines reuses the row elements", elementsAfter.join(",") == elementsBefore.join(","), [elementsBefore.length, elementsAfter.length]);
+			var offsets = [for (id in Css.query(tree, ed.node.id, ".ui-code-line-number")) {
+				var text = ashui.ui.Text.at(id).text();
+				if (text == "") continue;
+				tree.getBounds(Identity.of(tree, id).node).y - Std.parseInt(text) * lh;
+			}];
+			check("every gutter number is level with its row after scrolling", offsets.length > 10 && Lambda.foreach(offsets, o -> Math.abs(o - offsets[0]) < 1), offsets);
 			check("shaped line cache is bounded", @:privateAccess ed.metrics.recent.length <= 96);
 			var cacheBefore = @:privateAccess ed.metrics.recent.copy();
 			value.set("reset"); settle(); ed.undo(); settle();

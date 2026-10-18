@@ -54,7 +54,9 @@ typedef CodeEditorProps = {
 private enum CodePhase { Resting; Selecting; }
 private enum CodeEvent { Press; Release; Blur; }
 private typedef Run = {text:String, kind:String, x:Single};
-private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, width:Single, guides:Array<Single>, stamp:Int, tokens:Array<CodeToken>};
+private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Array<CodeToken>};
+/** A pooled token element: the `index`th run of its `kind` in the row its slot shows. **/
+private typedef Token = {kind:String, index:Int};
 
 /**
 	A virtualized code editor, built from Ashui text, buttons and scrolling
@@ -75,6 +77,15 @@ class CodeEditor extends Component<CodeEditorProps> {
 	var pane:Div;
 	var probe:Text;
 	var cachedRows:Array<Row> = [];
+	// The row elements are pooled: row `r` of the document is shown by slot `r % capacity`, so scrolling a line changes the
+	// bindings of the one slot whose row changed and builds nothing.
+	final slotRows:Array<Signal<Null<Row>>> = [];
+	final shownRows:Array<Null<Row>> = [];
+	// A slot's token elements are pooled by kind, so a row taking a slot changes text and position and never a token's kind, which
+	// would restyle it: `slotPools` holds the elements of each kind, `slotKinds` the kinds in the order first met.
+	final slotTokens:Array<Signal<Array<Token>>> = [];
+	final slotPools:Array<Map<String, Array<Token>>> = [];
+	final slotKinds:Array<Array<String>> = [];
 	var oldText = "";
 	var oldSelection:CodeSelection;
 	var knownValue = "";
@@ -153,7 +164,14 @@ class CodeEditor extends Component<CodeEditorProps> {
 			}
 			(Math.max(viewWidth.get(), gutter.get() + PAD * 2 + widest * metrics.characterWidth + 2) : Single);
 		});
-		var rows = Computed.make(() -> visibleRows());
+		// The window's rows as signals, set only when one changes, so a scroll inside the window runs nothing (a computed passes on every run).
+		var firstRow = Signal.make(0), endRow = Signal.make(0);
+		new Watch(() -> windowStart(), row -> firstRow.set(row));
+		new Watch(() -> windowEnd(), row -> endRow.set(row));
+		var rows = Computed.make(() -> visibleRows(firstRow.get(), endRow.get()));
+		var capacity = Computed.make(() -> { revision.get(); (Std.int(Math.ceil((viewHeight.get() + PAD) / Math.max(1, metrics.lineHeight))) + 9 : Int); });
+		var slots = Computed.make(() -> [for (i in 0...capacity.get()) i]);
+		new Watch(() -> { capacity.get(); rows.get(); }, _ -> distribute(rows.get(), capacity.get()));
 		var caret = Computed.make(() -> {
 			revision.get(); e.fontSize.get();
 			e.stopAt(e.displayCaret(), shown.get());
@@ -194,24 +212,9 @@ class CodeEditor extends Component<CodeEditorProps> {
 			<for {r in matches}>
 				<div class="ui-code-bracket" left={r.x} top={r.top} width={r.width} height={rowHeight} />
 			</for>
-			<for {row in rows}>
-				<div class="ui-code-line" left={Computed.make(() -> (gutter.get() + PAD : Single))} top={row.top} height={rowHeight} width={row.width}>
-					<for {x in row.guides}><div class="ui-code-guide" left={x} height={rowHeight} /></for>
-					<for {run in row.runs}>${token(run)}</for>
-					<if {folded(row)}><text class="ui-code-text ui-code-fold-hint" left={row.width + 8}> … </text></if>
-				</div>
-			</for>
+			<for {i in slots}>{lineSlot(i, gutter, rowHeight)}</for>
 			<div class="ui-code-gutter" left={Computed.make(() -> { revision.get(); (scroll == null ? 0 : scroll.x.get() : Single); })} width={Computed.make(() -> (gutter.get() : Single))} height={contentHeight}>
-				<for {row in rows}>
-					<div class="ui-code-gutter-line" top={row.top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))}>
-						<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) : Single))}>${Std.string(row.source + 1)}</text></if>
-						<if {props.folding != false}>
-							<div class="ui-code-fold-slot">
-								<if {row.line.foldEnd >= 0}>${foldButton(row)}</if>
-							</div>
-						</if>
-					</div>
-				</for>
+				<for {i in slots}>{gutterSlot(i, gutter, rowHeight)}</for>
 			</div>
 			<div class="ui-code-caret" left={Computed.make(() -> (gutter.get() + PAD + caret.get().x : Single))}
 				top={Computed.make(() -> (PAD + caret.get().line * metrics.lineHeight : Single))} height={rowHeight}
@@ -284,38 +287,142 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	static function read<T>(value:IntoReactive<T>):T return switch value { case Const(v): v; case Bound(s): s.get(); case Derived(c): c.get(); }
 	function refresh():Void revision.set(revision.get() + 1);
-	function token(run:Run):Element {
-		var text:Text = <text class="ui-code-text ui-code-token" left={run.x} top={0}>${run.text}</text>;
-		Identity.of(text.tree, text.node.id).setAttribute("data-token", run.kind);
+
+	/** The signal of slot `i`'s row, made with the slot. **/
+	function slotAt(i:Int):Signal<Null<Row>> {
+		while (slotRows.length <= i) {
+			slotRows.push(Signal.make((null : Null<Row>)));
+			slotTokens.push(Signal.make(([] : Array<Token>)));
+			shownRows.push(null);
+			slotPools.push(new Map());
+			slotKinds.push([]);
+		}
+		return slotRows[i];
+	}
+
+	/** Gives each slot the row of the window it shows, setting only the slots whose row is another one. **/
+	function distribute(list:Array<Row>, capacity:Int):Void {
+		var next:Array<Null<Row>> = [for (_ in 0...capacity) null];
+		for (row in list)
+			if (row.row >= 0) next[row.row % capacity] = row;
+		for (i in 0...Std.int(Math.max(capacity, shownRows.length))) {
+			var row = i < capacity ? next[i] : null;
+			if (i >= shownRows.length && row == null) continue;
+			slotAt(i);
+			if (shownRows[i] == row) continue;
+			shownRows[i] = row;
+			slotRows[i].set(row);
+			fitTokens(i, row);
+		}
+	}
+
+	/** Gives slot `i` the token elements of each kind that `row` needs: it keeps what it has, grows when a row has more, and gives back when a row needs under a quarter. **/
+	function fitTokens(i:Int, row:Null<Row>):Void {
+		var pools = slotPools[i], kinds = slotKinds[i], need = row == null ? null : row.byKind, changed = false;
+		if (need != null)
+			for (kind in need.keys())
+				if (!pools.exists(kind)) {
+					pools.set(kind, []);
+					kinds.push(kind);
+				}
+		for (kind in kinds) {
+			var pool = pools.get(kind), have = pool.length;
+			var n = need == null || !need.exists(kind) ? 0 : need.get(kind).length;
+			var room = n > have ? n : n * 4 < have && have > 16 ? Std.int(Math.max(n, 8)) : have;
+			while (pool.length < room) {
+				pool.push({kind: kind, index: pool.length});
+				changed = true;
+			}
+			while (pool.length > room) {
+				pool.pop();
+				changed = true;
+			}
+		}
+		if (changed)
+			slotTokens[i].set([for (kind in kinds) for (token in pools.get(kind)) token]);
+	}
+
+	function lineSlot(i:Int, gutter:Computed<Float>, rowHeight:Computed<Single>):Element {
+		var row = slotAt(i);
+		var shown = Computed.make(() -> (row.get() != null ? 1 : 0 : Single));
+		var top = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.top : Single); });
+		var width = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.width : Single); });
+		var hintLeft = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.width + 8 : Single); });
+		var guides = Computed.make(() -> { var r = row.get(); r == null ? [] : r.guides; });
+		var tokens = Computed.make(() -> slotTokens[i].get());
+		var folded = Computed.make(() -> { revision.get(); var r = row.get(); r != null && r.line.folded; });
+		return <div class="ui-code-line" left={Computed.make(() -> (gutter.get() + PAD : Single))} top={top} height={rowHeight} width={width} opacity={shown}>
+			<for {x in guides}><div class="ui-code-guide" left={x} height={rowHeight} /></for>
+			<for {t in tokens}>{tokenSlot(row, t)}</for>
+			<if {folded.get()}><text class="ui-code-text ui-code-fold-hint" left={hintLeft}> … </text></if>
+		</div>;
+	}
+
+	function tokenSlot(row:Signal<Null<Row>>, token:Token):Element {
+		function run(r:Null<Row>):Null<Run> {
+			var list = r == null ? null : r.byKind.get(token.kind);
+			return list != null && token.index < list.length ? list[token.index] : null;
+		}
+		var left = Computed.make(() -> { var u = run(row.get()); (u == null ? 0 : u.x : Single); });
+		var content = Computed.make(() -> { var u = run(row.get()); u == null ? "" : u.text; });
+		var text:Text = <text class="ui-code-text ui-code-token" left={left} top={0}>${content.get()}</text>;
+		Identity.of(text.tree, text.node.id).setAttribute("data-token", token.kind);
 		return text;
 	}
-	function foldButton(row:Row):Element {
-		var button:Button = <button type="button" variant={Ghost} size={Icon} class="ui-code-fold"
-			onPointerDown={event -> event.stopPropagation()} onKeyDown={event -> event.stopPropagation()}
-			onClick={event -> { event.stopPropagation(); toggleFold(row.source); }}>
-			<if {folded(row)}>
+
+	function gutterSlot(i:Int, gutter:Computed<Float>, rowHeight:Computed<Single>):Element {
+		var row = slotAt(i);
+		var shown = Computed.make(() -> (row.get() != null ? 1 : 0 : Single));
+		var top = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.top : Single); });
+		var number = Computed.make(() -> { var r = row.get(); r == null ? "" : Std.string(r.source + 1); });
+		var foldable = Computed.make(() -> { revision.get(); var r = row.get(); r != null && r.line.foldEnd >= 0; });
+		var fold = Computed.make(() -> (foldable.get() ? 1 : 0 : Single));
+		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} opacity={shown}>
+			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) : Single))}>${number.get()}</text></if>
+			<if {props.folding != false}>
+				<div class="ui-code-fold-slot" opacity={fold}>${foldButton(row, foldable)}</div>
+			</if>
+		</div>;
+	}
+
+	// The button is always there and answers only while its slot's row opens a fold, so a row entering the window builds no button.
+	function foldButton(slot:Signal<Null<Row>>, foldable:Computed<Bool>):Element {
+		var folded = Computed.make(() -> { revision.get(); var r = slot.get(); r != null && r.line.folded; });
+		var button:Button = <button type="button" variant={Ghost} size={Icon} class="ui-code-fold" disabled={Computed.make(() -> !foldable.get())}
+			onPointerDown={event -> if (foldable.get()) event.stopPropagation()} onKeyDown={event -> if (foldable.get()) event.stopPropagation()}
+			onClick={event -> { var r = slot.get(); if (r != null && r.line.foldEnd >= 0) { event.stopPropagation(); toggleFold(r.source); } }}>
+			<if {folded.get()}>
 				<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7" /></svg>
 			<else>
 				<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 9 7 7 7-7" /></svg>
 			</if>
 		</button>;
 		Identity.of(button.tree, button.node.id)
-			.bindAttribute("aria-label", Computed.make(() -> ((folded(row) ? "Expand" : "Fold") + " line " + (row.source + 1) : Null<String>)))
-			.bindAttribute("aria-expanded", Computed.make(() -> (folded(row) ? "false" : "true" : Null<String>)));
+			.bindAttribute("aria-label", Computed.make(() -> { var r = slot.get(); (r == null ? null : (folded.get() ? "Expand" : "Fold") + " line " + (r.source + 1) : Null<String>); }))
+			.bindAttribute("aria-expanded", Computed.make(() -> (folded.get() ? "false" : "true" : Null<String>)));
 		return button;
 	}
-	function folded(row:Row):Bool { revision.get(); return row.line.folded; }
 
-	function visibleRows():Array<Row> {
+	// The rows from `windowStart` to `windowEnd` are built, three more than the view shows on each side. Until the probe's CSS font
+	// is in, there are none: shaping and mounting them in the default proportional face would only be discarded (0973e0c).
+	function windowStart():Int {
 		revision.get();
-		// Wait for the probe's CSS font before shaping and mounting token rows.
-		// Otherwise initial render builds the whole viewport in the default
-		// proportional face, only to discard it on the first layout (0973e0c).
+		if (fontDirty) return 0;
+		var y = scroll == null ? 0 : scroll.y.get();
+		return Std.int(Math.max(0, Math.floor((y - PAD) / metrics.lineHeight) - 3));
+	}
+
+	function windowEnd():Int {
+		revision.get();
+		if (fontDirty) return 0;
+		var y = scroll == null ? 0 : scroll.y.get();
+		return Std.int(Math.min(document.visible.length, Math.ceil((y + viewHeight.get()) / metrics.lineHeight) + 3));
+	}
+
+	function visibleRows(first:Int, end:Int):Array<Row> {
+		revision.get();
 		if (fontDirty) return [];
-		var stamp = fontRevision;
-		var y = scroll == null ? 0 : scroll.y.get(), h = viewHeight.get(), lh = metrics.lineHeight;
-		var first = Std.int(Math.max(0, Math.floor((y - PAD) / lh) - 3));
-		var end = Std.int(Math.min(document.visible.length, Math.ceil((y + h) / lh) + 3));
+		var stamp = fontRevision, lh = metrics.lineHeight;
 		var result:Array<Row> = [];
 		for (row in first...end) {
 			var source = document.visible[row], line = document.lines[source], found:Null<Row> = null;
@@ -331,7 +438,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 					var column = tabSize;
 					while (column <= indent) { guides.push((column * metrics.characterWidth : Single)); column += tabSize; }
 				}
-				found = {line: line, source: source, row: row, top: (PAD + row * lh : Single), width: (measured.width : Single), runs: runs, guides: guides, stamp: stamp, tokens: line.tokens};
+				var byKind = new Map<String, Array<Run>>();
+				for (run in runs) {
+					var list = byKind.get(run.kind);
+					if (list == null) byKind.set(run.kind, list = []);
+					list.push(run);
+				}
+				found = {line: line, source: source, row: row, top: (PAD + row * lh : Single), width: (measured.width : Single), runs: runs, byKind: byKind, guides: guides, stamp: stamp, tokens: line.tokens};
 			}
 			result.push(found);
 		}
