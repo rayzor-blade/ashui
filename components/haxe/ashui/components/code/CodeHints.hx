@@ -93,6 +93,16 @@ class CodeHints {
 	public function new(host:HintHost)
 		this.host = host;
 
+	var panelNode:Null<Div> = null;
+
+	/** Whether the pointer is over the popover: a press on it takes focus from the editor, which must not close it. **/
+	public function pointerOver():Bool {
+		if (panelNode == null || entry == null)
+			return false;
+		var b = host.tree.getScrolledBounds(panelNode.node), at = ashui.input.Pointer.at(host.tree);
+		return b != null && at.x >= b.x && at.x < b.x + b.width && at.y >= b.y && at.y < b.y + b.height;
+	}
+
 	/** Whether a popover is open. **/
 	public function isOpen():Bool
 		return entry != null;
@@ -151,6 +161,7 @@ class CodeHints {
 		var width = last == null || last.y != anchor.y ? anchor.width : Math.max(anchor.width, last.x + last.width - anchor.x);
 		var scope = new Owner(host.tree);
 		var panel = scope.run(() -> build(hint));
+		panelNode = panel;
 		overPanel = false;
 		var i = Interaction.of(panel.node);
 		i.onPointerEnter(_ -> {
@@ -180,6 +191,7 @@ class CodeHints {
 		shown = null;
 		pinned = false;
 		overPanel = false;
+		panelNode = null;
 		if (open != null)
 			open.close();
 		if (owner != null)

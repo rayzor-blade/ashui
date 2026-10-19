@@ -450,6 +450,54 @@ class CodeComponents {
 		hint.select(0, 0); Keyboard.text(hintTree, "x"); hintSettle();
 		check("an edit closes it", hintOpen().length == 0);
 		hintDispose(); ashui.animation.AnimationScheduler.main.tick(1); hintTree.dispose();
+		// The completion list: narrowed by what is typed, worked by the keys, chosen as one undo step.
+		var compTree = new LayoutTree(), compEditor = new Ref<CodeEditor>(), compDispose:Void->Void = null;
+		var compRoot = Owner.root(compTree, stop -> {
+			compDispose = stop;
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={compEditor} language="haxe" value={"let al"} height={270} /></div>;
+		});
+		function compSettle() { compTree.flush(); compTree.computeLayout(compRoot.node, 760, 400); compTree.flush(); }
+		compSettle(); compSettle();
+		var comp = compEditor.get();
+		var offered:Array<ashui.components.code.CodeCompletions.CodeCompletion> = [
+			{label: "alpha", kind: "function", detail: "(x:Int):Int", docs: "First line\nSecond line"}, {label: "alphabet", kind: "class"}, {label: "beta"},
+			{label: "alpine", insert: "alpine()"}, {label: "parallel"}
+		];
+		function compRows() return Css.query(compTree, compTree.root.id, ".ui-code-completion-row").length;
+		function compKey(k:window.Key, code:window.KeyCode) { Keyboard.input(compTree, key(k, code)); compSettle(); }
+		comp.focus(); comp.select(6, 6); compSettle();
+		comp.showCompletions(offered); compSettle();
+		check("the list opens with what the typed letters match, prefixes first", comp.completionsOpen() && compRows() == 4, compRows());
+		check("the selected row's documentation is under the list", Css.query(compTree, compTree.root.id, ".ui-code-completion-docs-text").length == 2);
+		compKey(Named(ArrowDown), ArrowDown);
+		check("Down moves the selection, and the documentation with it", Css.query(compTree, compTree.root.id, ".ui-code-completion-docs-text").length == 0 && comp.completionsOpen());
+		compKey(Named(ArrowUp), ArrowUp);
+		Keyboard.text(compTree, "p"); compSettle();
+		check("typing narrows the list", comp.completionsOpen() && compRows() == 3, compRows());
+		compKey(Named(Enter), Enter);
+		check("Enter puts the choice in the text, in place of what was typed", !comp.completionsOpen() && @:privateAccess comp.value.get() == "let alpha" && comp.editing.caret.get() == 9, @:privateAccess comp.value.get());
+		comp.undo(); compSettle();
+		check("one undo takes the choice back to what was typed before it", @:privateAccess comp.value.get() == "let alp", @:privateAccess comp.value.get());
+		comp.select(7, 7); comp.showCompletions(offered); compSettle();
+		Keyboard.text(compTree, "("); compSettle();
+		check("a character that is not part of a word closes the list", !comp.completionsOpen());
+		comp.undo(); comp.select(7, 7); comp.showCompletions(offered); compSettle();
+		compKey(Named(Escape), Escape);
+		check("Escape closes the list and leaves the text", !comp.completionsOpen() && @:privateAccess comp.value.get() == "let alp");
+		comp.showCompletions(offered); compSettle();
+		var second = [for (id in Css.query(compTree, compTree.root.id, ".ui-code-completion-row")) compTree.getScrolledBounds(Identity.of(compTree, id).node)][1];
+		Pointer.move(compTree, second.x + second.width / 2, second.y + second.height / 2); Pointer.press(compTree); Pointer.release(compTree); compSettle();
+		check("a press on a row chooses it", !comp.completionsOpen() && @:privateAccess comp.value.get() == "let alphabet", @:privateAccess comp.value.get());
+		comp.undo(); compSettle();
+		comp.showCompletions([{label: "alpha", more: [{from: 0, to: 0, text: "import a.Alpha;\n"}]}], 4); compSettle();
+		compKey(Named(Tab), Tab);
+		check("a choice's other edits go in with it, in one step", @:privateAccess comp.value.get() == "import a.Alpha;\nlet alpha", @:privateAccess comp.value.get());
+		comp.undo(); compSettle();
+		check("and one undo takes both back", @:privateAccess comp.value.get() == "let alp", @:privateAccess comp.value.get());
+		comp.showCompletions(offered, 4); compSettle();
+		comp.scroll.jumpTo(0, 30); compSettle();
+		check("scrolling closes the list", !comp.completionsOpen());
+		compDispose(); compTree.dispose();
 		// An app's keys come before the editor's.
 		var keyTree = new LayoutTree(), keyEditor = new Ref<CodeEditor>(), keyDispose:Void->Void = null, seen:Array<String> = [], taken = ["F2", "ArrowRight"];
 		var keyRoot = Owner.root(keyTree, stop -> {

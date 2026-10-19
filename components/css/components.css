@@ -1238,6 +1238,25 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-hint-line { flex-direction: row; }
 .ui-code-hint-gap { height: 6px; }
 .ui-code-hint-text { font-size: var(--text-sm); color: var(--text-secondary); }
+/* The completion list under the caret: rows of a kind, a label and a detail, and the selected one's documentation. */
+.ui-code-completion {
+	flex-direction: column; min-width: 280px; max-width: var(--ui-code-completion-width, 480px);
+	border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); overflow: hidden;
+	background: var(--ui-code-completion-bg, var(--surface-elevated)); color: var(--text-primary);
+}
+.ui-code-completion-list { flex-direction: column; padding: 4px; max-height: 220px; overflow: scroll; }
+.ui-code-completion-row { flex-direction: row; align-items: center; gap: 8px; height: 22px; padding: 0 6px; border-radius: var(--radius-sm); flex-shrink: 0; cursor: pointer; }
+.ui-code-completion-row[data-selected] { background: var(--ui-code-completion-selected, var(--accent-subtle)); }
+.ui-code-completion-kind { width: 16px; height: 16px; flex-shrink: 0; text-align: center; font-size: 10px; font-weight: 600; border-radius: 3px; color: var(--text-secondary); background: color-mix(in srgb, var(--text-secondary) 14%, transparent); }
+.ui-code-completion-kind[data-kind="function"], .ui-code-completion-kind[data-kind="method"] { color: var(--ui-code-function, #245fc7); background: color-mix(in srgb, var(--ui-code-function, #245fc7) 16%, transparent); }
+.ui-code-completion-kind[data-kind="class"], .ui-code-completion-kind[data-kind="type"], .ui-code-completion-kind[data-kind="interface"] { color: var(--ui-code-type, #247e8a); background: color-mix(in srgb, var(--ui-code-type, #247e8a) 16%, transparent); }
+.ui-code-completion-kind[data-kind="keyword"] { color: var(--ui-code-keyword, #8b45b2); background: color-mix(in srgb, var(--ui-code-keyword, #8b45b2) 16%, transparent); }
+.ui-code-completion-kind[data-kind="variable"], .ui-code-completion-kind[data-kind="field"], .ui-code-completion-kind[data-kind="property"] { color: var(--ui-code-number, #a35d11); background: color-mix(in srgb, var(--ui-code-number, #a35d11) 16%, transparent); }
+.ui-code-completion-label { flex-grow: 1; flex-shrink: 1; white-space: pre; }
+.ui-code-completion-detail { flex-shrink: 0; max-width: 200px; font-size: var(--text-xs); color: var(--text-tertiary); white-space: pre; overflow: hidden; }
+.ui-code-completion-docs { flex-direction: column; gap: 4px; padding: 8px 12px; border-top: 1px solid var(--border); max-height: 140px; overflow: hidden; }
+.ui-code-completion-docs-text { font-size: var(--text-xs); color: var(--text-secondary); }
+
 /* What an app marks in the text (`decorate`) and in the gutter (`markers`): the classes it gives are its own, and these are the editor's. */
 .ui-code-decoration { position: absolute; pointer-events: none; }
 /* A squiggle is a wavy line along the bottom of the mark, drawn in its text colour. */

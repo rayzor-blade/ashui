@@ -3,6 +3,8 @@ package ashui.components;
 import ashui.components.code.CodeAnnotations;
 import ashui.components.code.CodeAnnotations.CodeDecoration;
 import ashui.components.code.CodeAnnotations.CodeMarker;
+import ashui.components.code.CodeCompletions;
+import ashui.components.code.CodeCompletions.CodeCompletion;
 import ashui.components.code.CodeDocument;
 import ashui.components.code.CodeDocument.CodeLine;
 import ashui.components.code.CodeHighlighter;
@@ -98,6 +100,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** What the app marks in the text and gutter; `decorate` and `markers` are its way in. **/
 	public var annotations(default, null):CodeAnnotations;
 	var hints:Null<CodeHints> = null;
+	var completions:Null<CodeCompletions> = null;
 	var gutterNow:Void->Float = () -> 0;
 	/** Called with a line, from 0, and the press, when the gutter's marker slot is pressed, whether or not the line has a marker (`gutterMarkers`). **/
 	public var onGutterClick:Null<(Int, ashui.input.Events.PointerEvent)->Void> = null;
@@ -167,7 +170,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			if (props.onInput != null) props.onInput(next);
 		};
 		e.onSubmit = props.onSubmit;
-		e.onKey = event -> (props.onKey != null && props.onKey(event)) || codeKey(event);
+		e.onKey = event -> (completions != null && completions.key(event)) || (props.onKey != null && props.onKey(event)) || codeKey(event);
 		e.accept = s -> ~/\r\n|\r/g.replace(s, "\n");
 		phase = new Machine<CodePhase, CodeEvent>(Resting, (state, event) -> switch [state, event] {
 			case [_, Press]: Selecting;
@@ -307,10 +310,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 		});
 		gutterNow = () -> gutter.get();
 		Owner.onCleanup(hints.dispose);
+		completions = new CodeCompletions({tree: pane.tree, rectAt: rectAt, text: () -> value.get(), caret: () -> e.caret.get(), apply: edits -> { applyEdits(edits); focus(); }});
+		Owner.onCleanup(completions.hide);
+		// The list narrows to what is typed, and goes when the caret leaves the word; the view moving takes its place.
+		new Watch(() -> { revision.get(); e.caret.get(); e.anchor.get(); 0; }, _ -> completions.moved(), (_, _) -> false);
+		new Watch(() -> { scroll.x.get(); scroll.y.get(); 0; }, _ -> completions.hide(), (_, _) -> false);
 		// What the popover is beside is no longer there once the text or the view moves.
 		new Watch(() -> { revision.get(); scroll.x.get(); scroll.y.get(); 0; }, _ -> hints.moved(), (_, _) -> false);
 		i.onPointerDown(p -> {
 			hints.hide();
+			completions.hide();
 			if (p.button != Left) return;
 			phase.send(Press);
 			var at = point(p.x, p.y, gutter.get());
@@ -324,7 +333,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		i.onPointerUp(_ -> phase.send(Release));
 		i.onKeyDown(e.key); i.onKeyUp(e.keyUp); i.onTextInput(e.type); i.onComposition(e.compose);
 		i.onFocus(_ -> { e.focus(); if (!editable() || e.readOnly) e.stopBlink(); });
-		i.onBlur(_ -> { phase.send(Blur); e.blur(); e.stopBlink(); hints.hide(); });
+		i.onBlur(_ -> { phase.send(Blur); e.blur(); e.stopBlink(); if (!hints.pointerOver()) hints.hide(); if (!completions.pointerOver()) completions.hide(); });
 		e.onEscape = () -> if (hints.isOpen()) hints.hide() else Focus.clear(pane.tree);
 		e.pageLines = () -> Std.int(Math.max(1, Math.floor(viewHeight.get() / metrics.lineHeight) - 1));
 			var live = true, editorTree = pane.tree, probeIdentity = Identity.of(probe.tree, probe.node.id);
@@ -422,6 +431,31 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	function get_hoverOffset():Int
 		return hints == null ? -1 : hints.hovered;
+
+	/**
+		Opens a list of `items` under the word that starts at `from` (the word before the caret by default), narrowed to what has
+		been typed since; Up, Down, Enter, Tab and Escape work it, and the chosen one is put in the text as one undo step.
+	**/
+	public function showCompletions(items:Array<CodeCompletion>, ?from:Int):Void {
+		if (completions == null)
+			return;
+		var text = value.get(), start = from == null ? editing.caret.get() : from;
+		if (from == null)
+			while (start > 0 && isWordCharacter(text.charCodeAt(start - 1)))
+				start--;
+		completions.show(items, start);
+	}
+
+	public function hideCompletions():Void
+		if (completions != null)
+			completions.hide();
+
+	/** Whether the completion list is open. **/
+	public function completionsOpen():Bool
+		return completions != null && completions.isOpen();
+
+	static function isWordCharacter(code:Int):Bool
+		return code == "_".code || code == "$".code || (code >= "0".code && code <= "9".code) || (code >= "a".code && code <= "z".code) || (code >= "A".code && code <= "Z".code) || code > 127;
 
 	/** The decorations over the character at `offset`, for a hover's `title`. **/
 	public function decorationsAt(offset:Int):Array<CodeDecoration>
