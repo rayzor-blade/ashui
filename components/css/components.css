@@ -1219,6 +1219,15 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-minimap:hover .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-hover, color-mix(in srgb, var(--text-primary) 14%, transparent)); }
 .ui-code-minimap[data-dragging="true"] .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-active, color-mix(in srgb, var(--text-primary) 22%, transparent)); }
 .ui-code-minimap-probe { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+/* What an app marks in the text (`decorate`) and in the gutter (`markers`): the classes it gives are its own, and these are the editor's. */
+.ui-code-decoration { position: absolute; pointer-events: none; }
+.ui-code-squiggle-error { border-bottom: 2px dotted var(--ui-code-error, var(--error)); }
+.ui-code-squiggle-warning { border-bottom: 2px dotted var(--ui-code-warning, var(--warning)); }
+.ui-code-squiggle-info { border-bottom: 2px dotted var(--ui-code-info, var(--info)); }
+.ui-code-line-current { background: var(--ui-code-line-current, color-mix(in srgb, var(--warning) 24%, transparent)); }
+.ui-code-marker-slot { width: 18px; height: 20px; flex-shrink: 0; align-items: center; justify-content: center; cursor: pointer; }
+.ui-code-marker { width: 10px; height: 10px; border-radius: 5px; }
+.ui-code-marker-breakpoint { background: var(--ui-code-breakpoint, var(--error)); }
 .ui-code-viewport { position: relative; flex-grow: 1; min-height: 0; min-width: 0; overflow: auto; cursor: text; }
 .ui-code-viewport:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-code-content { position: relative; flex-shrink: 0; }

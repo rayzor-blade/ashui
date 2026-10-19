@@ -1,5 +1,8 @@
 package ashui.components;
 
+import ashui.components.code.CodeAnnotations;
+import ashui.components.code.CodeAnnotations.CodeDecoration;
+import ashui.components.code.CodeAnnotations.CodeMarker;
 import ashui.components.code.CodeDocument;
 import ashui.components.code.CodeDocument.CodeLine;
 import ashui.components.code.CodeHighlighter;
@@ -41,6 +44,8 @@ typedef CodeEditorProps = {
 	?highlightBrackets:Bool,
 	/** A strip down the right edge that draws the whole document scaled down, with a slider over what is on screen; pressing it, dragging the slider or the wheel over it scroll the editor. **/
 	?minimap:Bool,
+	/** Reserves a slot in the gutter, left of the line numbers, for what `markers` puts there and where a press calls `onGutterClick`. **/
+	?gutterMarkers:Bool,
 	/** The widest the minimap gets, 96 by default; it is a quarter of the editor's width when that is less. **/
 	?minimapWidth:Float,
 	/** Spaces per tab stop and indentation level, 4 by default. **/
@@ -62,6 +67,8 @@ private typedef Run = {text:String, kind:String, x:Single};
 private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Array<CodeToken>};
 /** A pooled token element: the `index`th run of its `kind` in the row its slot shows. **/
 private typedef Token = {kind:String, index:Int};
+/** A decoration's mark on one row. **/
+private typedef DecorationBox = {x:Single, top:Single, width:Single, height:Single, className:String};
 
 /**
 	A virtualized code editor, built from Ashui text, buttons and scrolling
@@ -75,6 +82,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public var document(default, null):CodeDocument;
 	public var scroll(default, null):Scroll;
 	public var metrics(default, null):CodeMetrics;
+	/** What the app marks in the text and gutter; `decorate` and `markers` are its way in. **/
+	public var annotations(default, null):CodeAnnotations;
+	/** Called with a line, from 0, and the press, when the gutter's marker slot is pressed, whether or not the line has a marker (`gutterMarkers`). **/
+	public var onGutterClick:Null<(Int, ashui.input.Events.PointerEvent)->Void> = null;
 	final revision = Signal.make(0);
 	final viewHeight = Signal.make(320.0);
 	final viewWidth = Signal.make(600.0);
@@ -101,6 +112,9 @@ class CodeEditor extends Component<CodeEditorProps> {
 	var phase:Machine<CodePhase, CodeEvent>;
 	static inline var PAD = 12.0;
 
+	/** The gutter's marker slot, in layout units. **/
+	static inline var MARKER = 18.0;
+
 	/** CodeView keeps the same selection and scrolling behavior without editing. **/
 	function editable():Bool return true;
 
@@ -116,6 +130,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var syntax = () -> props.highlighter != null ? props.highlighter : CodeSyntax.forLanguage(read(language));
 		tabSize = Std.int(Math.max(1, Math.min(16, props.tabSize == null ? 4 : props.tabSize)));
 		document = new CodeDocument(value.get(), syntax());
+		annotations = new CodeAnnotations(document);
+		var annotatedText = value.get();
 		metrics = new CodeMetrics(document, syntax(), tabSize);
 		var e = editing = new TextEditing(value, true, 0);
 		e.metrics = metrics;
@@ -146,6 +162,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			if (knownValue != value.get()) { history.clear(); oldText = ""; knownValue = value.get(); }
 			metrics.syntax = next.highlighter;
 			metrics.prepare(next.content);
+			if (annotatedText != value.get()) { annotations.edited(annotatedText, value.get()); annotatedText = value.get(); }
 			var length = value.get().length;
 			if (e.caret.get() > length) e.caret.set(length);
 			if (e.anchor.get() > length) e.anchor.set(length);
@@ -156,7 +173,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var gutter = Computed.make(() -> {
 			revision.get();
 			(props.lineNumbers == false ? 0 : Std.string(document.lines.length).length * metrics.characterWidth + 18)
-				+ (props.folding == false ? 0 : 22) + (props.lineNumbers == false && props.folding == false ? 0 : 8);
+				+ (props.folding == false ? 0 : 22) + (props.lineNumbers == false && props.folding == false ? 0 : 8) + (props.gutterMarkers == true ? MARKER : 0);
 		});
 		var contentHeight = Computed.make(() -> { revision.get(); (PAD * 2 + document.visible.length * metrics.lineHeight : Single); });
 		var contentWidth = Computed.make(() -> {
@@ -195,6 +212,28 @@ class CodeEditor extends Component<CodeEditorProps> {
 			}
 			result;
 		});
+		// A mark for each row a decoration touches, kept from one build to the next while its place is the same, so a scroll does not rebuild it.
+		var boxes = new Map<String, DecorationBox>();
+		var decorationBoxes = Computed.make(() -> {
+			revision.get(); annotations.revision.get();
+			var list = annotations.decorations(), result:Array<DecorationBox> = [], kept = new Map<String, DecorationBox>();
+			if (list.length > 0) for (row in rows.get()) {
+				var line = row.line, end = line.start + line.text.length;
+				for (d in list) {
+					var whole = d.wholeLine == true, empty = d.to <= d.from;
+					if (whole ? (empty ? d.from < line.start || d.from > end : d.to <= line.start || d.from > end) : (empty || d.to <= line.start || d.from > end)) continue;
+					var x = whole ? 0 : gutter.get() + PAD + metrics.xAt(line, Std.int(Math.max(0, d.from - line.start)));
+					var right = whole ? contentWidth.get() : d.to > end ? gutter.get() + PAD + row.width + metrics.characterWidth : gutter.get() + PAD + metrics.xAt(line, d.to - line.start);
+					var key = d.className + "|" + row.row + "|" + x + "|" + right;
+					var box = boxes.get(key);
+					if (box == null) box = {x: (x : Single), top: row.top, width: (Math.max(2, right - x) : Single), height: (metrics.lineHeight : Single), className: d.className};
+					kept.set(key, box);
+					result.push(box);
+				}
+			}
+			boxes = kept;
+			result;
+		});
 		var matches = Computed.make(() -> {
 			revision.get();
 			var result:Array<{x:Single, top:Single, width:Single}> = [];
@@ -211,6 +250,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			${probe}
 			<div class="ui-code-active-line" top={Computed.make(() -> (PAD + caret.get().line * metrics.lineHeight : Single))}
 				left={0} width={contentWidth} height={rowHeight} opacity={Computed.make(() -> (e.focused.get() ? 1 : 0 : Single))} />
+			<for {b in decorationBoxes}>{decorationMark(b)}</for>
 			<for {r in selections}>
 				<div class="ui-code-selection" left={r.x} top={r.top} width={r.width} height={r.height} />
 			</for>
@@ -298,6 +338,26 @@ class CodeEditor extends Component<CodeEditorProps> {
 		});
 		return box;
 	}
+
+	/** Replaces `owner`'s decorations with `list`; an empty list clears them. With `follow`, they move with the text as it is edited. **/
+	public function decorate(owner:String, list:Array<CodeDecoration>, follow = false):Void
+		annotations.decorate(owner, list, follow);
+
+	/** Replaces `owner`'s gutter markers with `list`, which leaves out a line the document does not have; needs `gutterMarkers`. With `follow`, they stay with their lines as the text is edited. **/
+	public function markers(owner:String, list:Array<CodeMarker>, follow = false):Void
+		annotations.mark(owner, list, follow);
+
+	/** `owner`'s decorations as they are now, moved by the edits if it follows them. **/
+	public function decorationsOf(owner:String):Array<CodeDecoration>
+		return annotations.decorationsOf(owner);
+
+	/** The lines `owner`'s markers are on now, moved by the edits if it follows them. **/
+	public function markerLinesOf(owner:String):Array<Int>
+		return annotations.markerLinesOf(owner);
+
+	/** The decorations over the character at `offset`, for a hover's `title`. **/
+	public function decorationsAt(offset:Int):Array<CodeDecoration>
+		return annotations.decorationsAt(offset);
 
 	static function read<T>(value:IntoReactive<T>):T return switch value { case Const(v): v; case Bound(s): s.get(); case Derived(c): c.get(); }
 	function refresh():Void revision.set(revision.get() + 1);
@@ -392,11 +452,31 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var foldable = Computed.make(() -> { revision.get(); var r = row.get(); r != null && r.line.foldEnd >= 0; });
 		var fold = Computed.make(() -> (foldable.get() ? 1 : 0 : Single));
 		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} opacity={shown}>
-			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) : Single))}>${number.get()}</text></if>
+			<if {props.gutterMarkers == true}>${markerSlot(row)}</if>
+			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) - (props.gutterMarkers == true ? MARKER : 0) : Single))}>${number.get()}</text></if>
 			<if {props.folding != false}>
 				<div class="ui-code-fold-slot" opacity={fold}>${foldButton(row, foldable)}</div>
 			</if>
 		</div>;
+	}
+
+	function decorationMark(box:DecorationBox):Element
+		return new Div({classes: ["ui-code-decoration", box.className], left: box.x, top: box.top, width: box.width, height: box.height});
+
+	/** The gutter's marker slot of the row in `row`'s slot: its marker's class and title, and a press in it is the app's, never the editor's. **/
+	function markerSlot(row:Signal<Null<Row>>):Element {
+		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.markerAt(r.source); });
+		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-marker"] : ["ui-code-marker", m.className]; });
+		var dot = new Div({classes: classes});
+		Identity.of(dot.tree, dot.node.id).bindAttribute("title", Computed.make(() -> { var m = marker.get(); (m == null ? null : m.title : Null<String>); }));
+		var slot = Library.part("ui-code-marker-slot", null, null, [dot]);
+		Interaction.of(slot.node).onPointerDown(p -> {
+			var r = row.get();
+			if (r == null) return;
+			p.stopPropagation();
+			if (onGutterClick != null) onGutterClick(r.source, p);
+		});
+		return slot;
 	}
 
 	// The button is always there and answers only while its slot's row opens a fold, so a row entering the window builds no button.

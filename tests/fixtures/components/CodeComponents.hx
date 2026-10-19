@@ -1,5 +1,6 @@
 import ashui.components.CodeEditor;
 import ashui.components.CodeView;
+import ashui.components.code.CodeAnnotations;
 import ashui.components.code.CodeDocument;
 import ashui.components.code.CodeSyntax;
 import ashui.components.code.CodeHighlighter;
@@ -67,6 +68,26 @@ class CodeComponents {
 		check("markup text edits preserve incremental highlighting", markupDoc.highlighted == 1, markupDoc.highlighted);
 		var generic = new CodeDocument('var items:Map<String, Array<Int>>;\nif (a<b) return a;', syntax);
 		check("generic types and comparisons do not enter markup mode", kindAt(generic, 0, "String") == Type && kindAt(generic, 1, "return") == Keyword);
+		// What follows the edits: a start stays with the text after it, an end does not grow, and a marker is its line's.
+		var annoText = "abcdef\nghijkl\nmnop", annoDoc = new CodeDocument(annoText, syntax), anno = new CodeAnnotations(annoDoc);
+		function annoEdit(next:String) { anno.edited(annoText, next); annoDoc.update(next, syntax); annoText = next; }
+		anno.decorate("o", [{from: 2, to: 4, className: "x"}], true);
+		annoEdit("abXcdef\nghijkl\nmnop");
+		check("typing at the start of a range leaves the range after it", anno.decorationsOf("o")[0].from == 3 && anno.decorationsOf("o")[0].to == 5);
+		annoEdit("abXcdYef\nghijkl\nmnop");
+		check("typing at the end of a range does not grow it", anno.decorationsOf("o")[0].from == 3 && anno.decorationsOf("o")[0].to == 5);
+		annoEdit("abXcYdYef\nghijkl\nmnop");
+		check("typing inside a range grows it", anno.decorationsOf("o")[0].from == 3 && anno.decorationsOf("o")[0].to == 6);
+		anno.mark("m", [{line: 1, className: "dot"}, {line: 2, className: "dot"}], true);
+		annoEdit("abXcYdYef\n\nghijkl\nmnop");
+		check("a line break before a marker's text moves the marker down with it", anno.markerLinesOf("m").join(",") == "2,3", anno.markerLinesOf("m"));
+		annoEdit("abXcYdYef\nghijkl\nmnop");
+		check("taking the line break out moves it back", anno.markerLinesOf("m").join(",") == "1,2", anno.markerLinesOf("m"));
+		anno.mark("m", [{line: 9, className: "dot"}, {line: -1, className: "dot"}]);
+		check("a marker on a line the document does not have is left out", anno.markerLinesOf("m").length == 0);
+		anno.decorate("o", [{from: 0, to: 0, className: "line", wholeLine: true}], true);
+		annoEdit("abXcYdYe\nghijkl\nmnop");
+		check("a whole-line decoration is kept when text near it goes", anno.decorationsOf("o").length == 1);
 		for (dark in [true, false]) {
 			ThemeState.init(DefaultTheme.bundle(), dark ? Dark : Light);
 			var hooks = LayoutTree.layoutHooks.length, tree = new LayoutTree(), dispose:Void->Void = null;
@@ -283,6 +304,70 @@ class CodeComponents {
 		ashui.animation.AnimationScheduler.main.tick(1);
 		check("a disposed minimap leaves no hook or timer behind", LayoutTree.layoutHooks.length == hooksBefore && Css.restyled.length == restylesBefore
 			&& ashui.animation.AnimationScheduler.main.untilNextTimer() == null, [LayoutTree.layoutHooks.length, hooksBefore, Css.restyled.length, restylesBefore]);
+		// Decorations and gutter markers, sets by owner (495aa31).
+		var noteTree = new LayoutTree(), noteEditor = new Ref<CodeEditor>(), noteDispose:Void->Void = null;
+		var noteSource = [for (i in 0...40) 'var v$i = $i;'].join("\n");
+		var noteRoot = Owner.root(noteTree, stop -> {
+			noteDispose = stop;
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={noteEditor} language="haxe" value={noteSource} height={270} gutterMarkers={true} /></div>;
+		});
+		function noteSettle() { noteTree.flush(); noteTree.computeLayout(noteRoot.node, 760, 400); noteTree.flush(); }
+		noteSettle(); noteSettle();
+		var note = noteEditor.get(), noteLine = note.metrics.lineHeight;
+		function lineStart(n:Int):Int return note.document.lines[n].start;
+		function noteBoxes(selector:String) return [for (id in Css.query(noteTree, note.node.id, selector)) noteTree.getBounds(Identity.of(noteTree, id).node)];
+		var content = noteBoxes(".ui-code-content")[0];
+		check("an editor has no decorations or markers until it is given them", noteBoxes(".ui-code-decoration").length == 0 && noteBoxes(".ui-code-marker-breakpoint").length == 0);
+		note.decorate("problems", [
+			{from: lineStart(3) + 4, to: lineStart(3) + 6, className: "ui-code-squiggle-error", title: "first line\nsecond line"},
+			{from: lineStart(5), to: lineStart(5), className: "ui-code-line-current", wholeLine: true}
+		]);
+		noteSettle();
+		var marks = noteBoxes(".ui-code-decoration");
+		check("each decoration is a mark on its row", marks.length == 2, marks);
+		var squiggle = noteBoxes(".ui-code-squiggle-error")[0], current = noteBoxes(".ui-code-line-current")[0];
+		check("a range is marked over its own columns", squiggle != null && Math.abs(squiggle.y - (content.y + 12 + 3 * noteLine)) < 1.5 && squiggle.width > 5 && squiggle.width < 3 * note.metrics.characterWidth + 4
+			&& Math.abs(squiggle.x - content.x - noteBoxes(".ui-code-gutter")[0].width - 12 - 4 * note.metrics.characterWidth) < 2, [squiggle, content]);
+		check("a whole-line decoration is the line's full width", current != null && Math.abs(current.y - (content.y + 12 + 5 * noteLine)) < 1.5 && current.width >= content.width - 1, [current, content]);
+		check("what is over a character is found, with its title", note.decorationsAt(lineStart(3) + 5).length == 1 && note.decorationsAt(lineStart(3) + 5)[0].title == "first line\nsecond line"
+			&& note.decorationsAt(lineStart(3) + 8).length == 0 && note.decorationsAt(lineStart(5) + 2).length == 1);
+		note.decorate("search", [{from: lineStart(7), to: lineStart(7) + 3, className: "ui-code-squiggle-info"}]); noteSettle();
+		check("a set replaces only its own owner's decorations", noteBoxes(".ui-code-decoration").length == 3);
+		note.decorate("problems", []); noteSettle();
+		check("an empty set clears its owner's decorations", noteBoxes(".ui-code-decoration").length == 1 && noteBoxes(".ui-code-squiggle-info").length == 1);
+		note.decorate("search", []); noteSettle();
+		// Markers.
+		note.markers("debug", [{line: 2, className: "ui-code-marker-breakpoint", title: "a breakpoint"}, {line: 999, className: "ui-code-marker-breakpoint"}]); noteSettle();
+		check("a marker is drawn in the gutter, and a line past the end is left out", noteBoxes(".ui-code-marker-breakpoint").length == 1 && note.markerLinesOf("debug").join(",") == "2");
+		var dot = noteBoxes(".ui-code-marker-breakpoint")[0];
+		check("a marker is level with its line", Math.abs(dot.y + dot.height / 2 - (content.y + 12 + 2 * noteLine + noteLine / 2)) < 2.5, [dot, content]);
+		// A press in the marker slot is the app's: it is given the line and the press, whether or not the line has a marker, and the caret stays.
+		var pressed:Array<String> = [];
+		note.onGutterClick = (line, event) -> pressed.push(line + ":" + event.button);
+		note.select(0, 0);
+		var slotBox = [for (b in noteBoxes(".ui-code-marker-slot")) if (Math.abs(b.y + b.height / 2 - (content.y + 12 + 6 * noteLine + noteLine / 2)) < noteLine / 2) b][0];
+		Pointer.move(noteTree, slotBox.x + slotBox.width / 2, slotBox.y + slotBox.height / 2); Pointer.press(noteTree); Pointer.release(noteTree);
+		Pointer.press(noteTree, Right); Pointer.release(noteTree, Right); noteSettle();
+		check("a press in the marker slot calls onGutterClick with the line and the button", pressed.join(",") == "6:Left,6:Right", pressed);
+		check("a press in the marker slot does not move the caret", note.editing.caret.get() == 0);
+		// An owner that follows the edits keeps its place in the text; one that does not stays where it was put.
+		note.markers("debug", [{line: 10, className: "ui-code-marker-breakpoint"}], true);
+		note.decorate("follow", [{from: lineStart(12) + 4, to: lineStart(12) + 8, className: "ui-code-squiggle-warning"}], true);
+		note.decorate("fixed", [{from: lineStart(12) + 4, to: lineStart(12) + 8, className: "ui-code-squiggle-info"}]);
+		var fixedAt = note.decorationsOf("fixed")[0].from, followAt = note.decorationsOf("follow")[0].from;
+		noteSource = "// new\n// lines\n" + noteSource;
+		var noteValue = @:privateAccess note.value;
+		noteValue.set(noteSource); noteSettle();
+		check("a marker that follows the edits stays with its line", note.markerLinesOf("debug").join(",") == "12", note.markerLinesOf("debug"));
+		check("a decoration that follows the edits moves with its text", note.decorationsOf("follow")[0].from == followAt + 16 && note.decorationsOf("fixed")[0].from == fixedAt, [note.decorationsOf("follow")[0].from, followAt]);
+		var movedDot = noteBoxes(".ui-code-marker-breakpoint")[0];
+		check("the marker is drawn at its new line", movedDot != null && Math.abs(movedDot.y + movedDot.height / 2 - (content.y + 12 + 12 * noteLine + noteLine / 2)) < 2.5, [movedDot]);
+		// Text taken out under a range takes it too.
+		var span = note.decorationsOf("follow")[0];
+		noteValue.set(noteValue.get().substr(0, span.from) + noteValue.get().substr(span.to)); noteSettle();
+		check("a range whose text is deleted goes with it", note.decorationsOf("follow").length == 0);
+		note.onGutterClick = null;
+		noteDispose(); noteTree.dispose();
 		Sys.println('$checks checks: ALL PASSED');
 	}
 }
