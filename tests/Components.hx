@@ -39,6 +39,7 @@ import ashui.components.InputOtp;
 import ashui.components.Resizable;
 import ashui.components.Drawer;
 import ashui.components.TreeView;
+import ashui.components.TreeView.TreeItem;
 import ashui.components.Typography;
 import ashui.components.Separator;
 import ashui.components.ToggleSwitch;
@@ -1923,6 +1924,56 @@ class Components {
 		check("a TreeView's arrows walk the rows shown and Enter chooses; Left steps out to the parent, then closes it",
 			walked == "a2" && identity2(tvTree, tvItem("tvA")).attribute("data-state") == "closed" && Math.abs(tvRowY("tvB") - bClosed) < 0.5,
 			[walked, identity2(tvTree, tvItem("tvA")).attribute("data-state"), tvRowY("tvB")]);
+
+		// A lazy item builds its items when it is first opened, once, and walks like any other.
+		var lazyTree = new LayoutTree();
+		var lazyPick = Signal.make((null : Null<String>));
+		var lazyLoads = 0;
+		var lazyRoot:Div = Owner.root(lazyTree, _ -> hxx('
+			<div width={400} height={400} flexDirection={Column}>
+				<tree-view selected={lazyPick}>
+					<tree-item id="lzA" value="a" label="A" load={() -> {
+						lazyLoads++;
+						[(new TreeItem({value: "a1", label: "A1"}) : ashui.layout.Element), new TreeItem({value: "a2", label: "A2"})];
+					}} />
+					<tree-item id="lzB" value="b" label="B" />
+				</tree-view>
+			</div>
+		'));
+		function lazyFrames(n:Int)
+			for (_ in 0...n) {
+				ashui.animation.AnimationScheduler.main.tick(1 / 60);
+				lazyTree.flush();
+				lazyTree.computeLayout(lazyRoot.node, 400, 400);
+				lazyTree.flush();
+			}
+		function lazyItem(id:String):haxe.Int64
+			return Lambda.find(lazyTree.order(), n -> identity2(lazyTree, n) != null && identity2(lazyTree, n).id == id);
+		lazyFrames(2);
+		var lazyBefore = lazyTree.order().length;
+		check("a lazy tree item has a chevron and builds none of its items until it is opened",
+			lazyLoads == 0 && identity2(lazyTree, lazyItem("lzA")).attribute("data-state") == "closed"
+			&& Lambda.exists(lazyTree.order(), n -> identity2(lazyTree, n) != null && identity2(lazyTree, n).classes().indexOf("ui-tree-chevron") >= 0),
+			[lazyLoads]);
+		var lazyRow = lazyTree.getBounds(new ashui.layout.Node(lazyTree.children(lazyItem("lzA"))[0]));
+		ashui.input.Pointer.move(lazyTree, lazyRow.x + 20, lazyRow.y + lazyRow.height / 2);
+		ashui.input.Pointer.press(lazyTree);
+		ashui.input.Pointer.release(lazyTree);
+		lazyFrames(40);
+		check("pressing it opens it and builds its items, once", lazyLoads == 1 && lazyTree.order().length > lazyBefore
+			&& identity2(lazyTree, lazyItem("lzA")).attribute("data-state") == "open", [lazyLoads, lazyBefore, lazyTree.order().length]);
+		ashui.input.Keyboard.input(lazyTree, key(Named(ArrowDown), ArrowDown));
+		ashui.input.Keyboard.input(lazyTree, key(Named(ArrowDown), ArrowDown));
+		ashui.input.Keyboard.input(lazyTree, key(Named(Enter), Enter));
+		var lazyWalked = lazyPick.get();
+		ashui.input.Keyboard.input(lazyTree, key(Named(ArrowLeft), ArrowLeft));
+		ashui.input.Keyboard.input(lazyTree, key(Named(ArrowLeft), ArrowLeft));
+		lazyFrames(40);
+		ashui.input.Keyboard.input(lazyTree, key(Named(ArrowUp), ArrowUp));
+		ashui.input.Keyboard.input(lazyTree, key(Named(ArrowRight), ArrowRight));
+		lazyFrames(40);
+		check("its items are walked and chosen, and closing and opening again does not build them again",
+			lazyWalked == "a2" && lazyLoads == 1 && identity2(lazyTree, lazyItem("lzA")).attribute("data-state") == "open", [lazyWalked, lazyLoads]);
 
 
 		// --- Typography: prose spaces its elements by what follows what; lead, large and muted are their own text styles ---

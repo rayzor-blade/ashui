@@ -51,12 +51,8 @@ class TreeView extends Component<TreeViewProps> {
 			if (props.onSelect != null)
 				props.onSelect(value);
 		}
-		function bindAll(items:Array<TreeItem>, parent:Null<TreeItem>)
-			for (item in items) {
-				item.bind(chosen, choose, parent);
-				bindAll(item.items, item);
-			}
-		bindAll(roots, null);
+		for (item in roots)
+			item.bindTree(chosen, choose, null);
 		// The rows shown, in order: an item's children only while it is open.
 		function shown():Array<TreeItem> {
 			var out = [];
@@ -83,12 +79,12 @@ class TreeView extends Component<TreeViewProps> {
 				case Named(Home): rows[0];
 				case Named(End): rows[rows.length - 1];
 				case Named(ArrowRight):
-					if (item.items.length == 0) null else if (!item.expanded.get()) {
+					if (!item.branch()) null else if (!item.expanded.get()) {
 						item.expanded.set(true);
 						null;
 					} else item.items[0];
 				case Named(ArrowLeft):
-					if (item.items.length > 0 && item.expanded.get()) {
+					if (item.branch() && item.expanded.get()) {
 						item.expanded.set(false);
 						null;
 					} else item.parent;
@@ -114,10 +110,19 @@ typedef TreeItemProps = {
 	?icon:ashui.svg.Icon,
 	/** Whether its items show. A signal is read and written; a constant sets it once. **/
 	?expanded:IntoReactive<Bool>,
+	/**
+		Makes the items under it, once, when it is first opened, instead of with it: a folder of many entries builds none of them until
+		it is looked into. Elements that are not items are left out. Until it is opened the item has a chevron and no items.
+	**/
+	?load:Void->Array<Element>,
 	?id:String
 }
 
-/** One item of a tree: its row, and the items under it while it is open. **/
+/**
+	One item of a tree: its row, and the items under it while it is open.
+	A tree of many entries, as a file explorer is, makes the items of each
+	folder only when it is first opened: `<tree-item load={() -> entries(dir)}/>`.
+**/
 class TreeItem extends Component<TreeItemProps> {
 	public var expanded(default, null):Signal<Bool>;
 
@@ -149,7 +154,7 @@ class TreeItem extends Component<TreeItemProps> {
 		var open = expanded;
 		var state = Computed.make(() -> (open.get() ? "open" : "closed" : Null<String>));
 		var parts:Array<Element> = [];
-		if (items.length > 0) {
+		if (branch()) {
 			if (chevron == null)
 				chevron = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>);
 			var c = new ashui.ui.Svg(chevron, {width: 14, height: 14});
@@ -175,25 +180,46 @@ class TreeItem extends Component<TreeItemProps> {
 		row = Interaction.of(rowBox.node).setFocusable(true).onClick(_ -> {
 			if (choose != null)
 				choose(value);
-			if (items.length > 0)
+			if (branch())
 				open.set(!open.get());
 		});
 		var inner:Array<Element> = [rowBox];
-		if (items.length > 0) {
+		if (branch()) {
 			var group = Library.part("ui-tree-group", null, ["state" => state], cast items);
 			// Opening grows the group in, closing folds it away; the rows below move with it.
 			ashui.animation.LayoutAnimation.attach(group.node);
 			inner.push(group);
+			if (props.load != null) {
+				// Built under this item's owner, so they leave with it, the first time it opens.
+				var made = false;
+				new Watch(() -> open.get(), on -> {
+					if (!on || made)
+						return;
+					made = true;
+					items = [for (c in owner.run(props.load)) if (Std.isOfType(c, TreeItem)) cast c];
+					for (item in items)
+						item.bindTree(chosen.get(), choose, this);
+					group.tree.replaceChildren(group.node.id, [for (item in items) item.node.id]);
+				});
+			}
 		}
-		var box = Library.part("ui-tree-item", null, items.length > 0 ? ["state" => state] : null, inner, props.id);
+		var box = Library.part("ui-tree-item", null, branch() ? ["state" => state] : null, inner, props.id);
 		ashui.animation.LayoutAnimation.attach(box.node, {size: false});
 		return box;
 	}
 
+	/** Whether it has items, or makes them when it opens. **/
 	@:allow(ashui.components)
-	function bind(selected:Signal<Null<String>>, onChoose:String->Void, up:Null<TreeItem>):Void {
+	function branch():Bool
+		return items.length > 0 || props.load != null;
+
+	/** Tells it and the items under it what is chosen and how to choose, and which item is above it. **/
+	@:allow(ashui.components)
+	function bindTree(selected:Null<Signal<Null<String>>>, onChoose:Null<String->Void>, up:Null<TreeItem>):Void {
 		chosen.set(selected);
 		choose = onChoose;
 		parent = up;
+		for (item in items)
+			item.bindTree(selected, onChoose, this);
 	}
 }
