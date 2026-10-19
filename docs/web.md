@@ -171,6 +171,12 @@ passes it on to the Haxe compiler (`tests/wasm` reads it as `tests/run.sh` does)
 reaches classes only through reflection. Brotli is the larger lever: most hosts compress wasm on request, and the page loads in
 about half the time with it (20 Mbit/s: 19 s ready with the program sent as it is, 10 s with brotli).
 
+Ash's host asks for the program and every library at once, and prepares each on an idle agent as its bytes arrive. Under Chrome's own
+network throttling, with the files sent as brotli, no cache and a headless Chrome, the dashboard says `ashui: ready` at 12.8 s on
+10 Mbit/s with 80 ms of latency and at 4.9 s on 50 Mbit/s with 40 ms; the host that fetched one file after another took 14.5 s and
+6.1 s. `ash serve` does not compress, and sent that way the same page needs 45 s at 10 Mbit/s, so judge a page on a host that
+compresses, over a link like its visitors'.
+
 `ASHUI_WASM_SMALL=1 tests/wasm/smoke.sh` builds as a site would ship, and prints each
 file's size:
 
