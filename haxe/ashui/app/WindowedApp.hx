@@ -426,6 +426,7 @@ class WindowedApp {
 					if (ashui.input.Pointer.refresh(tree))
 						dirty = true;
 					frames++;
+					ashui.core.Memory.afterFrame();
 					#if wasm
 					// What the web page waits for before it shows the window: the first frame is on the GPU.
 					if (frames == 1)
