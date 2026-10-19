@@ -136,6 +136,11 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main DamagePixels -hl bin/damage-pixels.hl
 	run damage-pixels.hl
+	# Scrolled content, icons, text and canvases drawn in parts match the whole frame (git-bug 9f040d8).
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/render -main DamageScrollPixels -hl bin/damage-scroll-pixels.hl
+	run damage-scroll-pixels.hl
 	# A canvas past a texture's limit draws in part, and a GPU error in a frame is a throw or a count.
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \
