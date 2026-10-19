@@ -275,6 +275,22 @@ class CodeComponents {
 		check("long code keeps its own height in the gutter", longGutter.height >= lines200 && longGutter.height < lines200 + 100, [longGutter.height, lines200]);
 		check("an editor has no minimap unless asked for", Css.query(longTree, long.node.id, ".ui-code-minimap").length == 0);
 		longDispose(); longTree.dispose();
+		// Underlines of many widths are a few documents, and so a few atlas entries.
+		var waveTree = new LayoutTree(), waveEditor = new Ref<CodeEditor>(), waveDispose:Void->Void = null;
+		var waveSource = [for (i in 0...12) [for (k in 0...80) "x"].join("")].join("\n");
+		var waveRoot = Owner.root(waveTree, stop -> {
+			waveDispose = stop;
+			return <div width={900} height={400} class="flex-col p-4"><code-editor ref={waveEditor} language="plain" value={waveSource} height={270} /></div>;
+		});
+		function waveSettle() { waveTree.flush(); waveTree.computeLayout(waveRoot.node, 900, 400); waveTree.flush(); }
+		waveSettle(); waveSettle();
+		var wave = waveEditor.get();
+		var docsBefore = Lambda.count(@:privateAccess ashui.svg.SvgDocument.byId);
+		wave.decorate("w", [for (i in 0...12) {from: wave.document.lines[i].start, to: wave.document.lines[i].start + 5 + i * 6, className: "ui-code-squiggle-error"}]);
+		waveSettle();
+		var waveDocs = Lambda.count(@:privateAccess ashui.svg.SvgDocument.byId) - docsBefore;
+		check("underlines of twelve widths are a few documents", waveDocs > 0 && waveDocs <= 7, waveDocs);
+		waveDispose(); waveTree.dispose();
 		// The minimap: a strip beside the viewport, a slider over what the viewport shows, and the editor follows what is pressed in it.
 		var hooksBefore = LayoutTree.layoutHooks.length, restylesBefore = Css.restyled.length;
 		var mapTree = new LayoutTree(), mapEditor = new Ref<CodeEditor>(), mapDispose:Void->Void = null;

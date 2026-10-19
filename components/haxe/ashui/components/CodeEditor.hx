@@ -565,8 +565,20 @@ class CodeEditor extends Component<CodeEditorProps> {
 	function decorationMark(box:DecorationBox):Element {
 		var mark = new Div({classes: ["ui-code-decoration", box.className], left: box.x, top: box.top, width: box.width, height: box.height});
 		if (box.className.indexOf("ui-code-squiggle") >= 0)
-			mark.appendChild(squiggle(Std.int(Math.min(512, Math.ceil(box.width / SQUIGGLE)))));
+			mark.appendChild(squiggle(waves(box.width)));
 		return mark;
+	}
+
+	/** The waves widths come in, a few steps of a half more each, so any underline's wavy line is one of a few documents and atlas entries. **/
+	static final WAVES = [4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512];
+
+	/** The least of `WAVES` that covers `width`; the widest for any more. **/
+	static function waves(width:Float):Int {
+		var need = Math.ceil(width / SQUIGGLE);
+		for (w in WAVES)
+			if (w >= need)
+				return w;
+		return WAVES[WAVES.length - 1];
 	}
 
 	/** A wavy line `periods` waves wide, in the mark's text colour; the mark clips it to its own width, so the few widths there are share their documents. **/
