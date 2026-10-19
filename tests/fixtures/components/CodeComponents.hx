@@ -449,6 +449,14 @@ class CodeComponents {
 		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs: "Again."}, true); hintSettle();
 		hint.select(0, 0); Keyboard.text(hintTree, "x"); hintSettle();
 		check("an edit closes it", hintOpen().length == 0);
+		var call = "f(a:Int, b:String)";
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 1, signature: call, emphasis: {from: call.indexOf("b:"), to: call.indexOf(")")}}, true); hintSettle();
+		var rowWidth = hintTree.getBounds(Identity.of(hintTree, Css.query(hintTree, hintTree.root.id, ".ui-code-hint-line")[0]).node).width;
+		var bold = Css.query(hintTree, hintTree.root.id, '.ui-code-hint-token[data-emphasis="true"]'), boldWidth = 0.0;
+		for (id in bold)
+			boldWidth += hintTree.getBounds(Identity.of(hintTree, id).node).width;
+		check("signature help draws the range it emphasises, and only that", bold.length >= 1 && Math.abs(boldWidth - rowWidth * 8 / call.length) < 1.5, [bold.length, boldWidth, rowWidth]);
+		hint.hideHint(); hintSettle();
 		hintDispose(); ashui.animation.AnimationScheduler.main.tick(1); hintTree.dispose();
 		// The completion list: narrowed by what is typed, worked by the keys, chosen as one undo step.
 		var compTree = new LayoutTree(), compEditor = new Ref<CodeEditor>(), compDispose:Void->Void = null;

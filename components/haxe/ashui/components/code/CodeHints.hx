@@ -22,6 +22,8 @@ typedef CodeHint = {
 	@:optional var signature:String;
 	/** The language of `signature`, the editor's own by default. **/
 	@:optional var language:String;
+	/** A range of `signature`, as offsets into it, drawn bold: the parameter a call is at, for signature help. **/
+	@:optional var emphasis:{from:Int, to:Int};
 	/** The text under it, in paragraphs set apart by blank lines; each line wraps. **/
 	@:optional var docs:String;
 	/** A CSS class for the popover; `ui-code-hint-error`, `-warning` and `-info` give it an icon and a border in the diagnostic's colour, as a toast has. **/
@@ -237,6 +239,18 @@ class CodeHints {
 		leaving = null;
 	}
 
+	/** `from` to `to` of a line that starts at `lineStart` in the signature, cut where `emphasis` begins and ends in it. **/
+	static function pieces(from:Int, to:Int, lineStart:Int, emphasis:Null<{from:Int, to:Int}>):Array<{from:Int, to:Int, emphasised:Bool}> {
+		if (emphasis == null)
+			return [{from: from, to: to, emphasised: false}];
+		var start = emphasis.from - lineStart, end = emphasis.to - lineStart, cuts = [from];
+		for (cut in [start, end])
+			if (cut > from && cut < to)
+				cuts.push(cut);
+		cuts.push(to);
+		return [for (i in 0...cuts.length - 1) {from: cuts[i], to: cuts[i + 1], emphasised: cuts[i] >= start && cuts[i + 1] <= end}];
+	}
+
 	/** The popover itself: the signature in the editor's colours, then the paragraphs of the docs. **/
 	function build(hint:CodeHint):Div {
 		var panel = Library.part("ui-code-hint", null, null, null, null, hint.className == null ? null : hint.className.split(" "));
@@ -250,20 +264,25 @@ class CodeHints {
 		panel.appendChild(body);
 		if (hint.signature != null && hint.signature != "") {
 			var signature = Library.part("ui-code-hint-signature");
-			var syntax = host.highlighter(hint.language), state = "";
+			var syntax = host.highlighter(hint.language), state = "", lineStart = 0;
 			for (line in hint.signature.split("\n")) {
 				var result = syntax.highlight(line, state);
 				state = result.state;
 				var row = Library.part("ui-code-hint-line");
 				var tokens:Array<CodeHighlighter.CodeToken> = result.tokens.length == 0 ? [{from: 0, to: line.length, kind: CodeHighlighter.CodeTokenKind.Plain}] : result.tokens;
-				for (token in tokens) {
-					var text:Text = <text class="ui-code-text ui-code-hint-token">${line.substring(token.from, token.to)}</text>;
-					Identity.of(text.tree, text.node.id).setAttribute("data-token", token.kind);
-					row.appendChild(text);
-				}
+				for (token in tokens)
+					for (piece in pieces(token.from, token.to, lineStart, hint.emphasis)) {
+						var text:Text = <text class="ui-code-text ui-code-hint-token">${line.substring(piece.from, piece.to)}</text>;
+						var identity = Identity.of(text.tree, text.node.id);
+						identity.setAttribute("data-token", token.kind);
+						if (piece.emphasised)
+							identity.setAttribute("data-emphasis", "true");
+						row.appendChild(text);
+					}
 				if (line == "")
 					row.appendChild(<text class="ui-code-text ui-code-hint-token">${" "}</text>);
 				signature.appendChild(row);
+				lineStart += line.length + 1;
 			}
 			body.appendChild(signature);
 		}
