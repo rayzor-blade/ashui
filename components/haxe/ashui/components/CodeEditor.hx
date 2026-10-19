@@ -25,7 +25,9 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 import ashui.state.Machine;
 import ashui.ui.Component;
+import ashui.svg.SvgDocument;
 import ashui.ui.Div;
+import ashui.ui.Svg;
 import ashui.ui.Text;
 import ashui.ui.TextCaret;
 import ashui.ui.TextEditing;
@@ -114,6 +116,9 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	/** The gutter's marker slot, in layout units. **/
 	static inline var MARKER = 18.0;
+
+	/** The width of one wave of a squiggle. **/
+	static inline var SQUIGGLE = 4.0;
 
 	/** CodeView keeps the same selection and scrolling behavior without editing. **/
 	function editable():Bool return true;
@@ -460,8 +465,21 @@ class CodeEditor extends Component<CodeEditorProps> {
 		</div>;
 	}
 
-	function decorationMark(box:DecorationBox):Element
-		return new Div({classes: ["ui-code-decoration", box.className], left: box.x, top: box.top, width: box.width, height: box.height});
+	function decorationMark(box:DecorationBox):Element {
+		var mark = new Div({classes: ["ui-code-decoration", box.className], left: box.x, top: box.top, width: box.width, height: box.height});
+		if (box.className.indexOf("ui-code-squiggle") >= 0)
+			mark.appendChild(squiggle(Std.int(Math.min(512, Math.ceil(box.width / SQUIGGLE)))));
+		return mark;
+	}
+
+	/** A wavy line `periods` waves wide, in the mark's text colour; the mark clips it to its own width, so the few widths there are share their documents. **/
+	function squiggle(periods:Int):Svg {
+		var width = periods * SQUIGGLE, path = new StringBuf();
+		path.add("M0 3");
+		for (i in 0...periods)
+			path.add(' L${i * SQUIGGLE + SQUIGGLE / 2} 1 L${(i + 1) * SQUIGGLE} 3');
+		return new Svg(SvgDocument.parse('<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="4" viewBox="0 0 $width 4"><path d="${path.toString()}" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>'));
+	}
 
 	/** The gutter's marker slot of the row in `row`'s slot: its marker's class and title, and a press in it is the app's, never the editor's. **/
 	function markerSlot(row:Signal<Null<Row>>):Element {

@@ -1221,9 +1221,11 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-minimap-probe { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
 /* What an app marks in the text (`decorate`) and in the gutter (`markers`): the classes it gives are its own, and these are the editor's. */
 .ui-code-decoration { position: absolute; pointer-events: none; }
-.ui-code-squiggle-error { border-bottom: 2px dotted var(--ui-code-error, var(--error)); }
-.ui-code-squiggle-warning { border-bottom: 2px dotted var(--ui-code-warning, var(--warning)); }
-.ui-code-squiggle-info { border-bottom: 2px dotted var(--ui-code-info, var(--info)); }
+/* A squiggle is a wavy line along the bottom of the mark, drawn in its text colour. */
+.ui-code-squiggle-error, .ui-code-squiggle-warning, .ui-code-squiggle-info { align-items: flex-end; overflow: hidden; }
+.ui-code-squiggle-error { color: var(--ui-code-error, var(--error)); }
+.ui-code-squiggle-warning { color: var(--ui-code-warning, var(--warning)); }
+.ui-code-squiggle-info { color: var(--ui-code-info, var(--info)); }
 .ui-code-line-current { background: var(--ui-code-line-current, color-mix(in srgb, var(--warning) 24%, transparent)); }
 .ui-code-marker-slot { width: 18px; height: 20px; flex-shrink: 0; align-items: center; justify-content: center; cursor: pointer; }
 .ui-code-marker { width: 10px; height: 10px; border-radius: 5px; }
