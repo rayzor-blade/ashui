@@ -30,11 +30,17 @@ class StreetMap {
 	};
 
 	final data:Dynamic;
+	/** The layers' shapes, as typed arrays made once: a cast of the parsed layer to its type copies it, tens of megabytes for the buildings, at each use. **/
+	final layers = new Map<String, Array<Array<Array<Float>>>>();
 	final car:Null<ashui.types.Bitmap>;
 
 	/** The map at `path`, and the car drawn from above, nose up, at `carIcon`. **/
 	public function new(path:String, ?carIcon:String) {
 		data = haxe.Json.parse(ashui.core.Assets.text(path));
+		for (name in Reflect.fields(data.layers))
+			layers.set(name, (Reflect.field(data.layers, name) : Array<Array<Array<Float>>>));
+		// What was parsed is not kept beside what was made from it.
+		Reflect.setField(data, "layers", null);
 		car = carIcon == null ? null : ashui.types.Bitmap.load(carIcon);
 	}
 
@@ -50,6 +56,11 @@ class StreetMap {
 			guiding = true):Void {
 		base(ctx, w, h, margin, light, zoom);
 		route(ctx, w, h, margin, accent, free, flow, destination, zoom, guiding);
+	}
+
+	function layerOf(name:String):Array<Array<Array<Float>>> {
+		var shapes = layers.get(name);
+		return shapes == null ? [] : shapes;
 	}
 
 	/** Where the map is laid in a box `w` by `h`: the route, the chargers and the car inside `margin`, scaled by `zoom`. **/
@@ -70,11 +81,11 @@ class StreetMap {
 	public function base(ctx:DrawContext, w:Float, h:Float, margin:Float, light:Bool, zoom = 1.0):Void {
 		var style = light ? LIGHT : DARK, f = framing(w, h, margin, zoom), scale = f.scale;
 		function fill(layer:String, colour:Int, alpha = 1.0)
-			for (shape in (Reflect.field(data.layers, layer) : Array<Array<Array<Float>>>))
+			for (shape in layerOf(layer))
 				if (shape.length > 2 && f.near(shape, 1))
 					ctx.fillPath(f.path(shape, true), Brush.solid(colour, alpha));
 		function stroke(layer:String, width:Float, colour:Int, ?dash:Array<Float>)
-			for (line in (Reflect.field(data.layers, layer) : Array<Array<Array<Float>>>))
+			for (line in layerOf(layer))
 				if (line.length > 1 && f.near(line, width))
 					ctx.strokePath(f.path(line, false), new Stroke(width, Round, Round, 4, dash), Brush.solid(colour));
 
