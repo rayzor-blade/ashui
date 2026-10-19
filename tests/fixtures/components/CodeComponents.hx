@@ -85,6 +85,16 @@ class CodeComponents {
 		check("taking the line break out moves it back", anno.markerLinesOf("m").join(",") == "1,2", anno.markerLinesOf("m"));
 		anno.mark("m", [{line: 9, className: "dot"}, {line: -1, className: "dot"}]);
 		check("a marker on a line the document does not have is left out", anno.markerLinesOf("m").length == 0);
+		// A file read again: the lines both texts have keep their markers, and a changed line keeps its own.
+		var reloadText = "a\nb\nc\nd\ne\nf", reloadDoc = new CodeDocument(reloadText, syntax), reload = new CodeAnnotations(reloadDoc);
+		function reloaded(next:String) { reload.edited(reloadText, next); reloadDoc.update(next, syntax); reloadText = next; }
+		reload.mark("m", [{line: 1, className: "dot"}, {line: 3, className: "dot"}, {line: 4, className: "dot"}], true);
+		reloaded("a\nX\nb\nc\nd\nQ\ne\nf");
+		check("markers stay with their lines when lines come in around them", reload.markerLinesOf("m").join(",") == "2,4,6", reload.markerLinesOf("m"));
+		reloaded("a\nX\nB\nC\nd\nQ\ne\nf");
+		check("two lines changed together keep a marker each", reload.markerLinesOf("m").join(",") == "2,4,6", reload.markerLinesOf("m"));
+		reloaded("a\nX\nB\nC\nQ\ne\nf");
+		check("a marker's line taken out goes to the line that took its place", reload.markerLinesOf("m").join(",") == "2,4,5", reload.markerLinesOf("m"));
 		anno.decorate("o", [{from: 0, to: 0, className: "line", wholeLine: true}], true);
 		annoEdit("abXcYdYe\nghijkl\nmnop");
 		check("a whole-line decoration is kept when text near it goes", anno.decorationsOf("o").length == 1);

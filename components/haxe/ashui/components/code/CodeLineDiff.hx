@@ -1,0 +1,149 @@
+package ashui.components.code;
+
+/** A line of a text: where it starts, and where its text ends, before its line break. **/
+private typedef Span = {start:Int, end:Int};
+
+/**
+	Where the lines of a stretch of text that was replaced went, by comparing
+	the old lines with the new: a line the two share keeps its place, a line
+	between two such lines goes to the line in the same place between them in
+	the new text, and what has no such line is left out. It tells a file
+	read again from a file typed in, where only the stretch between the first
+	and last difference moved.
+**/
+class CodeLineDiff {
+	/** The most lines the two stretches may differ by; past it the lines are not compared. **/
+	static inline var LIMIT = 400;
+
+	final oldLines:Array<Span>;
+	final newLines:Array<Span>;
+	final pair:Array<Int>;
+
+	function new(oldLines:Array<Span>, newLines:Array<Span>, pair:Array<Int>) {
+		this.oldLines = oldLines;
+		this.newLines = newLines;
+		this.pair = pair;
+	}
+
+	/**
+		Compares the lines of `before` from `start` to `oldEnd` with those of `after` from `start` to `newEnd`, the lines
+		that lie whole inside each stretch; null when there are none to compare or the texts differ by too many.
+	**/
+	public static function of(before:String, after:String, start:Int, oldEnd:Int, newEnd:Int):Null<CodeLineDiff> {
+		var oldLines = wholeLines(before, start, oldEnd), newLines = wholeLines(after, start, newEnd);
+		if (oldLines.length == 0 || newLines.length == 0)
+			return null;
+		var matched = match([for (l in oldLines) before.substring(l.start, l.end)], [for (l in newLines) after.substring(l.start, l.end)]);
+		return matched == null ? null : new CodeLineDiff(oldLines, newLines, pairGaps(matched, newLines.length));
+	}
+
+	/** Where `offset`, in a line of the old stretch, is in the new text; -1 when its line has no place there. **/
+	public function map(offset:Int):Int {
+		for (i in 0...oldLines.length) {
+			var line = oldLines[i];
+			if (offset < line.start)
+				break;
+			if (offset <= line.end) {
+				var to = pair[i];
+				if (to < 0)
+					return -1;
+				var target = newLines[to];
+				return target.start + Std.int(Math.min(offset - line.start, target.end - target.start));
+			}
+		}
+		return -1;
+	}
+
+	/** The lines of `text` that lie whole inside `from` to `to`. **/
+	static function wholeLines(text:String, from:Int, to:Int):Array<Span> {
+		var lines = [], at = from;
+		// A first line that starts before `from` is cut by it.
+		if (at > 0 && text.charCodeAt(at - 1) != "\n".code) {
+			var next = text.indexOf("\n", at);
+			if (next < 0 || next >= to)
+				return lines;
+			at = next + 1;
+		}
+		while (at <= to) {
+			var end = text.indexOf("\n", at);
+			if (end < 0)
+				end = text.length;
+			// A last line that goes on past `to` is cut by it.
+			if (end > to)
+				break;
+			lines.push({start: at, end: end});
+			at = end + 1;
+		}
+		return lines;
+	}
+
+	/** For each of `a`'s lines the line of `b` it is the same as in a shortest edit, or -1; null when that takes more than `LIMIT` lines changed. **/
+	static function match(a:Array<String>, b:Array<String>):Null<Array<Int>> {
+		var n = a.length, m = b.length, result = [for (_ in a) -1];
+		var limit = Std.int(Math.min(n + m, LIMIT)), shift = limit + 1;
+		var v = [for (_ in 0...2 * limit + 3) 0], trace:Array<Array<Int>> = [], found = -1;
+		for (d in 0...limit + 1) {
+			trace.push(v.copy());
+			var k = -d;
+			while (k <= d) {
+				var x = k == -d || (k != d && v[shift + k - 1] < v[shift + k + 1]) ? v[shift + k + 1] : v[shift + k - 1] + 1, y = x - k;
+				while (x < n && y < m && a[x] == b[y]) {
+					x++;
+					y++;
+				}
+				v[shift + k] = x;
+				if (x >= n && y >= m) {
+					found = d;
+					break;
+				}
+				k += 2;
+			}
+			if (found >= 0)
+				break;
+		}
+		if (found < 0)
+			return null;
+		var x = n, y = m, d = found;
+		while (d > 0) {
+			var before = trace[d], k = x - y;
+			var previous = k == -d || (k != d && before[shift + k - 1] < before[shift + k + 1]) ? k + 1 : k - 1;
+			var px = before[shift + previous], py = px - previous;
+			while (x > px && y > py) {
+				x--;
+				y--;
+				result[x] = y;
+			}
+			x = px;
+			y = py;
+			d--;
+		}
+		while (x > 0 && y > 0) {
+			x--;
+			y--;
+			result[x] = y;
+		}
+		return result;
+	}
+
+	/** Gives the old lines between two shared lines the new lines between them, the first to the first and so on, the last new line to any left over. **/
+	static function pairGaps(matched:Array<Int>, newCount:Int):Array<Int> {
+		var pair = matched.copy(), lowest = 0, taken = 0;
+		for (i in 0...matched.length) {
+			if (matched[i] >= 0) {
+				lowest = matched[i] + 1;
+				taken = 0;
+				continue;
+			}
+			var next = newCount;
+			for (j in i + 1...matched.length)
+				if (matched[j] >= 0) {
+					next = matched[j];
+					break;
+				}
+			var candidate = Std.int(Math.min(lowest + taken, next - 1));
+			pair[i] = candidate >= lowest ? candidate : -1;
+			taken++;
+		}
+		return pair;
+	}
+}

@@ -154,9 +154,20 @@ class CodeAnnotations {
 		while (tail < shortest - start && before.charCodeAt(before.length - 1 - tail) == after.charCodeAt(after.length - 1 - tail))
 			tail++;
 		var oldEnd = before.length - tail, newEnd = after.length - tail;
-		// An offset inside the replaced text goes to its start; one at an insertion goes after it when `right`, so a start stays with the text after it.
-		function move(offset:Int, right:Bool):Int
-			return if (offset < start) offset else if (offset > oldEnd) offset - oldEnd + newEnd else if (offset == oldEnd && (oldEnd > start || right)) newEnd else start;
+		// A stretch replaced by another with lines in it, as a file read again is, is compared by lines, so a line both texts have keeps its place.
+		var lines = start < oldEnd && start < newEnd && (before.substring(start, oldEnd).indexOf("\n") >= 0 || after.substring(start, newEnd).indexOf("\n") >= 0) ? CodeLineDiff.of(before,
+			after, start, oldEnd, newEnd) : null;
+		// An offset inside the replaced text goes to its line's place, or to its start; one at an insertion goes after it when `right`, so a start stays with the text after it.
+		function move(offset:Int, right:Bool):Int {
+			if (offset < start)
+				return offset;
+			if (offset > oldEnd)
+				return offset - oldEnd + newEnd;
+			if (offset == oldEnd && (oldEnd > start || right))
+				return newEnd;
+			var mapped = lines == null ? -1 : lines.map(offset);
+			return mapped >= 0 ? mapped : start;
+		}
 		var emptied = [];
 		for (owner => set in decorationSets)
 			if (set.follow) {
