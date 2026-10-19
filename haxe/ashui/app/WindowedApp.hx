@@ -100,7 +100,7 @@ class WindowedApp {
 		&& path != "" ? sys.io.File.write(path, false) : null;
 	};
 
-	/** `ASHUI_FRAME_STATS=1` prints a line a second: frames drawn, the time between them and each one's drawing, and the waits for a redraw that ran out; off when unset, safe either way. **/
+	/** `ASHUI_FRAME_STATS=1` prints two lines a second: the frames drawn, the time between them and each one's drawing, and the waits for a redraw that ran out; and the loop's turns, the time they took, the pointer hooks there are and the events that woke it; off when unset, safe either way. **/
 	final frameStats = Sys.getEnv("ASHUI_FRAME_STATS") == "1";
 
 	var statSince = 0.0;
@@ -110,6 +110,16 @@ class WindowedApp {
 	var statDraw = 0.0;
 	var statDrawMax = 0.0;
 	var statStalls = 0;
+
+	/** What the loop did in the second: its turns, the time they took, those with something animating, and the events that woke it. **/
+	var loopSince = 0.0;
+
+	var loopTurns = 0;
+	var loopBusy = 0.0;
+	var loopTurnStart = 0.0;
+	var loopAnimating = 0;
+	var loopTimers = 0;
+	var loopEvents = new Map<String, Int>();
 
 	/** `ASHUI_WINDOW_SECONDS=<n>` closes the window after that many seconds, for benches and scripted runs; off when unset. **/
 	final closeAfter:Float = {
@@ -339,6 +349,22 @@ class WindowedApp {
 			var animating = scheduler.hasActive() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0));
 			var timer = scheduler.untilNextTimer();
 			var t0 = haxe.Timer.stamp();
+			if (frameStats) {
+				if (loopTurnStart > 0)
+					loopBusy += t0 - loopTurnStart;
+				loopTurns++;
+				if (animating)
+					loopAnimating++;
+				if (loopSince == 0)
+					loopSince = t0;
+				else if (t0 - loopSince >= 1) {
+					Sys.println('[loop] ${loopTurns} turns in ${Math.round((t0 - loopSince) * 1000)} ms, busy ${Math.round(loopBusy * 1000)} ms, ${loopAnimating} with something animating, ${loopTimers} woken by a timer, ${ashui.input.Pointer.hooks.length} pointer hooks (any keeps every move awake); events: ${[for (k => n in loopEvents) k + "=" + n].join(" ")}');
+					loopSince = t0;
+					loopTurns = loopAnimating = loopTimers = 0;
+					loopBusy = 0;
+					loopEvents = new Map();
+				}
+			}
 			if (awaitingFrame && t0 - awaitingSince > FRAME_WAIT_LIMIT) {
 				awaitingFrame = false;
 				statStalls++;
@@ -363,6 +389,11 @@ class WindowedApp {
 			var event = due ? window.poll() : window.wait(timeout == Math.POSITIVE_INFINITY ? -1 : timeout);
 			ashui.core.Work.begin();
 			var t1 = haxe.Timer.stamp();
+			if (frameStats) {
+				loopTurnStart = t1;
+				if (event == None && timer != null && t1 - t0 >= timer - 0.001)
+					loopTimers++;
+			}
 			var handled = 0;
 			var polling = 0.0;
 			var kinds = frameLog != null ? new Map<String, Int>() : null;
@@ -370,6 +401,10 @@ class WindowedApp {
 				if (kinds != null) {
 					var k = Type.enumConstructor(event);
 					kinds.set(k, (kinds.exists(k) ? kinds.get(k) : 0) + 1);
+				}
+				if (frameStats) {
+					var k = Type.enumConstructor(event);
+					loopEvents.set(k, (loopEvents.exists(k) ? loopEvents.get(k) : 0) + 1);
 				}
 				handle(event);
 				handled++;
