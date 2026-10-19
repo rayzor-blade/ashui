@@ -116,26 +116,105 @@ class StreetMap {
 		ctx.popClip();
 	}
 
-	/** What is on the land and moves or changes: the route with its light, the chargers and the car. **/
-	public function route(ctx:DrawContext, w:Float, h:Float, margin:Float, accent:Int, free:Array<Int>, flow = 0.0, destination = 0, zoom = 1.0, guiding = true):Void {
-		var f = framing(w, h, margin, zoom);
-		ctx.pushClipRect(0, 0, w, h, 12);
-		// The route: a soft glow, then the line, from the car to the first charger.
-		// To the first charger the route is the street map's own; to another, a way round the corner from the car.
+	/** The route from the car to the charger chosen: the street map's own to the first charger, to another a way round the corner. **/
+	function way(destination:Int):Array<Array<Float>> {
 		var chargers:Array<Dynamic> = data.places.chargers;
 		var route:Array<Array<Float>> = data.route;
-		var start:Array<Float> = data.places.car;
 		if (destination > 0 && destination < chargers.length) {
+			var start:Array<Float> = data.places.car;
 			var to:Array<Float> = chargers[destination].at;
 			route = [start, [start[0], to[1]], to];
 		}
-		if (guiding) {
-			ctx.strokePath(f.path(route, false), new Stroke(9, Round, Round), Brush.solid(accent, 0.22));
-			ctx.strokePath(f.path(route, false), new Stroke(3.5, Round, Round), Brush.solid(accent));
-			// Light running along the route toward the charger, `flow` pixels along its dashes.
-			ctx.strokePath(f.path(route, false), new Stroke(1.6, Round, Round, 4, [4, 12], -flow), Brush.solid(0xffffff, 0.85));
-		}
+		return route;
+	}
 
+	/** What is on the land and moves or changes: the route with its light, the chargers and the car; `line`, `light` and `markers` in one context. **/
+	public function route(ctx:DrawContext, w:Float, h:Float, margin:Float, accent:Int, free:Array<Int>, flow = 0.0, destination = 0, zoom = 1.0, guiding = true):Void {
+		line(ctx, w, h, margin, accent, destination, zoom, guiding);
+		light(ctx, w, h, margin, flow, destination, zoom, guiding);
+		markers(ctx, w, h, margin, accent, free, destination, zoom);
+	}
+
+	/** The route: a soft glow, then the line, from the car to the charger. It changes with the charger chosen, the zoom and the scheme, and nothing else. **/
+	public function line(ctx:DrawContext, w:Float, h:Float, margin:Float, accent:Int, destination = 0, zoom = 1.0, guiding = true):Void {
+		if (!guiding)
+			return;
+		var f = framing(w, h, margin, zoom), route = way(destination);
+		ctx.pushClipRect(0, 0, w, h, 12);
+		ctx.strokePath(f.path(route, false), new Stroke(9, Round, Round), Brush.solid(accent, 0.22));
+		ctx.strokePath(f.path(route, false), new Stroke(3.5, Round, Round), Brush.solid(accent));
+		ctx.popClip();
+	}
+
+	/** The light's dashes: this long, one in each `PERIOD` along the route. **/
+	static inline var DASH = 4.0;
+
+	static inline var PERIOD = 16.0;
+
+	/** How many headings a dash has: one path each, so a dash is a path the painter has seen and only moves. **/
+	static inline var HEADINGS = 32;
+
+	/** The dash drawn at each heading, from the origin, as a path of its own. **/
+	static final DASHES:Array<Path> = [
+		for (k in 0...HEADINGS) {
+			var angle = k * Math.PI * 2 / HEADINGS;
+			new Path().moveTo(0, 0).lineTo(DASH * Math.cos(angle), DASH * Math.sin(angle));
+		}
+	];
+
+	/**
+		Light running along the route toward the charger, `flow` pixels along its dashes: all of the route a page that moves draws
+		each frame. Each dash is one of `HEADINGS` short strokes, the nearest to the way the route runs there, moved to its place,
+		so a canvas drawn again each frame has the triangles it made for a dash moved to the next, not made again for the whole
+		route, a path of dozens of dashes with round caps.
+	**/
+	public function light(ctx:DrawContext, w:Float, h:Float, margin:Float, flow:Float, destination = 0, zoom = 1.0, guiding = true):Void {
+		if (!guiding)
+			return;
+		var f = framing(w, h, margin, zoom), route = way(destination);
+		// The route's points in the canvas, the distance along it at each, and the heading of each segment.
+		var xs = [for (q in route) f.sx(q[0])], ys = [for (q in route) f.sy(q[1])];
+		var at = [0.0], heading:Array<Float> = [];
+		for (i in 1...xs.length) {
+			var dx = xs[i] - xs[i - 1], dy = ys[i] - ys[i - 1];
+			at.push(at[i - 1] + Math.sqrt(dx * dx + dy * dy));
+			heading.push(Math.atan2(dy, dx));
+		}
+		var total = at[at.length - 1];
+		if (xs.length < 2 || total < DASH)
+			return;
+		ctx.pushClipRect(0, 0, w, h, 12);
+		var stroke = new Stroke(1.6, Round, Round), brush = Brush.solid(0xffffff, 0.85);
+		var start = ((flow % PERIOD) + PERIOD) % PERIOD, segment = 0;
+		var s = start;
+		while (s + DASH <= total) {
+			while (segment < heading.length - 1 && at[segment + 1] < s)
+				segment++;
+			var t = (s - at[segment]) / Math.max(1e-9, at[segment + 1] - at[segment]);
+			var x = xs[segment] + (xs[segment + 1] - xs[segment]) * t, y = ys[segment] + (ys[segment + 1] - ys[segment]) * t;
+			// A dash that runs round a corner is drawn along the chord of its two ends; one on a segment, along it exactly.
+			var end = segment;
+			while (end < heading.length - 1 && at[end + 1] < s + DASH)
+				end++;
+			var turn = heading[segment];
+			if (end != segment) {
+				var u = (s + DASH - at[end]) / Math.max(1e-9, at[end + 1] - at[end]);
+				turn = Math.atan2(ys[end] + (ys[end + 1] - ys[end]) * u - y, xs[end] + (xs[end + 1] - xs[end]) * u - x);
+			}
+			var step = Math.round(turn / (Math.PI * 2) * HEADINGS);
+			ctx.pushTransform(ashui.draw.Affine.translation(x, y));
+			ctx.strokePath(DASHES[((step % HEADINGS) + HEADINGS) % HEADINGS], stroke, brush);
+			ctx.popTransform();
+			s += PERIOD;
+		}
+		ctx.popClip();
+	}
+
+	/** The chargers, each in the colour of how many of its places are free, and the car. **/
+	public function markers(ctx:DrawContext, w:Float, h:Float, margin:Float, accent:Int, free:Array<Int>, destination = 0, zoom = 1.0):Void {
+		var f = framing(w, h, margin, zoom), route = way(destination);
+		ctx.pushClipRect(0, 0, w, h, 12);
+		var chargers:Array<Dynamic> = data.places.chargers;
 		for (i => c in chargers) {
 			var x = f.sx(c.at[0]), y = f.sy(c.at[1]), colour = free[i];
 			ctx.fillCircle(x, y + 1.5, 10, Brush.radial(x, y + 1.5, 10).stop(0, 0x000000, 0.25).stop(1, 0x000000, 0));

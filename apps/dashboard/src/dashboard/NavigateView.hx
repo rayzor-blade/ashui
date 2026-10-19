@@ -4,6 +4,8 @@ import ashui.draw.DrawContext;
 import ashui.icons.Remix;
 import ashui.layout.Element;
 import ashui.reactive.Computed;
+import ashui.reactive.Signal;
+import ashui.reactive.Watch;
 import ashui.types.Style;
 import dashboard.Ink.*;
 import dashboard.Widgets.*;
@@ -38,16 +40,36 @@ class NavigateView {
 			map.base(ctx, ctx.width, ctx.height, 36, light(), m.zoom.get());
 		};
 
-	/** The route, the chargers and the car, which the moving light and the chosen charger change. **/
-	function route():DrawContext->Void
+	/** The route's glow and line: drawn again for another charger, zoom or scheme, and not as the light moves. **/
+	function routeLine():DrawContext->Void
 		return ctx -> {
 			follow();
-			// The moving light reads the clock, so with the page closed it stands still and is not drawn again each frame.
-			var open = m.tab.get() == Navigate;
-			var free = [GREEN, AMBER, muted()];
-			map.route(ctx, ctx.width, ctx.height, 36, primary(), free, open && m.guiding.get() ? (m.clock.get() * 32) % 16 : 0, m.destination.get(), m.zoom.get(),
-				m.guiding.get());
+			map.line(ctx, ctx.width, ctx.height, 36, primary(), m.destination.get(), m.zoom.get(), m.guiding.get());
 		};
+
+	/**
+		The light running along the route, in a canvas of its own: it is the one thing drawn again as the page runs, so what is
+		made again is its one path and not the streets' neighbours. It moves thirty times a second, and with the page closed it
+		stands still and is not drawn.
+	**/
+	function routeLight():DrawContext->Void {
+		var step = Signal.make(0);
+		new Watch(() -> m.tab.get() == Navigate && m.guiding.get() ? Math.floor(m.clock.get() * LIGHT_RATE) : 0, n -> step.set(n));
+		return ctx -> {
+			follow();
+			map.light(ctx, ctx.width, ctx.height, 36, (step.get() / LIGHT_RATE * 32) % 16, m.destination.get(), m.zoom.get(), m.guiding.get());
+		};
+	}
+
+	/** The chargers and the car, over the light: drawn again for another charger, zoom or scheme. **/
+	function routeMarkers():DrawContext->Void
+		return ctx -> {
+			follow();
+			map.markers(ctx, ctx.width, ctx.height, 36, primary(), [GREEN, AMBER, muted()], m.destination.get(), m.zoom.get());
+		};
+
+	/** How many times a second the light moves. **/
+	static inline var LIGHT_RATE = 30.0;
 
 	function zoomKey(document:ashui.svg.Icon, by:Float):Element
 		return press(<div class="dash-chip flex items-center justify-center" width={44} height={44}>{icon(document, "size-5")}</div>,
@@ -126,7 +148,9 @@ class NavigateView {
 		var left = Computed.make(() -> m.tab.get() == Navigate ? 24.0 : -(width.get() + 400.0));
 		return <div class="dash-glass" position={Absolute} left={left} top={78} bottom={100} width={width}>
 			<canvas widthPercent={1} heightPercent={1} draw={streets()} retain={true} />
-			<canvas position={Absolute} left={0} top={0} widthPercent={1} heightPercent={1} draw={route()} pointerEvents={PointerEvents.None} />
+			<canvas position={Absolute} left={0} top={0} widthPercent={1} heightPercent={1} draw={routeLine()} pointerEvents={PointerEvents.None} />
+			<canvas position={Absolute} left={0} top={0} widthPercent={1} heightPercent={1} draw={routeLight()} pointerEvents={PointerEvents.None} />
+			<canvas position={Absolute} left={0} top={0} widthPercent={1} heightPercent={1} draw={routeMarkers()} pointerEvents={PointerEvents.None} />
 			<div position={Absolute} right={16} bottom={16} flexDirection={Column} gap={8}>{zoomKey(Remix.ADD_LINE, 1.35)}{zoomKey(Remix.SUBTRACT_LINE, 1 / 1.35)}</div>
 		</div>;
 	}
