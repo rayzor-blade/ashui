@@ -312,6 +312,243 @@ class Renderer {
 		imageRevision = imageAtlas.revision;
 	}
 
+	/** Whether a frame like the last but for a part of it is drawn as that part; `ASHUI_DAMAGE=0` turns it off, for comparing. **/
+	public var damage = Sys.getEnv("ASHUI_DAMAGE") != "0";
+
+	/** How the last frame was drawn: `full`, `none` for one that drew nothing, or `x,y,w,h` of the part drawn again, in target pixels. **/
+	public var drew(default, null) = "";
+
+	/** Whether `frameLayer` holds the last frame whole, and the list, sizes and colour it was drawn from. **/
+	var frameValid = false;
+
+	var lastList:Null<haxe.io.Bytes> = null;
+	var lastCount = 0;
+	var lastStored = 0;
+	var lastWidth = 0;
+	var lastHeight = 0;
+	var lastLayerWidth = 0;
+	var lastLayerHeight = 0;
+	var lastClear = "";
+
+	/** The window's colour as one texel, to take a part of a frame back to it. **/
+	var clearTexture:Null<GpuTexture> = null;
+
+	var clearView:Null<GpuTextureView> = null;
+	var clearBind:Null<GpuBindGroup> = null;
+	var clearKey = "";
+	var clearPass(get, never):Pass;
+	var _clearPass:Null<Pass> = null;
+
+	inline function get_clearPass():Pass
+		return _clearPass != null ? _clearPass : (_clearPass = pass(ClearShader.WGSL, format, false, false));
+
+	/** The bind group that fills with `r, g, b, a`, its texel written when the colour is new. **/
+	function clearGroup(r:Float, g:Float, b:Float, a:Float):GpuBindGroup {
+		if (clearTexture == null) {
+			var size = new GpuExtent3D(1);
+			size.height(1);
+			clearTexture = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
+			clearView = clearTexture.createView(new GpuTextureViewDescriptor());
+			clearBind = layerGroup(clearPass, ClearShader.FRAME_GROUP, clearView, false);
+		}
+		var key = colourKey(r, g, b, a);
+		if (key != clearKey) {
+			var bytes = haxe.io.Bytes.alloc(16);
+			bytes.setFloat(0, r);
+			bytes.setFloat(4, g);
+			bytes.setFloat(8, b);
+			bytes.setFloat(12, a);
+			device.queue().writeTexture(clearTexture, bytes, 1, 1, 16);
+			clearKey = key;
+		}
+		return clearBind;
+	}
+
+	static function colourKey(r:Float, g:Float, b:Float, a:Float):String
+		return '$r/$g/$b/$a';
+
+	/** Begins a pass on `view` that keeps what it holds, drawing only inside `region` (target pixels) when it is given. **/
+	function continuePass(encoder:GpuEncoder, view:GpuTextureView, region:Null<Array<Int>>):Void {
+		beginPass(encoder, view, false, 0, 0, 0, 0);
+		if (region != null)
+			encoder.renderSetScissorRect(region[0], region[1], region[2], region[3]);
+	}
+
+	/**
+		What of this frame to draw again: the part of the target the records that differ from the last frame's, and the
+		canvases that draw something other than they did, cover, grown to what is drawn over it or reads it, and which records
+		touch it. Null for the whole frame: there is no last frame to start from, or the size or colour changed, or the records
+		are not the same in number, or a layer is drawn, or the part is most of the frame. A `rect` of null: nothing differs.
+	**/
+	function planDamage(list:DisplayList, width:Int, height:Int, layerWidth:Int, layerHeight:Int, r:Float, g:Float, b:Float, a:Float):Null<Damage> {
+		var RB = DisplayList.RECORD_BYTES;
+		if (!damage || !frameValid || a < 1 || frameLayer == null || lastList == null || list.count != lastCount || list.stored != lastStored || width != lastWidth
+			|| height != lastHeight || layerWidth != lastLayerWidth || layerHeight != lastLayerHeight || frameLayer.width != layerWidth
+			|| frameLayer.height != layerHeight || colourKey(r, g, b, a) != lastClear)
+			return null;
+		for (i in 0...list.count) {
+			var kind = list.kind(i);
+			if (kind == DisplayList.PRIM_LAYER_BEGIN || kind == DisplayList.PRIM_LAYER)
+				return null;
+		}
+		var ratio = layerWidth / width;
+		var now:hl.Bytes = list.bytes, was:hl.Bytes = lastList;
+		var all = list.stored * RB, own = list.count * RB;
+		// The points of polygon clips follow the records, and anything that moves them is not a change of a record.
+		if (all > own && now.compare(own, was, own, all - own) != 0)
+			return null;
+		// The boxes of what changed: each record that differs, before and after, and each canvas that draws something new.
+		var boxes:Array<Array<Float>> = [];
+		var changed = now.compare(0, was, 0, own) != 0;
+		if (changed)
+			for (i in 0...list.count)
+				if (now.compare(i * RB, was, i * RB, RB) != 0) {
+					boxes.push(recordBox(list.bytes, i, ratio));
+					boxes.push(recordBox(lastList, i, ratio));
+				}
+		// A canvas draws as its records say, and as its own drawing does, which they do not.
+		var canvasBoxes:Array<Null<Array<Float>>> = [];
+		for (i in 0...list.count)
+			if (list.kind(i) == DisplayList.PRIM_CANVAS) {
+				var canvas = canvasBox(list, i, width, height, layerWidth, layerHeight);
+				canvasBoxes[i] = canvas == null ? null : [canvas.x0, canvas.y0, canvas.x1, canvas.y1];
+				if (canvas != null && canvas.canvas.changed(canvas.transform, ratio, ensureImageAtlas().revision))
+					boxes.push(canvasBoxes[i]);
+			}
+		if (boxes.length == 0)
+			return {rects: [], visible: []};
+		mergeBoxes(boxes);
+		// A backdrop filter reads what is under it, a blur's reach beyond its box: where it touches a part, all of that is drawn again.
+		var grown = true, rounds = 0;
+		while (grown && rounds++ < 6) {
+			grown = false;
+			for (i in 0...list.count)
+				if (list.kind(i) == DisplayList.PRIM_BACKDROP) {
+					var box = recordBox(list.bytes, i, ratio);
+					// The record's deviation is in target pixels; the blur reads three of them each side.
+					var reach = list.get(i, 8) * 3 + 2;
+					for (part in boxes)
+						if (box[0] < part[2] && box[2] > part[0] && box[1] < part[3] && box[3] > part[1]
+							&& (box[0] - reach < part[0] || box[1] - reach < part[1] || box[2] + reach > part[2] || box[3] + reach > part[3])) {
+							part[0] = Math.min(part[0], box[0] - reach);
+							part[1] = Math.min(part[1], box[1] - reach);
+							part[2] = Math.max(part[2], box[2] + reach);
+							part[3] = Math.max(part[3], box[3] + reach);
+							grown = true;
+						}
+				}
+			if (grown)
+				mergeBoxes(boxes);
+		}
+		if (grown)
+			return null;
+		// Few enough parts to draw each as a part: the two nearest are one when there are more.
+		while (boxes.length > MOST_PARTS) {
+			var a = 0, b = 1, least = 1e30;
+			for (x in 0...boxes.length)
+				for (y in x + 1...boxes.length) {
+					var size = unionArea(boxes[x], boxes[y]);
+					if (size < least) {
+						least = size;
+						a = x;
+						b = y;
+					}
+				}
+			boxes[a] = unite(boxes[a], boxes[b]);
+			boxes.splice(b, 1);
+			mergeBoxes(boxes);
+		}
+		// A pixel's edge is anti-aliased past the box it is drawn in.
+		var rects:Array<Array<Int>> = [], area = 0;
+		for (part in boxes) {
+			var x0 = Std.int(Math.max(0, Math.floor(part[0]) - 4)), y0 = Std.int(Math.max(0, Math.floor(part[1]) - 4));
+			var x1 = Std.int(Math.min(layerWidth, Math.ceil(part[2]) + 4)), y1 = Std.int(Math.min(layerHeight, Math.ceil(part[3]) + 4));
+			if (x1 > x0 && y1 > y0) {
+				rects.push([x0, y0, x1 - x0, y1 - y0]);
+				area += (x1 - x0) * (y1 - y0);
+			}
+		}
+		if (rects.length == 0)
+			return {rects: [], visible: []};
+		if (area > 0.6 * layerWidth * layerHeight)
+			return null;
+		var visible = [];
+		for (rect in rects) {
+			var touching = [];
+			for (i in 0...list.count) {
+				var box = canvasBoxes[i] != null ? canvasBoxes[i] : list.kind(i) == DisplayList.PRIM_CANVAS ? null : recordBox(list.bytes, i, ratio);
+				touching.push(box != null && box[0] < rect[0] + rect[2] && box[2] > rect[0] && box[1] < rect[1] + rect[3] && box[3] > rect[1]);
+			}
+			visible.push(touching);
+		}
+		return {rects: rects, visible: visible};
+	}
+
+	/** The most parts of a frame drawn again, one after another in a pass. **/
+	static inline var MOST_PARTS = 4;
+
+	static function unite(a:Array<Float>, b:Array<Float>):Array<Float>
+		return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+
+	static function unionArea(a:Array<Float>, b:Array<Float>):Float
+		return (Math.max(a[2], b[2]) - Math.min(a[0], b[0])) * (Math.max(a[3], b[3]) - Math.min(a[1], b[1]));
+
+	/** Joins boxes that overlap or lie close, or that one box would hold with little more room, until none do. **/
+	static function mergeBoxes(boxes:Array<Array<Float>>):Void {
+		var again = true;
+		while (again) {
+			again = false;
+			var i = 0;
+			while (i < boxes.length) {
+				var j = i + 1;
+				while (j < boxes.length) {
+					var a = boxes[i], b = boxes[j];
+					var close = a[0] - 8 < b[2] && a[2] + 8 > b[0] && a[1] - 8 < b[3] && a[3] + 8 > b[1];
+					var areas = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]);
+					if (close || unionArea(a, b) < areas * 1.3) {
+						boxes[i] = unite(a, b);
+						boxes.splice(j, 1);
+						again = true;
+					} else
+						j++;
+				}
+				i++;
+			}
+		}
+	}
+
+	/** The box `[left, top, right, bottom]`, in target pixels, record `i` of `bytes` draws in, grown by what its edge and its shadow reach. **/
+	function recordBox(bytes:haxe.io.Bytes, i:Int, ratio:Float):Array<Float> {
+		var at = i * DisplayList.RECORD_BYTES;
+		inline function f(row:Int, k:Int)
+			return bytes.getFloat(at + (row * 4 + k) * 4);
+		var grow = 2.0;
+		if (Std.int(f(11, 0)) == DisplayList.PRIM_SHADOW)
+			grow += f(6, 2) * 3 + Math.abs(f(6, 0)) + Math.abs(f(6, 1)) + Math.max(f(6, 3), 0) + 1;
+		var box = bounding(new ashui.draw.Affine(f(15, 0), f(15, 1), f(15, 2), f(15, 3), f(0, 0), f(0, 1)), -grow, -grow, f(0, 2) + grow * 2, f(0, 3) + grow * 2);
+		return [box[0] * ratio, box[1] * ratio, box[2] * ratio, box[3] * ratio];
+	}
+
+	/** Takes the frame just drawn as the one the next may be drawn from, or forgets it when it cannot be. **/
+	function rememberFrame(list:DisplayList, width:Int, height:Int, layerWidth:Int, layerHeight:Int, r:Float, g:Float, b:Float, a:Float, held:Bool):Void {
+		if (!damage || !held || a < 1) {
+			frameValid = false;
+			return;
+		}
+		var size = list.stored * DisplayList.RECORD_BYTES;
+		if (lastList == null || lastList.length < size)
+			lastList = haxe.io.Bytes.alloc(size + (size >> 1));
+		lastList.blit(0, list.bytes, 0, size);
+		lastCount = list.count;
+		lastStored = list.stored;
+		lastWidth = width;
+		lastHeight = height;
+		lastLayerWidth = layerWidth;
+		lastLayerHeight = layerHeight;
+		lastClear = colourKey(r, g, b, a);
+		frameValid = true;
+	}
+
 	/**
 		Draws `list` into `view`, `width` × `height` units, after clearing it
 		to the given colour, or over what it holds with `keep`. `pixelWidth`
@@ -341,7 +578,9 @@ class Renderer {
 			syncText();
 		if (hasImages)
 			syncImages(list);
-		if (list.count > 0) {
+		// A frame like the last but for a part of it is drawn as that part, over what the last frame left.
+		var damaged:Null<Damage> = offscreen && !keep ? planDamage(list, width, height, layerWidth, layerHeight, r, g, b, a) : null;
+		if (list.count > 0 && !(damaged != null && damaged.rects.length == 0)) {
 			// Whole rows: the list's bytes hold whole rows of records, so the last is complete.
 			var rows = Math.ceil(list.stored / DisplayList.RECORDS_PER_ROW);
 			reserve(rows);
@@ -359,11 +598,56 @@ class Renderer {
 			frameLayer = makeLayer(layerWidth, layerHeight);
 		}
 		var base = offscreen ? frameLayer.view : view;
-		beginPass(encoder, base, !keep, r, g, b, a);
+		drew = damaged == null ? "full" : damaged.rects.length == 0 ? "none" : [for (rect in damaged.rects) rect.join(",")].join(" ");
+		if (damaged == null) {
+			beginPass(encoder, base, !keep, r, g, b, a);
+			drawRecords(encoder, list, base, width, height, layerWidth, layerHeight, null, null);
+			encoder.renderEnd();
+		} else if (damaged.rects.length > 0) {
+			// One pass, its scissor moved from part to part: each is taken back to the window's colour and what touches it is drawn again.
+			continuePass(encoder, base, damaged.rects[0]);
+			var clear = clearGroup(r, g, b, a);
+			for (k in 0...damaged.rects.length) {
+				var rect = damaged.rects[k];
+				encoder.renderSetScissorRect(rect[0], rect[1], rect[2], rect[3]);
+				encoder.renderSetPipeline(clearPass.pipeline);
+				encoder.renderSetBindGroup(ClearShader.FRAME_GROUP, clear);
+				encoder.renderDrawRange(6, 1, 0, 0);
+				drawRecords(encoder, list, base, width, height, layerWidth, layerHeight, damaged.visible[k], rect);
+			}
+			encoder.renderEnd();
+		}
+		rememberFrame(list, width, height, layerWidth, layerHeight, r, g, b, a, offscreen && !keep);
+		if (offscreen) {
+			if (frameLayer.blitGroup == null)
+				frameLayer.blitGroup = layerGroup(blitPass, BlitShader.FRAME_GROUP, frameLayer.view, false);
+			beginPass(encoder, view, true, r, g, b, a);
+			encoder.renderSetPipeline(blitPass.pipeline);
+			encoder.renderSetBindGroup(BlitShader.FRAME_GROUP, frameLayer.blitGroup);
+			encoder.renderDrawRange(6, 1, 0, 0);
+			encoder.renderEnd();
+		}
+		encoder.submit(queue);
+		failOnError("drawing");
+		MeshTextures.startCompressions();
+		// Canvases this frame left unpainted, scrolled away or hidden, give up their 3D layers after a while.
+		ScenePainter.sweep();
+	}
+
+	/**
+		Draws the records of `list` into the pass begun on `base`, each run of one kind as one draw, backdrops and layers as
+		their passes: all of them, or those `visible` marks, inside `region`, a rect of the target's pixels the pass's scissor is set to.
+	**/
+	function drawRecords(encoder:GpuEncoder, list:DisplayList, base:GpuTextureView, width:Int, height:Int, layerWidth:Int, layerHeight:Int,
+			visible:Null<Array<Bool>>, region:Null<Array<Int>>):Void {
 		if (list.count > 0) {
 			var start = 0;
 			var depth = 0;
 			while (start < list.count) {
+				if (visible != null && !visible[start]) {
+					start++;
+					continue;
+				}
 				var kind = list.kind(start);
 				if (kind == DisplayList.PRIM_BACKDROP) {
 					// What is under the box so far, blurred along its rows into the target's second
@@ -387,7 +671,7 @@ class Renderer {
 					encoder.renderSetBindGroup(BackdropRowsShader.TEXTURE_records_GROUP, backdropRowsPass.records);
 					encoder.renderDrawRange(6, 1, 0, start);
 					encoder.renderEnd();
-					beginPass(encoder, under.view, false, 0, 0, 0, 0);
+					continuePass(encoder, under.view, region);
 					if (liquid) {
 						encoder.renderSetPipeline(liquidBackdropPass.pipeline);
 						encoder.renderSetBindGroup(LiquidBackdropShader.FRAME_GROUP, liquidBackdropGroup);
@@ -460,12 +744,12 @@ class Renderer {
 					continue;
 				}
 				if (kind == DisplayList.PRIM_CANVAS) {
-					paintCanvas(encoder, list, start, width, height, layerWidth, layerHeight, depth == 0 ? base : layers[depth - 1].view);
+					paintCanvas(encoder, list, start, width, height, layerWidth, layerHeight, depth == 0 ? base : layers[depth - 1].view, region);
 					start++;
 					continue;
 				}
 				var end = start + 1;
-				while (end < list.count && list.kind(end) == kind)
+				while (end < list.count && list.kind(end) == kind && (visible == null || visible[end]))
 					end++;
 				drawRun(encoder, switch kind {
 					case DisplayList.PRIM_SHADOW: shadows;
@@ -476,21 +760,6 @@ class Renderer {
 				start = end;
 			}
 		}
-		encoder.renderEnd();
-		if (offscreen) {
-			if (frameLayer.blitGroup == null)
-				frameLayer.blitGroup = layerGroup(blitPass, BlitShader.FRAME_GROUP, frameLayer.view, false);
-			beginPass(encoder, view, true, r, g, b, a);
-			encoder.renderSetPipeline(blitPass.pipeline);
-			encoder.renderSetBindGroup(BlitShader.FRAME_GROUP, frameLayer.blitGroup);
-			encoder.renderDrawRange(6, 1, 0, 0);
-			encoder.renderEnd();
-		}
-		encoder.submit(queue);
-		failOnError("drawing");
-		MeshTextures.startCompressions();
-		// Canvases this frame left unpainted, scrolled away or hidden, give up their 3D layers after a while.
-		ScenePainter.sweep();
 	}
 
 	/**
@@ -498,10 +767,45 @@ class Renderer {
 		clipped box, then sets the scissor back to the whole target. Nothing
 		else needs restoring: each run sets its own pipeline and bindings.
 	**/
-	function paintCanvas(encoder:GpuEncoder, list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int, target:GpuTextureView):Void {
+	function paintCanvas(encoder:GpuEncoder, list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int, target:GpuTextureView,
+			?region:Array<Int>):Void {
+		var placed = canvasBox(list, at, width, height, targetWidth, targetHeight);
+		if (placed == null)
+			return;
+		var x0 = placed.x0, y0 = placed.y0, x1 = placed.x1, y1 = placed.y1;
+		// Inside the region, when only a part of the frame is drawn.
+		if (region != null) {
+			x0 = Std.int(Math.max(x0, region[0]));
+			y0 = Std.int(Math.max(y0, region[1]));
+			x1 = Std.int(Math.min(x1, region[0] + region[2]));
+			y1 = Std.int(Math.min(y1, region[1] + region[3]));
+		}
+		if (x1 <= x0 || y1 <= y0)
+			return;
+		var ratio = targetWidth / width;
+		encoder.renderSetScissorRect(x0, y0, x1 - x0, y1 - y0);
+		placed.canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, placed.w, placed.h, placed.transform, placed.transform.scale() * ratio, ratio,
+			[x0, y0, x1 - x0, y1 - y0], target));
+		if (region != null)
+			encoder.renderSetScissorRect(region[0], region[1], region[2], region[3]);
+		else
+			encoder.renderSetScissorRect(0, 0, targetWidth, targetHeight);
+	}
+
+	/** The canvas of the record at `at`, where its content box lies on the target, its pixels cut by its clips, and the way its coordinates go to units; null where it draws nothing. **/
+	function canvasBox(list:DisplayList, at:Int, width:Int, height:Int, targetWidth:Int, targetHeight:Int):Null<{
+		canvas:ashui.ui.Canvas,
+		x0:Int,
+		y0:Int,
+		x1:Int,
+		y1:Int,
+		w:Float,
+		h:Float,
+		transform:ashui.draw.Affine
+	}> {
 		var canvas = ashui.ui.Canvas.at(Std.int(list.get(at, GRADIENT_FIELD)));
 		if (canvas == null)
-			return;
+			return null;
 		inline function f(row:Int, i:Int)
 			return list.get(at, row * 4 + i);
 		var w = f(0, 2), h = f(0, 3);
@@ -519,11 +823,17 @@ class Renderer {
 		var x1 = Std.int(Math.min(targetWidth, Math.ceil(box[2] * ratio))),
 			y1 = Std.int(Math.min(targetHeight, Math.ceil(box[3] * ratio)));
 		if (x1 <= x0 || y1 <= y0)
-			return;
-		encoder.renderSetScissorRect(x0, y0, x1 - x0, y1 - y0);
-		canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, w, h, transform, transform.scale() * ratio, ratio, [x0, y0, x1 - x0, y1 - y0],
-			target));
-		encoder.renderSetScissorRect(0, 0, targetWidth, targetHeight);
+			return null;
+		return {
+			canvas: canvas,
+			x0: x0,
+			y0: y0,
+			x1: x1,
+			y1: y1,
+			w: w,
+			h: h,
+			transform: transform
+		};
 	}
 
 	/** The box `[left, top, right, bottom]` around the rect `x, y, w, h` through `m`. **/
@@ -718,4 +1028,10 @@ typedef Pass = {
 
 	/** The pass's own bind group of the records texture: an inferred layout is one pipeline's. **/
 	var records:Null<GpuBindGroup>;
+}
+
+/** What of a frame to draw again: the rects `[x, y, width, height]` of target pixels, none for nothing, and for each which records touch it. **/
+private typedef Damage = {
+	final rects:Array<Array<Int>>;
+	final visible:Array<Array<Bool>>;
 }

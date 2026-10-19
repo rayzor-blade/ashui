@@ -236,6 +236,22 @@ class Canvas extends Component<CanvasProps> {
 	public function repaint():Void
 		ticks.set(ticks.get() + 1);
 
+	/**
+		Whether painting it now, through `transform` at `ratio` pixels to a unit, with the image atlas at `atlasRevision`, would
+		draw something other than it drew last time: a canvas with a paint callback always may, one drawn with `draw` does when its
+		drawing was made again or it moved, and a 3D scene when it is to be rendered again. The renderer leaves the rest as they are.
+	**/
+	@:allow(ashui.core.render.Renderer)
+	function changed(transform:ashui.draw.Affine, ratio:Float, atlasRevision:Int):Bool {
+		if (props.paint != null)
+			return true;
+		#if ashui_gpu
+		return recorded != null && (painter.needsBuild(recorded, transform, ratio, atlasRevision) || painter.sceneChanging());
+		#else
+		return false;
+		#end
+	}
+
 	@:allow(ashui.core.render.Renderer)
 	function paintWith(frame:Dynamic):Void {
 		if (props.paint != null)

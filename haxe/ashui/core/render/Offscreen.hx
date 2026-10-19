@@ -77,6 +77,21 @@ class Offscreen {
 	inline function get_primitives():Int
 		return list.count;
 
+	/** How the last frame was drawn: `full`, `none`, or the part of the target drawn again (see `Renderer.drew`). **/
+	public var drew(get, never):String;
+
+	inline function get_drew():String
+		return renderer.drew;
+
+	/** Whether a frame like the last but for a part of it is drawn as that part (see `Renderer.damage`). **/
+	public var damage(get, set):Bool;
+
+	inline function get_damage():Bool
+		return renderer.damage;
+
+	inline function set_damage(v:Bool):Bool
+		return renderer.damage = v;
+
 	/** An offscreen renderer on `device`, drawing into textures in `format`. **/
 	public function new(device:GpuDevice, format:TextureFormat = Rgba8unorm) {
 		this.device = device;

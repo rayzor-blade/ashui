@@ -131,6 +131,11 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main NestedClipTextPixels -hl bin/nested-clip-text-pixels.hl
 	run nested-clip-text-pixels.hl
+	# A frame drawn as the parts of the last that changed matches the frame drawn whole (git-bug 9f040d8).
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/render -main DamagePixels -hl bin/damage-pixels.hl
+	run damage-pixels.hl
 	;;
 window)
 	# hlwgpu's and hlwindow's libraries, built when missing or out of date.

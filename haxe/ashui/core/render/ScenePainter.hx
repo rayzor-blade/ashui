@@ -338,6 +338,16 @@ class ScenePainter {
 	/** Called with `loading` as it changes, on the main thread after the frame. **/
 	public var onLoading:Bool->Void = _ -> {};
 
+	/** Whether a layer is to be rendered again at its next draw: a texture it uses has been replaced, or a mesh is waiting for one. **/
+	public function pending():Bool {
+		if (loading)
+			return true;
+		for (l in layers)
+			if (l.textures != MeshTextures.revision)
+				return true;
+		return false;
+	}
+
 	/** Called after each frame in which it rendered a scene afresh, rather than showing what it rendered before. **/
 	public var onRendered:Void->Void = () -> {};
 

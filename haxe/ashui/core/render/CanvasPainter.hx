@@ -180,6 +180,33 @@ class CanvasPainter {
 		}
 	}
 
+	/**
+		Whether `play` would build again for `ctx` drawn through `t` at `ratio` pixels to a unit, with the image atlas at
+		`atlasRevision`: whether what it draws is not what it drew last. A painter that is not built again draws the same.
+	**/
+	public function needsBuild(ctx:DrawContext, t:Affine, ratio:Float, atlasRevision:Int):Bool {
+		if (disposed)
+			return false;
+		var m = madeTransform;
+		return ctx != madeFor || m == null || t.a != m.a || t.b != m.b || t.c != m.c || t.d != m.d || t.e != m.e || t.f != m.f || ratio != madeRatio
+			|| (hasImages && atlasRevision != madeAtlas);
+	}
+
+	/** Whether its 3D draws would be rendered again, as a scene with a pass that changes each frame is, or as one waiting for textures is as they come. **/
+	public function sceneChanging():Bool {
+		if (scenes == null)
+			return false;
+		for (step in steps)
+			switch step {
+				case Meshes(_, passes, _):
+					for (p in passes)
+						if (p.animated())
+							return true;
+				case _:
+			}
+		return scenes.pending();
+	}
+
 	public function play(frame:CanvasFrame, ctx:DrawContext):Void {
 		if (disposed)
 			return;
