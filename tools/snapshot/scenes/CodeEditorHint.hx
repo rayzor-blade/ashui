@@ -17,12 +17,19 @@ class CodeEditorHint {
 			<div class="flex-row items-center justify-between"><text class="text-lg font-semibold">Welcome.hx</text><badge variant={Secondary}>Hints</badge></div>
 			<code-editor ref={editor} value={source} language="haxe" class="grow min-h-0" height={0} />
 		</div>;
-		var shot = Sys.getEnv("HINT") == "error" ? "error" : "docs";
+		var shot = switch Sys.getEnv("HINT") { case "error": "error"; case "signature": "signature"; case _: "docs"; };
 		Snapshot.sequence((light ? "CodeEditorHint-light-" : "CodeEditorHint-") + shot, 820, 460, build, 30, 3, (frame, tree, root) -> {
 			if (frame != 1) return;
 			var ed = editor.get();
 			function at(line:Int, text:String) return ed.document.lines[line].start + ed.document.lines[line].text.indexOf(text);
-			if (shot == "error") {
+			if (shot == "signature") {
+				var call = "static function trace(v:Dynamic, ?infos:PosInfos):Void";
+				ed.showHint({
+					from: at(4, "trace"), to: at(4, "trace") + 5, signature: call,
+					emphasis: {from: call.indexOf("?infos"), to: call.indexOf("):Void")},
+					docs: "infos: the position of the call, added by the compiler."
+				}, true);
+			} else if (shot == "error") {
 				ed.decorate("problems", [{from: at(3, '"three"'), to: at(3, '"three"') + 7, className: "ui-code-squiggle-error", title: "String should be Int\nFor function argument 'count'"}]);
 				ed.showHint({from: at(3, '"three"'), to: at(3, '"three"') + 7, docs: "String should be Int\nFor function argument 'count'", className: "ui-code-hint-error"}, true);
 			} else
