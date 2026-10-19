@@ -83,14 +83,16 @@ class Draw {
 		check("points go through the transform", moved[0].x(2) == 25 && moved[0].y(2) == 27, [moved[0].x(2), moved[0].y(2)]);
 
 		// --- Fills ---
+		var diamond = fill(new Path().moveTo(5, 0).lineTo(10, 5).lineTo(5, 10).lineTo(0, 5).close());
+		check("a shape fills its area, and its fringe half a pixel out from half weight", Math.abs(solid(diamond) - 50) < 1e-6
+			&& Math.abs(painted(diamond) - 50 - 28.2843 * 0.125) < 1, [solid(diamond), painted(diamond)]);
+		// A rect along the axes is two triangles grown half a pixel, each vertex as far inside each side as it is, in pixels.
 		var square = fill(new Path().rect(0, 0, 10, 10));
-		check("a square fills its area, and its fringe half a pixel out from half weight", Math.abs(solid(square) - 100) < 1e-6
-			&& Math.abs(painted(square) - 100 - 40 * 0.125) < 1, [solid(square), painted(square)]);
-		// A square's trapezoid: each vertex as far inside each side as it is, in pixels; its corner on two sides at once.
 		var corner = square.data.slice(0, S);
-		var far = [for (i in 0...Std.int(square.data.length / S)) square.data[i * S + 2] == 1 ? Math.max(square.data[i * S + 3], square.data[i * S + 4]) : 0];
-		check("a fill's vertices carry their distance inside its edges, in pixels", corner[0] == 0 && corner[1] == 0 && corner[3] == 0
-			&& corner[5] == 0 && far.indexOf(10) >= 0, corner);
+		check("a rect along the axes is two triangles, grown half a pixel, their vertices carrying their distance inside its sides",
+			square.vertexCount() == 6 && Math.abs(solid(square) - 121) < 1e-6 && corner[0] == -0.5 && corner[1] == -0.5 && corner[3] == -0.5 && corner[4] == 10.5
+			&& corner[5] == -0.5 && corner[6] == 10.5, [square.vertexCount(), solid(square), corner]);
+		check("a rect that is not along the axes is not that", fill(new Path().moveTo(0, 0).lineTo(10, 1).lineTo(9, 11).lineTo(-1, 10).close()).vertexCount() > 6);
 		var l = fill(new Path().moveTo(0, 0).lineTo(20, 0).lineTo(20, 5).lineTo(5, 5).lineTo(5, 20).lineTo(0, 20).close());
 		check("a concave shape fills its area exactly, no triangle over another", Math.abs(solid(l) - 175) < 1e-6, solid(l));
 		var framed = new Path().rect(0, 0, 10, 10).rect(2, 2, 6, 6);

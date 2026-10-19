@@ -141,6 +141,11 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main DamageScrollPixels -hl bin/damage-scroll-pixels.hl
 	run damage-scroll-pixels.hl
+	# A rect along the axes drawn in two triangles matches the same rect drawn by the sweep (git-bug 3ec0b2c).
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/render -main RectPixels -hl bin/rect-pixels.hl
+	run rect-pixels.hl
 	# A canvas past a texture's limit draws in part, and a GPU error in a frame is a throw or a count.
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \

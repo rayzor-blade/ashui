@@ -35,7 +35,47 @@ class Tessellate {
 		var rings = [for (c in contours) if (c.count() >= 3) c];
 		if (rings.length == 0)
 			return;
+		if (axisRects && rings.length == 1 && axisRect(rings[0], aa, mesh, coverage))
+			return;
 		Sweep.fill(rings, rule, aa, mesh, coverage);
+	}
+
+	/** Whether a rect along the axes is drawn in two triangles; off, it goes through the sweep as any shape does, which tests compare it with. **/
+	public static var axisRects = true;
+
+	/**
+		A contour that is a rectangle whose sides run along the axes is two
+		triangles, grown half a pixel on every side, whose vertices carry
+		their distances inside the four sides: the pixels just inside a side
+		are covered by how far inside they are, and the half pixel round it
+		fades out, as the sweep's trapezoid and its fringe do, in a fifth of
+		the vertices. False where the contour is not one.
+	**/
+	static function axisRect(c:Contour, aa:Float, mesh:Mesh, coverage:Float):Bool {
+		var n = c.count();
+		if (n == 5 && Math.abs(c.x(0) - c.x(4)) < 1e-9 && Math.abs(c.y(0) - c.y(4)) < 1e-9)
+			n = 4;
+		if (n != 4)
+			return false;
+		var eps = aa * 1e-4;
+		var vertical = Math.abs(c.x(0) - c.x(1)) < eps && Math.abs(c.y(1) - c.y(2)) < eps && Math.abs(c.x(2) - c.x(3)) < eps && Math.abs(c.y(3) - c.y(0)) < eps;
+		var horizontal = Math.abs(c.y(0) - c.y(1)) < eps && Math.abs(c.x(1) - c.x(2)) < eps && Math.abs(c.y(2) - c.y(3)) < eps && Math.abs(c.x(3) - c.x(0)) < eps;
+		if (!vertical && !horizontal)
+			return false;
+		var x0 = Math.min(Math.min(c.x(0), c.x(1)), Math.min(c.x(2), c.x(3))), x1 = Math.max(Math.max(c.x(0), c.x(1)), Math.max(c.x(2), c.x(3)));
+		var y0 = Math.min(Math.min(c.y(0), c.y(1)), Math.min(c.y(2), c.y(3))), y1 = Math.max(Math.max(c.y(0), c.y(1)), Math.max(c.y(2), c.y(3)));
+		if (x1 - x0 <= eps || y1 - y0 <= eps)
+			return false;
+		var w = aa * 0.5;
+		inline function v(px:Float, py:Float)
+			mesh.vertex(px, py, coverage, (px - x0) / aa, (x1 - px) / aa, (py - y0) / aa, (y1 - py) / aa);
+		v(x0 - w, y0 - w);
+		v(x1 + w, y0 - w);
+		v(x1 + w, y1 + w);
+		v(x0 - w, y0 - w);
+		v(x1 + w, y1 + w);
+		v(x0 - w, y1 + w);
+		return true;
 	}
 
 	/** Where a corner between edges of outward normals `a` and `b` moves out to, for the strip to keep its width: a little at most. **/
