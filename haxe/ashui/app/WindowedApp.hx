@@ -219,6 +219,8 @@ class WindowedApp {
 		this.surface = surface;
 		format = chooseFormat();
 		offscreen = new Offscreen(device, format);
+		// A window keeps running through a GPU error in a frame: it is reported once on stderr.
+		offscreen.strictErrors = false;
 		motion = ashui.debug.MotionStream.fromEnvironment(offscreen);
 		tree = new LayoutTree();
 		ashui.input.Cursor.bind(tree, code -> {

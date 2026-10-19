@@ -136,6 +136,11 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main DamagePixels -hl bin/damage-pixels.hl
 	run damage-pixels.hl
+	# A canvas past a texture's limit draws in part, and a GPU error in a frame is a throw or a count.
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/render -main GpuErrorPixels -hl bin/gpu-error-pixels.hl
+	run gpu-error-pixels.hl
 	;;
 window)
 	# hlwgpu's and hlwindow's libraries, built when missing or out of date.

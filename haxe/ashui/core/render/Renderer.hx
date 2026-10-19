@@ -248,9 +248,18 @@ class Renderer {
 		// Block-compressed textures where the GPU samples them: meshes' textures take a quarter of the memory.
 		if (adapter.supports(TextureCompressionBc))
 			descriptor.addRequiredFeatures(TextureCompressionBc);
+		// A texture side as large as the GPU takes, not the 8192 a device gets unless it asks.
+		var most = haxe.Int64.toInt(adapter.limit(MaxTextureDimension2D));
+		if (most > maxTexture) {
+			descriptor.addRequiredLimits(MaxTextureDimension2D, most);
+			maxTexture = most;
+		}
 		return adapter.requestDeviceWith(descriptor).await();
 		#end
 	}
+
+	/** The most a texture side may be on the device `requestDevice` made, 8192 until then; what a canvas's triangle table and a mesh's textures are held to. **/
+	public static var maxTexture = 8192;
 
 	/** Pipelines made for canvases' shaders, by their WGSL. **/
 	final canvasPasses = new Map<String, Pass>();
@@ -994,11 +1003,29 @@ class Renderer {
 		bindings.destroy();
 	}
 
+	/** Whether a GPU error in a frame throws, as a test wants, or is reported once and the frame goes on, as a window wants. **/
+	public var strict = true;
+
+	/** The frames that had a GPU error. **/
+	public var failedFrames(default, null) = 0;
+
+	final reported = new Map<String, Bool>();
+
 	/** wgpu reports validation errors on the device, not by throwing. **/
 	function failOnError(doing:String):Void {
 		var error = device.takeError();
-		if (error != null)
+		if (error == null)
+			return;
+		if (strict)
 			throw 'gpu error $doing: $error';
+		// What the frame drew is not known to be whole, so the next is drawn whole.
+		failedFrames++;
+		frameValid = false;
+		var key = doing + error;
+		if (!reported.exists(key)) {
+			reported.set(key, true);
+			Sys.stderr().writeString('[ashui] gpu error $doing, the frame goes on: $error\n');
+		}
 	}
 }
 

@@ -99,9 +99,17 @@ class MeshTextures {
 			return made;
 		}
 		var w = bitmap.width, h = bitmap.height;
+		// A side the device does not take is shrunk to what it does, the aspect kept.
+		var most = Renderer.maxTexture;
+		var shrunk = w > most || h > most;
+		if (shrunk) {
+			var k = most / Math.max(w, h);
+			w = Std.int(Math.max(1, Math.floor(w * k)));
+			h = Std.int(Math.max(1, Math.floor(h * k)));
+		}
 		var levels = levelCount(w, h);
 		// BC blocks are 4×4: a texture whose sides are not a multiple of 4 stays as it is.
-		if (compress && bitmap.compressible && w % 4 == 0 && h % 4 == 0 && bcSupport(gpu)) {
+		if (compress && !shrunk && bitmap.compressible && w % 4 == 0 && h % 4 == 0 && bcSupport(gpu)) {
 			pending.set(key, true);
 			compressLater(key, bitmap, role);
 			return null;

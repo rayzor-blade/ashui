@@ -108,6 +108,21 @@ class Offscreen {
 
 	public var mediaHeight:Null<Int> = null;
 
+	/** Whether a GPU error in a frame throws; a window turns it off, to report it once and keep drawing. **/
+	public var strictErrors(get, set):Bool;
+
+	inline function get_strictErrors():Bool
+		return renderer.strict;
+
+	inline function set_strictErrors(value:Bool):Bool
+		return renderer.strict = value;
+
+	/** The frames that had a GPU error while `strictErrors` was off. **/
+	public var failedFrames(get, never):Int;
+
+	inline function get_failedFrames():Int
+		return renderer.failedFrames;
+
 	/** An offscreen renderer on a device of its own. **/
 	public static function create(format:TextureFormat = Rgba8unorm):Offscreen {
 		var adapter = new GpuInstance().requestAdapter(Power.HighPerformance).await();

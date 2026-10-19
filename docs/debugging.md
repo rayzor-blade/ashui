@@ -59,3 +59,21 @@ ASHUI_MOTION=stream tools/snapshot/run.sh --window tools/snapshot/scenes/TreeMot
 curves. `stream` also captures each burst with frames, a filmstrip, curves,
 motion differences, a report and JSON for review. `ASHUI_HIT_MAP=1` can be
 used alongside either mode.
+
+## GPU errors
+
+A window keeps running when the GPU reports an error while a frame is drawn. The error is written once to stderr,
+starting with `[ashui] gpu error drawing, the frame goes on`, and the next frame is drawn whole. The count of such
+frames is `offscreen.failedFrames`. Anything that draws with an `Offscreen` directly, such as a test or a snapshot,
+throws instead, until `offscreen.strictErrors` is set to `false`.
+
+The GPU reports an error after the frame, without saying which texture or buffer it was about, so the message names
+the limit that was passed and little else. A canvas whose triangles do not fit in a texture says so on stderr and
+draws the first of them, and a mesh texture larger than the device's limit is shrunk to it.
+
+## Partial redraws
+
+A frame that has a backdrop filter is drawn into a layer that stays from one frame to the next. When the next frame
+differs from it in only a few records or canvases, only the boxes of what changed are drawn again; the rest of the layer
+is kept. `ASHUI_DAMAGE=0` turns this off, to compare. `offscreen.drew` says how the last frame was drawn: `full`, `none`,
+or the rectangles drawn again.

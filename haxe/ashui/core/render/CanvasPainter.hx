@@ -260,6 +260,16 @@ class CanvasPainter {
 		frame.encoder.renderDrawRange(count, 1, first, frame.record);
 	}
 
+	var warnedOverfull = false;
+
+	/** Says once on stderr that the canvas's paths do not all fit the GPU's texture limit, and what is done about it. **/
+	function overfull(what:String):Void {
+		if (warnedOverfull)
+			return;
+		warnedOverfull = true;
+		Sys.stderr().writeString('[ashui] a canvas has more triangles than the GPU holds in a texture, ${Renderer.maxTexture} rows of ${PathShader.ROW_TEXELS} texels; it $what\n');
+	}
+
 	function build(frame:CanvasFrame, ctx:DrawContext):Void {
 		builds++;
 		// A target pixel, in the layout units the triangles are in.
@@ -279,8 +289,14 @@ class CanvasPainter {
 				steps.push(Paths(pathsFrom, mesh.vertexCount() - pathsFrom));
 			pathsFrom = mesh.vertexCount();
 		}
+		// The table is one texture, so it has a device's limit of rows; a quarter of it is kept for the clips, and what comes after the rest is left out.
+		var capacity = Renderer.maxTexture * PathShader.ROW_TEXELS;
 		for (op in ctx.ops) {
 			var before = mesh.vertexCount();
+			if (before * PathShader.VERTEX_TEXELS + starts.length * PathShader.PAINT_TEXELS > capacity - (capacity >> 2)) {
+				overfull("is drawn only in part");
+				break;
+			}
 			switch op {
 				case Mesh3D(_, _, scene, _, _) | Pass3D(_, scene):
 					endPaths();
@@ -342,6 +358,16 @@ class CanvasPainter {
 		}
 		var texels = table + clipOrder.length * PathShader.CLIP_TEXELS;
 		var needed = Std.int(Math.ceil(texels / PathShader.ROW_TEXELS));
+		if (needed > Renderer.maxTexture) {
+			// Its clips took more than was kept for them: nothing of its paths is drawn.
+			overfull("is not drawn");
+			var i = steps.length;
+			while (i-- > 0)
+				if (steps[i].match(Paths(_)))
+					steps.splice(i, 1);
+			vertexCount = 0;
+			return;
+		}
 		var size = needed * PathShader.ROW_TEXELS * 16;
 		if (bytes == null || bytes.length < size)
 			bytes = haxe.io.Bytes.alloc(size + (size >> 1));
@@ -375,7 +401,7 @@ class CanvasPainter {
 				texture.destroy();
 			if (view != null)
 				view.destroy();
-			rows = needed + (needed >> 1);
+			rows = Std.int(Math.min(needed + (needed >> 1), Renderer.maxTexture));
 			var extent = new GpuExtent3D(PathShader.ROW_TEXELS);
 			extent.height(rows);
 			texture = frame.device.texture(new GpuTextureDescriptor(extent, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
