@@ -10,6 +10,8 @@ import ashui.components.code.CodeHints;
 import ashui.components.code.CodeHints.CodeHint;
 import ashui.components.code.CodeHints.CodeRect;
 import ashui.components.code.CodeHistory;
+import ashui.components.code.CodeHistory.CodeEdit;
+import ashui.components.code.CodeHistory.CodePatch;
 import ashui.components.code.CodeMetrics;
 import ashui.components.code.CodeMinimap;
 import ashui.components.code.CodeSyntax;
@@ -65,6 +67,8 @@ typedef CodeEditorProps = {
 	?disabled:IntoReactive<Bool>,
 	?onInput:String->Void,
 	?onSubmit:String->Void,
+	/** Called with each key press before the editor handles it; return true to keep the editor from it, as for F2, F12 or Ctrl+Space. It does not stop the event reaching others: `preventDefault` does that. **/
+	?onKey:KeyEvent->Bool,
 	/** Accessible name for the editing surface. **/
 	?label:String,
 	?id:String
@@ -163,7 +167,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			if (props.onInput != null) props.onInput(next);
 		};
 		e.onSubmit = props.onSubmit;
-		e.onKey = codeKey;
+		e.onKey = event -> (props.onKey != null && props.onKey(event)) || codeKey(event);
 		e.accept = s -> ~/\r\n|\r/g.replace(s, "\n");
 		phase = new Machine<CodePhase, CodeEvent>(Resting, (state, event) -> switch [state, event] {
 			case [_, Press]: Selecting;
@@ -664,6 +668,53 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public function focus():Void Focus.set(editing.interaction, true);
 	public function undo():Void restore(false);
 	public function redo():Void restore(true);
+	/**
+		Replaces each stretch `from` to `to` of the text by its `text`, all as one undo step: a rename, or what a formatter answers with.
+		The edits may come in any order, but must not overlap. The caret and the selection's anchor move with the text, to the end of
+		what replaces them when they were inside a stretch. It applies where the user could not type, in a read-only editor too.
+	**/
+	public function applyEdits(edits:Array<CodeEdit>):Void {
+		var old = value.get();
+		function clamp(offset:Int):Int
+			return Std.int(Math.max(0, Math.min(old.length, offset)));
+		var sorted = edits.copy();
+		sorted.sort((a, b) -> a.from != b.from ? a.from - b.from : a.to - b.to);
+		var parts:Array<CodePatch> = [], text = new StringBuf(), at = 0;
+		for (edit in sorted) {
+			var from = clamp(edit.from), to = Std.int(Math.max(from, clamp(edit.to)));
+			if (from < at)
+				throw "code edits overlap";
+			if (from == to && edit.text == "")
+				continue;
+			text.add(old.substring(at, from));
+			text.add(edit.text);
+			parts.push({from: from, removed: old.substring(from, to), inserted: edit.text});
+			at = to;
+		}
+		if (parts.length == 0)
+			return;
+		text.add(old.substr(at));
+		var next = text.toString();
+		function moved(offset:Int):Int {
+			var shift = 0;
+			for (part in parts) {
+				var end = part.from + part.removed.length;
+				if (offset <= part.from)
+					break;
+				if (offset < end)
+					return part.from + shift + part.inserted.length;
+				shift += part.inserted.length - part.removed.length;
+			}
+			return offset + shift;
+		}
+		var before:CodeSelection = {caret: editing.caret.get(), anchor: editing.anchor.get()}, after:CodeSelection = {caret: moved(before.caret), anchor: moved(before.anchor)};
+		history.recordParts(parts, before, after);
+		oldText = "";
+		knownValue = next;
+		value.set(next);
+		select(after.anchor, after.caret);
+		if (props.onInput != null) props.onInput(next);
+	}
 	function restore(redo:Bool):Void {
 		if (editing.readOnly || editing.interaction.disabled.get()) return;
 		if (knownValue != value.get()) { history.clear(); oldText = ""; knownValue = value.get(); return; }

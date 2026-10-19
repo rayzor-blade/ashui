@@ -450,6 +450,58 @@ class CodeComponents {
 		hint.select(0, 0); Keyboard.text(hintTree, "x"); hintSettle();
 		check("an edit closes it", hintOpen().length == 0);
 		hintDispose(); ashui.animation.AnimationScheduler.main.tick(1); hintTree.dispose();
+		// An app's keys come before the editor's.
+		var keyTree = new LayoutTree(), keyEditor = new Ref<CodeEditor>(), keyDispose:Void->Void = null, seen:Array<String> = [], taken = ["F2", "ArrowRight"];
+		var keyRoot = Owner.root(keyTree, stop -> {
+			keyDispose = stop;
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={keyEditor} language="haxe" value={"abc\ndef"} height={270}
+				onKey={event -> { var name = switch event.key { case Named(F2): "F2"; case Named(ArrowRight): "ArrowRight"; case Named(ArrowDown): "ArrowDown"; case Character(c): (event.control ? "Ctrl+" : "") + c; case _: "?"; }; seen.push(name); taken.indexOf(name) >= 0; }} /></div>;
+		});
+		function keySettle() { keyTree.flush(); keyTree.computeLayout(keyRoot.node, 760, 400); keyTree.flush(); }
+		keySettle(); keySettle();
+		var keyed = keyEditor.get();
+		keyed.focus(); keyed.select(0, 0); keySettle();
+		Keyboard.input(keyTree, key(Named(F2), F2)); keySettle();
+		check("a key the app takes reaches its hook and no further", seen.indexOf("F2") >= 0 && @:privateAccess keyed.value.get() == "abc\ndef");
+		Keyboard.input(keyTree, key(Named(ArrowRight), ArrowRight)); keySettle();
+		check("a key the app takes does not move the caret", keyed.editing.caret.get() == 0 && seen.indexOf("ArrowRight") >= 0);
+		Keyboard.input(keyTree, key(Named(ArrowDown), ArrowDown)); keySettle();
+		check("a key the app leaves is the editor's", keyed.editing.caret.get() > 0 && seen.indexOf("ArrowDown") >= 0, keyed.editing.caret.get());
+		Keyboard.input(keyTree, key(Character(" "), Space), window.Modifiers.State(false, true, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown)); keySettle();
+		check("Ctrl+Space comes to the hook", seen.indexOf("Ctrl+ ") >= 0, seen);
+		keyDispose(); keyTree.dispose();
+		// Edits from code are one undo step, however far apart they are.
+		var editTree = new LayoutTree(), editEditor = new Ref<CodeEditor>(), editDispose:Void->Void = null, edited:Array<String> = [];
+		var editSource = [for (i in 0...5000) 'var v$i = $i;'].join("\n");
+		var editRoot = Owner.root(editTree, stop -> {
+			editDispose = stop;
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={editEditor} language="haxe" value={editSource} height={270} onInput={t -> edited.push(t)} /></div>;
+		});
+		function editSettle() { editTree.flush(); editTree.computeLayout(editRoot.node, 760, 400); editTree.flush(); }
+		editSettle(); editSettle();
+		var many = editEditor.get();
+		function manyStart(n:Int):Int return many.document.lines[n].start;
+		var at3 = manyStart(3) + 4, at20 = manyStart(20) + 4, at4990 = manyStart(4990) + 4;
+		var start21 = manyStart(21);
+		many.select(start21 + 2, start21 + 6);
+		many.applyEdits([{from: at4990, to: at4990 + "v4990".length, text: "renamed"}, {from: at3, to: at3 + 2, text: "renamed"}, {from: at20, to: at20 + 3, text: "renamed"}]);
+		editSettle();
+		var renamed = @:privateAccess many.value.get();
+		check("edits from code, in any order, change each stretch", renamed.indexOf("var renamed = 3;") == manyStart(3) && renamed.indexOf("var renamed = 20;") > 0
+			&& renamed.indexOf("var renamed = 4990;") > 0 && renamed.indexOf("var v3 =") < 0 && edited.length == 1, edited.length);
+		check("the selection moves with the text", many.editing.anchor.get() == start21 + 2 + 9 && many.editing.caret.get() == start21 + 6 + 9, [many.editing.anchor.get(), many.editing.caret.get(), start21]);
+		many.undo(); editSettle();
+		check("one undo takes them all back, and the selection", @:privateAccess many.value.get() == editSource && many.editing.anchor.get() == start21 + 2);
+		many.redo(); editSettle();
+		check("one redo makes them again", @:privateAccess many.value.get() == renamed);
+		many.undo(); editSettle();
+		check("edits far apart in a long document are one step of a few bytes", @:privateAccess many.value.get() == editSource);
+		var refused = false;
+		try many.applyEdits([{from: 10, to: 20, text: "a"}, {from: 15, to: 25, text: "b"}]) catch (e:Dynamic) refused = true;
+		check("edits that overlap are refused", refused && @:privateAccess many.value.get() == editSource);
+		many.applyEdits([{from: 3, to: 3, text: ""}]);
+		check("an edit that changes nothing is none", @:privateAccess many.value.get() == editSource && edited.length == 4, edited.length);
+		editDispose(); editTree.dispose();
 		Sys.println('$checks checks: ALL PASSED');
 	}
 }
