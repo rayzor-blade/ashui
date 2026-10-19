@@ -14,9 +14,32 @@ class Work {
 		owner = callback == null ? null : sys.thread.Thread.current();
 		#end
 		wake = callback;
+		turn = late = false;
 	}
 
-	/** Call after queuing work; writes in the running UI turn need no wake. **/
+	/** Whether the host's loop is in the middle of a turn: its own thread's writes then need no wake. **/
+	static var turn = false;
+
+	/** Set by a notify in the loop's own turn, for the loop to ask before it sleeps. **/
+	static var late = false;
+
+	/** The host's loop starts a turn. **/
+	public static function begin():Void
+		turn = true;
+
+	/** The loop's flush takes what was queued so far. **/
+	public static function settle():Void
+		late = false;
+
+	/** The loop's turn is over: whether work was queued after its last `settle`, which another turn must take before it sleeps. **/
+	public static function end():Bool {
+		turn = false;
+		var left = late;
+		late = false;
+		return left;
+	}
+
+	/** Call after queuing work; the loop's own thread, in its turn, needs no wake, as the flush that ends the turn takes what it wrote. **/
 	public static inline function notify():Void {
 		var callback = wake;
 		if (callback != null) {
@@ -25,7 +48,10 @@ class Work {
 				deliver(callback);
 			else
 			#end
-			callback();
+			if (turn)
+				late = true;
+			else
+				callback();
 		}
 	}
 

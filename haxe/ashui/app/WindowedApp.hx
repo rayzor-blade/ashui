@@ -142,6 +142,9 @@ class WindowedApp {
 	/** Whether the last turn's animation ticks changed nothing drawn. **/
 	var idleTicks = false;
 
+	/** Whether the last turn drew a frame. **/
+	var drewLast = false;
+
 	/** How long the loop waits between animation ticks that change nothing drawn, in seconds. **/
 	static inline var IDLE_STEP = 0.05;
 
@@ -288,6 +291,8 @@ class WindowedApp {
 			// No wait when a frame is due; after a present, until its redraw;
 			// short ones while something animates; otherwise the loop sleeps
 			// on the window. Never past the next timer.
+			// What was queued after the last turn's flush needs a turn at once; the writes a tick made were taken by that flush.
+			var workLeft = ashui.core.Work.end() && !awaitingFrame;
 			var animating = scheduler.hasActive() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0));
 			var timer = scheduler.untilNextTimer();
 			var t0 = haxe.Timer.stamp();
@@ -299,7 +304,9 @@ class WindowedApp {
 			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame && t0 - refusedAt >= RETRY_FRAME;
 			// While a frame is awaited the wait ends with its redraw; animation steps when it comes.
 			// Animations that changed nothing drawn last turn, as those out of view, step slower, until one does or input comes.
-			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : 1 / 120) : Math.POSITIVE_INFINITY;
+			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : drewLast ? 0.0 : 1 / 120) : Math.POSITIVE_INFINITY;
+			if (workLeft)
+				timeout = 0;
 			#if ashui_hot_reload
 			// File watching uses a deadline only in builds that enable hot reload.
 			timeout = Math.min(timeout, 0.1);
@@ -311,6 +318,7 @@ class WindowedApp {
 			if (closeAt > 0)
 				timeout = Math.max(0, Math.min(timeout, closeAt - t0));
 			var event = due ? window.poll() : window.wait(timeout == Math.POSITIVE_INFINITY ? -1 : timeout);
+			ashui.core.Work.begin();
 			var t1 = haxe.Timer.stamp();
 			var handled = 0;
 			var polling = 0.0;
@@ -360,6 +368,8 @@ class WindowedApp {
 				continue;
 			}
 			var t2 = haxe.Timer.stamp();
+			ashui.core.Work.settle();
+			drewLast = false;
 			var changed = tree.flush();
 			idleTicks = animating && !changed && !dirty;
 			if (changed)
@@ -369,6 +379,7 @@ class WindowedApp {
 			if (dirty && !quitting && ashui.input.WindowState.visible.get() && haxe.Timer.stamp() - refusedAt >= RETRY_FRAME) {
 				dirty = false;
 				if (draw()) {
+					drewLast = true;
 					// Hit-test the new layout, including a still pointer. Hover
 					// changes can require another frame after this one.
 					if (ashui.input.Pointer.refresh(tree))
