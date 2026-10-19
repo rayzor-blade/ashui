@@ -151,11 +151,29 @@ class CanvasPainter {
 
 	public function new() {}
 
-	/** Frees what its 3D draws uploaded. **/
+	var disposed = false;
+
+	/** Frees what it built: its triangles and shapes, the data texture and bind group on the GPU, and what its 3D draws uploaded. It draws nothing after. **/
 	public function dispose():Void {
+		disposed = true;
 		if (releasing != null)
 			releasing.cancel();
 		releasing = null;
+		release();
+		if (group != null) {
+			group.destroy();
+			group = null;
+		}
+		if (view != null) {
+			view.destroy();
+			view = null;
+		}
+		if (texture != null) {
+			texture.destroy();
+			texture = null;
+		}
+		madeFor = null;
+		madeTransform = null;
 		if (scenes != null) {
 			scenes.dispose();
 			scenes = null;
@@ -163,6 +181,8 @@ class CanvasPainter {
 	}
 
 	public function play(frame:CanvasFrame, ctx:DrawContext):Void {
+		if (disposed)
+			return;
 		var t = frame.transform, m = madeTransform;
 		var moved = m == null || t.a != m.a || t.b != m.b || t.c != m.c || t.d != m.d || t.e != m.e || t.f != m.f;
 		var atlas = frame.images;
@@ -326,6 +346,8 @@ class CanvasPainter {
 		if (texture == null || needed > rows) {
 			if (texture != null)
 				texture.destroy();
+			if (view != null)
+				view.destroy();
 			rows = needed + (needed >> 1);
 			var extent = new GpuExtent3D(PathShader.ROW_TEXELS);
 			extent.height(rows);
