@@ -453,6 +453,23 @@ Use the [theme guide](themes.md) to change the values behind these classes.
 Application-specific styles go in declared CSS classes, which can be mixed
 with utilities in the same `class` attribute.
 
+## Responsive size
+
+`@media (max-width: …)` and `(max-height: …)` read the viewport in layout units, so a rule can change a layout where a window is
+small. To keep everything on screen without choosing what to hide, a window can instead lay its UI out in more units than it has
+pixels for, as a browser zoomed out does. A `WindowedApp` reads `--ui-zoom` on `:root`: a zoom of 0.8 lays the UI out in 1.25
+times as many units, drawn at the window's own resolution, so text and shapes stay sharp and pointer input follows.
+
+```css
+:root { --ui-zoom: 1; }
+@media (max-width: 1159px), (max-height: 879px) { :root { --ui-zoom: 0.9; } }
+@media (max-width: 1043px), (max-height: 791px) { :root { --ui-zoom: 0.8; } }
+```
+
+The `@media` rules that set `--ui-zoom`, and every other rule, read the window's own size, in the units a zoom of 1 would give,
+so a zoom cannot change what chose it. Of two rules that both hold, the later wins, so steps go from the largest window to the
+smallest. The zoom is kept between 0.25 and 4, and `WindowedApp.zoom` gives the one in force.
+
 ## Variants and reusable styles
 
 Utilities support `hover:`, `active:`, `focus:`, `focus-visible:`,

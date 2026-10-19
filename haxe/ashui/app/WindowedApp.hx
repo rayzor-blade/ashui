@@ -145,6 +145,28 @@ class WindowedApp {
 	/** Whether the last turn drew a frame. **/
 	var drewLast = false;
 
+	/**
+		How much smaller than the window's own size the layout is drawn: the root's `--ui-zoom`, which a stylesheet sets, under
+		`@media` rules that see the window's own size. A zoom of 0.8 lays the UI out in 1.25 times as many units, drawn at the window's
+		own resolution, as a browser zoomed out is; text and shapes stay sharp, and pointer input follows.
+	**/
+	public var zoom(default, null) = 1.0;
+
+	/** `ASHUI_ZOOM=<n>` uses that zoom whatever the stylesheet says, for scripted runs and benches that need a known layout; off when unset, safe either way. **/
+	final zoomOverride:Null<Float> = {
+		var z = Std.parseFloat(Sys.getEnv("ASHUI_ZOOM"));
+		Math.isNaN(z) || z <= 0 ? null : z;
+	};
+
+	/** The smallest and largest zoom taken from the stylesheet. **/
+	static inline var MIN_ZOOM = 0.25;
+
+	static inline var MAX_ZOOM = 4.0;
+
+	/** Device pixels to a layout unit: the window's scale, and the zoom. **/
+	inline function scale():Float
+		return window.scaleFactor() * zoom;
+
 	/** How long the loop waits between animation ticks that change nothing drawn, in seconds. **/
 	static inline var IDLE_STEP = 0.05;
 
@@ -224,10 +246,10 @@ class WindowedApp {
 	public function dragWith(press:ashui.input.Events.PointerEvent):Void {
 		if (window.dragWindow())
 			return;
-		// In logical pixels, as layout and setPosition are; the window's position reads in physical ones.
-		var scale = window.scaleFactor();
-		var startX = window.x() / scale, startY = window.y() / scale;
-		var fromX = startX + press.x, fromY = startY + press.y;
+		// In the window's own logical pixels, as setPosition is, which a layout unit is `zoom` of; the window's position reads in physical ones.
+		var factor = window.scaleFactor(), z = zoom;
+		var startX = window.x() / factor, startY = window.y() / factor;
+		var fromX = startX + press.x * z, fromY = startY + press.y * z;
 		var follow:Null<LayoutTree->Void> = null;
 		follow = t -> if (t == tree) {
 			var at = ashui.input.Pointer.at(tree);
@@ -235,7 +257,7 @@ class WindowedApp {
 				ashui.input.Pointer.hooks.remove(follow);
 				return;
 			}
-			var x = window.x() / scale + at.x, y = window.y() / scale + at.y;
+			var x = window.x() / factor + at.x * z, y = window.y() / factor + at.y * z;
 			window.setPosition(Math.round(startX + x - fromX), Math.round(startY + y - fromY));
 		};
 		ashui.input.Pointer.hooks.push(follow);
@@ -249,10 +271,29 @@ class WindowedApp {
 
 	/** Width and height in logical pixels, which the UI is laid out in. **/
 	public function logicalWidth():Int
-		return Math.round(window.width() / window.scaleFactor());
+		return Math.round(window.width() / scale());
 
 	public function logicalHeight():Int
-		return Math.round(window.height() / window.scaleFactor());
+		return Math.round(window.height() / scale());
+
+	/** Takes the zoom the stylesheet sets for the window's own size, which `@media` rules read, not the zoomed layout's: the zoom cannot flip with what it makes. **/
+	function syncZoom():Void {
+		var factor = window.scaleFactor();
+		var width = Math.round(window.width() / factor), height = Math.round(window.height() / factor);
+		offscreen.mediaWidth = width;
+		offscreen.mediaHeight = height;
+		ashui.css.Css.setViewport(width, height);
+		ashui.css.Css.update();
+		var text = ashui.css.Css.computed(ashui.css.Identity.of(tree, root.node.id), "--ui-zoom");
+		var next = text == null ? 1.0 : Std.parseFloat(text);
+		if (zoomOverride != null)
+			next = zoomOverride;
+		next = Math.isNaN(next) ? 1.0 : Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next));
+		if (next != zoom) {
+			zoom = next;
+			dirty = true;
+		}
+	}
 
 	function loop(build:Void->Element, onFrame:Null<(Int, Float) -> Void>):Void {
 		ashui.core.Work.listen(() -> {
@@ -275,7 +316,7 @@ class WindowedApp {
 				window.setImeAllowed(on);
 			}
 			if (area != null)
-				window.setImeCursorArea(area.x, area.y, area.width, area.height);
+				window.setImeCursorArea(area.x * zoom, area.y * zoom, area.width * zoom, area.height * zoom);
 		},
 			(a, b) -> a == b || (a != null && b != null && a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height));
 		configure();
@@ -403,7 +444,7 @@ class WindowedApp {
 						else if (t4 - statSince >= 1) {
 							inline function ms(s:Float)
 								return Std.string(Math.round(s * 10000) / 10);
-							Sys.println('[frames] ${statFrames} in ${ms(t4 - statSince)} ms at ${window.scaleFactor()}x: between ${ms(statGap / statFrames)} ms, at most ${ms(statGapMax)}; drawing ${ms(statDraw / statFrames)} ms, at most ${ms(statDrawMax)}; redraw waits that ran out ${statStalls}');
+							Sys.println('[frames] ${statFrames} in ${ms(t4 - statSince)} ms at ${scale()}x: between ${ms(statGap / statFrames)} ms, at most ${ms(statGapMax)}; drawing ${ms(statDraw / statFrames)} ms, at most ${ms(statDrawMax)}; redraw waits that ran out ${statStalls}');
 							statSince = t4;
 							statFrames = 0;
 							statGap = statGapMax = statDraw = statDrawMax = 0;
@@ -463,8 +504,8 @@ class WindowedApp {
 		if (readCursor)
 			switch window.takeCursorMove() {
 				case CursorMoved(x, y, _):
-					var scale = window.scaleFactor();
-					pendingMove = {x: x / scale, y: y / scale};
+					var s = scale();
+					pendingMove = {x: x / s, y: y / s};
 				case _:
 			}
 		if (pendingMove != null) {
@@ -487,9 +528,9 @@ class WindowedApp {
 			window.coalesceCursorMoves(0, 0, 0, 0);
 			return;
 		}
-		var scale = window.scaleFactor();
-		window.coalesceCursorMoves(Math.max(0, region.left * scale), Math.max(0, region.top * scale), Math.min(window.width(), region.right * scale),
-			Math.min(window.height(), region.bottom * scale));
+		var s = scale();
+		window.coalesceCursorMoves(Math.max(0, region.left * s), Math.max(0, region.top * s), Math.min(window.width(), region.right * s),
+			Math.min(window.height(), region.bottom * s));
 	}
 
 	function handle(event:window.Event):Void {
@@ -531,8 +572,8 @@ class WindowedApp {
 				// Keep already queued wheel input at its original pointer position (095fab4).
 				if (pendingWheel)
 					applyPointer(false);
-				var scale = window.scaleFactor();
-				pendingMove = {x: x / scale, y: y / scale};
+				var s = scale();
+				pendingMove = {x: x / s, y: y / s};
 			case CursorLeft(_):
 				ashui.input.Pointer.leave(tree);
 			case MouseInput(state, button, _):
@@ -561,9 +602,9 @@ class WindowedApp {
 						pendingWheelX += x * WHEEL_LINE;
 						pendingWheelY += y * WHEEL_LINE;
 					case PixelDelta(x, y):
-						var scale = window.scaleFactor();
-						pendingWheelX += x / scale;
-						pendingWheelY += y / scale;
+						var s = scale();
+						pendingWheelX += x / s;
+						pendingWheelY += y / s;
 				}
 				if (phase != TouchPhase.Moved)
 					applyPointer();
@@ -642,7 +683,8 @@ class WindowedApp {
 		var background = ThemeState.get().color(Background);
 		offscreen.clear = transparent ? 0 : background.rgb();
 		offscreen.clearAlpha = transparent ? 0 : background.a;
-		offscreen.scale = window.scaleFactor();
+		syncZoom();
+		offscreen.scale = scale();
 		offscreen.targetWidth = window.width();
 		offscreen.targetHeight = window.height();
 		offscreen.render(root, view, logicalWidth(), logicalHeight());

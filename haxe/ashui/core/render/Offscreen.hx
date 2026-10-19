@@ -88,6 +88,11 @@ class Offscreen {
 			overlays.push(inspector);
 	}
 
+	/** The size `@media` rules read when it is not the layout's, as a window's own size under a zoom. **/
+	public var mediaWidth:Null<Int> = null;
+
+	public var mediaHeight:Null<Int> = null;
+
 	/** An offscreen renderer on a device of its own. **/
 	public static function create(format:TextureFormat = Rgba8unorm):Offscreen {
 		var adapter = new GpuInstance().requestAdapter(Power.HighPerformance).await();
@@ -101,7 +106,7 @@ class Offscreen {
 	public function render(root:Element, view:GpuTextureView, width:Int, height:Int):Void {
 		var t0 = haxe.Timer.stamp();
 		// Before the flush, so @media rules for this size, and CSS just loaded or changed, apply in this frame.
-		ashui.css.Css.setViewport(width, height);
+		ashui.css.Css.setViewport(mediaWidth != null ? mediaWidth : width, mediaHeight != null ? mediaHeight : height);
 		ashui.css.Css.update();
 		root.tree.flush();
 		var t1 = haxe.Timer.stamp();
