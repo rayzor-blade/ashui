@@ -14,7 +14,7 @@
     "darmie"
   ],
   "version": "0.1.3",
-  "releasenote": "Coordinated small, medium and large control sizes. Centered NumberInput values with optional step buttons and wheel stepping. New NumberGauge and NumberRangeGauge controls with compact SVG grips. Numeric editing preserves parent scroll and momentum ownership; dialogs support cancellable dismissal and form submission.",
+  "releasenote": "A code editor: virtualized rows, gutter, minimap, decorations and markers, squiggles, completions, signature help and documentation popovers, and edits from code as one undo step. TreeItem makes its items when first opened. The icon element, Input icons, and <for> and <if> children in Select and Accordion. Coordinated control sizes, NumberInput and the number gauges. Uses ashui 0.1.3.",
   "classPath": "haxe",
   "dependencies": {
     "ashui": "0.1.3"

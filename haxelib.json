@@ -15,12 +15,12 @@
     "darmie"
   ],
   "version": "0.1.3",
-  "releasenote": "Expanded CSS and element coverage: sticky positioning, stacking, text decoration and shadows, text limits, image fitting and repeating backgrounds, table spans and form validity. Visual inspection and input replay tools. Idle windows sleep after unchanged state writes; paused canvases stop ticking.",
+  "releasenote": "Runs in a page: blinc_abi builds as a wasm side module that ships in the release, with ashui's own page, a bundled default font, and Fonts and Assets for a program's own files. Redraws only the parts of a frame that changed, and a GPU error no longer ends a window. Canvases can retain what they built and give it back when idle. A wide tree builds about 30 times faster and a keystroke in a long document costs half as much. Expanded CSS and element coverage, visual inspection and input replay tools, and idle windows that sleep.",
   "classPath": "haxe",
   "dependencies": {
     "hashlink": "",
     "tink_hxx": "",
-    "hlwgpu": "0.1.1",
-    "hlwindow": "0.3.0"
+    "hlwgpu": "0.2.0",
+    "hlwindow": "0.3.1"
   }
 }

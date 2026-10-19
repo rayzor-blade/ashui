@@ -10,15 +10,15 @@ on:
       hlwgpu_tag:
         description: hlwgpu release tag
         type: string
-        default: v0.1.1
+        default: v0.2.0
       hlwindow_tag:
         description: hlwindow release tag
         type: string
-        default: v0.3.0
+        default: v0.3.1
       hlavi_tag:
         description: hlavi release tag
         type: string
-        default: v0.1.0
+        default: v0.1.2
       ashui_tag:
         description: ashui release tag
         type: string
