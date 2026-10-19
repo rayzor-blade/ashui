@@ -129,22 +129,25 @@ class CodeDocument {
 		// Brackets in comments and strings never become folds. Keep nested regions,
 		// including when an outer fold is closed, so opening it restores its children.
 		brackets.clear();
-		var stack:Array<{line:Int, char:String, index:Int}> = [];
+		var stack:Array<{line:Int, char:Int, index:Int}> = [];
 		for (i in 0...lines.length) {
-			var line = lines[i], tokenIndex = 0, tokenCount = line.tokenCount;
-			for (column in 0...line.text.length) {
+			var line = lines[i], tokenIndex = 0, tokenCount = line.tokenCount, content = line.text;
+			for (column in 0...content.length) {
+				var c = StringTools.fastCodeAt(content, column);
+				// Only a bracket is looked at: the tokens are walked to it, and it is skipped inside a comment or a string.
+				var opens = c == "{".code || c == "[".code || c == "(".code, closes = c == "}".code || c == "]".code || c == ")".code;
+				if (!opens && !closes) continue;
 				while (tokenIndex < tokenCount && line.tokenTo(tokenIndex) <= column) tokenIndex++;
 				if (tokenIndex < tokenCount && line.tokenFrom(tokenIndex) <= column
 					&& (line.tokenKind(tokenIndex) == Comment || line.tokenKind(tokenIndex) == StringLiteral || line.tokenKind(tokenIndex) == MarkupText)) continue;
-				var c = line.text.charAt(column);
-				if (c == "{" || c == "[" || c == "(") stack.push({line: i, char: c, index: line.start + column});
-				else if ((c == "}" || c == "]" || c == ")") && stack.length > 0) {
+				if (opens) stack.push({line: i, char: c, index: line.start + column});
+				else if (stack.length > 0) {
 					var open = stack[stack.length - 1];
-					if (open.char == (c == "}" ? "{" : c == "]" ? "[" : "(")) {
+					if (open.char == (c == "}".code ? "{".code : c == "]".code ? "[".code : "(".code)) {
 						stack.pop();
 						brackets.set(open.index, line.start + column);
 						brackets.set(line.start + column, open.index);
-						if (open.line < i && open.char != "(") lines[open.line].foldEnd = i;
+						if (open.line < i && open.char != "(".code) lines[open.line].foldEnd = i;
 					}
 				}
 			}

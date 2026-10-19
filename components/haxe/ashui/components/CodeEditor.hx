@@ -156,7 +156,6 @@ class CodeEditor extends Component<CodeEditorProps> {
 		metrics = new CodeMetrics(document, syntax(), tabSize);
 		var e = editing = new TextEditing(value, true, 0);
 		e.metrics = metrics;
-		var shown = Computed.make(() -> e.display());
 		probe = new Text("", {wrap: false});
 		Identity.of(probe.tree, probe.node.id).addClasses(["ui-code-text", "ui-code-probe"]);
 		metrics.text = probe;
@@ -179,7 +178,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		phase.onExit(Selecting, _ -> e.release());
 		var readOnly = Computed.make(() -> !editable() || (props.readOnly != null && read(props.readOnly)));
 		new Watch(() -> readOnly.get(), on -> e.readOnly = on);
-		new Watch(() -> { var content = shown.get(); var highlighter = syntax(); {content: content, highlighter: highlighter}; }, next -> {
+		new Watch(() -> { var content = e.display(); var highlighter = syntax(); {content: content, highlighter: highlighter}; }, next -> {
 			if (knownValue != value.get()) { history.clear(); oldText = ""; knownValue = value.get(); }
 			metrics.syntax = next.highlighter;
 			metrics.prepare(next.content);
@@ -217,7 +216,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		new Watch(() -> { capacity.get(); rows.get(); }, _ -> distribute(rows.get(), capacity.get()));
 		var caret = Computed.make(() -> {
 			revision.get(); e.fontSize.get();
-			e.stopAt(e.displayCaret(), shown.get());
+			e.stopAt(e.displayCaret(), e.display());
 		});
 		var selections = Computed.make(() -> {
 			revision.get();
@@ -343,7 +342,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			// the restyle callback would cache positions for the previous font.
 			var changed = false;
 			if (fontDirty) {
-				fontDirty = false; fontRevision++; metrics.invalidate(); metrics.prepare(shown.get()); refresh(); changed = true;
+				fontDirty = false; fontRevision++; metrics.invalidate(); metrics.prepare(e.display()); refresh(); changed = true;
 			}
 			var bounds = tree.getBounds(pane.node);
 			// A retained, inactive tab has no layout box. Keep its last usable

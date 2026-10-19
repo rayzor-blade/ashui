@@ -32,6 +32,9 @@ class SignalString implements ISignal<String> {
 
 	public function set(val:String):Void {
 		BlincNative.blinc_signal_set_string(ptr, Utf8.encode(val));
+		// What was written is what a read finds, so the next read decodes nothing.
+		cached = val;
+		cachedVersion = BlincNative.blinc_signal_string_version(ptr);
 		Guard.check();
 		ashui.core.Work.notify();
 	}
