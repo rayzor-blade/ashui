@@ -220,7 +220,20 @@ class AnimationScheduler {
 		});
 		// Outside the lock: a ticker may add another.
 		var running = locked(() -> tickers.splice(0, tickers.length));
-		var kept = [for (ticker in running) if (!ticker.cancelled && ticker.callback(dt)) ticker];
+		// A ticker that throws is dropped and reported; the others, and the timers after, run as if it had not.
+		var kept = [];
+		for (ticker in running) {
+			var keep = false;
+			if (!ticker.cancelled)
+				try
+					keep = ticker.callback(dt)
+				catch (e:haxe.Exception)
+					report("a ticker", e);
+			if (keep)
+				kept.push(ticker);
+			else
+				ticker.finish();
+		}
 		locked(() -> {
 			var at = 0;
 			for (ticker in kept)
@@ -241,8 +254,15 @@ class AnimationScheduler {
 		});
 		for (t in due)
 			if (!t.cancelled)
-				t.callback();
+				try
+					t.callback()
+				catch (e:haxe.Exception)
+					report("a timer", e);
 	}
+
+	/** What a callback threw, said where the program's output is, once per tick it does so. **/
+	function report(what:String, e:haxe.Exception):Void
+		Sys.println('ashui: $what threw and was dropped: ${e.message}\n${e.stack}');
 
 	#if target.threaded
 	/** Ticks on a thread of its own every `interval` seconds until `stop`. **/
@@ -277,6 +297,13 @@ class Ticker {
 	@:allow(ashui.animation.AnimationScheduler)
 	public var cancelled(default, null) = false;
 
+	/** False once the scheduler has dropped it: it returned false, was cancelled or threw. A caller that keeps a flag for "my ticker is running" can check this instead. **/
+	public var running(default, null) = true;
+
+	@:allow(ashui.animation.AnimationScheduler)
+	function finish():Void
+		running = false;
+
 	@:allow(ashui.animation.AnimationScheduler)
 	function new(scheduler:AnimationScheduler, callback:Float->Bool) {
 		this.scheduler = scheduler;
@@ -285,6 +312,7 @@ class Ticker {
 
 	public function cancel():Void {
 		scheduler.cancelTicker(this);
+		running = false;
 	}
 }
 
