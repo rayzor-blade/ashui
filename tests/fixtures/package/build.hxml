@@ -11,4 +11,3 @@
 
 -cp tests/fixtures/package
 -main Consumer
--hl tests/bin/package-consumer.hl

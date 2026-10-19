@@ -206,7 +206,7 @@ jobs:
 
       - name: Compile a consumer and check automatic native staging
         run: |
-          haxe tests/fixtures/package/build.hxml
+          haxe tests/fixtures/package/build.hxml -hl tests/bin/package-consumer.hl
           cmp release/blinc_abi-linux-x86_64.hdll tests/bin/blinc_abi.hdll
 
       - name: Compile a web build and check that the page's library is staged

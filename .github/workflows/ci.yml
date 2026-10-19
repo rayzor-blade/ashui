@@ -69,4 +69,4 @@ jobs:
       - name: Compile every package through Haxelib
         # Source CI has no built native library; the release workflow checks
         # the same consumer with the actual packaged HDLL and installer.
-        run: haxe tests/fixtures/package/build.hxml -D ashui_no_hdll
+        run: haxe tests/fixtures/package/build.hxml -hl tests/bin/package-consumer.hl -D ashui_no_hdll
