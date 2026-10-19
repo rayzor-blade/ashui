@@ -132,6 +132,27 @@ await click(364, 556);
 await sleep(600);
 const stopped = (await audio())[0];
 check("the play key pauses it", !!stopped && stopped.paused);
+// The player's own animations follow the audio: the visualizer moves while it plays, rests while it is paused, and moves again
+// when it is resumed (it once stayed still after a resume, with the music playing).
+const moves = async (x, y, w, h) => {
+  const grab = async () => createHash("sha1").update((await send("Page.captureScreenshot", { format: "png", clip: { x, y, width: w, height: h, scale: 1 } })).data).digest("hex");
+  const first = await grab();
+  await sleep(500);
+  return first !== (await grab());
+};
+check("the visualizer rests while the music is paused", !(await moves(563, 615, 490, 20)));
+await click(364, 556);
+let resumed = false;
+for (let i = 0; i < 60 && !resumed; i++) {
+  await sleep(100);
+  const now = (await audio())[0];
+  resumed = !!now && !now.paused;
+}
+check("the music plays again", resumed);
+await sleep(1500);
+check("the visualizer moves while the music plays", await moves(563, 615, 490, 20));
+await click(364, 556);
+await sleep(600);
 
 // The scheme follows the system's: dark and light differ in how bright the page is.
 await click(844, 738);

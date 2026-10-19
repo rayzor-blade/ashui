@@ -74,7 +74,8 @@ class Player {
 	final machine:Machine<PlayerState, PlayerEvent>;
 	var native:Null<MediaPlayer> = null;
 	var frame:Null<VideoFrame> = null;
-	var running = false;
+	/** The ticker that follows the native player, while it has one; the scheduler says when it has dropped it. **/
+	var ticker:Null<ashui.animation.AnimationScheduler.Ticker> = null;
 	var generation = 0;
 	var nativeState = PlayerState.Empty;
 	var updateAt = 0.0;
@@ -306,19 +307,17 @@ class Player {
 		close();
 
 	function wake():Void {
-		if (running || native == null || disposed)
+		if ((ticker != null && ticker.running) || native == null || disposed)
 			return;
-		running = true;
 		var ticket = generation;
-		scheduler.addTicker(_ -> {
+		ticker = scheduler.addTicker(_ -> {
 			if (disposed || ticket != generation)
 				return false;
 			update();
 			var s = state.get();
-			var keep = native != null && (s == Seeking || s == Opening || s == Playing || s == Buffering);
-			if (ticket == generation)
-				running = keep;
-			return ticket == generation && keep;
+			// Playing is intended but the native player may not have started yet: it is followed until it says so, or stops.
+			var waiting = playIntent.get() && s != Ended && s != Failed && s != Closed && s != Empty;
+			return native != null && (waiting || s == Seeking || s == Opening || s == Playing || s == Buffering);
 		});
 	}
 
@@ -361,7 +360,7 @@ class Player {
 
 	function release():Void {
 		generation++;
-		running = false;
+		ticker = null;
 		nativeState = Empty;
 		playIntent.set(false);
 		if (native != null) {
