@@ -6,6 +6,9 @@ import ashui.components.code.CodeAnnotations.CodeMarker;
 import ashui.components.code.CodeDocument;
 import ashui.components.code.CodeDocument.CodeLine;
 import ashui.components.code.CodeHighlighter;
+import ashui.components.code.CodeHints;
+import ashui.components.code.CodeHints.CodeHint;
+import ashui.components.code.CodeHints.CodeRect;
 import ashui.components.code.CodeHistory;
 import ashui.components.code.CodeMetrics;
 import ashui.components.code.CodeMinimap;
@@ -48,6 +51,10 @@ typedef CodeEditorProps = {
 	?minimap:Bool,
 	/** Reserves a slot in the gutter, left of the line numbers, for what `markers` puts there and where a press calls `onGutterClick`. **/
 	?gutterMarkers:Bool,
+	/** Asked for a hint about the character at an offset once the pointer has rested on it; what it returns opens in a popover, and null leaves the popover to the titles of the decorations there. **/
+	?hover:Int->Null<CodeHint>,
+	/** Seconds the pointer rests on a character before `hover` is asked, 0.45 by default. **/
+	?hintDelay:Float,
 	/** The widest the minimap gets, 96 by default; it is a quarter of the editor's width when that is less. **/
 	?minimapWidth:Float,
 	/** Spaces per tab stop and indentation level, 4 by default. **/
@@ -86,6 +93,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public var metrics(default, null):CodeMetrics;
 	/** What the app marks in the text and gutter; `decorate` and `markers` are its way in. **/
 	public var annotations(default, null):CodeAnnotations;
+	var hints:Null<CodeHints> = null;
+	var gutterNow:Void->Float = () -> 0;
 	/** Called with a line, from 0, and the press, when the gutter's marker slot is pressed, whether or not the line has a marker (`gutterMarkers`). **/
 	public var onGutterClick:Null<(Int, ashui.input.Events.PointerEvent)->Void> = null;
 	final revision = Signal.make(0);
@@ -288,7 +297,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 		new Watch(() -> readOnly.get(), on -> identity.setAttribute("aria-readonly", on ? "true" : "false"));
 		var i = e.interaction = Interaction.of(pane.node).setFocusable(true);
 		if (props.disabled != null) i.setDisabled(props.disabled);
+		hints = new CodeHints({
+			tree: pane.tree, rectAt: rectAt, offsetAt: offsetAt, provide: props.hover, decorationsAt: offset -> annotations.decorationsAt(offset),
+			highlighter: name -> name == null ? syntax() : CodeSyntax.forLanguage(name), delay: props.hintDelay == null ? 0.45 : props.hintDelay
+		});
+		gutterNow = () -> gutter.get();
+		Owner.onCleanup(hints.dispose);
+		// What the popover is beside is no longer there once the text or the view moves.
+		new Watch(() -> { revision.get(); scroll.x.get(); scroll.y.get(); 0; }, _ -> hints.moved(), (_, _) -> false);
 		i.onPointerDown(p -> {
+			hints.hide();
 			if (p.button != Left) return;
 			phase.send(Press);
 			var at = point(p.x, p.y, gutter.get());
@@ -296,12 +314,14 @@ class CodeEditor extends Component<CodeEditorProps> {
 		});
 		i.onPointerMove(p -> if (phase.state.get() == Selecting) {
 			var at = point(p.x, p.y, gutter.get()); e.drag(at.x, at.y);
-		});
+		} else
+			hints.pointerAt(p.x, p.y));
+		i.onPointerLeave(_ -> hints.pointerLeft());
 		i.onPointerUp(_ -> phase.send(Release));
 		i.onKeyDown(e.key); i.onKeyUp(e.keyUp); i.onTextInput(e.type); i.onComposition(e.compose);
 		i.onFocus(_ -> { e.focus(); if (!editable() || e.readOnly) e.stopBlink(); });
-		i.onBlur(_ -> { phase.send(Blur); e.blur(); e.stopBlink(); });
-		e.onEscape = () -> Focus.clear(pane.tree);
+		i.onBlur(_ -> { phase.send(Blur); e.blur(); e.stopBlink(); hints.hide(); });
+		e.onEscape = () -> if (hints.isOpen()) hints.hide() else Focus.clear(pane.tree);
 		e.pageLines = () -> Std.int(Math.max(1, Math.floor(viewHeight.get() / metrics.lineHeight) - 1));
 			var live = true, editorTree = pane.tree, probeIdentity = Identity.of(probe.tree, probe.node.id);
 			var layout:LayoutTree->Bool = tree -> {
@@ -359,6 +379,45 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** The lines `owner`'s markers are on now, moved by the edits if it follows them. **/
 	public function markerLinesOf(owner:String):Array<Int>
 		return annotations.markerLinesOf(owner);
+
+	/** Where the character at `offset` is, in the window's coordinates; null when it is out of the view. **/
+	public function rectAt(offset:Int):Null<CodeRect> {
+		var b = pane == null ? null : pane.tree.getScrolledBounds(pane.node);
+		if (b == null)
+			return null;
+		var text = editing.display(), at = Std.int(Math.max(0, Math.min(offset, text.length))), stop = editing.stopAt(at, text);
+		var top = b.y + PAD + stop.line * metrics.lineHeight - scroll.y.get();
+		if (top + metrics.lineHeight <= b.y || top >= b.y + b.height)
+			return null;
+		var next = at < text.length && text.charAt(at) != "\n" ? editing.stopAt(at + 1, text) : stop;
+		return {x: b.x + gutterNow() + PAD + stop.x - scroll.x.get(), y: top, width: next.line == stop.line && next.x > stop.x ? next.x - stop.x : metrics.characterWidth, height: metrics.lineHeight};
+	}
+
+	/** The offset of the character under the point `(x, y)` in the window; -1 over the gutter, below the text or past the end of a line. **/
+	public function offsetAt(x:Float, y:Float):Int {
+		var b = pane == null ? null : pane.tree.getScrolledBounds(pane.node);
+		if (b == null || x < b.x + gutterNow() || x >= b.x + b.width || y < b.y || y >= b.y + b.height)
+			return -1;
+		var px = x - b.x + scroll.x.get() - gutterNow() - PAD, row = editing.lineAtY(y - b.y + scroll.y.get() - PAD);
+		if (row < 0 || row >= document.visible.length || px > editing.lineWidth(row))
+			return -1;
+		return editing.indexAt(Math.max(0, px - metrics.characterWidth / 2), row);
+	}
+
+	/** Opens `hint` in a popover at its range. `pinned`, it stays until `hideHint`, Escape, an edit or a scroll; otherwise it closes when the pointer leaves the range and the popover. **/
+	public function showHint(hint:CodeHint, pinned = false):Void
+		if (hints != null)
+			hints.show(hint, pinned);
+
+	public function hideHint():Void
+		if (hints != null)
+			hints.hide();
+
+	/** The offset of the character the pointer rests on, or -1; for an app that answers `hover` later and opens the popover with `showHint`. **/
+	public var hoverOffset(get, never):Int;
+
+	function get_hoverOffset():Int
+		return hints == null ? -1 : hints.hovered;
 
 	/** The decorations over the character at `offset`, for a hover's `title`. **/
 	public function decorationsAt(offset:Int):Array<CodeDecoration>

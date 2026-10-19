@@ -368,6 +368,76 @@ class CodeComponents {
 		check("a range whose text is deleted goes with it", note.decorationsOf("follow").length == 0);
 		note.onGutterClick = null;
 		noteDispose(); noteTree.dispose();
+		// The hints popover: position lookup, a hover that is asked once the pointer rests, decoration titles, and a hint opened from code.
+		var hintTree = new LayoutTree(), hintEditor = new Ref<CodeEditor>(), hintDispose:Void->Void = null, asked:Array<Int> = [];
+		var hintSource = [for (i in 0...40) 'var v$i = $i;'].join("\n");
+		var hintRoot = Owner.root(hintTree, stop -> {
+			hintDispose = stop;
+			var provide = (offset:Int) -> {
+				asked.push(offset);
+				var at = hintSource.indexOf("v3 =");
+				offset >= at && offset < at + 2 ? ({from: at, to: at + 2, signature: "var v3:Int\nvar v3Again:Int", docs: "First paragraph,\nstill the first.\n\nSecond paragraph.", className: null} : ashui.components.code.CodeHints.CodeHint) : null;
+			};
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={hintEditor} language="haxe" value={hintSource} height={270} hover={provide} /></div>;
+		});
+		function hintSettle() { hintTree.flush(); hintTree.computeLayout(hintRoot.node, 760, 400); hintTree.flush(); }
+		hintSettle(); hintSettle();
+		var hint = hintEditor.get();
+		function hintStart(n:Int):Int return hint.document.lines[n].start;
+		function hintOpen():Array<haxe.Int64> return Css.query(hintTree, hintTree.root.id, ".ui-code-hint");
+		var sample = hintStart(5) + 6, around = hint.rectAt(sample);
+		check("a character has a place in the window, and the place has the character", around != null && hint.offsetAt(around.x + around.width / 2, around.y + around.height / 2) == sample
+			&& hint.offsetAt(hint.rectAt(hintStart(9) + 2).x + 1, hint.rectAt(hintStart(9) + 2).y + 5) == hintStart(9) + 2, around);
+		check("nothing is at a point over the gutter or past the end of a line", hint.offsetAt(hint.rectAt(hintStart(5)).x - 30, around.y + 4) == -1 && hint.offsetAt(around.x + 400, around.y + 4) == -1);
+		hint.scroll.jumpTo(0, 400); hintSettle();
+		check("a character out of the view has no place", hint.rectAt(hintStart(0)) == null && hint.rectAt(hintStart(25)) != null);
+		hint.scroll.jumpTo(0, 0); hintSettle();
+		var over = hint.rectAt(hintStart(3) + 4);
+		Pointer.move(hintTree, over.x + 2, over.y + 5); hintSettle();
+		check("the hover is not asked before the pointer has rested", asked.length == 0 && hintOpen().length == 0);
+		ashui.animation.AnimationScheduler.main.tick(.2); hintSettle();
+		check("the hover is not asked early", asked.length == 0);
+		ashui.animation.AnimationScheduler.main.tick(.3); hintSettle();
+		check("the hover is asked once, for the character under the pointer", asked.join(",") == '${hintStart(3) + 4}', asked);
+		check("what the hover gives opens in a popover, signature and docs", hintOpen().length == 1
+			&& Css.query(hintTree, hintTree.root.id, ".ui-code-hint-line").length == 2 && Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length == 3
+			&& Css.query(hintTree, hintTree.root.id, ".ui-code-hint-gap").length == 1, [hintOpen().length, Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length]);
+		var popup = hintTree.getBounds(Identity.of(hintTree, hintOpen()[0]).node);
+		check("the popover is below the start of the range", Math.abs(popup.x - hint.rectAt(hintStart(3) + 4).x) < 2 && popup.y >= over.y + over.height);
+		// Staying on the range leaves it open; leaving it closes it a moment later.
+		var inside = hint.rectAt(hintStart(3) + 5);
+		Pointer.move(hintTree, inside.x + 1, inside.y + 5); ashui.animation.AnimationScheduler.main.tick(1); hintSettle();
+		check("the popover stays while the pointer is on its range", hintOpen().length == 1);
+		var elsewhere = hint.rectAt(hintStart(8) + 3);
+		Pointer.move(hintTree, elsewhere.x + 1, elsewhere.y + 5); hintSettle();
+		check("the popover stays a moment after the pointer leaves", hintOpen().length == 1);
+		ashui.animation.AnimationScheduler.main.tick(.3); hintSettle();
+		check("the popover closes after the pointer has left", hintOpen().length == 0);
+		ashui.animation.AnimationScheduler.main.tick(1); hintSettle();
+		check("a character the hover has nothing for opens nothing", hintOpen().length == 0);
+		// A decoration's title is a hint by itself, and may be several lines.
+		hint.decorate("problems", [{from: hintStart(12) + 4, to: hintStart(12) + 6, className: "ui-code-squiggle-error", title: "Unknown identifier\nDid you mean v12?"}]); hintSettle();
+		var flagged = hint.rectAt(hintStart(12) + 5);
+		Pointer.move(hintTree, flagged.x + 1, flagged.y + 5); ashui.animation.AnimationScheduler.main.tick(.6); hintSettle();
+		check("a decoration's title opens a popover, in its colour", hintOpen().length == 1 && Css.query(hintTree, hintTree.root.id, ".ui-code-hint-error").length == 1
+			&& Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length == 2);
+		// A hint opened from code stays until it is closed, whatever the pointer does.
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs: "Opened from code."}, true); hintSettle();
+		check("a hint opened from code replaces what is open", hintOpen().length == 1 && Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length == 1, [hintOpen().length, Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length, hint.hoverOffset]);
+		Pointer.move(hintTree, elsewhere.x + 1, elsewhere.y + 5); ashui.animation.AnimationScheduler.main.tick(2); hintSettle();
+		check("a pinned hint stays when the pointer is elsewhere", hintOpen().length == 1);
+		hint.scroll.jumpTo(0, 60); hintSettle();
+		check("scrolling closes it", hintOpen().length == 0);
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs: "Again."}, true); hintSettle();
+		hint.hideHint(); hintSettle();
+		check("hideHint closes it", hintOpen().length == 0);
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs: "Again."}, true); hintSettle();
+		hint.focus(); hint.editing.onEscape(); hintSettle();
+		check("Escape closes it", hintOpen().length == 0);
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs: "Again."}, true); hintSettle();
+		hint.select(0, 0); Keyboard.text(hintTree, "x"); hintSettle();
+		check("an edit closes it", hintOpen().length == 0);
+		hintDispose(); ashui.animation.AnimationScheduler.main.tick(1); hintTree.dispose();
 		Sys.println('$checks checks: ALL PASSED');
 	}
 }

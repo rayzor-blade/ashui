@@ -1219,6 +1219,19 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-minimap:hover .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-hover, color-mix(in srgb, var(--text-primary) 14%, transparent)); }
 .ui-code-minimap[data-dragging="true"] .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-active, color-mix(in srgb, var(--text-primary) 22%, transparent)); }
 .ui-code-minimap-probe { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+/* The popover of documentation and hints beside a range of the text. */
+.ui-code-hint {
+	flex-direction: column; gap: 8px; padding: 8px 12px; max-width: var(--ui-code-hint-width, 460px);
+	border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+	background: var(--ui-code-hint-bg, var(--surface-elevated)); color: var(--text-primary);
+}
+.ui-code-hint-error { border-left: 3px solid var(--ui-code-error, var(--error)); }
+.ui-code-hint-warning { border-left: 3px solid var(--ui-code-warning, var(--warning)); }
+.ui-code-hint-info { border-left: 3px solid var(--ui-code-info, var(--info)); }
+.ui-code-hint-signature, .ui-code-hint-docs { flex-direction: column; }
+.ui-code-hint-line { flex-direction: row; }
+.ui-code-hint-gap { height: 6px; }
+.ui-code-hint-text { font-size: var(--text-sm); color: var(--text-secondary); }
 /* What an app marks in the text (`decorate`) and in the gutter (`markers`): the classes it gives are its own, and these are the editor's. */
 .ui-code-decoration { position: absolute; pointer-events: none; }
 /* A squiggle is a wavy line along the bottom of the mark, drawn in its text colour. */
@@ -1262,24 +1275,24 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 }
 .ui-code-fold.ui-button:hover { color: var(--text-primary); background: var(--accent-subtle); }
 .ui-code-fold-hint { color: var(--text-tertiary); background: var(--accent-subtle); border-radius: var(--radius-sm); }
-.ui-code-token[data-token="plain"], .ui-code-token[data-token="markup-text"] { color: var(--text-primary); }
-.ui-code-token[data-token="tag"] { color: var(--ui-code-tag, #247e8a); }
-.ui-code-token[data-token="attribute"] { color: var(--ui-code-attribute, #8b45b2); }
-.ui-code-token[data-token="keyword"] { color: var(--ui-code-keyword, #8b45b2); }
-.ui-code-token[data-token="string"] { color: var(--ui-code-string, #267342); }
-.ui-code-token[data-token="comment"] { color: var(--ui-code-comment, var(--text-tertiary)); }
-.ui-code-token[data-token="number"] { color: var(--ui-code-number, #a35d11); }
-.ui-code-token[data-token="type"] { color: var(--ui-code-type, #247e8a); }
-.ui-code-token[data-token="function"] { color: var(--ui-code-function, #245fc7); }
-.ui-code-token[data-token="operator"] { color: var(--ui-code-operator, var(--text-secondary)); }
+.ui-code-token[data-token="plain"], .ui-code-token[data-token="markup-text"], .ui-code-hint-token[data-token="plain"], .ui-code-hint-token[data-token="markup-text"] { color: var(--text-primary); }
+.ui-code-token[data-token="tag"], .ui-code-hint-token[data-token="tag"] { color: var(--ui-code-tag, #247e8a); }
+.ui-code-token[data-token="attribute"], .ui-code-hint-token[data-token="attribute"] { color: var(--ui-code-attribute, #8b45b2); }
+.ui-code-token[data-token="keyword"], .ui-code-hint-token[data-token="keyword"] { color: var(--ui-code-keyword, #8b45b2); }
+.ui-code-token[data-token="string"], .ui-code-hint-token[data-token="string"] { color: var(--ui-code-string, #267342); }
+.ui-code-token[data-token="comment"], .ui-code-hint-token[data-token="comment"] { color: var(--ui-code-comment, var(--text-tertiary)); }
+.ui-code-token[data-token="number"], .ui-code-hint-token[data-token="number"] { color: var(--ui-code-number, #a35d11); }
+.ui-code-token[data-token="type"], .ui-code-hint-token[data-token="type"] { color: var(--ui-code-type, #247e8a); }
+.ui-code-token[data-token="function"], .ui-code-hint-token[data-token="function"] { color: var(--ui-code-function, #245fc7); }
+.ui-code-token[data-token="operator"], .ui-code-hint-token[data-token="operator"] { color: var(--ui-code-operator, var(--text-secondary)); }
 @media (prefers-color-scheme: dark) {
-	.ui-code-token[data-token="tag"] { color: var(--ui-code-tag, #76ccc6); }
-	.ui-code-token[data-token="attribute"] { color: var(--ui-code-attribute, #c7a0ee); }
-	.ui-code-token[data-token="keyword"] { color: var(--ui-code-keyword, #c7a0ee); }
-	.ui-code-token[data-token="string"] { color: var(--ui-code-string, #9ccc92); }
-	.ui-code-token[data-token="number"] { color: var(--ui-code-number, #e5b980); }
-	.ui-code-token[data-token="type"] { color: var(--ui-code-type, #76ccc6); }
-	.ui-code-token[data-token="function"] { color: var(--ui-code-function, #92baff); }
+	.ui-code-token[data-token="tag"], .ui-code-hint-token[data-token="tag"] { color: var(--ui-code-tag, #76ccc6); }
+	.ui-code-token[data-token="attribute"], .ui-code-hint-token[data-token="attribute"] { color: var(--ui-code-attribute, #c7a0ee); }
+	.ui-code-token[data-token="keyword"], .ui-code-hint-token[data-token="keyword"] { color: var(--ui-code-keyword, #c7a0ee); }
+	.ui-code-token[data-token="string"], .ui-code-hint-token[data-token="string"] { color: var(--ui-code-string, #9ccc92); }
+	.ui-code-token[data-token="number"], .ui-code-hint-token[data-token="number"] { color: var(--ui-code-number, #e5b980); }
+	.ui-code-token[data-token="type"], .ui-code-hint-token[data-token="type"] { color: var(--ui-code-type, #76ccc6); }
+	.ui-code-token[data-token="function"], .ui-code-hint-token[data-token="function"] { color: var(--ui-code-function, #92baff); }
 }
 .ui-chart[data-kind="pie"] { align-items: center; }
 .ui-chart[data-kind="pie"] > .ui-chart-plot { align-self: center; }
