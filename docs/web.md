@@ -104,6 +104,22 @@ program may grow to.
 It has no system fonts either; the next section says what a build carries. The
 debugging tools that write files, such as `MotionRecorder`, are not for a page.
 
+## When a page stops
+
+Open the page with `?debug` to see its log on the page, or `?watch` for the console alone. Once a second it says how
+the page's own animation frames are going:
+
+```
+[page] 60 animation frames in 1002 ms, longest gap 17 ms, 4 ms since the last, program memory 606 MB
+```
+
+Two loops of the page run an animation frame each time the browser shows one, for the life of the page: the window's, which
+hands the program the browser's redraw, and the audio's, which keeps a playing track's position. So a frozen page whose
+count goes on is the program stuck or waiting, not the browser; a count of 0 with `page hidden` is a browser not showing
+it; a long gap is this thread busy. For the program's side add `?env=ASHUI_FRAME_STATS=1`, a line a second of frames drawn
+and "redraw waits that ran out", the times it waited a second for the browser's redraw and gave up, and
+`?env=ASH_GC_STATS=1`, each collection: a heap that fills shows as `origin=large-exhaustion` and `freed=0`, over and over.
+
 ## Media
 
 A page plays audio through `hlavi`, which has a web build as hlwgpu and hlwindow do. Add it to the build as a desktop

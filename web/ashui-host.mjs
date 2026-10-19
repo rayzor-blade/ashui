@@ -9,7 +9,9 @@
 // what went wrong when something did.
 //
 // What the program writes goes to the browser's console, as worker.js wraps it.
-// The page shows it as well when it is opened with `?debug`.
+// The page shows it as well when it is opened with `?debug`, which also has the
+// page say each second how its own animation frames are going (`?watch` does
+// that alone, in the console): see `watchFrames`.
 
 const module = "./" + document.querySelector('meta[name="ashui-module"]').content;
 const name = module.slice(2);
@@ -22,6 +24,31 @@ const statusDetail = document.getElementById("status-detail");
 
 if (query.has("debug")) document.documentElement.classList.add("debug");
 
+// The program's memory, once it has made it (a threaded program's is shared, and this thread can read how big it is).
+let programMemory = null;
+
+// Counts the page's animation frames, not the program's: a page whose picture has stopped but whose frames go on is a program
+// that is stuck or waiting, and one whose frames have stopped is a browser that is not showing the page (hidden, or this
+// thread busy). Two loops here always run, the window's and the audio's, so the frames do not stop with the program.
+const watchFrames = (say) => {
+  let count = 0, worst = 0, last = performance.now(), since = last;
+  const tick = (now) => {
+    count++;
+    worst = Math.max(worst, now - last);
+    last = now;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  setInterval(() => {
+    const now = performance.now();
+    const memory = programMemory ? `, program memory ${Math.round(programMemory.buffer.byteLength / 1048576)} MB` : "";
+    say(`[page] ${count} animation frames in ${Math.round(now - since)} ms, longest gap ${Math.round(worst)} ms, ${Math.round(now - last)} ms since the last${document.hidden ? ", page hidden" : ""}${memory}`);
+    count = 0;
+    worst = 0;
+    since = now;
+  }, 1000);
+};
+
 const LOG_LINES = 1000;
 const write = (text, kind) => {
   const line = document.createElement("span");
@@ -32,6 +59,10 @@ const write = (text, kind) => {
   if (out.parentElement && document.documentElement.classList.contains("debug")) out.scrollTop = out.scrollHeight;
 };
 const written = (data) => write(data.text, data.kind === "err" ? "err" : data.kind === "meta" ? "meta" : "");
+if (query.has("debug") || query.has("watch")) watchFrames((text) => {
+  console.info(text);
+  if (query.has("debug")) write(text, "meta");
+});
 
 // What the page says while the program starts, and for how long it may take to before the page says more.
 const SLOW = 12000;
@@ -166,6 +197,7 @@ worker.onmessage = ({ data }) => {
   // program's memory, the address it named and the canvas.
   if (data.kind === "spawn-agent") {
     if (data.name === "gpu") phase = "Drawing the first frame";
+    if (data.memory instanceof WebAssembly.Memory && !programMemory) programMemory = data.memory;
     import(new URL(`./${data.name}.mjs`, location.href))
       .then((shim) => shim.start({ memory: data.memory, address: data.address, canvas: screen, report: fail }))
       .catch((e) => fail(`${data.name} did not start`, e && e.message ? e.message : String(e)));
