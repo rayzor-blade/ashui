@@ -84,6 +84,12 @@ class GpuErrorPixels {
 		off.render(root, view, 320, 240);
 		check("and the next frame is clean", off.failedFrames == before + 1, off.failedFrames);
 
+		// A canvas that is not asked to retain what it built gives it back once it has not been built for a while.
+		var painters = [for (slot => canvas in @:privateAccess ashui.ui.Canvas.bySlot) @:privateAccess canvas.painter];
+		check("a canvas holds its triangles while it is being built", painters.length == 1 && @:privateAccess painters[0].mesh.vertexCount() > 0, painters.length);
+		ashui.animation.AnimationScheduler.main.tick(3);
+		check("and gives them back after a while", @:privateAccess painters[0].mesh.vertexCount() == 0);
+
 		Css.remove(sheet);
 		dispose();
 		tree.dispose();

@@ -173,7 +173,8 @@ class CodeMinimap {
 			}
 		}
 
-		var canvas:Canvas = <canvas widthPercent={1} heightPercent={1} draw={draw} retain={true} />;
+		// Not retained: once drawn, the strip is shown from the GPU, and the triangles of a long file would stay in the editor's memory.
+		var canvas:Canvas = <canvas widthPercent={1} heightPercent={1} draw={draw} />;
 		var dragging = Signal.make(false);
 
 		function span():Float {
