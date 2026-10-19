@@ -100,6 +100,17 @@ class WindowedApp {
 		&& path != "" ? sys.io.File.write(path, false) : null;
 	};
 
+	/** `ASHUI_FRAME_STATS=1` prints a line a second: frames drawn, the time between them and each one's drawing, and the waits for a redraw that ran out; off when unset, safe either way. **/
+	final frameStats = Sys.getEnv("ASHUI_FRAME_STATS") == "1";
+
+	var statSince = 0.0;
+	var statFrames = 0;
+	var statGap = 0.0;
+	var statGapMax = 0.0;
+	var statDraw = 0.0;
+	var statDrawMax = 0.0;
+	var statStalls = 0;
+
 	/** `ASHUI_WINDOW_SECONDS=<n>` closes the window after that many seconds, for benches and scripted runs; off when unset. **/
 	final closeAfter:Float = {
 		var s = Std.parseFloat(Sys.getEnv("ASHUI_WINDOW_SECONDS"));
@@ -280,8 +291,10 @@ class WindowedApp {
 			var animating = scheduler.hasActive() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0));
 			var timer = scheduler.untilNextTimer();
 			var t0 = haxe.Timer.stamp();
-			if (awaitingFrame && t0 - awaitingSince > FRAME_WAIT_LIMIT)
+			if (awaitingFrame && t0 - awaitingSince > FRAME_WAIT_LIMIT) {
 				awaitingFrame = false;
+				statStalls++;
+			}
 			// After the surface gave no frame, the next try waits a little, rather than spinning while it has none to give.
 			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame && t0 - refusedAt >= RETRY_FRAME;
 			// While a frame is awaited the wait ends with its redraw; animation steps when it comes.
@@ -367,6 +380,25 @@ class WindowedApp {
 						Sys.println("ashui: ready");
 					#end
 					var t4 = haxe.Timer.stamp();
+					if (frameStats) {
+						var gap = t4 - presented, drew = t4 - t3;
+						statFrames++;
+						statGap += gap;
+						statGapMax = Math.max(statGapMax, gap);
+						statDraw += drew;
+						statDrawMax = Math.max(statDrawMax, drew);
+						if (statSince == 0)
+							statSince = t4;
+						else if (t4 - statSince >= 1) {
+							inline function ms(s:Float)
+								return Std.string(Math.round(s * 10000) / 10);
+							Sys.println('[frames] ${statFrames} in ${ms(t4 - statSince)} ms at ${window.scaleFactor()}x: between ${ms(statGap / statFrames)} ms, at most ${ms(statGapMax)}; drawing ${ms(statDraw / statFrames)} ms, at most ${ms(statDrawMax)}; redraw waits that ran out ${statStalls}');
+							statSince = t4;
+							statFrames = 0;
+							statGap = statGapMax = statDraw = statDrawMax = 0;
+							statStalls = 0;
+						}
+					}
 					if (frameLog != null) {
 						var o = offscreen.timings;
 						inline function ms(s:Float)
