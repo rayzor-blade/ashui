@@ -23,7 +23,7 @@ private class Sprung {
 	public final value:Signal<Float>;
 
 	final spring:AnimatedValue;
-	var ticking = false;
+	var ticker:Null<ashui.animation.AnimationScheduler.Ticker> = null;
 
 	public function new(initial:Float, config:SpringConfig) {
 		value = Signal.make(initial);
@@ -36,15 +36,12 @@ private class Sprung {
 		if (!spring.isAnimating() && Math.abs(value.get() - target) < 1e-6)
 			return;
 		spring.setTarget(target);
-		if (ticking)
+		// One ticker follows the spring; if the scheduler has dropped it, another is made.
+		if (ticker != null && ticker.running)
 			return;
-		ticking = true;
-		AnimationScheduler.main.addTicker(_ -> {
+		ticker = AnimationScheduler.main.addTicker(_ -> {
 			value.set(spring.get());
-			if (spring.isAnimating())
-				return true;
-			ticking = false;
-			return false;
+			return spring.isAnimating();
 		});
 	}
 
