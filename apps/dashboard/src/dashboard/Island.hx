@@ -87,8 +87,10 @@ class Island {
 	/** Bars rising and falling with the sound, as a player shows sound playing; still and low when nothing plays. **/
 	static function equalizer(m:Model, music:Music):DrawContext->Void
 		return ctx -> {
-			m.clock.get();
 			var playing = music.playing();
+			// Drawn again each frame only while there is sound to follow; still, it leaves the window at rest.
+			if (playing)
+				m.clock.get();
 			var position = music.livePosition();
 			for (i in 0...4) {
 				var level = playing ? 0.12 + 0.88 * music.level(2 + i * 3, position) : 0.12;

@@ -33,10 +33,11 @@ class MediaView {
 	function bars(width:Float, height:Float):DrawContext->Void
 		return ctx -> {
 			follow();
-			m.clock.get();
 			var primary = primary();
 			var n = Music.BANDS, gap = 5.0, w = (width - gap * (n - 1)) / n;
 			var playing = music.playing();
+			if (playing)
+				m.clock.get();
 			var position = music.livePosition();
 			for (i in 0...n) {
 				var level = playing ? 0.04 + 0.96 * music.level(i, position) : 0.04;
