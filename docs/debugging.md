@@ -77,3 +77,5 @@ A frame that has a backdrop filter is drawn into a layer that stays from one fra
 differs from it in only a few records or canvases, only the boxes of what changed are drawn again; the rest of the layer
 is kept. `ASHUI_DAMAGE=0` turns this off, to compare. `offscreen.drew` says how the last frame was drawn: `full`, `none`,
 or the rectangles drawn again.
+The records the frame is drawn from go to the GPU the same way: of the rows of the records texture, only those from the first
+that changed to the last, not all of them, are written. `ASHUI_DIFF_UPLOAD=0` writes them all, to compare.

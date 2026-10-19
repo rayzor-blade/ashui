@@ -92,6 +92,15 @@ class Offscreen {
 	inline function set_damage(v:Bool):Bool
 		return renderer.damage = v;
 
+	/** Whether only the rows of the records that changed are sent to the GPU each frame (see `Renderer.diffUpload`). **/
+	public var diffUpload(get, set):Bool;
+
+	inline function get_diffUpload():Bool
+		return renderer.diffUpload;
+
+	inline function set_diffUpload(v:Bool):Bool
+		return renderer.diffUpload = v;
+
 	/** An offscreen renderer on `device`, drawing into textures in `format`. **/
 	public function new(device:GpuDevice, format:TextureFormat = Rgba8unorm) {
 		this.device = device;

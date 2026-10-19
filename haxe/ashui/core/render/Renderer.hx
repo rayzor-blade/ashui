@@ -593,7 +593,7 @@ class Renderer {
 			// Whole rows: the list's bytes hold whole rows of records, so the last is complete.
 			var rows = Math.ceil(list.stored / DisplayList.RECORDS_PER_ROW);
 			reserve(rows);
-			queue.writeTexture(records, list.bytes, DisplayList.ROW_TEXELS, rows, DisplayList.ROW_TEXELS * 16);
+			sendRecords(queue, list.bytes, rows);
 		}
 		var encoder = device.encoder();
 		// A backdrop filter reads what is drawn under it, which a window's surface does not allow:
@@ -976,6 +976,59 @@ class Renderer {
 		return made;
 	}
 
+	/** Whether only the rows of the records texture that differ from what it holds are written, not all of them; `ASHUI_DIFF_UPLOAD=0` turns it off, for comparing. **/
+	public var diffUpload = Sys.getEnv("ASHUI_DIFF_UPLOAD") != "0";
+
+	/** What the records texture holds, as last written, and how many of its rows. **/
+	var recordsSent:Null<haxe.io.Bytes> = null;
+
+	var recordsSentRows = 0;
+
+	/** Writes `rows` rows of `bytes` to the records texture: from the first row that differs from what it holds to the last. **/
+	function sendRecords(queue:gpu.GpuQueue, bytes:haxe.io.Bytes, rows:Int):Void {
+		var rowBytes = DisplayList.ROW_TEXELS * 16;
+		var from = 0, to = rows;
+		if (diffUpload && recordsSent != null && recordsSentRows > 0) {
+			var now:hl.Bytes = bytes, was:hl.Bytes = recordsSent;
+			var shared = rows < recordsSentRows ? rows : recordsSentRows;
+			while (from < shared && now.compare(from * rowBytes, was, from * rowBytes, rowBytes) == 0)
+				from++;
+			if (from == rows) {
+				recordsSentRows = rows;
+				return;
+			}
+			// Rows past what it held are new; of the rest, the last that differs ends it.
+			if (rows <= recordsSentRows)
+				while (to > from && now.compare((to - 1) * rowBytes, was, (to - 1) * rowBytes, rowBytes) == 0)
+					to--;
+		}
+		if (to - from == rows)
+			queue.writeTexture(records, bytes, DisplayList.ROW_TEXELS, rows, rowBytes);
+		else {
+			var origin = new gpu.GpuOrigin3D();
+			origin.y(from);
+			var destination = new gpu.GpuTexelCopyTextureInfo(records);
+			destination.origin(origin);
+			var layout = new gpu.GpuTexelCopyBufferLayout();
+			layout.offset(haxe.Int64.ofInt(from * rowBytes));
+			layout.bytesPerRow(rowBytes);
+			layout.rowsPerImage(to - from);
+			var extent = new gpu.GpuExtent3D(DisplayList.ROW_TEXELS);
+			extent.height(to - from);
+			queue.writeTextureWith(destination, bytes, layout, extent);
+		}
+		if (diffUpload) {
+			if (recordsSent == null || recordsSent.length < rows * rowBytes) {
+				var bigger = haxe.io.Bytes.alloc(rows * rowBytes + (rows * rowBytes >> 1));
+				if (recordsSent != null)
+					bigger.blit(0, recordsSent, 0, recordsSent.length);
+				recordsSent = bigger;
+			}
+			recordsSent.blit(from * rowBytes, bytes, from * rowBytes, (to - from) * rowBytes);
+			recordsSentRows = rows;
+		}
+	}
+
 	/** Grows the records texture to `rows` rows, and binds each pass to it. **/
 	function reserve(rows:Int):Void {
 		if (rows <= recordRows)
@@ -985,6 +1038,8 @@ class Renderer {
 			records.destroy();
 		}
 		recordRows = rows + (rows >> 1) + 1;
+		// The new texture holds nothing yet.
+		recordsSentRows = 0;
 		var size = new GpuExtent3D(DisplayList.ROW_TEXELS);
 		size.height(recordRows);
 		records = device.texture(new GpuTextureDescriptor(size, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));

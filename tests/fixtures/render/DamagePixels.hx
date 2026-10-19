@@ -61,6 +61,7 @@ class DamagePixels {
 		damaged.clearAlpha = whole.clearAlpha = 1.0;
 		damaged.clear = whole.clear = 0xffffff;
 		whole.damage = false;
+		whole.diffUpload = false;
 		var seen = new Map<String, Int>();
 		for (scale in [1, 2]) {
 			damaged.scale = whole.scale = scale;

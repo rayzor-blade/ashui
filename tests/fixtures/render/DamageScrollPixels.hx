@@ -64,6 +64,7 @@ class DamageScrollPixels {
 		damaged.clearAlpha = whole.clearAlpha = 1.0;
 		damaged.clear = whole.clear = 0xffffff;
 		whole.damage = false;
+		whole.diffUpload = false;
 		function scroll(y:Float) {
 			// Not a scroll container until the first layout.
 			var scrolling = ashui.input.Scroll.of(listRef.get().node);
