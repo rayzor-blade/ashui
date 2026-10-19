@@ -12,6 +12,7 @@ import ashui.components.code.CodeHints;
 import ashui.components.code.CodeHints.CodeHint;
 import ashui.components.code.CodeHints.CodeRect;
 import ashui.components.code.CodeHistory;
+import ashui.components.code.CodeEditorState;
 import ashui.components.code.CodeHistory.CodeEdit;
 import ashui.components.code.CodeHistory.CodePatch;
 import ashui.components.code.CodeMetrics;
@@ -40,6 +41,8 @@ import ashui.ui.TextCaret;
 import ashui.ui.TextEditing;
 
 typedef CodeEditorProps = {
+	/** Persistent document/history/navigation data. Use instead of `value` to release and recreate the view. **/
+	?state:CodeEditorState,
 	/** A shared signal, initial string, or derived source. Line endings should be LF. **/
 	?value:IntoReactive<String>,
 	/** haxe/hxx, javascript/js/jsx, typescript/ts/tsx, rust, json, css, python/py, lua or plain. **/
@@ -93,6 +96,7 @@ private typedef DecorationBox = {x:Single, top:Single, width:Single, height:Sing
 **/
 class CodeEditor extends Component<CodeEditorProps> {
 	public var value(default, null):Signal<String>;
+	public var state(default, null):CodeEditorState;
 	public var editing(default, null):TextEditing;
 	public var document(default, null):CodeDocument;
 	public var scroll(default, null):Scroll;
@@ -108,7 +112,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 	final viewHeight = Signal.make(320.0);
 	final viewWidth = Signal.make(600.0);
 	final boxWidth = Signal.make(600.0);
-	final history = new CodeHistory();
+	var history(get, never):CodeHistory;
+	inline function get_history():CodeHistory return state.history;
 	var pane:Div;
 	var probe:Text;
 	var cachedRows:Array<Row> = [];
@@ -123,7 +128,9 @@ class CodeEditor extends Component<CodeEditorProps> {
 	final slotKinds:Array<Array<String>> = [];
 	var oldText = "";
 	var oldSelection:CodeSelection;
-	var knownValue = "";
+	var knownValue(get, set):String;
+	inline function get_knownValue():String return state.knownValue;
+	inline function set_knownValue(next:String):String return state.knownValue = next;
 	var tabSize = 4;
 	var lastFont = "";
 	var fontRevision = 0;
@@ -142,18 +149,25 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	function render():Element {
 		Library.use();
-		value = switch props.value {
+		if (props.state != null && props.value != null) throw "CodeEditor accepts state or value, not both";
+		value = props.state != null ? props.state.value : switch props.value {
 			case null: Signal.make("");
 			case Const(v): Signal.make(v);
 			case Bound(s): s;
 			case Derived(c): var s = Signal.make(c.get()); new Watch(() -> c.get(), v -> s.set(v)); s;
 		}
+		state = props.state == null ? new CodeEditorState(value) : props.state;
+		var stateToken = state.resume();
+		if (knownValue != value.get()) { history.clear(); knownValue = value.get(); }
 		var language:IntoReactive<String> = props.language == null ? "plain" : props.language;
 		var syntax = () -> props.highlighter != null ? props.highlighter : CodeSyntax.forLanguage(read(language));
 		tabSize = Std.int(Math.max(1, Math.min(16, props.tabSize == null ? 4 : props.tabSize)));
-		document = new CodeDocument(value.get(), syntax());
-		annotations = new CodeAnnotations(document);
-		var annotatedText = value.get();
+		if (state.document == null) {
+			state.document = new CodeDocument(value.get(), syntax());
+			state.annotations = new CodeAnnotations(state.document);
+		}
+		document = state.document;
+		annotations = state.annotations;
 		metrics = new CodeMetrics(document, syntax(), tabSize);
 		var e = editing = new TextEditing(value, true, 0);
 		e.metrics = metrics;
@@ -161,6 +175,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 		Identity.of(probe.tree, probe.node.id).addClasses(["ui-code-text", "ui-code-probe"]);
 		metrics.text = probe;
 		e.bindText(probe);
+		e.caret.set(Std.int(Math.min(value.get().length, state.caret)));
+		e.anchor.set(Std.int(Math.min(value.get().length, state.anchor)));
 		knownValue = value.get();
 		e.onBeforeInput = () -> { oldText = value.get(); oldSelection = {caret: e.caret.get(), anchor: e.anchor.get()}; };
 		e.onInput = next -> {
@@ -183,7 +199,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			if (knownValue != value.get()) { history.clear(); oldText = ""; knownValue = value.get(); }
 			metrics.syntax = next.highlighter;
 			metrics.prepare(next.content);
-			if (annotatedText != value.get()) { annotations.edited(annotatedText, value.get()); annotatedText = value.get(); }
+			if (state.annotatedText != value.get()) { annotations.edited(state.annotatedText, value.get()); state.annotatedText = value.get(); }
 			var length = value.get().length;
 			if (e.caret.get() > length) e.caret.set(length);
 			if (e.anchor.get() > length) e.anchor.set(length);
@@ -288,6 +304,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 		</div>;
 		pane = Library.part("ui-code-viewport", null, null, [content]);
 		scroll = Scroll.attach(pane.node, true, true);
+		var savedX = state.scrollX, savedY = state.scrollY;
+		var restoringScroll = savedX != 0 || savedY != 0;
+		state.attach(stateToken, () -> {
+			state.caret = e.caret.get(); state.anchor = e.anchor.get();
+			state.scrollX = restoringScroll ? savedX : scroll.x.get();
+			state.scrollY = restoringScroll ? savedY : scroll.y.get();
+		});
 		refresh();
 		var strip:Array<Element> = [pane];
 		if (props.minimap == true)
@@ -351,6 +374,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 			if (bounds == null || bounds.width <= 0 || bounds.height <= 0) return changed;
 			if (viewHeight.get() != bounds.height) { viewHeight.set(bounds.height); changed = true; }
 			if (viewWidth.get() != bounds.width) { viewWidth.set(bounds.width); changed = true; }
+			if (restoringScroll) {
+				restoringScroll = false;
+				scroll.jumpTo(savedX, savedY); changed = true;
+			}
 			var outer = tree.getBounds(box.node);
 			if (outer != null && outer.width > 0 && boxWidth.get() != outer.width) { boxWidth.set(outer.width); changed = true; }
 			return changed;
@@ -363,11 +390,12 @@ class CodeEditor extends Component<CodeEditorProps> {
 		Css.restyled.push(restyle);
 		Owner.onCleanup(() -> {
 				live = false;
+				state.detach(stateToken);
 				// Compare callback environments too: editor and viewer closures share
 				// a function body, and generic Array.remove can remove the other one (3e75041).
 				for (index in 0...LayoutTree.layoutHooks.length) if (Reflect.compareMethods(LayoutTree.layoutHooks[index], layout)) { LayoutTree.layoutHooks.splice(index, 1); break; }
 				for (index in 0...Css.restyled.length) if (Reflect.compareMethods(Css.restyled[index], restyle)) { Css.restyled.splice(index, 1); break; }
-			e.stopBlink(); metrics.invalidate(); history.clear(); cachedRows = [];
+			e.stopBlink(); metrics.invalidate(); cachedRows = [];
 		});
 		new Watch(() -> { revision.get(); e.caret.get(); e.anchor.get(); caret.get(); 0; }, _ -> reveal(gutter.get()), (_, _) -> false);
 		new Watch(() -> e.showsCaret() && !readOnly.get(), on -> on ? e.restartBlink() : e.stopBlink());
