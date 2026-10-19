@@ -31,14 +31,22 @@ class NavigateView {
 		this.screen = screen;
 	}
 
-	function view():DrawContext->Void
+	/** The streets: drawn again only for another size, scheme or zoom. **/
+	function streets():DrawContext->Void
 		return ctx -> {
 			follow();
-			// The moving light reads the clock, so with the page closed the map stands still and is not drawn again each frame.
+			map.base(ctx, ctx.width, ctx.height, 36, light(), m.zoom.get());
+		};
+
+	/** The route, the chargers and the car, which the moving light and the chosen charger change. **/
+	function route():DrawContext->Void
+		return ctx -> {
+			follow();
+			// The moving light reads the clock, so with the page closed it stands still and is not drawn again each frame.
 			var open = m.tab.get() == Navigate;
 			var free = [GREEN, AMBER, muted()];
-			map.draw(ctx, ctx.width, ctx.height, 36, light(), primary(), free, open && m.guiding.get() ? (m.clock.get() * 32) % 16 : 0, m.destination.get(),
-				m.zoom.get(), m.guiding.get());
+			map.route(ctx, ctx.width, ctx.height, 36, primary(), free, open && m.guiding.get() ? (m.clock.get() * 32) % 16 : 0, m.destination.get(), m.zoom.get(),
+				m.guiding.get());
 		};
 
 	function zoomKey(document:ashui.svg.Icon, by:Float):Element
@@ -117,7 +125,8 @@ class NavigateView {
 		var width = Computed.make(() -> Math.max(200.0, screen.width.get() - 48 - (screen.width.get() >= 820 ? 376.0 : 0.0)));
 		var left = Computed.make(() -> m.tab.get() == Navigate ? 24.0 : -(width.get() + 400.0));
 		return <div class="dash-glass" position={Absolute} left={left} top={78} bottom={100} width={width}>
-			<canvas widthPercent={1} heightPercent={1} draw={view()} retain={true} />
+			<canvas widthPercent={1} heightPercent={1} draw={streets()} retain={true} />
+			<canvas position={Absolute} left={0} top={0} widthPercent={1} heightPercent={1} draw={route()} pointerEvents={PointerEvents.None} />
 			<div position={Absolute} right={16} bottom={16} flexDirection={Column} gap={8}>{zoomKey(Remix.ADD_LINE, 1.35)}{zoomKey(Remix.SUBTRACT_LINE, 1 / 1.35)}</div>
 		</div>;
 	}
