@@ -146,6 +146,11 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main RectPixels -hl bin/rect-pixels.hl
 	run rect-pixels.hl
+	# A code editor's empty slots draw no layers, which are render passes of the window's size (git-bug 3ec0b2c).
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path ../components/haxe --class-path fixtures/render -main EditorLayersPixels -hl bin/editor-layers-pixels.hl
+	run editor-layers-pixels.hl
 	# A canvas past a texture's limit draws in part, and a GPU error in a frame is a throw or a count.
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \

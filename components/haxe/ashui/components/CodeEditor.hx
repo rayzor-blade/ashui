@@ -520,16 +520,17 @@ class CodeEditor extends Component<CodeEditorProps> {
 			slotTokens[i].set([for (kind in kinds) for (token in pools.get(kind)) token]);
 	}
 
+	// A slot with no row is hidden, not faded to nothing: a group at no opacity is still drawn, into a layer of the window's size.
 	function lineSlot(i:Int, gutter:Computed<Float>, rowHeight:Computed<Single>):Element {
 		var row = slotAt(i);
-		var shown = Computed.make(() -> (row.get() != null ? 1 : 0 : Single));
+		var shown = Computed.make(() -> (row.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
 		var top = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.top : Single); });
 		var width = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.width : Single); });
 		var hintLeft = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.width + 8 : Single); });
 		var guides = Computed.make(() -> { var r = row.get(); r == null ? [] : r.guides; });
 		var tokens = Computed.make(() -> slotTokens[i].get());
 		var folded = Computed.make(() -> { revision.get(); var r = row.get(); r != null && r.line.folded; });
-		return <div class="ui-code-line" left={Computed.make(() -> (gutter.get() + PAD : Single))} top={top} height={rowHeight} width={width} opacity={shown}>
+		return <div class="ui-code-line" left={Computed.make(() -> (gutter.get() + PAD : Single))} top={top} height={rowHeight} width={width} visibility={shown}>
 			<for {x in guides}><div class="ui-code-guide" left={x} height={rowHeight} /></for>
 			<for {t in tokens}>{tokenSlot(row, t)}</for>
 			<if {folded.get()}><text class="ui-code-text ui-code-fold-hint" left={hintLeft}> … </text></if>
@@ -550,16 +551,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	function gutterSlot(i:Int, gutter:Computed<Float>, rowHeight:Computed<Single>):Element {
 		var row = slotAt(i);
-		var shown = Computed.make(() -> (row.get() != null ? 1 : 0 : Single));
+		var shown = Computed.make(() -> (row.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
 		var top = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.top : Single); });
 		var number = Computed.make(() -> { var r = row.get(); r == null ? "" : Std.string(r.source + 1); });
 		var foldable = Computed.make(() -> { revision.get(); var r = row.get(); r != null && r.line.foldEnd >= 0; });
-		var fold = Computed.make(() -> (foldable.get() ? 1 : 0 : Single));
-		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} opacity={shown}>
+		var fold = Computed.make(() -> (foldable.get() ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
+		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} visibility={shown}>
 			<if {props.gutterMarkers == true}>${markerSlot(row)}</if>
 			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) - (props.gutterMarkers == true ? MARKER : 0) : Single))}>${number.get()}</text></if>
 			<if {props.folding != false}>
-				<div class="ui-code-fold-slot" opacity={fold}>${foldButton(row, foldable)}</div>
+				<div class="ui-code-fold-slot" visibility={fold}>${foldButton(row, foldable)}</div>
 			</if>
 		</div>;
 	}
