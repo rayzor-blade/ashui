@@ -1,5 +1,6 @@
 package ashui.core.render;
 
+import ashui.draw3d.TextureRole;
 import ashui.draw3d.Light;
 import ashui.draw3d.Material;
 import ashui.draw3d.MeshData;
@@ -344,11 +345,11 @@ class ScenePainter {
 
 	function texturesReady(frame:CanvasFrame, m:Material):Bool {
 		for (pair in [
-			{b: m.baseColorTexture, r: MeshTextures.TextureRole.Color},
-			{b: m.emissiveTexture, r: MeshTextures.TextureRole.Color},
-			{b: m.metallicRoughnessTexture, r: MeshTextures.TextureRole.Data},
-			{b: m.occlusionTexture, r: MeshTextures.TextureRole.Occlusion},
-			{b: m.normalTexture, r: MeshTextures.TextureRole.Normal}
+			{b: m.baseColorTexture, r: TextureRole.Color},
+			{b: m.emissiveTexture, r: TextureRole.Color},
+			{b: m.metallicRoughnessTexture, r: TextureRole.Data},
+			{b: m.occlusionTexture, r: TextureRole.Occlusion},
+			{b: m.normalTexture, r: TextureRole.Normal}
 		])
 			if (pair.b != null && MeshTextures.get(frame.device, pair.b, pair.r) == null)
 				return false;
@@ -471,7 +472,7 @@ class ScenePainter {
 		if (group != null)
 			group.used = frameCount;
 		var ready = true;
-		inline function want(b:Null<Bitmap>, role:MeshTextures.TextureRole)
+		inline function want(b:Null<Bitmap>, role:TextureRole)
 			if (b != null && MeshTextures.get(frame.device, b, role) == null)
 				ready = false;
 		want(m.baseColorTexture, Color);
@@ -1087,7 +1088,7 @@ class ScenePainter {
 			known.group.destroy();
 		var d = ensureDefaults(frame);
 		// A texture still being compressed is drawn as the default until it is in place.
-		function tex(b:Null<Bitmap>, role:MeshTextures.TextureRole, fallback:Uploaded):GpuTextureView {
+		function tex(b:Null<Bitmap>, role:TextureRole, fallback:Uploaded):GpuTextureView {
 			var t = b != null ? MeshTextures.get(frame.device, b, role) : null;
 			return t != null ? t.view : fallback.view;
 		}

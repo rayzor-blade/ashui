@@ -38,8 +38,18 @@ class Bitmap {
 	#if !macro
 	static final loaded = new Map<String, Bitmap>();
 
-	/** Names the decoded image to the renderer. **/
-	public final slot:Int;
+	static var ids = 0;
+
+	/** Names it from the moment it is made, which `slot` does not for a bitmap whose decoding waits. **/
+	public final id:Int;
+
+	/** Names the decoded image to the renderer; reading it decodes a bitmap made `deferred`. **/
+	public var slot(get, never):Int;
+
+	var made:Int;
+	var encoded:Null<haxe.io.Bytes> = null;
+	var shrinkTo = 0;
+	var compressedForms:Null<Map<Int, ashui.draw3d.BcImage>> = null;
 
 	/** Its size in pixels. **/
 	public var width(default, null):Int;
@@ -65,10 +75,66 @@ class Bitmap {
 	@:noCompletion public static final disposing:Array<Bitmap->Void> = [];
 
 	function new(slot:Int) {
-		this.slot = slot;
-		width = BitmapNative.blinc_bitmap_size(slot, false);
-		height = BitmapNative.blinc_bitmap_size(slot, true);
+		id = ids++;
+		made = slot;
+		if (slot >= 0) {
+			width = BitmapNative.blinc_bitmap_size(slot, false);
+			height = BitmapNative.blinc_bitmap_size(slot, true);
+		}
 	}
+
+	function get_slot():Int {
+		if (made < 0) {
+			made = BitmapNative.blinc_bitmap_decode(encoded, encoded.length);
+			if (made < 0)
+				throw "not a PNG, JPEG or WebP image";
+			encoded = null;
+			if (shrinkTo > 0)
+				BitmapNative.blinc_bitmap_shrink(made, shrinkTo);
+			width = BitmapNative.blinc_bitmap_size(made, false);
+			height = BitmapNative.blinc_bitmap_size(made, true);
+		}
+		return made;
+	}
+
+	/**
+		A bitmap of the image file `encoded`, `width` × `height` as the block-compressed forms given to it give, decoded only if
+		something needs its pixels, as a GPU that cannot sample block compression does, or an image drawn flat; a mesh texture made
+		of a compressed form takes nothing from them. It is shrunk to `maxSide` when it is decoded, if that is given.
+	**/
+	public static function deferred(encoded:haxe.io.Bytes, width:Int, height:Int, maxSide = 0):Bitmap {
+		var made = new Bitmap(-1);
+		made.encoded = encoded;
+		made.width = width;
+		made.height = height;
+		made.shrinkTo = maxSide;
+		return made;
+	}
+
+	/** Whether its pixels are decoded: false until they are needed, for a bitmap made `deferred`. **/
+	public function decoded():Bool
+		return made >= 0;
+
+	/** Its texture for a mesh's `role` (a `MeshTextures.TextureRole`) already block-compressed, if it has one. **/
+	public function compressed(role:Int):Null<ashui.draw3d.BcImage>
+		return compressedForms == null ? null : compressedForms.get(role);
+
+	/** Gives it `image` as its texture for `role`, to upload as it is. **/
+	public function addCompressed(role:Int, image:ashui.draw3d.BcImage):Void {
+		if (compressedForms == null)
+			compressedForms = new Map();
+		compressedForms.set(role, image);
+	}
+
+	/** Lets go of its compressed form for `role`, once the GPU has it. **/
+	public function dropCompressed(role:Int):Void
+		if (compressedForms != null)
+			compressedForms.remove(role);
+
+	/** Frees its decoded pixels, if it has any; what is on the GPU is not touched. **/
+	public function freePixels():Void
+		if (made >= 0)
+			BitmapNative.blinc_bitmap_release(made);
 
 	/** `bytes` of PNG, JPEG or WebP decoded; throws when they are not one. **/
 	public static function fromBytes(bytes:haxe.io.Bytes):Bitmap {
@@ -115,10 +181,14 @@ class Bitmap {
 		Call it before it is drawn. False when it was small enough already.
 	**/
 	public function shrink(maxSide:Int):Bool {
-		if (!BitmapNative.blinc_bitmap_shrink(slot, maxSide))
+		if (made < 0) {
+			shrinkTo = maxSide;
 			return false;
-		width = BitmapNative.blinc_bitmap_size(slot, false);
-		height = BitmapNative.blinc_bitmap_size(slot, true);
+		}
+		if (!BitmapNative.blinc_bitmap_shrink(made, maxSide))
+			return false;
+		width = BitmapNative.blinc_bitmap_size(made, false);
+		height = BitmapNative.blinc_bitmap_size(made, true);
 		return true;
 	}
 
@@ -126,7 +196,7 @@ class Bitmap {
 	public function dispose():Void {
 		for (f in disposing)
 			f(this);
-		BitmapNative.blinc_bitmap_release(slot);
+		freePixels();
 		for (k => v in loaded)
 			if (v == this)
 				loaded.remove(k);

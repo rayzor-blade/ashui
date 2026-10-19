@@ -2,6 +2,8 @@ package ashui.canvaskit;
 
 import ashui.canvaskit.GltfAnimation;
 import ashui.draw.DrawContext;
+import ashui.draw3d.BcImage;
+import ashui.draw3d.TextureRole;
 import ashui.draw3d.Material;
 import ashui.draw3d.MeshData;
 import ashui.math.Mat4;
@@ -20,8 +22,15 @@ typedef GltfDraw = {mesh:MeshData, transform:Mat4};
 	side longer than that many pixels as it is read, keeping its shape, so
 	large textures take less memory and load faster. Use it for models
 	with many 4K textures, or ones shown small.
+
+	An image with a block-compressed file beside it, `name.color.dds` for
+	`name.png` as colour (`data`, `occlusion` and `normal` for the others,
+	which the `bcpack` tool writes), is not decoded: the file is what a
+	mesh texture is made of, as it is, which takes little time and a
+	fraction of the memory. One larger than `maxTextureSize` is not used.
+	`compressed: false` reads the images and ignores the files.
 **/
-typedef GltfOptions = {?maxTextureSize:Int};
+typedef GltfOptions = {?maxTextureSize:Int, ?compressed:Bool};
 
 /** A node of the scene's tree: where it sits in its parent, as the file gives it, and what it holds. **/
 class GltfNode {
@@ -409,13 +418,13 @@ private class Reader {
 			roughness: pbr.roughnessFactor != null ? pbr.roughnessFactor : 1,
 			emissive: srgb(emissive[0], emissive[1], emissive[2]),
 			emissiveStrength: strength,
-			baseColorTexture: texture(pbr.baseColorTexture),
-			metallicRoughnessTexture: texture(pbr.metallicRoughnessTexture),
-			normalTexture: texture(m.normalTexture),
+			baseColorTexture: texture(pbr.baseColorTexture, TextureRole.Color),
+			metallicRoughnessTexture: texture(pbr.metallicRoughnessTexture, TextureRole.Data),
+			normalTexture: texture(m.normalTexture, TextureRole.Normal),
 			normalScale: m.normalTexture != null && m.normalTexture.scale != null ? m.normalTexture.scale : 1,
-			occlusionTexture: texture(m.occlusionTexture),
+			occlusionTexture: texture(m.occlusionTexture, TextureRole.Occlusion),
 			occlusionStrength: m.occlusionTexture != null && m.occlusionTexture.strength != null ? m.occlusionTexture.strength : 1,
-			emissiveTexture: texture(m.emissiveTexture),
+			emissiveTexture: texture(m.emissiveTexture, TextureRole.Color),
 			alphaMode: switch (m.alphaMode : String) {
 				case "MASK": Mask;
 				case "BLEND": Blend;
@@ -452,24 +461,61 @@ private class Reader {
 		return null;
 	}
 
-	function texture(info:Dynamic):Null<Bitmap> {
+	/** `ASHUI_BC_FILES=0` reads the images and ignores the block-compressed files, as `compressed: false` does, for comparing the two; off when unset, safe either way. **/
+	static final NO_FILES = Sys.getEnv("ASHUI_BC_FILES") == "0";
+
+	function texture(info:Dynamic, role:TextureRole):Null<Bitmap> {
 		if (info == null || info.index == null)
 			return null;
 		var t:Dynamic = list(json.textures)[info.index];
 		if (t == null || t.source == null)
 			return null;
-		var known = images.get(t.source);
-		if (known != null)
-			return known;
 		var image:Dynamic = list(json.images)[t.source];
+		var known = images.get(t.source);
+		if (known != null) {
+			// Another way the image is read, which may have a file of its own.
+			if (!known.decoded() && known.compressed(role) == null)
+				compressedFor(known, image, role);
+			return known;
+		}
 		var bytes = if (image.bufferView != null) view(image.bufferView) else uri(image.uri);
+		var size = options.maxTextureSize != null ? options.maxTextureSize : 0;
+		var form = precompressed(image, role);
+		if (form != null) {
+			// Read from its file: the image is decoded only if a GPU cannot sample it.
+			var made = Bitmap.deferred(bytes, form.width, form.height, size);
+			made.addCompressed(role, form);
+			made.gpuOnly = true;
+			images.set(t.source, made);
+			return made;
+		}
 		var made = Bitmap.fromBytes(bytes);
-		if (options.maxTextureSize != null)
-			made.shrink(options.maxTextureSize);
+		if (size > 0)
+			made.shrink(size);
 		// Drawn only on meshes: once on the GPU, its decoded pixels are freed.
 		made.gpuOnly = true;
 		images.set(t.source, made);
 		return made;
+	}
+
+	/** Gives `bitmap`, not decoded yet, the file for `role` beside `image`, if there is one. **/
+	function compressedFor(bitmap:Bitmap, image:Dynamic, role:TextureRole):Void {
+		var form = precompressed(image, role);
+		if (form != null)
+			bitmap.addCompressed(role, form);
+	}
+
+	/** The block-compressed file beside `image` for `role`, `textures/a.color.dds` for `textures/a.png`; null when there is none or it does not fit. **/
+	function precompressed(image:Dynamic, role:TextureRole):Null<BcImage> {
+		if (options.compressed == false || NO_FILES || image.uri == null || StringTools.startsWith(image.uri, "data:"))
+			return null;
+		var name:String = StringTools.urlDecode(image.uri);
+		var dot = name.lastIndexOf(".");
+		var path = (dot > name.lastIndexOf("/") ? name.substr(0, dot) : name) + "." + role.word() + ".dds";
+		var form = try BcImage.parse(read(path)) catch (_:Dynamic) null;
+		if (form != null && options.maxTextureSize != null && (form.width > options.maxTextureSize || form.height > options.maxTextureSize))
+			return null;
+		return form;
 	}
 
 	function uri(u:String):Bytes {

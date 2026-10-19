@@ -76,7 +76,7 @@ neither the page nor `ashui-host.mjs`. A page of your own starts the program as
 
 ## What a page does not have
 
-A page has no files to read when the program runs, and no environment variables.
+A page has no files to read when the program runs, and its environment variables are the ones its address gives, `?env=NAME=value`.
 `Css.loadFile`, `Bitmap.load`, `Fonts.load`, `Gltf.load` and the like read
 through `ashui.core.Assets`, which finds the file at a path or what the build
 embedded under that path. Embed a directory when you compile:
@@ -91,6 +91,15 @@ argument is the path the program asks for the files by, which is where it runs
 from when that is not where it compiles from: `("../tools/snapshot/assets/map",
 "../assets/map")`. `Bitmap.embed`, `Fonts.embed` and the compiled stylesheets of
 `CompiledCss` read at compile time and need none of this.
+
+A page encodes no textures either: block-compressing a mesh texture in the page takes
+seconds and as much memory as the image, so a model ships with its `.dds` files
+(`tools/bcpack`, see ashui-canvaskit's README) and the page uploads them as they are.
+
+A page's memory is the program's one shared memory, which grows to hold what the
+program allocates before its first collection and never shrinks: its ceiling is
+1 GiB, and `?env=ASH_GC_HEAP_MB=400` on the page's address bounds the heap the
+program may grow to.
 
 It has no system fonts either; the next section says what a build carries. The
 debugging tools that write files, such as `MotionRecorder`, are not for a page.

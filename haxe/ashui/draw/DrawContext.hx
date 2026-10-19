@@ -46,8 +46,8 @@ class DrawClip {
 	}
 }
 
-/** What an image is drawn from: a bitmap, `ashui.types.Bitmap`, which these are. **/
-typedef DrawImage = {final slot:Int; var width(default, null):Int; var height(default, null):Int;}
+/** What an image is drawn from: a bitmap, `ashui.types.Bitmap`, whose `slot` is read when it is drawn (a bitmap not decoded yet decodes then). **/
+typedef DrawImage = {var slot(get, never):Int; var width(default, null):Int; var height(default, null):Int;}
 
 /**
 	What a canvas draws with: shapes and paths, filled or stroked with a

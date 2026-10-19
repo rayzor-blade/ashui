@@ -319,6 +319,71 @@ class Components {
 		check("scrolling up zooms in", viewport.zoom.get() > 1, viewport.zoom.get());
 	}
 
+	/** Block-compressed textures: the DDS file round trips, and a model with files beside its images is loaded from them without decoding the images. **/
+	static function blockTextures() {
+		var bytes = haxe.io.Bytes;
+		// An 8 by 8 BC1 image has four levels of 4, 1, 1 and 1 blocks, each block of 8 bytes.
+		function level(n:Int, seed:Int) {
+			var b = bytes.alloc(n * 8);
+			for (i in 0...b.length)
+				b.set(i, (i * 7 + seed) & 0xff);
+			return b;
+		}
+		var image = new ashui.draw3d.BcImage(8, 8, ashui.draw3d.BcImage.BC1_SRGB, [level(4, 1), level(1, 2), level(1, 3), level(1, 4)]);
+		var file = image.toDds();
+		var read = ashui.draw3d.BcImage.parse(file);
+		var same = read.width == 8 && read.height == 8 && read.format == ashui.draw3d.BcImage.BC1_SRGB && read.levels.length == 4;
+		for (i in 0...4)
+			same = same && read.levels[i].compare(image.levels[i]) == 0;
+		check("block textures: a DDS file reads back as it was written, every level", same, [read.width, read.height, read.format, read.levels.length]);
+		check("block textures: a level takes a block each 4 by 4 pixels", ashui.draw3d.BcImage.levelBytes(8, 8, ashui.draw3d.BcImage.BC1) == 32
+			&& ashui.draw3d.BcImage.levelBytes(8, 8, ashui.draw3d.BcImage.BC3) == 64 && ashui.draw3d.BcImage.levelBytes(1, 1, ashui.draw3d.BcImage.BC5) == 16);
+		check("block textures: a file cut short is refused", (try {
+			ashui.draw3d.BcImage.parse(file.sub(0, file.length - 4));
+			false;
+		} catch (_:Dynamic) true));
+		check("block textures: what is not a DDS file is refused", (try {
+			ashui.draw3d.BcImage.parse(bytes.ofString("not a texture at all, only text of some length, to pass the header size....................................................................................."));
+			false;
+		} catch (_:Dynamic) true));
+		check("block textures: the role says which file", ashui.draw3d.TextureRole.Color.word() == "color" && ashui.draw3d.TextureRole.Data.word() == "data"
+			&& ashui.draw3d.TextureRole.Occlusion.word() == "occlusion" && ashui.draw3d.TextureRole.Normal.word() == "normal");
+
+		var path = "../../tools/snapshot/assets/3d/Mazda6/scene.gltf";
+		function bitmaps(scene:ashui.canvaskit.Gltf, role:String):Array<ashui.types.Bitmap> {
+			var out = [];
+			for (d in scene.draws) {
+				var m = d.mesh.material;
+				var b = switch role {
+					case "color": m.baseColorTexture;
+					case _: m.metallicRoughnessTexture;
+				};
+				if (b != null && out.indexOf(b) < 0)
+					out.push(b);
+			}
+			return out;
+		}
+		var scene = ashui.canvaskit.Gltf.load(path);
+		var colour = bitmaps(scene, "color"), data = bitmaps(scene, "data");
+		check("block textures: the car's colour and data images come from files, 2048 pixels, not decoded", colour.length == 1 && data.length == 1
+			&& !colour[0].decoded() && !data[0].decoded() && colour[0].width == 2048 && data[0].height == 2048
+			&& colour[0].compressed(ashui.draw3d.TextureRole.Color) != null && data[0].compressed(ashui.draw3d.TextureRole.Data) != null,
+			[colour.length, colour[0].decoded(), colour[0].width]);
+		check("block textures: the colour file is sRGB BC1 with every level to one pixel", colour[0].compressed(ashui.draw3d.TextureRole.Color).format == ashui.draw3d.BcImage.BC1_SRGB
+			&& colour[0].compressed(ashui.draw3d.TextureRole.Color).levels.length == 12);
+		var plain = ashui.canvaskit.Gltf.load(path, {compressed: false});
+		var decoded = bitmaps(plain, "color")[0];
+		check("block textures: compressed: false reads the image, 4096 pixels", decoded.decoded() && decoded.width == 4096 && decoded.compressed(ashui.draw3d.TextureRole.Color) == null,
+			[decoded.decoded(), decoded.width]);
+		var capped = bitmaps(ashui.canvaskit.Gltf.load(path, {maxTextureSize: 1024}), "color")[0];
+		check("block textures: a file larger than the cap is not used, the image is read at the cap", capped.decoded() && capped.width == 1024 && capped.compressed(ashui.draw3d.TextureRole.Color) == null,
+			[capped.decoded(), capped.width]);
+		// What a GPU that cannot sample the form falls back to: the pixels are decoded when asked for.
+		var late = bitmaps(ashui.canvaskit.Gltf.load(path, {maxTextureSize: 4096}), "color")[0];
+		check("block textures: a deferred bitmap decodes when its pixels are asked for", late.decoded() == false && late.pixels(8, 8) != null && late.decoded() && late.width == 4096,
+			[late.decoded(), late.width]);
+	}
+
 	/** ashui-canvaskit's glTF texture cap: the helmet's 2048-pixel textures read at 512 or under, the same shape. **/
 	static function gltfTextureCap() {
 		var path = "../../tools/snapshot/assets/3d/DamagedHelmet/DamagedHelmet.gltf";
@@ -1885,6 +1950,7 @@ class Components {
 		canvasKit();
 		gltf();
 		gltfTextureCap();
+		blockTextures();
 		canvasKit2D();
 
 		// A labelled slider is 300 wide by default, and no wider than what holds it.

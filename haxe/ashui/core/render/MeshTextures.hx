@@ -1,6 +1,9 @@
 package ashui.core.render;
 
 import ashui.draw3d.BcEncoder;
+import ashui.draw3d.BcImage;
+import ashui.draw3d.BcTexture;
+import ashui.draw3d.TextureRole;
 import ashui.types.Bitmap;
 import gpu.GpuDevice;
 import gpu.GpuExtent3D;
@@ -12,21 +15,6 @@ import gpu.GpuTextureView;
 import gpu.GpuTextureViewDescriptor;
 import gpu.TextureFormat;
 import haxe.io.Bytes;
-
-/** What a material reads a texture as, which decides how it is stored. **/
-enum abstract TextureRole(Int) to Int {
-	/** Base or emissive colour: sRGB, BC1, or BC3 where it has alpha. **/
-	var Color = 0;
-
-	/** Metallic in blue and roughness in green: BC1. **/
-	var Data = 1;
-
-	/** Occlusion in red: BC4. **/
-	var Occlusion = 2;
-
-	/** A normal map's x and y in red and green: BC5; the shader works out z. **/
-	var Normal = 3;
-}
 
 /**
 	Meshes' textures on the GPU, shared by every canvas on the one device,
@@ -42,6 +30,10 @@ enum abstract TextureRole(Int) to Int {
 	and the mesh waits for it, a texture is uploaded as it is, eight bits a
 	channel with every mip level, the first time a material asks for it, so
 	it is drawn at once.
+
+	A bitmap with a block-compressed form for a role (see `Bitmap.compressed`, and the `bcpack` tool that makes the files) is
+	uploaded from it as it is, at once, wherever the GPU samples BC, in a page too: its pixels are never decoded, or resampled,
+	or encoded, and the file is what is kept in memory.
 
 	A `gpuOnly` bitmap's pixels are freed once nothing more is made from them.
 **/
@@ -66,7 +58,7 @@ class MeshTextures {
 		return scratch;
 	}
 
-	/** Compressions running, by bitmap slot; its pixels are freed when they are done. **/
+	/** Compressions running, by bitmap id; its pixels are freed when they are done. **/
 	static final running = new Map<Int, Int>();
 
 	/** Bitmaps whose pixels go at the end of the frame, nothing more to be made from them. **/
@@ -91,18 +83,27 @@ class MeshTextures {
 
 	/** `bitmap` on the GPU, as `role` reads it; null while it is being compressed. **/
 	public static function get(gpu:GpuDevice, bitmap:Bitmap, role:TextureRole):Null<{texture:GpuTexture, view:GpuTextureView}> {
-		var key = '${bitmap.slot}/${(role : Int)}';
+		var key = '${bitmap.id}/${(role : Int)}';
 		var known = textures.get(key);
 		if (known != null || pending.exists(key))
 			return known;
 		device = gpu;
 		watchDisposal();
+		var form = bitmap.compressed(role);
+		if (form != null && bcSupport(gpu)) {
+			var made = putCompressed(gpu, form);
+			textures.set(key, made);
+			// Nothing is made from it again.
+			if (bitmap.gpuOnly)
+				bitmap.dropCompressed(role);
+			return made;
+		}
 		var w = bitmap.width, h = bitmap.height;
 		var levels = levelCount(w, h);
 		// BC blocks are 4×4: a texture whose sides are not a multiple of 4 stays as it is.
 		if (compress && bitmap.compressible && w % 4 == 0 && h % 4 == 0 && bcSupport(gpu)) {
 			pending.set(key, true);
-			compressLater(key, bitmap, role, levels);
+			compressLater(key, bitmap, role);
 			return null;
 		}
 		var size = new GpuExtent3D(w);
@@ -125,6 +126,35 @@ class MeshTextures {
 		return made;
 	}
 
+	/** The texture `form` is, on the GPU, written level by level as it is. **/
+	static function putCompressed(gpu:GpuDevice, form:BcImage):{texture:GpuTexture, view:GpuTextureView} {
+		var size = new GpuExtent3D(form.width);
+		size.height(form.height);
+		var descriptor = new GpuTextureDescriptor(size, textureFormat(form.format), GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
+		descriptor.mipLevelCount(form.levels.length);
+		var t = gpu.texture(descriptor);
+		var blockBytes = BcImage.blockBytes(form.format);
+		for (level in 0...form.levels.length) {
+			// A level smaller than a block is a whole block on the GPU.
+			var lw = BcImage.levelSize(form.width, level), lh = BcImage.levelSize(form.height, level);
+			var bw = (lw + 3) >> 2, bh = (lh + 3) >> 2;
+			write(gpu, t, level, form.levels[level], bw * blockBytes, bw * 4, bh * 4, bh);
+		}
+		return {texture: t, view: t.createView(new GpuTextureViewDescriptor())};
+	}
+
+	/** The GPU's name for a DXGI block format. **/
+	static function textureFormat(dxgi:Int):TextureFormat
+		return switch dxgi {
+			case BcImage.BC1: TextureFormat.Bc1RgbaUnorm;
+			case BcImage.BC1_SRGB: TextureFormat.Bc1RgbaUnormSrgb;
+			case BcImage.BC3: TextureFormat.Bc3RgbaUnorm;
+			case BcImage.BC3_SRGB: TextureFormat.Bc3RgbaUnormSrgb;
+			case BcImage.BC4: TextureFormat.Bc4RUnorm;
+			case BcImage.BC5: TextureFormat.Bc5RgUnorm;
+			case _: throw 'no texture format for DXGI format $dxgi';
+		};
+
 	static inline function bcSupport(gpu:GpuDevice):Bool {
 		prepare(gpu);
 		return bcSampled;
@@ -137,13 +167,10 @@ class MeshTextures {
 	/** After a frame: frees the pixels of bitmaps nothing more is to be made from. **/
 	public static function endFrame():Void {
 		for (b in releasing)
-			if (!running.exists(b.slot))
-				@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_release(b.slot);
+			if (!running.exists(b.id))
+				b.freePixels();
 		releasing.resize(0);
 	}
-
-	/** Pixels the worker resamples a level into, reused from level to level and texture to texture: only the worker uses it. **/
-	static var workBuffer:Null<Bytes> = null;
 
 	/** Compressions asked for while a frame was drawn, started after it: a page sends a frame's commands together, and waking a thread in the middle of them would send them in two. **/
 	static final starting:Array<Void->Void> = [];
@@ -159,83 +186,29 @@ class MeshTextures {
 	}
 
 	/** Compresses `bitmap`'s levels on the worker, then has them put in place on the main thread. **/
-	static function compressLater(key:String, bitmap:Bitmap, role:TextureRole, levels:Int):Void {
-		running.set(bitmap.slot, (running.exists(bitmap.slot) ? running.get(bitmap.slot) : 0) + 1);
-		var w = bitmap.width, h = bitmap.height;
+	static function compressLater(key:String, bitmap:Bitmap, role:TextureRole):Void {
+		running.set(bitmap.id, (running.exists(bitmap.id) ? running.get(bitmap.id) : 0) + 1);
 		starting.push(() -> ashui.core.Worker.run(() -> {
-			if (workBuffer == null || workBuffer.length < w * h * 4)
-				workBuffer = Bytes.alloc(w * h * 4);
-			var px = workBuffer;
-			var out = [];
-			var format = TextureFormat.Bc4RUnorm, blockBytes = 8;
-			for (level in 0...levels) {
-				var lw = Std.int(Math.max(1, w >> level)),
-					lh = Std.int(Math.max(1, h >> level));
-				resample(bitmap, lw, lh, px);
-				switch role {
-					case Color:
-						// Alpha is decided by the sharpest level, so every level is the same format.
-						if (level == 0)
-							format = BcEncoder.opaque(px, lw * lh) ? TextureFormat.Bc1RgbaUnormSrgb : TextureFormat.Bc3RgbaUnormSrgb;
-						blockBytes = format == TextureFormat.Bc1RgbaUnormSrgb ? 8 : 16;
-						out.push(blockBytes == 8 ? BcEncoder.bc1(px, lw, lh) : BcEncoder.bc3(px, lw, lh));
-					case Data:
-						format = TextureFormat.Bc1RgbaUnorm;
-						out.push(BcEncoder.bc1(px, lw, lh));
-					case Occlusion:
-						format = TextureFormat.Bc4RUnorm;
-						out.push(BcEncoder.bc4(px, lw, lh, 0));
-					case Normal:
-						format = TextureFormat.Bc5RgUnorm;
-						blockBytes = 16;
-						out.push(BcEncoder.bc5(px, lw, lh));
-				}
-			}
-			return {
-				key: key,
-				bitmap: bitmap,
-				format: format,
-				blockBytes: blockBytes,
-				levels: out
-			};
+			return {key: key, bitmap: bitmap, form: BcTexture.of(bitmap, role)};
 		}, job -> upload(job)));
 	}
 
 	/** On the main thread: a finished compression's texture in place of the uncompressed one. **/
-	static function upload(job:{
-		key:String,
-		bitmap:Bitmap,
-		format:TextureFormat,
-		blockBytes:Int,
-		levels:Array<Bytes>
-	}):Void {
+	static function upload(job:{key:String, bitmap:Bitmap, form:BcImage}):Void {
 		if (device == null)
 			return;
-		var slot = job.bitmap.slot;
-		var left = running.get(slot) - 1;
+		var id = job.bitmap.id;
+		var left = running.get(id) - 1;
 		if (left > 0)
-			running.set(slot, left)
+			running.set(id, left)
 		else
-			running.remove(slot);
+			running.remove(id);
 		// Disposed while it was being compressed: nothing to put in place.
 		if (!pending.remove(job.key))
 			return;
-		var w = job.bitmap.width, h = job.bitmap.height;
-		var size = new GpuExtent3D(w);
-		size.height(h);
-		var descriptor = new GpuTextureDescriptor(size, job.format, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST);
-		descriptor.mipLevelCount(job.levels.length);
-		var t = device.texture(descriptor);
-		for (level in 0...job.levels.length) {
-			// A level smaller than a block is a whole block on the GPU.
-			var lw = Std.int(Math.max(1, w >> level)),
-				lh = Std.int(Math.max(1, h >> level));
-			var bw = (lw + 3) >> 2, bh = (lh + 3) >> 2;
-			write(device, t, level, job.levels[level], bw * job.blockBytes, bw * 4, bh * 4, bh);
-		}
-		textures.set(job.key, {texture: t, view: t.createView(new GpuTextureViewDescriptor())});
-		if (job.bitmap.gpuOnly && !running.exists(slot))
-			@:privateAccess ashui.core.externs.BitmapNative.blinc_bitmap_release(slot);
+		textures.set(job.key, putCompressed(device, job.form));
+		if (job.bitmap.gpuOnly && !running.exists(id))
+			job.bitmap.freePixels();
 		revision++;
 		for (r in repaints.copy())
 			r();
@@ -246,7 +219,7 @@ class MeshTextures {
 			return;
 		watchingDisposal = true;
 		Bitmap.disposing.push(b -> for (role in 0...4) {
-			var k = '${b.slot}/$role';
+			var k = '${b.id}/$role';
 			pending.remove(k);
 			var t = textures.get(k);
 			if (t != null) {

@@ -168,6 +168,32 @@ or select a model in Studio3D.
 - **Effects:** exposure, fog, bloom, color grading, vignette, grain,
   chromatic aberration, lens distortion, motion blur and FXAA.
 
+### Texture files
+
+A model's images are read, decoded and, where the GPU samples block compression
+(BC), compressed as a mesh texture is made: for a car with two 4096 pixel images
+that is a second or two on a desktop and several in a page, and a hundred
+megabytes while it lasts. Do it once, ahead of time:
+
+```sh
+tools/bcpack/run.sh assets/car/scene.gltf --max 2048
+```
+
+`bcpack` writes a `.dds` file beside each image for each way the model's
+materials read it: `scene_baseColor.color.dds` for `scene_baseColor.png`, and
+`.data.dds` for metallic and roughness, `.occlusion.dds` and `.normal.dds`, BC1
+(BC3 where colour has alpha), BC4 or BC5 with every mip level. `--max` shrinks an
+image that is larger first; the car in the dashboard is seen at about 700 pixels,
+so 2048 gives it plenty, at a sixth of the size of 4096 on the GPU.
+
+`Gltf.load` finds the files by their names and never decodes the image: the
+file is uploaded as it is, which takes no time and little memory (a 2048 pixel
+colour map is 2.7 MB where its RGBA8 mip chain is 22). A GPU that cannot sample
+BC decodes the image when it needs its pixels, as it always did, so keep the
+images beside the files. A file larger than `maxTextureSize` is not used, and
+`{compressed: false}` ignores them all. In the dashboard, loading the car from
+files takes about 0.8 s less in a page and leaves a desktop app about 200 MB lighter.
+
 ### Modelling smooth shapes
 
 A `Cage` models a shape that primitives cannot, such as a car's body. You
