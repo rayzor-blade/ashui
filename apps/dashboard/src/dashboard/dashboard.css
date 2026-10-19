@@ -1,3 +1,16 @@
+/*
+	Responsive size. The pages are laid out for a window of at least 1160 by 880 units; a smaller one has the layout made larger
+	than it, as a browser zoomed out is, so every panel stays and the text stays sharp. --ui-zoom is how much smaller the layout
+	is drawn than the window's own size: each step is the window's size over the layout's (0.9 of 1160 by 880 is 1044 by 792),
+	and the @media rules read the window's own size.
+*/
+:root { --ui-zoom: 1; }
+@media (max-width: 1159px), (max-height: 879px) { :root { --ui-zoom: 0.9; } }
+@media (max-width: 1043px), (max-height: 791px) { :root { --ui-zoom: 0.8; } }
+@media (max-width: 927px), (max-height: 703px) { :root { --ui-zoom: 0.7; } }
+@media (max-width: 811px), (max-height: 615px) { :root { --ui-zoom: 0.6; } }
+@media (max-width: 695px), (max-height: 527px) { :root { --ui-zoom: 0.5; } }
+
 /* Frosted, tinted glass: a cool tint that is clearer toward its lower edge, a bright hairline round it and along its top, and a blur of what is behind. */
 .dash-glass {
 	background: linear-gradient(150deg, rgba(255, 255, 255, 0.86), rgba(232, 238, 252, 0.68));
@@ -172,3 +185,6 @@
 @media (prefers-color-scheme: dark) {
 	.dash-glass, .dash-dock, .dash-chip { background: linear-gradient(150deg, rgba(40, 46, 62, 0.70), rgba(26, 30, 42, 0.58)); }
 }
+
+/* The map's credit where the map is too small to draw it itself. */
+.map-credit { font-size: 8px; font-weight: 500; color: var(--text-tertiary); }

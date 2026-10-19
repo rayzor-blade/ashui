@@ -1,17 +1,17 @@
 // Drives the dashboard app in a page, as a person would, and checks what it does:
 //
-//     node dashboard_check.mjs <page url> <debugging port> <work directory>
+//     node dashboard_check.mjs <page url> <debugging port> <seconds> <work directory>
 //
 // Each page of the dock is opened and draws something different; the music plays once the play key is pressed and stops when it is
 // pressed again; the window follows the system's light or dark appearance as it changes, unless one is chosen on the Profile page;
-// and a call can be placed and ended. The window is 1280 by 800, where the dock's keys are where this file says. Exits 0 when all hold.
+// and a call can be placed and ended. The window is 1280 by 800 at the layout's own size (ASHUI_ZOOM=1), where the dock's keys are where this file says. Exits 0 when all hold.
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
-const [url, port, work] = process.argv.slice(2);
+const [url, port, , work] = process.argv.slice(2);
 if (!work) {
-  console.error("usage: node dashboard_check.mjs <page url> <debugging port> <work directory>");
+  console.error("usage: node dashboard_check.mjs <page url> <debugging port> <seconds> <work directory>");
   process.exit(2);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -97,7 +97,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", { source: `
   const make = document.createElement.bind(document);
   document.createElement = function (t, ...r) { const e = make(t, ...r); if (String(t).toLowerCase() === "audio") window.__audios.push(e); return e; };
 ` });
-await send("Page.navigate", { url: url + (url.includes("?") ? "&" : "?") + "env=ASH_GC_STATS=1" });
+await send("Page.navigate", { url: url + (url.includes("?") ? "&" : "?") + "env=ASH_GC_STATS=1&env=ASHUI_ZOOM=1" });
 for (let i = 0; i < 600 && !ready && !broken; i++) await sleep(100);
 check("the app reports it is ready", ready, broken ?? "");
 await sleep(1500);

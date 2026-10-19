@@ -81,7 +81,7 @@ class VehicleView {
 	/** Each chip sits on an ellipse round the car, out from its point, so the chips circle the car as it is turned; they keep clear of the side panels and the dock. **/
 	function layoutCallouts():Array<{x:Float, y:Float, cx:Float, cy:Float, opacity:Float}> {
 		var width = viewWidth(), height = viewHeight();
-		var left = screen.wide.get() || screen.medium.get() ? LEFT_PANEL : 0, right = screen.wide.get() ? RIGHT_PANEL : screen.medium.get() ? RIGHT_PANEL : 0;
+		var left = LEFT_PANEL, right = RIGHT_PANEL;
 		var away = Stage.DISTANCE / stage.camera.distance.get();
 		var eye = stage.camera.eye(), middle = project(new Vec3(0, 0.65, 0), width, height);
 		var scale = Math.max(0.55, Math.min(1.4, Math.min(width / 1600, height / 820) * 1.3));
@@ -301,7 +301,7 @@ class VehicleView {
 	function chargersPanel():Element {
 		var small = <canvas width={316} height={100} draw={ctx -> {
 			follow();
-			map.draw(ctx, 316, 100, 12, light(), primary(), [GREEN, AMBER, muted()]);
+			map.draw(ctx, 316, 100, 12, light(), primary(), [GREEN, AMBER, muted()], 0.0, 0, 1.0, true, false);
 		}} />;
 		return <div class="dash-glass flex flex-col">
 			{header("Nearby chargers", <text class="text-xs ink-2">On route</text>)}
@@ -309,6 +309,7 @@ class VehicleView {
 				<div width={316} height={100} marginBottom={4}>
 					{small}
 					<div class="map-inset" position={Absolute} left={0} top={0} width={316} height={100} />
+					<text class="map-credit" position={Absolute} right={6} bottom={4}>© OpenStreetMap</text>
 				</div>
 				{charger(0)}{charger(1)}
 			</div>
@@ -327,16 +328,6 @@ class VehicleView {
 			{swatch(0)}{swatch(1)}{swatch(2)}{swatch(3)}{swatch(4)}{swatch(5)}
 		</div>;
 
-	/** A strip of the few numbers, for a window too narrow for the panels. **/
-	function glance():Element
-		return <div class="dash-chip flex flex-row items-center gap-4 px-4" height={40}>
-			<text class="text-sm font-semibold">${Std.string(Math.round(m.shown(m.speed.get()))) + " " + m.unit()}</text>
-			<div class="dash-sep" width={1} height={18} />
-			<text class="text-sm">${Math.floor(m.charge.get()) + "%"}</text>
-			<div class="dash-sep" width={1} height={18} />
-			<text class="text-sm">${Std.string(m.target.get()) + "°"}</text>
-		</div>;
-
 	public function build():Element {
 		// The page has no size of its own, so the car's scene takes the pointer, to orbit, wherever a panel is not over it.
 		var right = Computed.make(() -> screen.width.get() - 24 - 340.0);
@@ -344,19 +335,14 @@ class VehicleView {
 		var page = <div position={Absolute} left={0} top={0} width={0} height={0}>
 			<canvas ref={canvas} width={screen.width} height={screen.height} draw={leaders} position={Absolute} left={0} top={0} pointerEvents={PointerEvents.None} />
 			{callout(0)}{callout(1)}{callout(2)}
-			<if {screen.wide.get() || screen.medium.get()}>
-				<div flexDirection={Column} gap={16} position={Absolute} left={24} top={24} width={316}>
-					{drivePanel()}
-					<if {screen.wide.get()}>{batteryPanel()}{tyresPanel()}</if>
-				</div>
-				<div flexDirection={Column} gap={12} position={Absolute} left={right} top={24} width={340}>
-					{climatePanel()}
-					<if {screen.wide.get()}>{energyPanel()}{chargersPanel()}</if>
-				</div>
-			</if>
-			<div position={Absolute} left={0} top={barTop} width={screen.width} height={40} flexDirection={Row} justifyContent={Justify.Center} alignItems={Center} gap={12}>
+			<div flexDirection={Column} gap={16} position={Absolute} left={24} top={24} width={316}>
+				{drivePanel()}{batteryPanel()}{tyresPanel()}
+			</div>
+			<div flexDirection={Column} gap={12} position={Absolute} left={right} top={24} width={340}>
+				{climatePanel()}{energyPanel()}{chargersPanel()}
+			</div>
+			<div position={Absolute} left={0} top={barTop} width={screen.width} height={40} flexDirection={Row} justifyContent={Justify.Center} alignItems={Center}>
 				{paintPill()}
-				<if {!screen.medium.get()}>{glance()}</if>
 			</div>
 		</div>;
 		return page;

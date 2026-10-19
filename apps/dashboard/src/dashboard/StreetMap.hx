@@ -53,8 +53,8 @@ class StreetMap {
 		canvases, so the streets, which do not, are not made again each frame.
 	**/
 	public function draw(ctx:DrawContext, w:Float, h:Float, margin:Float, light:Bool, accent:Int, free:Array<Int>, flow = 0.0, destination = 0, zoom = 1.0,
-			guiding = true):Void {
-		base(ctx, w, h, margin, light, zoom);
+			guiding = true, detail = true):Void {
+		base(ctx, w, h, margin, light, zoom, detail);
 		route(ctx, w, h, margin, accent, free, flow, destination, zoom, guiding);
 	}
 
@@ -77,8 +77,12 @@ class StreetMap {
 		return new Framing(w, h, Math.min((w - margin * 2) / (x1 - x0), (h - margin * 2) / (y1 - y0)) * zoom, (x0 + x1) / 2, (y0 + y1) / 2);
 	}
 
-	/** The land under the route: parks, water, buildings and streets, and the credit. It depends on the size, the scheme and the zoom, and on nothing that moves. **/
-	public function base(ctx:DrawContext, w:Float, h:Float, margin:Float, light:Bool, zoom = 1.0):Void {
+	/**
+		The land under the route: parks, water, buildings and streets, and the credit. It depends on the size, the scheme and the
+		zoom, and on nothing that moves. A map too small for the detail leaves out what it would not show, the buildings, the
+		rails, the paths and the side streets, and its credit, which the page then says in text.
+	**/
+	public function base(ctx:DrawContext, w:Float, h:Float, margin:Float, light:Bool, zoom = 1.0, detail = true):Void {
 		var style = light ? LIGHT : DARK, f = framing(w, h, margin, zoom), scale = f.scale;
 		function fill(layer:String, colour:Int, alpha = 1.0)
 			for (shape in layerOf(layer))
@@ -94,16 +98,21 @@ class StreetMap {
 		fill("green", style.green);
 		fill("water", style.water);
 		stroke("canal", 7 * scale * 2, style.water);
-		fill("building", style.building);
-		stroke("rail", 1, style.rail, [3, 3]);
-		stroke("service", 1.4, style.service);
-		stroke("pedestrian", 1.2, style.service, [2, 2]);
+		if (detail) {
+			fill("building", style.building);
+			stroke("rail", 1, style.rail, [3, 3]);
+			stroke("service", 1.4, style.service);
+			stroke("pedestrian", 1.2, style.service, [2, 2]);
+		}
 		// Streets: each a casing a little wider than it, then the street, the main roads widest.
-		stroke("minor", 4.2, style.casing);
+		if (detail)
+			stroke("minor", 4.2, style.casing);
 		stroke("major", 6.4, style.casing);
-		stroke("minor", 3, style.minor);
+		if (detail)
+			stroke("minor", 3, style.minor);
 		stroke("major", 5, style.major);
-		ctx.text("© OpenStreetMap", w - 6, h - 6, Brush.solid(style.label, 0.9), {size: 8, weight: 500, align: TextAlignment.End, baseline: TextBaseline.Bottom});
+		if (detail)
+			ctx.text("© OpenStreetMap", w - 6, h - 6, Brush.solid(style.label, 0.9), {size: 8, weight: 500, align: TextAlignment.End, baseline: TextBaseline.Bottom});
 		ctx.popClip();
 	}
 
