@@ -112,6 +112,10 @@ class WindowedApp {
 	var statStalls = 0;
 
 	/** What the loop did in the second: its turns, the time they took, those with something animating, and the events that woke it. **/
+	var unsettled = 0;
+
+	static inline var UNSETTLED_TURNS = 90;
+
 	var loopSince = 0.0;
 
 	var loopTurns = 0;
@@ -452,6 +456,14 @@ class WindowedApp {
 			idleTicks = animating && !changed && !dirty;
 			if (changed)
 				dirty = true;
+			// A tree that changes on every turn with no input and nothing animating does not settle, as when a size is made from a measure
+			// of itself and the two swap places; said once, since the app then draws a frame each turn.
+			if (changed && handled == 0 && !animating)
+				unsettled++;
+			else
+				unsettled = 0;
+			if (unsettled == UNSETTLED_TURNS)
+				Sys.stderr().writeString('[ashui] the layout has changed on each of $UNSETTLED_TURNS turns with no input and nothing animating: something is sized from a measure of itself\n');
 			var t3 = haxe.Timer.stamp();
 			// A hidden window draws nothing; what changes waits for it to show again.
 			if (dirty && !quitting && ashui.input.WindowState.visible.get() && haxe.Timer.stamp() - refusedAt >= RETRY_FRAME) {

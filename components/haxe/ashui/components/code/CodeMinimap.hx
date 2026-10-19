@@ -28,6 +28,8 @@ typedef MinimapHost = {
 	/** The editor's height and width on screen, and a count that moves when what it shows is made again. **/
 	final viewHeight:Signal<Float>;
 	final viewWidth:Signal<Float>;
+	/** The editor's whole width, the strip's included, which the strip's own width does not move. **/
+	final boxWidth:Signal<Float>;
 	final revision:Signal<Int>;
 	final tabSize:Int;
 	/** The space above the first line, in the editor's layout units. **/
@@ -83,7 +85,9 @@ class CodeMinimap {
 		});
 		Owner.onCleanup(() -> if (pending != null) pending.cancel());
 
-		var width = Computed.make(() -> (Math.min(host.maxWidth, Math.max(24, host.viewWidth.get() * .25)) : Single));
+		// A quarter of the text's width is a fifth of the whole, which is measured with the strip in it and so is not changed by it:
+		// a width taken from the text's width, which the strip takes from, can settle on two sizes and swap them each frame.
+		var width = Computed.make(() -> (Math.min(host.maxWidth, Math.max(24, Math.round(host.boxWidth.get() * .2))) : Single));
 		var height = Computed.make(() -> (host.viewHeight.get() : Single));
 
 		// One probe a kind, styled as a token is, to read its colour from.

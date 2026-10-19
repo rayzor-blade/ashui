@@ -107,6 +107,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 	final revision = Signal.make(0);
 	final viewHeight = Signal.make(320.0);
 	final viewWidth = Signal.make(600.0);
+	final boxWidth = Signal.make(600.0);
 	final history = new CodeHistory();
 	var pane:Div;
 	var probe:Text;
@@ -291,7 +292,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var strip:Array<Element> = [pane];
 		if (props.minimap == true)
 			strip.push(CodeMinimap.make({
-				document: document, metrics: metrics, scroll: scroll, viewHeight: viewHeight, viewWidth: viewWidth, revision: revision, tabSize: tabSize,
+				document: document, metrics: metrics, scroll: scroll, viewHeight: viewHeight, viewWidth: viewWidth, boxWidth: boxWidth, revision: revision, tabSize: tabSize,
 				pad: PAD, maxWidth: props.minimapWidth == null ? 96 : props.minimapWidth
 			}));
 		var data:Map<String, IntoReactive<Null<String>>> = ["mode" => editable() ? "editor" : "view"];
@@ -350,6 +351,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 			if (bounds == null || bounds.width <= 0 || bounds.height <= 0) return changed;
 			if (viewHeight.get() != bounds.height) { viewHeight.set(bounds.height); changed = true; }
 			if (viewWidth.get() != bounds.width) { viewWidth.set(bounds.width); changed = true; }
+			var outer = tree.getBounds(box.node);
+			if (outer != null && outer.width > 0 && boxWidth.get() != outer.width) { boxWidth.set(outer.width); changed = true; }
 			return changed;
 		};
 		LayoutTree.layoutHooks.push(layout);

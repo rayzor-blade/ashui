@@ -342,6 +342,26 @@ class CodeComponents {
 		ashui.animation.AnimationScheduler.main.tick(1);
 		check("a disposed minimap leaves no hook or timer behind", LayoutTree.layoutHooks.length == hooksBefore && Css.restyled.length == restylesBefore
 			&& ashui.animation.AnimationScheduler.main.untilNextTimer() == null, [LayoutTree.layoutHooks.length, hooksBefore, Css.restyled.length, restylesBefore]);
+		// The strip's width follows the editor's, in no width swapping sizes with the text, so a layout is the same on each pass.
+		var narrowWidth = ashui.reactive.Signal.make((318 : Single));
+		var narrowTree = new LayoutTree(), narrowEditor = new Ref<CodeEditor>(), narrowDispose:Void->Void = null;
+		var narrowRoot = Owner.root(narrowTree, stop -> {
+			narrowDispose = stop;
+			return <div width={narrowWidth} height={300} class="flex-col"><code-editor ref={narrowEditor} language="plain" value={[for (i in 0...80) 'line $i'].join("\n")} height={270} minimap={true} /></div>;
+		});
+		function narrowSettle() { narrowTree.flush(); narrowTree.computeLayout(narrowRoot.node, 900, 400); narrowTree.flush(); }
+		function narrowViewport():Float return narrowTree.getBounds(Identity.of(narrowTree, Css.query(narrowTree, narrowEditor.get().node.id, ".ui-code-viewport")[0]).node).width;
+		narrowSettle(); narrowSettle();
+		var swapping:Array<Int> = [];
+		for (w in 240...420) {
+			narrowWidth.set((w : Single));
+			for (_ in 0...5) narrowSettle();
+			var settled = narrowViewport();
+			narrowSettle();
+			if (narrowViewport() != settled) swapping.push(w);
+		}
+		check("a narrow editor's minimap does not swap sizes with its text from one layout to the next", swapping.length == 0, swapping);
+		narrowDispose(); narrowTree.dispose();
 		// Decorations and gutter markers, sets by owner (495aa31).
 		var noteTree = new LayoutTree(), noteEditor = new Ref<CodeEditor>(), noteDispose:Void->Void = null;
 		var noteSource = [for (i in 0...40) 'var v$i = $i;'].join("\n");
