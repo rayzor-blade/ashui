@@ -80,6 +80,8 @@ class Dashboard {
 
 	public function build():Element {
 		model.run();
+		// What the page left is let go of a moment after the next settles, rather than when the runtime's threshold is reached.
+		new ashui.reactive.Watch(() -> model.tab.get(), _ -> ashui.core.Memory.collectSoon(1.5));
 		var showsCar = Computed.make(() -> model.tab.get() == Vehicle || model.tab.get() == Camera);
 		var root = <div class="dash-root" widthPercent={1} heightPercent={1}>
 			{scene(showsCar)}
