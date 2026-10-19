@@ -277,7 +277,7 @@ class CodeCompletions {
 		box.appendChild(kind);
 		box.appendChild(<text class="ui-code-text ui-code-completion-label">${item.label}</text>);
 		if (item.detail != null)
-			box.appendChild(<text class="ui-code-completion-detail">${firstLine(item.detail)}</text>);
+			box.appendChild(<text class="ui-code-text ui-code-completion-detail">${firstLine(item.detail)}</text>);
 		Identity.of(box.tree, box.node.id).bindBooleanAttribute("data-selected", Computed.make(() -> selected.get() == index));
 		var i = Interaction.of(box.node);
 		i.onPointerEnter(_ -> selected.set(index));

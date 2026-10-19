@@ -1254,6 +1254,7 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-completion-kind[data-kind="keyword"] { color: var(--ui-code-keyword, #8b45b2); background: color-mix(in srgb, var(--ui-code-keyword, #8b45b2) 16%, transparent); }
 .ui-code-completion-kind[data-kind="variable"], .ui-code-completion-kind[data-kind="field"], .ui-code-completion-kind[data-kind="property"] { color: var(--ui-code-number, #a35d11); background: color-mix(in srgb, var(--ui-code-number, #a35d11) 16%, transparent); }
 .ui-code-completion-label { flex-grow: 1; flex-shrink: 1; white-space: pre; }
+.ui-code-text.ui-code-completion-detail { font-size: var(--text-xs); }
 .ui-code-completion-detail { flex-shrink: 0; max-width: 200px; font-size: var(--text-xs); color: var(--text-tertiary); white-space: pre; overflow: hidden; }
 .ui-code-completion-docs { flex-direction: column; gap: 4px; padding: 8px 12px; border-top: 1px solid var(--border); max-height: 140px; overflow: hidden; }
 .ui-code-completion-docs-text { font-size: var(--text-xs); color: var(--text-secondary); }
