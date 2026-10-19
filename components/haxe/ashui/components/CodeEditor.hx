@@ -228,7 +228,12 @@ class CodeEditor extends Component<CodeEditorProps> {
 		new Watch(() -> windowStart(), row -> firstRow.set(row));
 		new Watch(() -> windowEnd(), row -> endRow.set(row));
 		var rows = Computed.make(() -> visibleRows(firstRow.get(), endRow.get()));
-		var capacity = Computed.make(() -> { revision.get(); (Std.int(Math.ceil((viewHeight.get() + PAD) / Math.max(1, metrics.lineHeight))) + 9 : Int); });
+		// A short or folded document needs no slots beyond its visible lines.
+		var capacity = Computed.make(() -> {
+			revision.get();
+			var window = Std.int(Math.ceil((viewHeight.get() + PAD) / Math.max(1, metrics.lineHeight))) + 9;
+			(Std.int(Math.max(1, Math.min(document.visible.length, window))) : Int);
+		});
 		var slots = Computed.make(() -> [for (i in 0...capacity.get()) i]);
 		new Watch(() -> { capacity.get(); rows.get(); }, _ -> distribute(rows.get(), capacity.get()));
 		var caret = Computed.make(() -> {
@@ -378,6 +383,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 				restoringScroll = false;
 				scroll.jumpTo(savedX, savedY); changed = true;
 			}
+			// Folds and source replacement can leave the previous offset past the new content.
+			var x = Math.min(scroll.x.get(), Math.max(0, contentWidth.get() - bounds.width));
+			var y = Math.min(scroll.y.get(), Math.max(0, contentHeight.get() - bounds.height));
+			if (x != scroll.x.get() || y != scroll.y.get()) { scroll.jumpTo(x, y); changed = true; }
 			var outer = tree.getBounds(box.node);
 			if (outer != null && outer.width > 0 && boxWidth.get() != outer.width) { boxWidth.set(outer.width); changed = true; }
 			return changed;

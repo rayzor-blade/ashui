@@ -128,6 +128,9 @@ class CodeComponents {
 			settle();
 			var ed = editor.get(), e = ed.editing;
 			check("native font metrics have a usable line height", ed.metrics.lineHeight > 10 && ed.metrics.characterWidth > 3);
+			check("short documents build one row and gutter slot per visible line", Css.query(tree, ed.node.id, ".ui-code-line").length == ed.document.visible.length
+				&& Css.query(tree, ed.node.id, ".ui-code-gutter-line").length == ed.document.visible.length);
+			check("short read-only views do not allocate empty row slots", Css.query(tree, viewer.get().node.id, ".ui-code-line").length == viewer.get().document.visible.length);
 			ed.focus(); ed.select(opening, opening); settle();
 			check("a caret next to a brace highlights both matched glyphs", Css.query(tree, ed.node.id, ".ui-code-bracket").length == 2);
 			var editorBox = tree.getBounds(ed.scroll.node), gutterBox = tree.getBounds(Identity.of(tree, Css.query(tree, ed.node.id, ".ui-code-gutter")[0]).node);
@@ -152,6 +155,9 @@ class CodeComponents {
 			ed.redo(); settle(); check("redo restores the edit", StringTools.startsWith(value.get(), "// Hello\n"));
 			// Retained editor tabs must not rebuild signals, tokens or shaped rows (2aca664).
 			ed.toggleFold(3); settle();
+			var foldedNumbers = [for (id in Css.query(tree, ed.node.id, ".ui-code-line-number")) Std.parseInt(ashui.ui.Text.at(id).text())];
+			foldedNumbers.sort((a, b) -> a - b);
+			check("folding a short document releases unused slots and keeps every visible row", foldedNumbers.join(",") == [for (line in ed.document.visible) line + 1].join(","));
 			var retainedRows = Css.query(tree, ed.node.id, ".ui-code-line").copy();
 			var retainedCaret = e.caret.get(), retainedHeight = @:privateAccess ed.viewHeight.get();
 			for (_ in 0...4) { shown.set(false); settle(); shown.set(true); settle(); }
@@ -251,6 +257,11 @@ class CodeComponents {
 			var cacheBefore = @:privateAccess ed.metrics.recent.copy();
 			value.set("reset"); settle(); ed.undo(); settle();
 			check("external source reset clears incompatible undo history", value.get() == "reset");
+			check("shrinking a scrolled document releases surplus row slots", Css.query(tree, ed.node.id, ".ui-code-line").length == 1
+				&& Css.query(tree, ed.node.id, ".ui-code-gutter-line").length == 1
+				&& ashui.ui.Text.at(Css.query(tree, ed.node.id, ".ui-code-line-number")[0]).text() == "1",
+				[Css.query(tree, ed.node.id, ".ui-code-line").length, Css.query(tree, ed.node.id, ".ui-code-gutter-line").length,
+					[for (id in Css.query(tree, ed.node.id, ".ui-code-line-number")) ashui.ui.Text.at(id).text()], ed.scroll.y.get(), @:privateAccess ed.windowStart(), @:privateAccess ed.windowEnd()]);
 			check("reset releases shaped lines from the old document", !Lambda.exists(cacheBefore, line -> @:privateAccess ed.metrics.recent.indexOf(line) >= 0));
 			var widthBefore = ed.metrics.characterWidth;
 			Css.load('#editor { --ui-code-font-size: 24px; }'); settle();
