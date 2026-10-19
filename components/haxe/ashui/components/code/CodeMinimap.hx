@@ -141,9 +141,11 @@ class CodeMinimap {
 						ctx.fillRect(from, y, Math.min(to, limit) - from, thick, Brush.solid(rgb, alpha * .85));
 					open = false;
 				}
-				var tokens:Array<CodeToken> = line.tokens.length == 0 ? [{from: 0, to: text.length, kind: CodeTokenKind.Plain}] : line.tokens;
-				for (token in tokens) {
-					var a = token.from, b = token.to;
+				// A line with no tokens is one plain run.
+				var count = line.tokenCount == 0 ? 1 : line.tokenCount;
+				for (t in 0...count) {
+					var a = line.tokenCount == 0 ? 0 : line.tokenFrom(t), b = line.tokenCount == 0 ? text.length : line.tokenTo(t);
+					var kind:CodeTokenKind = line.tokenCount == 0 ? CodeTokenKind.Plain : line.tokenKind(t);
 					while (a < b && text.charCodeAt(a) <= " ".code)
 						a++;
 					while (b > a && text.charCodeAt(b - 1) <= " ".code)
@@ -153,7 +155,7 @@ class CodeMinimap {
 					var x0 = column(text, a, tabs), x1 = column(text, b, tabs);
 					if (x0 >= limit)
 						break;
-					var ink = colours.get(token.kind);
+					var ink = colours.get(kind);
 					if (ink == null)
 						ink = plain;
 					var red = ink == null ? 0x888888 : ink.rgb, opacity = ink == null ? 1.0 : ink.alpha;

@@ -45,6 +45,18 @@ class CodeComponents {
 		doc.update(StringTools.replace(source, "Hello", "Goodbye"), syntax);
 		check("single-line edit reuses unchanged highlight cache", doc.highlighted == 1, doc.highlighted);
 		var multiline = new CodeDocument('/* start\ninside {\nend */\nvar a = 1;', syntax);
+		// A line's tokens are kept as integers, and read back as the highlighter gave them.
+		var packedLine = new CodeDocument("var a = 'x'; // note\nplain", syntax).lines[0];
+		var given = syntax.highlight(packedLine.text, "").tokens;
+		var readBack = packedLine.tokens;
+		var same = readBack.length == given.length && packedLine.tokenCount == given.length;
+		for (i in 0...given.length)
+			same = same && readBack[i].from == given[i].from && readBack[i].to == given[i].to && readBack[i].kind == given[i].kind
+				&& packedLine.tokenFrom(i) == given[i].from && packedLine.tokenTo(i) == given[i].to && packedLine.tokenKind(i) == given[i].kind;
+		var revision = packedLine.tokenRevision;
+		packedLine.tokens = [];
+		check("a line's tokens are kept packed and read back as the highlighter gave them", same && given.length > 4 && packedLine.tokenCount == 0 && packedLine.tokens.length == 0 && packedLine.tokenRevision == revision + 1,
+			[given.length, packedLine.tokenCount]);
 		check("block comments propagate to following lines", multiline.lines[1].tokens[0].kind == Comment && multiline.lines[1].foldEnd == -1);
 		multiline.update('/* start */\ninside {\nend */\nvar a = 1;', syntax);
 		check("changed lexical state re-highlights until it converges", multiline.lines[1].tokens[0].kind != Comment && multiline.highlighted >= 3);

@@ -2,16 +2,83 @@ package ashui.components.code;
 
 import ashui.components.code.CodeHighlighter;
 
+/**
+	One line of a document: its text, and the tokens a highlighter made of it, kept as three integers each (start, end and the
+	index of its kind) so a long file's colouring is a few bytes a token and not an object. `tokens` makes them objects, a new
+	array each time it is read, for a caller that wants them as the highlighter gave them; the editor and the minimap read
+	`tokenCount`, `tokenFrom`, `tokenTo` and `tokenKind` instead.
+**/
 class CodeLine {
+	/** The kinds a token's index is into. **/
+	static final KINDS:Array<CodeTokenKind> = [Plain, Keyword, StringLiteral, Comment, Number, Type, Function, Operator, Tag, Attribute, MarkupText];
+
+	static function indexOfKind(kind:CodeTokenKind):Int
+		return switch kind {
+			case Plain: 0;
+			case Keyword: 1;
+			case StringLiteral: 2;
+			case Comment: 3;
+			case Number: 4;
+			case Type: 5;
+			case Function: 6;
+			case Operator: 7;
+			case Tag: 8;
+			case Attribute: 9;
+			case MarkupText: 10;
+		};
+
 	public final text:String;
 	public var start = 0;
-	public var tokens:Array<CodeToken> = [];
+	var packed:Null<Array<Int>> = null;
+
+	/** Counts the times the tokens were set, so a reader can tell they are the ones it saw. **/
+	public var tokenRevision(default, null) = 0;
+
 	public var incoming:Null<String>;
 	public var outgoing = "";
 	public var foldEnd = -1;
 	public var folded = false;
 	public var generation = 0;
+
 	public function new(text:String) this.text = text;
+
+	public var tokenCount(get, never):Int;
+
+	inline function get_tokenCount():Int
+		return packed == null ? 0 : Std.int(packed.length / 3);
+
+	public inline function tokenFrom(i:Int):Int
+		return packed[i * 3];
+
+	public inline function tokenTo(i:Int):Int
+		return packed[i * 3 + 1];
+
+	public inline function tokenKind(i:Int):CodeTokenKind
+		return KINDS[packed[i * 3 + 2]];
+
+	/** The tokens as objects, made afresh each time; setting them packs them. **/
+	public var tokens(get, set):Array<CodeToken>;
+
+	function get_tokens():Array<CodeToken>
+		return [for (i in 0...tokenCount) {from: tokenFrom(i), to: tokenTo(i), kind: tokenKind(i)}];
+
+	function set_tokens(list:Array<CodeToken>):Array<CodeToken> {
+		tokenRevision++;
+		if (list.length == 0) {
+			packed = null;
+			return list;
+		}
+		var made = new Array<Int>();
+		made.resize(list.length * 3);
+		for (i in 0...list.length) {
+			var token = list[i];
+			made[i * 3] = token.from;
+			made[i * 3 + 1] = token.to;
+			made[i * 3 + 2] = indexOfKind(token.kind);
+		}
+		packed = made;
+		return list;
+	}
 }
 
 /** Line cache and display-row mapping shared by code views and editors (e53597f). **/
@@ -64,11 +131,11 @@ class CodeDocument {
 		brackets.clear();
 		var stack:Array<{line:Int, char:String, index:Int}> = [];
 		for (i in 0...lines.length) {
-			var line = lines[i], tokenIndex = 0;
+			var line = lines[i], tokenIndex = 0, tokenCount = line.tokenCount;
 			for (column in 0...line.text.length) {
-				while (tokenIndex < line.tokens.length && line.tokens[tokenIndex].to <= column) tokenIndex++;
-				if (tokenIndex < line.tokens.length && line.tokens[tokenIndex].from <= column
-					&& (line.tokens[tokenIndex].kind == Comment || line.tokens[tokenIndex].kind == StringLiteral || line.tokens[tokenIndex].kind == MarkupText)) continue;
+				while (tokenIndex < tokenCount && line.tokenTo(tokenIndex) <= column) tokenIndex++;
+				if (tokenIndex < tokenCount && line.tokenFrom(tokenIndex) <= column
+					&& (line.tokenKind(tokenIndex) == Comment || line.tokenKind(tokenIndex) == StringLiteral || line.tokenKind(tokenIndex) == MarkupText)) continue;
 				var c = line.text.charAt(column);
 				if (c == "{" || c == "[" || c == "(") stack.push({line: i, char: c, index: line.start + column});
 				else if ((c == "}" || c == "]" || c == ")") && stack.length > 0) {

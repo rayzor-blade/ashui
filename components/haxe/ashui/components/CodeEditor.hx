@@ -79,7 +79,7 @@ typedef CodeEditorProps = {
 private enum CodePhase { Resting; Selecting; }
 private enum CodeEvent { Press; Release; Blur; }
 private typedef Run = {text:String, kind:String, x:Single};
-private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Array<CodeToken>};
+private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Int};
 /** A pooled token element: the `index`th run of its `kind` in the row its slot shows. **/
 private typedef Token = {kind:String, index:Int};
 /** A decoration's mark on one row. **/
@@ -647,11 +647,14 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var result:Array<Row> = [];
 		for (row in first...end) {
 			var source = document.visible[row], line = document.lines[source], found:Null<Row> = null;
-			for (old in cachedRows) if (old.line == line && old.source == source && old.row == row && old.stamp == stamp && old.tokens == line.tokens) { found = old; break; }
+			for (old in cachedRows) if (old.line == line && old.source == source && old.row == row && old.stamp == stamp && old.tokens == line.tokenRevision) { found = old; break; }
 			if (found == null) {
 				var measured = metrics.measure(line), runs:Array<Run> = [];
-				if (line.tokens.length == 0) runs.push({text: measured.expanded, x: 0, kind: "plain"});
-				else for (token in line.tokens) runs.push({text: measured.expanded.substring(measured.columns[token.from], measured.columns[token.to]), x: (metrics.xAt(line, token.from) : Single), kind: token.kind});
+				if (line.tokenCount == 0) runs.push({text: measured.expanded, x: 0, kind: "plain"});
+				else for (t in 0...line.tokenCount) {
+					var from = line.tokenFrom(t), to = line.tokenTo(t);
+					runs.push({text: measured.expanded.substring(measured.columns[from], measured.columns[to]), x: (metrics.xAt(line, from) : Single), kind: line.tokenKind(t)});
+				}
 				var guides:Array<Single> = [];
 				if (props.indentGuides == true) {
 					var indent = 0;
@@ -665,7 +668,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 					if (list == null) byKind.set(run.kind, list = []);
 					list.push(run);
 				}
-				found = {line: line, source: source, row: row, top: (PAD + row * lh : Single), width: (measured.width : Single), runs: runs, byKind: byKind, guides: guides, stamp: stamp, tokens: line.tokens};
+				found = {line: line, source: source, row: row, top: (PAD + row * lh : Single), width: (measured.width : Single), runs: runs, byKind: byKind, guides: guides, stamp: stamp, tokens: line.tokenRevision};
 			}
 			result.push(found);
 		}
