@@ -421,8 +421,10 @@ class CodeComponents {
 		Pointer.move(hintTree, flagged.x + 1, flagged.y + 5); ashui.animation.AnimationScheduler.main.tick(.6); hintSettle();
 		check("a decoration's title opens a popover, in its colour", hintOpen().length == 1 && Css.query(hintTree, hintTree.root.id, ".ui-code-hint-error").length == 1
 			&& Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length == 2);
+		check("a diagnostic's popover has an icon, and a plain hint has none", Css.query(hintTree, hintTree.root.id, ".ui-code-hint-icon").length == 1);
 		// A hint opened from code stays until it is closed, whatever the pointer does.
 		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs: "Opened from code."}, true); hintSettle();
+		check("a hint with no kind has no icon", Css.query(hintTree, hintTree.root.id, ".ui-code-hint-icon").length == 0);
 		check("a hint opened from code replaces what is open", hintOpen().length == 1 && Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length == 1, [hintOpen().length, Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length, hint.hoverOffset]);
 		Pointer.move(hintTree, elsewhere.x + 1, elsewhere.y + 5); ashui.animation.AnimationScheduler.main.tick(2); hintSettle();
 		check("a pinned hint stays when the pointer is elsewhere", hintOpen().length == 1);

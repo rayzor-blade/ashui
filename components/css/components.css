@@ -1221,13 +1221,19 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-minimap-probe { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
 /* The popover of documentation and hints beside a range of the text. */
 .ui-code-hint {
-	flex-direction: column; gap: 8px; padding: 8px 12px; max-width: var(--ui-code-hint-width, 460px);
+	flex-direction: row; align-items: flex-start; gap: 10px; padding: 8px 12px; max-width: var(--ui-code-hint-width, 460px);
 	border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
 	background: var(--ui-code-hint-bg, var(--surface-elevated)); color: var(--text-primary);
 }
-.ui-code-hint-error { border-left: 3px solid var(--ui-code-error, var(--error)); }
-.ui-code-hint-warning { border-left: 3px solid var(--ui-code-warning, var(--warning)); }
-.ui-code-hint-info { border-left: 3px solid var(--ui-code-info, var(--info)); }
+.ui-code-hint-error { border-color: var(--ui-code-error, var(--error)); }
+.ui-code-hint-warning { border-color: var(--ui-code-warning, var(--warning)); }
+.ui-code-hint-info { border-color: var(--ui-code-info, var(--info)); }
+.ui-code-hint-icon { flex-shrink: 0; margin-top: 2px; }
+.ui-code-hint-error > .ui-code-hint-icon { color: var(--ui-code-error, var(--error)); }
+.ui-code-hint-warning > .ui-code-hint-icon { color: var(--ui-code-warning, var(--warning)); }
+.ui-code-hint-info > .ui-code-hint-icon { color: var(--ui-code-info, var(--info)); }
+.ui-code-hint-body { flex-grow: 1; flex-shrink: 1; flex-direction: column; gap: 8px; }
+.ui-code-hint-error .ui-code-hint-text, .ui-code-hint-warning .ui-code-hint-text, .ui-code-hint-info .ui-code-hint-text { color: var(--text-primary); }
 .ui-code-hint-signature, .ui-code-hint-docs { flex-direction: column; }
 .ui-code-hint-line { flex-direction: row; }
 .ui-code-hint-gap { height: 6px; }

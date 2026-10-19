@@ -9,6 +9,7 @@ import ashui.layout.Element;
 import ashui.layout.LayoutTree;
 import ashui.reactive.Owner;
 import ashui.ui.Div;
+import ashui.ui.Svg;
 import ashui.ui.Text;
 import ashui.ui.TopLayer;
 
@@ -23,7 +24,7 @@ typedef CodeHint = {
 	@:optional var language:String;
 	/** The text under it, in paragraphs set apart by blank lines; each line wraps. **/
 	@:optional var docs:String;
-	/** A CSS class for the popover; `ui-code-hint-error`, `-warning` and `-info` mark its edge in the diagnostic's colour. **/
+	/** A CSS class for the popover; `ui-code-hint-error`, `-warning` and `-info` give it an icon and a border in the diagnostic's colour, as a toast has. **/
 	@:optional var className:String;
 }
 
@@ -59,6 +60,22 @@ typedef HintHost = {
 class CodeHints {
 	/** Seconds the pointer may be off both before the popover closes. **/
 	static inline var LEAVE = 0.2;
+
+	/** The icon beside a diagnostic's message, as a toast's: a cross in a circle, a warning triangle, an information mark. **/
+	static final ICONS = [
+		"error" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>),
+		"warning" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>),
+		"info" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>)
+	];
+
+	/** `error`, `warning` or `info` for a popover whose class says so, which gives it an icon and a border in that colour. **/
+	static function kindOf(className:Null<String>):Null<String> {
+		if (className != null)
+			for (kind in ["error", "warning", "info"])
+				if (className.indexOf("ui-code-hint-" + kind) >= 0)
+					return kind;
+		return null;
+	}
 
 	final host:HintHost;
 	var resting:Null<ashui.animation.AnimationScheduler.Timer> = null;
@@ -211,6 +228,14 @@ class CodeHints {
 	/** The popover itself: the signature in the editor's colours, then the paragraphs of the docs. **/
 	function build(hint:CodeHint):Div {
 		var panel = Library.part("ui-code-hint", null, null, null, null, hint.className == null ? null : hint.className.split(" "));
+		var kind = kindOf(hint.className);
+		if (kind != null) {
+			var icon = new Svg(ICONS.get(kind), {width: 16, height: 16});
+			Identity.of(icon.tree, icon.node.id).setClasses(["ui-code-hint-icon"]);
+			panel.appendChild(icon);
+		}
+		var body = Library.part("ui-code-hint-body");
+		panel.appendChild(body);
 		if (hint.signature != null && hint.signature != "") {
 			var signature = Library.part("ui-code-hint-signature");
 			var syntax = host.highlighter(hint.language), state = "";
@@ -228,7 +253,7 @@ class CodeHints {
 					row.appendChild(<text class="ui-code-text ui-code-hint-token">${" "}</text>);
 				signature.appendChild(row);
 			}
-			panel.appendChild(signature);
+			body.appendChild(signature);
 		}
 		if (hint.docs != null && hint.docs != "") {
 			var docs = Library.part("ui-code-hint-docs");
@@ -238,7 +263,7 @@ class CodeHints {
 				else
 					docs.appendChild(<text class="ui-code-hint-text">${line}</text>);
 			}
-			panel.appendChild(docs);
+			body.appendChild(docs);
 		}
 		return panel;
 	}
