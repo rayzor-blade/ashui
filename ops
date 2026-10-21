@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1792598683,"nonce":"b0EX3e/PYjogKQgVMa3ZOn2pLgM=","message":"Landed in Ashui 6e0e634a3c2d6287ae80cb5a1c24365237b38b98 and adopted by RayDE. Native integration rebuild in progress; component and dark/light LSP/compiler UI checks pass.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1792598683,"nonce":"TETMmajP8G/0g8BD/GeXtoW3/dg=","status":2}]}
