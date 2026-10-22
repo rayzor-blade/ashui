@@ -1325,3 +1325,24 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-chart[data-kind="pie"] > .ui-chart-plot { align-self: center; }
 .ui-chart-pie-total { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
 .ui-chart-pie-caption { font-size: var(--text-xs); color: var(--text-secondary); }
+
+/* Search controls mount only while open; match rectangles are limited to the visible code rows. */
+.ui-code-find {
+	position: absolute; top: 8px; right: 8px; z-index: 20; width: var(--ui-code-find-width, 460px);
+	flex-direction: column; padding: 8px; gap: 4px; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+	background: var(--ui-code-find-bg, color-mix(in srgb, var(--surface-elevated) 68%, transparent)); backdrop-filter: blur(14px) saturate(1.2);
+}
+.ui-code-find-row { flex-direction: row; align-items: center; gap: 4px; min-width: 0; }
+.ui-code-find input.ui-input { flex-grow: 1; flex-shrink: 1; width: 0; min-width: 0; height: 28px; padding: 0 8px; font-size: var(--text-sm); }
+.ui-code-find .ui-button, .ui-code-find .ui-toggle { width: 28px; min-width: 28px; height: 28px; padding: 4px; flex-shrink: 0; border-radius: var(--radius-sm); }
+.ui-code-find .ui-code-find-toggle[data-state="on"] svg { transform: rotate(90deg); }
+.ui-code-find .ui-button svg, .ui-code-find .ui-toggle svg { width: 16px; height: 16px; }
+.ui-code-find-toggle, .ui-code-find-case, .ui-code-find-regex { flex-shrink: 0; }
+.ui-code-find-replace-row, .ui-code-find-status-row { min-width: 0; }
+.ui-code-find .ui-toggle text { font-size: 12px; }
+.ui-code-find .ui-code-find-word text { text-decoration: underline; }
+.ui-code-find-status { flex-grow: 1; flex-shrink: 1; min-width: 0; font-size: var(--text-xs); color: var(--text-secondary); }
+.ui-code-find-mark { position: absolute; pointer-events: none; background: var(--ui-code-find-match, color-mix(in srgb, var(--warning) 25%, transparent)); border: 1px solid var(--ui-code-find-border, var(--warning)); border-radius: 2px; }
+.ui-code-find-current { background: var(--ui-code-find-active, color-mix(in srgb, var(--primary) 30%, transparent)); border-color: var(--primary); }
+
+.ui-code-find[data-invalid="true"] .ui-code-find-status { color: var(--error); }

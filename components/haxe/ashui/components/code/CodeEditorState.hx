@@ -13,6 +13,7 @@ import ashui.reactive.Signal;
 class CodeEditorState {
 	public final value:Signal<String>;
 	public final history = new CodeHistory();
+	public final search = new CodeFindState();
 	public var document(default, null):Null<CodeDocument>;
 	public var annotations(default, null):Null<CodeAnnotations>;
 	public var caret(default, null) = 0;

@@ -16,6 +16,7 @@ import ashui.components.code.CodeEditorState;
 import ashui.components.code.CodeHistory.CodeEdit;
 import ashui.components.code.CodeHistory.CodePatch;
 import ashui.components.code.CodeMetrics;
+import ashui.components.code.CodeFind;
 import ashui.components.code.CodeMinimap;
 import ashui.components.code.CodeSyntax;
 import ashui.css.Css;
@@ -74,6 +75,8 @@ typedef CodeEditorProps = {
 	?onSubmit:String->Void,
 	/** Called with each key press before the editor handles it; return true to keep the editor from it, as for F2, F12 or Ctrl+Space. It does not stop the event reaching others: `preventDefault` does that. **/
 	?onKey:KeyEvent->Bool,
+	/** Handle the built-in find/replace shortcuts, true by default. Apps may use showFind/findNext with their own bindings. **/
+	?findShortcuts:Bool,
 	/** Accessible name for the editing surface. **/
 	?label:String,
 	?id:String
@@ -103,6 +106,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public var metrics(default, null):CodeMetrics;
 	/** What the app marks in the text and gutter; `decorate` and `markers` are its way in. **/
 	public var annotations(default, null):CodeAnnotations;
+	public var search(default, null):CodeFind;
 	var hints:Null<CodeHints> = null;
 	var completions:Null<CodeCompletions> = null;
 	var gutterNow:Void->Float = () -> 0;
@@ -206,6 +210,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 			refresh();
 		}, (a, b) -> a.content == b.content && a.highlighter == b.highlighter);
 
+		search = new CodeFind(this, () -> !readOnly.get() && (e.interaction == null || !e.interaction.disabled.get()), props.findShortcuts != false);
+
 		var rowHeight = Computed.make(() -> { revision.get(); (metrics.lineHeight : Single); });
 		var gutter = Computed.make(() -> {
 			revision.get();
@@ -288,10 +294,32 @@ class CodeEditor extends Component<CodeEditorProps> {
 			}
 			return result;
 		});
+		var searchMarks = new Map<String, DecorationBox>();
+		var searchBoxes = Computed.make(() -> {
+			var found = search.result.get(), range = e.selectionRange(), result:Array<DecorationBox> = [], kept = new Map<String, DecorationBox>();
+			for (row in rows.get()) {
+				var line = row.line, end = line.start + line.text.length, index = found.lowerBound(line.start);
+				if (index > 0 && found.matches[index-1].to > line.start) index--;
+				while (index < found.matches.length) {
+					var m = found.matches[index++]; if (m.from > end) break;
+					if (m.to < line.start || (m.to == line.start && m.from != m.to)) continue;
+					var x = gutter.get() + PAD + metrics.xAt(line, Std.int(Math.max(0, m.from-line.start)));
+					var right = m.to > end ? gutter.get()+PAD+row.width+metrics.characterWidth : gutter.get()+PAD+metrics.xAt(line,m.to-line.start);
+					var selected = range.from == m.from && range.to == m.to;
+					var key = row.row+"|"+m.from+"|"+m.to+"|"+x+"|"+right+"|"+metrics.lineHeight+"|"+selected;
+					var mark = searchMarks.get(key);
+					if (mark == null) mark = {x:(x:Single),top:row.top,width:(Math.max(2,right-x):Single),height:(metrics.lineHeight:Single),className:selected ? "ui-code-find-mark ui-code-find-current" : "ui-code-find-mark"};
+					kept.set(key,mark); result.push(mark);
+				}
+			}
+			searchMarks = kept;
+			result;
+		});
 		var content = <div class="ui-code-content" width={contentWidth} height={contentHeight}>
 			${probe}
 			<div class="ui-code-active-line" top={Computed.make(() -> (PAD + caret.get().line * metrics.lineHeight : Single))}
 				left={0} width={contentWidth} height={rowHeight} opacity={Computed.make(() -> (e.focused.get() ? 1 : 0 : Single))} />
+			<for {b in searchBoxes}>${new Div({classes:b.className.split(" "), left:b.x, top:b.top, width:b.width, height:b.height})}</for>
 			<for {b in decorationBoxes}>{decorationMark(b)}</for>
 			<for {r in selections}>
 				<div class="ui-code-selection" left={r.x} top={r.top} width={r.width} height={r.height} />
@@ -326,7 +354,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var data:Map<String, IntoReactive<Null<String>>> = ["mode" => editable() ? "editor" : "view"];
 		if (props.minimap == true)
 			data.set("minimap", "on");
-		var box = Library.part("ui-code", null, data, strip, props.id);
+		var box = Library.part("ui-code", null, data, strip.concat([search.view(Computed.make(() -> (Math.max(0, boxWidth.get()-16):Single)))]), props.id);
 		var identity = Identity.of(pane.tree, pane.node.id);
 		identity.setAttribute("role", "textbox").setAttribute("aria-multiline", "true").setAttribute("aria-label", props.label == null ? "Code" : props.label);
 		new Watch(() -> readOnly.get(), on -> identity.setAttribute("aria-readonly", on ? "true" : "false"));
@@ -725,8 +753,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return b == null ? {x: 0, y: 0} : {x: x - b.x + scroll.x.get() - gutter - PAD, y: y - b.y + scroll.y.get() - PAD};
 	}
 
-	function reveal(gutter:Float):Void {
-		if (scroll == null || !editing.focused.get()) return;
+	function reveal(gutter:Float, force = false):Void {
+		if (scroll == null || (!force && !editing.focused.get())) return;
 		var at = editing.stopAt(editing.displayCaret(), editing.display()), lh = metrics.lineHeight;
 		var x = scroll.x.get(), y = scroll.y.get(), top = PAD + at.line * lh, left = PAD + at.x;
 		var height = viewHeight.get(), width = Math.max(1, viewWidth.get() - gutter);
@@ -758,6 +786,11 @@ class CodeEditor extends Component<CodeEditorProps> {
 		document.unfoldAt(anchor); document.unfoldAt(caret); refresh();
 		editing.anchor.set(anchor); editing.caret.set(caret);
 	}
+	/** Scrolls the selected result into view without moving keyboard focus from a search field. **/
+	public function revealSelection():Void reveal(gutterNow(), true);
+	public function showFind(replace = false):Void search.show(replace);
+	public function hideFind():Void search.hide();
+	public function findNext(backward = false):Void search.next(backward);
 	public function focus():Void Focus.set(editing.interaction, true);
 	public function undo():Void restore(false);
 	public function redo():Void restore(true);
@@ -819,6 +852,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (props.onInput != null) props.onInput(result.text);
 	}
 	function codeKey(event:KeyEvent):Bool {
+		if (props.findShortcuts != false && search.shortcut(event)) return true;
 		if (editing.readOnly) return false;
 		var command = event.superKey || event.control;
 		switch event.key {

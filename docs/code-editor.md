@@ -41,6 +41,7 @@ is a complete windowed example.
 | `readOnly` | `false` | Reactive edit lock; selection and copying remain available. |
 | `disabled` | `false` | Reactive input and focus lock. |
 | `label` | `"Code"` | Accessible name of the text surface. |
+| `findShortcuts` | `true` | Handle built-in find/replace shortcuts; false lets an app bind the public methods. |
 
 Use layout attributes or CSS for width and height. Height defaults to 320px.
 Code stays unwrapped and scrolls in both directions; the gutter stays visible
@@ -110,6 +111,53 @@ An external text replacement while unmounted clears incompatible undo on remount
 Drop the state itself to release its document and history. Without `state`, an
 editor owns its data as before; hiding such an editor with `display: none` keeps
 the entire view alive, and disposing it discards its history.
+
+## Find and replace
+
+CodeEditor and CodeView include a compact floating search panel with a tinted
+frosted-glass background. It mounts only while open and stays within the editor
+when resized. CodeView and read-only editors allow search but refuse replacement.
+
+- **Cmd+F / Ctrl+F:** open Find, seeded from a single-line selection.
+- **Cmd+Option+F / Ctrl+H:** open Replace.
+- **Enter / Shift+Enter in Find:** next / previous match, wrapping at the ends.
+- **F3 / Shift+F3:** next / previous match. On macOS, Cmd+G / Cmd+Shift+G also work.
+- **Enter in Replace:** replace the current match and advance.
+- **Cmd+Enter / Ctrl+Enter in Replace:** replace all matches as one undo operation,
+  subject to the editor's bounded history limits.
+- **Escape:** close the panel and return focus to the editor.
+
+The `Aa` and underlined `Ab` controls select case-sensitive and whole-word
+matching. The `.*` control enables Haxe regular expressions. Bare patterns such
+as `item(\d+)` are the usual input: **no delimiters are needed**. Optional Haxe
+literals such as `~/item(\d+)/i` use their flags as written (`g`, `i`, `m`, `s`,
+`u`); search enumerates all matches regardless of `g`. Bare patterns use multiline
+anchors and the case option. Invalid expressions show an error without editing
+the source. Regex replacements accept capture references such as `$1` and `$2`,
+and `$$` inserts a literal dollar sign. Literal search leaves replacements literal.
+
+A reference exposes `showFind(replace = false)`, `hideFind()` and
+`findNext(backward = false)`. `editor.search.replaceOne()` and `replaceAll()`
+apply through the same edit/history APIs as typing. Applications may set
+`findShortcuts={false}` and bind those methods themselves. Search controls still
+handle Enter and Escape.
+
+`editor.state.search` retains only `opened`, `replacing`, `query`, `replacement`,
+`matchCase`, `wholeWord` and `regex` signals. Keeping a CodeEditorState across tab
+switches preserves these inputs without retaining controls, matches, regex subject
+caches or editor closures. Highlight rectangles are bounded to visible rows and
+reused while their geometry stays the same. Editing with Find open updates the
+matches without moving the caret to another result.
+
+Style `.ui-code-find`, `.ui-code-find-mark` and `.ui-code-find-current`, or use
+`--ui-code-find-width` (460px), `--ui-code-find-bg`, `--ui-code-find-match`,
+`--ui-code-find-border` and `--ui-code-find-active`. The backdrop blur, tint and
+border follow theme tokens.
+
+`tests/fixtures/components/CodeFindTest.hx` covers search syntax, flags, captures,
+zero-width/Unicode input, responsive panel bounds, navigation, folded/offscreen
+results, replacement undo, event-batch freshness, read-only/disabled guards and
+view remount/disposal.
 
 ## Styling
 
