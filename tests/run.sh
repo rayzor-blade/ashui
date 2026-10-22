@@ -332,6 +332,10 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeDiffEngine -hl bin/code-diff-engine.hl
 	diff_engine=0
 	run code-diff-engine.hl || diff_engine=$?
+	# The rows of a diff, inline and side by side (ed51114).
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeDiffRowsCheck -hl bin/code-diff-rows.hl
+	diff_rows=0
+	run code-diff-rows.hl || diff_rows=$?
 	# A node's field tables follow the hash maps they replace.
 	$haxe_ui --class-path fixtures/css -main FieldTables -hl bin/field-tables.hl
 	field_tables=0
@@ -381,7 +385,7 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $signal_string_cache -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $root_zoom -eq 0 ] && [ $window_theme -eq 0 ] && [ $theme_debug_probe -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $text_wrap_rounding -eq 0 ] && [ $command_items -eq 0 ] && [ $component_fragments -eq 0 ] && [ $bundled_fonts -eq 0 ] && [ $icon_sets -eq 0 ] && [ $remix_catalogue -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $code_components -eq 0 ] && [ $code_state -eq 0 ] && [ $inline_release -eq 0 ] && [ $transition_reuse -eq 0 ] && [ $field_tables -eq 0 ] && [ $diff_engine -eq 0 ] && [ $shared_styles -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_sync -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $floating_reopen -eq 0 ] && [ $scheduler_failures -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $signal_string_cache -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $root_zoom -eq 0 ] && [ $window_theme -eq 0 ] && [ $theme_debug_probe -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $text_wrap_rounding -eq 0 ] && [ $command_items -eq 0 ] && [ $component_fragments -eq 0 ] && [ $bundled_fonts -eq 0 ] && [ $icon_sets -eq 0 ] && [ $remix_catalogue -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $code_components -eq 0 ] && [ $code_state -eq 0 ] && [ $inline_release -eq 0 ] && [ $transition_reuse -eq 0 ] && [ $field_tables -eq 0 ] && [ $diff_engine -eq 0 ] && [ $diff_rows -eq 0 ] && [ $shared_styles -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_sync -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $floating_reopen -eq 0 ] && [ $scheduler_failures -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2
