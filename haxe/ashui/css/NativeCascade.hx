@@ -14,13 +14,22 @@ typedef NativeComputedStyle = {resolved:Map<String, String>, values:Map<String, 
 	changed and what they are. `Css` applies those.
 **/
 class NativeCascade {
-	static var handle:Null<hl.Abstract<"blinc_css">> = null;
+	static final local_handle = new ashui.core.UiContext.Local<Null<hl.Abstract<"blinc_css">>>(() -> null);
+	static var handle(get, set):Null<hl.Abstract<"blinc_css">>;
+	static function get_handle():Null<hl.Abstract<"blinc_css">> return local_handle.value;
+	static function set_handle(v:Null<hl.Abstract<"blinc_css">>):Null<hl.Abstract<"blinc_css">> return local_handle.value = v;
 
 	/** Each sheet's id in the engine. **/
-	static final ids = new haxe.ds.ObjectMap<Stylesheet, Int>();
+	static final local_ids = new ashui.core.UiContext.Local<haxe.ds.ObjectMap<Stylesheet, Int>>(() -> new haxe.ds.ObjectMap());
+	static var ids(get, set):haxe.ds.ObjectMap<Stylesheet, Int>;
+	static function get_ids():haxe.ds.ObjectMap<Stylesheet, Int> return local_ids.value;
+	static function set_ids(v:haxe.ds.ObjectMap<Stylesheet, Int>):haxe.ds.ObjectMap<Stylesheet, Int> return local_ids.value = v;
 
 	/** The sheets in the engine, in its order. **/
-	static var order:Array<Stylesheet> = [];
+	static final local_order = new ashui.core.UiContext.Local<Array<Stylesheet>>(() -> []);
+	static var order(get, set):Array<Stylesheet>;
+	static function get_order():Array<Stylesheet> return local_order.value;
+	static function set_order(v:Array<Stylesheet>):Array<Stylesheet> return local_order.value = v;
 
 	/** Parents whose children changed since the last restyle, by tree. **/
 	static final reordered = new haxe.ds.ObjectMap<LayoutTree, Map<String, haxe.Int64>>();
@@ -34,12 +43,18 @@ class NativeCascade {
 	static inline final PAIR = "\x02";
 	static inline final ITEM = "\x03";
 
+	static var hooked = false;
+
 	static function css():hl.Abstract<"blinc_css"> {
 		if (handle == null) {
 			handle = CssNative.blinc_css_new();
+		}
+		if (!hooked) {
+			hooked = true;
+			LayoutTree.disposeHooks.push(tree -> reordered.remove(tree));
 			ashui.input.Interaction.created.push(interaction -> {
 				var bits = watchedStates.get(haxe.Int64.toStr(interaction.node.id));
-				if (bits != null) for (bit in names.keys()) if ((bits & bit) != 0) watch(interaction.node.id, bit);
+				if (bits != null) interaction.node.tree.context.run(() -> { for (bit in names.keys()) if ((bits & bit) != 0) watch(interaction.node.id, bit); });
 			});
 		}
 		return handle;
@@ -118,6 +133,10 @@ class NativeCascade {
 
 	/** Tells the engine what `identity` is now: its types, id, classes, attributes and own declarations. **/
 	public static function describe(identity:Identity):Void {
+		return identity.tree.context.run(() -> describeContext(identity));
+	}
+
+	static function describeContext(identity:Identity):Void {
 		var attributes = @:privateAccess identity.attributes;
 		var declared = identity.inlineDeclarations();
 		var desc = [
@@ -132,6 +151,10 @@ class NativeCascade {
 	}
 
 	public static function forget(identity:Identity):Void {
+		return identity.tree.context.run(() -> forgetContext(identity));
+	}
+
+	static function forgetContext(identity:Identity):Void {
 		var node = identity.node.id;
 		CssNative.blinc_css_forget(css(), node);
 		var nodeKey = haxe.Int64.toStr(node), prefix = nodeKey + ":";
@@ -167,6 +190,10 @@ class NativeCascade {
 		covers them all; `tree` is the one flushing.
 	**/
 	public static function restyle(tree:LayoutTree):Array<Identity> {
+		return tree.context.run(() -> restyleContext(tree));
+	}
+
+	static function restyleContext(tree:LayoutTree):Array<Identity> {
 		var nodes = reordered.get(tree);
 		if (nodes != null) {
 			reordered.remove(tree);
@@ -198,6 +225,10 @@ class NativeCascade {
 
 	/** The elements under `root` that `selectors` match, in document order; throws for selectors that do not read. **/
 	public static function select(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
+		return tree.context.run(() -> selectContext(tree, root, selectors));
+	}
+
+	static function selectContext(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
 		var capacity = 256;
 		while (true) {
 			var out = new hl.Bytes(capacity * 8);
@@ -212,6 +243,10 @@ class NativeCascade {
 
 	/** Every declaration that applies to `identity`, where it came from and whether it wins, in cascade order. **/
 	public static function explain(identity:Identity):Array<CssOrigin> {
+		return identity.tree.context.run(() -> explainContext(identity));
+	}
+
+	static function explainContext(identity:Identity):Array<CssOrigin> {
 		var bySheet = new Map<Int, Stylesheet>();
 		for (sheet => id in ids)
 			bySheet.set(id, sheet);
@@ -239,6 +274,10 @@ class NativeCascade {
 
 	/** `identity`'s style as the engine computed it. **/
 	public static function style(identity:Identity, ?shared:Map<String, NativeComputedStyle>):NativeComputedStyle {
+		return identity.tree.context.run(() -> styleContext(identity, shared));
+	}
+
+	static function styleContext(identity:Identity, ?shared:Map<String, NativeComputedStyle>):NativeComputedStyle {
 		var serialized = text(CssNative.blinc_css_style(css(), identity.node.id));
 		if (shared != null) {
 			var found = shared.get(serialized);

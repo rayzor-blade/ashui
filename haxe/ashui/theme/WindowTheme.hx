@@ -9,10 +9,13 @@ package ashui.theme;
 **/
 class WindowTheme {
 	/** The window's appearance as last reported, which `choose(null)` goes back to. **/
-	public static var system(default, null):ColorScheme = Light;
+	static final local = new ashui.core.UiContext.Local(() -> ({system: Light, following: true} : {system:ColorScheme, following:Bool}), state -> ({system:state.system, following:state.following}));
+	public static var system(get, never):ColorScheme;
+	static function get_system() return local.value.system;
 
 	/** Whether the installed theme takes the window's appearance; false while the app has `choose`n a scheme. **/
-	public static var following(default, null) = true;
+	public static var following(get, never):Bool;
+	static function get_following() return local.value.following;
 
 	/** The scheme of a window's appearance. **/
 	public static function schemeOf(theme:window.Theme):ColorScheme {
@@ -39,14 +42,14 @@ class WindowTheme {
 		this when they do.
 	**/
 	public static function choose(scheme:Null<ColorScheme>):Void {
-		following = scheme == null;
+		local.value.following = scheme == null;
 		var state = ThemeState.tryGet();
 		if (state != null)
 			state.setScheme(scheme == null ? system : scheme);
 	}
 
 	static function report(scheme:ColorScheme):Void {
-		system = scheme;
+		local.value.system = scheme;
 		var state = ThemeState.tryGet();
 		if (following && state != null)
 			state.setScheme(scheme);

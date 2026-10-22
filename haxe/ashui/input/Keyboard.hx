@@ -11,6 +11,21 @@ import window.Modifiers;
 	release, clicks the focused node, as a button does.
 **/
 class Keyboard {
+	/** Dispatches a menu editing command to the focused text control. */
+	public static function edit(tree:LayoutTree, action:String):Void {
+		var key = switch action {
+			case "undo" | "redo": "z";
+			case "cut": "x";
+			case "copy": "c";
+			case "paste": "v";
+			case "selectall": "a";
+			case _: return;
+		};
+		var mac = Sys.systemName() == "Mac";
+		var modifiers = window.Modifiers.State(action == "redo", !mac, false, mac, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		input(tree, window.KeyEvent.Input(Unidentified(Unidentified), Character(key), None, Standard, Pressed, false, Unavailable), modifiers);
+	}
+
 	/** A key went down or up, as hlwindow reports it. **/
 	public static function input(tree:LayoutTree, event:window.KeyEvent, ?modifiers:Modifiers):Void {
 		if (ashui.debug.InputLog.current != null)

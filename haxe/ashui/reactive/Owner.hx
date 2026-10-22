@@ -48,6 +48,10 @@ class Owner {
 
 	/** Runs `fn` with this owner current. **/
 	public function run<R>(fn:Void->R):R {
+		return tree.context.run(() -> runOwned(fn));
+	}
+
+	function runOwned<R>(fn:Void->R):R {
 		var previous = current;
 		current = this;
 		try {
@@ -62,6 +66,10 @@ class Owner {
 
 	/** Disposes what it owns, as above, and leaves its parent; once only. **/
 	public function dispose():Void {
+		tree.context.run(disposeOwned);
+	}
+
+	function disposeOwned():Void {
 		if (disposed)
 			return;
 		disposed = true;

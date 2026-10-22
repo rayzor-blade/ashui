@@ -2,7 +2,7 @@ package ashui.core.externs;
 
 /**
 	The native CSS engine of `blinc_abi.hdll`: parsing, selector matching
-	and the cascade, over the layout tree. One engine serves the process.
+	and the cascade, over the layout tree. Each UI context owns an engine.
 	`ashui.css.Css` drives it; app code uses that.
 
 	Strings cross as UTF-8 (`toUtf8`, `String.fromUTF8`). Lists cross as one

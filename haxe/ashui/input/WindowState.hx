@@ -9,19 +9,30 @@ import ashui.reactive.Signal;
 	while the window is inactive or hidden, as macOS does.
 **/
 class WindowState {
+	static final local = new ashui.core.UiContext.Local(() -> new WindowSignals());
 	/** The window has keyboard focus: it is the frontmost, active one. **/
-	public static final active:Signal<Bool> = Signal.make(true);
+	public static var active(get, never):Signal<Bool>;
+	static function get_active() return local.value.active;
 
 	/** Some of the window can be seen: it is not minimized, hidden or wholly covered. **/
-	public static final visible:Signal<Bool> = Signal.make(true);
+	public static var visible(get, never):Signal<Bool>;
+	static function get_visible() return local.value.visible;
 
 	/**
 		Where the focused text's caret is, in the window's layout units, while
 		text has focus; null otherwise. The window turns its input method on
 		while it is set and shows the method's candidates beside it.
 	**/
-	public static final textCaret:Signal<Null<CaretArea>> = Signal.make((null : Null<CaretArea>));
+	public static var textCaret(get, never):Signal<Null<CaretArea>>;
+	static function get_textCaret() return local.value.textCaret;
 }
 
 /** A caret's rect in the window, in layout units. **/
 typedef CaretArea = {x:Float, y:Float, width:Float, height:Float};
+
+private class WindowSignals {
+	public final active = Signal.make(true);
+	public final visible = Signal.make(true);
+	public final textCaret = Signal.make((null:Null<CaretArea>));
+	public function new() {}
+}

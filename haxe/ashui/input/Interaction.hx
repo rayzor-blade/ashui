@@ -122,8 +122,10 @@ class Interaction {
 		disposed = true;
 		byNode.remove(node);
 		var all = node.tree != null ? byTree.get(node.tree) : null;
-		if (all != null)
+		if (all != null) {
 			all.remove(this);
+			if (all.list.length == 0) byTree.remove(node.tree);
+		}
 		if (disabledWatch != null)
 			disabledWatch.stop();
 		Focus.forget(this);

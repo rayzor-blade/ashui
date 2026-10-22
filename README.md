@@ -255,3 +255,5 @@ repository, rather than the installed packages.
 pointer paths, motion trails, easing curves and filmstrips.
 
 Licensed under [Apache 2.0](https://github.com/rayzor-blade/ashui/blob/main/LICENSE).
+
+See [desktop windows and menus](docs/windows.md) for multiple windows, window-local services and application menus.

@@ -38,6 +38,8 @@ class LayoutTree {
 	/** The node `computeLayout` last laid out from, which input is hit-tested under. **/
 	public var root(default, null):Null<Node>;
 
+	public final context = ashui.core.UiContext.current;
+
 	public function new() {
 		#if wasm
 		// A page has no system fonts; the build's own are registered before any text is.
@@ -52,9 +54,12 @@ class LayoutTree {
 		not see that memory. Its nodes' bindings go with it. Later calls on the
 		tree do nothing.
 	**/
+	public static final disposeHooks:Array<LayoutTree->Void> = [];
+
 	public function dispose():Void {
 		ashui.input.Pointer.forget(this);
 		ashui.css.Identity.forgetTree(this);
+		for (hook in disposeHooks) hook(this);
 		invalidateHits();
 		root = null;
 		hitBytes = null;

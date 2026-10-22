@@ -85,7 +85,7 @@ class Focus {
 		for (i in next)
 			if (!i.focusWithin.get())
 				i.focusWithin.set(true);
-		within.set(tree, next);
+		if (next.length == 0) within.remove(tree); else within.set(tree, next);
 	}
 
 	/** Moves focus to the next focusable node after the focused one, or the previous with `backward`, wrapping. **/
@@ -102,7 +102,7 @@ class Focus {
 		if (list == null)
 			scopes.set(tree, list = []);
 		list.push(node);
-		return () -> list.remove(node);
+		return () -> { list.remove(node); if (list.length == 0) scopes.remove(tree); };
 	}
 
 	/** Pointer presses keep modal focus inside its existing scope, including an empty backdrop press. **/

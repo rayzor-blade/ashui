@@ -41,6 +41,7 @@ class AfterChildren {
 		if (hooked)
 			return;
 		hooked = true;
+		LayoutTree.disposeHooks.push(tree -> pending.remove(tree));
 		LayoutTree.flushHooks.unshift(tree -> {
 			var p = pending.get(tree);
 			if (p == null)

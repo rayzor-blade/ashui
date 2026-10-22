@@ -42,6 +42,7 @@ class Relations {
 			return found;
 		if (!hooked) {
 			hooked = true;
+			LayoutTree.disposeHooks.push(tree -> pending.remove(tree));
 			LayoutTree.flushHooks.push(resolve);
 		}
 		var list = pending.get(tree);

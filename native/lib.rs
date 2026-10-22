@@ -18,3 +18,6 @@ static ALLOCATOR: hl_abi::ProgramAllocator = hl_abi::ProgramAllocator;
 #[unsafe(no_mangle)]
 #[cfg_attr(target_feature = "atomics", thread_local)]
 static mut errno: i32 = 0;
+
+#[cfg(not(target_family = "wasm"))]
+mod menu;

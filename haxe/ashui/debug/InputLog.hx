@@ -52,7 +52,10 @@ typedef InputEntry = {time:Float, record:InputRecord}
 **/
 class InputLog {
 	/** The log recording now, if one is. **/
-	public static var current(default, null):Null<InputLog> = null;
+	static final local = new ashui.core.UiContext.Local<Null<InputLog>>(() -> null);
+	public static var current(get, set):Null<InputLog>;
+	static function get_current() return local.value;
+	static function set_current(value:Null<InputLog>) return local.value = value;
 
 	public final entries:Array<InputEntry>;
 

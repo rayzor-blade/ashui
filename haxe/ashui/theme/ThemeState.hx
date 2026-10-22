@@ -6,7 +6,7 @@ import ashui.animation.SpringConfig;
 import ashui.reactive.Signal;
 
 /**
-	The theme in use, one per program: its bundle and scheme, the tokens
+	The theme in use in the current UI context: its bundle and scheme, the tokens
 	they give, and overrides of single tokens. Install one with `init` or
 	`initDefault`, then reach it with `get`.
 
@@ -19,9 +19,14 @@ import ashui.reactive.Signal;
 	family switches at once. Mirrors Blinc's `ThemeState`.
 **/
 class ThemeState {
-	static var instance:Null<ThemeState>;
-	static var redrawCallback:Null<Void->Void>;
-	static final pendingStylesheets:Array<String> = [];
+	static final local = new ashui.core.UiContext.Local<Null<ThemeState>>(() -> null, state -> state == null ? null : state.fork());
+	static final pending = new ashui.core.UiContext.Local(() -> new Array<String>(), sheets -> sheets.copy());
+	static var instance(get, set):Null<ThemeState>;
+	static function get_instance() return local.value;
+	static function set_instance(value:Null<ThemeState>) return local.value = value;
+	static var pendingStylesheets(get, never):Array<String>;
+	static function get_pendingStylesheets() return pending.value;
+	var redrawCallback:Null<Void->Void>;
 
 	/** Bumped on every token change; read it in a computed to follow the theme. **/
 	public final revision:Signal<Int>;
@@ -57,6 +62,14 @@ class ThemeState {
 		this.bundle = bundle;
 		currentScheme = scheme;
 		adopt(bundle.forScheme(scheme), true);
+	}
+
+	function fork():ThemeState {
+		var copy = new ThemeState(bundle, currentScheme);
+		for (key => value in colorOverrides) copy.colorOverrides.set(key, value);
+		for (key => value in spacingOverrides) copy.spacingOverrides.set(key, value);
+		for (key => value in radiusOverrides) copy.radiusOverrides.set(key, value);
+		return copy;
 	}
 
 	/** Installs `bundle` in `scheme`. Replacing an installed theme clears every override. **/
@@ -100,7 +113,7 @@ class ThemeState {
 
 	/** Calls `callback` on every theme change, so a window loop draws a frame; replaces the last one. **/
 	public static function setRedrawCallback(callback:Void->Void):Void {
-		redrawCallback = callback;
+		get().redrawCallback = callback;
 	}
 
 	/** Style sheets that came with installed bundles, oldest first, once each. **/

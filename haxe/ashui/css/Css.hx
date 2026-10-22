@@ -91,15 +91,27 @@ typedef CssOrigin = {
 **/
 class Css {
 	/** The sheets in force, in order. **/
-	static final sheets:Array<Stylesheet> = [];
+	static final local_sheets = new ashui.core.UiContext.Local<Array<Stylesheet>>(() -> [], v -> v.copy());
+	static var sheets(get, set):Array<Stylesheet>;
+	static function get_sheets():Array<Stylesheet> return local_sheets.value;
+	static function set_sheets(v:Array<Stylesheet>):Array<Stylesheet> return local_sheets.value = v;
 
 	/** Problems found applying declarations, each once: an unknown property, a value that does not read. **/
-	public static final problems:Array<String> = [];
+	static final local_problems = new ashui.core.UiContext.Local<Array<String>>(() -> []);
+	public static var problems(get, set):Array<String>;
+	static function get_problems():Array<String> return local_problems.value;
+	static function set_problems(v:Array<String>):Array<String> return local_problems.value = v;
 
 	/** What `vw` and `vh` are a hundredth of, and what `@media` asks about; see `setViewport`. **/
-	public static var viewportWidth(default, null) = 0.0;
+	static final local_viewportWidth = new ashui.core.UiContext.Local<Float>(() -> 0.0, v -> v);
+	public static var viewportWidth(get, set):Float;
+	static function get_viewportWidth():Float return local_viewportWidth.value;
+	static function set_viewportWidth(v:Float):Float return local_viewportWidth.value = v;
 
-	public static var viewportHeight(default, null) = 0.0;
+	static final local_viewportHeight = new ashui.core.UiContext.Local<Float>(() -> 0.0, v -> v);
+	public static var viewportHeight(get, set):Float;
+	static function get_viewportHeight():Float return local_viewportHeight.value;
+	static function set_viewportHeight(v:Float):Float return local_viewportHeight.value = v;
 
 	/**
 		The viewport's size in layout units, set by the window and the
@@ -127,10 +139,16 @@ class Css {
 		ashui.core.Work.notify();
 	}
 
-	static var sentRootFontSize = Math.NaN;
+	static final local_sentRootFontSize = new ashui.core.UiContext.Local<Float>(() -> Math.NaN);
+	static var sentRootFontSize(get, set):Float;
+	static function get_sentRootFontSize():Float return local_sentRootFontSize.value;
+	static function set_sentRootFontSize(v:Float):Float return local_sentRootFontSize.value = v;
 
 	/** What `rem` is, and the font size of text with none of its own. **/
-	public static var rootFontSize = 16.0;
+	static final local_rootFontSize = new ashui.core.UiContext.Local<Float>(() -> 16.0, v -> v);
+	public static var rootFontSize(get, set):Float;
+	static function get_rootFontSize():Float return local_rootFontSize.value;
+	static function set_rootFontSize(v:Float):Float return local_rootFontSize.value = v;
 
 	static final pending = new haxe.ds.ObjectMap<LayoutTree, Map<String, Identity>>();
 	static final applied = new haxe.ds.ObjectMap<Identity, Applied>();
@@ -244,7 +262,10 @@ class Css {
 	}
 
 	/** Sheets libraries put in force (see `useLibrary`), by name. **/
-	static final libraries = new Map<String, Stylesheet>();
+	static final local_libraries = new ashui.core.UiContext.Local<Map<String, Stylesheet>>(() -> new Map(), v -> v.copy());
+	static var libraries(get, set):Map<String, Stylesheet>;
+	static function get_libraries():Map<String, Stylesheet> return local_libraries.value;
+	static function set_libraries(v:Map<String, Stylesheet>):Map<String, Stylesheet> return local_libraries.value = v;
 
 	/**
 		Puts a component library's sheet in force once, under the name
@@ -281,7 +302,10 @@ class Css {
 	}
 
 	/** The user-agent stylesheet once in force: built-in elements' default looks. **/
-	public static var userAgent(default, null):Null<Stylesheet> = null;
+	static final local_userAgent = new ashui.core.UiContext.Local<Null<Stylesheet>>(() -> null, v -> v);
+	public static var userAgent(get, set):Null<Stylesheet>;
+	static function get_userAgent():Null<Stylesheet> return local_userAgent.value;
+	static function set_userAgent(v:Null<Stylesheet>):Null<Stylesheet> return local_userAgent.value = v;
 
 	/**
 		Puts the user-agent stylesheet (`UserAgent.CSS`) in force, first, so
@@ -373,18 +397,19 @@ class Css {
 			for (identity in nodes)
 				NativeCascade.describe(identity);
 		Identity.hooks.push(identity -> {
-			NativeCascade.describe(identity);
+			identity.tree.context.run(() -> NativeCascade.describe(identity));
 			ashui.core.Work.notify();
 		});
 		Identity.forgetHooks.push(identity -> {
 			release(identity);
-			NativeCascade.forget(identity);
+			identity.tree.context.run(() -> NativeCascade.forget(identity));
 		});
 		LayoutTree.childrenHooks.push((tree, parent) -> {
 			NativeCascade.childrenChanged(tree, parent);
 			ashui.core.Work.notify();
 		});
 		LayoutTree.flushHooks.push(flush);
+		LayoutTree.disposeHooks.push(tree -> pending.remove(tree));
 	}
 
 	// --- What to apply again ---
@@ -402,11 +427,15 @@ class Css {
 
 	/** Restyles through the engine and applies what changed, parents first. **/
 	static function flush(tree:LayoutTree):Void {
+		tree.context.run(() -> flushContext(tree));
+	}
+
+	static function flushContext(tree:LayoutTree):Void {
 		// Marked to apply again, as an animation that ended hands back to the cascade: applied though the engine saw no change.
 		var again = pending.get(tree);
 		pending.remove(tree);
 		// A theme set since the sheets were, or a root font size since the viewport: the engine takes it.
-		if (themeVariables == null && ashui.theme.ThemeState.tryGet() != null)
+		if (ashui.theme.ThemeState.tryGet() != null)
 			NativeCascade.setTheme(theme());
 		if (rootFontSize != sentRootFontSize)
 			mediaChanged();
@@ -667,9 +696,15 @@ class Css {
 		report(d, message);
 
 	/** The theme's variables, made again when the theme changes. **/
-	static var themeVariables:Null<Map<String, String>> = null;
+	static final local_themeVariables = new ashui.core.UiContext.Local<Null<Map<String, String>>>(() -> null);
+	static var themeVariables(get, set):Null<Map<String, String>>;
+	static function get_themeVariables():Null<Map<String, String>> return local_themeVariables.value;
+	static function set_themeVariables(v:Null<Map<String, String>>):Null<Map<String, String>> return local_themeVariables.value = v;
 
-	static var themeWatched = false;
+	static final local_themeWatched = new ashui.core.UiContext.Local<Bool>(() -> false);
+	static var themeWatched(get, set):Bool;
+	static function get_themeWatched():Bool return local_themeWatched.value;
+	static function set_themeWatched(v:Bool):Bool return local_themeWatched.value = v;
 
 	static function theme():Map<String, String> {
 		if (themeVariables != null)
@@ -681,11 +716,12 @@ class Css {
 		if (!themeWatched) {
 			themeWatched = true;
 			// 2abc23a: the global cache must outlive the first tree that loads CSS.
-			ashui.reactive.Owner.unowned(() -> new ashui.reactive.Watch(() -> state.revision.get(), _ -> {
+			var watch = ashui.reactive.Owner.unowned(() -> new ashui.reactive.Watch(() -> state.revision.get(), _ -> {
 				themeVariables = null;
 				NativeCascade.setTheme(theme());
 				mediaChanged();
 			}));
+			ashui.core.UiContext.current.onCleanup(watch.stop);
 		}
 		return themeVariables = state.toCssVariableMap();
 	}

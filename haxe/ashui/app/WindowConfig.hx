@@ -55,8 +55,10 @@ typedef WindowConfigData = {
 	?scaleSizing:ScaleSizing,
 	/** Its icon: RGBA pixels, `width` by `height`. **/
 	?icon:{pixels:haxe.io.Bytes, width:Int, height:Int},
-	/** The UI's theme, installed when none is; the default theme otherwise. **/
+	/** The window's UI theme; inherits the application theme when unset, or uses the default. **/
 	?theme:ThemeBundle,
+	/** Return false to defer closing, for example while asking to save work. */
+	?onClose:Void->Bool,
 	/** Called after each presented frame with its number and the seconds since the window opened. **/
 	?onFrame:(frame:Int, seconds:Float) -> Void
 }
@@ -222,6 +224,12 @@ abstract WindowConfig(WindowConfigData) from WindowConfigData to WindowConfigDat
 
 	public inline function theme(value:ThemeBundle):WindowConfig {
 		this.theme = value;
+		return abstract;
+	}
+
+	/** Defers closing while false, until the app calls `quit` again. */
+	public inline function onClose(value:Void->Bool):WindowConfig {
+		this.onClose = value;
 		return abstract;
 	}
 

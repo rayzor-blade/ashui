@@ -45,8 +45,9 @@ class Watch<T> {
 		reaction; by default `==`.
 	**/
 	public function new(read:Void->T, react:T->Void, ?same:(T, T) -> Bool) {
-		this.read = read;
-		this.react = react;
+		this.read = ashui.core.UiContext.capture(read);
+		var context = ashui.core.UiContext.current;
+		this.react = value -> context.run(() -> react(value));
 		this.same = same != null ? same : (a, b) -> a == b;
 		Guard.creating("A watch");
 		slot = BlincNative.blinc_host_effect_new();
@@ -54,7 +55,7 @@ class Watch<T> {
 		run();
 		Guard.check();
 		reacted = latest;
-		react(latest);
+		this.react(latest);
 		Owner.onCleanup(stop);
 	}
 

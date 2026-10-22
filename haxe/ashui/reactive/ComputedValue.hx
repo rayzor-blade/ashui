@@ -14,6 +14,7 @@ class ComputedValue<T:IValue> implements IComputed<T> {
 	var last:T;
 
 	public function new(compute:Void->T) {
+		compute = ashui.core.UiContext.capture(compute);
 		ptr = BlincNative.blinc_computed_value(Guard.wrap(() -> {
 			last = compute();
 			BlincNative.blinc_return_value(last == null ? null : last.ptr);

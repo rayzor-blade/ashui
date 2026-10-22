@@ -23,6 +23,12 @@ blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blin
 [target.'cfg(target_family = "wasm")'.dependencies]
 hl_abi = { git = "https://github.com/rayzor-blade/hl_abi", branch = "main" }
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+hl_abi = { git = "https://github.com/rayzor-blade/hl_abi", branch = "main" }
+
+[build-dependencies]
+cc = "1.2"
+
 [workspace]
 resolver = "3"
 

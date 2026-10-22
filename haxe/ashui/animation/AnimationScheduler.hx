@@ -121,12 +121,25 @@ class AnimationScheduler {
 	/** Calls `callback` once `seconds` from now, at the first tick after. **/
 	public function after(seconds:Float, callback:Void->Void):Timer {
 		var timer = locked(() -> {
-			var timer = new Timer(time() + seconds, callback);
+			var timer = new Timer(time() + seconds, ashui.core.UiContext.capture(callback));
 			timers.push(timer);
 			timer;
 		});
 		ashui.core.Work.notify();
 		return timer;
+	}
+
+	/** Drops deferred work owned by a window that is closing. */
+	public function disposeContext(context:ashui.core.UiContext):Void {
+		locked(() -> {
+			for (timer in timers.copy()) if (timer.context == context) { timer.cancel(); timers.remove(timer); }
+			for (ticker in tickers.copy()) if (ticker.context == context) {
+				ticker.cancelled = true;
+				ticker.finish();
+				tickers.remove(ticker);
+			}
+			null;
+		});
 	}
 
 	/** A native loop enables this so timers created while it sleeps start now. Offscreen ticks stay deterministic. **/
@@ -160,7 +173,8 @@ class AnimationScheduler {
 
 	/** Calls `ticker` every tick until it returns false or its handle is cancelled. **/
 	public function addTicker(callback:Float->Bool):Ticker {
-		var ticker = new Ticker(this, callback);
+		var context = ashui.core.UiContext.current;
+		var ticker = new Ticker(this, dt -> context.run(() -> callback(dt)));
 		locked(() -> {
 			tickers.push(ticker);
 			null;
@@ -224,7 +238,7 @@ class AnimationScheduler {
 		var kept = [];
 		for (ticker in running) {
 			var keep = false;
-			if (!ticker.cancelled)
+			if (!ticker.cancelled && !ticker.context.disposed)
 				try
 					keep = ticker.callback(dt)
 				catch (e:haxe.Exception)
@@ -253,7 +267,7 @@ class AnimationScheduler {
 			fire;
 		});
 		for (t in due)
-			if (!t.cancelled)
+			if (!t.cancelled && !t.context.disposed)
 				try
 					t.callback()
 				catch (e:haxe.Exception)
@@ -290,6 +304,7 @@ class AnimationScheduler {
 
 /** A running ticker; cancellation removes it immediately, including during a tick. **/
 class Ticker {
+	public final context = ashui.core.UiContext.current;
 	final scheduler:AnimationScheduler;
 	@:allow(ashui.animation.AnimationScheduler)
 	final callback:Float->Bool;
@@ -318,6 +333,7 @@ class Ticker {
 
 /** A callback `AnimationScheduler.after` will call; `cancel` stops it. **/
 class Timer {
+	public final context = ashui.core.UiContext.current;
 	/** When it is due, on the scheduler's `clock`. **/
 	public final at:Float;
 

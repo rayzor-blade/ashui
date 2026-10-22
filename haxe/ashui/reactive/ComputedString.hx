@@ -13,6 +13,7 @@ class ComputedString implements IComputed<String> {
 	var cached:Null<String> = null;
 
 	public function new(compute:Void->String) {
+		compute = ashui.core.UiContext.capture(compute);
 		ptr = BlincNative.blinc_computed_string(Guard.wrap(() -> {
 			var made = compute();
 			cached = made;

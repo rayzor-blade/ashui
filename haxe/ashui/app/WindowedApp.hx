@@ -34,14 +34,44 @@ import window.TouchPhase;
 	`ashui.input.Keyboard`. Blinc's `WindowedApp` does the same.
 **/
 class WindowedApp {
-	/** The running app, if any. **/
-	public static var current(default, null):Null<WindowedApp>;
+	/** The UI context identifies the window being dispatched. **/
+	static final local = new ashui.core.UiContext.Local<Null<WindowedApp>>(() -> null);
+
+	/** The window whose UI or callback is running. */
+	public static var current(get, never):Null<WindowedApp>;
+
+	static function get_current()
+		return local.value;
+
+	static var manager:Null<WindowManager>;
+	public static final windowRevision = ashui.reactive.Signal.make(0);
+
+	public final context:ashui.core.UiContext;
+
+	final config:WindowConfig.WindowConfigData;
+	var disposeRoot:Null<Void->Void>;
+	var imeWatch:ashui.reactive.Watch<Null<ashui.input.WindowState.CaretArea>>;
+	var log:Null<ashui.debug.InputLog>;
+	var presented = 0.0;
+
+	public var disposed(default, null) = false;
+
+	/** Queues a window; it is built on the UI thread after the current turn. */
+	public static function open(settings:WindowConfig, build:Void->Element):Void {
+		if (manager == null)
+			throw "WindowedApp.open requires a running application";
+		manager.enqueue(settings, build);
+	}
+
+	/** A snapshot of open windows, including those which requested close this turn. */
+	public static function windows():Array<WindowedApp>
+		return manager == null ? [] : manager.windows.copy();
 
 	public final window:Window;
 	public final device:GpuDevice;
 
 	/** What draws the tree into the window's frames. **/
-	public final offscreen:Offscreen;
+	public var offscreen(default, null):Offscreen;
 
 	/** The tree the UI `build` made lives in. **/
 	public final tree:LayoutTree;
@@ -96,6 +126,8 @@ class WindowedApp {
 	/** `ASHUI_FRAME_LOG=<file>` writes each frame's phase timings and each wheel delta there; off when unset, safe either way. **/
 	final frameLog:Null<sys.io.FileOutput> = {
 		var path = Sys.getEnv("ASHUI_FRAME_LOG");
+		if (path != null && windows().length > 0)
+			path += "." + windows().length;
 		path != null
 		&& path != "" ? sys.io.File.write(path, false) : null;
 	};
@@ -169,7 +201,8 @@ class WindowedApp {
 	/** `ASHUI_ZOOM=<n>` uses that zoom whatever the stylesheet says, for scripted runs and benches that need a known layout; off when unset, safe either way. **/
 	final zoomOverride:Null<Float> = {
 		var z = Std.parseFloat(Sys.getEnv("ASHUI_ZOOM"));
-		Math.isNaN(z) || z <= 0 ? null : z;
+		Math.isNaN(z)
+		|| z <= 0 ? null : z;
 	};
 
 	/** The smallest and largest zoom taken from the stylesheet. **/
@@ -192,42 +225,26 @@ class WindowedApp {
 
 	/** Runs `build`'s UI in a window until it closes or `quit` is called. Returns the frames presented. **/
 	public static function run(settings:WindowConfig, build:Void->Element):Int {
-		var config = settings.data;
-		if (ThemeState.tryGet() == null)
-			ThemeState.init(config.theme != null ? config.theme : ashui.theme.themes.DefaultTheme.bundle(), Platform.detectSystemColorScheme());
-		var instance = new GpuInstance();
-		// The device comes first: an await does not wake on Ash once a window is open.
-		var adapter = instance.requestAdapter(Power.HighPerformance).await();
-		var device = ashui.core.render.Renderer.requestDevice(adapter);
-		var attributes = settings.attributes();
-		// Raw device motion is not used, and a moving mouse sends a lot of it.
-		Window.listenDeviceEvents(Never);
-		var window = Window.open(attributes);
-		if (!window.valid())
-			throw "the window could not be opened";
-		// An app started from a terminal or another process is not made active on its own.
-		if (config.active != false)
-			window.focus();
-		var surface = instance.surface(window.platform(), window.raw(0), window.raw(1), window.raw(2), window.raw(3));
-		if (!surface.valid())
-			throw 'platform ${window.platform()} gave no GPU surface';
-		var app = new WindowedApp(window, adapter, device, surface, config.transparent == true);
-		current = app;
+		if (manager != null)
+			throw "Use WindowedApp.open to add a window to the running application";
+		var host = new WindowManager();
+		manager = host;
 		try {
-			app.loop(build, config.onFrame);
+			var frames = host.run(settings, build);
+			manager = null;
+			return frames;
 		} catch (e:haxe.Exception) {
-			// Where it failed, which the rethrow below would report as here.
-			Sys.stderr().writeString(e.details() + "\n");
-			app.close(instance);
+			manager = null;
 			throw e;
 		}
-		app.close(instance);
-		return app.frames;
 	}
 
-	function new(window:Window, adapter:GpuAdapter, device:GpuDevice, surface:GpuSurface, transparent:Bool) {
+	function new(window:Window, adapter:GpuAdapter, device:GpuDevice, surface:GpuSurface, config:WindowConfig.WindowConfigData) {
+		this.context = ashui.core.UiContext.current;
+		this.config = config;
+		local.value = this;
 		this.window = window;
-		this.transparent = transparent;
+		this.transparent = config.transparent == true;
 		this.adapter = adapter;
 		this.device = device;
 		this.surface = surface;
@@ -247,6 +264,14 @@ class WindowedApp {
 
 	/** Closes the window after the frame being drawn. **/
 	public function quit():Void {
+		context.run(requestClose);
+	}
+
+	function requestClose():Void {
+		if (disposed || quitting)
+			return;
+		if (config.onClose != null && !config.onClose())
+			return;
 		quitting = true;
 		ashui.core.Work.notify();
 	}
@@ -273,7 +298,8 @@ class WindowedApp {
 				ashui.input.Pointer.hooks.remove(follow);
 				return;
 			}
-			var x = window.x() / factor + at.x * z, y = window.y() / factor + at.y * z;
+			var x = window.x() / factor + at.x * z,
+				y = window.y() / factor + at.y * z;
 			window.setPosition(Math.round(startX + x - fromX), Math.round(startY + y - fromY));
 		};
 		ashui.input.Pointer.hooks.push(follow);
@@ -295,7 +321,8 @@ class WindowedApp {
 	/** Takes the zoom the stylesheet sets for the window's own size, which `@media` rules read, not the zoomed layout's: the zoom cannot flip with what it makes. **/
 	function syncZoom():Void {
 		var factor = window.scaleFactor();
-		var width = Math.round(window.width() / factor), height = Math.round(window.height() / factor);
+		var width = Math.round(window.width() / factor),
+			height = Math.round(window.height() / factor);
 		offscreen.mediaWidth = width;
 		offscreen.mediaHeight = height;
 		ashui.css.Css.setViewport(width, height);
@@ -311,21 +338,16 @@ class WindowedApp {
 		}
 	}
 
-	function loop(build:Void->Element, onFrame:Null<(Int, Float) -> Void>):Void {
-		ashui.core.Work.listen(() -> {
-			Window.wake();
-		});
-		var last = haxe.Timer.stamp();
-		scheduler.useRealtime(motion == null);
+	function initialize(build:Void->Element):Void {
 		var theme = ThemeState.get();
 		// The window's own scheme first, before there is a scheduler, so it applies at once rather than as a transition.
 		WindowTheme.follow(window);
 		theme.setScheduler(scheduler);
 		ThemeState.setRedrawCallback(invalidate);
 		ashui.input.WindowState.active.set(window.hasFocus());
-		var log = inputLog != null && inputLog != "" ? ashui.debug.InputLog.start() : null;
+		log = inputLog != null && inputLog != "" ? ashui.debug.InputLog.start() : null;
 		// The input method is on while text has focus, its candidates by the caret.
-		new ashui.reactive.Watch(() -> ashui.input.WindowState.textCaret.get(), area -> {
+		imeWatch = new ashui.reactive.Watch(() -> ashui.input.WindowState.textCaret.get(), area -> {
 			var on = area != null;
 			if (on != imeOn) {
 				imeOn = on;
@@ -336,215 +358,185 @@ class WindowedApp {
 		},
 			(a, b) -> a == b || (a != null && b != null && a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height));
 		configure();
-		root = Owner.root(tree, _ -> build());
+		root = Owner.root(tree, dispose -> {
+			disposeRoot = dispose;
+			return build();
+		});
 		opened = haxe.Timer.stamp();
-		var presented = opened;
+		presented = opened;
 		if (frameLog != null)
 			frameLog.writeString("frame\tat_ms\tsince_last_frame\twait\tevents\tn_events\ttick\tflush\tdraw_flush\tlayout\tlist\tgpu\tpresent\tprimitives\n");
-		var closeAt = closeAfter > 0 ? haxe.Timer.stamp() + closeAfter : 0.0;
-		while (!quitting) {
-			if (closeAt > 0 && haxe.Timer.stamp() >= closeAt)
-				break;
-			// No wait when a frame is due; after a present, until its redraw;
-			// short ones while something animates; otherwise the loop sleeps
-			// on the window. Never past the next timer.
-			// What was queued after the last turn's flush needs a turn at once; the writes a tick made were taken by that flush.
-			var workLeft = ashui.core.Work.end() && !awaitingFrame;
-			var animating = scheduler.hasActive() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0));
-			var timer = scheduler.untilNextTimer();
-			var t0 = haxe.Timer.stamp();
+	}
+
+	function delay(now:Float, animating:Bool):Float {
+		if (closeAfter > 0 && now >= opened + closeAfter) {
+			quit();
+			return 0;
+		}
+		if (awaitingFrame && now - awaitingSince > FRAME_WAIT_LIMIT) {
+			awaitingFrame = false;
+			statStalls++;
+		}
+		var visible = ashui.input.WindowState.visible.get();
+		if (dirty && visible && !awaitingFrame && now - refusedAt >= RETRY_FRAME)
+			return 0;
+		var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (now - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : drewLast ? 0.0 : 1 / 120) : Math.POSITIVE_INFINITY;
+		if (dirty && visible && now - refusedAt < RETRY_FRAME)
+			timeout = Math.min(timeout, RETRY_FRAME - (now - refusedAt));
+		if (closeAfter > 0)
+			timeout = Math.min(timeout, opened + closeAfter - now);
+		return Math.max(0, timeout);
+	}
+
+	function turn(event:window.Event, t0:Float, t1:Float, animating:Bool):Void {
+		var theme = ThemeState.get();
+
+		var handled = 0;
+		var polling = 0.0;
+		var kinds = frameLog != null ? new Map<String, Int>() : null;
+		while (event != None) {
+			if (kinds != null) {
+				var k = Type.enumConstructor(event);
+				kinds.set(k, (kinds.exists(k) ? kinds.get(k) : 0) + 1);
+			}
 			if (frameStats) {
-				if (loopTurnStart > 0)
-					loopBusy += t0 - loopTurnStart;
-				loopTurns++;
-				if (animating)
-					loopAnimating++;
-				if (loopSince == 0)
-					loopSince = t0;
-				else if (t0 - loopSince >= 1) {
-					Sys.println('[loop] ${loopTurns} turns in ${Math.round((t0 - loopSince) * 1000)} ms, busy ${Math.round(loopBusy * 1000)} ms, ${loopAnimating} with something animating, ${loopTimers} woken by a timer, ${ashui.input.Pointer.hooks.length} pointer hooks (any keeps every move awake); events: ${[for (k => n in loopEvents) k + "=" + n].join(" ")}');
-					loopSince = t0;
-					loopTurns = loopAnimating = loopTimers = 0;
-					loopBusy = 0;
-					loopEvents = new Map();
-				}
+				var k = Type.enumConstructor(event);
+				loopEvents.set(k, (loopEvents.exists(k) ? loopEvents.get(k) : 0) + 1);
 			}
-			if (awaitingFrame && t0 - awaitingSince > FRAME_WAIT_LIMIT) {
-				awaitingFrame = false;
-				statStalls++;
-			}
-			// After the surface gave no frame, the next try waits a little, rather than spinning while it has none to give.
-			var due = dirty && ashui.input.WindowState.visible.get() && !awaitingFrame && t0 - refusedAt >= RETRY_FRAME;
-			// While a frame is awaited the wait ends with its redraw; animation steps when it comes.
-			// Animations that changed nothing drawn last turn, as those out of view, step slower, until one does or input comes.
-			var timeout = awaitingFrame ? FRAME_WAIT_LIMIT - (t0 - awaitingSince) : animating ? (idleTicks ? IDLE_STEP : drewLast ? 0.0 : 1 / 120) : Math.POSITIVE_INFINITY;
-			if (workLeft)
-				timeout = 0;
-			#if ashui_hot_reload
-			// File watching uses a deadline only in builds that enable hot reload.
-			timeout = Math.min(timeout, 0.1);
-			#end
-			if (dirty && t0 - refusedAt < RETRY_FRAME)
-				timeout = Math.min(timeout, RETRY_FRAME - (t0 - refusedAt));
-			if (timer != null)
-				timeout = Math.min(timeout, timer);
-			if (closeAt > 0)
-				timeout = Math.max(0, Math.min(timeout, closeAt - t0));
-			var event = due ? window.poll() : window.wait(timeout == Math.POSITIVE_INFINITY ? -1 : timeout);
-			ashui.core.Work.begin();
-			var t1 = haxe.Timer.stamp();
-			if (frameStats) {
-				loopTurnStart = t1;
-				if (event == None && timer != null && t1 - t0 >= timer - 0.001)
-					loopTimers++;
-			}
-			var handled = 0;
-			var polling = 0.0;
-			var kinds = frameLog != null ? new Map<String, Int>() : null;
-			while (event != None) {
-				if (kinds != null) {
-					var k = Type.enumConstructor(event);
-					kinds.set(k, (kinds.exists(k) ? kinds.get(k) : 0) + 1);
-				}
+			handle(event);
+			handled++;
+			var p0 = haxe.Timer.stamp();
+			event = window.poll();
+			polling += haxe.Timer.stamp() - p0;
+		}
+		applyPointer();
+		if (offscreen.hitMap != null && offscreen.hitMap.pointerChanged(tree))
+			dirty = true;
+		if (offscreen.inspector != null && offscreen.inspector.pointerChanged(tree))
+			dirty = true;
+		if (committed) {
+			committed = false;
+			composing = false;
+		}
+		if (kinds != null && handled > 0)
+			frameLog.writeString('events\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\tpoll_ms=${Math.round(polling * 10000) / 10}\t${[for (k => n in kinds) '$k=$n'].join(" ")}\n');
+		#if ashui_hot_reload
+		if (ashui.ui.HotReload.check())
+			dirty = true;
+		#end
+		var now = haxe.Timer.stamp();
+
+		// A frame is drawn for what changed: the theme, the motion overlay, or what the tree's flush reports below.
+		// A ticker that changed nothing drawn, an animation out of view, draws nothing.
+		if (theme.tick() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0)))
+			dirty = true;
+		if (awaitingFrame && dirty) {
+			coalescePointer();
+			return;
+		}
+		var t2 = haxe.Timer.stamp();
+		ashui.core.Work.settle();
+		drewLast = false;
+		var changed = tree.flush();
+		idleTicks = animating && !changed && !dirty;
+		if (changed)
+			dirty = true;
+		// A tree that changes on every turn with no input and nothing animating does not settle, as when a size is made from a measure
+		// of itself and the two swap places; said once, since the app then draws a frame each turn.
+		if (changed && handled == 0 && !animating)
+			unsettled++;
+		else
+			unsettled = 0;
+		if (unsettled == UNSETTLED_TURNS)
+			Sys.stderr()
+				.writeString('[ashui] the layout has changed on each of $UNSETTLED_TURNS turns with no input and nothing animating: something is sized from a measure of itself\n');
+		var t3 = haxe.Timer.stamp();
+		// A hidden window draws nothing; what changes waits for it to show again.
+		if (dirty && !quitting && ashui.input.WindowState.visible.get() && haxe.Timer.stamp() - refusedAt >= RETRY_FRAME) {
+			dirty = false;
+			if (draw()) {
+				drewLast = true;
+				// Hit-test the new layout, including a still pointer. Hover
+				// changes can require another frame after this one.
+				if (ashui.input.Pointer.refresh(tree))
+					dirty = true;
+				frames++;
+				ashui.core.Memory.afterFrame();
+				#if wasm
+				// What the web page waits for before it shows the window: the first frame is on the GPU.
+				if (frames == 1)
+					Sys.println("ashui: ready");
+				#end
+				var t4 = haxe.Timer.stamp();
 				if (frameStats) {
-					var k = Type.enumConstructor(event);
-					loopEvents.set(k, (loopEvents.exists(k) ? loopEvents.get(k) : 0) + 1);
-				}
-				handle(event);
-				handled++;
-				var p0 = haxe.Timer.stamp();
-				event = window.poll();
-				polling += haxe.Timer.stamp() - p0;
-			}
-			applyPointer();
-			if (offscreen.hitMap != null && offscreen.hitMap.pointerChanged(tree))
-				dirty = true;
-			if (offscreen.inspector != null && offscreen.inspector.pointerChanged(tree))
-				dirty = true;
-			if (committed) {
-				committed = false;
-				composing = false;
-			}
-			if (kinds != null && handled > 0)
-				frameLog.writeString('events\t${Math.round((haxe.Timer.stamp() - opened) * 10000) / 10}\tpoll_ms=${Math.round(polling * 10000) / 10}\t${[for (k => n in kinds) '$k=$n'].join(" ")}\n');
-			#if ashui_hot_reload
-			if (ashui.ui.HotReload.check())
-				dirty = true;
-			#end
-			var now = haxe.Timer.stamp();
-			// Capped, so after a stall an animation carries on from where it was instead of jumping ahead.
-			var step = Math.min(now - last, MAX_STEP);
-			if (motion != null && motion.busy()) {
-				// While a burst is written, a fixed step per frame drawn: the capture's cost stays out of the motion.
-				step = motion.step(step);
-				scheduler.tick(step, step);
-			} else
-				scheduler.tick(step, now - last);
-			last = now;
-			// A frame is drawn for what changed: the theme, the motion overlay, or what the tree's flush reports below.
-			// A ticker that changed nothing drawn, an animation out of view, draws nothing.
-			if (theme.tick() || (motion != null && (motion.busy() || motion.overlay.shown().length > 0)))
-				dirty = true;
-			if (awaitingFrame && dirty) {
-				coalescePointer();
-				continue;
-			}
-			var t2 = haxe.Timer.stamp();
-			ashui.core.Work.settle();
-			drewLast = false;
-			var changed = tree.flush();
-			idleTicks = animating && !changed && !dirty;
-			if (changed)
-				dirty = true;
-			// A tree that changes on every turn with no input and nothing animating does not settle, as when a size is made from a measure
-			// of itself and the two swap places; said once, since the app then draws a frame each turn.
-			if (changed && handled == 0 && !animating)
-				unsettled++;
-			else
-				unsettled = 0;
-			if (unsettled == UNSETTLED_TURNS)
-				Sys.stderr().writeString('[ashui] the layout has changed on each of $UNSETTLED_TURNS turns with no input and nothing animating: something is sized from a measure of itself\n');
-			var t3 = haxe.Timer.stamp();
-			// A hidden window draws nothing; what changes waits for it to show again.
-			if (dirty && !quitting && ashui.input.WindowState.visible.get() && haxe.Timer.stamp() - refusedAt >= RETRY_FRAME) {
-				dirty = false;
-				if (draw()) {
-					drewLast = true;
-					// Hit-test the new layout, including a still pointer. Hover
-					// changes can require another frame after this one.
-					if (ashui.input.Pointer.refresh(tree))
-						dirty = true;
-					frames++;
-					ashui.core.Memory.afterFrame();
-					#if wasm
-					// What the web page waits for before it shows the window: the first frame is on the GPU.
-					if (frames == 1)
-						Sys.println("ashui: ready");
-					#end
-					var t4 = haxe.Timer.stamp();
-					if (frameStats) {
-						var gap = t4 - presented, drew = t4 - t3;
-						statFrames++;
-						statGap += gap;
-						statGapMax = Math.max(statGapMax, gap);
-						statDraw += drew;
-						statDrawMax = Math.max(statDrawMax, drew);
-						if (statSince == 0)
-							statSince = t4;
-						else if (t4 - statSince >= 1) {
-							inline function ms(s:Float)
-								return Std.string(Math.round(s * 10000) / 10);
-							Sys.println('[frames] ${statFrames} in ${ms(t4 - statSince)} ms at ${scale()}x: between ${ms(statGap / statFrames)} ms, at most ${ms(statGapMax)}; drawing ${ms(statDraw / statFrames)} ms, at most ${ms(statDrawMax)}; redraw waits that ran out ${statStalls}; ${offscreen.layerRecords} layers');
-							statSince = t4;
-							statFrames = 0;
-							statGap = statGapMax = statDraw = statDrawMax = 0;
-							statStalls = 0;
-						}
-					}
-					if (frameLog != null) {
-						var o = offscreen.timings;
+					var gap = t4 - presented, drew = t4 - t3;
+					statFrames++;
+					statGap += gap;
+					statGapMax = Math.max(statGapMax, gap);
+					statDraw += drew;
+					statDrawMax = Math.max(statDrawMax, drew);
+					if (statSince == 0)
+						statSince = t4;
+					else if (t4 - statSince >= 1) {
 						inline function ms(s:Float)
 							return Std.string(Math.round(s * 10000) / 10);
-						frameLog.writeString([
-							Std.string(frames),
-							ms(t4 - opened),
-							ms(t4 - presented),
-							ms(t1 - t0),
-							ms(now - t1),
-							Std.string(handled),
-							ms(t2 - now),
-							ms(t3 - t2),
-							ms(o.flush),
-							ms(o.layout),
-							ms(o.list),
-							ms(o.draw),
-							ms(t4 - t3 - o.flush - o.layout - o.list - o.draw),
-							Std.string(offscreen.primitives)
-						].join("\t") + "\n");
-						frameLog.flush();
-					}
-					presented = t4;
-					if (motion != null)
-						motion.frame(tree, root, logicalWidth(), logicalHeight());
-					if (onFrame != null) {
-						onFrame(frames, haxe.Timer.stamp() - opened);
-						// git-bug 364d4b2: callback writes happen after this frame's
-						// flush. Apply them before sleeping, including a canvas resume.
-						if (tree.flush())
-							dirty = true;
+						Sys.println('[frames] ${statFrames} in ${ms(t4 - statSince)} ms at ${scale()}x: between ${ms(statGap / statFrames)} ms, at most ${ms(statGapMax)}; drawing ${ms(statDraw / statFrames)} ms, at most ${ms(statDrawMax)}; redraw waits that ran out ${statStalls}; ${offscreen.layerRecords} layers');
+						statSince = t4;
+						statFrames = 0;
+						statGap = statGapMax = statDraw = statDrawMax = 0;
+						statStalls = 0;
 					}
 				}
+				if (frameLog != null) {
+					var o = offscreen.timings;
+					inline function ms(s:Float)
+						return Std.string(Math.round(s * 10000) / 10);
+					frameLog.writeString([
+						Std.string(frames),
+						ms(t4 - opened),
+						ms(t4 - presented),
+						ms(t1 - t0),
+						ms(now - t1),
+						Std.string(handled),
+						ms(t2 - now),
+						ms(t3 - t2),
+						ms(o.flush),
+						ms(o.layout),
+						ms(o.list),
+						ms(o.draw),
+						ms(t4 - t3 - o.flush - o.layout - o.list - o.draw),
+						Std.string(offscreen.primitives)
+					].join("\t") + "\n");
+					frameLog.flush();
+				}
+				presented = t4;
+				if (motion != null)
+					motion.frame(tree, root, logicalWidth(), logicalHeight());
+				if (config.onFrame != null) {
+					config.onFrame(frames, haxe.Timer.stamp() - opened);
+					// git-bug 364d4b2: callback writes happen after this frame's
+					// flush. Apply them before sleeping, including a canvas resume.
+					if (tree.flush())
+						dirty = true;
+				}
 			}
-			coalescePointer();
 		}
-		if (frameLog != null)
-			frameLog.close();
-		if (log != null) {
-			log.stop();
-			log.save(inputLog);
+		coalescePointer();
+		if (frameStats) {
+			loopTurns++;
+			loopBusy += haxe.Timer.stamp() - t1;
+			if (animating)
+				loopAnimating++;
+			if (loopSince == 0)
+				loopSince = now;
+			else if (now - loopSince >= 1) {
+				Sys.println('[loop] ${loopTurns} turns in ${Math.round((now - loopSince) * 1000)} ms, busy ${Math.round(loopBusy * 1000)} ms, ${loopAnimating} with something animating, ${loopTimers} woken by a timer, ${ashui.input.Pointer.hooks.length} pointer hooks; events: ${[for (k => n in loopEvents) k + "=" + n].join(" ")}');
+				loopSince = now;
+				loopTurns = loopAnimating = loopTimers = 0;
+				loopBusy = 0;
+				loopEvents.clear();
+			}
 		}
-		ThemeState.setRedrawCallback(null);
-		theme.setScheduler(null);
 	}
 
 	/** Applies the batch's last pointer position, then its summed wheel delta. **/
@@ -592,7 +584,9 @@ class WindowedApp {
 				applyPointer();
 		}
 		switch event {
-			case Closed | Destroyed:
+			case Closed:
+				quit();
+			case Destroyed:
 				quitting = true;
 			case Resized(_, _) | ScaleFactorChanged(_):
 				configure();
@@ -600,6 +594,8 @@ class WindowedApp {
 			case ThemeChanged(_):
 				WindowTheme.handle(event);
 			case Focused(on):
+				if (on)
+					ApplicationMenu.focus();
 				if (!on)
 					ashui.input.Pointer.wheel(tree, 0, 0, TouchPhase.Cancelled);
 				if (ashui.debug.InputLog.current != null)
@@ -817,17 +813,200 @@ class WindowedApp {
 		return surface.preferredFormat(adapter);
 	}
 
-	function close(instance:GpuInstance):Void {
-		ashui.input.Pointer.forget(tree);
+	function close():Void {
+		if (disposed)
+			return;
+		disposed = true;
+		if (disposeRoot != null) {
+			disposeRoot();
+			disposeRoot = null;
+		}
+		if (imeWatch != null) {
+			imeWatch.stop();
+			imeWatch = null;
+		}
+		if (frameLog != null)
+			frameLog.close();
+		if (log != null) {
+			log.stop();
+			log.save(inputLog + (WindowedApp.windows().length > 1 ? "." + Std.string(window) : ""));
+			log = null;
+		}
+		ThemeState.setRedrawCallback(null);
+		ThemeState.get().setScheduler(null);
+		tree.dispose();
+		root = null;
+		offscreen = null;
+		config.onFrame = null;
+		config.onClose = null;
+		surface.destroy();
+		window.close();
+		local.value = null;
+		scheduler.disposeContext(context);
+		context.clear();
+	}
+}
+
+/** One platform loop and device; each window owns its surface and presentation. */
+@:access(ashui.app.WindowedApp)
+private class WindowManager {
+	public final windows:Array<WindowedApp> = [];
+
+	final pending:Array<{settings:WindowConfig, build:Void->Element}> = [];
+	final base = ashui.core.UiContext.current;
+	#if target.threaded
+	final requestsLock = new sys.thread.Mutex();
+	#end
+
+	function locked<T>(fn:Void->T):T {
+		#if target.threaded
+		requestsLock.acquire();
+		try {
+			var result = fn();
+			requestsLock.release();
+			return result;
+		} catch (error:haxe.Exception) {
+			requestsLock.release();
+			throw error;
+		}
+		#else
+		return fn();
+		#end
+	}
+
+	function hasPending():Bool
+		return locked(() -> pending.length > 0);
+
+	final scheduler = AnimationScheduler.main;
+	final instance:GpuInstance;
+	final adapter:GpuAdapter;
+	final device:GpuDevice;
+
+	public function new() {
+		instance = new GpuInstance();
+		// Resolve the device before opening the first platform window.
+		adapter = instance.requestAdapter(Power.HighPerformance).await();
+		device = ashui.core.render.Renderer.requestDevice(adapter);
+	}
+
+	public function enqueue(settings:WindowConfig, build:Void->Element):Void {
+		locked(() -> pending.push({settings: settings, build: build}));
+		ashui.core.Work.notify();
+	}
+
+	function create(settings:WindowConfig, build:Void->Element):WindowedApp {
+		return new ashui.core.UiContext(base).run(() -> {
+			var config = settings.data;
+			if (config.theme != null || ThemeState.tryGet() == null)
+				ThemeState.init(config.theme != null ? config.theme : ashui.theme.themes.DefaultTheme.bundle(), Platform.detectSystemColorScheme());
+			// Adopt the application stylesheets into this window's cascade.
+			ashui.css.Css.update();
+			@:privateAccess ashui.css.Css.changed();
+			var window = Window.open(settings.attributes());
+			if (!window.valid())
+				throw "the window could not be opened";
+			if (config.active != false)
+				window.focus();
+			var surface = instance.surface(window.platform(), window.raw(0), window.raw(1), window.raw(2), window.raw(3));
+			if (!surface.valid()) {
+				window.close();
+				throw 'platform ${window.platform()} gave no GPU surface';
+			}
+			var app = new WindowedApp(window, adapter, device, surface, config);
+			windows.push(app);
+			WindowedApp.windowRevision.set(WindowedApp.windowRevision.get() + 1);
+			try
+				app.initialize(build)
+			catch (error:haxe.Exception) {
+				app.close();
+				windows.remove(app);
+				WindowedApp.windowRevision.set(WindowedApp.windowRevision.get() + 1);
+				throw error;
+			}
+			return app;
+		});
+	}
+
+	public function run(settings:WindowConfig, build:Void->Element):Int {
+		Window.listenDeviceEvents(Never);
+		ashui.core.Work.listen(() -> {
+			Window.wake();
+		});
+		scheduler.useRealtime(true);
+		var first:WindowedApp = null;
+		try {
+			first = create(settings, build);
+			var last = haxe.Timer.stamp();
+			while (windows.length > 0 || hasPending()) {
+				// A builder may request another window; drain only the current batch.
+				var requests = locked(() -> pending.splice(0, pending.length));
+				for (request in requests)
+					try
+						create(request.settings, request.build)
+					catch (error:haxe.Exception) {
+						Sys.stderr().writeString("ashui: could not open a window: " + error.details() + "\n");
+					}
+				for (app in windows.copy())
+					if (app.quitting) {
+						app.context.run(app.close);
+						windows.remove(app);
+						WindowedApp.windowRevision.set(WindowedApp.windowRevision.get() + 1);
+					}
+				if (windows.length == 0)
+					continue;
+				var t0 = haxe.Timer.stamp(), timeout = Math.POSITIVE_INFINITY;
+				var animating = scheduler.hasActive();
+				for (app in windows)
+					timeout = Math.min(timeout, app.context.run(() -> app.delay(t0, animating)));
+				var timer = scheduler.untilNextTimer();
+				if (timer != null)
+					timeout = Math.min(timeout, timer);
+				if (ashui.core.Work.end() || hasPending())
+					timeout = 0;
+				#if ashui_hot_reload
+				timeout = Math.min(timeout, 0.1);
+				#end
+				var firstApp = windows[0];
+				var event = firstApp.window.wait(timeout == Math.POSITIVE_INFINITY ? -1 : timeout);
+				ashui.core.Work.begin();
+				@:privateAccess ApplicationMenu.pump();
+				var now = haxe.Timer.stamp();
+				var step = Math.min(now - last, 0.05), elapsed = now - last;
+				for (app in windows)
+					if (app.motion != null && app.motion.busy()) {
+						step = app.motion.step(step);
+						elapsed = step;
+						break;
+					}
+				scheduler.tick(step, elapsed);
+				last = now;
+				for (app in windows)
+					app.context.run(() -> {
+						var e = app == firstApp ? event : app.window.poll();
+						if (timer != null && now - t0 >= timer - 0.001)
+							app.loopTimers++;
+						app.turn(e, t0, now, animating);
+					});
+			}
+		} catch (e:haxe.Exception) {
+			shutdown();
+			throw e;
+		}
+		shutdown();
+		return first.frames;
+	}
+
+	function shutdown():Void {
+		for (app in windows.copy())
+			app.context.run(app.close);
+		windows.resize(0);
+		pending.resize(0);
 		ashui.core.Work.listen(null);
 		scheduler.useRealtime(false);
-		if (current == this)
-			current = null;
-		surface.destroy();
+		@:privateAccess ApplicationMenu.shutdown();
 		device.destroy();
 		adapter.destroy();
 		instance.destroy();
-		window.close();
 	}
 }
 #end
