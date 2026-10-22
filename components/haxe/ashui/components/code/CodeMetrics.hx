@@ -19,6 +19,9 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 	final cache = new haxe.ds.ObjectMap<CodeLine, CodeLineMetrics>();
 	final recent:Array<CodeLine> = [];
 	var valid = false;
+	var widthGeneration = -1;
+	var columns = 0;
+	var widthRows:Array<Int>;
 
 	public function new(document:CodeDocument, syntax:CodeHighlighter, tabSize:Int) {
 		this.document = document; this.syntax = syntax; this.tabSize = tabSize;
@@ -38,6 +41,21 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 			var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.encode("M"), 0, 0, out, 3, info);
 			if (n > 1) { lineHeight = info.getF32(0); characterWidth = out.getF32((n - 1) * 12 + 4); valid = true; }
 		}
+	}
+
+	/** Document width is independent of the viewport; resizing reuses the column count. **/
+	public function widestColumn():Int {
+		if (widthGeneration == document.generation && widthRows == document.visible) return columns;
+		columns = 0;
+		for (source in document.visible) {
+			var line = document.lines[source], column = 0;
+			for (i in 0...line.text.length)
+				column += StringTools.fastCodeAt(line.text, i) == "\t".code ? tabSize - column % tabSize : 1;
+			if (column > columns) columns = column;
+		}
+		widthGeneration = document.generation;
+		widthRows = document.visible;
+		return columns;
 	}
 
 	public function measure(line:CodeLine):CodeLineMetrics {

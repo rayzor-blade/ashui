@@ -116,11 +116,12 @@ class CodeComponents {
 			ThemeState.init(DefaultTheme.bundle(), dark ? Dark : Light);
 			var hooks = LayoutTree.layoutHooks.length, tree = new LayoutTree(), dispose:Void->Void = null;
 			var editor = new Ref<CodeEditor>(), viewer = new Ref<CodeView>();
+			var editorHeight = signal(270.);
 			var value = signal(source), readOnly = signal(false), disabled = signal(false), mounted = signal(true), shown = signal(true), changes = 0;
 			var root = Owner.root(tree, stop -> {
 				dispose = stop;
 				return <div width={760} height={600} class="flex-col gap-4 p-4">
-					<if {mounted.get()}><code-editor ref={editor} id="editor" language="haxe" value={value} readOnly={readOnly} disabled={disabled} height={270} indentGuides={true}
+					<if {mounted.get()}><code-editor ref={editor} id="editor" language="haxe" value={value} readOnly={readOnly} disabled={disabled} height={editorHeight} indentGuides={true}
 						display={computed(() -> shown.get() ? Display.Flex : Display.None)} onInput={_ -> changes++} /></if>
 					<code-view ref={viewer} id="viewer" language="json" value={'{"name": "Ashui",\n "ready": true\n}'} height={200} />
 				</div>;
@@ -249,6 +250,12 @@ class CodeComponents {
 			ed.scroll.jumpTo(0, ed.scroll.y.get() + lh * 12); settle();
 			var elementsAfter = Css.query(tree, ed.node.id, "*");
 			check("scrolling by lines reuses the row elements", elementsAfter.join(",") == elementsBefore.join(","), [elementsBefore.length, elementsAfter.length]);
+			var pooled = Css.query(tree, ed.node.id, ".ui-code-line").join(",");
+			editorHeight.set(160); settle();
+			check("reducing viewport height retains the row pool", Css.query(tree, ed.node.id, ".ui-code-line").join(",") == pooled);
+			editorHeight.set(270); settle();
+			check("restoring viewport height reuses the row pool", Css.query(tree, ed.node.id, ".ui-code-line").join(",") == pooled);
+
 			var offsets = [for (id in Css.query(tree, ed.node.id, ".ui-code-line-number")) {
 				var text = ashui.ui.Text.at(id).text();
 				if (text == "") continue;

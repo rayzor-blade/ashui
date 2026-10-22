@@ -223,12 +223,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var contentHeight = Computed.make(() -> { revision.get(); (PAD * 2 + document.visible.length * metrics.lineHeight : Single); });
 		var contentWidth = Computed.make(() -> {
 			revision.get();
-			var widest = 0;
-			for (source in document.visible) {
-				var column = 0;
-				for (i in 0...document.lines[source].text.length) column += document.lines[source].text.charAt(i) == "\t" ? tabSize - column % tabSize : 1;
-				widest = Std.int(Math.max(widest, column));
-			}
+			var widest = metrics.widestColumn();
 			(Math.max(viewWidth.get(), gutter.get() + PAD * 2 + widest * metrics.characterWidth + 2) : Single);
 		});
 		// The window's rows as signals, set only when one changes, so a scroll inside the window runs nothing (a computed passes on every run).
@@ -236,12 +231,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 		new Watch(() -> windowStart(), row -> firstRow.set(row));
 		new Watch(() -> windowEnd(), row -> endRow.set(row));
 		var rows = Computed.make(() -> visibleRows(firstRow.get(), endRow.get()));
-		// A short or folded document needs no slots beyond its visible lines.
-		var capacity = Computed.make(() -> {
+		// Keep the mounted viewport's slots across height changes; a new modulus would reassign every visible row.
+		var capacity = Signal.make(1);
+		new Watch(() -> {
 			revision.get();
 			var window = Std.int(Math.ceil((viewHeight.get() + PAD) / Math.max(1, metrics.lineHeight))) + 9;
-			(Std.int(Math.max(1, Math.min(document.visible.length, window))) : Int);
-		});
+			{lines: document.visible.length, window: window};
+		}, size -> capacity.set(Std.int(Math.max(1, Math.min(size.lines, Math.max(capacity.get(), size.window))))));
 		var slots = Computed.make(() -> [for (i in 0...capacity.get()) i]);
 		new Watch(() -> { capacity.get(); rows.get(); }, _ -> distribute(rows.get(), capacity.get()));
 		var caret = Computed.make(() -> {
