@@ -82,7 +82,9 @@ string indices; fold line numbers are **zero based**. `select` reveals folded
 ancestors. `value`, `editing`, `document`, `metrics` and `scroll` are available
 for custom toolbars and status displays.
 
-Only viewport rows and a small overscan are mounted. Highlighting reuses
+Only viewport rows and a small overscan are mounted, capped at the number of
+visible document lines. Shrinking or folding the source clamps the scroll offset
+to the remaining content. Highlighting reuses
 unchanged lines until their incoming lexical state changes. Native caret
 measurements retain at most 96 lines; disposal releases the view's watches,
 layout callbacks and caret timer.
