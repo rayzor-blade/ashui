@@ -99,3 +99,62 @@ void ashui_menu_clear(void) {
     previous = nil;
     target = nil;
 }
+
+static NSMutableDictionary<NSNumber *, NSOpenPanel *> *dialogs;
+static NSMutableDictionary<NSNumber *, NSString *> *dialogResults;
+static NSString *lastDialogResult;
+
+static void wakeDialog(void) {
+    bool (*wake)(void) = (bool (*)(void))dlsym(RTLD_DEFAULT, "__hl_window_wake");
+    if (wake) wake();
+}
+bool ashui_dialog_open(const unsigned char *json) {
+    if (!json || !NSThread.isMainThread) return false;
+    NSData *data = [[NSString stringWithUTF8String:(const char *)json] dataUsingEncoding:NSUTF8StringEncoding];
+    NSDictionary *spec = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    if (![spec isKindOfClass:NSDictionary.class]) return false;
+    NSView *view = (__bridge NSView *)(void *)(uintptr_t)[spec[@"view"] longLongValue];
+    NSWindow *window = view.window;
+    if (!window || window.attachedSheet) return false;
+    if (!dialogs) { dialogs = [NSMutableDictionary new]; dialogResults = [NSMutableDictionary new]; }
+    NSNumber *identifier = spec[@"id"];
+    NSOpenPanel *panel = NSOpenPanel.openPanel;
+    BOOL folder = [spec[@"folder"] boolValue];
+    panel.canChooseDirectories = folder;
+    panel.canChooseFiles = !folder;
+    panel.canCreateDirectories = folder;
+    panel.allowsMultipleSelection = NO;
+    panel.resolvesAliases = YES;
+    panel.title = spec[@"title"] ?: @"Open";
+    panel.message = panel.title;
+    NSString *directory = spec[@"directory"];
+    if ([directory isKindOfClass:NSString.class] && directory.length) panel.directoryURL = [NSURL fileURLWithPath:directory isDirectory:YES];
+    NSArray *extensions = spec[@"extensions"];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if (!folder && [extensions isKindOfClass:NSArray.class] && extensions.count) panel.allowedFileTypes = extensions;
+#pragma clang diagnostic pop
+    dialogs[identifier] = panel;
+    [window makeKeyAndOrderFront:nil];
+    [panel beginSheetModalForWindow:window completionHandler:^(NSModalResponse response) {
+        if (dialogs[identifier]) {
+            dialogResults[identifier] = response == NSModalResponseOK ? (panel.URL.path ?: @"") : @"";
+            [dialogs removeObjectForKey:identifier];
+            wakeDialog();
+        }
+    }];
+    return true;
+}
+int ashui_dialog_poll(void) { return dialogResults.allKeys.firstObject.intValue; }
+const unsigned char *ashui_dialog_take(int identifier) {
+    lastDialogResult = dialogResults[@(identifier)];
+    [dialogResults removeObjectForKey:@(identifier)];
+    return (const unsigned char *)lastDialogResult.UTF8String;
+}
+void ashui_dialog_cancel(int identifier) {
+    NSOpenPanel *panel = dialogs[@(identifier)];
+    [dialogs removeObjectForKey:@(identifier)];
+    [dialogResults removeObjectForKey:@(identifier)];
+    if (panel.sheetParent) [panel.sheetParent endSheet:panel returnCode:NSModalResponseCancel];
+    [panel orderOut:nil];
+}

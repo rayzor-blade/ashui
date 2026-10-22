@@ -40,3 +40,7 @@ menus.update([{label: "File", items: [
 A `MenuItem` can include `enabled`, a display `shortcut`, and a `key` record with a key name and `meta`, `ctrl`, `alt`, `shift` flags. On Windows and Linux render the same model with the components library's `Menubar`, `MenubarMenu`, `MenubarTrigger`, `MenubarContent` and `MenubarItem`. `Keyboard.edit(tree, action)` dispatches undo, redo, cut, copy, paste and select-all to the focused control.
 
 Native lifecycle tests are in `tests/Windows.hx`; build with the usual UI class paths and `-D ashui_window`, and run on a desktop display.
+
+## File and folder dialogs
+
+`FileDialog.open(app, options, complete)` presents an asynchronous macOS sheet on `app.window`. Options include `title`, `folder`, `directory` and file `extensions`. Completion runs in that window's UI context and receives the selected path, or null on cancellation. The returned function cancels a pending request; a window's disposal also cancels it. Dispose the request when replacing a workspace owner. Native callbacks only enqueue results and wake the platform loop; application code runs after the pump returns. Use `FileDialog.available()` before selecting this implementation on other platforms. `tests/FileDialogWindow.hx` is an isolated native smoke app for selection and cancellation.

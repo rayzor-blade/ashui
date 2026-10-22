@@ -970,6 +970,7 @@ private class WindowManager {
 				var event = firstApp.window.wait(timeout == Math.POSITIVE_INFINITY ? -1 : timeout);
 				ashui.core.Work.begin();
 				@:privateAccess ApplicationMenu.pump();
+				@:privateAccess FileDialog.pump();
 				var now = haxe.Timer.stamp();
 				var step = Math.min(now - last, 0.05), elapsed = now - last;
 				for (app in windows)
