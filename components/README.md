@@ -93,6 +93,10 @@ events and CSS hooks.
 share native text editing, viewport rendering and theme styling. Use a signal
 for an editable source, or a read-only CodeView for selectable examples.
 
+The [code diff](https://github.com/rayzor-blade/ashui/blob/main/docs/code-diff.md)
+compares two versions of a text, inline or side by side, with the changed words marked and
+long unchanged runs folded.
+
 ## Gallery
 
 The existing [FormsGallery](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/FormsGallery.hx)

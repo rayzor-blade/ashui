@@ -37,6 +37,7 @@ class CodeDiffRows {
 	final firstRows:Array<Int>;
 	final partnerOf:Map<Int, Int>;
 	final marks = new Map<Int, Null<Array<CodeWordChange>>>();
+	final widest = [-1, -1];
 	final original:Array<String>;
 	final modified:Array<String>;
 
@@ -146,14 +147,16 @@ class CodeDiffRows {
 		var o = originalAt(row), m = modifiedAt(row);
 		if (hiddenAt(row) > 0 || changeAt(row) < 0)
 			return null;
-		// A line is another's partner when the pairing says so, in whichever row each of the two is.
+		// A line is another's partner when the pairing says so, in whichever row each of the two is. A change with as many
+		// lines on each side pairs them by position, which is worked out; the pairs of any other are in `partnerOf`.
+		var change = changes[changeAt(row)], even = change.originalLines == change.modifiedLines;
 		if (o < 0 && m >= 0) {
-			var p = partnerOf.get(-m - 1);
+			var p = even ? change.originalStart + m - change.modifiedStart : partnerOf.get(-m - 1);
 			if (p == null)
 				return null;
 			o = p;
 		} else if (m < 0 && o >= 0) {
-			var p = partnerOf.get(o);
+			var p = even ? change.modifiedStart + o - change.originalStart : partnerOf.get(o);
 			if (p == null)
 				return null;
 			m = p;
@@ -170,6 +173,31 @@ class CodeDiffRows {
 		if (found == null || found.length == 0)
 			return null;
 		return [for (w in found) originalSide ? {from: w.originalFrom, to: w.originalTo} : {from: w.modifiedFrom, to: w.modifiedTo}];
+	}
+
+	/**
+		The width in columns of the widest line a row shows on a side, tabs counted as the tab stops they stand for, a line longer
+		than `CodeDiffText.CLIP` as that long. Found over the rows once, when first asked.
+	**/
+	public function widestColumn(originalSide:Bool, tabSize:Int):Int {
+		var at = originalSide ? 0 : 1;
+		if (widest[at] < 0) {
+			var most = 0, lines = originalSide ? original : modified;
+			for (r in 0...count) {
+				var line = originalSide ? originalAt(r) : modifiedAt(r);
+				if (line < 0 || hiddenAt(r) > 0)
+					continue;
+				var text = lines[line], column = 0, shown = text.length < CodeDiffText.CLIP ? text.length : CodeDiffText.CLIP;
+				for (k in 0...shown)
+					column += StringTools.fastCodeAt(text, k) == "\t".code ? tabSize - column % tabSize : 1;
+				if (text.length > CodeDiffText.CLIP)
+					column++;
+				if (column > most)
+					most = column;
+			}
+			widest[at] = most;
+		}
+		return widest[at];
 	}
 
 	/**
@@ -208,11 +236,14 @@ class CodeDiffRows {
 			unchanged(o, m, c.originalStart - o, ci == 0 && o == 0, false);
 			firstRows.push(Std.int(data.length / STRIDE));
 			var pairs = CodeDiffer.pairs(original, modified, c);
-			var i = 0;
-			while (i < pairs.length) {
-				partnerOf.set(pairs[i], pairs[i + 1]);
-				partnerOf.set(-pairs[i + 1] - 1, pairs[i]);
-				i += 2;
+			// A change with equal sides pairs by position, which `wordsAt` works out, so a file rewritten whole makes no table.
+			if (c.originalLines != c.modifiedLines) {
+				var i = 0;
+				while (i < pairs.length) {
+					partnerOf.set(pairs[i], pairs[i + 1]);
+					partnerOf.set(-pairs[i + 1] - 1, pairs[i]);
+					i += 2;
+				}
 			}
 			var oEnd = c.originalStart + c.originalLines, mEnd = c.modifiedStart + c.modifiedLines;
 			if (!split) {

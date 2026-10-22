@@ -83,6 +83,9 @@ class CodeDiffer {
 	/** How many times a stretch that gave up is split at lines both sides have once, before it is taken as one change. **/
 	static inline var DEPTH = 6;
 
+	/** The longest a line may be for its words to be compared or matched; a longer one is shown whole, as a rewritten line is. **/
+	public static inline var LONG = 2000;
+
 	/** The share of a line's characters that two versions must have in common for their words to be compared. **/
 	static inline var SIMILAR = 0.4;
 
@@ -315,6 +318,8 @@ class CodeDiffer {
 	public static function words(original:String, modified:String):Null<Array<CodeWordChange>> {
 		if (original == modified)
 			return [];
+		if (original.length > LONG || modified.length > LONG)
+			return null;
 		var ids = new Interner(), a = new Array<Int>(), b = new Array<Int>();
 		var aStarts = tokens(original, ids, a), bStarts = tokens(modified, ids, b), out = new Changes();
 		range(a, 0, a.length, b, 0, b.length, out, 0);
@@ -391,7 +396,8 @@ class CodeDiffer {
 			return result;
 		// A line as a bag of its words and marks, white space left out, with how many characters they come to.
 		var ids = new Interner(), bags:Array<Map<Int, Int>> = [], sizes = new Array<Int>(), lengths = new Map<Int, Int>();
-		function bagOf(text:String):Int {
+		function bagOf(whole:String):Int {
+			var text = whole.length > LONG ? whole.substr(0, LONG) : whole;
 			var list = new Array<Int>(), starts = tokens(text, ids, list), bag = new Map<Int, Int>(), size = 0;
 			for (t in 0...list.length) {
 				var length = starts[t + 1] - starts[t];
