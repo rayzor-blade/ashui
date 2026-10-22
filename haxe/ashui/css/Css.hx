@@ -435,7 +435,7 @@ class Css {
 		var again = pending.get(tree);
 		pending.remove(tree);
 		// A theme set since the sheets were, or a root font size since the viewport: the engine takes it.
-		if (ashui.theme.ThemeState.tryGet() != null)
+		if (themeVariables == null && ashui.theme.ThemeState.tryGet() != null)
 			NativeCascade.setTheme(theme());
 		if (rootFontSize != sentRootFontSize)
 			mediaChanged();
