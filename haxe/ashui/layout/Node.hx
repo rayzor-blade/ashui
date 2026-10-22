@@ -44,7 +44,7 @@ class Node {
 	/** What animates when a property it covers is set again or its value changes. **/
 	public var transition(default, set):Null<ashui.animation.Transition>;
 
-	var tweens:Null<Map<Int, ashui.animation.Tweened<Dynamic>>>;
+	var tweens:Null<FieldTable<ashui.animation.Tweened<Dynamic>>>;
 
 	function set_transition(value:Null<ashui.animation.Transition>) {
 		ownTransition = true;
@@ -58,29 +58,34 @@ class Node {
 		them, by property: a transition arriving later, as a stylesheet's does
 		after an element is built, moves their later changes too.
 	**/
-	var reactives:Null<Map<Int, Dynamic>> = null;
+	var reactives:Null<FieldTable<Dynamic>> = null;
 
 	/**
 		Constants bound with no tween, by property, for properties that can
 		move: a transition arriving later moves the next change from here.
 	**/
-	var settled:Null<Map<Int, Dynamic>> = null;
+	var settled:Null<FieldTable<Dynamic>> = null;
 
 	/** Puts each reactive binding the transition now covers behind a tween, from where it is. **/
 	function retween():Void {
 		if (transition == null || reactives == null)
 			return;
-		for (key => reactive in reactives) {
+		var i = 0;
+		while (i < reactives.length) {
+			var key = reactives.keyAt(i), reactive = reactives.valueAt(i);
 			var prop:PropertyId = key;
-			if (!transition.covers(prop) || (tweens != null && tweens.exists(key)))
+			if (!transition.covers(prop) || (tweens != null && tweens.exists(key))) {
+				i++;
 				continue;
+			}
 			var tween = ashui.animation.Tweened.bind(this, prop, transition.forProperty(prop), reactive);
 			if (tween != null) {
 				if (tweens == null)
-					tweens = new Map();
+					tweens = new FieldTable();
 				tweens.set(key, tween);
 				reactives.remove(key);
-			}
+			} else
+				i++;
 		}
 	}
 
@@ -99,8 +104,8 @@ class Node {
 		ownTransition = false;
 		if (value != null) {
 			if (styled == null)
-				styled = new Map();
-			styled.set(TRANSITION, true);
+				styled = new FieldSet();
+			styled.add(TRANSITION);
 		}
 		return true;
 	}
@@ -117,8 +122,8 @@ class Node {
 	**/
 	public function set<T>(prop:Prop<T>, reactive:IntoReactive<T>):Void {
 		if (own == null)
-			own = new Map();
-		own.set(field(prop, isCornerShape(reactive)), true);
+			own = new FieldSet();
+		own.add(field(prop, isCornerShape(reactive)));
 		apply(prop, reactive);
 	}
 
@@ -132,7 +137,7 @@ class Node {
 		var key:PropertyId = prop;
 		if (transition != null && transition.covers(key) && !isCornerShape(reactive)) {
 			if (tweens == null)
-				tweens = new Map();
+				tweens = new FieldTable();
 			var timing = transition.forProperty(key);
 			var tween = tweens.get(key);
 			if (tween != null) {
@@ -154,7 +159,7 @@ class Node {
 		switch (reactive : ReactiveType<T>) {
 			case Bound(_) | Derived(_):
 				if (reactives == null)
-					reactives = new Map();
+					reactives = new FieldTable();
 				reactives.set(key, reactive);
 				if (settled != null)
 					settled.remove(key);
@@ -163,7 +168,7 @@ class Node {
 					reactives.remove(key);
 				if (ashui.animation.Tweened.initial(key) != null) {
 					if (settled == null)
-						settled = new Map();
+						settled = new FieldTable();
 					settled.set(key, v);
 				}
 		}
@@ -176,10 +181,10 @@ class Node {
 		these, as an element's own styles win over its stylesheet's in
 		Tailwind's layers. Null until one is set.
 	**/
-	var own:Null<Map<Int, Bool>> = null;
+	var own:Null<FieldSet> = null;
 
 	/** Properties a stylesheet set, by `field`, so one no rule sets any more can be unset. **/
-	var styled:Null<Map<Int, Bool>> = null;
+	var styled:Null<FieldSet> = null;
 
 	/** The corner shape's key: it shares the corner radius's property but is a field of its own. **/
 	public static inline var CORNER_SHAPE = 1003;
@@ -230,9 +235,8 @@ class Node {
 		if (owns(key))
 			return false;
 		if (styled == null)
-			styled = new Map();
-		var fresh = !styled.exists(key);
-		styled.set(key, true);
+			styled = new FieldSet();
+		var fresh = styled.add(key);
 		// Within a restyle, the last write to each field is the one made, so a
 		// shorthand then a longhand for the same field moves once, not twice.
 		if (batch != null && !immediate) {
@@ -253,23 +257,22 @@ class Node {
 	}
 
 	/** A stylesheet's writes held while the cascade restyles this node, the last per field. **/
-	var batch:Null<Map<Int, Void->Void>> = null;
+	var batch:Null<StyleBatch> = null;
 
 	/** Runs `writes`, the stylesheet's writes to this node, then makes the last write to each field. **/
 	@:allow(ashui.css)
 	function styleAll(writes:Void->Void):Void {
-		var outer = batch;
-		batch = new Map();
+		var outer = batch, held = StyleBatch.take();
+		batch = held;
 		try
 			writes()
 		catch (e:haxe.Exception) {
 			batch = outer;
+			held.discard();
 			throw e;
 		}
-		var held = batch;
 		batch = outer;
-		for (write in held)
-			write();
+		held.run();
 	}
 
 	/** A CSS value such as `z-index: auto` explicitly restores the native initial value. **/
@@ -279,8 +282,8 @@ class Node {
 		if (owns(key))
 			return;
 		if (styled == null)
-			styled = new Map();
-		styled.set(key, true);
+			styled = new FieldSet();
+		styled.add(key);
 		var reset = () -> {
 			if (key == PropertyId.Display)
 				recordDisplay(null);
@@ -329,7 +332,7 @@ class Node {
 			tween = at == null ? null : ashui.animation.Tweened.bind(this, prop, transition.forProperty(prop), Const(initial), at);
 			if (tween != null) {
 				if (tweens == null)
-					tweens = new Map();
+					tweens = new FieldTable();
 				tweens.set(key, tween);
 				settled.remove(key);
 				return;
@@ -439,5 +442,58 @@ class Node {
 		}
 		Guard.check();
 		ashui.core.Work.notify();
+	}
+}
+
+/**
+	The writes of one restyle, the last to each field, made in the order the
+	fields were first written. Batches are pooled, so a restyle makes no table.
+**/
+private class StyleBatch {
+	static final pool:Array<StyleBatch> = [];
+
+	final keys:Array<Int> = [];
+	final writes:Array<Void->Void> = [];
+
+	/** Where in `keys` each field is, plus one; zero for a field not written. **/
+	final at:Array<Int> = [];
+
+	function new() {}
+
+	public static function take():StyleBatch
+		return pool.length > 0 ? pool.pop() : new StyleBatch();
+
+	public function set(key:Int, write:Void->Void):Void {
+		while (at.length <= key)
+			at.push(0);
+		var held = at[key];
+		if (held == 0) {
+			keys.push(key);
+			writes.push(write);
+			at[key] = keys.length;
+		} else
+			writes[held - 1] = write;
+	}
+
+	/** Makes each held write, then returns the batch to the pool. **/
+	public function run():Void {
+		var i = 0;
+		try
+			while (i < writes.length)
+				writes[i++]()
+		catch (e:haxe.Exception) {
+			discard();
+			throw e;
+		}
+		discard();
+	}
+
+	/** Forgets the writes and returns the batch to the pool. **/
+	public function discard():Void {
+		for (key in keys)
+			at[key] = 0;
+		keys.resize(0);
+		writes.resize(0);
+		pool.push(this);
 	}
 }
