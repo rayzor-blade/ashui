@@ -612,16 +612,20 @@ class CodeEditor extends Component<CodeEditorProps> {
 	// The button is always there and answers only while its slot's row opens a fold, so a row entering the window builds no button.
 	function foldButton(slot:Signal<Null<Row>>, foldable:Computed<Bool>):Element {
 		var folded = Computed.make(() -> { revision.get(); var r = slot.get(); r != null && r.line.folded; });
-		var button:Button = <button type="button" variant={Ghost} size={Icon} class="ui-code-fold" disabled={Computed.make(() -> !foldable.get())}
-			onPointerDown={event -> if (foldable.get()) event.stopPropagation()} onKeyDown={event -> if (foldable.get()) event.stopPropagation()}
-			onClick={event -> { var r = slot.get(); if (r != null && r.line.foldEnd >= 0) { event.stopPropagation(); toggleFold(r.source); } }}>
+		var button:Div = <div class="ui-code-fold">
 			<if {folded.get()}>
 				<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7" /></svg>
 			<else>
 				<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 9 7 7 7-7" /></svg>
 			</if>
-		</button>;
+		</div>;
+		// A plain element, not a Button: the gutter has one for each row slot, and a Button's styling is most of what one costs.
+		Interaction.of(button.node).setFocusable(true).setDisabled(Computed.make(() -> !foldable.get()))
+			.onPointerDown(event -> if (foldable.get()) event.stopPropagation())
+			.onKeyDown(event -> if (foldable.get()) event.stopPropagation())
+			.onClick(event -> { var r = slot.get(); if (r != null && r.line.foldEnd >= 0) { event.stopPropagation(); toggleFold(r.source); } });
 		Identity.of(button.tree, button.node.id)
+			.setAttribute("role", "button")
 			.bindAttribute("aria-label", Computed.make(() -> { var r = slot.get(); (r == null ? null : (folded.get() ? "Expand" : "Fold") + " line " + (r.source + 1) : Null<String>); }))
 			.bindAttribute("aria-expanded", Computed.make(() -> (folded.get() ? "false" : "true" : Null<String>)));
 		return button;

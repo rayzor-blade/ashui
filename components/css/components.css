@@ -1296,11 +1296,11 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-gutter-line { left: 0; flex-direction: row; align-items: center; justify-content: flex-end; padding-right: 4px; gap: 2px; }
 .ui-code-line-number { text-align: right; color: var(--ui-code-line-number, var(--text-tertiary)); pointer-events: none; }
 .ui-code-fold-slot { width: 20px; height: 20px; flex-shrink: 0; align-items: center; justify-content: center; }
-.ui-code-fold.ui-button {
-	width: 20px; height: 20px; min-width: 0; padding: 0; flex-shrink: 0; border: 0; box-shadow: none;
+.ui-code-fold {
+	width: 20px; height: 20px; flex-shrink: 0; align-items: center; justify-content: center; cursor: pointer;
 	border-radius: var(--radius-sm); color: var(--text-tertiary); background: transparent;
 }
-.ui-code-fold.ui-button:hover { color: var(--text-primary); background: var(--accent-subtle); }
+.ui-code-fold:hover { color: var(--text-primary); background: var(--accent-subtle); }
 .ui-code-fold-hint { color: var(--text-tertiary); background: var(--accent-subtle); border-radius: var(--radius-sm); }
 .ui-code-token[data-token="plain"], .ui-code-token[data-token="markup-text"], .ui-code-hint-token[data-token="plain"], .ui-code-hint-token[data-token="markup-text"] { color: var(--text-primary); }
 .ui-code-token[data-token="tag"], .ui-code-hint-token[data-token="tag"] { color: var(--ui-code-tag, #247e8a); }
