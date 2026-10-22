@@ -91,9 +91,12 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 
 	public function sourceLine(row:Int):Int return document.visible[Std.int(Math.max(0, Math.min(document.visible.length - 1, row)))];
 	public function xAt(line:CodeLine, column:Int):Float {
-		var best = 0.0;
-		for (stop in measure(line).stops) { if (stop.index > column) break; best = stop.x; }
-		return best;
+		var stops = measure(line).stops, low = 0, high = stops.length;
+		while (low < high) {
+			var middle = (low + high) >> 1;
+			if (stops[middle].index <= column) low = middle + 1; else high = middle;
+		}
+		return low == 0 ? 0 : stops[low-1].x;
 	}
 	public function stopAt(index:Int):CaretStop {
 		var source = document.lineAt(index), row = document.rows[source];

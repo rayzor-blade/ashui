@@ -156,6 +156,10 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path ../components/haxe --class-path fixtures/render -main EditorLayersPixels -hl bin/editor-layers-pixels.hl
 	run editor-layers-pixels.hl
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path ../components/haxe --class-path fixtures/render -main EditorTokenPixels -hl bin/editor-token-pixels.hl
+	run editor-token-pixels.hl
 	# A canvas past a texture's limit draws in part, and a GPU error in a frame is a throw or a count.
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \

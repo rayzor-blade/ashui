@@ -89,7 +89,7 @@ typedef CodeEditorProps = {
 private enum CodePhase { Resting; Selecting; }
 private enum CodeEvent { Press; Release; Blur; }
 private typedef Run = {text:String, kind:String, x:Single, ?style:CodeTokenStyle};
-private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Int};
+private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Int, left:Float, right:Float};
 /** A pooled token element: the `index`th run of its `kind` in the row its slot shows. **/
 private typedef Token = {kind:String, index:Int};
 /** A decoration's mark on one row. **/
@@ -232,7 +232,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var firstRow = Signal.make(0), endRow = Signal.make(0);
 		new Watch(() -> windowStart(), row -> firstRow.set(row));
 		new Watch(() -> windowEnd(), row -> endRow.set(row));
-		var rows = Computed.make(() -> visibleRows(firstRow.get(), endRow.get()));
+		// Horizontal overscan changes only at bucket edges, so a small pan reuses its token elements.
+		var horizontal = Signal.make({left:0., right:1024.});
+		new Watch(() -> {
+			var x = (scroll == null ? 0 : scroll.x.get()) - gutter.get() - PAD;
+			return {left:Math.max(0, (Math.floor(x / 256)-1)*256), right:(Math.ceil((x+viewWidth.get())/256)+1)*256.0};
+		}, next -> horizontal.set(next), (a,b) -> a.left==b.left && a.right==b.right);
+		var rows = Computed.make(() -> { var x=horizontal.get(); visibleRows(firstRow.get(), endRow.get(), x.left, x.right); });
 		// Keep the mounted viewport's slots across height changes; a new modulus would reassign every visible row.
 		var capacity = Signal.make(1);
 		new Watch(() -> {
@@ -730,20 +736,30 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return Std.int(Math.min(document.visible.length, Math.ceil((y + viewHeight.get()) / metrics.lineHeight) + 3));
 	}
 
-	function visibleRows(first:Int, end:Int):Array<Row> {
+	/** Whitespace positions come from the line metrics; runs without ink need no styled text element. **/
+	static function hasInk(text:String, from:Int, to:Int):Bool {
+		for (i in from...to) if (!StringTools.isSpace(text, i)) return true;
+		return false;
+	}
+
+	function visibleRows(first:Int, end:Int, left:Float, right:Float):Array<Row> {
 		revision.get();
 		if (fontDirty) return [];
 		var stamp = fontRevision, lh = metrics.lineHeight;
 		var result:Array<Row> = [];
 		for (row in first...end) {
 			var source = document.visible[row], line = document.lines[source], found:Null<Row> = null;
-			for (old in cachedRows) if (old.line == line && old.source == source && old.row == row && old.stamp == stamp && old.tokens == line.tokenRevision) { found = old; break; }
+			for (old in cachedRows) if (old.line == line && old.source == source && old.row == row && old.stamp == stamp && old.tokens == line.tokenRevision && old.left == left && old.right == right) { found = old; break; }
 			if (found == null) {
 				var measured = metrics.measure(line), runs:Array<Run> = [];
-				if (line.tokenCount == 0) runs.push({text: measured.expanded, x: 0, kind: "plain"});
-				else for (t in 0...line.tokenCount) {
+				if (line.tokenCount == 0) {
+					if (hasInk(line.text, 0, line.text.length)) runs.push({text: measured.expanded, x: 0, kind: "plain"});
+				} else for (t in 0...line.tokenCount) {
 					var from = line.tokenFrom(t), to = line.tokenTo(t);
-					runs.push({text: measured.expanded.substring(measured.columns[from], measured.columns[to]), x: (metrics.xAt(line, from) : Single), kind: line.tokenKind(t), style: props.tokenStyles == true ? line.tokenStyle(t) : null});
+					if (props.tokenStyles != true && !hasInk(line.text, from, to)) continue;
+					var x = metrics.xAt(line, from);
+					if (x >= right || metrics.xAt(line, to) <= left) continue;
+					runs.push({text: measured.expanded.substring(measured.columns[from], measured.columns[to]), x: (x : Single), kind: line.tokenKind(t), style: props.tokenStyles == true ? line.tokenStyle(t) : null});
 				}
 				var guides:Array<Single> = [];
 				if (props.indentGuides == true) {
@@ -758,7 +774,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 					if (list == null) byKind.set(run.kind, list = []);
 					list.push(run);
 				}
-				found = {line: line, source: source, row: row, top: (PAD + row * lh : Single), width: (measured.width : Single), runs: runs, byKind: byKind, guides: guides, stamp: stamp, tokens: line.tokenRevision};
+				found = {line: line, source: source, row: row, top: (PAD + row * lh : Single), width: (measured.width : Single), runs: runs, byKind: byKind, guides: guides, stamp: stamp, tokens: line.tokenRevision, left:left, right:right};
 			}
 			result.push(found);
 		}
