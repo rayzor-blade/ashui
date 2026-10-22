@@ -552,7 +552,9 @@ class CodeComponents {
 		var finalLine = hintTree.getScrolledBounds(Identity.of(hintTree, docIds[docIds.length - 1]).node);
 		check("hover wheel reaches the last line without moving the editor or dismissing", bodyScroll.y.get() > 0 && hint.scroll.y.get() == editorY && hintOpen().length == 1
 			&& finalLine.y >= bodyBounds.y && finalLine.y + finalLine.height <= bodyBounds.y + bodyBounds.height + 1, [bodyBounds, finalLine]);
+		#if ashui_completion_snapshots
 		if(Sys.getEnv("ASHUI_COMPLETION_SNAPSHOTS") == "1") ashui.core.render.Snapshot.capture("hint-docs-scrolled", hintTree, hintRoot.node, 760, 400);
+		#end
 		hint.hideHint(); hintSettle();
 		hintDispose(); ashui.animation.AnimationScheduler.main.tick(1); hintTree.dispose();
 		// The completion list: narrowed by what is typed, worked by the keys, chosen as one undo step.
@@ -608,7 +610,9 @@ class CodeComponents {
 		var popupWidth = compTree.getBounds((@:privateAccess comp.completions.panel).node).width;
 		check("large completion lists mount only the viewport and overscan", compRows() <= 15 && compRows() >= 10 && @:privateAccess comp.completions.rows.get().length == 200, compRows());
 		function compSnapshot(name:String) {
+			#if ashui_completion_snapshots
 			if(Sys.getEnv("ASHUI_COMPLETION_SNAPSHOTS") == "1") ashui.core.render.Snapshot.capture(name, compTree, compRoot.node, 760, 400);
+			#end
 		}
 		compSnapshot("completion-start");
 		compKey(Named(End), End); compSettle();
