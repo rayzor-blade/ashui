@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1792710849,"nonce":"/kDpoyAFhPSA5mDXLPirekhJ0+o=","message":"Implemented in 70194d38e9ae3d2939200dccc10080b901a95d7b. Native Windows.hx and menu regression suites pass; isolated AOT app verified New Window, focus switching, surviving the primary close, and per-window menus.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1792710849,"nonce":"+WkOVh5Ug7TDhZOMBLHJfTaYFNc=","status":2}]}
