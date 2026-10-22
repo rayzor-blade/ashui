@@ -71,10 +71,16 @@ class ImageAtlas {
 	}
 
 	/** Forgets every image; the texture is reused. **/
-	public function reset():Void {
+	public function reset(reclaim = false):Void {
 		entries.clear();
 		shelves = [];
 		nextY = 0;
+		if (reclaim && size > 256) {
+			var old = texture;
+			size = 256;
+			allocate();
+			old.destroy();
+		} else revision++;
 	}
 
 	function place(width:Int, height:Int):Null<{x:Int, y:Int}> {

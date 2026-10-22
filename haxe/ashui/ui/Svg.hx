@@ -67,6 +67,7 @@ class Svg extends Element {
 		if (attr != null && attr.color != null)
 			node.set(Prop.Color, attr.color);
 		LayoutTreeNative.blinc_tree_set_image(this.tree.ptr, node.id, document.id);
+		ImageResidency.register(node, null, _ -> {});
 	}
 
 	/** Removing a size rule restores the document's dimensions, without owning them (e8a1b50). **/

@@ -165,7 +165,7 @@ class Images {
 		}
 		var width = side(w * scale);
 		var height = side(h * scale);
-		return atlas.get('bitmap$code:${width}x$height', width, height,
+		return atlas.get('bitmap${ashui.types.Bitmap.generation(slot)}:$fit:${width}x$height', width, height,
 			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, width, height, fit, pixels.getData()));
 	}
 
@@ -174,7 +174,7 @@ class Images {
 		var scale = bucket(onScreen);
 		var w = side(width * scale), h = side(height * scale);
 		var fill = ashui.types.Brush.ImageFit.Fill;
-		return atlas.get('bitmap${slot * 4 + fill}:${w}x$h', w, h,
+		return atlas.get('bitmap${ashui.types.Bitmap.generation(slot)}:$fill:${w}x$h', w, h,
 			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, w, h, fill, pixels.getData()));
 	}
 

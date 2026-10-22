@@ -93,6 +93,7 @@ class DisplayList {
 		its ancestors have then.
 	**/
 	public function update(tree:LayoutTree, root:Node, scale = 1.0):Void {
+		ashui.ui.ImageResidency.sync(tree);
 		fillParams(scale);
 		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes == null ? null : bytes.getData(), capacity);
 		if (needed > capacity) {

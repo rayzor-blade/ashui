@@ -65,6 +65,8 @@ typedef DivAttributes = {
 	?gridRow:IntoReactive<String>,
 	?display:IntoReactive<Display>,
 	?overflow:IntoReactive<Overflow>,
+	/** Release offscreen descendant image pixels and reclaim their atlas space; false by default. **/
+	?virtualizeImages:Bool,
 	?position:IntoReactive<Position>,
 	?order:IntoReactive<Int>,
 	?top:IntoReactive<Single>,
@@ -262,6 +264,8 @@ class Div extends Element {
 				node.set(Prop.Display, attr.display);
 			if (attr.overflow != null)
 				node.set(Prop.Overflow, attr.overflow);
+			if (attr.virtualizeImages != null)
+				ImageResidency.configure(node, attr.virtualizeImages);
 			if (attr.position != null)
 				node.set(Prop.Position, attr.position);
 			if (attr.order != null)

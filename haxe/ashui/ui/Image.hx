@@ -36,6 +36,8 @@ class Image extends Element {
 	final authoredPosition:Bool;
 	var fitted:ObjectFit;
 	var positioned:ImagePosition;
+	var resident = true;
+	var mapped = -1;
 
 	static final CENTER:ImagePosition = {
 		x: 0.5,
@@ -94,12 +96,26 @@ class Image extends Element {
 	}
 
 	function applyMapping():Void {
+		if (!resident) return;
 		// The slot protocol stays four fits per bitmap. Additional object modes
 		// sample its existing Fill slot and carry geometry separately.
 		var fit:ashui.types.Brush.ImageFit = (fitted : Int) >= 4 ? Fill : cast fitted;
-		LayoutTreeNative.blinc_tree_set_image(tree.ptr, node.id, bitmap.slotFor(fit));
+		mapped = bitmap.imageSlotFor(fit);
+		LayoutTreeNative.blinc_tree_set_image(tree.ptr, node.id, mapped);
 		LayoutTreeNative.blinc_tree_set_image_mapping(tree.ptr, node.id, fitted, positioned.x, positioned.y, positioned.offsetX, positioned.offsetY);
 		tree.markDrawn();
+	}
+
+	function setResident(value:Bool):Void {
+		if (!value) {
+			if (resident) LayoutTreeNative.blinc_tree_set_image(tree.ptr, node.id, -1);
+			resident = false;
+			mapped = -1;
+		} else {
+			resident = true;
+			var fit:ashui.types.Brush.ImageFit = (fitted : Int) >= 4 ? Fill : cast fitted;
+			if (mapped != bitmap.imageSlotFor(fit)) applyMapping();
+		}
 	}
 
 	/** The image it draws. **/
@@ -126,5 +142,6 @@ class Image extends Element {
 		node.set(Prop.Height, attr != null && attr.height != null ? attr.height : (bitmap.height : Single));
 		node.set(Prop.FlexShrink, (0 : Single));
 		applyMapping();
+		ImageResidency.register(node, bitmap, setResident);
 	}
 }

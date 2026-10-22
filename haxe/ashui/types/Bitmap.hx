@@ -39,6 +39,12 @@ class Bitmap {
 	static final loaded = new Map<String, Bitmap>();
 
 	static var ids = 0;
+	static var nextGeneration = 0;
+	static final generations = new Map<Int, Int>();
+
+	/** Distinguishes a native slot's successive occupants in renderer caches. **/
+	@:noCompletion public static function generation(slot:Int):Int
+		return generations.get(slot);
 
 	/** Names it from the moment it is made, which `slot` does not for a bitmap whose decoding waits. **/
 	public final id:Int;
@@ -49,6 +55,8 @@ class Bitmap {
 	var made:Int;
 	var encoded:Null<haxe.io.Bytes> = null;
 	var shrinkTo = 0;
+	var pinned = false;
+	var disposed = false;
 	var compressedForms:Null<Map<Int, ashui.draw3d.BcImage>> = null;
 
 	/** Its size in pixels. **/
@@ -78,17 +86,25 @@ class Bitmap {
 		id = ids++;
 		made = slot;
 		if (slot >= 0) {
+			generations.set(slot, nextGeneration++);
 			width = BitmapNative.blinc_bitmap_size(slot, false);
 			height = BitmapNative.blinc_bitmap_size(slot, true);
 		}
 	}
 
 	function get_slot():Int {
+		pinned = true;
+		return decode();
+	}
+
+	function decode():Int {
+		if (disposed) throw "bitmap pixels have been disposed";
 		if (made < 0) {
+			if (encoded == null) throw "bitmap pixels have been freed";
 			made = BitmapNative.blinc_bitmap_decode(encoded, encoded.length);
 			if (made < 0)
 				throw "not a PNG, JPEG or WebP image";
-			encoded = null;
+			generations.set(made, nextGeneration++);
 			if (shrinkTo > 0)
 				BitmapNative.blinc_bitmap_shrink(made, shrinkTo);
 			width = BitmapNative.blinc_bitmap_size(made, false);
@@ -132,16 +148,32 @@ class Bitmap {
 			compressedForms.remove(role);
 
 	/** Frees its decoded pixels, if it has any; what is on the GPU is not touched. **/
-	public function freePixels():Void
-		if (made >= 0)
-			BitmapNative.blinc_bitmap_release(made);
+	public function freePixels():Void {
+		if (made >= 0) BitmapNative.blinc_bitmap_release(made);
+		made = -1;
+		encoded = null;
+	}
+
+	/** Temporarily releases pixels only when every Image use is offscreen and no raw slot or brush escaped. **/
+	@:noCompletion public function suspend():Bool {
+		if (pinned || disposed || encoded == null || made < 0) return false;
+		BitmapNative.blinc_bitmap_release(made);
+		made = -1;
+		return true;
+	}
+
+	/** Image uses are tracked together; other slot consumers pin the pixels conservatively. **/
+	@:noCompletion public function imageSlotFor(fit:Brush.ImageFit):Int
+		return BASE + decode() * 4 + (fit : Int);
 
 	/** `bytes` of PNG, JPEG or WebP decoded; throws when they are not one. **/
 	public static function fromBytes(bytes:haxe.io.Bytes):Bitmap {
 		var slot = BitmapNative.blinc_bitmap_decode(bytes, bytes.length);
 		if (slot < 0)
 			throw "not a PNG, JPEG or WebP image";
-		return new Bitmap(slot);
+		var bitmap = new Bitmap(slot);
+		bitmap.encoded = bytes;
+		return bitmap;
 	}
 
 	/** The image at `path`, a file or what `Assets` has embedded there, read once: loading the same path again gives the same bitmap. **/
@@ -170,6 +202,7 @@ class Bitmap {
 		pixels have been freed.
 	**/
 	public function pixels(width:Int, height:Int):Null<haxe.io.Bytes> {
+		if (made < 0 && encoded == null) return null;
 		var out = haxe.io.Bytes.alloc(width * height * 4);
 		return BitmapNative.blinc_bitmap_resample(slot, width, height, (Fill : Brush.ImageFit), out) ? out : null;
 	}
@@ -181,10 +214,8 @@ class Bitmap {
 		Call it before it is drawn. False when it was small enough already.
 	**/
 	public function shrink(maxSide:Int):Bool {
-		if (made < 0) {
-			shrinkTo = maxSide;
-			return false;
-		}
+		if (maxSide > 0) shrinkTo = shrinkTo > 0 ? Std.int(Math.min(shrinkTo, maxSide)) : maxSide;
+		if (made < 0) return false;
 		if (!BitmapNative.blinc_bitmap_shrink(made, maxSide))
 			return false;
 		width = BitmapNative.blinc_bitmap_size(made, false);
@@ -194,6 +225,8 @@ class Bitmap {
 
 	/** Frees its pixels; it must not be drawn after. **/
 	public function dispose():Void {
+		if (disposed) return;
+		disposed = true;
 		for (f in disposing)
 			f(this);
 		freePixels();

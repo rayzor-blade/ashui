@@ -193,6 +193,22 @@ changing or removing it updates the existing scroll container. Typed
 utilities include `overflow-x-auto` and `overflow-y-auto`. Native rectangular
 clipping currently clips both axes when either axis needs clipping.
 
+Scrollable divs can opt into image residency with `virtualizeImages={true}`
+(or `new Div({overflow: Scroll, virtualizeImages: true}, children)`). The
+boolean defaults to false. Descendant raster images keep their layout size
+and compressed source but release decoded pixels outside the clipped viewport;
+they decode again when they return, preserving any `Bitmap.shrink` cap.
+The renderer also repacks and shrinks its shared RGBA image atlas when managed
+images enter, leave or are removed. Its minimum allocation remains 256×256.
+SVG raster entries participate without disposing their caller-owned documents.
+
+A nested explicit `virtualizeImages={false}` opts out. A shared bitmap stays
+resident while any image use is visible or unmanaged. Reading a raw bitmap
+`slot`, making a `Brush.bitmap`, or using it in a canvas/mesh pins its pixels
+conservatively: external consumers can retain native slots that cannot be
+remapped. Layout visibility under transforms is conservative. This option
+manages image resources, not the lifetime of other child components.
+
 `object-fit` supports `cover`, `contain`, `fill`, `none` (intrinsic size), and
 `scale-down` (contain without enlarging). `object-position` positions the
 image within its content box, including cropping. It inherits, defaults to

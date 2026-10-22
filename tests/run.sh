@@ -141,6 +141,11 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main DamageScrollPixels -hl bin/damage-scroll-pixels.hl
 	run damage-scroll-pixels.hl
+	# Opt-in scroll images release/reload pixels and reclaim atlas capacity without changing shared images.
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/render -main ImageResidencyPixels -hl bin/image-residency-pixels.hl
+	run image-residency-pixels.hl
 	# A rect along the axes drawn in two triangles matches the same rect drawn by the sweep (git-bug 3ec0b2c).
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \
