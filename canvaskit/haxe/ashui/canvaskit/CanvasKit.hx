@@ -249,7 +249,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 		}
 		// Where the pointer is in the element, from window coordinates.
 		function local(tree:LayoutTree, x:Float, y:Float):{x:Float, y:Float} {
-			var bounds = tree.getBounds(node);
+			var bounds = tree.getScrolledBounds(node);
 			return bounds == null ? {x: x, y: y} : {x: x - bounds.x, y: y - bounds.y};
 		}
 		interaction.onPointerDown(p -> {
@@ -379,6 +379,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 			else
 				viewport.zoomAt(p.localX, p.localY, Math.exp(-p.deltaY * zoomSensitivity));
 			p.preventDefault();
+			p.stopPropagation();
 		});
 		Owner.onCleanup(() -> {
 			stopFollow();
