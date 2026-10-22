@@ -741,6 +741,40 @@ class CodeComponents {
 		many.applyEdits([{from: 3, to: 3, text: ""}]);
 		check("an edit that changes nothing is none", @:privateAccess many.value.get() == editSource && edited.length == 4, edited.length);
 		editDispose(); editTree.dispose();
+		var styleTree = new LayoutTree(), styleStop:Void->Void = null, styledView = new Ref<CodeView>(), plainView = new Ref<CodeView>();
+		var styledValue = signal("styled token");
+		var styleRoot = Owner.root(styleTree, stop -> {
+			styleStop = stop;
+			return <div width={600} height={400} class="flex-col">
+				<code-view ref={styledView} value={styledValue} highlighter={new FormattedHighlighter()} tokenStyles={true} height={150}/>
+				<code-view ref={plainView} value={styledValue} highlighter={new FormattedHighlighter()} height={150}/>
+			</div>;
+		});
+		function styleSettle() { Css.update(); styleTree.flush(); styleTree.computeLayout(styleRoot.node, 600, 400); }
+		styleSettle(); styleSettle();
+		var styledIds = Css.query(styleTree, styledView.get().node.id, ".ui-code-token");
+		var tokenIdentity = Identity.of(styleTree, styledIds[0]);
+		var declarations = tokenIdentity.inlineDeclarations();
+		check("styled highlight spans survive compact token storage", styledView.get().document.lines[0].tokenStyle(0).color == "#123456"
+			&& styledView.get().document.lines[0].tokens[0].style.background == "#654321");
+		check("opt-in spans render foreground, background and text attributes", declarations.get("color") == "#123456"
+			&& declarations.get("background-color") == "#654321" && declarations.get("font-weight") == "700"
+			&& declarations.get("font-style") == "italic" && declarations.get("text-decoration") == "underline");
+		var ordinary = Identity.of(styleTree, Css.query(styleTree, plainView.get().node.id, ".ui-code-token")[0]).inlineDeclarations();
+		check("ordinary viewers ignore custom styles unless enabled", ordinary == null || !ordinary.exists("color"));
+		styledValue.set("plain token"); styleSettle(); styleSettle();
+		check("pooled tokens clear stale inline formatting", Css.query(styleTree, styledView.get().node.id, ".ui-code-token").join(",") == styledIds.join(",")
+			&& !declarations.exists("color") && !declarations.exists("background-color") && !declarations.exists("font-weight")
+			&& !declarations.exists("font-style") && !declarations.exists("text-decoration"));
+		styleStop(); styleTree.dispose();
 		Sys.println('$checks checks: ALL PASSED');
+	}
+}
+
+private class FormattedHighlighter implements CodeHighlighter {
+	public function new() {}
+	public function highlight(line:String, state:String):CodeHighlight {
+		return {tokens:[{from:0, to:line.length, kind:Plain, style:StringTools.startsWith(line, "styled") ?
+			{color:"#123456", background:"#654321", fontWeight:"700", fontStyle:"italic", textDecoration:"underline"} : null}], state:""};
 	}
 }

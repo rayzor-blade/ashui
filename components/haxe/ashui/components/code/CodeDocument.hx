@@ -30,6 +30,7 @@ class CodeLine {
 	public final text:String;
 	public var start = 0;
 	var packed:Null<Array<Int>> = null;
+	var styles:Null<Array<Null<CodeTokenStyle>>>;
 
 	/** Counts the times the tokens were set, so a reader can tell they are the ones it saw. **/
 	public var tokenRevision(default, null) = 0;
@@ -56,14 +57,18 @@ class CodeLine {
 	public inline function tokenKind(i:Int):CodeTokenKind
 		return KINDS[packed[i * 3 + 2]];
 
+	public inline function tokenStyle(i:Int):Null<CodeTokenStyle>
+		return styles == null ? null : styles[i];
+
 	/** The tokens as objects, made afresh each time; setting them packs them. **/
 	public var tokens(get, set):Array<CodeToken>;
 
 	function get_tokens():Array<CodeToken>
-		return [for (i in 0...tokenCount) {from: tokenFrom(i), to: tokenTo(i), kind: tokenKind(i)}];
+		return [for (i in 0...tokenCount) {from: tokenFrom(i), to: tokenTo(i), kind: tokenKind(i), style: tokenStyle(i)}];
 
 	function set_tokens(list:Array<CodeToken>):Array<CodeToken> {
 		tokenRevision++;
+		styles = null;
 		if (list.length == 0) {
 			packed = null;
 			return list;
@@ -75,6 +80,10 @@ class CodeLine {
 			made[i * 3] = token.from;
 			made[i * 3 + 1] = token.to;
 			made[i * 3 + 2] = indexOfKind(token.kind);
+			if (token.style != null) {
+				if (styles == null) { styles = []; styles.resize(list.length); }
+				styles[i] = token.style;
+			}
 		}
 		packed = made;
 		return list;

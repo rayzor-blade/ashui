@@ -50,6 +50,8 @@ typedef CodeEditorProps = {
 	?language:IntoReactive<String>,
 	/** An application grammar, in place of the built-in lexical highlighter. **/
 	?highlighter:CodeHighlighter,
+	/** Render optional inline styles on highlight spans; ordinary syntax stays CSS themed. **/
+	?tokenStyles:Bool,
 	?lineNumbers:Bool,
 	?folding:Bool,
 	?indentGuides:Bool,
@@ -86,7 +88,7 @@ typedef CodeEditorProps = {
 
 private enum CodePhase { Resting; Selecting; }
 private enum CodeEvent { Press; Release; Blur; }
-private typedef Run = {text:String, kind:String, x:Single};
+private typedef Run = {text:String, kind:String, x:Single, ?style:CodeTokenStyle};
 private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Int};
 /** A pooled token element: the `index`th run of its `kind` in the row its slot shows. **/
 private typedef Token = {kind:String, index:Int};
@@ -617,7 +619,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var left = Computed.make(() -> { var u = run(row.get()); (u == null ? 0 : u.x : Single); });
 		var content = Computed.make(() -> { var u = run(row.get()); u == null ? "" : u.text; });
 		var text:Text = <text class="ui-code-text ui-code-token" left={left} top={0}>${content.get()}</text>;
-		Identity.of(text.tree, text.node.id).setAttribute("data-token", token.kind);
+		var identity = Identity.of(text.tree, text.node.id);
+		identity.setAttribute("data-token", token.kind);
+		if (props.tokenStyles == true) new Watch(() -> { var u = run(row.get()); u == null ? null : u.style; }, style -> {
+			identity.setInline("color", style == null ? null : style.color);
+			identity.setInline("background-color", style == null ? null : style.background);
+			identity.setInline("font-weight", style == null ? null : style.fontWeight);
+			identity.setInline("font-style", style == null ? null : style.fontStyle);
+			identity.setInline("text-decoration", style == null ? null : style.textDecoration);
+			identity.setInline("opacity", style == null ? null : style.opacity);
+		});
 		return text;
 	}
 
@@ -732,7 +743,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 				if (line.tokenCount == 0) runs.push({text: measured.expanded, x: 0, kind: "plain"});
 				else for (t in 0...line.tokenCount) {
 					var from = line.tokenFrom(t), to = line.tokenTo(t);
-					runs.push({text: measured.expanded.substring(measured.columns[from], measured.columns[to]), x: (metrics.xAt(line, from) : Single), kind: line.tokenKind(t)});
+					runs.push({text: measured.expanded.substring(measured.columns[from], measured.columns[to]), x: (metrics.xAt(line, from) : Single), kind: line.tokenKind(t), style: props.tokenStyles == true ? line.tokenStyle(t) : null});
 				}
 				var guides:Array<Single> = [];
 				if (props.indentGuides == true) {

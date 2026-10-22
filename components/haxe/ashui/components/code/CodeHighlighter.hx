@@ -15,7 +15,16 @@ enum abstract CodeTokenKind(String) to String {
 	var MarkupText = "markup-text";
 }
 
-typedef CodeToken = {final from:Int; final to:Int; final kind:CodeTokenKind;}
+/** Optional inline CSS values for formatted text. Editors render them only with tokenStyles enabled. **/
+typedef CodeTokenStyle = {
+	?color:String,
+	?background:String,
+	?fontWeight:String,
+	?fontStyle:String,
+	?textDecoration:String,
+	?opacity:String
+};
+typedef CodeToken = {final from:Int; final to:Int; final kind:CodeTokenKind; @:optional final style:CodeTokenStyle;}
 typedef CodeHighlight = {final tokens:Array<CodeToken>; final state:String;}
 
 /**
