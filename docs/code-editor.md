@@ -211,3 +211,22 @@ Pass `highlighter={new NotesSyntax()}` to either component. The token kinds
 are `Plain`, `Keyword`, `StringLiteral`, `Comment`, `Number`, `Type`,
 `Function`, `Operator`, `Tag`, `Attribute` and `MarkupText`; colors remain in CSS.
 Use `MarkupText` for literal markup so bracket matching and folding skip it.
+
+## Documentation popovers
+
+`CodeHint` accepts a highlighted `signature`, optional `language` and `emphasis`
+range, followed by plain `docs`. To render formatted documentation, supply
+`renderDocs: Void->Element` instead. The builder takes precedence over `docs` and
+runs under the popover's reactive owner. Its nodes, watches and `Owner.onCleanup`
+handlers are released when the hint is replaced or closed.
+
+```haxe
+editor.showHint({
+    from: start, to: end,
+    renderDocs: () -> renderMarkdown(documentation)
+});
+```
+
+Asynchronous providers can use `editor.hoverOffset` to discard replies after the
+pointer moves. `showHint(hint, true)` pins a hint; `hideHint()` closes it. Edits,
+scrolling, Escape and disposing the editor also close its hints.

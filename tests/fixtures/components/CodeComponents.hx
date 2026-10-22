@@ -508,6 +508,18 @@ class CodeComponents {
 		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs: "Again."}, true); hintSettle();
 		hint.select(0, 0); Keyboard.text(hintTree, "x"); hintSettle();
 		check("an edit closes it", hintOpen().length == 0);
+		var richBuilt = 0, richDisposed = 0;
+		var rich:Void->ashui.layout.Element = () -> {
+			richBuilt++;
+			ashui.reactive.Owner.onCleanup(() -> richDisposed++);
+			return <div id="rich-hint"><text>Formatted documentation</text></div>;
+		};
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, docs:"Plain fallback", renderDocs:rich}, true); hintSettle();
+		check("rich hint content takes precedence over plain docs", richBuilt == 1 && Css.query(hintTree, hintTree.root.id, "#rich-hint").length == 1 && Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text").length == 0);
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 3, renderDocs:rich}, true); hintSettle();
+		check("replacing rich hint content disposes its owner", richBuilt == 2 && richDisposed == 1);
+		hint.hideHint(); hintSettle();
+		check("closing rich hint content disposes its owner", richDisposed == 2 && Css.query(hintTree, hintTree.root.id, "#rich-hint").length == 0);
 		var call = "f(a:Int, b:String)";
 		hint.showHint({from: hintStart(6), to: hintStart(6) + 1, signature: call, emphasis: {from: call.indexOf("b:"), to: call.indexOf(")")}}, true); hintSettle();
 		var rowWidth = hintTree.getBounds(Identity.of(hintTree, Css.query(hintTree, hintTree.root.id, ".ui-code-hint-line")[0]).node).width;

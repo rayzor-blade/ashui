@@ -26,6 +26,8 @@ typedef CodeHint = {
 	@:optional var emphasis:{from:Int, to:Int};
 	/** The text under it, in paragraphs set apart by blank lines; each line wraps. **/
 	@:optional var docs:String;
+	/** Rich documentation, built under the popover owner and disposed when it closes; takes precedence over docs. **/
+	@:optional var renderDocs:Void->Element;
 	/** A CSS class for the popover; `ui-code-hint-error`, `-warning` and `-info` give it an icon and a border in the diagnostic's colour, as a toast has. **/
 	@:optional var className:String;
 }
@@ -286,7 +288,8 @@ class CodeHints {
 			}
 			body.appendChild(signature);
 		}
-		if (hint.docs != null && hint.docs != "") {
+		if (hint.renderDocs != null) body.appendChild(hint.renderDocs());
+		else if (hint.docs != null && hint.docs != "") {
 			var docs = Library.part("ui-code-hint-docs");
 			for (line in hint.docs.split("\n")) {
 				if (line == "")
