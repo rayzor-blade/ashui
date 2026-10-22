@@ -87,10 +87,27 @@ unchanged lines until their incoming lexical state changes. Native caret
 measurements retain at most 96 lines; disposal releases the view's watches,
 layout callbacks and caret timer.
 
-For editor tabs, keep panes mounted and bind their `display` to the selected
-tab, as CodeWorkbench does. Inactive panes retain undo history, selection,
-folds and shaped rows. An `<if>` intentionally disposes its inactive branch
-and builds a fresh editor when it returns.
+For editor tabs, keep one `CodeEditorState` per document and mount only the
+selected editor. Pass `state` instead of `value`:
+
+```haxe
+import ashui.components.code.CodeEditorState;
+var document = new CodeEditorState(textSignal);
+// Under a reactive owner:
+return <if {selected.get()}><code-editor state={document} language="haxe" /></if>;
+```
+
+The state keeps text, bounded undo/redo patches, syntax/fold caches,
+annotations, selection and scroll position. Disposing the view saves navigation
+and releases its watches, row pools, measured text and minimap. Remounting reuses
+the document cache and restores navigation after layout. `state.mounted` is false
+when it holds no view capture hook. One state serves one mounted editor; a keyed
+replacement may mount before the previous view is disposed.
+
+An external text replacement while unmounted clears incompatible undo on remount.
+Drop the state itself to release its document and history. Without `state`, an
+editor owns its data as before; hiding such an editor with `display: none` keeps
+the entire view alive, and disposing it discards its history.
 
 ## Styling
 
