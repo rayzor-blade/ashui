@@ -85,7 +85,12 @@ class CodeSyntax implements CodeHighlighter {
 			} else if (frame == "text") {
 				if (line.substr(i, 4) == "<!--") { frames.push("<!--"); i += 4; kind = Comment; }
 				else if (line.substr(i, 2) == "</") { frames.pop(); frames.push("tag-close-name"); i += 2; kind = Operator; }
-				else if (tagAt(line, i)) { frames.push("text"); frames.push("tag-open-name"); i++; kind = Operator; }
+				else if (tagAt(line, i)) {
+					var branch = language == "haxe" && line.substr(i, 5) == "<else" && (i + 5 == n || StringTools.isSpace(line, i + 5) || ">/".indexOf(line.charAt(i + 5)) >= 0);
+					// HXX else separates branches of its parent; it has no closing tag.
+					if (!branch) frames.push("text");
+					frames.push(branch ? "tag-branch-name" : "tag-open-name"); i++; kind = Operator;
+				}
 				else if (line.substr(i, 2) == "$" + "{" || line.charAt(i) == "{") {
 					i += line.charAt(i) == "$" ? 2 : 1; frames.push("expr1"); kind = Operator;
 				} else {
@@ -95,7 +100,7 @@ class CodeSyntax implements CodeHighlighter {
 					kind = MarkupText;
 				}
 			} else if (StringTools.startsWith(frame, "tag-")) {
-				if (line.substr(i, 2) == "/>") { i += 2; frames.pop(); if (frames[frames.length - 1] == "text") frames.pop(); kind = Operator; }
+				if (line.substr(i, 2) == "/>") { i += 2; frames.pop(); if (!StringTools.startsWith(frame, "tag-branch") && frames[frames.length - 1] == "text") frames.pop(); kind = Operator; }
 				else if (line.charAt(i) == ">") { i++; frames.pop(); kind = Operator; }
 				else if (line.charAt(i) == "{") { i++; frames.push("expr1"); kind = Operator; }
 				else if (line.charAt(i) == '"' || line.charAt(i) == "'") { frames.push("q" + line.charAt(i)); i++; kind = StringLiteral; }

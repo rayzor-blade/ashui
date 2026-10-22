@@ -80,6 +80,11 @@ class CodeComponents {
 		}
 		markupDoc.update(StringTools.replace(markupSource, "Add one", "Add two"), syntax);
 		check("markup text edits preserve incremental highlighting", markupDoc.highlighted == 1, markupDoc.highlighted);
+		var branches = new CodeDocument('return <div>\n<if {ok}><icon/>\n<else><if {other}><text>Other</text>\n<else><div/></if></if>\n<elsewhere/>\n</div>;\nif (ok) return row;\n/** Documentation */\nfunction message():Element { return <text/>; }', syntax);
+		check("HXX else markers leave the enclosing markup depth unchanged", kindAt(branches, 6, "if") == Keyword && kindAt(branches, 6, "return") == Keyword);
+		check("code after HXX branches keeps comments and function tokens", kindAt(branches, 7, "/**") == Comment && kindAt(branches, 8, "function") == Keyword && kindAt(branches, 8, "message") == Function);
+		var jsxElse = new CodeDocument('return <div><else>content</else></div>;\nreturn value;', CodeSyntax.forLanguage("javascript"));
+		check("JSX else is an ordinary element", kindAt(jsxElse, 1, "return") == Keyword);
 		var generic = new CodeDocument('var items:Map<String, Array<Int>>;\nif (a<b) return a;', syntax);
 		check("generic types and comparisons do not enter markup mode", kindAt(generic, 0, "String") == Type && kindAt(generic, 1, "return") == Keyword);
 		// What follows the edits: a start stays with the text after it, an end does not grow, and a marker is its line's.
