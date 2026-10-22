@@ -61,6 +61,8 @@ typedef CodeEditorProps = {
 	?gutterMarkers:Bool,
 	/** Asked for a hint about the character at an offset once the pointer has rested on it; what it returns opens in a popover, and null leaves the popover to the titles of the decorations there. **/
 	?hover:Int->Null<CodeHint>,
+	/** Definition navigation at a text offset on Command-click (macOS) or Control-click; handled before selection. **/
+	?onNavigate:Int->Void,
 	/** Seconds the pointer rests on a character before `hover` is asked, 0.45 by default. **/
 	?hintDelay:Float,
 	/** The widest the minimap gets, 96 by default; it is a quarter of the editor's width when that is less. **/
@@ -377,6 +379,15 @@ class CodeEditor extends Component<CodeEditorProps> {
 			hints.hide();
 			completions.hide();
 			if (p.button != Left) return;
+			if (props.onNavigate != null && (Sys.systemName() == "Mac" ? p.superKey : p.control)) {
+				var offset = offsetAt(p.x, p.y);
+				if (offset >= 0) {
+					p.preventDefault();
+					p.stopPropagation();
+					props.onNavigate(offset);
+					return;
+				}
+			}
 			phase.send(Press);
 			var at = point(p.x, p.y, gutter.get());
 			e.press(at.x, at.y, p.shift, p.clickCount);

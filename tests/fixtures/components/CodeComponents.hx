@@ -669,10 +669,10 @@ class CodeComponents {
 		check("disposing an editor releases its open completion metadata", !comp.completionsOpen() && comp.completions.items.length == 0 && comp.completions.rows.get().length == 0);
 		compTree.dispose();
 		// An app's keys come before the editor's.
-		var keyTree = new LayoutTree(), keyEditor = new Ref<CodeEditor>(), keyDispose:Void->Void = null, seen:Array<String> = [], taken = ["F2", "ArrowRight"];
+		var keyTree = new LayoutTree(), keyEditor = new Ref<CodeEditor>(), keyDispose:Void->Void = null, seen:Array<String> = [], navigated:Array<Int> = [], taken = ["F2", "ArrowRight"];
 		var keyRoot = Owner.root(keyTree, stop -> {
 			keyDispose = stop;
-			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={keyEditor} language="haxe" value={"abc\ndef"} height={270}
+			return <div width={760} height={400} class="flex-col p-4"><code-editor ref={keyEditor} language="haxe" value={"abc\ndef"} height={270} onNavigate={offset -> navigated.push(offset)}
 				onKey={event -> { var name = switch event.key { case Named(F2): "F2"; case Named(ArrowRight): "ArrowRight"; case Named(ArrowDown): "ArrowDown"; case Character(c): (event.control ? "Ctrl+" : "") + c; case _: "?"; }; seen.push(name); taken.indexOf(name) >= 0; }} /></div>;
 		});
 		function keySettle() { keyTree.flush(); keyTree.computeLayout(keyRoot.node, 760, 400); keyTree.flush(); }
@@ -687,6 +687,20 @@ class CodeComponents {
 		check("a key the app leaves is the editor's", keyed.editing.caret.get() > 0 && seen.indexOf("ArrowDown") >= 0, keyed.editing.caret.get());
 		Keyboard.input(keyTree, key(Character(" "), Space), window.Modifiers.State(false, true, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown)); keySettle();
 		check("Ctrl+Space comes to the hook", seen.indexOf("Ctrl+ ") >= 0, seen);
+		keyed.select(0, 2); keySettle();
+		var navSpot = keyed.rectAt(5), mac = Sys.systemName() == "Mac";
+		var navModifiers = window.Modifiers.State(false, !mac, false, mac, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		Pointer.move(keyTree, navSpot.x + navSpot.width / 4, navSpot.y + navSpot.height / 2);
+		Pointer.modifiers(keyTree, navModifiers); Pointer.press(keyTree);
+		Pointer.move(keyTree, navSpot.x + navSpot.width, navSpot.y + navSpot.height / 2, navModifiers); Pointer.release(keyTree); keySettle();
+		check("modifier-click navigates at the pointer without starting selection drag", navigated.join(",") == "5" && keyed.editing.anchor.get() == 0 && keyed.editing.caret.get() == 2, navigated);
+		var noModifiers = window.Modifiers.State(false, false, false, false, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
+		var plainSpot = keyed.rectAt(1);
+		Pointer.move(keyTree, plainSpot.x + plainSpot.width / 4, plainSpot.y + plainSpot.height / 2, noModifiers); Pointer.press(keyTree); Pointer.release(keyTree); keySettle();
+		check("ordinary clicks still place the caret without navigating", navigated.length == 1 && keyed.editing.caret.get() == 1 && keyed.editing.anchor.get() == 1, keyed.editing.caret.get());
+		Pointer.move(keyTree, navSpot.x + navSpot.width / 4, navSpot.y + navSpot.height / 2, navModifiers); Pointer.press(keyTree, Right); Pointer.release(keyTree, Right); keySettle();
+		Pointer.move(keyTree, 700, 100, navModifiers); Pointer.press(keyTree); Pointer.release(keyTree); keySettle();
+		check("secondary clicks and blank editor space do not navigate", navigated.length == 1, navigated);
 		keyDispose(); keyTree.dispose();
 		// Edits from code are one undo step, however far apart they are.
 		var editTree = new LayoutTree(), editEditor = new Ref<CodeEditor>(), editDispose:Void->Void = null, edited:Array<String> = [];
