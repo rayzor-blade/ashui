@@ -49,7 +49,15 @@ class CodeFindTest {
 				var mac = Sys.systemName() == "Mac";
 				Keyboard.input(tree, Input(Unidentified(Unidentified),k,None,Standard,Pressed,false,Unavailable), window.Modifiers.State(shift,!mac && mod,alt,mac && mod,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown)); settle();
 			}
-			settle(); var ed = ref.get(); ed.focus(); press(Character("f"),false,true);
+			settle(); var ed = ref.get();
+			function node(selector:String):ashui.layout.Node return new ashui.layout.Node(Css.query(tree,ed.node.id,selector)[0]);
+			function disabledAction(selector:String):Bool return ashui.input.Interaction.byId(tree,node(selector).id).disabled.get();
+			function click(selector:String):Void {
+				var b = tree.getScrolledBounds(node(selector));
+				ashui.input.Pointer.move(tree,b.x+b.width/2,b.y+b.height/2); ashui.input.Pointer.press(tree); ashui.input.Pointer.release(tree); settle();
+			}
+			ed.focus(); press(Character("f"),false,true);
+			check("empty search disables navigation", disabledAction(".ui-code-find-next") && disabledAction(".ui-code-find-previous"));
 			var panelId = Css.query(tree,ed.node.id,".ui-code-find")[0];
 			var panelBounds = tree.getBounds(new ashui.layout.Node(panelId));
 			check("find floats at a compact width", panelBounds.width < 500 && panelBounds.width < tree.getBounds(ed.node).width);
@@ -61,10 +69,22 @@ class CodeFindTest {
 			check("shortcut opens built-in find", state.search.opened.get() && Css.query(tree,ed.node.id,".ui-code-find-query").length == 1);
 			state.search.regex.set(true); state.search.query.set("~/item(12|34)/"); settle();
 			check("editor search finds two captured results", ed.search.result.get().matches.length == 2 && Css.query(tree,ed.node.id,".ui-code-find-mark").length == 2);
-			var first = ed.editing.anchor.get(); press(Named(Enter)); check("Enter selects next result", ed.editing.anchor.get() > first);
+			var first = ed.editing.anchor.get();
+			check("results enable both navigation buttons", !disabledAction(".ui-code-find-next") && !disabledAction(".ui-code-find-previous"));
+			click(".ui-code-find-next"); check("next button advances", ed.editing.anchor.get() > first);
+			click(".ui-code-find-previous"); check("previous button returns", ed.editing.anchor.get() == first);
+			click(".ui-code-find-previous"); check("previous button wraps", ed.editing.anchor.get() > first);
+			click(".ui-code-find-next"); check("next button wraps", ed.editing.anchor.get() == first);
+			ashui.ui.Input.at(tree,node(".ui-code-find-query").id).focus(); press(Named(Enter)); check("Enter selects next result", ed.editing.anchor.get() > first);
 			press(Named(Enter)); check("navigation wraps", ed.editing.anchor.get() == first);
 			press(Named(Enter),true); check("Shift+Enter selects previous result", ed.editing.anchor.get() > first);
-			state.search.replacing.set(true); state.search.replacement.set("entry$1"); settle(); ed.search.replaceAll(); settle();
+			state.search.replacing.set(true); state.search.replacement.set("entry$1"); settle();
+			state.search.query.set("missing"); settle();
+			check("no results disable navigation and replacement", disabledAction(".ui-code-find-next") && disabledAction(".ui-code-find-previous") && disabledAction(".ui-code-find-replace") && disabledAction(".ui-code-find-replace-all"));
+			state.search.query.set("["); settle(); check("invalid regex disables actions", disabledAction(".ui-code-find-next") && disabledAction(".ui-code-find-replace-all"));
+			state.search.query.set("~/item(12|34)/"); settle();
+			check("correcting the query enables existing actions", !disabledAction(".ui-code-find-next") && !disabledAction(".ui-code-find-previous") && !disabledAction(".ui-code-find-replace-all"));
+			ed.search.replaceAll(); settle();
 			check("replace all uses captures", state.value.get().indexOf("var entry12") >= 0 && state.value.get().indexOf("var entry34") >= 0);
 			ed.focus(); ed.undo(); settle(); check("replace all is one undo step", state.value.get() == initial);
 			ed.redo(); settle(); check("replace all redo", state.value.get().indexOf("var entry34") >= 0); ed.undo(); settle();
@@ -78,7 +98,7 @@ class CodeFindTest {
 			check("highlight nodes are bounded to visible rows", ed.search.result.get().matches.length == 200 && Css.query(tree,ed.node.id,".ui-code-find-mark").length > 0 && Css.query(tree,ed.node.id,".ui-code-find-mark").length <= 30);
 			state.search.query.set("item12"); settle(); ed.toggleFold(0); settle(); ed.findNext(); settle();
 			check("find unfolds a hidden result", !ed.document.lines[0].folded);
-			readOnly.set(true); settle(); var before = state.value.get(); ed.search.replaceAll(); ed.search.replaceOne(); settle();
+			readOnly.set(true); settle(); check("read-only changes disable the replace toggle", disabledAction(".ui-code-find-toggle")); var before = state.value.get(); ed.search.replaceAll(); ed.search.replaceOne(); settle();
 			check("read-only search refuses replacements", state.value.get() == before && Css.query(tree,ed.node.id,".ui-code-find-replace-row").length == 0);
 			readOnly.set(false); settle(); check("replacement controls remount after unlocking", Css.query(tree,ed.node.id,".ui-code-find-replacement").length == 1); disabled.set(true); settle(); ed.search.replaceAll(); check("disabled search refuses replacements", state.value.get() == before); disabled.set(false); settle();
 			shown.set(false); settle(); check("unmount releases controls and state capture", ref.get() == null && !state.mounted && Css.query(tree,root.node.id,".ui-code-find").length == 0);

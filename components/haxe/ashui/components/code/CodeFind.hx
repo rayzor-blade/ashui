@@ -132,7 +132,7 @@ class CodeFind {
 		var empty = Computed.make(() -> result.get().matches.length == 0);
 		var controls = <div class="ui-code-find" maxWidth={maxWidth} onKeyDown={event -> { if (!event.defaultPrevented) shortcut(event); }}>
 			<div class="ui-code-find-row">
-				<tooltip label="Toggle replace"><toggle pressed={state.replacing} disabled={!writable()} size={Sm} class="ui-code-find-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></toggle></tooltip>
+				<tooltip label="Toggle replace"><toggle pressed={state.replacing} disabled={Computed.make(() -> !writable())} size={Sm} class="ui-code-find-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></toggle></tooltip>
 				${search}
 				<tooltip label="Match case"><toggle pressed={state.matchCase} size={Sm} class="ui-code-find-case"><text>Aa</text></toggle></tooltip>
 				<tooltip label="Match whole word"><toggle pressed={state.wholeWord} size={Sm} class="ui-code-find-word"><text>Ab</text></toggle></tooltip>
@@ -167,7 +167,7 @@ class CodeFind {
 	function action(label:String, name:String, path:String, run:Void->Void, ?disabled:Void->Bool):Element {
 		var icon = new ashui.ui.Svg(ashui.svg.SvgDocument.parse('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="'+path+'"/></svg>'));
 		var button =
-		<button type="button" variant={Ghost} size={Icon} disabled={disabled == null ? false : disabled()} onClick={_ -> run()}>
+		<button type="button" variant={Ghost} size={Icon} disabled={Computed.make(() -> disabled != null && disabled())} onClick={_ -> run()}>
 			${icon}
 		</button>;
 		Identity.of(button.tree, button.node.id).addClasses(["ui-code-find-" + name]).setAttribute("aria-label", label);
