@@ -1,5 +1,7 @@
 -L hashlink
 -L tink_hxx
+-L ash-future
+-L hlavi
 
 --class-path ../hlwgpu/haxe
 # hlwindow's key, button and modifier types are ashui's input vocabulary
