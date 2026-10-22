@@ -1239,13 +1239,13 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-hint-gap { height: 6px; }
 .ui-code-hint-token[data-emphasis="true"] { font-weight: 700; background: var(--ui-code-hint-emphasis, rgba(127, 127, 127, 0.22)); border-radius: 2px; }
 .ui-code-hint-text { font-size: var(--text-sm); color: var(--text-secondary); }
-/* The completion list under the caret: rows of a kind, a label and a detail, and the selected one's documentation. */
+/* A stable width keeps virtual completion rows from resizing the popup as it scrolls. */
 .ui-code-completion {
-	flex-direction: column; min-width: 280px; max-width: var(--ui-code-completion-width, 480px);
+	flex-direction: column; min-width: 280px; width: var(--ui-code-completion-width, 480px); max-width: var(--ui-code-completion-width, 480px);
 	border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); overflow: hidden;
 	background: var(--ui-code-completion-bg, var(--surface-elevated)); color: var(--text-primary);
 }
-.ui-code-completion-list { flex-direction: column; padding: 4px; max-height: 220px; overflow: scroll; }
+.ui-code-completion-list { flex-direction: column; padding: 4px; max-height: 228px; overflow: scroll; }
 .ui-code-completion-row { flex-direction: row; align-items: center; gap: 8px; height: 22px; padding: 0 6px; border-radius: var(--radius-sm); flex-shrink: 0; cursor: pointer; }
 .ui-code-completion-row[data-selected] { background: var(--ui-code-completion-selected, var(--accent-subtle)); }
 .ui-code-completion-kind { width: 16px; height: 16px; flex-shrink: 0; text-align: center; font-size: 10px; font-weight: 600; border-radius: 3px; color: var(--text-secondary); background: color-mix(in srgb, var(--text-secondary) 14%, transparent); }

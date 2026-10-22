@@ -52,6 +52,7 @@ private typedef Row = {item:CodeCompletion, index:Int};
 	completed starts; the editor narrows it to what was typed since, as `from` to the caret, keeps the selected row in view, and
 	puts the chosen one in the text. Up, Down, Page Up, Page Down, Home and End move the selection; Enter and Tab choose it;
 	Escape closes the list, and so does the caret leaving the word, a character that is not part of a word, or nothing matching.
+	Only visible rows and nearby ones are mounted; closing releases the offered items.
 	A press on a row chooses it. Styled by `.ui-code-completion` and the classes in it, and by `--ui-code-completion-bg`,
 	`--ui-code-completion-selected` and `--ui-code-completion-width`.
 **/
@@ -64,6 +65,8 @@ class CodeCompletions {
 
 	/** The rows seen at once. **/
 	static inline var SEEN = 10;
+
+	static inline var OVERSCAN = 2;
 
 	final host:CompletionHost;
 	var items:Array<CodeCompletion> = [];
@@ -89,10 +92,10 @@ class CodeCompletions {
 		from = start;
 		var matching = narrow();
 		if (matching.length == 0)
-			return;
+			return hide();
 		var anchor = host.rectAt(from);
 		if (anchor == null || host.tree.root == null)
-			return;
+			return hide();
 		rows.set(matching);
 		selected.set(0);
 		var scope = new Owner(host.tree);
@@ -100,7 +103,6 @@ class CodeCompletions {
 		panel = built;
 		owner = scope;
 		entry = TopLayer.open(host.tree, built, Beside(anchor.x, anchor.y, anchor.width, anchor.height, "bottom", 2, "start"), null, () -> {
-			entry = null;
 			release(scope);
 		}, false, true, true);
 	}
@@ -112,9 +114,7 @@ class CodeCompletions {
 			open.close();
 		if (owner != null)
 			release(owner);
-		scroll = null;
-		list = null;
-		panel = null;
+		clear();
 	}
 
 	/** Whether the pointer is over the list: a press on it takes focus from the editor, which must not close it. **/
@@ -127,8 +127,22 @@ class CodeCompletions {
 
 	function release(scope:Owner):Void {
 		scope.dispose();
-		if (owner == scope)
+		if (owner == scope) {
 			owner = null;
+			entry = null;
+			clear();
+		}
+	}
+
+	function clear():Void {
+		if (items.length > 0)
+			items = [];
+		if (rows.get().length > 0)
+			rows.set([]);
+		selected.set(0);
+		scroll = null;
+		list = null;
+		panel = null;
 	}
 
 	/** The text or the caret changed: narrows the list to what is typed now, or closes it. **/
@@ -255,7 +269,14 @@ class CodeCompletions {
 		list = shown;
 		scroll = Scroll.attach(shown.node, false, true);
 		scroll.visibility = "never";
-		shown.appendChild(<for {row in rows}>{rowOf(row)}</for>);
+		var scrolling = scroll;
+		// Pixel movement only translates the list; crossing a row boundary changes its mounted range.
+		var first = Computed.make(() -> Std.int(Math.max(0, Math.min(rows.get().length - 1, Math.floor(scrolling.y.get() / ROW)) - OVERSCAN)));
+		var end = Computed.make(() -> Std.int(Math.min(rows.get().length, first.get() + SEEN + OVERSCAN * 2 + 1)));
+		var visible = Computed.make(() -> rows.get().slice(first.get(), end.get()));
+		shown.appendChild(new Div({height: Computed.make(() -> first.get() * ROW), flexShrink: 0}));
+		shown.appendChild(<for {row in visible}>{rowOf(row)}</for>);
+		shown.appendChild(new Div({height: Computed.make(() -> (rows.get().length - end.get()) * ROW), flexShrink: 0}));
 		panel.appendChild(shown);
 		var docs = Library.part("ui-code-completion-docs");
 		var current = Computed.make(() -> { var all = rows.get(), i = selected.get(); i >= 0 && i < all.length ? all[i].item : null; });

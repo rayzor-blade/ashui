@@ -18,6 +18,8 @@ import ashui.types.Style.Display;
 import ashui.ui.Ref;
 
 /** Real input, native grapheme geometry, incremental lexing and viewport bounds (e53597f). **/
+@:access(ashui.components.CodeEditor)
+@:access(ashui.components.code.CodeCompletions)
 class CodeComponents {
 	static var checks = 0;
 	static function check(name:String, ok:Bool, ?detail:Dynamic):Void {
@@ -576,7 +578,67 @@ class CodeComponents {
 		comp.showCompletions(offered, 4); compSettle();
 		comp.scroll.jumpTo(0, 30); compSettle();
 		check("scrolling closes the list", !comp.completionsOpen());
-		compDispose(); compTree.dispose();
+		comp.scroll.jumpTo(0, 0); compSettle(); comp.focus();
+		var many:Array<ashui.components.code.CodeCompletions.CodeCompletion> = [for(i in 0...1000) {label: 'alp' + StringTools.lpad(Std.string(i), "0", 3), docs: 'Documentation $i', kind: "field"}];
+		comp.showCompletions(many, 4); compSettle(); compSettle();
+		var popupWidth = compTree.getBounds((@:privateAccess comp.completions.panel).node).width;
+		check("large completion lists mount only the viewport and overscan", compRows() <= 15 && compRows() >= 10 && @:privateAccess comp.completions.rows.get().length == 200, compRows());
+		function compSnapshot(name:String) {
+			if(Sys.getEnv("ASHUI_COMPLETION_SNAPSHOTS") == "1") ashui.core.render.Snapshot.capture(name, compTree, compRoot.node, 760, 400);
+		}
+		compSnapshot("completion-start");
+		compKey(Named(End), End); compSettle();
+		var lastSelected = Css.query(compTree, compTree.root.id, ".ui-code-completion-row[data-selected]");
+		var lastBounds = compTree.getScrolledBounds(Identity.of(compTree, lastSelected[0]).node);
+		var listBounds = compTree.getScrolledBounds((@:privateAccess comp.completions.list).node);
+		check("End mounts the last choice and keeps it fully visible", compRows() <= 15 && lastSelected.length == 1 && @:privateAccess comp.completions.selected.get() == 199
+			&& lastBounds.y >= listBounds.y && lastBounds.y + lastBounds.height <= listBounds.y + listBounds.height - 3, [lastBounds, listBounds]);
+		check("virtual scrolling keeps the popup width stable", popupWidth == compTree.getBounds((@:privateAccess comp.completions.panel).node).width);
+		compSnapshot("completion-end");
+		compKey(Named(PageUp), PageUp);
+		check("Page Up moves through unmounted choices", @:privateAccess comp.completions.selected.get() == 189);
+		compKey(Named(Home), Home);
+		check("Home restores the first choice", @:privateAccess comp.completions.selected.get() == 0 && comp.completions.scroll.y.get() == 0);
+		var beforePixelMove = Css.query(compTree, compTree.root.id, ".ui-code-completion-row");
+		@:privateAccess comp.completions.scroll.jumpTo(0, 1); compSettle();
+		check("sub-row scrolling reuses mounted row views", beforePixelMove.join(",") == Css.query(compTree, compTree.root.id, ".ui-code-completion-row").join(","));
+		Pointer.move(compTree, listBounds.x + 40, listBounds.y + 40); Pointer.wheel(compTree, 0, -2200); compSettle(); compSettle();
+		check("wheel scrolling mounts choices beyond the first page", @:privateAccess comp.completions.scroll.y.get() > 1000 && compRows() <= 15);
+		compKey(Named(End), End);
+		lastSelected = Css.query(compTree, compTree.root.id, ".ui-code-completion-row[data-selected]");
+		lastBounds = compTree.getScrolledBounds(Identity.of(compTree, lastSelected[0]).node);
+		Pointer.move(compTree, lastBounds.x + 50, lastBounds.y + lastBounds.height / 2); Pointer.press(compTree); Pointer.release(compTree); compSettle();
+		check("a virtual row accepts its filtered index", @:privateAccess comp.value.get() == "let alp199", @:privateAccess comp.value.get());
+		check("accepting releases all completion metadata", @:privateAccess comp.completions.items.length == 0 && comp.completions.rows.get().length == 0);
+		comp.undo(); compSettle(); comp.showCompletions(many, 4); compSettle(); compKey(Named(End), End);
+		Keyboard.text(compTree, "19"); compSettle(); compSettle();
+		check("filtering a scrolled list resets its viewport", @:privateAccess comp.completions.rows.get().length < 200 && comp.completions.rows.get()[0].item.label == "alp190" && comp.completions.scroll.y.get() == 0 && comp.completions.selected.get() == 0 && compRows() <= 15);
+		Keyboard.text(compTree, "z"); compSettle();
+		check("no remaining matches release candidates", !comp.completionsOpen() && @:privateAccess comp.completions.items.length == 0 && comp.completions.rows.get().length == 0);
+		comp.undo(); comp.undo(); compSettle(); comp.showCompletions(many, 4); compSettle();
+		var oldScope = @:privateAccess comp.completions.owner;
+		comp.showCompletions([{label: "alpReplacement"}], 4); compSettle();
+		@:privateAccess comp.completions.release(oldScope); compSettle();
+		check("an old teardown leaves replacement candidates intact", comp.completionsOpen() && compRows() == 1 && @:privateAccess comp.completions.items.length == 1);
+		Pointer.move(compTree, 740, 380); Pointer.press(compTree); Pointer.release(compTree); compSettle();
+		check("outside dismissal releases candidates and views", !comp.completionsOpen() && compRows() == 0 && @:privateAccess comp.completions.items.length == 0 && comp.completions.rows.get().length == 0);
+		comp.showCompletions([{label: "zzz"}], 4); compSettle();
+		check("an offer with no matching items retains nothing", !comp.completionsOpen() && @:privateAccess comp.completions.items.length == 0);
+		var invalid = new ashui.components.code.CodeCompletions({tree:compTree, rectAt:_ -> null, text:() -> "", caret:() -> 0, apply:_ -> {}});
+		invalid.show(many, 0);
+		check("an unavailable anchor retains no candidates", !invalid.isOpen() && @:privateAccess invalid.items.length == 0 && invalid.rows.get().length == 0);
+		function compWatches() {
+			var count = 0;
+			@:privateAccess for (watch in ashui.reactive.Watch.bySlot) if(watch != null) count++;
+			return count;
+		}
+		var watchesBefore = compWatches();
+		for (_ in 0...20) { comp.showCompletions(many, 4); compSettle(); comp.hideCompletions(); compSettle(); }
+		check("repeated completion popups release their reactive owners", compWatches() == watchesBefore && compRows() == 0, [watchesBefore, compWatches()]);
+		comp.showCompletions(many, 4); compSettle();
+		compDispose();
+		check("disposing an editor releases its open completion metadata", !comp.completionsOpen() && comp.completions.items.length == 0 && comp.completions.rows.get().length == 0);
+		compTree.dispose();
 		// An app's keys come before the editor's.
 		var keyTree = new LayoutTree(), keyEditor = new Ref<CodeEditor>(), keyDispose:Void->Void = null, seen:Array<String> = [], taken = ["F2", "ArrowRight"];
 		var keyRoot = Owner.root(keyTree, stop -> {
