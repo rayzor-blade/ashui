@@ -59,8 +59,10 @@ private class Piece {
 
 	var limited = false;
 	var limitWidth = 0.0;
+	final stop:Void->Void;
 
-	public function new(tree:LayoutTree) {
+	public function new(tree:LayoutTree, stop:Void->Void) {
+		this.stop = stop;
 		text = new Text(content, {wrap: false}, tree);
 		Identity.of(tree, text.node.id).anonymous = true;
 		text.node.set(Prop.Position, Position.Absolute);
@@ -68,6 +70,10 @@ private class Piece {
 		text.node.set(Prop.Top, top);
 		text.node.set(Prop.Display, shown);
 	}
+
+	/** Releases the text's bindings and registry entry. The node is the caller's to remove. **/
+	public function release():Void
+		stop();
 
 	/** Only pieces being truncated need width/overflow writes; ordinary flows allocate no extra bindings. **/
 	public function limit(cut:Bool, room:Float):Bool {
@@ -117,15 +123,24 @@ private class DecoBox {
 	public final width = Signal.make((0 : Single));
 	public final height = Signal.make((0 : Single));
 	public final shown = Signal.make(Display.Flex);
+	final stop:Null<Void->Void>;
 
-	public function new(node:Node) {
+	/** `stop` ends the owner of a copy of the element; the first box is the element's own. **/
+	public function new(node:Node, ?stop:Void->Void) {
 		this.node = node;
+		this.stop = stop;
 		node.set(Prop.Position, Position.Absolute);
 		node.set(Prop.Left, left);
 		node.set(Prop.Top, top);
 		node.set(Prop.Width, width);
 		node.set(Prop.Height, height);
 		node.set(Prop.Display, shown);
+	}
+
+	/** Ends the owner of a copy's bindings. The node is the caller's to remove. **/
+	public function release():Void {
+		if (stop != null)
+			stop();
 	}
 }
 
@@ -367,6 +382,14 @@ class InlineFlow {
 	}
 
 	function forget():Void {
+		// The flow's nodes are already gone; what its pieces and box copies own is not.
+		for (run in kept)
+			for (p in run.pieces)
+				p.release();
+		for (d in decos)
+			for (i => b in d.boxes)
+				if (i > 0)
+					b.release();
 		for (m in members)
 			byMember.remove(m);
 		for (w in watches)
@@ -568,8 +591,10 @@ class InlineFlow {
 		// Runs that left the flow: their pieces go with them.
 		for (k => run in kept)
 			if (!seen.exists(k)) {
-				for (p in run.pieces)
+				for (p in run.pieces) {
 					p.text.remove();
+					p.release();
+				}
 				kept.remove(k);
 			}
 		for (k => _ in keptAtoms)
@@ -579,8 +604,10 @@ class InlineFlow {
 		for (k => d in decos)
 			if (!seenDecos.exists(k)) {
 				for (i => b in d.boxes)
-					if (i > 0)
+					if (i > 0) {
 						tree.removeSubtree(b.node.id);
+						b.release();
+					}
 				decos.remove(k);
 			}
 		runs = nextRuns;
@@ -933,11 +960,15 @@ class InlineFlow {
 	/** `deco`'s box for its `n`th line: the element itself for the first, a copy of it beside it for each after. **/
 	function decoBox(deco:Deco, n:Int):DecoBox {
 		while (deco.boxes.length <= n) {
-			var copy = Owner.root(tree, _ -> new Div({tag: deco.tag, classes: deco.classes}, tree));
+			var stop:Void->Void = null;
+			var copy = Owner.root(tree, release -> {
+				stop = release;
+				return new Div({tag: deco.tag, classes: deco.classes}, tree);
+			});
 			Identity.of(tree, copy.node.id).anonymous = true;
 			var parent = tree.ancestors(deco.node.id)[0];
 			tree.addChild(parent, copy.node.id);
-			deco.boxes.push(new DecoBox(copy.node));
+			deco.boxes.push(new DecoBox(copy.node, stop));
 		}
 		return deco.boxes[n];
 	}
@@ -1015,7 +1046,7 @@ class InlineFlow {
 						// A box around the text: this line's, the element itself first, then copies of it.
 						var box = deco == null ? null : decoBox(deco, n);
 						if (n >= run.pieces.length) {
-							var piece = Owner.root(tree, _ -> new Piece(tree));
+							var piece = Owner.root(tree, stop -> new Piece(tree, stop));
 							tree.addChild(box != null ? box.node.id : run.parent, piece.text.node.id);
 							run.pieces.push(piece);
 						}
