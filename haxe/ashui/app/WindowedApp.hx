@@ -100,7 +100,7 @@ class WindowedApp {
 		&& path != "" ? sys.io.File.write(path, false) : null;
 	};
 
-	/** `ASHUI_FRAME_STATS=1` prints two lines a second: the frames drawn, the time between them and each one's drawing, and the waits for a redraw that ran out; and the loop's turns, the time they took, the pointer hooks there are and the events that woke it; off when unset, safe either way. **/
+	/** `ASHUI_FRAME_STATS=1` prints two lines a second: the frames drawn, the time between them and each one's drawing, the waits for a redraw that ran out and the layers of the last frame; and the loop's turns, the time they took, the pointer hooks there are and the events that woke it; off when unset, safe either way. **/
 	final frameStats = Sys.getEnv("ASHUI_FRAME_STATS") == "1";
 
 	var statSince = 0.0;
@@ -494,7 +494,7 @@ class WindowedApp {
 						else if (t4 - statSince >= 1) {
 							inline function ms(s:Float)
 								return Std.string(Math.round(s * 10000) / 10);
-							Sys.println('[frames] ${statFrames} in ${ms(t4 - statSince)} ms at ${scale()}x: between ${ms(statGap / statFrames)} ms, at most ${ms(statGapMax)}; drawing ${ms(statDraw / statFrames)} ms, at most ${ms(statDrawMax)}; redraw waits that ran out ${statStalls}');
+							Sys.println('[frames] ${statFrames} in ${ms(t4 - statSince)} ms at ${scale()}x: between ${ms(statGap / statFrames)} ms, at most ${ms(statGapMax)}; drawing ${ms(statDraw / statFrames)} ms, at most ${ms(statDrawMax)}; redraw waits that ran out ${statStalls}; ${offscreen.layerRecords} layers');
 							statSince = t4;
 							statFrames = 0;
 							statGap = statGapMax = statDraw = statDrawMax = 0;

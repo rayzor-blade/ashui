@@ -83,6 +83,12 @@ class Offscreen {
 	inline function get_drew():String
 		return renderer.drew;
 
+	/** The layers the last frame drew (see `Renderer.layerRecords`). **/
+	public var layerRecords(get, never):Int;
+
+	inline function get_layerRecords():Int
+		return renderer.layerRecords;
+
 	/** Whether a frame like the last but for a part of it is drawn as that part (see `Renderer.damage`). **/
 	public var damage(get, set):Bool;
 

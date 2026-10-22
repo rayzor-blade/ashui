@@ -324,6 +324,9 @@ class Renderer {
 	/** Whether a frame like the last but for a part of it is drawn as that part; `ASHUI_DAMAGE=0` turns it off, for comparing. **/
 	public var damage = Sys.getEnv("ASHUI_DAMAGE") != "0";
 
+	/** The layers the last frame drew, each a render pass over a texture of the window's size: a group at some opacity over more than one painted node, a filter, a mask. **/
+	public var layerRecords(default, null) = 0;
+
 	/** How the last frame was drawn: `full`, `none` for one that drew nothing, or `x,y,w,h` of the part drawn again, in target pixels. **/
 	public var drew(default, null) = "";
 
@@ -573,8 +576,11 @@ class Renderer {
 		frameBytes.setFloat(BoxShader.FRAME_viewport + 4, height);
 		queue.writeBuffer(frame, 0, frameBytes, frameBytes.length);
 		var offscreen = false, hasText = false, hasImages = false;
+		layerRecords = 0;
 		for (i in 0...list.count)
 			switch list.kind(i) {
+				case DisplayList.PRIM_LAYER_BEGIN:
+					layerRecords++;
 				case DisplayList.PRIM_BACKDROP:
 					offscreen = true;
 				case DisplayList.PRIM_TEXT:
