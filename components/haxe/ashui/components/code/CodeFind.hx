@@ -105,13 +105,13 @@ class CodeFind {
 
 	public function shortcut(event:KeyEvent):Bool {
 		if (!shortcuts) return switch event.key { case Named(Escape) if (state.opened.get()): event.preventDefault(); hide(); true; case _: false; };
-		var mac = Sys.systemName() == "Mac", mod = mac ? event.superKey : event.control;
+		var mac = Sys.systemName() == "Mac", mod = mac ? event.superKey && !event.control : event.control && !event.superKey;
 		switch event.key {
 			case Character(c) if (mod && c.toLowerCase() == "f" && !event.shift && (!event.alt || mac)):
 				event.preventDefault(); show(event.alt); return true;
 			case Character(c) if (!mac && mod && c.toLowerCase() == "h" && !event.alt && !event.shift):
 				event.preventDefault(); show(true); return true;
-			case Named(F3) if (!mod && !event.alt):
+			case Named(F3) if (!event.control && !event.superKey && !event.alt):
 				event.preventDefault(); if (!state.opened.get() && state.query.get() == "") show(); else next(event.shift); return true;
 			case Character(c) if (mac && mod && c.toLowerCase() == "g" && !event.alt && state.opened.get()):
 				event.preventDefault(); next(event.shift); return true;

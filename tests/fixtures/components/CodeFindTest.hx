@@ -84,6 +84,9 @@ class CodeFindTest {
 			shown.set(false); settle(); check("unmount releases controls and state capture", ref.get() == null && !state.mounted && Css.query(tree,root.node.id,".ui-code-find").length == 0);
 			shown.set(true); settle(); ed=ref.get(); check("search inputs restore without retaining a view", state.search.query.get() == "item12" && ed.search.result.get().matches.length == 1);
 			ed.hideFind(); settle(); check("closing find releases matches and controls", ed.search.result.get().matches.length == 0 && Css.query(tree,ed.node.id,".ui-code-find").length == 0);
+			ed.focus();
+			Keyboard.input(tree, Input(Unidentified(Unidentified),Character("f"),None,Standard,Pressed,false,Unavailable), window.Modifiers.State(false,true,false,true,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown)); settle();
+			check("extra modifiers do not steal application shortcuts", !state.search.opened.get());
 			viewer.get().focus(); press(Character("f"),false,true); check("CodeView also supports find", viewer.get().state.search.opened.get());
 			dispose(); tree.dispose();
 		}
