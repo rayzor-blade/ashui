@@ -59,7 +59,7 @@ typedef HintHost = {
 	popover, so it can be read, and closes when it leaves both, when the text
 	changes or scrolls, and on Escape. Styled by `.ui-code-hint`, its
 	`.ui-code-hint-signature` and `.ui-code-hint-docs`, and by
-	`--ui-code-hint-bg`, `--ui-code-hint-width`.
+	`--ui-code-hint-bg`, `--ui-code-hint-width` and `--ui-code-hint-height`.
 **/
 class CodeHints {
 	/** Seconds the pointer may be off both before the popover closes. **/

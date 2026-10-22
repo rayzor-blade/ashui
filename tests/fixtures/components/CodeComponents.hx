@@ -530,6 +530,18 @@ class CodeComponents {
 			boldWidth += hintTree.getBounds(Identity.of(hintTree, id).node).width;
 		check("signature help draws the range it emphasises, and only that", bold.length >= 1 && Math.abs(boldWidth - rowWidth * 8 / call.length) < 1.5, [bold.length, boldWidth, rowWidth]);
 		hint.hideHint(); hintSettle();
+		hint.showHint({from: hintStart(6), to: hintStart(6) + 1, signature: "function longDocs():Void", docs: [for(i in 0...80) 'Documentation line $i'].join("\n")}, true); hintSettle(); hintSettle();
+		var bodyId = Css.query(hintTree, hintTree.root.id, ".ui-code-hint-body")[0];
+		var bodyBounds = hintTree.getScrolledBounds(Identity.of(hintTree, bodyId).node), bodyScroll = ashui.input.Scroll.at(bodyId, hintTree);
+		check("long plain documentation has a bounded scrollable body", bodyBounds.height <= 320 && bodyScroll != null && bodyScroll.limits().y > 0);
+		var editorY = hint.scroll.y.get();
+		Pointer.move(hintTree, bodyBounds.x + 20, bodyBounds.y + 20); Pointer.wheel(hintTree, 0, -10000); hintSettle(); hintSettle();
+		var docIds = Css.query(hintTree, hintTree.root.id, ".ui-code-hint-text");
+		var finalLine = hintTree.getScrolledBounds(Identity.of(hintTree, docIds[docIds.length - 1]).node);
+		check("hover wheel reaches the last line without moving the editor or dismissing", bodyScroll.y.get() > 0 && hint.scroll.y.get() == editorY && hintOpen().length == 1
+			&& finalLine.y >= bodyBounds.y && finalLine.y + finalLine.height <= bodyBounds.y + bodyBounds.height + 1, [bodyBounds, finalLine]);
+		if(Sys.getEnv("ASHUI_COMPLETION_SNAPSHOTS") == "1") ashui.core.render.Snapshot.capture("hint-docs-scrolled", hintTree, hintRoot.node, 760, 400);
+		hint.hideHint(); hintSettle();
 		hintDispose(); ashui.animation.AnimationScheduler.main.tick(1); hintTree.dispose();
 		// The completion list: narrowed by what is typed, worked by the keys, chosen as one undo step.
 		var compTree = new LayoutTree(), compEditor = new Ref<CodeEditor>(), compDispose:Void->Void = null;
@@ -627,6 +639,23 @@ class CodeComponents {
 		var invalid = new ashui.components.code.CodeCompletions({tree:compTree, rectAt:_ -> null, text:() -> "", caret:() -> 0, apply:_ -> {}});
 		invalid.show(many, 0);
 		check("an unavailable anchor retains no candidates", !invalid.isOpen() && @:privateAccess invalid.items.length == 0 && invalid.rows.get().length == 0);
+		comp.focus();
+		comp.showCompletions([{label:"alpDocs", docs:[for(i in 0...40) 'Completion documentation $i'].join("\n")}, {label:"alpOther", docs:"Another choice"}], 4); compSettle(); compSettle();
+		var docsId = Css.query(compTree, compTree.root.id, ".ui-code-completion-docs")[0];
+		var docsBounds = compTree.getScrolledBounds(Identity.of(compTree, docsId).node), docsScroll = ashui.input.Scroll.at(docsId, compTree);
+		check("completion documentation scrolls at its maximum height", docsBounds.height <= 140 && docsScroll != null && docsScroll.limits().y > 0, docsBounds);
+		compSnapshot("completion-docs-start");
+		var compEditorY = comp.scroll.y.get(), choicesY = comp.completions.scroll.y.get();
+		Pointer.move(compTree, docsBounds.x + 20, docsBounds.y + 20); Pointer.wheel(compTree, 0, -10000); compSettle(); compSettle();
+		var lines = Css.query(compTree, compTree.root.id, ".ui-code-completion-docs-text");
+		var finalDocs = compTree.getScrolledBounds(Identity.of(compTree, lines[lines.length - 1]).node);
+		check("completion docs wheel reaches the last line without scrolling the choices or editor", docsScroll.y.get() > 0 && comp.scroll.y.get() == compEditorY && comp.completions.scroll.y.get() == choicesY && comp.completionsOpen()
+			&& finalDocs.y >= docsBounds.y && finalDocs.y + finalDocs.height <= docsBounds.y + docsBounds.height + 1, [docsBounds, finalDocs]);
+		compSnapshot("completion-docs-scrolled");
+		compKey(Named(ArrowDown), ArrowDown);
+		check("selecting a different completion resets documentation scrolling", docsScroll.y.get() == 0 && Css.query(compTree, compTree.root.id, ".ui-code-completion-docs-text").length == 1);
+		compKey(Named(Escape), Escape);
+		check("closing completion docs releases their scroll container", ashui.input.Scroll.at(docsId, compTree) == null);
 		function compWatches() {
 			var count = 0;
 			@:privateAccess for (watch in ashui.reactive.Watch.bySlot) if(watch != null) count++;

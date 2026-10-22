@@ -11,6 +11,7 @@ import ashui.layout.LayoutTree;
 import ashui.reactive.Computed;
 import ashui.reactive.Owner;
 import ashui.reactive.Signal;
+import ashui.reactive.Watch;
 import ashui.ui.Div;
 import ashui.ui.Text;
 import ashui.ui.TopLayer;
@@ -280,6 +281,8 @@ class CodeCompletions {
 		panel.appendChild(shown);
 		var docs = Library.part("ui-code-completion-docs");
 		var current = Computed.make(() -> { var all = rows.get(), i = selected.get(); i >= 0 && i < all.length ? all[i].item : null; });
+		var docsScroll = Scroll.attach(docs.node, false, true);
+		new Watch(() -> current.get(), _ -> docsScroll.jumpTo(0, 0));
 		var lines = Computed.make(() -> { var item = current.get(); var text = item == null ? "" : item.docs != null ? item.docs : item.detail != null ? item.detail : ""; text == "" ? [] : text.split("\n"); });
 		docs.appendChild(<for {line in lines}>{docLine(line)}</for>);
 		panel.appendChild(docs);
