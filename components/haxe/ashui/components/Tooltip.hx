@@ -2,6 +2,7 @@ package ashui.components;
 
 import ashui.input.Interaction;
 import ashui.layout.Element;
+import ashui.layout.IntoReactive;
 import ashui.reactive.Owner;
 import ashui.reactive.Watch;
 import ashui.state.Machine;
@@ -11,7 +12,7 @@ import ashui.ui.TopLayer;
 
 typedef TooltipProps = {
 	/** What it says. **/
-	label:String,
+	label:IntoReactive<String>,
 	/** Where it shows: `top` (the default), `bottom`, `left` or `right`, the other side when there is no room. **/
 	?side:String,
 	/** Seconds the pointer rests on what it holds before it shows; 0.5 by default. **/
