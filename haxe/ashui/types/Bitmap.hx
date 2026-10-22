@@ -40,6 +40,8 @@ class Bitmap {
 
 	static var ids = 0;
 	static var nextGeneration = 0;
+	/** Changes when an image is disposed, so renderers release cached GPU copies. **/
+	@:noCompletion public static var disposalRevision(default, null) = 0;
 	static final generations = new Map<Int, Int>();
 
 	/** Distinguishes a native slot's successive occupants in renderer caches. **/
@@ -227,6 +229,7 @@ class Bitmap {
 	public function dispose():Void {
 		if (disposed) return;
 		disposed = true;
+		disposalRevision++;
 		for (f in disposing)
 			f(this);
 		freePixels();

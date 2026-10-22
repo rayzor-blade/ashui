@@ -125,6 +125,40 @@ class ImageResidencyPixels {
 		check('SVG reentry keeps its pixels', gpu.readRgba8(texture,400,200).compare(before)==0);
 		stop(); tree.dispose();
 		check('image uses leave the residency registry', (@:privateAccess ashui.ui.ImageResidency.uses.length) == 0);
+		// Explicit resource disposal also reclaims caches outside virtualized scroll containers.
+		for (vector in [false, true]) {
+			var tree = new LayoutTree(), stop:Void->Void = null, bitmap:Bitmap = null, doc:ashui.svg.SvgDocument = null;
+			var kept = Bitmap.fromBytes(source);
+			var root = Owner.root(tree, cleanup -> {
+				stop = cleanup;
+				var image:Element;
+				if (vector) {
+					doc = ashui.svg.SvgDocument.parse('<svg viewBox="0 0 2048 2048"><rect width="2048" height="2048" fill="#ff0000"/></svg>');
+					image = new ashui.ui.Svg(doc, {width:2048, height:2048});
+				} else {
+					bitmap = Bitmap.fromBytes(source);
+					image = new Image(bitmap, {width:2048, height:2048});
+				}
+				return new Div({width:400,height:200,overflow:ashui.types.Style.Overflow.Hidden}, [image]);
+			});
+			tree.flush(); tree.computeLayout(root.node,400,200); gpu.renderTree(tree,root.node,view,400,200);
+			var atlas = @:privateAccess gpu.renderer.imageAtlas;
+			check('a 2048-pixel image needs a 2048-pixel atlas ($vector)', (@:privateAccess atlas.size)==2048);
+			stop(); tree.dispose();
+			if (vector) {
+				var revision = ashui.svg.SvgDocument.disposalRevision;
+				doc.dispose(); doc.dispose();
+				check('SVG disposal is idempotent', ashui.svg.SvgDocument.get(doc.id)==null && ashui.svg.SvgDocument.disposalRevision==revision+1);
+				check('disposed SVG content can be parsed again', ashui.svg.SvgDocument.parse(doc.markup).id!=doc.id);
+			} else bitmap.dispose();
+			tree = new LayoutTree();
+			root = Owner.root(tree, cleanup -> {stop=cleanup; return new Div({width:400,height:200}, [new Image(kept,{width:32,height:32})]);});
+			tree.flush(); tree.computeLayout(root.node,400,200); gpu.renderTree(tree,root.node,view,400,200);
+			check('disposal shrinks the atlas while another image remains ($vector)', (@:privateAccess atlas.size)==256);
+			var pixels = gpu.readRgba8(texture,400,200);
+			check('remaining image is still drawn after repack ($vector)', pixels.get((16*400+16)*4+3)>0);
+			stop(); tree.dispose(); kept.dispose();
+		}
 		view.destroy(); texture.destroy();
 	}
 }

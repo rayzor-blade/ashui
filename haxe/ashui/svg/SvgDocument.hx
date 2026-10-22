@@ -81,6 +81,8 @@ enum SvgNode {
 **/
 class SvgDocument {
 	static var nextId = 0;
+	/** Changes when a document is disposed, so renderers release cached GPU copies. **/
+	@:noCompletion public static var disposalRevision(default, null) = 0;
 	static final byMarkup = new Map<String, SvgDocument>();
 	static final byId = new Map<Int, SvgDocument>();
 
@@ -130,6 +132,14 @@ class SvgDocument {
 	/** The document `parse` gave a slot of, if any. **/
 	public static function get(id:Int):Null<SvgDocument>
 		return byId.get(id);
+
+	/** Releases the interned document and its renderer caches. Call only after its last use; it must not be drawn after. **/
+	public function dispose():Void {
+		if (byId.get(id) != this) return;
+		byId.remove(id);
+		if (byMarkup.get(markup) == this) byMarkup.remove(markup);
+		disposalRevision++;
+	}
 
 	/** `source`, an SVG document; throws `SvgError` when it is malformed. **/
 	public static function parse(source:String):SvgDocument {

@@ -84,16 +84,17 @@ class ImageAtlas {
 	}
 
 	function place(width:Int, height:Int):Null<{x:Int, y:Int}> {
-		if (width + GAP > MAX_SIZE || height + GAP > MAX_SIZE)
+		if (width > MAX_SIZE || height > MAX_SIZE)
 			return null;
 		while (true) {
 			for (shelf in shelves)
-				if (height <= shelf.height && shelf.x + width + GAP <= size) {
+				if (height <= shelf.height && shelf.x + width <= size) {
 					var spot = {x: shelf.x, y: shelf.y};
 					shelf.x += width + GAP;
 					return spot;
 				}
-			if (nextY + height + GAP <= size && width + GAP <= size) {
+			// Spacing separates neighbours; an image may end at the texture edge.
+			if (nextY + height <= size && width <= size) {
 				shelves.push({y: nextY, height: height, x: width + GAP});
 				var spot = {x: 0, y: nextY};
 				nextY += height + GAP;
@@ -101,9 +102,9 @@ class ImageAtlas {
 			}
 			if (size >= MAX_SIZE)
 				return null;
-			var needed = width + GAP;
-			if (nextY + height + GAP > needed)
-				needed = nextY + height + GAP;
+			var needed = width;
+			if (nextY + height > needed)
+				needed = nextY + height;
 			grow(needed);
 		}
 	}

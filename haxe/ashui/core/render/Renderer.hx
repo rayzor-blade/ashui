@@ -78,6 +78,8 @@ class Renderer {
 	var _images:Null<Pass> = null;
 	var imageAtlas:Null<ImageAtlas> = null;
 	var imageResidency = 0;
+	var bitmapDisposals = 0;
+	var svgDisposals = 0;
 	var layerPass(get, never):Pass;
 	var _layerPass:Null<Pass> = null;
 
@@ -570,8 +572,11 @@ class Renderer {
 	**/
 	public function draw(list:DisplayList, view:GpuTextureView, width:Int, height:Int, r = 0.0, g = 0.0, b = 0.0, a = 0.0, ?pixelWidth:Int, ?pixelHeight:Int,
 			keep = false):Void {
-		if (imageResidency != ashui.ui.ImageResidency.revision) {
+		if (imageResidency != ashui.ui.ImageResidency.revision || bitmapDisposals != ashui.types.Bitmap.disposalRevision
+			|| svgDisposals != ashui.svg.SvgDocument.disposalRevision) {
 			imageResidency = ashui.ui.ImageResidency.revision;
+			bitmapDisposals = ashui.types.Bitmap.disposalRevision;
+			svgDisposals = ashui.svg.SvgDocument.disposalRevision;
 			if (imageAtlas != null) imageAtlas.reset(true);
 			if (images.group != null) { images.group.destroy(); images.group = null; }
 			imageRevision = -1;
