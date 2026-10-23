@@ -1218,6 +1218,17 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 }
 .ui-code-minimap:hover .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-hover, color-mix(in srgb, var(--text-primary) 14%, transparent)); }
 .ui-code-minimap[data-dragging="true"] .ui-code-minimap-slider { background: var(--ui-code-minimap-slider-active, color-mix(in srgb, var(--text-primary) 22%, transparent)); }
+.ui-code-minimap-marks { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+.ui-code-minimap-mark { position: absolute; left: 0; right: 0; background: currentColor; opacity: 0.4; }
+.ui-code-minimap-bar { width: 3px; right: auto; opacity: 0.95; }
+/* A deletion's boundary marker, at the bottom edge of its line in the gutter; and the classes change bars use. */
+.ui-code-boundary { position: absolute; left: 4px; width: 10px; height: 10px; color: var(--ui-code-deleted, var(--error)); pointer-events: none; }
+.ui-code-boundary-icon { width: 10px; height: 10px; }
+.ui-code-change-added { color: var(--ui-diff-added-bar, var(--success)); }
+.ui-code-change-modified { color: var(--ui-diff-modified-bar, var(--info)); }
+.ui-code-change-removed { color: var(--ui-diff-removed-bar, var(--error)); }
+/* A change bar has its own lane, the height of its line, at the gutter's left edge. */
+.ui-code-bar { position: absolute; left: 0; top: 0; width: 3px; height: 100%; background: currentColor; pointer-events: none; }
 .ui-code-minimap-probe { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
 /* The popover of documentation and hints beside a range of the text. */
 .ui-code-hint {

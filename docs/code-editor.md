@@ -138,6 +138,32 @@ The element is the editor's once it is given: make it under your own `Owner.root
 replaced or cleared has its element taken out of the editor. The editor reads the height the element
 lays out to, so a zone can change its own height and the lines below follow.
 
+## Change marks
+
+Two options of `markers` and `decorate` show changes the way a source-control view does.
+
+A marker with `boundary: true` sits on the boundary below its line instead of beside it, as a small
+triangle at the line's bottom edge in the gutter: "lines were deleted after this line". It takes
+its colour from its class (`ui-code-change-removed` by default colours it as an error), and an
+`icon` replaces the triangle. It does not use the line's own marker slot, so a line can have both. `title` is its tooltip.
+
+A marker with `bar: true` is a change bar: a thin strip at the gutter's left edge, the height of its line, in its
+own lane. It does not take the line's marker slot, so a breakpoint or a code action on the same line is still shown
+beside it. Use it, not a plain marker, for added, modified and removed lines.
+
+A marker or decoration with `minimap: true` is also drawn in the minimap, above the rows and without
+drawing them again: a marker as a thin bar at the edge of its line, a decoration as a mark the width of the
+strip on each line it touches. Both take the colour of their class, so `ui-code-change-added`, `-modified`
+and `-removed` give the usual change colours (`--ui-diff-added-bar`, `--ui-diff-modified-bar` and
+`--ui-diff-removed-bar` override them). At most 600 marks are drawn; a line hidden in a fold has none.
+
+```tsx
+editor.markers("scm", [
+    {line: 12, className: "ui-code-change-added", bar: true, minimap: true},
+    {line: 30, className: "ui-code-change-removed", boundary: true, minimap: true, title: "2 lines deleted"}
+]);
+```
+
 ## Find and replace
 
 CodeEditor and CodeView include a compact floating search panel with a tinted

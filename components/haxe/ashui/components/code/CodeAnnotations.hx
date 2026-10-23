@@ -14,6 +14,8 @@ typedef CodeDecoration = {
 	@:optional var title:String;
 	/** Paints the full width of each line the range touches, not only the range's own columns. **/
 	@:optional var wholeLine:Bool;
+	/** Also marks each line it touches in the minimap, in its class's `color`. **/
+	@:optional var minimap:Bool;
 }
 
 /** An element in the gutter beside a line. **/
@@ -25,6 +27,18 @@ typedef CodeMarker = {
 	@:optional var title:String;
 	/** An SVG in place of the default dot; no view or click handler is kept with a marker. **/
 	@:optional var icon:ashui.svg.SvgDocument;
+	/**
+		Sits on the boundary below `line`, between it and the next, in place of beside the line: the small triangle of VS Code's
+		"deleted after this line". It does not take the line's own marker slot.
+	**/
+	@:optional var boundary:Bool;
+	/**
+		A change bar: a thin strip at the gutter's edge, the height of the line, in its own lane. It does not take the line's marker
+		slot, so a breakpoint or a code action on the same line is still shown beside it.
+	**/
+	@:optional var bar:Bool;
+	/** Also marks the line in the minimap as a bar at its edge, in its class's `color`: a change bar. **/
+	@:optional var minimap:Bool;
 }
 
 /** An element placed between two lines. **/
@@ -54,7 +68,10 @@ class ZonePlace {
 private typedef Zones = {list:Array<ZonePlace>, follow:Bool};
 
 /** A marker as kept: where it is in the text, which `follow` moves, and the line it was given. **/
-private typedef Place = {offset:Int, line:Int, className:String, ?title:String, ?icon:ashui.svg.SvgDocument};
+private typedef Place = {offset:Int, line:Int, className:String, ?title:String, ?icon:ashui.svg.SvgDocument, ?boundary:Bool, ?bar:Bool, ?minimap:Bool};
+
+/** A mark the minimap draws: the line it is on, its class, and whether it is a bar at the edge (a marker's) or a whole row's width (a decoration's). **/
+typedef MinimapMark = {line:Int, className:String, bar:Bool};
 
 private typedef Decorations = {list:Array<CodeDecoration>, follow:Bool};
 private typedef Markers = {list:Array<Place>, follow:Bool};
@@ -95,7 +112,7 @@ class CodeAnnotations {
 	/** Replaces `owner`'s decorations with `list`; an empty list clears them. **/
 	public function decorate(owner:String, list:Array<CodeDecoration>, follow = false):Void {
 		own(owner);
-		var kept = [for (d in list) {from: Std.int(Math.max(0, Math.min(d.from, d.to))), to: Std.int(Math.max(0, Math.max(d.from, d.to))), className: d.className, title: d.title, wholeLine: d.wholeLine}];
+		var kept = [for (d in list) {from: Std.int(Math.max(0, Math.min(d.from, d.to))), to: Std.int(Math.max(0, Math.max(d.from, d.to))), className: d.className, title: d.title, wholeLine: d.wholeLine, minimap: d.minimap}];
 		if (kept.length == 0)
 			decorationSets.remove(owner);
 		else
@@ -109,7 +126,7 @@ class CodeAnnotations {
 		var kept:Array<Place> = [];
 		for (m in list)
 			if (m.line >= 0 && m.line < document.lines.length)
-				kept.push({offset: document.lines[m.line].start, line: m.line, className: m.className, title: m.title, icon: m.icon});
+				kept.push({offset: document.lines[m.line].start, line: m.line, className: m.className, title: m.title, icon: m.icon, boundary: m.boundary, bar: m.bar, minimap: m.minimap});
 		if (kept.length == 0)
 			markerSets.remove(owner);
 		else
@@ -184,7 +201,7 @@ class CodeAnnotations {
 	/** `owner`'s decorations at their current offsets, which a set that follows the edits has moved. **/
 	public function decorationsOf(owner:String):Array<CodeDecoration> {
 		var set = decorationSets.get(owner);
-		return set == null ? [] : [for (d in set.list) {from: d.from, to: d.to, className: d.className, title: d.title, wholeLine: d.wholeLine}];
+		return set == null ? [] : [for (d in set.list) {from: d.from, to: d.to, className: d.className, title: d.title, wholeLine: d.wholeLine, minimap: d.minimap}];
 	}
 
 	/** The decorations over `offset`: a range with it inside, or a whole-line one on its line. **/
@@ -206,18 +223,63 @@ class CodeAnnotations {
 	public function markerAt(line:Int):Null<CodeMarker> {
 		if (markerLines == null || markerLinesAt != revision.get()) {
 			markerLines = new Map();
+			boundaryLines = new Map();
+			barLines = new Map();
 			markerLinesAt = revision.get();
 			for (owner in owners) {
 				var set = markerSets.get(owner);
 				if (set != null)
 					for (p in set.list) {
-						var at = lineOf(p, set.follow);
-						if (!markerLines.exists(at))
-							markerLines.set(at, {line: at, className: p.className, title: p.title, icon: p.icon});
+						var at = lineOf(p, set.follow), into = p.boundary == true ? boundaryLines : p.bar == true ? barLines : markerLines;
+						if (!into.exists(at))
+							into.set(at, {line: at, className: p.className, title: p.title, icon: p.icon, boundary: p.boundary, bar: p.bar});
 					}
 			}
 		}
 		return markerLines.get(line);
+	}
+
+	var boundaryLines:Map<Int, CodeMarker> = new Map();
+	var barLines:Map<Int, CodeMarker> = new Map();
+
+	/** The change bar on `line`, from the first owner that has one there. **/
+	public function barAt(line:Int):Null<CodeMarker> {
+		markerAt(-1);
+		return barLines.get(line);
+	}
+
+	/** The boundary marker below `line`, from the first owner that has one there. **/
+	public function boundaryAt(line:Int):Null<CodeMarker> {
+		markerAt(-1);
+		return boundaryLines.get(line);
+	}
+
+	/** What the minimap draws: one mark for each line and class a decoration or marker that asked for it falls on, up to `limit`. **/
+	public function minimapMarks(limit:Int):Array<MinimapMark> {
+		var seen = new Map<String, Bool>(), out:Array<MinimapMark> = [];
+		function add(line:Int, className:String, bar:Bool):Void {
+			var key = line + "|" + className + "|" + bar;
+			if (out.length < limit && !seen.exists(key)) {
+				seen.set(key, true);
+				out.push({line: line, className: className, bar: bar});
+			}
+		}
+		for (owner in owners) {
+			var d = decorationSets.get(owner);
+			if (d != null)
+				for (x in d.list)
+					if (x.minimap == true) {
+						var first = document.lineAt(x.from), last = document.lineAt(Std.int(Math.max(x.from, x.to - 1)));
+						for (line in first...Std.int(Math.min(last, first + 400)) + 1)
+							add(line, x.className, false);
+					}
+			var m = markerSets.get(owner);
+			if (m != null)
+				for (p in m.list)
+					if (p.minimap == true)
+						add(lineOf(p, m.follow), p.className, true);
+		}
+		return out;
 	}
 
 	/** Moves what follows the edits for the text having changed from `before` to `after`. **/
@@ -261,7 +323,7 @@ class CodeAnnotations {
 					// A range whose text went is gone with it, except a line's, which is still its line.
 					if (to <= from && d.to > d.from && d.wholeLine != true)
 						continue;
-					kept.push({from: from, to: Std.int(Math.max(from, to)), className: d.className, title: d.title, wholeLine: d.wholeLine});
+					kept.push({from: from, to: Std.int(Math.max(from, to)), className: d.className, title: d.title, wholeLine: d.wholeLine, minimap: d.minimap});
 				}
 				if (kept.length == 0)
 					emptied.push(owner);

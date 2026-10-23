@@ -407,7 +407,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (props.minimap == true)
 			strip.push(CodeMinimap.make({
 				document: document, metrics: metrics, scroll: scroll, viewHeight: viewHeight, viewWidth: viewWidth, boxWidth: boxWidth, revision: revision, tabSize: tabSize,
-				pad: PAD, maxWidth: props.minimapWidth == null ? 96 : props.minimapWidth, zones: zones, zoneStamp: () -> { zoneLayout.get(); return zoneStamp; }
+				pad: PAD, maxWidth: props.minimapWidth == null ? 96 : props.minimapWidth, annotations: annotations, zones: zones, zoneStamp: () -> { zoneLayout.get(); return zoneStamp; }
 			}));
 		var data:Map<String, IntoReactive<Null<String>>> = ["mode" => editable() ? "editor" : "view"];
 		if (props.minimap == true)
@@ -727,6 +727,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var fold = Computed.make(() -> (foldable.get() ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
 		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} visibility={shown}>
 			<if {props.gutterMarkers == true}>${markerSlot(row)}</if>
+			<if {props.gutterMarkers == true}>${boundarySlot(row, rowHeight)}</if>
+			<if {props.gutterMarkers == true}>${barSlot(row)}</if>
 			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) - (props.gutterMarkers == true ? MARKER : 0) : Single))}>${number.get()}</text></if>
 			<if {props.folding != false}>
 				<div class="ui-code-fold-slot" visibility={fold}>${foldButton(row, foldable)}</div>
@@ -778,6 +780,29 @@ class CodeEditor extends Component<CodeEditorProps> {
 		});
 		return slot;
 	}
+
+	/** The change bar of the row's line, in its own lane at the gutter's left edge. **/
+	function barSlot(row:Signal<Null<Row>>):Element {
+		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.barAt(r.source); });
+		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-bar"] : ["ui-code-bar", m.className]; });
+		var shown = Computed.make(() -> (marker.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
+		return new Div({classes: classes, visibility: shown});
+	}
+
+	/** A marker on the boundary below the row's line, drawn at its bottom edge in the gutter: a small triangle, or the marker's icon. **/
+	function boundarySlot(row:Signal<Null<Row>>, rowHeight:Computed<Single>):Element {
+		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.boundaryAt(r.source); });
+		var shown = Computed.make(() -> (marker.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
+		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-boundary"] : ["ui-code-boundary", m.className]; });
+		var glyph = Computed.make(() -> { var m = marker.get(); m == null || m.icon == null ? BOUNDARY : m.icon; });
+		var holder = new Div({classes: classes, top: Computed.make(() -> (rowHeight.get() - 5 : Single)), visibility: shown},
+			[<for {doc in [glyph.get()]}><icon document={doc} class="ui-code-boundary-icon"/></for>]);
+		Identity.of(holder.tree, holder.node.id).bindAttribute("title", Computed.make(() -> { var m = marker.get(); (m == null ? null : m.title : Null<String>); }));
+		return holder;
+	}
+
+	/** The mark of a boundary marker with no icon of its own: a small triangle pointing at the text. **/
+	static final BOUNDARY:ashui.svg.Icon = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><path d="M0 0 L8 5 L0 10 Z" fill="currentColor"/></svg>';
 
 	// The button is always there and answers only while its slot's row opens a fold, so a row entering the window builds no button.
 	function foldButton(slot:Signal<Null<Row>>, foldable:Computed<Bool>):Element {
