@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":5,"timestamp":1792402595,"nonce":"vqLGfvgmm9qqF5j1W0BF8uk2t+E=","added":["bug","area:app"],"removed":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1792771536,"nonce":"f4KUCXAoyNTlfohCVl7U75c2Mt8=","message":"Fixed: the release workflow has passed on every nightly since 2026-10-20 and the v0.1.3 validate-only and tag runs. Closing.","files":null}]}
