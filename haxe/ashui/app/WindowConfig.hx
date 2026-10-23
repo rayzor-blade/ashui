@@ -57,7 +57,7 @@ typedef WindowConfigData = {
 	?icon:{pixels:haxe.io.Bytes, width:Int, height:Int},
 	/** The window's UI theme; inherits the application theme when unset, or uses the default. **/
 	?theme:ThemeBundle,
-	/** Return false to defer closing, for example while asking to save work. */
+	/** Asked when the window is asked to close, by its close button or `quit`. Return false to keep it open, for example while asking to save work, and call `WindowedApp.close` once the answer is in. */
 	?onClose:Void->Bool,
 	/** Called after each presented frame with its number and the seconds since the window opened. **/
 	?onFrame:(frame:Int, seconds:Float) -> Void
@@ -227,7 +227,7 @@ abstract WindowConfig(WindowConfigData) from WindowConfigData to WindowConfigDat
 		return abstract;
 	}
 
-	/** Defers closing while false, until the app calls `quit` again. */
+	/** Keeps the window open while false; the app closes it with `WindowedApp.close` when it has its answer. */
 	public inline function onClose(value:Void->Bool):WindowConfig {
 		this.onClose = value;
 		return abstract;

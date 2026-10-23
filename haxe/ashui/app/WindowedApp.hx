@@ -267,6 +267,19 @@ class WindowedApp {
 		context.run(requestClose);
 	}
 
+	/**
+		Closes the window after the frame being drawn, without asking `onClose`: for an app that has asked its own question, such as
+		Save, Don't save or Cancel, and has its answer.
+	**/
+	public function close():Void {
+		context.run(() -> {
+			if (disposed || quitting)
+				return;
+			quitting = true;
+			ashui.core.Work.notify();
+		});
+	}
+
 	function requestClose():Void {
 		if (disposed || quitting)
 			return;
