@@ -15,78 +15,106 @@
 static AshuiMenuTarget *target;
 static NSMenu *previous;
 
-static NSMenu *menu(NSString *name, NSArray *items) {
-    NSMenu *result = [[NSMenu alloc] initWithTitle:name];
+static NSMenu *installed;
+static NSMenuItem *quitItem;
+static NSString *applicationName;
+
+static void syncMenu(NSMenu *result, NSArray *items, NSUInteger start) {
     result.autoenablesItems = NO;
+    NSUInteger index = start;
     for (NSDictionary *item in items) {
-        if ([item[@"separator"] boolValue]) { [result addItem:NSMenuItem.separatorItem]; continue; }
-        NSString *label = item[@"label"] ?: @"";
-        NSMenuItem *entry = [[NSMenuItem alloc] initWithTitle:label action:NULL keyEquivalent:@""];
-        if (item[@"items"]) {
-            entry.submenu = menu(label, item[@"items"]);
-        } else {
-            entry.target = target;
-            entry.action = @selector(invoke:);
-            entry.tag = [item[@"id"] integerValue];
-            entry.enabled = item[@"enabled"] == nil || [item[@"enabled"] boolValue];
-            NSDictionary *key = item[@"key"];
-            if ([key isKindOfClass:NSDictionary.class]) {
-                NSString *name = [key[@"key"] lowercaseString] ?: @"";
-                unichar special = 0;
-                if ([name hasPrefix:@"f"] && name.length > 1) {
-                    NSInteger number = [[name substringFromIndex:1] integerValue];
-                    if (number >= 1 && number <= 20) special = NSF1FunctionKey + number - 1;
-                }
-                NSDictionary *named = @{@"up": @(NSUpArrowFunctionKey), @"down": @(NSDownArrowFunctionKey),
-                    @"left": @(NSLeftArrowFunctionKey), @"right": @(NSRightArrowFunctionKey),
-                    @"home": @(NSHomeFunctionKey), @"end": @(NSEndFunctionKey),
-                    @"pageup": @(NSPageUpFunctionKey), @"pagedown": @(NSPageDownFunctionKey),
-                    @"delete": @(NSDeleteFunctionKey), @"backspace": @127, @"enter": @13, @"tab": @9, @"escape": @27, @"space": @32};
-                if (named[name]) special = [named[name] unsignedShortValue];
-                entry.keyEquivalent = special ? [NSString stringWithCharacters:&special length:1] : name;
-                NSEventModifierFlags flags = 0;
-                if ([key[@"meta"] boolValue]) flags |= NSEventModifierFlagCommand;
-                if ([key[@"ctrl"] boolValue]) flags |= NSEventModifierFlagControl;
-                if ([key[@"alt"] boolValue]) flags |= NSEventModifierFlagOption;
-                if ([key[@"shift"] boolValue]) flags |= NSEventModifierFlagShift;
-                entry.keyEquivalentModifierMask = flags;
-            }
+        BOOL separator = [item[@"separator"] boolValue];
+        NSMenuItem *entry = index < result.numberOfItems ? [result itemAtIndex:index] : nil;
+        if (!entry || entry.isSeparatorItem != separator) {
+            if (entry) [result removeItemAtIndex:index];
+            entry = separator ? NSMenuItem.separatorItem : [[NSMenuItem alloc] initWithTitle:@"" action:NULL keyEquivalent:@""];
+            [result insertItem:entry atIndex:index];
         }
-        [result addItem:entry];
+        index++;
+        if (separator) continue;
+        NSString *label = item[@"label"] ?: @"";
+        if (![entry.title isEqualToString:label]) entry.title = label;
+        if (item[@"items"]) {
+            if (!entry.submenu) entry.submenu = [[NSMenu alloc] initWithTitle:label];
+            entry.target = nil;
+            entry.action = NULL;
+            syncMenu(entry.submenu, item[@"items"], 0);
+            continue;
+        }
+        entry.submenu = nil;
+        entry.target = target;
+        entry.action = @selector(invoke:);
+        entry.tag = [item[@"id"] integerValue];
+        entry.enabled = item[@"enabled"] == nil || [item[@"enabled"] boolValue];
+        NSDictionary *key = item[@"key"];
+        NSString *equivalent = @"";
+        NSEventModifierFlags flags = 0;
+        if ([key isKindOfClass:NSDictionary.class]) {
+            NSString *name = [key[@"key"] lowercaseString] ?: @"";
+            unichar special = 0;
+            if ([name hasPrefix:@"f"] && name.length > 1) {
+                NSInteger number = [[name substringFromIndex:1] integerValue];
+                if (number >= 1 && number <= 20) special = NSF1FunctionKey + number - 1;
+            }
+            static NSDictionary *named;
+            if (!named) named = @{@"up": @(NSUpArrowFunctionKey), @"down": @(NSDownArrowFunctionKey),
+                @"left": @(NSLeftArrowFunctionKey), @"right": @(NSRightArrowFunctionKey),
+                @"home": @(NSHomeFunctionKey), @"end": @(NSEndFunctionKey),
+                @"pageup": @(NSPageUpFunctionKey), @"pagedown": @(NSPageDownFunctionKey),
+                @"delete": @(NSDeleteFunctionKey), @"backspace": @127, @"enter": @13, @"tab": @9, @"escape": @27, @"space": @32};
+            if (named[name]) special = [named[name] unsignedShortValue];
+            equivalent = special ? [NSString stringWithCharacters:&special length:1] : name;
+            if ([key[@"meta"] boolValue]) flags |= NSEventModifierFlagCommand;
+            if ([key[@"ctrl"] boolValue]) flags |= NSEventModifierFlagControl;
+            if ([key[@"alt"] boolValue]) flags |= NSEventModifierFlagOption;
+            if ([key[@"shift"] boolValue]) flags |= NSEventModifierFlagShift;
+        }
+        if (![entry.keyEquivalent isEqualToString:equivalent]) entry.keyEquivalent = equivalent;
+        if (entry.keyEquivalentModifierMask != flags) entry.keyEquivalentModifierMask = flags;
     }
-    return result;
+    while (result.numberOfItems > index) [result removeItemAtIndex:result.numberOfItems - 1];
 }
 
 bool ashui_menu_install(const unsigned char *json) {
-    if (!json || !NSThread.isMainThread) return false;
-    NSData *data = [[NSString stringWithUTF8String:(const char *)json] dataUsingEncoding:NSUTF8StringEncoding];
-    NSDictionary *spec = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    if (![spec isKindOfClass:NSDictionary.class]) return false;
-    if (!target) {
-        target = [AshuiMenuTarget new];
-        target.actions = [NSMutableArray new];
-        previous = NSApp.mainMenu;
+    @autoreleasepool {
+        if (!json || !NSThread.isMainThread) return false;
+        NSData *data = [[NSString stringWithUTF8String:(const char *)json] dataUsingEncoding:NSUTF8StringEncoding];
+        NSDictionary *spec = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        if (![spec isKindOfClass:NSDictionary.class]) return false;
+        if (!target) {
+            target = [AshuiMenuTarget new];
+            target.actions = [NSMutableArray new];
+            previous = NSApp.mainMenu;
+        }
+        NSString *name = spec[@"name"] ?: @"Application";
+        if (!installed) {
+            installed = [NSMenu new];
+            NSMenu *app = [NSMenu new];
+            [app addItemWithTitle:@"" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+            [app addItem:NSMenuItem.separatorItem];
+            [app addItemWithTitle:@"" action:@selector(hide:) keyEquivalent:@"h"];
+            NSMenuItem *others = [app addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
+            others.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagOption;
+            [app addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""];
+            [app addItem:NSMenuItem.separatorItem];
+            quitItem = [app addItemWithTitle:@"" action:@selector(invoke:) keyEquivalent:@"q"];
+            quitItem.target = target;
+            NSMenuItem *heading = [installed addItemWithTitle:name action:NULL keyEquivalent:@""];
+            heading.submenu = app;
+        }
+        if (![applicationName isEqualToString:name]) {
+            applicationName = name;
+            NSMenuItem *heading = [installed itemAtIndex:0];
+            heading.title = name;
+            [heading.submenu itemAtIndex:0].title = [@"About " stringByAppendingString:name];
+            [heading.submenu itemAtIndex:2].title = [@"Hide " stringByAppendingString:name];
+            quitItem.title = [@"Quit " stringByAppendingString:name];
+        }
+        quitItem.tag = [spec[@"quit"] integerValue];
+        syncMenu(installed, spec[@"menus"], 1);
+        if (NSApp.mainMenu != installed) NSApp.mainMenu = installed;
+        return true;
     }
-    NSMenu *bar = [NSMenu new];
-    NSString *name = spec[@"name"] ?: @"Application";
-    NSMenu *app = [NSMenu new];
-    [app addItemWithTitle:[@"About " stringByAppendingString:name] action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
-    [app addItem:NSMenuItem.separatorItem];
-    [app addItemWithTitle:[@"Hide " stringByAppendingString:name] action:@selector(hide:) keyEquivalent:@"h"];
-    NSMenuItem *others = [app addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
-    others.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagOption;
-    [app addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""];
-    [app addItem:NSMenuItem.separatorItem];
-    NSMenuItem *quit = [app addItemWithTitle:[@"Quit " stringByAppendingString:name] action:@selector(invoke:) keyEquivalent:@"q"];
-    quit.target = target; quit.tag = [spec[@"quit"] integerValue];
-    NSMenuItem *heading = [bar addItemWithTitle:name action:NULL keyEquivalent:@""];
-    heading.submenu = app;
-    for (NSDictionary *group in spec[@"menus"]) {
-        NSMenuItem *title = [bar addItemWithTitle:group[@"label"] action:NULL keyEquivalent:@""];
-        title.submenu = menu(group[@"label"], group[@"items"]);
-    }
-    NSApp.mainMenu = bar;
-    return true;
 }
 int ashui_menu_poll(void) {
     if (!target.actions.count) return 0;
@@ -98,6 +126,9 @@ void ashui_menu_clear(void) {
     if (target) NSApp.mainMenu = previous;
     previous = nil;
     target = nil;
+    installed = nil;
+    quitItem = nil;
+    applicationName = nil;
 }
 
 static NSMutableDictionary<NSNumber *, NSOpenPanel *> *dialogs;
