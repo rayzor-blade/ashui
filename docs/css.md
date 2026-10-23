@@ -121,6 +121,11 @@ An element's own settings take precedence over stylesheet rules, including
 explicit attributes such as `padding={24}`. This lets a local element
 override a shared stylesheet deliberately.
 
+Utility classes are compiled into those local settings, so they are not class names on
+the element: `class="overflow-auto"` leaves no `overflow-auto` class for a selector to match.
+To style such an element from a stylesheet, give it a class of your own, such as `scrolls`,
+and select that.
+
 Typography inherits through the element tree: font family, size, weight,
 style, line height, letter spacing and alignment. Color also reaches the
 text inside a container. Custom properties resolve from the element and
