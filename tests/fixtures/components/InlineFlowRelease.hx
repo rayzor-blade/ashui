@@ -49,6 +49,7 @@ class InlineFlowRelease {
 		check("replacing the breadcrumb twenty times leaves no text behind", texts() == one, [one, texts()]);
 		dispose();
 		check("disposing the owner takes the rest", texts() == before, [before, texts()]);
+		check("and the registry holds no list for the tree once its last flow is gone", !@:privateAccess ashui.text.InlineFlow.flows.exists(tree));
 		tree.dispose();
 		Sys.println('$checks checks: ALL PASSED');
 	}
