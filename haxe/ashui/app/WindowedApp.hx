@@ -826,7 +826,8 @@ class WindowedApp {
 		return surface.preferredFormat(adapter);
 	}
 
-	function close():Void {
+	/** Releases the window's tree, renderer and watches once it is closed. **/
+	function teardown():Void {
 		if (disposed)
 			return;
 		disposed = true;
@@ -931,7 +932,7 @@ private class WindowManager {
 			try
 				app.initialize(build)
 			catch (error:haxe.Exception) {
-				app.close();
+				app.teardown();
 				windows.remove(app);
 				WindowedApp.windowRevision.set(WindowedApp.windowRevision.get() + 1);
 				throw error;
