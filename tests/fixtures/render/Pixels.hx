@@ -587,13 +587,13 @@ class Pixels {
 		}
 		var twGlass = styledGlass(ashui.style.Tw.tw("bg-glass glass-blur-1 glass-tint-white/5 glass-aberration-0 hover:glass-aberration-100"));
 		glassCheck("bg-glass utilities match the brush", unsplit.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
-		ashui.input.Interaction.of(twGlass.panel.node).hovered.set(true);
+		ashui.input.Interaction.of(twGlass.panel.node).setHovered(true);
 		glassCheck("a hover utility changes the existing glass bevel", strong.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
-		ashui.input.Interaction.of(twGlass.panel.node).hovered.set(false);
+		ashui.input.Interaction.of(twGlass.panel.node).setHovered(false);
 		glassCheck("leaving hover restores its base aberration", unsplit.compare(offscreen.renderToRgba8(twGlass.root, 192, 128)) == 0);
 		var insetUtility = styledGlass(ashui.style.Tw.tw("bg-glass glass-blur-1 glass-tint-white/5 glass-aberration-100 glass-bevel-35 glass-inset hover:glass-outset"));
 		glassCheck("bevel and inset utilities match the brush", inset.compare(offscreen.renderToRgba8(insetUtility.root, 192, 128)) == 0);
-		ashui.input.Interaction.of(insetUtility.panel.node).hovered.set(true);
+		ashui.input.Interaction.of(insetUtility.panel.node).setHovered(true);
 		glassCheck("a state utility can reverse curvature", reduced.compare(offscreen.renderToRgba8(insetUtility.root, 192, 128)) == 0);
 		var glassSheet = ashui.css.Css.load('
 			.css-glass { background: glass; glass-blur: 1px; glass-tint: rgba(255,255,255,0.05); glass-aberration: var(--split, 0); glass-noise: 0; glass-mode: liquid; }

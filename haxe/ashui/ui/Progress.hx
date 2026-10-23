@@ -30,7 +30,7 @@ class Progress extends Component<ProgressProps> {
 		var interaction = Interaction.of(box.node);
 		switch props.value {
 			case null:
-				interaction.indeterminate.set(true);
+				interaction.setIndeterminate(true);
 			case Const(v):
 				bar.node.set(Prop.WidthPercent, fraction(v, max));
 			case Bound(s):

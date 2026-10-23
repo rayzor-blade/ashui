@@ -138,8 +138,8 @@ class Pointer {
 			s.pressChain = s.chain.copy();
 			if (!blocked) {
 				for (i in interactions(tree, s.chain))
-					if (!i.pressed.get())
-						i.pressed.set(true);
+					if (!i.isPressed())
+						i.setPressed(true);
 				// Pressing gives focus to the nearest focusable node, or takes it away.
 				var target = null;
 				for (i in interactions(tree, s.chain))
@@ -174,8 +174,8 @@ class Pointer {
 		if (!button.match(Left))
 			return;
 		for (i in Interaction.inTree(tree))
-			if (i.pressed.get())
-				i.pressed.set(false);
+			if (i.isPressed())
+				i.setPressed(false);
 		var pressed = s.pressChain;
 		s.pressChain = [];
 		if (blocked || disabledIn(tree, pressed))
@@ -320,7 +320,7 @@ class Pointer {
 				changed = true;
 				var i = Interaction.byId(tree, hit.id);
 				if (i != null) {
-					i.hovered.set(false);
+					i.setHovered(false);
 					i.fire("pointerleave", event(i.node, s, hit));
 				}
 			}
@@ -331,7 +331,7 @@ class Pointer {
 				changed = true;
 				var interaction = Interaction.byId(tree, hit.id);
 				if (interaction != null) {
-					interaction.hovered.set(true);
+					interaction.setHovered(true);
 					interaction.fire("pointerenter", event(interaction.node, s, hit));
 				}
 			}
@@ -382,7 +382,7 @@ class Pointer {
 
 	static function disabledIn(tree:LayoutTree, chain:Array<Hit>):Bool {
 		for (i in interactions(tree, chain))
-			if (i.disabled.get())
+			if (i.isDisabled())
 				return true;
 		return false;
 	}

@@ -94,7 +94,7 @@ class Keyboard {
 	/** Clicks the focused node, bubbling, as a press and release over it would. **/
 	static function click(tree:LayoutTree, mods:Modifiers):Void {
 		var focused = Focus.of(tree);
-		if (focused == null || focused.disabled.get())
+		if (focused == null || focused.isDisabled())
 			return;
 		var b = tree.getBounds(focused.node);
 		var e = new PointerEvent(focused.node, b != null ? b.x : 0, b != null ? b.y : 0, Left, mods);

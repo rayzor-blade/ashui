@@ -326,9 +326,9 @@ class CssLayoutBindings {
 		layout(tree, utilities);
 		var u = child(tree, utilities.node);
 		check("order utilities support positive negative and none", near(tree.getBounds(u).x, 60));
-		ashui.input.Interaction.of(u).hovered.set(true); layout(tree, utilities);
+		ashui.input.Interaction.of(u).setHovered(true); layout(tree, utilities);
 		check("hover order utility changes layout", near(tree.getBounds(u).x, 0));
-		ashui.input.Interaction.of(u).hovered.set(false); layout(tree, utilities);
+		ashui.input.Interaction.of(u).setHovered(false); layout(tree, utilities);
 		check("leaving hover restores the base order utility", near(tree.getBounds(u).x, 60));
 		var overlap:ashui.ui.Div = Owner.root(tree, _ -> <div width={60} height={30}>
 			<div id="order-paint-a" class="absolute" bg={ashui.types.Brush.solid(0xff0000)} order={2} width={60} height={30} />
@@ -382,10 +382,10 @@ class CssLayoutBindings {
 		check("authored background brushes keep ownership over CSS mapping", l.get(rows[2], 45) != 3 && Std.int(l.get(rows[2], 40)) == bitmap.slotFor(Fill));
 		check("background and img content retain separate mappings", l.get(rows[3], 4) == 1 && l.get(rows[3], 14) == 1 && l.get(rows[4], 4) == 0 && l.get(rows[4], 14) == 4);
 		var interaction = ashui.input.Interaction.of(utility);
-		interaction.hovered.set(true);
+		interaction.setHovered(true);
 		layout(tree, root); l = drawn(tree, root);
 		check("hover background position overrides the base utility", l.get(rows[1], 4) == 0);
-		interaction.hovered.set(false);
+		interaction.setHovered(false);
 		identity(box).setInline("background-position", "12.5% -0.375px").setInline("background-repeat", "no-repeat repeat");
 		layout(tree, root); l = drawn(tree, root);
 		check("background longhands override shorthand without rounding", l.get(rows[0], 4) == 0.125 && l.get(rows[0], 7) == -0.375 && l.get(rows[0], 12) == 2);
@@ -433,10 +433,10 @@ class CssLayoutBindings {
 		check("object fit and position utilities keep their local settings", list.get(rows[1], 14) == 4 && list.get(rows[1], 4) == 0 && list.get(rows[1], 5) == 0 && list.get(rows[2], 4) == 1 && list.get(rows[2], 5) == 1);
 		check("authored object attributes win over utility order and retain subpixel offsets", list.get(explicit, 14) == 4 && list.get(explicit, 4) == 0.125 && list.get(explicit, 6) == -0.375 && list.get(explicit, 7) == 1.625);
 		var hoverNode = child(tree, images.node, 4);
-		ashui.input.Interaction.of(hoverNode).hovered.set(true);
+		ashui.input.Interaction.of(hoverNode).setHovered(true);
 		layout(tree, images); list = drawn(tree, images);
 		check("object fit and position state variants override their base utilities", list.get(rows[4], 14) == 0 && list.get(rows[4], 4) == 1);
-		ashui.input.Interaction.of(hoverNode).hovered.set(false);
+		ashui.input.Interaction.of(hoverNode).setHovered(false);
 		layout(tree, images); list = drawn(tree, images);
 		check("leaving hover restores base object utilities", list.get(rows[4], 14) == 1 && list.get(rows[4], 4) == 0);
 		var image = child(tree, images.node);

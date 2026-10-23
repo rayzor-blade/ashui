@@ -26,7 +26,7 @@ class SharedComputedStyles {
   check('numeric stepper rules do not subscribe unrelated containers', Interaction.find(root.node) == null);
   var up = id('.step-up');
   check('numeric stepper dimensions still use the existing named controls', Css.resolved(up,'width') == '20px' && Css.resolved(up,'height') == '14px');
-  Interaction.of(up.node).hovered.set(true); settle();
+  Interaction.of(up.node).setHovered(true); settle();
   check('numeric stepper hover styling remains active', Css.computed(up,'background') == 'var(--accent-subtle)');
   var av = @:privateAccess Css.applied.get(a).values, bv = @:privateAccess Css.applied.get(b).values;
   check('equivalent styles share a snapshot within the batch', av == bv);
@@ -38,7 +38,7 @@ class SharedComputedStyles {
   check('gaining input attaches deferred CSS state readers', Css.resolved(c,'opacity') == '.3');
   Interaction.of(c.node).setDisabled(false); settle();
   check('deferred enabled and disabled states keep following changes', Css.resolved(c,'opacity') == '1');
-  Interaction.of(a.node).hovered.set(true); settle();
+  Interaction.of(a.node).setHovered(true); settle();
   check('requested hover state still updates the cascade', Css.resolved(a,'opacity') == '.5');
   a.addClasses(['other']); settle();
   check('changing a node does not mutate its former shared snapshot', Css.resolved(a,'color') == 'blue' && Css.resolved(b,'color') == 'red' && bv.get('--ink') == 'red');
