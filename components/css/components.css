@@ -1286,6 +1286,8 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-line, .ui-code-token, .ui-code-guide, .ui-code-fold-hint, .ui-code-caret,
 .ui-code-selection, .ui-code-active-line, .ui-code-gutter, .ui-code-gutter-line { position: absolute; }
 .ui-code-token, .ui-code-line, .ui-code-guide, .ui-code-caret, .ui-code-selection, .ui-code-active-line { pointer-events: none; }
+/* A zone: an element between two lines, as high as it is, over the width beside the gutter. */
+.ui-code-zone { position: absolute; flex-direction: column; }
 .ui-code-active-line { background: var(--ui-code-active-line, color-mix(in srgb, var(--primary) 5%, transparent)); }
 .ui-code-selection { background: var(--selection); }
 .ui-code-bracket {

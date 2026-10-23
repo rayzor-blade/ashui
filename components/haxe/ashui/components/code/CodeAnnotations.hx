@@ -1,5 +1,6 @@
 package ashui.components.code;
 
+import ashui.layout.Element;
 import ashui.reactive.Signal;
 
 /** A range of the text to mark, and how. **/
@@ -26,6 +27,32 @@ typedef CodeMarker = {
 	@:optional var icon:ashui.svg.SvgDocument;
 }
 
+/** An element placed between two lines. **/
+typedef CodeZone = {
+	/** The line the zone goes below, from 0; the zone is between it and the next line. **/
+	var line:Int;
+	/** What is shown there. It takes the editor's content width, less the gutter, and its own height; the app made it and owns what it reads. **/
+	var element:Element;
+}
+
+/** A zone as kept: where it is in the text, which `follow` moves, and the height its element measured. **/
+class ZonePlace {
+	public var offset:Int;
+	public final line:Int;
+	public final element:Element;
+	public var height = 0.0;
+	/** The element's holder in the editor, made when the zone is first drawn. **/
+	public var view:Null<ashui.ui.Div> = null;
+
+	public function new(offset:Int, line:Int, element:Element) {
+		this.offset = offset;
+		this.line = line;
+		this.element = element;
+	}
+}
+
+private typedef Zones = {list:Array<ZonePlace>, follow:Bool};
+
 /** A marker as kept: where it is in the text, which `follow` moves, and the line it was given. **/
 private typedef Place = {offset:Int, line:Int, className:String, ?title:String, ?icon:ashui.svg.SvgDocument};
 
@@ -49,6 +76,7 @@ class CodeAnnotations {
 	final document:CodeDocument;
 	final decorationSets = new Map<String, Decorations>();
 	final markerSets = new Map<String, Markers>();
+	final zoneSets = new Map<String, Zones>();
 	/** The owners in the order their sets were first given, which is the order they are drawn in. **/
 	final owners:Array<String> = [];
 	var markerLines:Null<Map<Int, CodeMarker>> = null;
@@ -87,6 +115,58 @@ class CodeAnnotations {
 		else
 			markerSets.set(owner, {list: kept, follow: follow});
 		touch();
+	}
+
+	/** Replaces `owner`'s zones with `list`, dropping a line the document does not have; an empty list clears them. **/
+	public function zone(owner:String, list:Array<CodeZone>, follow = false):Void {
+		own(owner);
+		var kept:Array<ZonePlace> = [];
+		for (z in list)
+			if (z.line >= 0 && z.line < document.lines.length)
+				kept.push(new ZonePlace(document.lines[z.line].start, z.line, z.element));
+		var old = zoneSets.get(owner);
+		if (kept.length == 0)
+			zoneSets.remove(owner);
+		else
+			zoneSets.set(owner, {list: kept, follow: follow});
+		// What was there and is not now is taken out of the editor by whoever draws the zones.
+		gone = gone.concat(old == null ? [] : [for (p in old.list) if (kept.indexOf(p) < 0) p]);
+		touch();
+	}
+
+	/** Zones replaced or cleared since they were last asked for, which the editor must take out of its content. **/
+	var gone:Array<ZonePlace> = [];
+
+	public function takeGone():Array<ZonePlace> {
+		var taken = gone;
+		gone = [];
+		return taken;
+	}
+
+	/** Every zone, owner by owner. **/
+	public function zonePlaces():Array<ZonePlace> {
+		var all:Array<ZonePlace> = [];
+		for (owner in owners) {
+			var set = zoneSets.get(owner);
+			if (set != null)
+				for (p in set.list)
+					all.push(p);
+		}
+		return all;
+	}
+
+	/** The line a zone is below now, which a set that follows the edits has moved. **/
+	public function zoneLine(place:ZonePlace):Int {
+		for (set in zoneSets)
+			if (set.list.indexOf(place) >= 0)
+				return set.follow ? document.lineAt(place.offset) : place.line;
+		return place.line;
+	}
+
+	/** `owner`'s zones' lines now. **/
+	public function zoneLinesOf(owner:String):Array<Int> {
+		var set = zoneSets.get(owner);
+		return set == null ? [] : [for (p in set.list) set.follow ? document.lineAt(p.offset) : p.line];
 	}
 
 	/** Every decoration, owner by owner, at its current offsets. **/
@@ -147,6 +227,8 @@ class CodeAnnotations {
 			following = following || set.follow;
 		for (set in markerSets)
 			following = following || set.follow;
+		for (set in zoneSets)
+			following = following || set.follow;
 		if (!following || before == after)
 			return;
 		// The one replaced stretch: what both texts share at the start and at the end is left out.
@@ -189,6 +271,10 @@ class CodeAnnotations {
 		for (owner in emptied)
 			decorationSets.remove(owner);
 		for (set in markerSets)
+			if (set.follow)
+				for (p in set.list)
+					p.offset = move(p.offset, true);
+		for (set in zoneSets)
 			if (set.follow)
 				for (p in set.list)
 					p.offset = move(p.offset, true);
