@@ -1405,3 +1405,12 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-find-current { background: var(--ui-code-find-active, color-mix(in srgb, var(--primary) 30%, transparent)); border-color: var(--primary); }
 
 .ui-code-find[data-invalid="true"] .ui-code-find-status { color: var(--error); }
+
+.ui-code-peer-caret, .ui-code-peer-selection { position: absolute; pointer-events: none; }
+.ui-code-peer-selection { opacity: 0.18; }
+.ui-code-peer-0 { background: #2f9ee8; }
+.ui-code-peer-1 { background: #c678dd; }
+.ui-code-peer-2 { background: #db9a24; }
+.ui-code-peer-3 { background: #2bbf92; }
+
+.ui-code-peer-name { position: absolute; left: 2px; top: -12px; font-size: 10px; line-height: 12px; color: #101820; padding: 0 3px; border-radius: 2px; }

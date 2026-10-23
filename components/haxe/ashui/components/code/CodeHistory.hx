@@ -22,12 +22,19 @@ class CodeHistory {
 
 	/** Records the change from `before` to `after` as one patch. **/
 	public function record(before:String, after:String, selection:CodeSelection, next:CodeSelection):Void {
-		if (before == after) return;
+		var parts = difference(before, after);
+		if (parts.length > 0) push(parts, selection, next);
+	}
+
+	public static function difference(before:String, after:String):Array<CodePatch> {
+		if (before == after) return [];
 		var from = 0, suffix = 0;
 		while (from < before.length && from < after.length && before.charCodeAt(from) == after.charCodeAt(from)) from++;
 		while (suffix < before.length - from && suffix < after.length - from
 			&& before.charCodeAt(before.length - suffix - 1) == after.charCodeAt(after.length - suffix - 1)) suffix++;
-		push([{from: from, removed: before.substring(from, before.length - suffix), inserted: after.substring(from, after.length - suffix)}], selection, next);
+		if (from > 0 && before.charCodeAt(from-1) >= 0xD800 && before.charCodeAt(from-1) <= 0xDBFF) from--;
+		if (suffix > 0 && before.charCodeAt(before.length-suffix) >= 0xDC00 && before.charCodeAt(before.length-suffix) <= 0xDFFF) suffix--;
+		return [{from:from, removed:before.substring(from,before.length-suffix), inserted:after.substring(from,after.length-suffix)}];
 	}
 
 	/** Records `parts`, in order and not overlapping, positions in the text before them, as one step. **/

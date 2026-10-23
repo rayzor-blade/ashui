@@ -230,3 +230,11 @@ editor.showHint({
 Asynchronous providers can use `editor.hoverOffset` to discard replies after the
 pointer moves. `showHint(hint, true)` pins a hint; `hideHint()` closes it. Edits,
 scrolling, Escape and disposing the editor also close its hints.
+
+## External collaboration ownership
+
+`CodeEditorState.onTransaction` receives one local edit with its previous/next text, ordered `CodePatch` ranges and selections. Multi-range `applyEdits` retains the original ranges as one transaction. `onUndo`, when supplied, owns undo and redo for the document; ordinary local history is not recorded alongside it.
+
+Use `state.applyRemote(text, selection)` for incoming changes. It updates a mounted editor or its inactive data without emitting input or another transaction. With ordinary local undo it clears the previous history, whose offsets cannot safely be reused after external edits. A collaboration owner must defer incoming changes while `editor.editing.composing` is nonempty.
+
+`state.peers` holds data-only participant selections (`id`, `name`, `caret`, `anchor`, `color`). The editor renders carets, name labels and selection spans only on visible rows, using four CSS palette classes. Update their offsets after each shared edit. Clear peer data and callbacks when leaving a collaboration session. Disposing a presentation removes its external-apply hook; the state retains no disposed editor.

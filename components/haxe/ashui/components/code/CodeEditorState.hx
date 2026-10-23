@@ -1,6 +1,8 @@
 package ashui.components.code;
 
 import ashui.reactive.Signal;
+import ashui.components.code.CodeHistory.CodeSelection;
+import ashui.components.code.CodeTransaction;
 
 /**
  * A document's data, independent of its mounted editor. Keep this when replacing
@@ -24,6 +26,22 @@ class CodeEditorState {
 	var annotatedText:String;
 	var generation = 0;
 	var capture:Null<Void->Void>;
+	var receive:Null<(String, Null<CodeSelection>)->Void>;
+	/** Data-only collaboration callbacks. Clear them when the document leaves a session. */
+	public var onTransaction:Null<CodeTransaction->Void>;
+	public var onUndo:Null<Bool->Void>;
+	public final peers = Signal.make(([] : Array<CodePeer>));
+
+	/** Applies an external transaction without adding it to local undo or emitting input. */
+	public function applyRemote(text:String, ?selection:CodeSelection):Void {
+		if (onUndo == null) history.clear();
+		knownValue = text;
+		if (receive != null) receive(text, selection);
+		else {
+			if (selection != null) { caret = selection.caret; anchor = selection.anchor; }
+			value.set(text);
+		}
+	}
 
 	public function new(?value:Signal<String>) {
 		this.value = value == null ? Signal.make("") : value;
@@ -36,17 +54,17 @@ class CodeEditorState {
 
 	function resume():Int {
 		if (capture != null) capture();
-		capture = null;
+		capture = null; receive = null;
 		return ++generation;
 	}
 
-	function attach(token:Int, snapshot:Void->Void):Void {
-		if (token == generation) capture = snapshot;
+	function attach(token:Int, snapshot:Void->Void, remote:(String, Null<CodeSelection>)->Void):Void {
+		if (token == generation) { capture = snapshot; receive = remote; }
 	}
 
 	function detach(token:Int):Void {
 		if (token != generation) return;
 		if (capture != null) capture();
-		capture = null;
+		capture = null; receive = null;
 	}
 }

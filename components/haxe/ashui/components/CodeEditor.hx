@@ -13,6 +13,7 @@ import ashui.components.code.CodeHints.CodeHint;
 import ashui.components.code.CodeHints.CodeRect;
 import ashui.components.code.CodeHistory;
 import ashui.components.code.CodeEditorState;
+import ashui.components.code.CodeTransaction;
 import ashui.components.code.CodeHistory.CodeEdit;
 import ashui.components.code.CodeHistory.CodePatch;
 import ashui.components.code.CodeMetrics;
@@ -188,7 +189,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		knownValue = value.get();
 		e.onBeforeInput = () -> { oldText = value.get(); oldSelection = {caret: e.caret.get(), anchor: e.anchor.get()}; };
 		e.onInput = next -> {
-			history.record(oldText, next, oldSelection, {caret: e.caret.get(), anchor: e.anchor.get()});
+			record(oldText, next, CodeHistory.difference(oldText, next), oldSelection, {caret:e.caret.get(), anchor:e.anchor.get()});
 			oldText = "";
 			knownValue = next;
 			if (props.onInput != null) props.onInput(next);
@@ -321,6 +322,25 @@ class CodeEditor extends Component<CodeEditorProps> {
 			searchMarks = kept;
 			result;
 		});
+		var peerMarks = Computed.make(() -> {
+			revision.get();
+			var result:Array<{box:DecorationBox,name:String}> = [];
+			for (peer in state.peers.get()) for (row in rows.get()) {
+				var line = row.line, end = line.start + line.text.length;
+				var from = Std.int(Math.min(peer.caret,peer.anchor)), to = Std.int(Math.max(peer.caret,peer.anchor));
+				var cls = "ui-code-peer-" + (Std.int(Math.abs(peer.color)) % 4);
+				if (from != to && to > line.start && from <= end) {
+					var x = gutter.get()+PAD+metrics.xAt(line,Std.int(Math.max(0,from-line.start)));
+					var right = to > end ? gutter.get()+PAD+row.width+metrics.characterWidth : gutter.get()+PAD+metrics.xAt(line,to-line.start);
+					result.push({box:{x:(x:Single),top:row.top,width:(Math.max(2,right-x):Single),height:(metrics.lineHeight:Single),className:"ui-code-peer-selection " + cls},name:peer.name});
+				}
+				if (peer.caret >= line.start && peer.caret <= end) {
+					var x = gutter.get()+PAD+metrics.xAt(line,peer.caret-line.start);
+					result.push({box:{x:(x:Single),top:row.top,width:2,height:(metrics.lineHeight:Single),className:"ui-code-peer-caret " + cls},name:peer.name});
+				}
+			}
+			result;
+		});
 		var content = <div class="ui-code-content" width={contentWidth} height={contentHeight}>
 			${probe}
 			<div class="ui-code-active-line" top={Computed.make(() -> (PAD + caret.get().line * metrics.lineHeight : Single))}
@@ -334,6 +354,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 				<div class="ui-code-bracket" left={r.x} top={r.top} width={r.width} height={rowHeight} />
 			</for>
 			<for {i in slots}>{lineSlot(i, gutter, rowHeight)}</for>
+			<for {mark in peerMarks}>${peerMark(mark.box,mark.name)}</for>
 			<div class="ui-code-gutter" left={Computed.make(() -> { revision.get(); (scroll == null ? 0 : scroll.x.get() : Single); })} width={Computed.make(() -> (gutter.get() : Single))} height={contentHeight}>
 				<for {i in slots}>{gutterSlot(i, gutter, rowHeight)}</for>
 			</div>
@@ -349,6 +370,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 			state.caret = e.caret.get(); state.anchor = e.anchor.get();
 			state.scrollX = restoringScroll ? savedX : scroll.x.get();
 			state.scrollY = restoringScroll ? savedY : scroll.y.get();
+		}, (text, selection) -> {
+			oldText = ""; knownValue = text;
+			value.set(text);
+			if (selection != null) { e.caret.set(selection.caret); e.anchor.set(selection.anchor); }
 		});
 		refresh();
 		var strip:Array<Element> = [pane];
@@ -827,6 +852,19 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public function hideFind():Void search.hide();
 	public function findNext(backward = false):Void search.next(backward);
 	public function focus():Void Focus.set(editing.interaction, true);
+	function peerMark(box:DecorationBox, name:String):Element {
+		var mark = new Div({classes:box.className.split(" "),left:box.x,top:box.top,width:box.width,height:box.height});
+		Identity.of(mark.tree,mark.node.id).setAttribute("title",name);
+		if (box.className.indexOf("ui-code-peer-caret") == 0) {
+			var label = new Text(name, {fontSize:10,wrap:false});
+			label.node.set(ashui.layout.Prop.Width, (Math.min(220,name.length*6+8):Single));
+			label.node.set(ashui.layout.Prop.Height, (12:Single));
+			Identity.of(label.tree,label.node.id).addClasses(["ui-code-peer-name",box.className.split(" ")[1]]);
+			mark.appendChild(label);
+		}
+		return mark;
+	}
+
 	public function undo():Void restore(false);
 	public function redo():Void restore(true);
 	/**
@@ -869,18 +907,25 @@ class CodeEditor extends Component<CodeEditorProps> {
 			return offset + shift;
 		}
 		var before:CodeSelection = {caret: editing.caret.get(), anchor: editing.anchor.get()}, after:CodeSelection = {caret: moved(before.caret), anchor: moved(before.anchor)};
-		history.recordParts(parts, before, after);
+		record(old, next, parts, before, after);
 		oldText = "";
 		knownValue = next;
 		value.set(next);
 		select(after.anchor, after.caret);
 		if (props.onInput != null) props.onInput(next);
 	}
+	function record(before:String, after:String, parts:Array<CodePatch>, selection:CodeSelection, next:CodeSelection):Void {
+		if (state.onTransaction != null) state.onTransaction({before:before,after:after,parts:parts,selection:selection,next:next});
+		if (state.onUndo == null) history.recordParts(parts, selection, next);
+	}
+
 	function restore(redo:Bool):Void {
 		if (editing.readOnly || editing.interaction.disabled.get()) return;
+		if (state.onUndo != null) { state.onUndo(redo); return; }
 		if (knownValue != value.get()) { history.clear(); oldText = ""; knownValue = value.get(); return; }
 		var result = history.apply(value.get(), redo);
 		if (result == null) return;
+		if (state.onTransaction != null) state.onTransaction({before:value.get(),after:result.text,parts:CodeHistory.difference(value.get(),result.text),selection:{caret:editing.caret.get(),anchor:editing.anchor.get()},next:result.selection});
 		knownValue = result.text; value.set(result.text);
 		select(result.selection.anchor, result.selection.caret);
 		editing.restartBlink();
@@ -947,7 +992,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		} else { e.anchor.set(from); e.caret.set(from + replacement.length); }
 		e.onBeforeInput = beforeInput; e.onInput = input;
 		if (value.get() != s) {
-			history.record(s, value.get(), selection, {caret: e.caret.get(), anchor: e.anchor.get()});
+			record(s, value.get(), CodeHistory.difference(s, value.get()), selection, {caret:e.caret.get(), anchor:e.anchor.get()});
 			knownValue = value.get();
 			if (props.onInput != null) props.onInput(value.get());
 		}
