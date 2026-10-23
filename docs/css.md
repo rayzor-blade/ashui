@@ -378,6 +378,23 @@ scrolling, then fade), `always`, `hover` or `hidden`. Custom thumbs and tracks
 follow the same visibility and fade behavior. Styling reuses the scroll
 container's existing watcher; hiding the scrollbar avoids fade timers.
 
+#### Edge shadows and reach
+
+`scroll-shadow: auto` on a scroll container draws an inset shadow along each edge that
+hides content: along the top once it is scrolled down, along the bottom while there is more
+below, and the same for left and right. `none` (the default) draws none. `--ui-scroll-shadow-color`
+sets the colour (black at 35% by default). The shadows are the user-agent sheet's rules for the
+attributes `data-scroll-shadow` and `data-more-above`, `-below`, `-left` and `-right`, which are set
+only at the edges that hide content, so a stylesheet can draw its own instead.
+
+```css
+.sidebar { overflow-y: auto; scroll-shadow: auto; --ui-scroll-shadow-color: rgba(0, 0, 0, 0.5); }
+```
+
+From code, `Scroll.of(node).moreAbove`, `moreBelow`, `moreLeft` and `moreRight` are signals of the
+same four facts. A signal is made, and the container's reach followed after each layout and scroll,
+the first time one is read; each moves only when an edge is crossed.
+
 ### Sticky positioning, stacking and text limits
 
 `order` accepts signed 32-bit integers (default `0`). Flex and grid items
