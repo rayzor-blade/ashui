@@ -264,6 +264,18 @@ class CodeDiffComponent {
 			ashui.input.Pointer.release(tree3);
 			settle3();
 		}
+		// The current change's buttons are shown without the pointer, and Enter on a focused one presses it.
+		ashui.input.Pointer.move(tree3, 5, 5);
+		settle3();
+		var shownCurrent = [for (id in Css.query(tree3, root3.node.id, '.ui-code-diff-actions[data-current="true"]')) id];
+		check("the current change's buttons are marked to stay shown", shownCurrent.length == 1, shownCurrent.length);
+		var focusTarget = Css.query(tree3, root3.node.id, '.ui-code-diff-actions[data-current="true"] .ui-code-diff-action[aria-label="Revert change"]')[0];
+		ashui.input.Focus.set(@:privateAccess ashui.input.Interaction.byId(tree3, focusTarget), true);
+		var before = reverted.length;
+		ashui.input.Keyboard.input(tree3, Input(Code(Enter), Named(Enter), None, Standard, Pressed, false, Unavailable));
+		settle3();
+		check("Enter on a focused button calls its hook with the current change", reverted.length == before + 1 && reverted[reverted.length - 1] == third.modifiedStart, reverted);
+		reverted.pop();
 		press("Revert change");
 		press("Copy");
 		check("Revert and a custom action each call their own function, once", staged.length == 1 && reverted.length == 1 && copied.length == 1 && staged[0] == third.modifiedStart && reverted[0] == third.modifiedStart, [staged, reverted, copied, third]);
@@ -314,7 +326,25 @@ class CodeDiffComponent {
 
 		dispose();
 		tree.dispose();
-		check("disposing the view takes its layout and restyle hooks away", LayoutTree.layoutHooks.length == hooks && Css.restyled.length == restyles, [LayoutTree.layoutHooks.length - hooks, Css.restyled.length - restyles]);
+		// Hooks the framework makes once, the first time something is used (a focused button's, say), stay for the process; a view
+		// made and disposed now must leave the counts as it found them.
+		var settledHooks = LayoutTree.layoutHooks.length, settledRestyles = Css.restyled.length;
+		var tree5 = new LayoutTree(), stop5:Void->Void = null;
+		var root5 = Owner.root(tree5, stop -> {
+			stop5 = stop;
+			return <div width={300} height={100}><code-diff original={signal("a\nb")} modified={signal("a\nc")} navigation={true} onStage={c -> {}} width={300} height={100} /></div>;
+		});
+		for (_ in 0...4) {
+			Css.update();
+			tree5.flush();
+			tree5.computeLayout(root5.node, 300, 100);
+		}
+		check("a view made while the others are gone adds hooks", LayoutTree.layoutHooks.length > settledHooks);
+		stop5();
+		tree5.dispose();
+		check("disposing the view takes its layout and restyle hooks away", LayoutTree.layoutHooks.length == settledHooks && Css.restyled.length == settledRestyles, [LayoutTree.layoutHooks.length - settledHooks, Css.restyled.length - settledRestyles]);
+		check("and the first views' hooks went too, but for those the framework keeps", LayoutTree.layoutHooks.length - hooks <= 1 && Css.restyled.length == restyles, [LayoutTree.layoutHooks.length - hooks, Css.restyled.length - restyles]);
+
 		Sys.println('$checks checks: ALL PASSED');
 	}
 }

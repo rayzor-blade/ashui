@@ -56,6 +56,8 @@ typedef CodeDiffPaneConfig = {
 	final actions:Array<CodeDiffAction>;
 	/** Called with the modified line a placeholder's hidden run starts at, when the placeholder is pressed. **/
 	final open:Int->Void;
+	/** The change last gone to, from 0, or -1: its buttons stay shown, so the keyboard can reach them. **/
+	final current:Signal<Int>;
 	/** Called with 1 or -1 when the pane has focus and F7 or Shift+F7 is pressed, to go to the next change or the previous. **/
 	final step:Int->Void;
 	final label:String;
@@ -472,6 +474,10 @@ class CodeDiffPane {
 			var r = row.get();
 			(r != null && r.first && r.hidden == 0 ? "true" : null : Null<String>);
 		});
+		var isCurrent = Computed.make(() -> {
+			var r = row.get();
+			(r != null && r.first && r.hidden == 0 && r.change == config.current.get() ? "true" : null : Null<String>);
+		});
 		var width = 8.0;
 		for (a in config.actions)
 			width += a.icon != null ? 28.0 : a.label.length * 7.0 + 28;
@@ -481,7 +487,7 @@ class CodeDiffPane {
 		});
 		var buttons:Array<Element> = [for (a in config.actions) actionButton(row, a)];
 		var box = new Div({classes: ["ui-code-diff-actions"], left: left, width: (width : Single)}, buttons);
-		Identity.of(box.tree, box.node.id).bindAttribute("data-first", first);
+		Identity.of(box.tree, box.node.id).bindAttribute("data-first", first).bindAttribute("data-current", isCurrent);
 		return box;
 	}
 
@@ -493,12 +499,21 @@ class CodeDiffPane {
 			button = new Div({classes: ["ui-code-diff-action", "ui-code-diff-action-icon"]}, [glyph]);
 		} else
 			button = <div class="ui-code-diff-action"><text class="ui-code-diff-action-label">${action.label}</text></div>;
-		Interaction.of(button.node).setFocusable(true).onClick(event -> {
+		function run():Void {
 			var r = row.get();
-			if (r != null && r.first && r.change >= 0) {
-				event.stopPropagation();
+			if (r != null && r.first && r.change >= 0)
 				action.run(r.rows.changes[r.change]);
-			}
+		}
+		// Enter and Space press it, as for any button; Tab reaches it while its change is the current one.
+		Interaction.of(button.node).setFocusable(true).onClick(event -> {
+			event.stopPropagation();
+			run();
+		}).onKeyDown(event -> switch event.key {
+			case Named(Enter) | Character(" "):
+				event.preventDefault();
+				event.stopPropagation();
+				run();
+			case _:
 		});
 		Identity.of(button.tree, button.node.id).setAttribute("role", "button").setAttribute("aria-label", action.label);
 		// An icon says nothing by itself: the label is its tooltip.

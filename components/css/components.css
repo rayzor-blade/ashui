@@ -1374,7 +1374,7 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-diff-actions {
 	flex-direction: row; align-items: center; justify-content: flex-end; gap: 4px; height: 20px; margin-top: 1px; visibility: hidden;
 }
-.ui-code-diff-row:hover > .ui-code-diff-actions[data-first="true"] { visibility: visible; }
+.ui-code-diff-row:hover > .ui-code-diff-actions[data-first="true"], .ui-code-diff-actions[data-current="true"] { visibility: visible; }
 .ui-code-diff-action {
 	flex-direction: row; align-items: center; height: 18px; padding: 0 8px; border-radius: var(--radius-sm); cursor: pointer;
 	background: var(--ui-diff-action-bg, var(--surface-elevated)); border: 1px solid var(--border); color: var(--text-secondary);

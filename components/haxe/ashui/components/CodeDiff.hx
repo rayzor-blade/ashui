@@ -274,6 +274,7 @@ class CodeDiff extends Component<CodeDiffProps> {
 					rebuild();
 				},
 				step: delta -> goToChange(delta),
+				current: currentChange,
 				label: label
 			});
 		var made:Array<CodeDiffPane>, children:Array<Element>;
