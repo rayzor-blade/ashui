@@ -12,3 +12,5 @@ __pycache__/
 
 .claude/
 apps/**/bin/
+.rayzor/
+.rayde/
