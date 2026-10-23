@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1792771535,"nonce":"rFF5a5iLSZi5gLxRKtYkvGUJncI=","message":"Covered on main: pieces and decoration copies release their owners (26dae77, from f52a0e2), and now a disposed tree's empty flow list is dropped, with a check in InlineFlowRelease. Closing.","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1792771535,"nonce":"VyzyJ83k8k3fFPWagrx+SZSwFwk=","status":2}]}
