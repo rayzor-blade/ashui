@@ -433,6 +433,19 @@ class CodeComponents {
 		Pointer.press(noteTree, Right); Pointer.release(noteTree, Right); noteSettle();
 		check("a press in the marker slot calls onGutterClick with the line and the button", pressed.join(",") == "6:Left,6:Right", pressed);
 		check("a press in the marker slot does not move the caret", note.editing.caret.get() == 0);
+		var runIcon = ashui.svg.SvgDocument.parse('<svg width="24" height="24" viewBox="0 0 24 24"><path d="M8 5L19 12L8 19Z" fill="currentColor"/></svg>');
+		note.markers("actions", [{line:4,className:"test-action",title:"Run",icon:runIcon}], true); noteSettle();
+		check("an SVG marker keeps its data and renders inside its slot", note.annotations.markerAt(4).icon == runIcon && noteBoxes(".ui-code-marker-icon").length == 1
+			&& noteBoxes(".ui-code-marker-icon")[0].width == 14);
+		var actionSlot = noteBoxes(".test-action")[0];
+		Pointer.move(noteTree, actionSlot.x + actionSlot.width / 2, actionSlot.y + actionSlot.height / 2); Pointer.press(noteTree); Pointer.release(noteTree); noteSettle();
+		check("an SVG marker still uses the editor gutter handler without moving the caret", pressed[pressed.length - 1] == "4:Left" && note.editing.caret.get() == 0, pressed);
+		note.markers("debug", [{line:4,className:"ui-code-marker-breakpoint"}]); noteSettle();
+		check("the first marker owner keeps priority over an SVG marker on the same line", noteBoxes(".ui-code-marker-icon").length == 0 && note.annotations.markerAt(4).icon == null);
+		note.markers("debug", [{line:2,className:"ui-code-marker-breakpoint"}]); noteSettle();
+		check("an SVG marker reappears when the earlier owner leaves its line", noteBoxes(".ui-code-marker-icon").length == 1);
+		note.markers("actions", []); noteSettle();
+		check("clearing SVG markers releases their views and leaves other owners intact", noteBoxes(".ui-code-marker-icon").length == 0 && noteBoxes(".ui-code-marker-breakpoint").length == 1);
 		// An owner that follows the edits keeps its place in the text; one that does not stays where it was put.
 		note.markers("debug", [{line: 10, className: "ui-code-marker-breakpoint"}], true);
 		note.decorate("follow", [{from: lineStart(12) + 4, to: lineStart(12) + 8, className: "ui-code-squiggle-warning"}], true);

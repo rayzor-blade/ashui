@@ -685,8 +685,9 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** The gutter's marker slot of the row in `row`'s slot: its marker's class and title, and a press in it is the app's, never the editor's. **/
 	function markerSlot(row:Signal<Null<Row>>):Element {
 		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.markerAt(r.source); });
-		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-marker"] : ["ui-code-marker", m.className]; });
-		var dot = new Div({classes: classes});
+		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-marker"] : ["ui-code-marker", m.className].concat(m.icon == null ? [] : ["ui-code-marker-with-icon"]); });
+		var glyph = Computed.make(() -> { var m = marker.get(); m == null ? null : m.icon; });
+		var dot = new Div({classes: classes}, [<for {doc in [glyph.get()]}><if {doc != null}><icon document={doc} class="ui-code-marker-icon"/></if></for>]);
 		Identity.of(dot.tree, dot.node.id).bindAttribute("title", Computed.make(() -> { var m = marker.get(); (m == null ? null : m.title : Null<String>); }));
 		var slot = Library.part("ui-code-marker-slot", null, null, [dot]);
 		Interaction.of(slot.node).onPointerDown(p -> {

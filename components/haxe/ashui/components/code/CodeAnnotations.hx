@@ -22,10 +22,12 @@ typedef CodeMarker = {
 	/** A CSS class: `ui-code-marker-breakpoint` or the app's own. **/
 	var className:String;
 	@:optional var title:String;
+	/** An SVG in place of the default dot; no view or click handler is kept with a marker. **/
+	@:optional var icon:ashui.svg.SvgDocument;
 }
 
 /** A marker as kept: where it is in the text, which `follow` moves, and the line it was given. **/
-private typedef Place = {offset:Int, line:Int, className:String, ?title:String};
+private typedef Place = {offset:Int, line:Int, className:String, ?title:String, ?icon:ashui.svg.SvgDocument};
 
 private typedef Decorations = {list:Array<CodeDecoration>, follow:Bool};
 private typedef Markers = {list:Array<Place>, follow:Bool};
@@ -79,7 +81,7 @@ class CodeAnnotations {
 		var kept:Array<Place> = [];
 		for (m in list)
 			if (m.line >= 0 && m.line < document.lines.length)
-				kept.push({offset: document.lines[m.line].start, line: m.line, className: m.className, title: m.title});
+				kept.push({offset: document.lines[m.line].start, line: m.line, className: m.className, title: m.title, icon: m.icon});
 		if (kept.length == 0)
 			markerSets.remove(owner);
 		else
@@ -131,7 +133,7 @@ class CodeAnnotations {
 					for (p in set.list) {
 						var at = lineOf(p, set.follow);
 						if (!markerLines.exists(at))
-							markerLines.set(at, {line: at, className: p.className, title: p.title});
+							markerLines.set(at, {line: at, className: p.className, title: p.title, icon: p.icon});
 					}
 			}
 		}
