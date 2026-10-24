@@ -44,6 +44,7 @@ import haxe.macro.Type;
 	- borders, `border`, `border-0` … `border-8`, and one side or two over
 	  it, `border-t`, `border-x-2`, `border-b-0` …, each side in the
 	  border's colour or its own, `border-t-primary`, `border-x-error` …;
+	  widths alone use the theme's border colour unless a colour is given;
 	- overflow fades, ashui's own: on a box that clips its children
 	  (`overflow-hidden`, `overflow-y-auto` …), `fade-4` fades them out
 	  over the spacing step in from every edge, `fade-y-8` from the top and
@@ -136,6 +137,18 @@ import haxe.macro.Type;
 	known one; a class ashui cannot bind yet says why.
 **/
 class Tw {
+	#if !macro
+	/** Width utilities opt into a theme border color below authored rules and explicit properties. **/
+	@:noCompletion public static function borderDefault(node:ashui.layout.Node):Void {
+		if (node.tree == null) return;
+		ashui.css.Css.useUserAgent();
+		var identity = ashui.css.Identity.of(node.tree, node.id);
+		if (identity == null) identity = ashui.css.Identity.register(node.tree, node, "div");
+		identity.setAttribute("data-tw-border", "");
+	}
+
+	#end
+
 	/** `classes`, a string literal, as a `Style`. **/
 	public static macro function tw(classes:ExprOf<String>):ExprOf<Style> {
 		var sets = setters(classes, macro __node);
@@ -309,6 +322,11 @@ class Tw {
 			}
 		}
 
+		var bordered = Lambda.exists(out, e -> {
+			var kv = keyValue(e);
+			return kv != null && ["BorderWidth", "BorderTopWidth", "BorderRightWidth", "BorderBottomWidth", "BorderLeftWidth"].indexOf(kv.key) >= 0;
+		});
+
 		// Each property a variant sets becomes one value that follows the pointer and the scheme:
 		// active over hover over dark over the base class of the same property.
 		var interaction = false, grouped = false, peered = false;
@@ -393,6 +411,7 @@ class Tw {
 			out.unshift(macro var __group = ashui.input.Relations.groupOf($node));
 		if (peered)
 			out.unshift(macro var __peer = ashui.input.Relations.peerOf($node));
+		if (bordered) out.unshift(macro ashui.style.Tw.borderDefault($node));
 		var background = gradient.build(node);
 		if (background != null)
 			out.push(background);

@@ -67,6 +67,7 @@ class UserAgent {
 	static inline var EXIT = "var(--duration-faster) var(--ease-sheet) forwards";
 
 	public static final CSS = '
+		:where([data-tw-border]) { border-color: var(--border); }
 		/* Hidden elements leave layout, drawing and hit testing together. Author styles can override this default. */
 		[hidden] { display: none; }
 		/* Text. Sizes are the browser defaults, in em of the text around. Elements that hold a flow of text are no wider than what holds them, so it wraps there. */
