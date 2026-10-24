@@ -14,44 +14,59 @@ class Cursor {
 	static final pending = new haxe.ds.ObjectMap<LayoutTree, Bool>();
 	static var hooked = false;
 
-	/** The standard keyword cursors hlwindow provides. Custom cursor images are not supported here. **/
+	/** The icons in the order of the window package's `CursorIcon`; a cursor is kept as its index, whether the package declares it as an enum or as integers. **/
+	static final ICONS = ["Default", "ContextMenu", "Help", "Pointer", "Progress", "Wait", "Cell", "Crosshair", "Text", "VerticalText", "Alias", "Copy", "Move", "NoDrop", "NotAllowed", "Grab", "Grabbing", "EResize", "NResize", "NeResize", "NwResize", "SResize", "SeResize", "SwResize", "WResize", "EwResize", "NsResize", "NeswResize", "NwseResize", "ColResize", "RowResize", "AllScroll", "ZoomIn", "ZoomOut", "DndAsk", "AllResize"];
+
+	static function code(name:String):Int
+		return ICONS.indexOf(name);
+
+	/** The window package's icon for an index of `ICONS`. **/
+	@:noCompletion public static inline function icon(index:Int):CursorIcon {
+		#if ashui_caribou
+		return Type.createEnum(CursorIcon, ICONS[index]);
+		#else
+		return cast index;
+		#end
+	}
+
+	/** The standard keyword cursors the window package provides. Custom cursor images are not supported here. **/
 	public static function parse(value:String):Int {
 		return switch StringTools.trim(value).toLowerCase() {
-			case "auto" | "default": CursorIcon.Default;
+			case "auto" | "default": code("Default");
 			case "none": HIDDEN;
-			case "context-menu": CursorIcon.ContextMenu;
-			case "help": CursorIcon.Help;
-			case "pointer": CursorIcon.Pointer;
-			case "progress": CursorIcon.Progress;
-			case "wait": CursorIcon.Wait;
-			case "cell": CursorIcon.Cell;
-			case "crosshair": CursorIcon.Crosshair;
-			case "text": CursorIcon.Text;
-			case "vertical-text": CursorIcon.VerticalText;
-			case "alias": CursorIcon.Alias;
-			case "copy": CursorIcon.Copy;
-			case "move": CursorIcon.Move;
-			case "no-drop": CursorIcon.NoDrop;
-			case "not-allowed": CursorIcon.NotAllowed;
-			case "grab": CursorIcon.Grab;
-			case "grabbing": CursorIcon.Grabbing;
-			case "e-resize": CursorIcon.EResize;
-			case "n-resize": CursorIcon.NResize;
-			case "ne-resize": CursorIcon.NeResize;
-			case "nw-resize": CursorIcon.NwResize;
-			case "s-resize": CursorIcon.SResize;
-			case "se-resize": CursorIcon.SeResize;
-			case "sw-resize": CursorIcon.SwResize;
-			case "w-resize": CursorIcon.WResize;
-			case "ew-resize": CursorIcon.EwResize;
-			case "ns-resize": CursorIcon.NsResize;
-			case "nesw-resize": CursorIcon.NeswResize;
-			case "nwse-resize": CursorIcon.NwseResize;
-			case "col-resize": CursorIcon.ColResize;
-			case "row-resize": CursorIcon.RowResize;
-			case "all-scroll": CursorIcon.AllScroll;
-			case "zoom-in": CursorIcon.ZoomIn;
-			case "zoom-out": CursorIcon.ZoomOut;
+			case "context-menu": code("ContextMenu");
+			case "help": code("Help");
+			case "pointer": code("Pointer");
+			case "progress": code("Progress");
+			case "wait": code("Wait");
+			case "cell": code("Cell");
+			case "crosshair": code("Crosshair");
+			case "text": code("Text");
+			case "vertical-text": code("VerticalText");
+			case "alias": code("Alias");
+			case "copy": code("Copy");
+			case "move": code("Move");
+			case "no-drop": code("NoDrop");
+			case "not-allowed": code("NotAllowed");
+			case "grab": code("Grab");
+			case "grabbing": code("Grabbing");
+			case "e-resize": code("EResize");
+			case "n-resize": code("NResize");
+			case "ne-resize": code("NeResize");
+			case "nw-resize": code("NwResize");
+			case "s-resize": code("SResize");
+			case "se-resize": code("SeResize");
+			case "sw-resize": code("SwResize");
+			case "w-resize": code("WResize");
+			case "ew-resize": code("EwResize");
+			case "ns-resize": code("NsResize");
+			case "nesw-resize": code("NeswResize");
+			case "nwse-resize": code("NwseResize");
+			case "col-resize": code("ColResize");
+			case "row-resize": code("RowResize");
+			case "all-scroll": code("AllScroll");
+			case "zoom-in": code("ZoomIn");
+			case "zoom-out": code("ZoomOut");
 			case _: throw "cursor takes a standard keyword; custom cursor images are not supported";
 		};
 	}
@@ -95,7 +110,7 @@ class Cursor {
 			value = "auto";
 		if (sink.value == value)
 			return;
-		var code = try parse(value) catch (_:String) CursorIcon.Default;
+		var code = try parse(value) catch (_:String) 0;
 		sink.value = value;
 		if (code != sink.code) {
 			sink.code = code;

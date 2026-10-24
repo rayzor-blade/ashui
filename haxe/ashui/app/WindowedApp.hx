@@ -257,7 +257,7 @@ class WindowedApp {
 		ashui.input.Cursor.bind(tree, code -> {
 			window.setCursorVisible(code != ashui.input.Cursor.HIDDEN);
 			if (code != ashui.input.Cursor.HIDDEN)
-				window.setCursorIcon(cast code);
+				window.setCursorIcon(ashui.input.Cursor.icon(code));
 		});
 		paceOnRedraw = window.platform() == WAYLAND || window.platform() == WEB_CANVAS;
 	}
