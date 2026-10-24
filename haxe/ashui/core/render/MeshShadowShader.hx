@@ -5,7 +5,7 @@ package ashui.core.render;
 	map: each vertex placed as `MeshShader` places it, through the light's
 	view-projection, its depth written to the map's red.
 **/
-class MeshShadowShader implements hlwgpu.hxsl.Shader {
+class MeshShadowShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.MeshDraw;

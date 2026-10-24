@@ -15,7 +15,7 @@ package ashui.core.render;
 	Run as a chain down to a few dozen pixels and back up, it spreads
 	bright light widely without needing a wide blur kernel.
 **/
-class BloomShader implements hlwgpu.hxsl.Shader {
+class BloomShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		var output:{position:Vec4, color:Vec4};
 		@param var bloomSource:Sampler2D;

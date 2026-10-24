@@ -213,8 +213,8 @@ class ScenePainter {
 		group:GpuBindGroup,
 		used:Int,
 		buffers:Int,
-		environment:Int,
-		shadow:Int,
+		environment:GpuTextureView,
+		shadow:GpuTextureView,
 		textures:Int
 	}>();
 
@@ -1016,7 +1016,7 @@ class ScenePainter {
 	**/
 	function sharedLayout(frame:CanvasFrame):gpu.GpuPipelineLayout {
 		if (meshLayout == null) {
-			var both = gpu.ShaderStage.VERTEX | gpu.ShaderStage.FRAGMENT;
+			var both = GpuFlags.STAGE_VERTEX_FRAGMENT;
 			var entries = new gpu.GpuBindGroupLayoutDescriptor();
 			function texture(binding:Int, dimension:gpu.TextureViewDimension) {
 				var t = new gpu.GpuTextureBindingLayout();
@@ -1088,8 +1088,8 @@ class ScenePainter {
 		var known = materials.get(material);
 		if (known != null
 			&& known.buffers == buffers
-			&& known.environment == (environment : Int)
-			&& known.shadow == (shadow : Int)
+			&& known.environment == environment
+			&& known.shadow == shadow
 			&& known.textures == MeshTextures.revision) {
 			known.used = frameCount;
 			return known.group;
@@ -1126,8 +1126,8 @@ class ScenePainter {
 			group: group,
 			used: frameCount,
 			buffers: buffers,
-			environment: (environment : Int),
-			shadow: (shadow : Int),
+			environment: environment,
+			shadow: shadow,
 			textures: MeshTextures.revision
 		});
 		return group;

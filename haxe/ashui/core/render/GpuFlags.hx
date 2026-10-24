@@ -17,6 +17,7 @@ class GpuFlags {
 	public static var TEXTURE_BINDING(get, never):Int;
 	public static var TEXTURE_RENDER_ATTACHMENT(get, never):Int;
 	public static var COLOR_WRITE_ALL(get, never):Int;
+	public static var STAGE_VERTEX_FRAGMENT(get, never):Int;
 
 	#if ashui_caribou
 	static inline function get_BUFFER_UNIFORM():Int
@@ -51,6 +52,9 @@ class GpuFlags {
 
 	static inline function get_COLOR_WRITE_ALL():Int
 		return gpu.ColorWrite.ALL();
+
+	static inline function get_STAGE_VERTEX_FRAGMENT():Int
+		return gpu.ShaderStage.VERTEX() | gpu.ShaderStage.FRAGMENT();
 	#else
 	static inline function get_BUFFER_UNIFORM():Int
 		return gpu.BufferUsage.UNIFORM;
@@ -84,5 +88,8 @@ class GpuFlags {
 
 	static inline function get_COLOR_WRITE_ALL():Int
 		return gpu.ColorWrite.ALL;
+
+	static inline function get_STAGE_VERTEX_FRAGMENT():Int
+		return gpu.ShaderStage.VERTEX | gpu.ShaderStage.FRAGMENT;
 	#end
 }
