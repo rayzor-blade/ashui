@@ -132,7 +132,7 @@ dashboard_page() {
   echo "== Dashboard"
   build_dashboard || return 1
   dir="$out/dashboard"
-  PAGE_SCRIPT=wasm/dashboard_check.mjs CHROME_FLAGS="--autoplay-policy=no-user-gesture-required" run_page "$dir" 120 "$dir"
+  PAGE_SCRIPT=${DASHBOARD_SCRIPT:-wasm/dashboard_check.mjs} CHROME_FLAGS="--autoplay-policy=no-user-gesture-required" run_page "$dir" 120 "$dir"
 }
 
 status=0

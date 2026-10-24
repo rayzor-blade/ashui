@@ -543,7 +543,7 @@ class WindowedApp {
 			if (loopSince == 0)
 				loopSince = now;
 			else if (now - loopSince >= 1) {
-				Sys.println('[loop] ${loopTurns} turns in ${Math.round((now - loopSince) * 1000)} ms, busy ${Math.round(loopBusy * 1000)} ms, ${loopAnimating} with something animating, ${loopTimers} woken by a timer, ${ashui.input.Pointer.hooks.length} pointer hooks; events: ${[for (k => n in loopEvents) k + "=" + n].join(" ")}');
+				Sys.println('[loop] ${loopTurns} turns in ${Math.round((now - loopSince) * 1000)} ms, busy ${Math.round(loopBusy * 1000)} ms, ${loopAnimating} with something animating, ${loopTimers} woken by a timer, ${ashui.input.Pointer.hooks.length} pointer hooks; state: dirty=$dirty visible=${ashui.input.WindowState.visible.get()} awaiting=$awaitingFrame ${awaitingFrame ? Math.round((now - awaitingSince) * 1000) + " ms" : ""} refused ${refusedAt == Math.NEGATIVE_INFINITY ? "never" : Math.round((now - refusedAt) * 1000) + " ms ago"}; events: ${[for (k => n in loopEvents) k + "=" + n].join(" ")}');
 				loopSince = now;
 				loopTurns = loopAnimating = loopTimers = 0;
 				loopBusy = 0;
