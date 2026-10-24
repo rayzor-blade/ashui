@@ -2423,7 +2423,7 @@ class Smoke {
 		lateTree.flush();
 		lateTree.computeLayout(late.node, 20, 20);
 		var lateList = new ashui.layout.DisplayList();
-		ashui.input.Interaction.of(late.node).hovered.set(true);
+		ashui.input.Interaction.of(late.node).setHovered(true);
 		lateTree.flush();
 		lateTheme.setScheme(Dark);
 		var lateBehind = 0.0;

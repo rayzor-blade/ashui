@@ -37,19 +37,19 @@ class Focus {
 	/** Focuses `target`; `visible` when the keyboard moved focus there. **/
 	public static function set(target:Interaction, visible:Bool):Void {
 		var tree = target.node.tree;
-		if (tree == null || !target.focusable || target.disabled.get())
+		if (tree == null || !target.focusable || target.isDisabled())
 			return;
 		var before = current.get(tree);
 		if (before == target) {
-			if (target.focusVisible.get() != visible)
-				target.focusVisible.set(visible);
+			if (target.isFocusVisible() != visible)
+				target.setFocusVisible(visible);
 			return;
 		}
 		if (before != null)
 			blur(before);
 		current.set(tree, target);
-		target.focused.set(true);
-		target.focusVisible.set(visible);
+		target.setFocused(true);
+		target.setFocusVisible(visible);
 		updateWithin(tree, target);
 		target.fire("focus", new FocusEvent(target.node, visible));
 	}
@@ -81,10 +81,10 @@ class Focus {
 		if (before != null)
 			for (i in before)
 				if (next.indexOf(i) < 0)
-					i.focusWithin.set(false);
+					i.setFocusWithin(false);
 		for (i in next)
-			if (!i.focusWithin.get())
-				i.focusWithin.set(true);
+			if (!i.isFocusWithin())
+				i.setFocusWithin(true);
 		if (next.length == 0) within.remove(tree); else within.set(tree, next);
 	}
 
@@ -128,7 +128,7 @@ class Focus {
 			var i = Interaction.byId(tree, id);
 			if (i != null
 				&& i.focusable
-				&& !i.disabled.get()
+				&& !i.isDisabled()
 				&& (inside == null || id == inside.id || tree.ancestors(id).indexOf(inside.id) >= 0))
 				order.push(i);
 		}
@@ -140,8 +140,8 @@ class Focus {
 	}
 
 	static function blur(i:Interaction):Void {
-		i.focused.set(false);
-		i.focusVisible.set(false);
+		i.setFocused(false);
+		i.setFocusVisible(false);
 		i.fire("blur", new FocusEvent(i.node, false));
 	}
 

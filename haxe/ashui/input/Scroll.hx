@@ -2,6 +2,7 @@ package ashui.input;
 
 import ashui.core.externs.LayoutTreeNative;
 import ashui.input.Events;
+import ashui.layout.LayoutTree;
 import ashui.layout.Node;
 import ashui.reactive.Signal;
 import ashui.reactive.Watch;
@@ -29,6 +30,9 @@ class Scroll {
 
 	static var hooked = false;
 
+	/** The containers whose reach is followed: those with `scroll-shadow: auto` and those something asked a reach signal of. **/
+	static final followed:Array<Scroll> = [];
+
 	static function hook():Void {
 		if (hooked)
 			return;
@@ -36,6 +40,7 @@ class Scroll {
 		ashui.css.Css.restyled.push(identity -> {
 			var scroll = byNode.get(identity.node);
 			if (scroll != null) {
+				scroll.setShadow(ashui.css.Css.resolved(identity, "scroll-shadow") == "auto");
 				var visibility = ashui.css.Css.resolved(identity, "scrollbar-visibility");
 				if (visibility == null)
 					visibility = "auto";
@@ -210,6 +215,110 @@ class Scroll {
 		return v;
 	}
 
+	/**
+		Whether content is hidden past each edge: scrolled away above or at the left, or still to scroll to below or at the right.
+		A signal is made, and the reach followed after each layout and scroll, the first time one is read; each moves only when the edge
+		is crossed.
+	**/
+	public var moreAbove(get, never):Signal<Bool>;
+
+	public var moreBelow(get, never):Signal<Bool>;
+	public var moreLeft(get, never):Signal<Bool>;
+	public var moreRight(get, never):Signal<Bool>;
+
+	var reach = 0;
+	var reachSignals:Null<Array<Null<Signal<Bool>>>> = null;
+	var shadow = false;
+
+	static inline var ABOVE = 1;
+	static inline var BELOW = 2;
+	static inline var LEFT = 4;
+	static inline var RIGHT = 8;
+
+	function reachSignal(index:Int):Signal<Bool> {
+		if (reachSignals == null)
+			reachSignals = [null, null, null, null];
+		follow();
+		var s = reachSignals[index];
+		if (s == null)
+			reachSignals[index] = s = Signal.make((reach & (1 << index)) != 0);
+		return s;
+	}
+
+	function get_moreAbove():Signal<Bool> return reachSignal(0);
+	function get_moreBelow():Signal<Bool> return reachSignal(1);
+	function get_moreLeft():Signal<Bool> return reachSignal(2);
+	function get_moreRight():Signal<Bool> return reachSignal(3);
+
+	static var followHooked = false;
+
+	function follow():Void {
+		// One layout hook for every followed container, made when the first is.
+		if (!followHooked) {
+			followHooked = true;
+			LayoutTree.layoutHooks.push(_ -> {
+				var changed = false;
+				for (scroll in followed.copy())
+					if (scroll.refreshReach())
+						changed = true;
+				changed;
+			});
+		}
+		if (followed.indexOf(this) < 0) {
+			followed.push(this);
+			refreshReach();
+		}
+	}
+
+	/** Draws inset shadows at the edges that hide content (CSS `scroll-shadow: auto`), through the attributes the user-agent sheet styles. **/
+	function setShadow(on:Bool):Void {
+		if (on == shadow)
+			return;
+		shadow = on;
+		if (node.tree != null) {
+			var identity = ashui.css.Identity.of(node.tree, node.id);
+			if (identity != null)
+				identity.setAttribute("data-scroll-shadow", on ? "" : null);
+		}
+		if (on) {
+			// The rules that draw the shadows are the user-agent sheet's.
+			ashui.css.Css.useUserAgent();
+			follow();
+		} else {
+			markEdges(0);
+			if (reachSignals == null)
+				followed.remove(this);
+		}
+	}
+
+	function markEdges(bits:Int):Void {
+		var identity = node.tree == null ? null : ashui.css.Identity.of(node.tree, node.id);
+		if (identity == null)
+			return;
+		identity.setAttribute("data-more-above", bits & ABOVE != 0 ? "" : null);
+		identity.setAttribute("data-more-below", bits & BELOW != 0 ? "" : null);
+		identity.setAttribute("data-more-left", bits & LEFT != 0 ? "" : null);
+		identity.setAttribute("data-more-right", bits & RIGHT != 0 ? "" : null);
+	}
+
+	/** Works out the reach from the scroll and the layout; true when an edge was crossed. **/
+	function refreshReach():Bool {
+		if (disposed)
+			return false;
+		var l = limits(), px = x.get(), py = y.get();
+		var next = (py > .5 ? ABOVE : 0) | (py < l.y - .5 ? BELOW : 0) | (px > .5 ? LEFT : 0) | (px < l.x - .5 ? RIGHT : 0);
+		if (next == reach)
+			return false;
+		reach = next;
+		if (reachSignals != null)
+			for (i in 0...4)
+				if (reachSignals[i] != null)
+					reachSignals[i].set((next & (1 << i)) != 0);
+		if (shadow)
+			markEdges(next);
+		return true;
+	}
+
 	function new(node:Node, alongX:Bool, alongY:Bool) {
 		this.node = node;
 		this.alongX = alongX;
@@ -275,6 +384,7 @@ class Scroll {
 		byNode.remove(node);
 		hoverWatch.stop();
 		offsetWatch.stop();
+		followed.remove(this);
 		if (stay != null)
 			stay.cancel();
 		stay = null;
@@ -349,6 +459,8 @@ class Scroll {
 		x.set(nx);
 		y.set(ny);
 		showThumb();
+		if (followed.length > 0 && followed.indexOf(this) >= 0)
+			refreshReach();
 		return true;
 	}
 
@@ -365,6 +477,8 @@ class Scroll {
 		x.set(nx);
 		y.set(ny);
 		showThumb();
+		if (followed.indexOf(this) >= 0)
+			refreshReach();
 	}
 
 	function wheel(e:PointerEvent):Void {

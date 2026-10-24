@@ -117,7 +117,9 @@ no element, so they can run on any thread.
 The diff only shows changes; staging one or putting it back is the app's work, and the
 buttons are only a way to ask for it. `onStage` and `onRevert` are hooks: give either a
 function and a button appears on the first row of every change, at its right, while the
-pointer is over the row. A press calls the function with the
+pointer is over the row, and for the current change (the one `nextChange` or F7 went
+to) always, so the keyboard reaches them: F7, then Tab to a button, then Enter or Space.
+A press calls the function with the
 change, `{originalStart, originalLines, modifiedStart, modifiedLines}`, so the app can
 turn it into a patch. The buttons are icons, and the label ("Stage change", "Revert
 change") is their tooltip.

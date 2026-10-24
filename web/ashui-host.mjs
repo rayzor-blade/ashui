@@ -9,9 +9,8 @@
 // what went wrong when something did.
 //
 // What the program writes goes to the browser's console, as worker.js wraps it.
-// The page shows it as well when it is opened with `?debug`, which also has the
-// page say each second how its own animation frames are going (`?watch` does
-// that alone, in the console): see `watchFrames`.
+// The page shows it as well when it is opened with `?log`. Opened with `?debug` (or `?watch`), the page also
+// says each second, in the console only, how its own animation frames are going: see `watchFrames`.
 
 const module = "./" + document.querySelector('meta[name="ashui-module"]').content;
 const name = module.slice(2);
@@ -22,7 +21,7 @@ const status = document.getElementById("status");
 const statusTitle = document.getElementById("status-title");
 const statusDetail = document.getElementById("status-detail");
 
-if (query.has("debug")) document.documentElement.classList.add("debug");
+if (query.has("log")) document.documentElement.classList.add("debug");
 
 // The program's memory, once it has made it (a threaded program's is shared, and this thread can read how big it is).
 let programMemory = null;
@@ -61,7 +60,7 @@ const write = (text, kind) => {
 const written = (data) => write(data.text, data.kind === "err" ? "err" : data.kind === "meta" ? "meta" : "");
 if (query.has("debug") || query.has("watch")) watchFrames((text) => {
   console.info(text);
-  if (query.has("debug")) write(text, "meta");
+  if (query.has("log")) write(text, "meta");
 });
 
 // What the page says while the program starts, and for how long it may take to before the page says more.
@@ -80,7 +79,7 @@ const waiting = () => {
   if (document.visibilityState === "hidden")
     return say("Waiting for this tab", "A window in a background tab draws nothing. The program starts drawing when the tab is shown.");
   if (performance.now() - started > SLOW)
-    return say("Still starting", `${phase}. This takes longer than it should: open this page with ?debug to see what the program is doing.`);
+    return say("Still starting", `${phase}. This takes longer than it should: open this page with ?debug and look at the browser's console to see what the program is doing.`);
   say("Loading", phase);
 };
 document.addEventListener("visibilitychange", waiting);

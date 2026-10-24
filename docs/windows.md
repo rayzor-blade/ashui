@@ -18,7 +18,7 @@ The manager dispatches each window's input and draws only changed windows. It wa
 
 `open` may enqueue a builder from a worker. Builders and platform calls run on the UI thread. Queue data only; do not create elements on workers. An additional window whose builder fails is cleaned up and reported on stderr while other windows continue.
 
-A config's `onClose:Void->Bool` may defer closing. Return false while showing a save decision, then call the retained window's `quit()` after approval. Both native close requests and `quit()` pass through the guard. `disposed` becomes true after cleanup; its tree and renderer must then no longer be used.
+A config's `onClose:Void->Bool` may defer closing. Return false while showing a save decision, then call the retained window's `close()` once the answer is in: `close()` closes without asking again, while a native close request and `quit()` both pass through the guard. `disposed` becomes true after cleanup; its tree and renderer must then no longer be used.
 
 This requires hlwindow with xwindow's cross-window wait support: waiting on one window yields when another has events or a pending redraw. Rebuild the native adapter when upgrading.
 

@@ -240,9 +240,12 @@ class TextEditing {
 		return best;
 	}
 
+	/** For a view whose lines are not all one height, the line a point `y` from the text's top falls on; without it they are. **/
+	public var lineAtHeight:Null<Float->Int> = null;
+
 	/** The line a point `y` from the text's top falls on. **/
 	public function lineAtY(y:Float):Int
-		return lineHeight > 0 ? Std.int(Math.floor(y / lineHeight)) : 0;
+		return lineAtHeight != null ? lineAtHeight(y) : lineHeight > 0 ? Std.int(Math.floor(y / lineHeight)) : 0;
 
 	/** The width of `line`: its last stop's x. **/
 	public function lineWidth(line:Int):Float {

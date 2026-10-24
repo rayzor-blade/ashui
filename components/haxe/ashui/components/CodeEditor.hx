@@ -3,6 +3,9 @@ package ashui.components;
 import ashui.components.code.CodeAnnotations;
 import ashui.components.code.CodeAnnotations.CodeDecoration;
 import ashui.components.code.CodeAnnotations.CodeMarker;
+import ashui.components.code.CodeAnnotations.CodeZone;
+import ashui.components.code.CodeAnnotations.ZonePlace;
+import ashui.components.code.CodeZones;
 import ashui.components.code.CodeCompletions;
 import ashui.components.code.CodeCompletions.CodeCompletion;
 import ashui.components.code.CodeDocument;
@@ -118,6 +121,11 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** Called with a line, from 0, and the press, when the gutter's marker slot is pressed, whether or not the line has a marker (`gutterMarkers`). **/
 	public var onGutterClick:Null<(Int, ashui.input.Events.PointerEvent)->Void> = null;
 	final revision = Signal.make(0);
+	/** The zones between rows, and a count that moves when the height an element measured does. **/
+	final zones = new CodeZones();
+	final zoneHeights = Signal.make(0);
+	var zoneLayout:Computed<Int>;
+	var zoneStamp = 0;
 	final viewHeight = Signal.make(320.0);
 	final viewWidth = Signal.make(600.0);
 	final boxWidth = Signal.make(600.0);
@@ -152,6 +160,37 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	/** The width of one wave of a squiggle. **/
 	static inline var SQUIGGLE = 4.0;
+
+	/** The distance from the content's top to the top of display row `row`, with the zones above it. **/
+	function rowTop(row:Int):Float {
+		zoneLayout.get();
+		return PAD + zones.yOf(row, metrics.lineHeight);
+	}
+
+	/** The display row a zone is below, or -1 when its line is folded away. **/
+	function zoneRow(place:ZonePlace):Int {
+		var line = annotations.zoneLine(place);
+		if (line < 0 || line >= document.lines.length) return -1;
+		var row = document.rows[line];
+		return row >= 0 && row < document.visible.length && document.visible[row] == line ? row : -1;
+	}
+
+	/** Takes out of the content the zones that were replaced, whose holders the `for` over the zones no longer keeps. **/
+	function removeGoneZones():Void {
+		for (p in annotations.takeGone())
+			if (p.view != null) { p.view.remove(); p.view = null; }
+	}
+
+	/** A zone's holder: below its row, over the gutter's width, as high as its element is, which the layout hook reads back. **/
+	function zoneView(place:ZonePlace, gutter:Computed<Float>, contentWidth:Computed<Single>):Element {
+		var top = Computed.make(() -> { revision.get(); var r = zoneRow(place); (r < 0 ? 0 : rowTop(r) + metrics.lineHeight : Single); });
+		var shown = Computed.make(() -> (zoneRow(place) >= 0 ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
+		var left = Computed.make(() -> (gutter.get() : Single));
+		var width = Computed.make(() -> (Math.max(0, contentWidth.get() - gutter.get()) : Single));
+		var holder:Div = <div class="ui-code-zone" left={left} top={top} width={width} visibility={shown}>${place.element}</div>;
+		place.view = holder;
+		return holder;
+	}
 
 	/** CodeView keeps the same selection and scrolling behavior without editing. **/
 	function editable():Bool return true;
@@ -223,7 +262,18 @@ class CodeEditor extends Component<CodeEditorProps> {
 			(props.lineNumbers == false ? 0 : Std.string(document.lines.length).length * metrics.characterWidth + 18)
 				+ (props.folding == false ? 0 : 22) + (props.lineNumbers == false && props.folding == false ? 0 : 8) + (props.gutterMarkers == true ? MARKER : 0);
 		});
-		var contentHeight = Computed.make(() -> { revision.get(); (PAD * 2 + document.visible.length * metrics.lineHeight : Single); });
+		// The zones, set from the annotations and the heights measured, before anything reads where a row is.
+		zoneLayout = Computed.make(() -> {
+			revision.get(); annotations.revision.get(); zoneHeights.get();
+			var pairs:Array<{row:Int, height:Float}> = [];
+			for (p in annotations.zonePlaces()) {
+				var row = zoneRow(p);
+				if (row >= 0) pairs.push({row: row, height: p.height});
+			}
+			zones.set(pairs);
+			++zoneStamp;
+		});
+		var contentHeight = Computed.make(() -> { revision.get(); zoneLayout.get(); (PAD * 2 + document.visible.length * metrics.lineHeight + zones.total() : Single); });
 		var contentWidth = Computed.make(() -> {
 			revision.get();
 			var widest = metrics.widestColumn();
@@ -239,6 +289,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			var x = (scroll == null ? 0 : scroll.x.get()) - gutter.get() - PAD;
 			return {left:Math.max(0, (Math.floor(x / 256)-1)*256), right:(Math.ceil((x+viewWidth.get())/256)+1)*256.0};
 		}, next -> horizontal.set(next), (a,b) -> a.left==b.left && a.right==b.right);
+		var zonePlaces = Computed.make(() -> { annotations.revision.get(); removeGoneZones(); annotations.zonePlaces(); });
 		var rows = Computed.make(() -> { var x=horizontal.get(); visibleRows(firstRow.get(), endRow.get(), x.left, x.right); });
 		// Keep the mounted viewport's slots across height changes; a new modulus would reassign every visible row.
 		var capacity = Signal.make(1);
@@ -297,7 +348,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 				var source = document.lineAt(index), row = document.rows[source], line = document.lines[source];
 				if (document.visible[row] != source) continue;
 				var x = metrics.xAt(line, index - line.start), end = metrics.xAt(line, index - line.start + 1);
-				result.push({x: (gutter.get() + PAD + x : Single), top: (PAD + row * metrics.lineHeight : Single), width: (Math.max(2, end - x) : Single)});
+				result.push({x: (gutter.get() + PAD + x : Single), top: (rowTop(row) : Single), width: (Math.max(2, end - x) : Single)});
 			}
 			return result;
 		});
@@ -343,7 +394,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		});
 		var content = <div class="ui-code-content" width={contentWidth} height={contentHeight}>
 			${probe}
-			<div class="ui-code-active-line" top={Computed.make(() -> (PAD + caret.get().line * metrics.lineHeight : Single))}
+			<div class="ui-code-active-line" top={Computed.make(() -> (rowTop(caret.get().line) : Single))}
 				left={0} width={contentWidth} height={rowHeight} opacity={Computed.make(() -> (e.focused.get() ? 1 : 0 : Single))} />
 			<for {b in searchBoxes}>${new Div({classes:b.className.split(" "), left:b.x, top:b.top, width:b.width, height:b.height})}</for>
 			<for {b in decorationBoxes}>{decorationMark(b)}</for>
@@ -354,12 +405,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 				<div class="ui-code-bracket" left={r.x} top={r.top} width={r.width} height={rowHeight} />
 			</for>
 			<for {i in slots}>{lineSlot(i, gutter, rowHeight)}</for>
+			<for {p in zonePlaces}>{zoneView(p, gutter, contentWidth)}</for>
 			<for {mark in peerMarks}>${peerMark(mark.box,mark.name)}</for>
 			<div class="ui-code-gutter" left={Computed.make(() -> { revision.get(); (scroll == null ? 0 : scroll.x.get() : Single); })} width={Computed.make(() -> (gutter.get() : Single))} height={contentHeight}>
 				<for {i in slots}>{gutterSlot(i, gutter, rowHeight)}</for>
 			</div>
 			<div class="ui-code-caret" left={Computed.make(() -> (gutter.get() + PAD + caret.get().x : Single))}
-				top={Computed.make(() -> (PAD + caret.get().line * metrics.lineHeight : Single))} height={rowHeight}
+				top={Computed.make(() -> (rowTop(caret.get().line) : Single))} height={rowHeight}
 				opacity={Computed.make(() -> (e.showsCaret() && !readOnly.get() && (scroll == null || caret.get().x >= scroll.x.get()) ? e.caretAlpha.get() : 0 : Single))} />
 		</div>;
 		pane = Library.part("ui-code-viewport", null, null, [content]);
@@ -380,7 +432,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (props.minimap == true)
 			strip.push(CodeMinimap.make({
 				document: document, metrics: metrics, scroll: scroll, viewHeight: viewHeight, viewWidth: viewWidth, boxWidth: boxWidth, revision: revision, tabSize: tabSize,
-				pad: PAD, maxWidth: props.minimapWidth == null ? 96 : props.minimapWidth
+				pad: PAD, maxWidth: props.minimapWidth == null ? 96 : props.minimapWidth, annotations: annotations, zones: zones, zoneStamp: () -> { zoneLayout.get(); return zoneStamp; }
 			}));
 		var data:Map<String, IntoReactive<Null<String>>> = ["mode" => editable() ? "editor" : "view"];
 		if (props.minimap == true)
@@ -431,6 +483,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		i.onFocus(_ -> { e.focus(); if (!editable() || e.readOnly) e.stopBlink(); });
 		i.onBlur(_ -> { phase.send(Blur); e.blur(); e.stopBlink(); if (!hints.pointerOver()) hints.hide(); if (!completions.pointerOver()) completions.hide(); });
 		e.onEscape = () -> if (hints.isOpen()) hints.hide() else Focus.clear(pane.tree);
+		e.lineAtHeight = y -> { zoneLayout.get(); return zones.rowAt(y, metrics.lineHeight, document.visible.length); };
 		e.pageLines = () -> Std.int(Math.max(1, Math.floor(viewHeight.get() / metrics.lineHeight) - 1));
 			var live = true, editorTree = pane.tree, probeIdentity = Identity.of(probe.tree, probe.node.id);
 			var layout:LayoutTree->Bool = tree -> {
@@ -455,6 +508,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 			var x = Math.min(scroll.x.get(), Math.max(0, contentWidth.get() - bounds.width));
 			var y = Math.min(scroll.y.get(), Math.max(0, contentHeight.get() - bounds.height));
 			if (x != scroll.x.get() || y != scroll.y.get()) { scroll.jumpTo(x, y); changed = true; }
+			for (p in annotations.zonePlaces()) {
+				var holder = p.view == null ? null : tree.getBounds(p.view.node);
+				if (holder != null && Math.abs(holder.height - p.height) > 0.5 && zoneRow(p) >= 0) { p.height = holder.height; zoneHeights.set(zoneHeights.get() + 1); changed = true; }
+			}
 			var outer = tree.getBounds(box.node);
 			if (outer != null && outer.width > 0 && boxWidth.get() != outer.width) { boxWidth.set(outer.width); changed = true; }
 			return changed;
@@ -479,7 +536,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		TextCaret.publish(e, () -> {
 			if (readOnly.get()) return null;
 			var b = pane.tree.getBounds(pane.node), stop = caret.get();
-			return b == null ? null : {x: b.x + gutter.get() + PAD + stop.x - scroll.x.get(), y: b.y + PAD + stop.line * metrics.lineHeight - scroll.y.get(), width: 1.5, height: metrics.lineHeight};
+			return b == null ? null : {x: b.x + gutter.get() + PAD + stop.x - scroll.x.get(), y: b.y + rowTop(stop.line) - scroll.y.get(), width: 1.5, height: metrics.lineHeight};
 		});
 		return box;
 	}
@@ -491,6 +548,19 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** Replaces `owner`'s gutter markers with `list`, which leaves out a line the document does not have; needs `gutterMarkers`. With `follow`, they stay with their lines as the text is edited. **/
 	public function markers(owner:String, list:Array<CodeMarker>, follow = false):Void
 		annotations.mark(owner, list, follow);
+
+	/**
+		Replaces `owner`'s zones with `list`; an empty list clears them. A zone is an element placed between line `line` and the next:
+		it takes the editor's width beside the gutter and its own height, the rows after it move down by that height, and it scrolls
+		with the text. With `follow` it stays with its line as the text is edited. The element is the editor's once given: a zone replaced
+		or cleared has its element taken out of the editor.
+	**/
+	public function zone(owner:String, list:Array<CodeZone>, follow = false):Void
+		annotations.zone(owner, list, follow);
+
+	/** The lines `owner`'s zones are below now, moved by the edits if it follows them. **/
+	public function zoneLinesOf(owner:String):Array<Int>
+		return annotations.zoneLinesOf(owner);
 
 	/** `owner`'s decorations as they are now, moved by the edits if it follows them. **/
 	public function decorationsOf(owner:String):Array<CodeDecoration>
@@ -506,7 +576,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (b == null)
 			return null;
 		var text = editing.display(), at = Std.int(Math.max(0, Math.min(offset, text.length))), stop = editing.stopAt(at, text);
-		var top = b.y + PAD + stop.line * metrics.lineHeight - scroll.y.get();
+		var top = b.y + rowTop(stop.line) - scroll.y.get();
 		if (top + metrics.lineHeight <= b.y || top >= b.y + b.height)
 			return null;
 		var next = at < text.length && text.charAt(at) != "\n" ? editing.stopAt(at + 1, text) : stop;
@@ -518,7 +588,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var b = pane == null ? null : pane.tree.getScrolledBounds(pane.node);
 		if (b == null || x < b.x + gutterNow() || x >= b.x + b.width || y < b.y || y >= b.y + b.height)
 			return -1;
-		var px = x - b.x + scroll.x.get() - gutterNow() - PAD, row = editing.lineAtY(y - b.y + scroll.y.get() - PAD);
+		var px = x - b.x + scroll.x.get() - gutterNow() - PAD, height = y - b.y + scroll.y.get() - PAD, row = editing.lineAtY(height);
+		zoneLayout.get();
+		if (zones.inZone(height, metrics.lineHeight, document.visible.length))
+			return -1;
 		if (row < 0 || row >= document.visible.length || px > editing.lineWidth(row))
 			return -1;
 		return editing.indexAt(Math.max(0, px - metrics.characterWidth / 2), row);
@@ -563,6 +636,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 
 	static function isWordCharacter(code:Int):Bool
 		return code == "_".code || code == "$".code || (code >= "0".code && code <= "9".code) || (code >= "a".code && code <= "z".code) || (code >= "A".code && code <= "Z".code) || code > 127;
+
+	/** How many rows are in the viewport's pool now; for checks. **/
+	public function shownRowCount():Int {
+		var n = 0;
+		for (r in shownRows) if (r != null) n++;
+		return n;
+	}
 
 	/** The decorations over the character at `offset`, for a hover's `title`. **/
 	public function decorationsAt(offset:Int):Array<CodeDecoration>
@@ -672,6 +752,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var fold = Computed.make(() -> (foldable.get() ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
 		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} visibility={shown}>
 			<if {props.gutterMarkers == true}>${markerSlot(row)}</if>
+			<if {props.gutterMarkers == true}>${boundarySlot(row, rowHeight)}</if>
+			<if {props.gutterMarkers == true}>${barSlot(row)}</if>
 			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) - (props.gutterMarkers == true ? MARKER : 0) : Single))}>${number.get()}</text></if>
 			<if {props.folding != false}>
 				<div class="ui-code-fold-slot" visibility={fold}>${foldButton(row, foldable)}</div>
@@ -724,6 +806,29 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return slot;
 	}
 
+	/** The change bar of the row's line, in its own lane at the gutter's left edge. **/
+	function barSlot(row:Signal<Null<Row>>):Element {
+		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.barAt(r.source); });
+		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-bar"] : ["ui-code-bar", m.className]; });
+		var shown = Computed.make(() -> (marker.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
+		return new Div({classes: classes, visibility: shown});
+	}
+
+	/** A marker on the boundary below the row's line, drawn at its bottom edge in the gutter: a small triangle, or the marker's icon. **/
+	function boundarySlot(row:Signal<Null<Row>>, rowHeight:Computed<Single>):Element {
+		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.boundaryAt(r.source); });
+		var shown = Computed.make(() -> (marker.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
+		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-boundary"] : ["ui-code-boundary", m.className]; });
+		var glyph = Computed.make(() -> { var m = marker.get(); m == null || m.icon == null ? BOUNDARY : m.icon; });
+		var holder = new Div({classes: classes, top: Computed.make(() -> (rowHeight.get() - 5 : Single)), visibility: shown},
+			[<for {doc in [glyph.get()]}><icon document={doc} class="ui-code-boundary-icon"/></for>]);
+		Identity.of(holder.tree, holder.node.id).bindAttribute("title", Computed.make(() -> { var m = marker.get(); (m == null ? null : m.title : Null<String>); }));
+		return holder;
+	}
+
+	/** The mark of a boundary marker with no icon of its own: a small triangle pointing at the text. **/
+	static final BOUNDARY:ashui.svg.Icon = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><path d="M0 0 L8 5 L0 10 Z" fill="currentColor"/></svg>';
+
 	// The button is always there and answers only while its slot's row opens a fold, so a row entering the window builds no button.
 	function foldButton(slot:Signal<Null<Row>>, foldable:Computed<Bool>):Element {
 		var folded = Computed.make(() -> { revision.get(); var r = slot.get(); r != null && r.line.folded; });
@@ -752,14 +857,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 		revision.get();
 		if (fontDirty) return 0;
 		var y = scroll == null ? 0 : scroll.y.get();
-		return Std.int(Math.max(0, Math.floor((y - PAD) / metrics.lineHeight) - 3));
+		zoneLayout.get();
+		return Std.int(Math.max(0, zones.rowAt(y - PAD, metrics.lineHeight, document.visible.length) - 3));
 	}
 
 	function windowEnd():Int {
 		revision.get();
 		if (fontDirty) return 0;
 		var y = scroll == null ? 0 : scroll.y.get();
-		return Std.int(Math.min(document.visible.length, Math.ceil((y + viewHeight.get()) / metrics.lineHeight) + 3));
+		zoneLayout.get();
+		return Std.int(Math.min(document.visible.length, zones.rowAt(y + viewHeight.get() - PAD, metrics.lineHeight, document.visible.length) + 1 + 3));
 	}
 
 	/** Whitespace positions come from the line metrics; runs without ink need no styled text element. **/
@@ -775,7 +882,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var result:Array<Row> = [];
 		for (row in first...end) {
 			var source = document.visible[row], line = document.lines[source], found:Null<Row> = null;
-			for (old in cachedRows) if (old.line == line && old.source == source && old.row == row && old.stamp == stamp && old.tokens == line.tokenRevision && old.left == left && old.right == right) { found = old; break; }
+			for (old in cachedRows) if (old.line == line && old.source == source && old.row == row && old.stamp == stamp && old.top == rowTop(row) && old.tokens == line.tokenRevision && old.left == left && old.right == right) { found = old; break; }
 			if (found == null) {
 				var measured = metrics.measure(line), runs:Array<Run> = [];
 				if (line.tokenCount == 0) {
@@ -800,7 +907,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 					if (list == null) byKind.set(run.kind, list = []);
 					list.push(run);
 				}
-				found = {line: line, source: source, row: row, top: (PAD + row * lh : Single), width: (measured.width : Single), runs: runs, byKind: byKind, guides: guides, stamp: stamp, tokens: line.tokenRevision, left:left, right:right};
+				found = {line: line, source: source, row: row, top: (rowTop(row) : Single), width: (measured.width : Single), runs: runs, byKind: byKind, guides: guides, stamp: stamp, tokens: line.tokenRevision, left:left, right:right};
 			}
 			result.push(found);
 		}
@@ -816,7 +923,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 	function reveal(gutter:Float, force = false):Void {
 		if (scroll == null || (!force && !editing.focused.get())) return;
 		var at = editing.stopAt(editing.displayCaret(), editing.display()), lh = metrics.lineHeight;
-		var x = scroll.x.get(), y = scroll.y.get(), top = PAD + at.line * lh, left = PAD + at.x;
+		var x = scroll.x.get(), y = scroll.y.get(), top = rowTop(at.line), left = PAD + at.x;
 		var height = viewHeight.get(), width = Math.max(1, viewWidth.get() - gutter);
 		if (top < y + PAD) y = top - PAD;
 		else if (top + lh + PAD > y + height) y = top + lh + PAD - height;

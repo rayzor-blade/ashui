@@ -203,9 +203,13 @@ render-caribou)
 	mkdir -p bin/caribou/plugins
 	cp "$caribou/target/release/libcaribou_gpu.dylib" bin/caribou/plugins/ 2>/dev/null ||
 		cp "$caribou/target/release/libcaribou_gpu.so" bin/caribou/plugins/
+	cp "$caribou/target/release/libcaribou_window.dylib" bin/caribou/plugins/ 2>/dev/null ||
+		cp "$caribou/target/release/libcaribou_window.so" bin/caribou/plugins/
 	cp bin/blinc_abi.hdll bin/caribou/
-	$haxe_ui -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
-		--class-path fixtures/render -main Pixels -hl bin/caribou/pixels.hl
+	# Caribou's own gpu and window packages, so not hlwindow's class path.
+	haxe --class-path ../haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated \
+		--macro 'ashui.ui.Markup.enable()' -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path ../canvaskit/haxe --class-path fixtures/render -main Pixels -hl bin/caribou/pixels.hl
 	(cd bin/caribou && "$caribou/target/release/caribou" run pixels.hl)
 	;;
 memory)
@@ -348,6 +352,22 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeDiffComponent -hl bin/code-diff-component.hl
 	diff_view=0
 	run code-diff-component.hl || diff_view=$?
+	# Zones in the editor: rows, positions, folds, edits and the minimap with an element between two lines (e23bd16).
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeZonesEditor -hl bin/code-zones-editor.hl
+	code_zones_editor=0
+	run code-zones-editor.hl || code_zones_editor=$?
+	# Boundary markers and minimap marks of the editor's annotations (96ae277, 118ce57).
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeChangeMarks -hl bin/code-change-marks.hl
+	change_marks=0
+	run code-change-marks.hl || change_marks=$?
+	# A scroll container's reach and its edge shadows (bd8f627).
+	$haxe_ui --class-path fixtures/css -main ScrollReach -hl bin/scroll-reach.hl
+	scroll_reach=0
+	run scroll-reach.hl || scroll_reach=$?
+	# Rows with zones between them (e23bd16).
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeZonesCheck -hl bin/code-zones.hl
+	code_zones=0
+	run code-zones.hl || code_zones=$?
 	# A node's field tables follow the hash maps they replace.
 	$haxe_ui --class-path fixtures/css -main FieldTables -hl bin/field-tables.hl
 	field_tables=0
@@ -397,7 +417,12 @@ memory)
 	compile_fixtures || compile=$?
 	display=0
 	display_fixtures || display=$?
-	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $signal_string_cache -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $root_zoom -eq 0 ] && [ $window_theme -eq 0 ] && [ $theme_debug_probe -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $text_wrap_rounding -eq 0 ] && [ $command_items -eq 0 ] && [ $component_fragments -eq 0 ] && [ $bundled_fonts -eq 0 ] && [ $icon_sets -eq 0 ] && [ $remix_catalogue -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $code_components -eq 0 ] && [ $code_state -eq 0 ] && [ $inline_release -eq 0 ] && [ $transition_reuse -eq 0 ] && [ $field_tables -eq 0 ] && [ $diff_engine -eq 0 ] && [ $diff_rows -eq 0 ] && [ $diff_text -eq 0 ] && [ $diff_view -eq 0 ] && [ $shared_styles -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_sync -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $floating_reopen -eq 0 ] && [ $scheduler_failures -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ]
+	# Only -D ashui_window compiles the window's own code: a build of it that does not compile must not pass the suite.
+	windowed=0
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/window -main WindowDemo -hl bin/window-compile.hl --no-output || windowed=$?
+	[ $smoke -eq 0 ] && [ $idle -eq 0 ] && [ $signal_string_cache -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $root_zoom -eq 0 ] && [ $window_theme -eq 0 ] && [ $theme_debug_probe -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $text_wrap_rounding -eq 0 ] && [ $command_items -eq 0 ] && [ $component_fragments -eq 0 ] && [ $bundled_fonts -eq 0 ] && [ $icon_sets -eq 0 ] && [ $remix_catalogue -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $code_components -eq 0 ] && [ $code_state -eq 0 ] && [ $inline_release -eq 0 ] && [ $transition_reuse -eq 0 ] && [ $field_tables -eq 0 ] && [ $code_zones -eq 0 ] && [ $scroll_reach -eq 0 ] && [ $code_zones_editor -eq 0 ] && [ $change_marks -eq 0 ] && [ $diff_engine -eq 0 ] && [ $diff_rows -eq 0 ] && [ $diff_text -eq 0 ] && [ $diff_view -eq 0 ] && [ $shared_styles -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_sync -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $floating_reopen -eq 0 ] && [ $scheduler_failures -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ] && [ $windowed -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

@@ -31,29 +31,86 @@ class Interaction {
 
 	public final node:Node;
 
+	/**
+		The states below are Bools first; a signal for one is made the first time something reads it reactively, and kept in step after.
+		Most elements are read through one or two, so an element with an interaction does not carry eight native handles.
+	**/
+	var bits = 0;
+	var made:Null<Array<Null<Signal<Bool>>>> = null;
+
 	/** The pointer is over it or over something inside it. **/
-	public final hovered:Signal<Bool>;
+	public var hovered(get, never):Signal<Bool>;
 
 	/** A press that began over it is held. **/
-	public final pressed:Signal<Bool>;
+	public var pressed(get, never):Signal<Bool>;
 
 	/** It has focus (see `Focus`). **/
-	public final focused:Signal<Bool>;
+	public var focused(get, never):Signal<Bool>;
 
 	/** Focused, by the keyboard: the focus ring's case. **/
-	public final focusVisible:Signal<Bool>;
+	public var focusVisible(get, never):Signal<Bool>;
 
 	/** It or something inside it is focused. **/
-	public final focusWithin:Signal<Bool>;
+	public var focusWithin(get, never):Signal<Bool>;
 
 	/** It takes no presses, clicks or focus; set with `setDisabled`. **/
-	public final disabled:Signal<Bool>;
+	public var disabled(get, never):Signal<Bool>;
 
 	/** A checkbox or radio that is checked, or an option that is selected: CSS's `:checked`. **/
-	public final checked:Signal<Bool>;
+	public var checked(get, never):Signal<Bool>;
 
 	/** A checkbox in neither state, CSS's `:indeterminate`. **/
-	public final indeterminate:Signal<Bool>;
+	public var indeterminate(get, never):Signal<Bool>;
+
+	function signalOf(state:InteractionState):Signal<Bool> {
+		if (made == null)
+			made = [for (_ in 0...8) null];
+		var s = made[state];
+		if (s == null)
+			made[state] = s = Signal.make((bits & (1 << state)) != 0);
+		return s;
+	}
+
+	function get_hovered():Signal<Bool> return signalOf(Hovered);
+	function get_pressed():Signal<Bool> return signalOf(Pressed);
+	function get_focused():Signal<Bool> return signalOf(Focused);
+	function get_focusVisible():Signal<Bool> return signalOf(FocusVisible);
+	function get_focusWithin():Signal<Bool> return signalOf(FocusWithin);
+	function get_disabled():Signal<Bool> return signalOf(Disabled);
+	function get_checked():Signal<Bool> return signalOf(Checked);
+	function get_indeterminate():Signal<Bool> return signalOf(Indeterminate);
+
+	/** Whether `state` holds now, read without making its signal; for code that does not follow it. **/
+	public inline function is(state:InteractionState):Bool
+		return (bits & (1 << state)) != 0;
+
+	public inline function setHovered(on:Bool):Void setState(Hovered, on);
+	public inline function setPressed(on:Bool):Void setState(Pressed, on);
+	public inline function setFocused(on:Bool):Void setState(Focused, on);
+	public inline function setFocusVisible(on:Bool):Void setState(FocusVisible, on);
+	public inline function setFocusWithin(on:Bool):Void setState(FocusWithin, on);
+	public inline function setChecked(on:Bool):Void setState(Checked, on);
+	public inline function setIndeterminate(on:Bool):Void setState(Indeterminate, on);
+
+	public inline function isHovered():Bool return is(Hovered);
+	public inline function isPressed():Bool return is(Pressed);
+	public inline function isFocused():Bool return is(Focused);
+	public inline function isFocusVisible():Bool return is(FocusVisible);
+	public inline function isFocusWithin():Bool return is(FocusWithin);
+	public inline function isDisabled():Bool return is(Disabled);
+
+	/** Sets `state`, and its signal when something has made one. **/
+	public function setState(state:InteractionState, on:Bool):Void {
+		if (on)
+			bits |= 1 << state;
+		else
+			bits &= ~(1 << state);
+		if (made != null) {
+			var s = made[state];
+			if (s != null)
+				s.set(on);
+		}
+	}
 
 	/** Whether pressing it or tabbing to it gives it focus. **/
 	public var focusable(default, null) = false;
@@ -75,14 +132,6 @@ class Interaction {
 
 	function new(node:Node) {
 		this.node = node;
-		hovered = Signal.make(false);
-		pressed = Signal.make(false);
-		focused = Signal.make(false);
-		focusVisible = Signal.make(false);
-		focusWithin = Signal.make(false);
-		disabled = Signal.make(false);
-		checked = Signal.make(false);
-		indeterminate = Signal.make(false);
 	}
 
 	/** `node`'s interaction, made the first time it is asked for. Not to be called inside a computed. **/
@@ -150,7 +199,7 @@ class Interaction {
 	/** Lets pressing it or tabbing to it give it focus. **/
 	public function setFocusable(value:Bool):Interaction {
 		focusable = value;
-		if (!value && focused.get())
+		if (!value && is(Focused))
 			Focus.clear(node.tree);
 		return this;
 	}
@@ -222,9 +271,9 @@ class Interaction {
 
 	function applyDisabled():Void {
 		var v = ownDisabled || disablers.length > 0;
-		if (disabled.get() != v)
-			disabled.set(v);
-		if (v && focused.get())
+		if (is(Disabled) != v)
+			setState(Disabled, v);
+		if (v && is(Focused))
 			Focus.clear(node.tree);
 	}
 
@@ -338,4 +387,16 @@ private class TreeInteractions {
 		list.remove(i);
 		ids.remove(key(i.node.id));
 	}
+}
+
+/** The states an `Interaction` keeps. **/
+enum abstract InteractionState(Int) to Int {
+	var Hovered = 0;
+	var Pressed = 1;
+	var Focused = 2;
+	var FocusVisible = 3;
+	var FocusWithin = 4;
+	var Disabled = 5;
+	var Checked = 6;
+	var Indeterminate = 7;
 }

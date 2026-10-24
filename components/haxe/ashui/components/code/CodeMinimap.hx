@@ -36,6 +36,11 @@ typedef MinimapHost = {
 	final pad:Float;
 	/** The widest the strip gets. **/
 	final maxWidth:Float;
+	/** What the app marks, for the marks of decorations and markers that ask to be in the strip. **/
+	final annotations:CodeAnnotations;
+	/** The zones between the editor's rows and a read of them that moves when they do, so the slider keeps to the rows on screen. **/
+	final zones:CodeZones;
+	final zoneStamp:Void->Int;
 }
 
 /**
@@ -66,6 +71,9 @@ class CodeMinimap {
 
 	/** A slider is never thinner than this, so it can be taken hold of. **/
 	static inline var SLIDER_MIN = 12.0;
+
+	/** The most marks drawn over the rows. **/
+	static inline var MARKS = 600;
 
 	/** The wait after a change before the rows are drawn again, in seconds. **/
 	static inline var SETTLE = 0.12;
@@ -183,25 +191,56 @@ class CodeMinimap {
 		var canvas:Canvas = <canvas widthPercent={1} heightPercent={1} draw={draw} />;
 		var dragging = Signal.make(false);
 
+		// A height in the editor as a place among its rows, and back: the rows are one height, but zones between them are not.
+		function rowOf(y:Float):Float {
+			host.zoneStamp();
+			return host.zones.fraction(y - host.pad, host.metrics.lineHeight, host.document.visible.length);
+		}
+		function yOf(row:Float):Float {
+			host.zoneStamp();
+			var whole = Std.int(Math.floor(row));
+			return host.pad + host.zones.yOf(whole, host.metrics.lineHeight) + (row - whole) * host.metrics.lineHeight;
+		}
 		function span():Float {
-			var h = host.viewHeight.get();
-			return Math.min(h, Math.max(SLIDER_MIN, h / host.metrics.lineHeight * pitch()));
+			var h = host.viewHeight.get(), y = host.scroll.y.get();
+			return Math.min(h, Math.max(SLIDER_MIN, (rowOf(y + h) - rowOf(y)) * pitch()));
 		}
 		var sliderTop = Computed.make(() -> {
 			host.revision.get();
-			var top = (host.scroll.y.get() - host.pad) / host.metrics.lineHeight * pitch();
+			var top = rowOf(host.scroll.y.get()) * pitch();
 			(Math.max(0, Math.min(top, host.viewHeight.get() - span())) : Single);
 		});
 		var sliderHeight = Computed.make(() -> { host.revision.get(); (span() : Single); });
 		var slider = new Div({classes: ["ui-code-minimap-slider"], top: sliderTop, height: sliderHeight});
 
-		var strip = new Div({classes: ["ui-code-minimap"], width: width, height: height}, [(canvas : Element), slider].concat(probeBoxes));
+		// Marks the app asked for, over the rows: a bar at the edge for a marker, the width of the row for a decoration. They are elements,
+		// not part of the canvas, so a change of marks never draws the rows again; a few hundred at most, one a line and class.
+		var marks = Computed.make(() -> {
+			host.revision.get();
+			host.annotations.revision.get();
+			host.annotations.minimapMarks(MARKS);
+		});
+		function markView(m:CodeAnnotations.MinimapMark):Element {
+			var top = Computed.make(() -> {
+				host.revision.get();
+				var d = host.document, line = Std.int(Math.min(m.line, d.lines.length - 1)), at = d.rows[line];
+				(at < 0 ? 0 : at * pitch() : Single);
+			});
+			var thick = Computed.make(() -> (Math.max(2, pitch() * 1.2) : Single));
+			var hidden = Computed.make(() -> {
+				host.revision.get();
+				var d = host.document, line = Std.int(Math.min(m.line, d.lines.length - 1));
+				(d.visible[d.rows[line]] == line ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility);
+			});
+			return new Div({classes: ["ui-code-minimap-mark", m.className].concat(m.bar ? ["ui-code-minimap-bar"] : []), top: top, height: thick, visibility: hidden});
+		}
+		var layer = new Div({classes: ["ui-code-minimap-marks"]}, [<for {m in marks}>{markView(m)}</for>]);
+		var strip = new Div({classes: ["ui-code-minimap"], width: width, height: height}, [(canvas : Element), (layer : Element), slider].concat(probeBoxes));
 		Identity.of(strip.tree, strip.node.id).bindAttribute("data-dragging", Computed.make(() -> (dragging.get() ? "true" : null : Null<String>)));
 
 		/** Scrolls the editor so the slider's top is at `top` in the strip. **/
 		function scrollTo(top:Float):Void {
-			var line = top / pitch();
-			host.scroll.scrollTo(host.scroll.x.get(), host.pad + line * host.metrics.lineHeight);
+			host.scroll.scrollTo(host.scroll.x.get(), yOf(top / pitch()));
 		}
 		// Where on the slider it was taken hold of, so it moves with the pointer instead of jumping to it; off it, its middle.
 		var grab = 0.0;

@@ -25,6 +25,30 @@ package ashui.css;
 	  `--duration-faster` while it goes.
 **/
 class UserAgent {
+	/**
+		The inset shadows of `scroll-shadow: auto`: one rule for each combination of the four edges that hide content, since a
+		box has one `box-shadow`. `--ui-scroll-shadow-color` colours them.
+	**/
+	static function scrollShadows():String {
+		var edges = [
+			{attr: "above", at: "0 10px"},
+			{attr: "below", at: "0 -10px"},
+			{attr: "left", at: "10px 0"},
+			{attr: "right", at: "-10px 0"}
+		];
+		var out = new StringBuf();
+		for (mask in 1...16) {
+			var selector = "[data-scroll-shadow]", shadows = [];
+			for (i in 0...4)
+				if (mask & (1 << i) != 0) {
+					selector += '[data-more-${edges[i].attr}]';
+					shadows.push('inset ${edges[i].at} 8px -8px var(--ui-scroll-shadow-color, rgba(0, 0, 0, 0.35))');
+				}
+			out.add('$selector { box-shadow: ${shadows.join(", ")}; }\n');
+		}
+		return out.toString();
+	}
+
 	/** Colours and borders easing between states. **/
 	static inline var STATE = "var(--duration-fast) var(--ease-state)";
 
@@ -318,5 +342,6 @@ class UserAgent {
 		details[open] > summary > .marker { transform: rotate(90deg); }
 		details:not([open]) > .content { display: none; }
 		details > .content { flex-direction: column; gap: 6px; padding-left: 18px; animation: ashui-list-in ${ENTER}; }
+		${scrollShadows()}
 	';
 }

@@ -347,11 +347,11 @@ class Input extends Component<InputProps> implements FormControl {
 		switch props.indeterminate {
 			case null:
 			case Const(v):
-				interaction.indeterminate.set(v);
+				interaction.setIndeterminate(v);
 			case Bound(s):
-				new Watch(() -> s.get(), v -> interaction.indeterminate.set(v));
+				new Watch(() -> s.get(), v -> interaction.setIndeterminate(v));
 			case Derived(c):
-				new Watch(() -> c.get(), v -> interaction.indeterminate.set(v));
+				new Watch(() -> c.get(), v -> interaction.setIndeterminate(v));
 		}
 
 		if (type == "checkbox") {
@@ -713,7 +713,7 @@ class Input extends Component<InputProps> implements FormControl {
 			return;
 		}
 		if (type == "checkbox") {
-			interaction.indeterminate.set(false);
+			interaction.setIndeterminate(false);
 			state.set(!state.get());
 		} else {
 			if (isChecked())

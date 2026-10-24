@@ -1,0 +1,2 @@
+#pane { overflow-y: auto; scroll-shadow: auto; width: 300px; height: 220px; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.line { height: 28px; flex-shrink: 0; padding: 0 12px; align-items: center; flex-direction: row; }

@@ -243,9 +243,6 @@ class Renderer {
 		textures where the GPU can.
 	**/
 	public static function requestDevice(adapter:gpu.GpuAdapter):gpu.GpuDevice {
-		#if ashui_caribou
-		return adapter.requestDevice().await();
-		#else
 		var descriptor = new gpu.GpuDeviceDescriptor();
 		descriptor.memoryHints(MemoryUsage);
 		// Block-compressed textures where the GPU samples them: meshes' textures take a quarter of the memory.
@@ -258,7 +255,6 @@ class Renderer {
 			maxTexture = most;
 		}
 		return adapter.requestDeviceWith(descriptor).await();
-		#end
 	}
 
 	/** The most a texture side may be on the device `requestDevice` made, 8192 until then; what a canvas's triangle table and a mesh's textures are held to. **/

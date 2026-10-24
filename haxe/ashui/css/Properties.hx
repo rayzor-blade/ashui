@@ -344,6 +344,13 @@ class Properties {
 			scrollbarColors(v, c.currentColor);
 			[];
 		});
+		// Inset shadows at the edges of a scroll container that hide content; Scroll's restyle hook applies it.
+		h.set("scroll-shadow", (_, v, _) -> {
+			var key = StringTools.trim(v).toLowerCase();
+			if (["auto", "none"].indexOf(key) < 0)
+				throw "scroll-shadow takes auto or none";
+			[];
+		});
 		h.set("scrollbar-visibility", (n, v, _) -> {
 			var key = StringTools.trim(v).toLowerCase();
 			if (["auto", "always", "hover", "hidden"].indexOf(key) < 0)

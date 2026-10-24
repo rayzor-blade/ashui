@@ -257,7 +257,7 @@ class WindowedApp {
 		ashui.input.Cursor.bind(tree, code -> {
 			window.setCursorVisible(code != ashui.input.Cursor.HIDDEN);
 			if (code != ashui.input.Cursor.HIDDEN)
-				window.setCursorIcon(cast code);
+				window.setCursorIcon(ashui.input.Cursor.icon(code));
 		});
 		paceOnRedraw = window.platform() == WAYLAND || window.platform() == WEB_CANVAS;
 	}
@@ -265,6 +265,19 @@ class WindowedApp {
 	/** Closes the window after the frame being drawn. **/
 	public function quit():Void {
 		context.run(requestClose);
+	}
+
+	/**
+		Closes the window after the frame being drawn, without asking `onClose`: for an app that has asked its own question, such as
+		Save, Don't save or Cancel, and has its answer.
+	**/
+	public function close():Void {
+		context.run(() -> {
+			if (disposed || quitting)
+				return;
+			quitting = true;
+			ashui.core.Work.notify();
+		});
 	}
 
 	function requestClose():Void {
@@ -530,7 +543,7 @@ class WindowedApp {
 			if (loopSince == 0)
 				loopSince = now;
 			else if (now - loopSince >= 1) {
-				Sys.println('[loop] ${loopTurns} turns in ${Math.round((now - loopSince) * 1000)} ms, busy ${Math.round(loopBusy * 1000)} ms, ${loopAnimating} with something animating, ${loopTimers} woken by a timer, ${ashui.input.Pointer.hooks.length} pointer hooks; events: ${[for (k => n in loopEvents) k + "=" + n].join(" ")}');
+				Sys.println('[loop] ${loopTurns} turns in ${Math.round((now - loopSince) * 1000)} ms, busy ${Math.round(loopBusy * 1000)} ms, ${loopAnimating} with something animating, ${loopTimers} woken by a timer, ${ashui.input.Pointer.hooks.length} pointer hooks; state: dirty=$dirty visible=${ashui.input.WindowState.visible.get()} awaiting=$awaitingFrame ${awaitingFrame ? Math.round((now - awaitingSince) * 1000) + " ms" : ""} refused ${refusedAt == Math.NEGATIVE_INFINITY ? "never" : Math.round((now - refusedAt) * 1000) + " ms ago"}; events: ${[for (k => n in loopEvents) k + "=" + n].join(" ")}');
 				loopSince = now;
 				loopTurns = loopAnimating = loopTimers = 0;
 				loopBusy = 0;
@@ -813,7 +826,8 @@ class WindowedApp {
 		return surface.preferredFormat(adapter);
 	}
 
-	function close():Void {
+	/** Releases the window's tree, renderer and watches once it is closed. **/
+	function teardown():Void {
 		if (disposed)
 			return;
 		disposed = true;
@@ -918,7 +932,7 @@ private class WindowManager {
 			try
 				app.initialize(build)
 			catch (error:haxe.Exception) {
-				app.close();
+				app.teardown();
 				windows.remove(app);
 				WindowedApp.windowRevision.set(WindowedApp.windowRevision.get() + 1);
 				throw error;

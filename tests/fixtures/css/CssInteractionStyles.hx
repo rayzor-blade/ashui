@@ -94,7 +94,7 @@ class CssInteractionStyles {
 		layout(tree, utility);
 		check("visibility and pointer utilities bind native fields", rects(records(tree, utility)).length == 0 && tree.hitTest(10, 10)[0].id == utility.node.id);
 		var utilityNode = child(tree, utility.node);
-		Interaction.of(utilityNode).hovered.set(true);
+		Interaction.of(utilityNode).setHovered(true);
 		tree.flush();
 		check("utility state variants update paint and hits", rects(records(tree, utility)).length == 1 && tree.hitTest(10, 10)[0].id == utilityNode.id);
 

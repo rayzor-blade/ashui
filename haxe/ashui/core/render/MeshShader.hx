@@ -21,7 +21,7 @@ package ashui.core.render;
 	tone-maps and writes sRGB. A toon shader:
 
 	```haxe
-	class Toon implements hlwgpu.hxsl.Shader {
+	class Toon implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 		static var SRC = {
 			@:extends ashui.core.render.MeshShader;
 			function shade() : Vec3 {
@@ -36,7 +36,7 @@ package ashui.core.render;
 	An extension keeps every parameter and binding as they are, so it adds
 	none of its own; what needs its own data draws with a `ScenePass`.
 **/
-class MeshShader implements hlwgpu.hxsl.Shader {
+class MeshShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.MeshDraw;

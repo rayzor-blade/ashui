@@ -13,7 +13,7 @@ import sys.io.File;
 	makes, for the module `ash --build` is asked to write under the same name,
 	`app.hl` for `app.wasm`. The page is the program's window, the canvas fills
 	it, and it shows what is loading and what went wrong; the program's output is
-	in the browser's console, and in the page with `?debug` in its address.
+	in the browser's console, and in the page with `?log` in its address.
 
 	An `index.html` already there that is not ashui's page or ash's generated
 	one is the author's own, and stays as it is. Define `ashui_no_page` to

@@ -6,7 +6,7 @@ package ashui.core.render;
 	half for a blended one, so leaves cast leaf shapes and a shell an
 	exporter marked blended casts as the solid it is.
 **/
-class MeshCutoutShadowShader implements hlwgpu.hxsl.Shader {
+class MeshCutoutShadowShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.MeshDraw;

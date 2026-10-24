@@ -316,7 +316,7 @@ class Select extends Component<SelectProps> implements FormControl {
 				var ri = Interaction.of(row.node).setFocusable(true);
 				if (c.disabled)
 					ri.setDisabled(true);
-				ri.checked.set(c.option.valueText() == value.get());
+				ri.setChecked(c.option.valueText() == value.get());
 				var choice = c;
 				ri.onClick(_ -> choose(choice.option.valueText()));
 				ri.onPointerEnter(_ -> if (!choice.disabled) Focus.set(ri, false));
@@ -433,7 +433,7 @@ class Select extends Component<SelectProps> implements FormControl {
 				var ri = Interaction.of(row.node).setFocusable(true);
 				if (c.disabled)
 					ri.setDisabled(true);
-				ri.checked.set(c.option.valueText() == value.get());
+				ri.setChecked(c.option.valueText() == value.get());
 				ri.onClick(_ -> choose(c.option.valueText()));
 				ri.onPointerEnter(_ -> if (!c.disabled) Focus.set(ri, false));
 				ri.onFocus(_ -> active.set(i));

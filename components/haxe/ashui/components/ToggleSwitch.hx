@@ -56,8 +56,8 @@ class ToggleSwitch extends Component<ToggleSwitchProps> {
 		if (props.disabled != null)
 			i.setDisabled(props.disabled);
 		// CSS's :checked follows the state.
-		i.checked.set(on.get());
-		new Watch(() -> on.get(), v -> i.checked.set(v));
+		i.setChecked(on.get());
+		new Watch(() -> on.get(), v -> i.setChecked(v));
 		i.onClick(_ -> {
 			state.set(!state.get());
 			if (props.onChange != null)

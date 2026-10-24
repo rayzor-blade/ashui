@@ -312,8 +312,11 @@ class InlineFlow {
 		var tree = root.tree;
 		Owner.onCleanup(() -> {
 			var l = flows.get(tree);
-			if (l != null)
+			if (l != null) {
 				l.remove(flow);
+				if (l.length == 0)
+					flows.remove(tree);
+			}
 			flow.forget();
 		});
 		return flow;

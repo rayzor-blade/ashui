@@ -21,7 +21,7 @@
   .spinner { width: 1.6rem; height: 1.6rem; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
   #status.failed .spinner { display: none; }
   @keyframes spin { to { transform: rotate(1turn); } }
-  /* The program's output goes to the browser's console; this shows it in the page too, with ?debug. */
+  /* The program's output goes to the browser's console; this shows it in the page too, with ?log. */
   #out { display: none; margin: 0; }
   .debug #out { display: block; position: fixed; left: 0; right: 0; bottom: 0; max-height: 40vh; overflow: auto; z-index: 2; padding: .6rem .9rem;
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; color: #ddd; background: #000d; }

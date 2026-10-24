@@ -65,7 +65,7 @@ asks of its window's size does not change that. Until the first frame is on the
 GPU the page says it is loading; if the page is not cross-origin isolated, the
 browser has no WebGPU, or the program stops, it says so.
 
-What the program writes goes to the browser's console. Open the page with `?debug`
+What the program writes goes to the browser's console. Open the page with `?log`
 to see it in the page too, and `?arg=value` hands the program a command line
 argument.
 
@@ -106,8 +106,8 @@ debugging tools that write files, such as `MotionRecorder`, are not for a page.
 
 ## When a page stops
 
-Open the page with `?debug` to see its log on the page, or `?watch` for the console alone. Once a second it says how
-the page's own animation frames are going:
+Open the page with `?debug` (or `?watch`) and read the browser's console: once a second it says how
+the page's own animation frames are going. `?log` also shows the log on the page, over the app:
 
 ```
 [page] 60 animation frames in 1002 ms, longest gap 17 ms, 4 ms since the last, program memory 606 MB

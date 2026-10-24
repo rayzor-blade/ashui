@@ -29,7 +29,7 @@ package ashui.core.render;
 	brightness of the four diagonal neighbours, finds the direction of any
 	edge between them, and blends along that edge.
 **/
-class LensShader implements hlwgpu.hxsl.Shader {
+class LensShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		var output:{position:Vec4, color:Vec4};
 		@param var lensSource:Sampler2D;
