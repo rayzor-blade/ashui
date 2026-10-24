@@ -203,9 +203,13 @@ render-caribou)
 	mkdir -p bin/caribou/plugins
 	cp "$caribou/target/release/libcaribou_gpu.dylib" bin/caribou/plugins/ 2>/dev/null ||
 		cp "$caribou/target/release/libcaribou_gpu.so" bin/caribou/plugins/
+	cp "$caribou/target/release/libcaribou_window.dylib" bin/caribou/plugins/ 2>/dev/null ||
+		cp "$caribou/target/release/libcaribou_window.so" bin/caribou/plugins/
 	cp bin/blinc_abi.hdll bin/caribou/
-	$haxe_ui -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
-		--class-path fixtures/render -main Pixels -hl bin/caribou/pixels.hl
+	# Caribou's own gpu and window packages, so not hlwindow's class path.
+	haxe --class-path ../haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated \
+		--macro 'ashui.ui.Markup.enable()' -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
+		--class-path ../canvaskit/haxe --class-path fixtures/render -main Pixels -hl bin/caribou/pixels.hl
 	(cd bin/caribou && "$caribou/target/release/caribou" run pixels.hl)
 	;;
 memory)

@@ -42,8 +42,8 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 		if (pipeline == null) {
 			var builder = frame.pipelineBuilder(SkyShader.WGSL, false, false);
 			// At the far plane, where the cleared depth is: drawn wherever nothing is nearer, which is everywhere before the meshes.
-			builder.depth(frame.depthFormat, false, Always);
-			builder.primitive(TriangleList, None, Ccw);
+			builder.depth(frame.depthFormat, false, gpu.CompareFunction.Always);
+			builder.primitive(gpu.PrimitiveTopology.TriangleList, gpu.CullMode.None, gpu.FrontFace.Ccw);
 			pipeline = builder.build();
 			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(ROWS * 16,
 				ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));

@@ -1643,7 +1643,7 @@ class TestQuadPass implements ashui.draw3d.ScenePass {
 }
 
 /** The quad: through the scene's camera, by ashui's `Scene` module; green, opaque. **/
-class TestQuadShader implements hlwgpu.hxsl.Shader {
+class TestQuadShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 
@@ -1670,7 +1670,7 @@ class TestQuadShader implements hlwgpu.hxsl.Shader {
 }
 
 /** ashui's mesh shader with its colour as it is: `shade` and `present` replaced, everything else inherited. **/
-class FlatShade implements hlwgpu.hxsl.Shader {
+class FlatShade implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:extends ashui.core.render.MeshShader;
 

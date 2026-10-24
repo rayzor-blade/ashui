@@ -14,7 +14,7 @@ package ashui.canvaskit;
 	glow pass; a
 	grounded sky's floor darkens under the scene's shadows.
 **/
-class SkyShader implements hlwgpu.hxsl.Shader {
+class SkyShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.ColorSpace;

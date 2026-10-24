@@ -1,7 +1,7 @@
 package ashui.canvaskit;
 
 /** Selected mesh silhouettes, with depth and a constant screen width. 8ceba8d, 67cca2c. **/
-class SelectionEdgeShader implements hlwgpu.hxsl.Shader {
+class SelectionEdgeShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		var output:{position:Vec4, color:Vec4};

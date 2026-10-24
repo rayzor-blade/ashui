@@ -13,7 +13,7 @@ package ashui.canvaskit;
 	alpha); height, whether it draws axes and whether it catches shadows. Ported from Blinc's canvas
 	kit grid, there a full-screen pass without depth.
 **/
-class GridShader implements hlwgpu.hxsl.Shader {
+class GridShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {
 		@:import ashui.shaders.Scene;
 		@:import ashui.shaders.Shadows;

@@ -79,14 +79,14 @@ class GroundGrid implements ScenePass {
 	var pipeline:Null<gpu.GpuPipeline> = null;
 	var settings:Null<gpu.GpuBuffer> = null;
 	var group:Null<gpu.GpuBindGroup> = null;
-	var groupScene = -1;
-	var groupShadow = -1;
-	var groupEnvironment = -1;
+	var groupScene:Null<gpu.GpuBuffer> = null;
+	var groupShadow:Null<gpu.GpuTextureView> = null;
+	var groupEnvironment:Null<gpu.GpuTextureView> = null;
 
 	public function prepare(frame:ScenePassFrame):Void {
 		if (pipeline == null) {
 			var builder = frame.pipelineBuilder(GridShader.WGSL, true, false);
-			builder.primitive(TriangleList, None, Ccw);
+			builder.primitive(gpu.PrimitiveTopology.TriangleList, gpu.CullMode.None, gpu.FrontFace.Ccw);
 			pipeline = builder.build();
 			settings = frame.device.createBuffer(new gpu.GpuBufferDescriptor(64,
 				ashui.core.render.GpuFlags.BUFFER_STORAGE | ashui.core.render.GpuFlags.BUFFER_COPY_DST));
@@ -104,9 +104,9 @@ class GroundGrid implements ScenePass {
 		row(3, height, axes ? 1 : 0, catchesShadows ? 1 : 0, 0);
 		frame.device.queue().writeBuffer(settings, 0, b, 64);
 		// The scene's buffer, shadow map and environment are made again as scenes change: the group follows them.
-		var shadow = (frame.shadowMap : Int),
-			environment = (frame.environment : Int);
-		if (group == null || groupScene != (frame.sceneBuffer : Int) || groupShadow != shadow || groupEnvironment != environment) {
+		var shadow = frame.shadowMap,
+			environment = frame.environment;
+		if (group == null || groupScene != frame.sceneBuffer || groupShadow != shadow || groupEnvironment != environment) {
 			if (group != null)
 				group.destroy();
 			var bindings = new gpu.GpuBindings();
@@ -118,7 +118,7 @@ class GroundGrid implements ScenePass {
 			bindings.buffer(settings);
 			group = frame.device.bindGroup(pipeline, 0, bindings);
 			bindings.destroy();
-			groupScene = (frame.sceneBuffer : Int);
+			groupScene = frame.sceneBuffer;
 			groupShadow = shadow;
 			groupEnvironment = environment;
 		}
@@ -139,7 +139,7 @@ class GroundGrid implements ScenePass {
 		group = null;
 		settings = null;
 		pipeline = null;
-		groupScene = -1;
+		groupScene = null;
 	}
 	#else
 	public function prepare(frame:ScenePassFrame):Void {}
