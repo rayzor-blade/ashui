@@ -146,6 +146,16 @@ class Node {
 				return;
 			}
 			var from = fresh && restyling ? ashui.animation.Tweened.initial(key) : settled != null ? settled.get(key) : null;
+			// A constant written for the first time is applied plain, and noted in `settled`: the tween is made when the property
+			// next changes, from this value, so a property that never moves costs no tween.
+			if (!(fresh && restyling) && ashui.animation.Tweened.initial(key) != null) {
+				switch (reactive : ReactiveType<T>) {
+					case Const(v) if (from == null || ashui.animation.Tweened.equal(key, from, v)):
+						writePlain(key, prop, reactive);
+						return;
+					case _:
+				}
+			}
 			tween = ashui.animation.Tweened.bind(this, key, timing, cast reactive, from);
 			if (tween != null) {
 				tweens.set(key, tween);
@@ -171,6 +181,20 @@ class Node {
 						settled = new FieldTable();
 					settled.set(key, v);
 				}
+		}
+		bind(prop, reactive);
+	}
+
+	/** A constant bound with no tween, kept in `settled` for a transition's later move from it. **/
+	function writePlain<T>(key:PropertyId, prop:Prop<T>, reactive:IntoReactive<T>):Void {
+		switch (reactive : ReactiveType<T>) {
+			case Const(v):
+				if (reactives != null)
+					reactives.remove(key);
+				if (settled == null)
+					settled = new FieldTable();
+				settled.set(key, v);
+			case _:
 		}
 		bind(prop, reactive);
 	}

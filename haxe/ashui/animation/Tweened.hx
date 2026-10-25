@@ -169,9 +169,15 @@ class Tweened<T> {
 	}
 
 	/** Whether two values are the same, read by the property's type; a gradient only when it is the same object. **/
-	function same(a:T, b:T):Bool {
+	function same(a:T, b:T):Bool
+		return equal(prop, a, b);
+
+	/** Whether two values of `prop` are the same, read by its type: the test for a change that moves nothing. **/
+	public static function equal(prop:PropertyId, a:Dynamic, b:Dynamic):Bool {
 		if (a == null || b == null)
 			return false;
+		if (a == b)
+			return true;
 		var x:Dynamic = a, y:Dynamic = b;
 		return switch prop.getDataType() {
 			case TypeColor: var c:Color = x, d:Color = y; c.rgb == d.rgb && c.alpha == d.alpha;
