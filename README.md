@@ -49,6 +49,12 @@ class Hello {
 }
 ```
 
+## For AI agents
+
+[`skills/ashui/SKILL.md`](skills/ashui/SKILL.md) is a skill file that maps what an agent already knows
+from React/JSX, SolidJS and Tailwind onto ashui's API, conventions and tooling, with the rules that
+most often cause bugs. Copy it into an agent's skills directory.
+
 ## Quick setup
 
 Install **Haxe 4.3.6+** and [Ash](https://ash.rayzor.tech/#setup), then install
