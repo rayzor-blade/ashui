@@ -43,11 +43,21 @@ class NodeCost {
 		var tree = new LayoutTree();
 		var stops = [];
 		var root:Div = null;
+		var spent = [0.0, 0.0, 0.0];
+		function allocated():Float
+			return hl.Gc.stats().totalAllocated;
 		function settle()
 			for (_ in 0...3) {
+				var a = allocated();
 				Css.update();
+				var b = allocated();
 				tree.flush();
+				var c = allocated();
 				tree.computeLayout(root.node, 1200, 900);
+				var d = allocated();
+				spent[0] += b - a;
+				spent[1] += c - b;
+				spent[2] += d - c;
 			}
 		var s0 = Owner.root(tree, stop -> {
 			root = new Div({width: 1200, height: 900}, tree);
@@ -78,6 +88,7 @@ class NodeCost {
 		if (Sys.getEnv("NOSETTLE") == null) settle();
 		var h1 = heapKb(), f1 = footprintKb();
 		if (Sys.getEnv("CENSUS") != null) { hl.Gc.dumpMemory(Sys.getEnv("CENSUS")); }
+		Sys.println('allocated per element: Css.update ${Std.int(spent[0] / n)} B, flush (the restyle) ${Std.int(spent[1] / n)} B, computeLayout ${Std.int(spent[2] / n)} B');
 		Sys.println('$kind x$n: heap +${Std.int((h1 - h0) / n * 10) / 10} KB each (gc), footprint +${Std.int((f1 - f0) / n * 10) / 10} KB each');
 		if (Sys.getEnv("HOLD") != null) Sys.sleep(25);
 		for (stop in stops) stop();
