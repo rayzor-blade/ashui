@@ -29,12 +29,25 @@ class CodeCollaboration {
 		check(events.length==4 && events[3].after=="remote","Ordinary undo was omitted from the transaction stream");
 		state.peers.set([{id:"peer",name:"Peer",caret:2,anchor:0,color:1}]); settle();
 		check(Css.query(tree,editor.node.id,".ui-code-peer-caret").length==1,"Peer caret was not drawn");
+		Css.add(ashui.css.Stylesheet.parse(".ui-code-peer-name { font-family: sans-serif; }"));
+		function labelWidth(name:String):Float {
+			state.peers.set([{id:"peer",name:name,caret:2,anchor:0,color:1}]); settle();
+			var labels=Css.query(tree,editor.node.id,".ui-code-peer-name");
+			check(labels.length==1,"Peer name label was not drawn");
+			return tree.getBounds(new ashui.layout.Node(labels[0])).width;
+		}
+		var narrow=labelWidth("iiii"), wide=labelWidth("WWWW");
+		check(narrow > 6 && wide > narrow + 10,"Peer label width did not follow glyph measurements");
+		var normal=labelWidth("raikage"), unicode=labelWidth("Miyuki 美雪 🌊");
+		check(normal > 6 && unicode > normal,"Unicode peer labels lost their measured content");
+		check(labelWidth([for (_ in 0...100) "W"].join("")) <= 220.1,"Long peer labels escaped their width cap");
+		check(Math.abs(labelWidth("iiii")-narrow)<.1,"Replacing a long name retained its old label width");
 		stop(); check(!state.mounted && state.receive==null,"State retained a disposed presentation"); tree.dispose();
 		state.applyRemote("unmounted",{caret:4,anchor:4});
 		var replacement=new LayoutTree();
 		editor=Owner.root(replacement,cleanup -> { stop=cleanup; return new CodeEditor({state:state}); });
 		replacement.flush(); check(editor.value.get()=="unmounted" && editor.editing.caret.get()==4,"External text was lost between presentations");
 		stop(); replacement.dispose();
-		Sys.println("Editor collaboration: exact ranges, Unicode, delegated undo, external apply, peer marks and presentation cleanup");
+		Sys.println("Editor collaboration: exact ranges, Unicode, delegated undo, external apply, peer marks, content-sized capped labels and presentation cleanup");
 	}
 }

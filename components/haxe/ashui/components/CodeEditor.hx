@@ -980,7 +980,6 @@ class CodeEditor extends Component<CodeEditorProps> {
 		Identity.of(mark.tree,mark.node.id).setAttribute("title",name);
 		if (box.className.indexOf("ui-code-peer-caret") == 0) {
 			var label = new Text(name, {fontSize:10,wrap:false});
-			label.node.set(ashui.layout.Prop.Width, (Math.min(220,name.length*6+8):Single));
 			label.node.set(ashui.layout.Prop.Height, (12:Single));
 			Identity.of(label.tree,label.node.id).addClasses(["ui-code-peer-name",box.className.split(" ")[1]]);
 			mark.appendChild(label);

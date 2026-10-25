@@ -1426,4 +1426,4 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-peer-2 { background: #db9a24; }
 .ui-code-peer-3 { background: #2bbf92; }
 
-.ui-code-peer-name { position: absolute; left: 2px; top: -12px; font-size: 10px; line-height: 12px; color: #101820; padding: 0 3px; border-radius: 2px; }
+.ui-code-peer-name { position: absolute; left: 2px; top: -12px; max-width: 220px; font-size: 10px; line-height: 12px; color: #101820; padding: 0 3px; border-radius: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
