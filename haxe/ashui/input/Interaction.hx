@@ -99,8 +99,9 @@ class Interaction {
 	public inline function isFocusWithin():Bool return is(FocusWithin);
 	public inline function isDisabled():Bool return is(Disabled);
 
-	/** Sets `state`, and its signal when something has made one. **/
+	/** Sets `state`, and its signal when something has made one, and tells its listeners when it changed. **/
 	public function setState(state:InteractionState, on:Bool):Void {
+		var was = (bits & (1 << state)) != 0;
 		if (on)
 			bits |= 1 << state;
 		else
@@ -109,6 +110,38 @@ class Interaction {
 			var s = made[state];
 			if (s != null)
 				s.set(on);
+		}
+		if (was != on && listeners != null)
+			for (l in listeners.copy())
+				l();
+	}
+
+	var listeners:Null<Array<Void->Void>> = null;
+
+	/** Calls `listener` whenever one of the states changes, with no signal made; the returned function removes it. **/
+	public function onStateChange(listener:Void->Void):Void->Void {
+		if (listeners == null)
+			listeners = [];
+		listeners.push(listener);
+		return () -> if (listeners != null) listeners.remove(listener);
+	}
+
+	/** Whether the state CSS calls `name` holds now, read without making a signal; a form state not yet set reads false. **/
+	public function stateNamed(name:String):Bool {
+		return switch name {
+			case "hover": is(Hovered);
+			case "active": is(Pressed);
+			case "focus": is(Focused);
+			case "focus-visible": is(FocusVisible);
+			case "focus-within": is(FocusWithin);
+			case "checked": is(Checked);
+			case "indeterminate": is(Indeterminate);
+			case "placeholder-shown" | "valid" | "invalid" | "user-valid" | "user-invalid" | "required" | "optional":
+				if (formStates == null) false else {
+					var f = formStates.get(name);
+					f != null && f.get();
+				}
+			case _: is(Disabled);
 		}
 	}
 

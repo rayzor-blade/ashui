@@ -38,6 +38,8 @@ class NativeCascade {
 	static final watches = new Map<String, ashui.reactive.Watch<Bool>>();
 	/** Only states actually requested by selectors on this node (0973e0c). **/
 	static final watchedStates = new Map<String, Int>();
+	/** One listener on a node's Interaction for the states its selectors test, by node: it keeps the engine's states current with no watch and no signals. **/
+	static final listeners = new Map<String, Void->Void>();
 
 	static inline final RECORD = "\x01";
 	static inline final PAIR = "\x02";
@@ -159,6 +161,11 @@ class NativeCascade {
 		CssNative.blinc_css_forget(css(), node);
 		var nodeKey = haxe.Int64.toStr(node), prefix = nodeKey + ":";
 		watchedStates.remove(nodeKey);
+		var stop = listeners.get(nodeKey);
+		if (stop != null) {
+			stop();
+			listeners.remove(nodeKey);
+		}
 		for (key => w in watches)
 			if (StringTools.startsWith(key, prefix)) {
 				w.stop();
@@ -364,8 +371,12 @@ class NativeCascade {
 
 	/** Watches state `bit` of `node`; true when it found a state set, which the engine was told. **/
 	static function watch(node:haxe.Int64, bit:Int):Bool {
-		var key = haxe.Int64.toStr(node) + ":" + bit;
+		var nodeKey0 = haxe.Int64.toStr(node), key = nodeKey0 + ":" + bit;
 		if (watches.exists(key))
+			return false;
+		// Already followed by the node's listener.
+		var requested = watchedStates.get(nodeKey0);
+		if (requested != null && (requested & bit) != 0 && listeners.exists(nodeKey0))
 			return false;
 		var name = stateName(bit);
 		var identity = find(node);
@@ -387,6 +398,17 @@ class NativeCascade {
 		}
 		// Creating it above may already have attached this reader through the hook.
 		if (watches.exists(key)) return mask(identity) != 0;
+		if (FORM_STATES.indexOf(name) < 0) {
+			// Hover, press, focus, checked and disabled are plain bits: one listener per node follows them all.
+			if (!listeners.exists(nodeKey))
+				listeners.set(nodeKey, interaction.onStateChange(() -> {
+					CssNative.blinc_css_set_states(css(), node, mask(identity));
+					ashui.core.Work.notify();
+				}));
+			var states = mask(identity);
+			CssNative.blinc_css_set_states(css(), node, states);
+			return states != 0;
+		}
 		var signal = stateSignal(identity, name);
 		watches.set(key, new ashui.reactive.Watch(() -> signal.get(), on -> {
 			CssNative.blinc_css_set_states(css(), node, mask(identity));
@@ -432,7 +454,7 @@ class NativeCascade {
 		var out = 0;
 		for (bit => name in names) {
 			if ((watched & bit) == 0) continue;
-			var on = interaction != null && stateSignal(identity, name).get();
+			var on = interaction != null && interaction.stateNamed(name);
 			if (name == "enabled")
 				on = !on;
 			if (on)
