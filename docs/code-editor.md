@@ -41,6 +41,7 @@ is a complete windowed example.
 | `readOnly` | `false` | Reactive edit lock; selection and copying remain available. |
 | `disabled` | `false` | Reactive input and focus lock. |
 | `label` | `"Code"` | Accessible name of the text surface. |
+| `header` | none | An element above the text viewport, beside the full-height minimap. |
 | `findShortcuts` | `true` | Handle built-in find/replace shortcuts; false lets an app bind the public methods. |
 
 Use layout attributes or CSS for width and height. Height defaults to 320px.

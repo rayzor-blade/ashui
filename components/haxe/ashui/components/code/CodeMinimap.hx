@@ -28,6 +28,8 @@ typedef MinimapHost = {
 	/** The editor's height and width on screen, and a count that moves when what it shows is made again. **/
 	final viewHeight:Signal<Float>;
 	final viewWidth:Signal<Float>;
+	/** The strip can extend above the text viewport alongside an editor header. **/
+	@:optional final mapHeight:Signal<Float>;
 	/** The editor's whole width, the strip's included, which the strip's own width does not move. **/
 	final boxWidth:Signal<Float>;
 	final revision:Signal<Int>;
@@ -79,6 +81,7 @@ class CodeMinimap {
 	static inline var SETTLE = 0.12;
 
 	public static function make(host:MinimapHost):Div {
+		var mapHeight = host.mapHeight ?? host.viewHeight;
 		// What the rows are drawn from changes in `stamp`, a moment after the last revision; `inks` when a token style is restyled.
 		var stamp = Signal.make(0);
 		var inks = Signal.make(0);
@@ -96,7 +99,7 @@ class CodeMinimap {
 		// A quarter of the text's width is a fifth of the whole, which is measured with the strip in it and so is not changed by it:
 		// a width taken from the text's width, which the strip takes from, can settle on two sizes and swap them each frame.
 		var width = Computed.make(() -> (Math.min(host.maxWidth, Math.max(24, Math.round(host.boxWidth.get() * .2))) : Single));
-		var height = Computed.make(() -> (host.viewHeight.get() : Single));
+		var height = Computed.make(() -> (mapHeight.get() : Single));
 
 		// One probe a kind, styled as a token is, to read its colour from.
 		var probes:Array<Identity> = [];
@@ -124,7 +127,7 @@ class CodeMinimap {
 
 		/** Layout units a line takes in the strip: a line's row, or less when the document has more lines than the strip has rows. **/
 		function pitch():Float
-			return Math.min(ROW, host.viewHeight.get() / Math.max(1, host.document.visible.length));
+			return Math.min(ROW, mapHeight.get() / Math.max(1, host.document.visible.length));
 
 		function column(text:String, index:Int, tabs:Bool):Int {
 			if (!tabs)
@@ -138,7 +141,7 @@ class CodeMinimap {
 		function draw(ctx:DrawContext):Void {
 			stamp.get();
 			inks.get();
-			var lines = host.document.visible, count = lines.length, h = host.viewHeight.get();
+			var lines = host.document.visible, count = lines.length, h = mapHeight.get();
 			if (count == 0 || h <= 0)
 				return;
 			var rowPitch = pitch(), step = rowPitch < .5 ? Math.ceil(.5 / rowPitch) : 1;
@@ -203,12 +206,12 @@ class CodeMinimap {
 		}
 		function span():Float {
 			var h = host.viewHeight.get(), y = host.scroll.y.get();
-			return Math.min(h, Math.max(SLIDER_MIN, (rowOf(y + h) - rowOf(y)) * pitch()));
+			return Math.min(mapHeight.get(), Math.max(SLIDER_MIN, (rowOf(y + h) - rowOf(y)) * pitch()));
 		}
 		var sliderTop = Computed.make(() -> {
 			host.revision.get();
 			var top = rowOf(host.scroll.y.get()) * pitch();
-			(Math.max(0, Math.min(top, host.viewHeight.get() - span())) : Single);
+			(Math.max(0, Math.min(top, mapHeight.get() - span())) : Single);
 		});
 		var sliderHeight = Computed.make(() -> { host.revision.get(); (span() : Single); });
 		var slider = new Div({classes: ["ui-code-minimap-slider"], top: sliderTop, height: sliderHeight});
