@@ -24,12 +24,14 @@ class CodeGutterColumns {
 		var plain = [for (i in 0...120) 'line $i'].join("\n");
 		var value = Signal.make(plain),
 			compact = new Ref<CodeEditor>(),
+			stable = new Ref<CodeEditor>(),
 			reserved = new Ref<CodeEditor>();
 		var tree = new LayoutTree(), stop = () -> {};
 		var root = Owner.root(tree, dispose -> {
 			stop = dispose;
 			return <div class="flex flex-row" width={800} height={300}>
 				<code-editor ref={compact} value={value} language="haxe" gutterMarkers={true} compactGutter={true} width={400} height={300}/>
+				<code-editor ref={stable} value={value} language="haxe" gutterMarkers={true} compactGutter={true} stableGutter={true} width={400} height={300}/>
 				<code-editor ref={reserved} value={value} language="haxe" gutterMarkers={true} width={400} height={300}/>
 			</div>;
 		});
@@ -47,6 +49,17 @@ class CodeGutterColumns {
 			return Math.abs(a - b) < .1;
 		settle();
 		var editor = compact.get(), base = gutter(editor);
+		check("stable compact view starts without unused columns", near(gutter(stable.get()), base));
+		stable.get().markers("changes", [{line:1, className:"ui-code-change-added", bar:true}]);
+		settle();
+		check("stable gutter ignores change bars", near(gutter(stable.get()), base));
+		stable.get().markers("action", [{line:110, className:"ui-code-marker-breakpoint"}]);
+		settle();
+		var activated = gutter(stable.get());
+		stable.get().markers("action", []);
+		settle();
+		check("stable gutter retains geometry without retaining stale markers", near(activated, base + 18)
+			&& near(gutter(stable.get()), activated) && stable.get().annotations.markerAt(110) == null);
 		check("unused marker and fold columns collapse", near(gutter(reserved.get()) - base,
 			40) && count(editor, ".ui-code-marker-slot") == 0 && count(editor, ".ui-code-fold-slot") == 0);
 		check("default gutter keeps an empty breakpoint target", count(reserved.get(),
@@ -93,6 +106,8 @@ class CodeGutterColumns {
 			&& near(gutter(editor), foldWidth));
 		value.set("one\ntwo\n");
 		settle();
+		check("stable columns survive edits removing folds and markers", count(stable.get(), ".ui-code-fold-slot") > 0
+			&& near(gutter(stable.get()), gutter(reserved.get())));
 		check("removing folds releases their column", count(editor, ".ui-code-fold-slot") == 0
 			&& near(gutter(reserved.get()) - gutter(editor), 40));
 		var before = editor.rectAt(0);

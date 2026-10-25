@@ -48,7 +48,7 @@ Code stays unwrapped and scrolls in both directions; the gutter stays visible
 when scrolling horizontally. Closing a fold keeps its opening line visible.
 Nested folds keep their state. Folding does not alter the source.
 
-Set `compactGutter={true}` to collapse marker and fold columns a document does not use. Markers outside the viewport still keep their column, so scrolling does not shift the code. Change bars and boundary marks do not reserve the icon column. Leave it off when an empty marker gutter must remain clickable for setting breakpoints.
+Set `compactGutter={true}` to collapse marker and fold columns a document does not use. Markers outside the viewport still keep their column, so scrolling does not shift the code. Change bars and boundary marks do not reserve the icon column. Add `stableGutter={true}` to keep each column once used for the lifetime of the view, including while asynchronous markers refresh or edits temporarily remove folds. Leave compact gutters off when an empty marker gutter must remain clickable for setting breakpoints.
 
 Built-in lexical highlighters cover Haxe (`hxx`), JavaScript (`js`, `jsx`), TypeScript (`ts`, `tsx`),
 Rust (`rs`), JSON, CSS, Python (`py`) and Lua. Multiline comments and strings
