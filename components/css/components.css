@@ -1207,6 +1207,7 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 }
 .ui-code:focus-within { border-color: var(--focus-ring); }
 .ui-code[data-minimap="on"] { flex-direction: row; }
+.ui-code-column { flex-direction: column; flex-grow: 1; min-height: 0; min-width: 0; }
 /* The minimap: a strip beside the viewport, its rows drawn in one canvas and a slider over what the viewport shows. */
 .ui-code-minimap {
 	position: relative; flex-shrink: 0; overflow: hidden; cursor: default;

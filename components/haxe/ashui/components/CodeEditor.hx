@@ -63,6 +63,8 @@ typedef CodeEditorProps = {
 	?highlightBrackets:Bool,
 	/** A strip down the right edge that draws the whole document scaled down, with a slider over what is on screen; pressing it, dragging the slider or the wheel over it scroll the editor. **/
 	?minimap:Bool,
+	/** Content above the text viewport, beside the minimap. **/
+	?header:Element,
 	/** Reserves a slot in the gutter, left of the line numbers, for what `markers` puts there and where a press calls `onGutterClick`. **/
 	?gutterMarkers:Bool,
 	/** Collapses unused marker and fold columns; leave false for an always-clickable breakpoint gutter. **/
@@ -453,10 +455,12 @@ class CodeEditor extends Component<CodeEditorProps> {
 			if (selection != null) { e.caret.set(selection.caret); e.anchor.set(selection.anchor); }
 		});
 		refresh();
-		var strip:Array<Element> = [pane];
+		var column:Element = props.header == null ? pane : new Div({classes: ["ui-code-column"]}, [props.header, pane]);
+		var mapHeight = Signal.make(viewHeight.get());
+		var strip:Array<Element> = [column];
 		if (props.minimap == true)
 			strip.push(CodeMinimap.make({
-				document: document, metrics: metrics, scroll: scroll, viewHeight: viewHeight, viewWidth: viewWidth, boxWidth: boxWidth, revision: revision, tabSize: tabSize,
+				document: document, metrics: metrics, scroll: scroll, viewHeight: viewHeight, mapHeight: mapHeight, viewWidth: viewWidth, boxWidth: boxWidth, revision: revision, tabSize: tabSize,
 				pad: PAD, maxWidth: props.minimapWidth == null ? 96 : props.minimapWidth, annotations: annotations, zones: zones, zoneStamp: () -> { zoneLayout.get(); return zoneStamp; }
 			}));
 		var data:Map<String, IntoReactive<Null<String>>> = ["mode" => editable() ? "editor" : "view"];
@@ -537,6 +541,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 				var holder = p.view == null ? null : tree.getBounds(p.view.node);
 				if (holder != null && Math.abs(holder.height - p.height) > 0.5 && zoneRow(p) >= 0) { p.height = holder.height; zoneHeights.set(zoneHeights.get() + 1); changed = true; }
 			}
+			var columnBounds = tree.getBounds(column.node);
+			if (columnBounds != null && columnBounds.height > 0 && mapHeight.get() != columnBounds.height) { mapHeight.set(columnBounds.height); changed = true; }
 			var outer = tree.getBounds(box.node);
 			if (outer != null && outer.width > 0 && boxWidth.get() != outer.width) { boxWidth.set(outer.width); changed = true; }
 			return changed;
