@@ -179,11 +179,25 @@ class DialogContent extends Component<DialogContentProps> {
 		}, contents());
 		panel = dialog.panel;
 		ashui.css.Identity.of(panel.tree, panel.node.id).setAttribute("data-size", size());
+		// A panel built after its dialog, as inside an `<if>`, is in the tree by the next tick, and finds its dialog then.
+		var gone = false;
+		ashui.reactive.Owner.onCleanup(() -> gone = true);
+		ashui.animation.AnimationScheduler.main.after(0, () -> {
+			if (!gone && !bound) {
+				var d = Dialog.near(panel.tree, dialog.node.id);
+				if (d != null)
+					bindTo(d);
+			}
+		});
 		return dialog;
 	}
 
+	/** Whether a dialog keeps this panel's open state together with its own. **/
+	var bound = false;
+
 	@:allow(ashui.components.Dialog)
 	function bindTo(d:Dialog):Void {
+		bound = true;
 		if (panel != null)
 			@:privateAccess Dialog.registry.add(panel.tree, panel.node.id, d);
 		var opened = d.opened;
