@@ -5,7 +5,8 @@ import ashui.css.Css.CssOrigin;
 import ashui.layout.LayoutTree;
 
 /** Immutable snapshot within one cascade application batch (0973e0c). **/
-typedef NativeComputedStyle = {resolved:Map<String, String>, values:Map<String, String>, fontSize:Float};
+/** An element's style as the engine answers it; `signature` is the resolved declarations as the engine wrote them, equal for equal styles. **/
+typedef NativeComputedStyle = {resolved:Map<String, String>, values:Map<String, String>, fontSize:Float, signature:String};
 
 /**
 	The cascade, run by the native CSS engine (`CssNative`): the sheets in
@@ -310,7 +311,8 @@ class NativeCascade {
 		var result = {
 			resolved: pairs(0, first < 0 ? serialized.length : first),
 			values: first < 0 ? new Map() : pairs(first + 1, second < 0 ? serialized.length : second),
-			fontSize: Math.isNaN(size) ? Css.rootFontSize : size
+			fontSize: Math.isNaN(size) ? Css.rootFontSize : size,
+			signature: first < 0 ? serialized : serialized.substr(0, first)
 		};
 		if (shared != null) shared.set(serialized, result);
 		return result;

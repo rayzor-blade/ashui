@@ -454,7 +454,7 @@ class Css {
 			var parent = up.length == 0 ? null : Identity.of(identity.tree, up[0]);
 			// Parents have already been applied, and unchanged parents are cached.
 			var fontSize = parent == null ? rootFontSize : Css.fontSize(parent);
-			apply(identity, style.resolved, style.values, fontSize, style.fontSize, new Map());
+			apply(identity, style.resolved, style.values, fontSize, style.fontSize, new Map(), style.signature);
 		}
 	}
 
@@ -463,11 +463,14 @@ class Css {
 		`ownFontSize` its own.
 	**/
 	static function apply(identity:Identity, resolved:Map<String, String>, values:Map<String, String>, fontSize:Float, ownFontSize:Float,
-			from:Map<String, Declaration>):Void {
+			from:Map<String, Declaration>, ?signature:String):Void {
 		var node = identity.node.id;
-		var signature = [for (name => v in resolved) '$name:$v'];
-		signature.sort(Reflect.compare);
-		var sig = signature.join(";");
+		var sig = signature;
+		if (sig == null) {
+			var parts = [for (name => v in resolved) '$name:$v'];
+			parts.sort(Reflect.compare);
+			sig = parts.join(";");
+		}
 		var last = applied.get(identity);
 		if (last != null && last.signature == sig) {
 			applied.set(identity, {
@@ -540,8 +543,18 @@ class Css {
 				}
 		var transition = sameTransition ? last.transition : null;
 		try {
-			if (!sameTransition)
-				transition = CssMotion.transition(resolved);
+			if (!sameTransition) {
+				// Elements styled by one rule give the same transition text, and a transition is never changed.
+				var key = transitionValues.join("\x01");
+				if (transitions.exists(key))
+					transition = transitions.get(key);
+				else {
+					transition = CssMotion.transition(resolved);
+					if (Lambda.count(transitions) >= 256)
+						transitions.clear();
+					transitions.set(key, transition);
+				}
+			}
 			if (@:privateAccess identity.node.styleTransition(transition) && hasTransition(resolved))
 				fields.push(ashui.layout.Node.TRANSITION);
 		} catch (e:String) {
@@ -636,6 +649,8 @@ class Css {
 	}
 
 	/** Inputs to transition parsing, kept per applied element rather than in a global cache. **/
+	static final transitions = new Map<String, Null<ashui.css.CssMotion.CssTransition>>();
+
 	static final TRANSITION_VALUES = ["transition", "transition-property", "transition-duration", "transition-timing-function", "transition-delay"];
 
 	/** The motion properties, applied as a transition and animations rather than one by one. **/

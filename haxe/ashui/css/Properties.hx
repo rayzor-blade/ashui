@@ -95,13 +95,24 @@ class Properties {
 
 	/** 0 for a shorthand no other covers, 1 for one another covers, 2 for the rest: the order the cascade applies them in. **/
 	public static function rank(name:String):Int {
+		var known = ranks.get(name);
+		if (known != null)
+			return known;
+		var r = 0;
 		if (!LONGHANDS.exists(name))
-			return 2;
-		for (list in LONGHANDS)
-			if (list.indexOf(name) >= 0)
-				return 1;
-		return 0;
+			r = 2;
+		else
+			for (list in LONGHANDS)
+				if (list.indexOf(name) >= 0) {
+					r = 1;
+					break;
+				}
+		ranks.set(name, r);
+		return r;
 	}
+
+	/** `rank` of each name, which the tables never change. **/
+	static final ranks = new Map<String, Int>();
 
 	/** Whether `name` is a property this applies. **/
 	public static function known(name:String):Bool

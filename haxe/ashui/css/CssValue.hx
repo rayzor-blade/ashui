@@ -124,6 +124,9 @@ class CssValue {
 	// restyle. Context-dependent resolution still runs on every apply (e1a026f).
 	static final lengths = new LiteralCache<CssLength>();
 	static final colors = new LiteralCache<CssColor>();
+	static final calls = new LiteralCache<{name:String, args:String}>();
+	static final dimensions = new LiteralCache<{value:Float, unit:String}>();
+	static final shadowLists = new Map<String, Array<CssShadow>>();
 	// --- Pieces ---
 
 	/**
@@ -161,6 +164,12 @@ class CssValue {
 
 	/** `name(args)` as its lower-case name and the text of its arguments; null if `text` is not one call. **/
 	public static function call(text:String):Null<{name:String, args:String}> {
+		// Most words of a value are no call: no parenthesis, no pattern to run.
+		if (text.indexOf("(") < 0)
+			return null;
+		var known = calls.get(text);
+		if (known != null)
+			return known;
 		var r = Patterns.RE0;
 		if (!r.match(StringTools.trim(text)))
 			return null;
@@ -174,15 +183,28 @@ class CssValue {
 			else if (c == ")".code && --depth < 0)
 				return null;
 		}
-		return depth == 0 ? {name: r.matched(1).toLowerCase(), args: inner} : null;
+		if (depth != 0)
+			return null;
+		var found = {name: r.matched(1).toLowerCase(), args: inner};
+		calls.put(text, found);
+		return found;
 	}
 
 	/** A number and its unit, lower case, `""` for none; null if `text` is not one. **/
 	public static function dimension(text:String):Null<{value:Float, unit:String}> {
+		var known = dimensions.get(text);
+		if (known != null)
+			return known;
+		// A number starts with a digit, a sign or a point: a word does not, and needs no pattern.
+		var first = text.length == 0 ? 0 : StringTools.fastCodeAt(text, 0);
+		if (first != 0 && first != "+".code && first != "-".code && first != ".".code && !(first >= "0".code && first <= "9".code) && !isSpace(first))
+			return null;
 		var r = Patterns.RE1;
 		if (!r.match(StringTools.trim(text)))
 			return null;
-		return {value: Std.parseFloat(r.matched(1)), unit: r.matched(2).toLowerCase()};
+		var found = {value: Std.parseFloat(r.matched(1)), unit: r.matched(2).toLowerCase()};
+		dimensions.put(text, found);
+		return found;
 	}
 
 	public static function number(text:String):Float {
@@ -711,9 +733,17 @@ class CssValue {
 
 	/** `box-shadow`'s value: shadows, the first drawn on top; `none` is none. **/
 	public static function shadows(text:String):Array<CssShadow> {
+		var known = shadowLists.get(text);
+		if (known != null)
+			return known;
 		if (StringTools.trim(text).toLowerCase() == "none")
 			return [];
-		return [for (part in split(text, ",")) shadow(part, true)];
+		var list = [for (part in split(text, ",")) shadow(part, true)];
+		// Read, never changed: elements styled by one rule send the same text.
+		if (Lambda.count(shadowLists) >= 256)
+			shadowLists.clear();
+		shadowLists.set(text, list);
+		return list;
 	}
 
 	public static function shadow(text:String, allowInset:Bool):CssShadow {
