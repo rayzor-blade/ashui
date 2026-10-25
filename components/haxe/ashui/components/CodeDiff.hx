@@ -5,6 +5,7 @@ import ashui.components.code.CodeDiffPane;
 import ashui.components.code.CodeDiffPane.CodeDiffAction;
 import ashui.components.code.CodeDiffPane.CodeDiffFont;
 import ashui.components.code.CodeDiffRows;
+import ashui.components.code.CodeDiffHint;
 import ashui.components.code.CodeDiffer;
 import ashui.components.code.CodeDiffer.CodeChange;
 import ashui.components.code.CodeDocument;
@@ -76,6 +77,8 @@ typedef CodeDiffProps = {
 	?onRevert:CodeChange->Void,
 	/** More buttons on the first row of each change, after Stage and Revert: `{label, ?icon, run}`. **/
 	?hunkActions:Array<CodeDiffAction>,
+	/** Inline labels at the ends of changed lines, such as revision authors. Only visible rows mount labels. **/
+	?lineHints:IntoReactive<Array<CodeDiffHint>>,
 	/** Icons for the diff's own controls, in place of the plain ones it draws; give a set's, such as Remix's, to match an app. **/
 	?icons:CodeDiffIconProps,
 	/** Accessible name of the diff. **/
@@ -118,6 +121,8 @@ class CodeDiff extends Component<CodeDiffProps> {
 	var probe:Text;
 	var tabSize = 4;
 	var layoutNow:Void->CodeDiffLayout = () -> Inline;
+	var hintAt:(Bool, Int)->Null<CodeDiffHint> = (_, _) -> null;
+	var hasHints:Void->Bool = () -> false;
 
 	/** The icons the controls have unless the app gives others: plain strokes, so the component needs no icon set. **/
 	static final PREVIOUS:ashui.svg.Icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15 L12 9 L18 15"/></svg>';
@@ -147,6 +152,22 @@ class CodeDiff extends Component<CodeDiffProps> {
 		var syntax = () -> props.highlighter != null ? props.highlighter : CodeSyntax.forLanguage(read(language));
 		tabSize = Std.int(Math.max(1, Math.min(16, props.tabSize == null ? 4 : props.tabSize)));
 		layoutNow = () -> props.layout == null ? Inline : read(props.layout);
+		var hints = Computed.make(() -> {
+			var original = new Map<Int, CodeDiffHint>(), modified = new Map<Int, CodeDiffHint>();
+			var supplied = props.lineHints == null ? [] : read(props.lineHints);
+			if (supplied != null)
+				for (hint in supplied) {
+					if (hint == null || hint.line < 0 || hint.text == null || hint.text == "")
+						continue;
+					if (hint.side == "original")
+						original.set(hint.line, hint);
+					else if (hint.side == "modified")
+						modified.set(hint.line, hint);
+				}
+			return {original: original, modified: modified};
+		});
+		hintAt = (original, line) -> original ? hints.get().original.get(line) : hints.get().modified.get(line);
+		hasHints = () -> hints.get().original.iterator().hasNext() || hints.get().modified.iterator().hasNext();
 		probe = new Text("", {wrap: false});
 		Identity.of(probe.tree, probe.node.id).addClasses(["ui-code-text", "ui-code-probe"]);
 		originalMetrics = new CodeMetrics(new CodeDocument("", syntax()), syntax(), tabSize);
@@ -269,6 +290,8 @@ class CodeDiff extends Component<CodeDiffProps> {
 				font: font,
 				lineNumbers: lineNumbers,
 				actions: actions,
+				hint: hintAt,
+				hasHints: hasHints,
 				open: line -> {
 					opened.set(line, true);
 					rebuild();

@@ -29,6 +29,7 @@ including `--macro ashui.ui.Markup.enable()` in `build.hxml`.
 | `layout` | `inline` | `inline` for one column of removed and added lines, `split` for the original and the modified text side by side. A signal switches between them. |
 | `context` | `3` | Unchanged lines kept on each side of a change. A longer run is folded into one row. A negative number keeps every line. |
 | `hunks` | found | The changes, when you have them already. See below. |
+| `lineHints` | none | Reactive inline annotations on changed lines: `{side:"original" or "modified", line:0-based, text, ?detail}`. |
 | `lineNumbers` | `true` | The numbers in the gutter. |
 | `navigation` | `false` | A bar above the rows with where the view is among the changes ("2 of 5") and buttons for the previous and the next. |
 | `tabSize` | `4` | Spaces per tab stop. |
@@ -51,6 +52,18 @@ added lines, the first removed line is opposite the first added line, and so on.
 When it has not, lines are matched by how alike they are, so a line inserted among
 edited lines does not shift the lines that follow it. A line with too little in
 common with its partner is shown whole, without word marks.
+
+## Inline annotations
+
+Supply `lineHints` for short labels after changed code lines, such as an author name:
+
+```tsx
+var hints = signal(([{side: "modified", line: 4, text: "Ada", detail: "Edited in this session"}]
+    : Array<ashui.components.code.CodeDiffHint>));
+return <code-diff original={before} modified={after} lineHints={hints} />;
+```
+
+Line numbers start at zero in each source text, independently of the layout. Context and filler rows do not show annotations. Updating the signal replaces the labels; only visible pooled rows mount them. Long labels are truncated, with `detail` (or the full label) in a tooltip. The component does not fetch authors or interpret revision metadata.
 
 ## Folding
 

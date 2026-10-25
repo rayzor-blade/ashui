@@ -1,6 +1,7 @@
 package ashui.components.code;
 
 import ashui.components.Library;
+import ashui.components.Tooltip;
 import ashui.components.code.CodeDiffRows;
 import ashui.components.code.CodeDiffer.CodeChange;
 import ashui.css.Identity;
@@ -54,6 +55,8 @@ typedef CodeDiffPaneConfig = {
 	final lineNumbers:Bool;
 	/** Buttons for the first row of each change; none for a pane that has no room for them. **/
 	final actions:Array<CodeDiffAction>;
+	final hint:(Bool, Int)->Null<CodeDiffHint>;
+	final hasHints:Void->Bool;
 	/** Called with the modified line a placeholder's hidden run starts at, when the placeholder is pressed. **/
 	final open:Int->Void;
 	/** The change last gone to, from 0, or -1: its buttons stay shown, so the keyboard can reach them. **/
@@ -144,7 +147,7 @@ class CodeDiffPane {
 				case Modified: set.widestColumn(false, config.tabSize);
 				case Inline: Std.int(Math.max(set.widestColumn(true, config.tabSize), set.widestColumn(false, config.tabSize)));
 			}
-			(Math.max(viewWidth.get(), gutterWidth.get() + PAD * 2 + widest * metrics.characterWidth + 2) : Single);
+			(Math.max(viewWidth.get(), gutterWidth.get() + PAD * 2 + widest * metrics.characterWidth + 2 + (config.hasHints() ? 240 : 0)) : Single);
 		});
 		var firstRow = Signal.make(0), endRow = Signal.make(0);
 		new Watch(() -> windowStart(), row -> firstRow.set(row));
@@ -389,12 +392,30 @@ class CodeDiffPane {
 				config.open(r.rows.modifiedAt(r.row));
 			}
 		});
+		var hint = Computed.make(() -> {
+			var r = row.get();
+			if (r == null || r.hidden > 0 || r.kind == "context" || r.kind == "filler")
+				return null;
+			var original = config.side == Original || config.side == Inline && r.rows.modifiedAt(r.row) < 0;
+			return config.hint(original, original ? r.rows.originalAt(r.row) : r.rows.modifiedAt(r.row));
+		});
+		var hintLeft = Computed.make(() -> {
+			var r = row.get();
+			return (left.get() + (r == null ? 0 : r.width) + 16:Single);
+		});
 		var element:Div = <div class="ui-code-diff-row" left={0} top={top} width={contentWidth} height={rowHeight} visibility={visible}>
 			<div class="ui-code-diff-line" left={left} height={rowHeight} visibility={plain}>
 				<for {m in marks}>{wordMark(m, rowHeight)}</for>
 				<for {t in tokens}>{tokenSlot(row, t)}</for>
 			</div>
 			${fold}
+			<if {hint.get() != null}>
+				<div class="ui-code-diff-hint" left={hintLeft} height={rowHeight}>
+					<tooltip label={Computed.make(() -> hint.get() == null ? "" : hint.get().detail ?? hint.get().text)}>
+						<text class="ui-code-diff-hint-text">${hint.get() == null ? "" : "— " + hint.get().text}</text>
+					</tooltip>
+				</div>
+			</if>
 			<if {config.actions.length > 0}>${actionsSlot(row)}</if>
 		</div>;
 		Identity.of(element.tree, element.node.id).bindAttribute("data-kind", kind);
