@@ -35,6 +35,24 @@ class FileDialog {
 	}
 }
 
+#if ashui_caribou
+/** The dialogs of the `ashui_desktop` Caribou plugin. **/
+private class DialogNative {
+	public static inline function ui_dialog_open(json:hl.Bytes):Bool
+		return ashui_desktop.Desktop.dialog_open(@:privateAccess String.fromUTF8(json));
+
+	public static inline function ui_dialog_poll():Int
+		return ashui_desktop.Desktop.dialog_poll();
+
+	public static function ui_dialog_take(id:Int):hl.Bytes {
+		var path = ashui_desktop.Desktop.dialog_take(id);
+		return path == "" ? null : @:privateAccess path.toUtf8();
+	}
+
+	public static inline function ui_dialog_cancel(id:Int):Void
+		ashui_desktop.Desktop.dialog_cancel(id);
+}
+#else
 @:hlNative("blinc_abi")
 private extern class DialogNative {
 	static function ui_dialog_open(json:hl.Bytes):Bool;
@@ -42,4 +60,5 @@ private extern class DialogNative {
 	static function ui_dialog_take(id:Int):hl.Bytes;
 	static function ui_dialog_cancel(id:Int):Void;
 }
+#end
 #end

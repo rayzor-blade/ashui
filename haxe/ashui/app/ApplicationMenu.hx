@@ -164,10 +164,24 @@ class ApplicationMenu {
 	}
 }
 
+#if ashui_caribou
+/** The application menu of the `ashui_desktop` Caribou plugin. **/
+private class MenuNative {
+	public static inline function ui_menu_install(json:hl.Bytes):Bool
+		return ashui_desktop.Desktop.menu_install(@:privateAccess String.fromUTF8(json));
+
+	public static inline function ui_menu_poll():Int
+		return ashui_desktop.Desktop.menu_poll();
+
+	public static inline function ui_menu_clear():Void
+		ashui_desktop.Desktop.menu_clear();
+}
+#else
 @:hlNative("blinc_abi")
 private extern class MenuNative {
 	static function ui_menu_install(json:hl.Bytes):Bool;
 	static function ui_menu_poll():Int;
 	static function ui_menu_clear():Void;
 }
+#end
 #end

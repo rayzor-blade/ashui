@@ -1,0 +1,26 @@
+[package]
+name = "ashui-desktop"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+description = "Ashui's application menu and file dialogs as a Caribou plugin"
+
+[lib]
+name = "ashui_desktop"
+crate-type = ["cdylib"]
+
+[dependencies]
+caribou_abi = { git = "https://github.com/rayzor-blade/caribou", rev = "ac28aba8e6969bfd97928e7328753d38a4d69c18" }
+
+[build-dependencies]
+cc = "1.2"
+
+# Not a member of the root workspace: the plugin builds apart from the HashLink library.
+[workspace]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"

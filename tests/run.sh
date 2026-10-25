@@ -216,6 +216,10 @@ render-caribou)
 	cp "$abi/target/release/libblinc_abi.dylib" bin/caribou/plugins/ 2>/dev/null ||
 		cp "$abi/target/release/libblinc_abi.so" bin/caribou/plugins/
 	rm -f bin/caribou/blinc_abi.hdll
+	# The application menu and file dialogs, a plugin of ashui's own.
+	cargo build --release --manifest-path ../desktop/Cargo.toml
+	cp ../desktop/target/release/libashui_desktop.dylib bin/caribou/plugins/ 2>/dev/null ||
+		cp ../desktop/target/release/libashui_desktop.so bin/caribou/plugins/
 	# Caribou's own gpu and window packages, so not hlwindow's class path.
 	haxe --class-path ../haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--macro 'ashui.ui.Markup.enable()' -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
