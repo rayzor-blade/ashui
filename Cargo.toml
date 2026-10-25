@@ -16,8 +16,8 @@ crate-type = ["cdylib", "staticlib"]
 # git-bug e8233fb: shared native text alignment and exact inline line-edge checks.
 # git-bug 2059910: a native version check for string signals, so SignalString can cache its decode.
 # git-bug 4778085: HashLink programs register bundled fonts. git-bug 53e48ad: a page's system face. git-bug 807fbba: a frame's atlas overflow.
-# This is blinc_abi's branch ashui, d26858b with those commits: blinc_abi main has a65b3a6, whose local glyph clips ashui does not apply (git-bug 9dadd58).
-blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "b483813b453869d1c56b1bd3735f7068634fe01e", default-features = false, features = ["hashlink"] }
+# This is blinc_abi's branch ashui, d26858b with those commits and the Caribou plugin: blinc_abi main has a65b3a6, whose local glyph clips ashui does not apply (git-bug 9dadd58).
+blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "e07ff761ac37a3f7cebeff1832f78634f0e34fb4", default-features = false, features = ["hashlink"] }
 
 # The wasm side module allocates from the program's heap (native/lib.rs).
 [target.'cfg(target_family = "wasm")'.dependencies]
