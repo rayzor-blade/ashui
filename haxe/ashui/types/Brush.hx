@@ -1,5 +1,6 @@
 package ashui.types;
 
+import ashui.core.externs.Handles;
 import ashui.core.Utf8;
 import ashui.core.externs.BlincNative;
 
@@ -78,7 +79,7 @@ typedef BrushPattern = {
 	gradient, an image, or what is behind the box blurred.
 **/
 class Brush implements IValue {
-	public var ptr(default, null):hl.Abstract<"blinc_value">;
+	public var ptr(default, null):ValueHandle;
 
 	/** A solid brush's colour, `0xRRGGBB`, and alpha; -1 for any other brush. **/
 	public var solidRgb(default, null) = -1;
@@ -91,7 +92,7 @@ class Brush implements IValue {
 	/** A pattern's description; null for any other brush. **/
 	public var repeat(default, null):Null<BrushPattern> = null;
 
-	private function new(ptr:hl.Abstract<"blinc_value">) {
+	private function new(ptr:ValueHandle) {
 		this.ptr = ptr;
 	}
 

@@ -1,5 +1,6 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.Utf8;
 import ashui.core.externs.BlincNative;
 
@@ -9,7 +10,7 @@ import ashui.core.externs.BlincNative;
 	so repeated reads between writes decode nothing.
 **/
 class SignalString implements ISignal<String> {
-	public var ptr(default, null):hl.Abstract<"blinc_signal">;
+	public var ptr(default, null):SignalHandle;
 
 	var cached:String;
 	var cachedVersion:Int;

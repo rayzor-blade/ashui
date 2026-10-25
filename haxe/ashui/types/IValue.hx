@@ -1,5 +1,6 @@
 package ashui.types;
 
+import ashui.core.externs.Handles;
 /**
 	A style value a node's property takes: `Brush`, `Color`, `CornerRadius`,
 	`CornerShape`, `Shadow`, `Transform` or `ClipPath`. Each holds its copy
@@ -8,5 +9,5 @@ package ashui.types;
 	than changing one already set.
 **/
 interface IValue {
-	var ptr(default, null):hl.Abstract<"blinc_value">;
+	var ptr(default, null):ValueHandle;
 }

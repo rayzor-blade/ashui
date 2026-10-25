@@ -1,5 +1,6 @@
 package ashui.types;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /**
@@ -8,7 +9,7 @@ import ashui.core.externs.BlincNative;
 	half. How each corner curves is its `CornerShape`.
 **/
 class CornerRadius implements IValue {
-	public var ptr(default, null):hl.Abstract<"blinc_value">;
+	public var ptr(default, null):ValueHandle;
 	public final topLeft:Float;
 	public final topRight:Float;
 	public final bottomRight:Float;

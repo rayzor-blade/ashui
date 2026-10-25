@@ -1,5 +1,6 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.Utf8;
 import ashui.core.externs.BlincNative;
 
@@ -8,7 +9,7 @@ import ashui.core.externs.BlincNative;
 	kept too, so a read brings the computed up to date and returns that, decoding nothing.
 **/
 class ComputedString implements IComputed<String> {
-	public var ptr(default, null):hl.Abstract<"blinc_computed">;
+	public var ptr(default, null):ComputedHandle;
 
 	var cached:Null<String> = null;
 

@@ -1,5 +1,6 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 import ashui.layout.LayoutTree;
 
@@ -114,7 +115,7 @@ class Owner {
 	}
 
 	/** Releases a computed made under the current owner when it is disposed. **/
-	@:noCompletion public static function adoptComputed(ptr:hl.Abstract<"blinc_computed">):Void {
+	@:noCompletion public static function adoptComputed(ptr:ComputedHandle):Void {
 		onCleanup(() -> BlincNative.blinc_computed_release(ptr));
 	}
 }

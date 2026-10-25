@@ -1,5 +1,6 @@
 package ashui.layout;
 
+import ashui.core.externs.Handles;
 import ashui.core.Utf8;
 import ashui.core.externs.LayoutTreeNative;
 import ashui.reactive.Guard;
@@ -23,7 +24,7 @@ import ashui.types.Style.GenericFont;
 **/
 class LayoutTree {
 	/** The native tree, for the functions in `ashui.core.externs` that take one. **/
-	public var ptr(default, null):hl.Abstract<"blinc_tree">;
+	public var ptr(default, null):TreeHandle;
 
 	/** Invalidates pointer hit regions when layout, drawing or handlers change. **/
 	@:noCompletion public var hitRevision(default, null) = 0;

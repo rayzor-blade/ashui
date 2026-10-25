@@ -1,10 +1,11 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /** A computed `Float`; what `Computed.make` makes for one. **/
 class ComputedF64 implements IComputed<Float> {
-	public var ptr(default, null):hl.Abstract<"blinc_computed">;
+	public var ptr(default, null):ComputedHandle;
 
 	public function new(compute:Void->Float) {
 		compute = ashui.core.UiContext.capture(compute);

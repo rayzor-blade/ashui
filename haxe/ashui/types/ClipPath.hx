@@ -1,5 +1,6 @@
 package ashui.types;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 import ashui.types.ClipLength;
 import ashui.types.ClipPathCss;
@@ -24,7 +25,7 @@ import ashui.types.ClipPathCss;
 	When clip paths are nested, the innermost one clips.
 **/
 class ClipPath implements IValue {
-	public var ptr(default, null):hl.Abstract<"blinc_value">;
+	public var ptr(default, null):ValueHandle;
 
 	function new(kind:Int, lengths:Array<Null<ClipLength>>, round:Float) {
 		var values = new hl.Bytes(lengths.length * 4 + 4);
@@ -121,7 +122,7 @@ class ClipPath implements IValue {
 	/** Between two rings of a path's points, a point at this x and y. **/
 	@:noCompletion public static inline var BREAK = 1e30;
 
-	static function fromPolygon(ptr:hl.Abstract<"blinc_value">):ClipPath {
+	static function fromPolygon(ptr:ValueHandle):ClipPath {
 		var made:ClipPath = Type.createEmptyInstance(ClipPath);
 		made.ptr = ptr;
 		return made;

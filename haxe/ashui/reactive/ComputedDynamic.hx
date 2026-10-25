@@ -1,5 +1,6 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /**
@@ -8,7 +9,7 @@ import ashui.core.externs.BlincNative;
 	number changes, each time the closure runs again.
 **/
 class ComputedDynamic<T> implements IComputed<T> {
-	public var ptr(default, null):hl.Abstract<"blinc_computed">;
+	public var ptr(default, null):ComputedHandle;
 
 	var last:T;
 	var version = 0;

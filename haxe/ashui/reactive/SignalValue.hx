@@ -1,5 +1,6 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 import ashui.types.IValue;
 
@@ -10,7 +11,7 @@ import ashui.types.IValue;
 	here and returned by `get`.
 **/
 class SignalValue<T:IValue> implements ISignal<T> {
-	public var ptr(default, null):hl.Abstract<"blinc_signal">;
+	public var ptr(default, null):SignalHandle;
 
 	var current:T;
 

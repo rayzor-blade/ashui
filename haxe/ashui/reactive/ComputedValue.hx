@@ -1,5 +1,6 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 import ashui.types.IValue;
 
@@ -9,7 +10,7 @@ import ashui.types.IValue;
 	is returned by `get`.
 **/
 class ComputedValue<T:IValue> implements IComputed<T> {
-	public var ptr(default, null):hl.Abstract<"blinc_computed">;
+	public var ptr(default, null):ComputedHandle;
 
 	var last:T;
 

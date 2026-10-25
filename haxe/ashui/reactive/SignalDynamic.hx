@@ -1,5 +1,6 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /**
@@ -10,7 +11,7 @@ import ashui.core.externs.BlincNative;
 	change made inside the value notifies no one.
 **/
 class SignalDynamic<T> implements ISignal<T> {
-	public var ptr(default, null):hl.Abstract<"blinc_signal">;
+	public var ptr(default, null):SignalHandle;
 
 	var current:T;
 	var version = 0;

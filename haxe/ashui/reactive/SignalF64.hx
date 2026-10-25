@@ -1,10 +1,11 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /** A signal of a `Float`; what `Signal.make` makes for one. **/
 class SignalF64 implements ISignal<Float> {
-	public var ptr(default, null):hl.Abstract<"blinc_signal">;
+	public var ptr(default, null):SignalHandle;
 
 	public function new(initialValue:Float) {
 		ptr = BlincNative.blinc_signal_f64(initialValue);

@@ -1,10 +1,11 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /** A computed `Int`, or an enum abstract over one; what `Computed.make` makes for those. **/
 class ComputedI32 implements IComputed<Int> {
-	public var ptr(default, null):hl.Abstract<"blinc_computed">;
+	public var ptr(default, null):ComputedHandle;
 
 	public function new(compute:Void->Int) {
 		compute = ashui.core.UiContext.capture(compute);

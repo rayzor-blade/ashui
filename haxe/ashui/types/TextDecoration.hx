@@ -1,5 +1,6 @@
 package ashui.types;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /** Which lines a decoration draws, as CSS's `text-decoration-line` names them. **/
@@ -26,7 +27,7 @@ enum abstract DecorationStyle(Int) to Int {
 	ancestors', and none undoes them, as CSS's do.
 **/
 class TextDecoration implements IValue {
-	public var ptr(default, null):hl.Abstract<"blinc_value">;
+	public var ptr(default, null):ValueHandle;
 
 	public function new(lines:Int, ?style:DecorationStyle, ?color:Color, ?thickness:Single, ?offset:Single) {
 		// A negative alpha, a NaN thickness and a NaN offset are the font's own, across the ABI.

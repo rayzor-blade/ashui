@@ -1,10 +1,11 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /** A computed `Bool`; what `Computed.make` makes for one. **/
 class ComputedBool implements IComputed<Bool> {
-	public var ptr(default, null):hl.Abstract<"blinc_computed">;
+	public var ptr(default, null):ComputedHandle;
 
 	public function new(compute:Void->Bool) {
 		compute = ashui.core.UiContext.capture(compute);

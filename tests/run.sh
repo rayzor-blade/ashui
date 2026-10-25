@@ -7,7 +7,7 @@
 #   run.sh render   draws a scene offscreen with hlwgpu and checks pixels; Ash only,
 #                   needs a built ../hlwgpu checkout beside this one
 #   run.sh render-caribou   the same pixel test on caribou and its GPU plugin;
-#                   needs a built ../caribou
+#                   needs a built ../caribou and a ../blinc_abi checkout (the plugin is built from it)
 #   run.sh window   opens a window with hlwindow and draws into it through a scheme
 #                   switch; Ash only, needs ../hlwgpu and ../hlwindow built, and a
 #                   desktop. Captures go to ../.ashui/snapshots on macOS.
@@ -209,15 +209,23 @@ render-caribou)
 		cp "$caribou/target/release/libcaribou_gpu.so" bin/caribou/plugins/
 	cp "$caribou/target/release/libcaribou_window.dylib" bin/caribou/plugins/ 2>/dev/null ||
 		cp "$caribou/target/release/libcaribou_window.so" bin/caribou/plugins/
-	cp bin/blinc_abi.hdll bin/caribou/
+	# blinc_abi as a caribou plugin, from its checkout (BLINC_ABI names another).
+	abi="${BLINC_ABI:-../../blinc_abi}"
+	[ -f "$abi/Cargo.toml" ] || { echo "no blinc_abi checkout at $abi" >&2; exit 1; }
+	cargo build --release --manifest-path "$abi/Cargo.toml" --no-default-features --features caribou
+	cp "$abi/target/release/libblinc_abi.dylib" bin/caribou/plugins/ 2>/dev/null ||
+		cp "$abi/target/release/libblinc_abi.so" bin/caribou/plugins/
+	rm -f bin/caribou/blinc_abi.hdll
 	# Caribou's own gpu and window packages, so not hlwindow's class path.
 	haxe --class-path ../haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--macro 'ashui.ui.Markup.enable()' -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
 		--class-path ../canvaskit/haxe --class-path fixtures/render -main Pixels -hl bin/caribou/pixels.hl
 	(cd bin/caribou && "$caribou/target/release/caribou" run pixels.hl)
+	# Caribou reads every file of a class path, so TwBorders sits in a directory of its own, not tests/.
+	mkdir -p bin/caribou/src && cp TwBorders.hx bin/caribou/src/
 	haxe --class-path ../haxe --class-path ../../ash/haxelib/ash-simd -D ash_simd -lib hashlink -lib tink_hxx -w -WDeprecated \
 		--macro 'ashui.ui.Markup.enable()' -lib caribou -D ashui_caribou --macro 'ashui.core.render.UiFramework.register()' \
-		--class-path ../canvaskit/haxe --class-path . -D ashui_border_pixels -main TwBorders -hl bin/caribou/tw-border-pixels.hl
+		--class-path ../canvaskit/haxe --class-path bin/caribou/src -D ashui_border_pixels -main TwBorders -hl bin/caribou/tw-border-pixels.hl
 	(cd bin/caribou && "$caribou/target/release/caribou" run tw-border-pixels.hl)
 	;;
 memory)

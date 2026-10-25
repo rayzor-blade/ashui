@@ -1,5 +1,6 @@
 package ashui.css;
 
+import ashui.core.externs.Handles;
 /**
 	One `property: value` of a rule. `value` is its text, trimmed, with any
 	`!important` removed and noted in `important`; it is read as a typed
@@ -67,10 +68,10 @@ class Stylesheet {
 
 	#if (hl && !macro)
 	/** The sheet as the native engine parsed it; made when first asked for. **/
-	var parsed:Null<hl.Abstract<"blinc_css_sheet">> = null;
+	var parsed:Null<SheetHandle> = null;
 
 	/** The native engine's parse of it, made the first time it is asked for. **/
-	public function native():hl.Abstract<"blinc_css_sheet"> {
+	public function native():SheetHandle {
 		if (parsed == null) {
 			if (resource != null) {
 				var bytes = haxe.Resource.getBytes(resource);

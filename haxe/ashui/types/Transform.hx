@@ -1,5 +1,6 @@
 package ashui.types;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /**
@@ -10,7 +11,7 @@ import ashui.core.externs.BlincNative;
 	transforms moves each part, so a turn turns rather than shrinking.
 **/
 class Transform implements IValue {
-	public var ptr(default, null):hl.Abstract<"blinc_value">;
+	public var ptr(default, null):ValueHandle;
 
 	/** Pixels. **/
 	public final translateX:Float;

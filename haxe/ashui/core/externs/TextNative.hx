@@ -1,5 +1,30 @@
 package ashui.core.externs;
 
+import ashui.core.externs.Handles;
+
+#if ashui_caribou
+/** `TextNative` over the `blinc_abi` Caribou plugin's `Resources` and `Tree`. **/
+class TextNative {
+	static inline function text(b:hl.Bytes):String
+		return b == null ? "" : @:privateAccess String.fromUTF8(b);
+
+	static inline function wrap(b:hl.Bytes, length:Int):haxe.io.Bytes
+		return b == null ? haxe.io.Bytes.alloc(0) : @:privateAccess new haxe.io.Bytes(b, length);
+
+	public static inline function blinc_font_register(bytes:hl.Bytes, len:Int):Int
+		return blinc_abi.Resources.register_font(wrap(bytes, len));
+
+	public static inline function blinc_text_atlas_take(color:Int, seen:Int, out:hl.Bytes, capacity:Int, info:hl.Bytes):Int
+		return blinc_abi.Resources.text_atlas(color, seen, wrap(out, capacity), wrap(info, 28));
+
+	public static inline function blinc_text_carets(tree:TreeHandle, node:haxe.Int64, text:hl.Bytes, fontSize:Single, wrapWidth:Single, out:hl.Bytes,
+			capacity:Int, info:hl.Bytes):Int
+		return tree.text_carets(node, TextNative.text(text), fontSize, wrapWidth, wrap(out, capacity * 12), wrap(info, 16));
+
+	public static inline function blinc_text_outline(text:hl.Bytes, font:hl.Bytes, style:hl.Bytes, out:hl.Bytes, capacity:Int, info:hl.Bytes):Int
+		return blinc_abi.Resources.text_outline(TextNative.text(text), TextNative.text(font), wrap(style, 24), wrap(out, capacity * 4), wrap(info, 16));
+}
+#else
 /**
 	The text engine in the native library, `blinc_abi.hdll`: its glyph
 	atlases, the textures it rasterizes glyphs into, and caret positions in
@@ -33,7 +58,7 @@ extern class TextNative {
 		the font's ascender and descender (negative) as four F32s to `info`.
 		Returns how many stops there are.
 	**/
-	static function blinc_text_carets(tree:hl.Abstract<"blinc_tree">, node:haxe.Int64, text:hl.Bytes, fontSize:Single, wrapWidth:Single, out:hl.Bytes,
+	static function blinc_text_carets(tree:TreeHandle, node:haxe.Int64, text:hl.Bytes, fontSize:Single, wrapWidth:Single, out:hl.Bytes,
 		capacity:Int, info:hl.Bytes):Int;
 
 	/**
@@ -51,3 +76,4 @@ extern class TextNative {
 	**/
 	static function blinc_text_outline(text:hl.Bytes, font:hl.Bytes, style:hl.Bytes, out:hl.Bytes, capacity:Int, info:hl.Bytes):Int;
 }
+#end

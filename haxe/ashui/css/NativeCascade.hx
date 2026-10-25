@@ -1,5 +1,6 @@
 package ashui.css;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.CssNative;
 import ashui.css.Css.CssOrigin;
 import ashui.layout.LayoutTree;
@@ -15,10 +16,10 @@ typedef NativeComputedStyle = {resolved:Map<String, String>, values:Map<String, 
 	changed and what they are. `Css` applies those.
 **/
 class NativeCascade {
-	static final local_handle = new ashui.core.UiContext.Local<Null<hl.Abstract<"blinc_css">>>(() -> null);
-	static var handle(get, set):Null<hl.Abstract<"blinc_css">>;
-	static function get_handle():Null<hl.Abstract<"blinc_css">> return local_handle.value;
-	static function set_handle(v:Null<hl.Abstract<"blinc_css">>):Null<hl.Abstract<"blinc_css">> return local_handle.value = v;
+	static final local_handle = new ashui.core.UiContext.Local<Null<CssHandle>>(() -> null);
+	static var handle(get, set):Null<CssHandle>;
+	static function get_handle():Null<CssHandle> return local_handle.value;
+	static function set_handle(v:Null<CssHandle>):Null<CssHandle> return local_handle.value = v;
 
 	/** Each sheet's id in the engine. **/
 	static final local_ids = new ashui.core.UiContext.Local<haxe.ds.ObjectMap<Stylesheet, Int>>(() -> new haxe.ds.ObjectMap());
@@ -48,7 +49,7 @@ class NativeCascade {
 
 	static var hooked = false;
 
-	static function css():hl.Abstract<"blinc_css"> {
+	static function css():CssHandle {
 		if (handle == null) {
 			handle = CssNative.blinc_css_new();
 		}

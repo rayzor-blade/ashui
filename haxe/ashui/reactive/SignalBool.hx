@@ -1,10 +1,11 @@
 package ashui.reactive;
 
+import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /** A signal of a `Bool`; what `Signal.make` makes for one. **/
 class SignalBool implements ISignal<Bool> {
-	public var ptr(default, null):hl.Abstract<"blinc_signal">;
+	public var ptr(default, null):SignalHandle;
 
 	public function new(initialValue:Bool) {
 		ptr = BlincNative.blinc_signal_bool(initialValue ? 1 : 0);
