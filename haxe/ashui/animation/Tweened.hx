@@ -105,16 +105,22 @@ class Tweened<T> {
 	public static function initial(prop:PropertyId):Null<Dynamic> {
 		var raw:Int = prop;
 		return switch raw {
-			case 0: Brush.solid(0x000000, 0);
-			case 1 | 67 | 68 | 69 | 70: new Color(0x000000, 0);
+			case 0: initialBrush == null ? initialBrush = Brush.solid(0x000000, 0) : initialBrush;
+			case 1 | 67 | 68 | 69 | 70: initialColor == null ? initialColor = new Color(0x000000, 0) : initialColor;
 			case 4: (1.0 : Single);
-			case 5: ashui.types.Transform.identity();
+			case 5: initialTransform == null ? initialTransform = ashui.types.Transform.identity() : initialTransform;
 			case 64: (0.0 : Single);
 			// Text shadows grow from a transparent one, as CSS's do from none.
-			case 119: new ashui.types.Shadow(0, 0, 0, 0, 0);
+			case 119: initialShadow == null ? initialShadow = new ashui.types.Shadow(0, 0, 0, 0, 0) : initialShadow;
 			case _: null;
 		}
 	}
+
+	// Made once: asking for an initial value is how a write learns it may move, and each of these is a native handle.
+	static var initialBrush:Null<Brush> = null;
+	static var initialColor:Null<Color> = null;
+	static var initialTransform:Null<ashui.types.Transform> = null;
+	static var initialShadow:Null<ashui.types.Shadow> = null;
 
 	@:allow(ashui.layout.Node)
 	static function read<T>(value:IntoReactive<T>):T {

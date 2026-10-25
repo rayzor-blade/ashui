@@ -430,7 +430,7 @@ class Properties {
 		h.set("background-color", (n, v, c) -> {
 			var col = colorOf(CssValue.color(v), c);
 			var blur = c.backdropBlur == null ? -1.0 : c.backdropBlur;
-			write(n, Prop.Background, blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha));
+			write(n, Prop.Background, blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : ValueCache.solid(col.rgb, col.alpha));
 			[Node.field(Prop.Background)];
 		});
 		h.set("background-image", (n, v, c) -> {
@@ -483,7 +483,7 @@ class Properties {
 				|| CssValue.call(t) != null
 				&& CssValue.call(t).name == "url") image(t, c) else {
 				var col = colorOf(CssValue.color(t), c);
-				blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : Brush.solid(col.rgb, col.alpha);
+				blur >= 0 ? Brush.blur(blur, col.rgb, col.alpha) : ValueCache.solid(col.rgb, col.alpha);
 			}
 			write(n, Prop.Background, brush);
 			[Node.field(Prop.Background)];
@@ -586,7 +586,7 @@ class Properties {
 					Math.max(0, pixels(l, c));
 				}
 			];
-			write(n, Prop.CornerRadius, new CornerRadius(r[0], r[1], r[2], r[3]));
+			write(n, Prop.CornerRadius, ValueCache.radius(r[0], r[1], r[2], r[3]));
 			[Node.field(Prop.CornerRadius)];
 		});
 		h.set("corner-shape", (n, v, _) -> {
@@ -1434,9 +1434,9 @@ class Properties {
 
 	static function colorOf(c:CssColor, ctx:ApplyContext):Color {
 		return switch c {
-			case Rgba(rgb, a): new Color(rgb, a);
+			case Rgba(rgb, a): ValueCache.color(rgb, a);
 			case CurrentColor:
-				ctx.currentColor == CurrentColor ? new Color(0, 1) : colorOf(ctx.currentColor, ctx);
+				ctx.currentColor == CurrentColor ? ValueCache.color(0, 1) : colorOf(ctx.currentColor, ctx);
 		}
 	}
 
