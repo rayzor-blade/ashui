@@ -67,6 +67,8 @@ typedef CodeEditorProps = {
 	?gutterMarkers:Bool,
 	/** Collapses unused marker and fold columns; leave false for an always-clickable breakpoint gutter. **/
 	?compactGutter:Bool,
+	/** Keeps activated compact gutter columns until this view is disposed, so edits cannot shift the text. **/
+	?stableGutter:Bool,
 	/** Asked for a hint about the character at an offset once the pointer has rested on it; what it returns opens in a popover, and null leaves the popover to the titles of the decorations there. **/
 	?hover:Int->Null<CodeHint>,
 	/** Definition navigation at a text offset on Command-click (macOS) or Control-click; handled before selection. **/
@@ -261,16 +263,23 @@ class CodeEditor extends Component<CodeEditorProps> {
 		search = new CodeFind(this, () -> !readOnly.get() && (e.interaction == null || !e.interaction.disabled.get()), props.findShortcuts != false);
 
 		var rowHeight = Computed.make(() -> { revision.get(); (metrics.lineHeight : Single); });
-		markerColumn = Computed.make(() -> props.gutterMarkers == true && (props.compactGutter != true || annotations.hasLineMarkers()));
+		var hadMarkers = false, hadFolds = false;
+		markerColumn = Computed.make(() -> {
+			if (props.gutterMarkers != true) return false;
+			if (props.compactGutter != true || props.stableGutter == true && hadMarkers) return true;
+			hadMarkers = annotations.hasLineMarkers();
+			return hadMarkers;
+		});
 		var foldGeneration = -1, hasFolds = false;
 		foldColumn = Computed.make(() -> {
-			revision.get();
 			if (props.folding == false) return false;
-			if (props.compactGutter != true) return true;
+			if (props.compactGutter != true || props.stableGutter == true && hadFolds) return true;
+			revision.get();
 			if (foldGeneration != document.generation) {
 				foldGeneration = document.generation;
 				hasFolds = Lambda.exists(document.lines, line -> line.foldEnd >= 0);
 			}
+			if (hasFolds) hadFolds = true;
 			return hasFolds;
 		});
 		var gutter = Computed.make(() -> {
