@@ -371,6 +371,10 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeChangeMarks -hl bin/code-change-marks.hl
 	change_marks=0
 	run code-change-marks.hl || change_marks=$?
+	# Compact gutters track document-wide markers and folds, independently of visible rows.
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeGutterColumns -hl bin/code-gutter-columns.hl
+	gutter_columns=0
+	run code-gutter-columns.hl || gutter_columns=$?
 	# A scroll container's reach and its edge shadows (bd8f627).
 	$haxe_ui --class-path fixtures/css -main ScrollReach -hl bin/scroll-reach.hl
 	scroll_reach=0
@@ -433,7 +437,7 @@ memory)
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		-D ashui_window --macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/window -main WindowDemo -hl bin/window-compile.hl --no-output || windowed=$?
-	[ $smoke -eq 0 ] && [ $tw_borders -eq 0 ] && [ $idle -eq 0 ] && [ $signal_string_cache -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $root_zoom -eq 0 ] && [ $window_theme -eq 0 ] && [ $theme_debug_probe -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $text_wrap_rounding -eq 0 ] && [ $command_items -eq 0 ] && [ $component_fragments -eq 0 ] && [ $bundled_fonts -eq 0 ] && [ $icon_sets -eq 0 ] && [ $remix_catalogue -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $code_components -eq 0 ] && [ $code_state -eq 0 ] && [ $inline_release -eq 0 ] && [ $transition_reuse -eq 0 ] && [ $field_tables -eq 0 ] && [ $code_zones -eq 0 ] && [ $scroll_reach -eq 0 ] && [ $code_zones_editor -eq 0 ] && [ $change_marks -eq 0 ] && [ $diff_engine -eq 0 ] && [ $diff_rows -eq 0 ] && [ $diff_text -eq 0 ] && [ $diff_view -eq 0 ] && [ $shared_styles -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_sync -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $floating_reopen -eq 0 ] && [ $scheduler_failures -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ] && [ $windowed -eq 0 ]
+	[ $smoke -eq 0 ] && [ $tw_borders -eq 0 ] && [ $idle -eq 0 ] && [ $signal_string_cache -eq 0 ] && [ $hits -eq 0 ] && [ $hitmap -eq 0 ] && [ $effects -eq 0 ] && [ $bindings -eq 0 ] && [ $theme_ownership -eq 0 ] && [ $root_zoom -eq 0 ] && [ $window_theme -eq 0 ] && [ $theme_debug_probe -eq 0 ] && [ $tables -eq 0 ] && [ $table_spans -eq 0 ] && [ $row_spans -eq 0 ] && [ $interaction_styles -eq 0 ] && [ $dialog_forms -eq 0 ] && [ $components -eq 0 ] && [ $text_wrap_rounding -eq 0 ] && [ $command_items -eq 0 ] && [ $component_fragments -eq 0 ] && [ $bundled_fonts -eq 0 ] && [ $icon_sets -eq 0 ] && [ $remix_catalogue -eq 0 ] && [ $command_scroll -eq 0 ] && [ $component_sizes -eq 0 ] && [ $switch_icons -eq 0 ] && [ $tabs_indicator -eq 0 ] && [ $code_components -eq 0 ] && [ $code_state -eq 0 ] && [ $inline_release -eq 0 ] && [ $transition_reuse -eq 0 ] && [ $field_tables -eq 0 ] && [ $code_zones -eq 0 ] && [ $scroll_reach -eq 0 ] && [ $code_zones_editor -eq 0 ] && [ $change_marks -eq 0 ] && [ $gutter_columns -eq 0 ] && [ $diff_engine -eq 0 ] && [ $diff_rows -eq 0 ] && [ $diff_text -eq 0 ] && [ $diff_view -eq 0 ] && [ $shared_styles -eq 0 ] && [ $number_gauges -eq 0 ] && [ $number_sync -eq 0 ] && [ $number_wheel -eq 0 ] && [ $tooltip_focus -eq 0 ] && [ $tooltip_disposal -eq 0 ] && [ $floating_reopen -eq 0 ] && [ $scheduler_failures -eq 0 ] && [ $motion -eq 0 ] && [ $css -eq 0 ] && [ $compile -eq 0 ] && [ $display -eq 0 ] && [ $windowed -eq 0 ]
 	;;
 *)
 	echo "usage: run.sh [memory|render|render-caribou|window]" >&2

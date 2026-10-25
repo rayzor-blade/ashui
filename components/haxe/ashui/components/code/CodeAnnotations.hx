@@ -219,6 +219,15 @@ class CodeAnnotations {
 		return set == null ? [] : [for (p in set.list) lineOf(p, set.follow)];
 	}
 
+	/** Whether any line needs the icon/dot column; change bars and boundary marks have their own positions. **/
+	public function hasLineMarkers():Bool {
+		revision.get();
+		for (set in markerSets)
+			for (marker in set.list)
+				if (marker.boundary != true && marker.bar != true) return true;
+		return false;
+	}
+
 	/** The marker on `line`, from the first owner that has one there. **/
 	public function markerAt(line:Int):Null<CodeMarker> {
 		if (markerLines == null || markerLinesAt != revision.get()) {

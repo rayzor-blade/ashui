@@ -65,6 +65,8 @@ typedef CodeEditorProps = {
 	?minimap:Bool,
 	/** Reserves a slot in the gutter, left of the line numbers, for what `markers` puts there and where a press calls `onGutterClick`. **/
 	?gutterMarkers:Bool,
+	/** Collapses unused marker and fold columns; leave false for an always-clickable breakpoint gutter. **/
+	?compactGutter:Bool,
 	/** Asked for a hint about the character at an offset once the pointer has rested on it; what it returns opens in a popover, and null leaves the popover to the titles of the decorations there. **/
 	?hover:Int->Null<CodeHint>,
 	/** Definition navigation at a text offset on Command-click (macOS) or Control-click; handled before selection. **/
@@ -118,6 +120,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 	var hints:Null<CodeHints> = null;
 	var completions:Null<CodeCompletions> = null;
 	var gutterNow:Void->Float = () -> 0;
+	var markerColumn:Computed<Bool>;
+	var foldColumn:Computed<Bool>;
 	/** Called with a line, from 0, and the press, when the gutter's marker slot is pressed, whether or not the line has a marker (`gutterMarkers`). **/
 	public var onGutterClick:Null<(Int, ashui.input.Events.PointerEvent)->Void> = null;
 	final revision = Signal.make(0);
@@ -257,10 +261,22 @@ class CodeEditor extends Component<CodeEditorProps> {
 		search = new CodeFind(this, () -> !readOnly.get() && (e.interaction == null || !e.interaction.disabled.get()), props.findShortcuts != false);
 
 		var rowHeight = Computed.make(() -> { revision.get(); (metrics.lineHeight : Single); });
+		markerColumn = Computed.make(() -> props.gutterMarkers == true && (props.compactGutter != true || annotations.hasLineMarkers()));
+		var foldGeneration = -1, hasFolds = false;
+		foldColumn = Computed.make(() -> {
+			revision.get();
+			if (props.folding == false) return false;
+			if (props.compactGutter != true) return true;
+			if (foldGeneration != document.generation) {
+				foldGeneration = document.generation;
+				hasFolds = Lambda.exists(document.lines, line -> line.foldEnd >= 0);
+			}
+			return hasFolds;
+		});
 		var gutter = Computed.make(() -> {
 			revision.get();
 			(props.lineNumbers == false ? 0 : Std.string(document.lines.length).length * metrics.characterWidth + 18)
-				+ (props.folding == false ? 0 : 22) + (props.lineNumbers == false && props.folding == false ? 0 : 8) + (props.gutterMarkers == true ? MARKER : 0);
+				+ (foldColumn.get() ? 22 : 0) + (props.lineNumbers == false && !foldColumn.get() ? 0 : 8) + (markerColumn.get() ? MARKER : 0);
 		});
 		// The zones, set from the annotations and the heights measured, before anything reads where a row is.
 		zoneLayout = Computed.make(() -> {
@@ -751,11 +767,11 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var foldable = Computed.make(() -> { revision.get(); var r = row.get(); r != null && r.line.foldEnd >= 0; });
 		var fold = Computed.make(() -> (foldable.get() ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
 		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} visibility={shown}>
-			<if {props.gutterMarkers == true}>${markerSlot(row)}</if>
+			<if {markerColumn.get()}>${markerSlot(row)}</if>
 			<if {props.gutterMarkers == true}>${boundarySlot(row, rowHeight)}</if>
 			<if {props.gutterMarkers == true}>${barSlot(row)}</if>
-			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (props.folding == false ? 8 : 26) - (props.gutterMarkers == true ? MARKER : 0) : Single))}>${number.get()}</text></if>
-			<if {props.folding != false}>
+			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (foldColumn.get() ? 26 : 8) - (markerColumn.get() ? MARKER : 0) : Single))}>${number.get()}</text></if>
+			<if {foldColumn.get()}>
 				<div class="ui-code-fold-slot" visibility={fold}>${foldButton(row, foldable)}</div>
 			</if>
 		</div>;
