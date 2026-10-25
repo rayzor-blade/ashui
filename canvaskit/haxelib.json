@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.4",
-  "releasenote": "Gestures stay inside scrolled viewports; the shaders and passes compile on Caribou's gpu plugin. Uses ashui 0.1.4.",
+  "version": "0.1.5",
+  "releasenote": "Gestures stay inside scrolled viewports; the shaders and passes compile on Caribou's gpu plugin. Uses ashui 0.1.5.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.1.4"
+    "ashui": "0.1.5"
   }
 }

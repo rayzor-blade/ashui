@@ -14,7 +14,7 @@ on:
       hlwindow_tag:
         description: hlwindow release tag
         type: string
-        default: v0.3.1
+        default: v0.3.2
       hlavi_tag:
         description: hlavi release tag
         type: string
@@ -22,7 +22,7 @@ on:
       ashui_tag:
         description: ashui release tag
         type: string
-        default: v0.1.4
+        default: v0.1.5
       publish:
         description: Submit all nine packages to Haxelib
         type: boolean
