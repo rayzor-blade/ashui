@@ -916,13 +916,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 			for (old in cachedRows) if (old.line == line && old.source == source && old.row == row && old.stamp == stamp && old.top == rowTop(row) && old.tokens == line.tokenRevision && old.left == left && old.right == right) { found = old; break; }
 			if (found == null) {
 				var measured = metrics.measure(line), runs:Array<Run> = [];
+				var window = CodeMetrics.window(measured,left,right);
 				if (line.tokenCount == 0) {
-					if (hasInk(line.text, 0, line.text.length)) runs.push({text: measured.expanded, x: 0, kind: "plain"});
+					if (hasInk(line.text,window.from,window.to)) runs.push({text:measured.expanded.substring(measured.columns[window.from],measured.columns[window.to]),x:(CodeMetrics.xIn(measured,window.from):Single),kind:"plain"});
 				} else for (t in 0...line.tokenCount) {
 					var from = line.tokenFrom(t), to = line.tokenTo(t);
+					if (to <= window.from || from >= window.to) continue;
+					from = Std.int(Math.max(from,window.from)); to = Std.int(Math.min(to,window.to));
 					if (props.tokenStyles != true && !hasInk(line.text, from, to)) continue;
-					var x = metrics.xAt(line, from);
-					if (x >= right || metrics.xAt(line, to) <= left) continue;
+					var x = CodeMetrics.xIn(measured,from);
+					if (x >= right || CodeMetrics.xIn(measured,to) <= left) continue;
 					runs.push({text: measured.expanded.substring(measured.columns[from], measured.columns[to]), x: (x : Single), kind: line.tokenKind(t), style: props.tokenStyles == true ? line.tokenStyle(t) : null});
 				}
 				var guides:Array<Single> = [];
