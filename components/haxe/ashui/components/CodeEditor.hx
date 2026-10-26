@@ -54,6 +54,8 @@ typedef CodeEditorProps = {
 	?language:IntoReactive<String>,
 	/** An application grammar, in place of the built-in lexical highlighter. **/
 	?highlighter:CodeHighlighter,
+	/** Completed background grammars can replace the current highlighter without replacing the editor. **/
+	?highlighterSource:IntoReactive<Null<CodeHighlighter>>,
 	/** Render optional inline styles on highlight spans; ordinary syntax stays CSS themed. **/
 	?tokenStyles:Bool,
 	?lineNumbers:Bool,
@@ -129,6 +131,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** Called with a line, from 0, and the press, when the gutter's marker slot is pressed, whether or not the line has a marker (`gutterMarkers`). **/
 	public var onGutterClick:Null<(Int, ashui.input.Events.PointerEvent)->Void> = null;
 	final revision = Signal.make(0);
+	final revealRevision = Signal.make(0);
 	/** The zones between rows, and a count that moves when the height an element measured does. **/
 	final zones = new CodeZones();
 	final zoneHeights = Signal.make(0);
@@ -216,7 +219,11 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var stateToken = state.resume();
 		if (knownValue != value.get()) { history.clear(); knownValue = value.get(); }
 		var language:IntoReactive<String> = props.language == null ? "plain" : props.language;
-		var syntax = () -> props.highlighter != null ? props.highlighter : CodeSyntax.forLanguage(read(language));
+		var syntax = () -> {
+			var application = props.highlighterSource == null ? null : read(props.highlighterSource);
+			if (application == null) application = props.highlighter;
+			return application != null ? application : CodeSyntax.forLanguage(read(language));
+		};
 		tabSize = Std.int(Math.max(1, Math.min(16, props.tabSize == null ? 4 : props.tabSize)));
 		if (state.document == null) {
 			state.document = new CodeDocument(value.get(), syntax());
@@ -252,6 +259,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var readOnly = Computed.make(() -> !editable() || (props.readOnly != null && read(props.readOnly)));
 		new Watch(() -> readOnly.get(), on -> e.readOnly = on);
 		new Watch(() -> { var content = e.display(); var highlighter = syntax(); {content: content, highlighter: highlighter}; }, next -> {
+			var textChanged = document.text != next.content;
 			if (knownValue != value.get()) { history.clear(); oldText = ""; knownValue = value.get(); }
 			metrics.syntax = next.highlighter;
 			metrics.prepare(next.content);
@@ -259,7 +267,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			var length = value.get().length;
 			if (e.caret.get() > length) e.caret.set(length);
 			if (e.anchor.get() > length) e.anchor.set(length);
-			refresh();
+			refresh(textChanged);
 		}, (a, b) -> a.content == b.content && a.highlighter == b.highlighter);
 
 		search = new CodeFind(this, () -> !readOnly.get() && (e.interaction == null || !e.interaction.disabled.get()), props.findShortcuts != false);
@@ -562,7 +570,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 				for (index in 0...Css.restyled.length) if (Reflect.compareMethods(Css.restyled[index], restyle)) { Css.restyled.splice(index, 1); break; }
 			e.stopBlink(); metrics.invalidate(); cachedRows = [];
 		});
-		new Watch(() -> { revision.get(); e.caret.get(); e.anchor.get(); caret.get(); 0; }, _ -> reveal(gutter.get()), (_, _) -> false);
+		new Watch(() -> { revealRevision.get(); e.caret.get(); e.anchor.get(); 0; }, _ -> reveal(gutter.get()), (_, _) -> false);
 		new Watch(() -> e.showsCaret() && !readOnly.get(), on -> on ? e.restartBlink() : e.stopBlink());
 		TextCaret.publish(e, () -> {
 			if (readOnly.get()) return null;
@@ -680,7 +688,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return annotations.decorationsAt(offset);
 
 	static function read<T>(value:IntoReactive<T>):T return switch value { case Const(v): v; case Bound(s): s.get(); case Derived(c): c.get(); }
-	function refresh():Void revision.set(revision.get() + 1);
+	function refresh(reveal = true):Void {
+		revision.set(revision.get() + 1);
+		if (reveal) revealRevision.set(revealRevision.get() + 1);
+	}
 
 	/** The signal of slot `i`'s row, made with the slot. **/
 	function slotAt(i:Int):Signal<Null<Row>> {
