@@ -11,6 +11,10 @@ import window.Modifiers;
 	release, clicks the focused node, as a button does.
 **/
 class Keyboard {
+	/** Applications in a browser can follow the visitor's keyboard instead of the runtime's OS. */
+	public static var platform:Null<String>;
+	public static function isMac():Bool return (platform ?? Sys.systemName()) == "Mac";
+
 	/** Dispatches a menu editing command to the focused text control. */
 	public static function edit(tree:LayoutTree, action:String):Void {
 		var key = switch action {
@@ -21,7 +25,7 @@ class Keyboard {
 			case "selectall": "a";
 			case _: return;
 		};
-		var mac = Sys.systemName() == "Mac";
+		var mac = isMac();
 		var modifiers = window.Modifiers.State(action == "redo", !mac, false, mac, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown);
 		input(tree, window.KeyEvent.Input(Unidentified(Unidentified), Character(key), None, Standard, Pressed, false, Unavailable), modifiers);
 	}

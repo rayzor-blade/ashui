@@ -489,7 +489,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			hints.hide();
 			completions.hide();
 			if (p.button != Left) return;
-			if (props.onNavigate != null && (Sys.systemName() == "Mac" ? p.superKey : p.control)) {
+			if (props.onNavigate != null && (ashui.input.Keyboard.isMac() ? p.superKey : p.control)) {
 				var offset = offsetAt(p.x, p.y);
 				if (offset >= 0) {
 					p.preventDefault();

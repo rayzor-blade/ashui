@@ -453,7 +453,7 @@ class TextEditing {
 			return;
 		if (onKey != null && onKey(e))
 			return;
-		var mac = Sys.systemName() == "Mac";
+		var mac = ashui.input.Keyboard.isMac();
 		var byLine = e.superKey || (e.control && !mac);
 		var at = caret.get();
 		var selected = caret.get() != anchor.get();

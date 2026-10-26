@@ -105,7 +105,7 @@ class CodeFind {
 
 	public function shortcut(event:KeyEvent):Bool {
 		if (!shortcuts) return switch event.key { case Named(Escape) if (state.opened.get()): event.preventDefault(); hide(); true; case _: false; };
-		var mac = Sys.systemName() == "Mac", mod = mac ? event.superKey && !event.control : event.control && !event.superKey;
+		var mac = ashui.input.Keyboard.isMac(), mod = mac ? event.superKey && !event.control : event.control && !event.superKey;
 		switch event.key {
 			case Character(c) if (mod && c.toLowerCase() == "f" && !event.shift && (!event.alt || mac)):
 				event.preventDefault(); show(event.alt); return true;
