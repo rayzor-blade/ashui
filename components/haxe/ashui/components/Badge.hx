@@ -11,7 +11,7 @@ enum abstract BadgeVariant(String) to String {
 	var Warning = "warning";
 }
 
-/** How a badge wears its colour: a tint of it (the default), filled with it, or edged with it. **/
+/** Badge color treatment: tinted (default), solid, or outlined. **/
 enum abstract BadgeAppearance(String) to String {
 	var Soft = "soft";
 	var Solid = "solid";
@@ -21,12 +21,16 @@ enum abstract BadgeAppearance(String) to String {
 typedef BadgeProps = {
 	?variant:BadgeVariant,
 	?appearance:BadgeAppearance,
-	/** Small, medium (default) or large type and padding (git-bug e8a1b50). **/
+	/** Small, medium (default), or large text and padding (e8a1b50). **/
 	?size:Size,
 	?id:String
 }
 
-/** A small label: a count, a status. CSS: `.ui-badge`, `[data-variant]`, `[data-appearance]`; `--ui-badge-bg`, `-fg`, `-border`, `-padding`, `-radius`, `-font-size`. **/
+/**
+	A compact status or count label.
+	CSS: `.ui-badge`, `[data-variant]`, `[data-appearance]`. Variables:
+	`--ui-badge-bg`, `-fg`, `-border`, `-padding`, `-radius`, and `-font-size`.
+**/
 class Badge extends Component<BadgeProps> {
 	function render():Element
 		return Library.part("ui-badge", null, [

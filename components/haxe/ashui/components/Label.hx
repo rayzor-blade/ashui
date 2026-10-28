@@ -4,17 +4,16 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 typedef LabelProps = {
-	/** The id of the control it labels; hxx's `for`. Without it, the first input inside it. **/
+	/** ID of the associated control, written as `for` in HXX. Defaults to the first input inside the label. **/
 	?htmlFor:String,
-	/** Marks the field as required, with an asterisk after the text. **/
+	/** Adds an asterisk to indicate a required field. **/
 	?required:Bool,
 	?id:String
 }
 
 /**
-	A field's label in the library's look: the built-in `<label>`, so a
-	press on it operates its control, its text a flow. CSS: `.ui-label`,
-	`.ui-label-required`.
+	A themed form label. Clicking activates the associated control through
+	the built-in label behavior. CSS: `.ui-label` and `.ui-label-required`.
 **/
 class Label extends Component<LabelProps> {
 	function render():Element {

@@ -5,50 +5,42 @@ import ashui.draw3d.MeshData;
 import ashui.math.Vec3;
 
 /**
-	A control cage: points joined into polygons, which Catmull-Clark
-	subdivision smooths into a surface. A few hundred faces describe a shape
-	such as a car's body; each subdivision splits every face into quads and
-	moves the points toward a smooth limit, so after three or four levels the
-	surface is smooth enough to draw.
+	A polygon control cage for Catmull-Clark subdivision modeling.
 
-	Faces list their points counter-clockwise seen from outside, and each
-	face has a material slot: `meshes` builds one mesh per slot, so glass,
-	paint and trim can be regions of one surface. An edge with only one face
-	is a boundary, an opening such as a wheel arch, and stays where it is
-	drawn in the cage's outline rather than shrinking away.
+	Subdivision splits faces into quads and moves vertices toward a smooth
+	surface. Faces use counter-clockwise winding when viewed from outside.
+	Material slots let `meshes` split one surface into glass, paint, trim,
+	or other regions. Boundary edges preserve openings such as wheel arches.
 
-	`crease` makes an edge sharp. An infinitely sharp edge stays a hard edge
-	at every level; a sharpness of 2 stays sharp for two levels and is
-	smoothed after, which rounds it slightly, as a pressed panel line or a
-	window's edge is (DeRose, Kass and Truong, "Subdivision Surfaces in
-	Character Animation", 1998). `meshes` splits normals across edges that are
-	still sharp, so they shade as edges.
+	Use `crease` for sharp edges. Infinite sharpness remains hard at every
+	level; sharpness 2 stays sharp for two levels before smoothing. Mesh
+	normals split across remaining sharp edges. See DeRose, Kass, and Truong,
+	"Subdivision Surfaces in Character Animation" (1998).
 
-	Model half of a symmetric shape with every point at x ≥ 0 and the
-	centre-line's points at x = 0, then `mirrored` gives the whole, its seam
-	joined.
+	For symmetric models, build points with x >= 0 and put seam points at
+	x = 0. `mirrored` creates the other half and joins the seam.
 **/
 class Cage {
 	public final points:Array<Vec3> = [];
 
-	/** Each face's points, counter-clockwise seen from outside. **/
+	/** Vertex indices per face, with counter-clockwise winding viewed from outside. **/
 	public final faces:Array<Array<Int>> = [];
 
-	/** Each face's material slot. **/
+	/** Material slot for each face. **/
 	public final slots:Array<Int> = [];
 
 	final creases:Array<{a:Int, b:Int, sharpness:Float}> = [];
 
 	public function new() {}
 
-	/** Adds `p` and gives its index. **/
+	/** Adds a point and returns its index. **/
 	public function add(p:Vec3):Int {
 		bounds = null;
 		points.push(p);
 		return points.length - 1;
 	}
 
-	/** Adds a face through `ids`, counter-clockwise seen from outside, in material slot `slot`; gives its index. **/
+	/** Adds a face with outward counter-clockwise winding in the given material slot. Returns its index. **/
 	public function face(ids:Array<Int>, slot = 0):Int {
 		if (ids.length < 3)
 			throw "a face needs at least three points";
@@ -59,11 +51,10 @@ class Cage {
 	}
 
 	/**
-		Quads between each pair of neighbouring rows of point indices, all in
-		`slot`. Rows run across the surface, each the same length; `wrap` joins
-		each row's last point to its first, as round a tube. Rows ordered so
-		that walking along a row then on to the next row turns
-		counter-clockwise seen from outside.
+		Creates quads between equal-length rows of vertex indices. `wrap` joins
+		the last and first point of each row, as for a tube. Order rows so a step
+		along a row followed by a step to the next row winds counter-clockwise
+		when viewed from outside.
 	**/
 	public function grid(rows:Array<Array<Int>>, slot = 0, wrap = false):Void {
 		for (r in 0...rows.length - 1) {
@@ -76,11 +67,11 @@ class Cage {
 		}
 	}
 
-	/** Makes the edge between `a` and `b` sharp; infinitely by default, or for `sharpness` levels of subdivision. **/
+	/** Creases an edge for the given subdivision levels. Omitted sharpness makes the edge infinitely sharp. **/
 	public function crease(a:Int, b:Int, ?sharpness:Float):Void
 		creases.push({a: a, b: b, sharpness: sharpness == null ? Math.POSITIVE_INFINITY : sharpness});
 
-	/** Creases each edge along `ids`, and from the last back to the first when `closed`. **/
+	/** Creases consecutive edges in `ids`, optionally joining the last point to the first. **/
 	public function creaseLine(ids:Array<Int>, ?sharpness:Float, closed = false):Void {
 		for (i in 0...ids.length - 1)
 			crease(ids[i], ids[i + 1], sharpness);
@@ -88,7 +79,7 @@ class Cage {
 			crease(ids[ids.length - 1], ids[0], sharpness);
 	}
 
-	/** The sharpness of the edge between `a` and `b`: 0 when it was never creased. **/
+	/** Returns edge sharpness, or zero for an uncreased edge. **/
 	public function sharpness(a:Int, b:Int):Float {
 		var s = 0.0;
 		for (c in creases)
@@ -98,10 +89,9 @@ class Cage {
 	}
 
 	/**
-		This cage and its reflection across x = 0, as one cage. Points within
-		`tolerance` of the plane are the seam: they are moved onto it and shared,
-		so the two halves join without a gap. The reflection's faces are turned
-		round, so they still face out.
+		Mirrors the cage across x = 0 and joins both halves. Points within
+		`tolerance` of the plane are snapped to the shared seam. Mirrored faces
+		reverse winding to preserve outward normals.
 	**/
 	public function mirrored(tolerance = 1e-6):Cage {
 		var out = new Cage();
@@ -126,7 +116,7 @@ class Cage {
 		return out;
 	}
 
-	/** The cage subdivided `levels` times. **/
+	/** Returns a cage after the given number of subdivision levels. **/
 	public function subdivided(levels = 1):Cage {
 		var cage = this;
 		for (_ in 0...levels)
@@ -214,10 +204,9 @@ class Cage {
 	}
 
 	/**
-		One mesh for each material slot that has faces, drawn in
-		`materials[slot]`. Quads are split in two along their shorter diagonal.
-		A point's normal is smooth across the faces round it, except across
-		edges that are still sharp and between faces of different slots.
+		Builds one mesh per populated material slot using `materials[slot]`.
+		Splits quads along the shorter diagonal. Normals remain smooth except
+		across sharp edges and material-slot boundaries.
 	**/
 	public function meshes(materials:Array<Material>):Array<MeshData> {
 		var topo = new Topology(this);
@@ -297,11 +286,9 @@ class Cage {
 	}
 
 	/**
-		The point of the cage's faces nearest `p`, the outward normal of the
-		face it is on, and that face's index. On a subdivided cage the faces
-		lie close to the smooth surface, so this places details on it. Each
-		face's bounds are worked out at the first query, so move points before
-		querying, not between queries.
+		Finds the nearest surface point, outward normal, and face index.
+		Use a subdivided cage to place details near the smooth surface. Face
+		bounds are cached on the first query; finish moving points before querying.
 	**/
 	public function closest(p:Vec3):{point:Vec3, normal:Vec3, face:Int} {
 		if (bounds == null || bounds.length != faces.length)
@@ -346,12 +333,10 @@ class Cage {
 	var lastFace = -1;
 
 	/**
-		A band laid on the surface along `path`, `width(f)` wide where `f` runs
-		from 0 at the path's start to 1 at its end, and lifted `lift` off the
-		surface so it shows over it: a lamp, a strip of trim, a handle or a
-		panel line. Each point of the path is moved to the nearest point of the
-		surface, and the band spreads across the surface there. Lay it on a
-		subdivided cage, whose faces lie close to the smooth surface.
+		Builds a surface band along a path, with width supplied by `width(f)`
+		for path fractions from zero to one. Projects path points onto the
+		surface and offsets the band by `lift`. Use a subdivided cage for details
+		such as trim, lamps, handles, or panel lines.
 	**/
 	public function band(path:Array<Vec3>, width:Float->Float, lift:Float, ?material:Material):MeshData {
 		var on = [for (q in path) closest(q)];
@@ -382,7 +367,7 @@ class Cage {
 		return MeshData.build(p, idx, n, null, null, material);
 	}
 
-	/** A polygon's normal, as long as its area: Newell's method, sound for faces that are not quite flat. **/
+	/** Calculates an area-weighted polygon normal using Newell's method, including nonplanar faces. **/
 	function newell(ids:Array<Int>):Vec3 {
 		var x = 0.0, y = 0.0, z = 0.0;
 		for (i in 0...ids.length) {
@@ -394,7 +379,7 @@ class Cage {
 		return new Vec3(x / 2, y / 2, z / 2);
 	}
 
-	/** The point of triangle `a`, `b`, `c` nearest `p` (Ericson, "Real-Time Collision Detection", 5.1.5). **/
+	/** Finds the nearest point on a triangle (Ericson, "Real-Time Collision Detection", section 5.1.5). **/
 	static function nearestOnTriangle(p:Vec3, a:Vec3, b:Vec3, c:Vec3):Vec3 {
 		var ab = b.sub(a), ac = c.sub(a), ap = p.sub(a);
 		var d1 = ab.dot(ap), d2 = ac.dot(ap);
@@ -420,7 +405,7 @@ class Cage {
 	}
 }
 
-/** A cage's edges: their ends, the faces either side, their sharpness, and which edges and faces meet at each point. **/
+/** Edge adjacency, crease sharpness, and incident faces for cage vertices. **/
 private class Topology {
 	public final a:Array<Int> = [];
 	public final b:Array<Int> = [];
@@ -429,7 +414,7 @@ private class Topology {
 	public final vertexEdges:Array<Array<Int>>;
 	public final vertexFaces:Array<Array<Int>>;
 
-	/** For each face, the edge from each of its points to the next. **/
+	/** Edge indices for each face, in face vertex order. **/
 	public final faceEdges:Array<Array<Int>> = [];
 
 	public function new(cage:Cage) {
@@ -468,7 +453,7 @@ private class Topology {
 	public inline function other(e:Int, v:Int):Int
 		return a[e] == v ? b[e] : a[e];
 
-	/** Whether `e` is a crease or a boundary, which both keep their line. **/
+	/** Returns whether an edge is a crease or boundary. **/
 	public inline function isSharp(e:Int):Bool
 		return sharp[e] > 0 || faces[e].length < 2;
 }

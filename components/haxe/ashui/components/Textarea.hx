@@ -5,11 +5,11 @@ import ashui.ui.Component;
 
 typedef TextareaProps = {
 	> ashui.ui.TextArea.TextAreaProps,
-	/** Small, medium (default) or large density; explicit width/height still apply (git-bug e8a1b50). **/
+	/** Small, medium (default), or large sizing. Explicit width and height still apply (e8a1b50). **/
 	?size:Size
 }
 
-/** A text area in the library's look: the built-in `<textarea>` with the class `ui-textarea` and `data-size`. **/
+/** A themed multiline text input. Uses the built-in text area behavior and exposes `.ui-textarea[data-size]`. **/
 class Textarea extends Component<TextareaProps> {
 	function render():Element {
 		Library.use();

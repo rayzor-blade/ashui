@@ -13,66 +13,68 @@ import ashui.ui.Svg;
 import ashui.ui.Text;
 import ashui.ui.TopLayer;
 
-/** A piece of documentation or a hint about a range of the text, shown in a popover over it. **/
+/** Documentation or a hint displayed beside a text range. **/
 typedef CodeHint = {
-	/** The range it is about, as offsets into the text; the popover opens at its start and stays while the pointer is over it. **/
+	/** Start offset of the hint range; `to` is the end offset. The popover anchors at the start and stays open while the range is hovered. **/
 	var from:Int;
 	var to:Int;
-	/** Code shown first in the editor's own colours, a declaration or a signature; may run over several lines. **/
+	/** Code signature or declaration shown before the documentation, using syntax colors. May span multiple lines. **/
 	@:optional var signature:String;
-	/** The language of `signature`, the editor's own by default. **/
+	/** Language used to highlight the signature. Defaults to the editor language. **/
 	@:optional var language:String;
-	/** A range of `signature`, as offsets into it, drawn bold: the parameter a call is at, for signature help. **/
+	/** Signature range to draw in bold, such as the active parameter. **/
 	@:optional var emphasis:{from:Int, to:Int};
-	/** The text under it, in paragraphs set apart by blank lines; each line wraps. **/
+	/** Documentation text with blank lines between paragraphs. Lines wrap. **/
 	@:optional var docs:String;
-	/** Rich documentation, built under the popover owner and disposed when it closes; takes precedence over docs. **/
+	/** Builds rich documentation under the popover owner. Disposed on close; takes precedence over `docs`. **/
 	@:optional var renderDocs:Void->Element;
-	/** A CSS class for the popover; `ui-code-hint-error`, `-warning` and `-info` give it an icon and a border in the diagnostic's colour, as a toast has. **/
+	/**
+		Popover CSS class. `ui-code-hint-error`, `ui-code-hint-warning`, and
+		`ui-code-hint-info` add a diagnostic icon and a matching border.
+	**/
 	@:optional var className:String;
 }
 
-/** The anchor on a character in the window's coordinates. **/
+/** Character rectangle in window coordinates. **/
 typedef CodeRect = {x:Float, y:Float, width:Float, height:Float};
 
-/** What the hints need of the editor they belong to. **/
+/** Editor operations needed by hint popovers. **/
 typedef HintHost = {
 	final tree:LayoutTree;
-	/** Where a character is in the window, and what character is under a point; null and -1 where there is none. **/
+	/** Returns a character rectangle in window coordinates, or null when unavailable. **/
 	final rectAt:Int->Null<CodeRect>;
 	final offsetAt:(Float, Float) -> Int;
-	/** The app's hover, asked after the pointer rests; what it gives is shown, and null leaves it to the decorations' titles. **/
+	/** Provides a hint after a hover delay. Null falls back to decoration titles. **/
 	final provide:Null<Int->Null<CodeHint>>;
 	final decorationsAt:Int->Array<CodeDecoration>;
-	/** The highlighter for a language name, or the editor's own for null. **/
+	/** Resolves a language highlighter, or the editor highlighter for null. **/
 	final highlighter:Null<String>->CodeHighlighter;
-	/** Seconds the pointer rests on a character before the hover is asked. **/
+	/** Hover delay before requesting a hint, in seconds. **/
 	final delay:Float;
 }
 
 /**
-	A popover of documentation or hints beside a range of an editor's text.
-	It opens when the pointer has rested on a character for a moment, from
-	what the app's hover gives, or from the titles of the decorations over the
-	character, or when the app shows one itself, as a language server's
-	answer arrives. It stays while the pointer is on the range or on the
-	popover, so it can be read, and closes when it leaves both, when the text
-	changes or scrolls, and on Escape. Styled by `.ui-code-hint`, its
-	`.ui-code-hint-signature` and `.ui-code-hint-docs`, and by
-	`--ui-code-hint-bg`, `--ui-code-hint-width` and `--ui-code-hint-height`.
+	Shows documentation beside a text range.
+	Hints come from the hover provider, decoration titles, or an explicit
+	application call, including asynchronous language-service results.
+	The popover stays open while the pointer is over the range or popover.
+	It closes after leaving both, editing, scrolling, or Escape.
+
+	CSS: `.ui-code-hint`, `.ui-code-hint-signature`, and `.ui-code-hint-docs`.
+	Variables: `--ui-code-hint-bg`, `--ui-code-hint-width`, and `--ui-code-hint-height`.
 **/
 class CodeHints {
-	/** Seconds the pointer may be off both before the popover closes. **/
+	/** Delay before closing after leaving the range and popover, in seconds. **/
 	static inline var LEAVE = 0.2;
 
-	/** The icon beside a diagnostic's message, as a toast's: a cross in a circle, a warning triangle, an information mark. **/
+	/** Default icons for error, warning, and information hints. **/
 	static final ICONS = [
 		"error" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>),
 		"warning" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>),
 		"info" => ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>)
 	];
 
-	/** `error`, `warning` or `info` for a popover whose class says so, which gives it an icon and a border in that colour. **/
+	/** Resolves a diagnostic type from the popover class, or null for an ordinary hint. **/
 	static function kindOf(className:Null<String>):Null<String> {
 		if (className != null)
 			for (kind in ["error", "warning", "info"])
@@ -88,10 +90,10 @@ class CodeHints {
 	var shown:Null<CodeHint> = null;
 	var pinned = false;
 	var overPanel = false;
-	/** What the open popover was built under, disposed when it closes. **/
+	/** Owner of the open popover, disposed when the popover closes. **/
 	var owner:Null<Owner> = null;
 
-	/** The character the pointer rests on, or -1. **/
+	/** Character offset under the resting pointer, or -1. **/
 	public var hovered(default, null) = -1;
 
 	public function new(host:HintHost)
@@ -99,7 +101,7 @@ class CodeHints {
 
 	var panelNode:Null<Div> = null;
 
-	/** Whether the pointer is over the popover: a press on it takes focus from the editor, which must not close it. **/
+	/** Returns whether the pointer is over the popover, allowing presses without closing it on editor blur. **/
 	public function pointerOver():Bool {
 		if (panelNode == null || entry == null)
 			return false;
@@ -107,11 +109,11 @@ class CodeHints {
 		return b != null && at.x >= b.x && at.x < b.x + b.width && at.y >= b.y && at.y < b.y + b.height;
 	}
 
-	/** Whether a popover is open. **/
+	/** Returns whether a hint popover is open. **/
 	public function isOpen():Bool
 		return entry != null;
 
-	/** The pointer is at `(x, y)` in the window, over the editor's text, with no button down. **/
+	/** Tracks pointer movement over editor text in window coordinates, with no button pressed. **/
 	public function pointerAt(x:Float, y:Float):Void {
 		var offset = host.offsetAt(x, y);
 		if (offset == hovered)
@@ -130,7 +132,7 @@ class CodeHints {
 			});
 	}
 
-	/** The pointer left the editor's text. **/
+	/** Handles the pointer leaving editor text. **/
 	public function pointerLeft():Void {
 		hovered = -1;
 		stopResting();
@@ -155,7 +157,10 @@ class CodeHints {
 			show(hint, false);
 	}
 
-	/** Opens `hint`, replacing what is open. A `pinned` one stays until it is closed, whatever the pointer does; the text changing or scrolling still closes it. **/
+	/**
+		Replaces the current popover with a hint. Pinned hints ignore pointer
+		leaving but still close on explicit dismissal, editing, or scrolling.
+	**/
 	public function show(hint:CodeHint, pinned:Bool):Void {
 		hide();
 		var anchor = host.rectAt(hint.from);
@@ -187,7 +192,7 @@ class CodeHints {
 		}, false, true, true);
 	}
 
-	/** Closes the popover, if there is one. **/
+	/** Closes the current hint popover, if any. **/
 	public function hide():Void {
 		stopLeaving();
 		var open = entry;
@@ -208,7 +213,7 @@ class CodeHints {
 			owner = null;
 	}
 
-	/** The text changed or moved under the popover. **/
+	/** Closes the hint after the text changes or scrolls. **/
 	public function moved():Void {
 		stopResting();
 		hide();
@@ -241,7 +246,7 @@ class CodeHints {
 		leaving = null;
 	}
 
-	/** `from` to `to` of a line that starts at `lineStart` in the signature, cut where `emphasis` begins and ends in it. **/
+	/** Splits a signature line at the emphasized range boundaries. **/
 	static function pieces(from:Int, to:Int, lineStart:Int, emphasis:Null<{from:Int, to:Int}>):Array<{from:Int, to:Int, emphasised:Bool}> {
 		if (emphasis == null)
 			return [{from: from, to: to, emphasised: false}];
@@ -253,7 +258,7 @@ class CodeHints {
 		return [for (i in 0...cuts.length - 1) {from: cuts[i], to: cuts[i + 1], emphasised: cuts[i] >= start && cuts[i + 1] <= end}];
 	}
 
-	/** The popover itself: the signature in the editor's colours, then the paragraphs of the docs. **/
+	/** Builds the signature and documentation content of a hint. **/
 	function build(hint:CodeHint):Div {
 		var panel = Library.part("ui-code-hint", null, null, null, null, hint.className == null ? null : hint.className.split(" "));
 		var kind = kindOf(hint.className);

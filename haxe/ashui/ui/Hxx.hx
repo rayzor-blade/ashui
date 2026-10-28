@@ -53,7 +53,7 @@ class Hxx {
 	/** Loop variables in scope where the template is being lowered. **/
 	static var locals:Array<{name:String, type:ComplexType}> = [];
 
-	/** `e`'s type with the enclosing loop variables declared, or null if it does not type. **/
+	/** Resolves an expression type with enclosing loop variables in scope. Returns null when typing fails. **/
 	static function typeOf(e:Expr):Null<Type> {
 		var scoped = e;
 		for (local in locals) {
@@ -66,7 +66,7 @@ class Hxx {
 		return try Context.typeof(scoped) catch (_:Dynamic) null;
 	}
 
-	/** The only element of a template. **/
+	/** Compiles a template containing one element. **/
 	static function single(nodes:Array<Piece>, pos:Position):Expr {
 		return switch nodes {
 			case [One(e)]: e;
@@ -76,7 +76,7 @@ class Hxx {
 		}
 	}
 
-	/** The elements of a branch or loop body, wrapped in a fragment `Div` if there are several. **/
+	/** Compiles branch or loop content, grouping multiple elements in a fragment `Div`. **/
 	static function group(nodes:Array<Piece>, pos:Position):Expr {
 		return switch nodes {
 			case [One(e)]: e;
@@ -92,7 +92,7 @@ class Hxx {
 		}
 	}
 
-	/** The children as one `Array<Element>` expression. **/
+	/** Builds one `Array<Element>` expression for the children. **/
 	static function childArray(nodes:Array<Piece>):Expr {
 		var result:Null<Expr> = null;
 		var ones:Array<Expr> = [];
@@ -113,7 +113,7 @@ class Hxx {
 		return result;
 	}
 
-	/** The children of a node as element expressions. **/
+	/** Converts node children into element expressions. **/
 	static function elements(children:Children):Array<Piece> {
 		var out:Array<Piece> = [];
 		if (children == null)
@@ -175,7 +175,7 @@ class Hxx {
 		return out;
 	}
 
-	/** An interpolation that places elements, or null for one that is text. **/
+	/** Returns an element insertion for an interpolation, or null for text content. **/
 	static function placement(e:Expr):Null<Piece> {
 		var type = typeOf(e);
 		if (type == null)
@@ -215,7 +215,7 @@ class Hxx {
 		}
 	}
 
-	/** Whether `name` is an attribute a `<div>` takes as a property, so a component's root can take it. **/
+	/** Returns whether an attribute can be applied to a component root as a `Div` property. **/
 	static function rootAttribute(name:String):Bool {
 		if (name == "hidden" || name == "title")
 			return true;
@@ -223,7 +223,7 @@ class Hxx {
 		return (try Context.typeof(macro ashui.layout.Prop.$key) catch (_:Dynamic) null) != null;
 	}
 
-	/** Whether `tag` names a component class visible where the template is, other than a built-in one of ashui.ui. **/
+	/** Returns whether a tag resolves to a visible component outside the built-in `ashui.ui` elements. **/
 	static function importedComponent(tag:String):Bool {
 		var type = try Context.getType(className(tag)) catch (_:Dynamic) null;
 		if (type == null)
@@ -234,7 +234,7 @@ class Hxx {
 		}
 	}
 
-	/** `MyCard` as a tag: `my-card`; a package stays as it is. **/
+	/** Converts a class name to kebab-case HXX, preserving package names. **/
 	static function kebab(name:String):String {
 		var parts = name.split('.');
 		var last = ~/([a-z0-9])([A-Z])/g.replace(parts.pop(), '$1-$2');
@@ -243,7 +243,7 @@ class Hxx {
 		return parts.join('.');
 	}
 
-	/** The class a component tag names: `my-card` is `MyCard`, `ui.my-card` is `ui.MyCard`. **/
+	/** Resolves a tag to a class name: `my-card` becomes `MyCard`, and `ui.my-card` becomes `ui.MyCard`. **/
 	static function className(tag:String):String {
 		var parts = tag.split('.');
 		var last = [
@@ -254,8 +254,8 @@ class Hxx {
 	}
 
 	/**
-		`class=`'s setters: Tw's utilities, then the element's CSS classes, the
-		words that are classes of the declared CSS, set on its identity.
+		Builds class assignments: utility styles first, then declared CSS classes
+		on the element identity.
 	**/
 	static function classSetters(value:Expr, el:String):Array<Expr> {
 		var css = [];
@@ -265,21 +265,19 @@ class Hxx {
 		return sets;
 	}
 
-	/** `id=`: the element's id, which CSS's `#id` selects. **/
+	/** Builds an element ID assignment for CSS `#id` selectors. **/
 	static function idSetter(value:Expr, el:String):Expr
 		return macro @:pos(value.pos) ashui.css.Identity.of($i{el}.tree, $i{el}.node.id).setId(($value : String));
 
 	/**
-		HTML's text elements, built in: each a box of its type holding its
-		text, which the user-agent stylesheet gives its look (`h1`'s size,
-		`strong`'s weight, `code`'s face). Inline elements inside one sit
-		beside its text in a wrapping row; text does not yet flow across them.
+		Built-in text tags styled by the user-agent stylesheet, including heading
+		size, emphasis weight, and code fonts.
 	**/
 	static final TEXT_TAGS = [
 		"h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "strong", "b", "em", "i", "small", "code", "kbd", "mark", "s", "u", "ins", "del", "abbr", "output"
 	];
 
-	/** HTML's elements built in as boxes of their type, with no behaviour of their own. **/
+	/** Built-in box tags without additional behavior. **/
 	static final BOX_TAGS = [
 		"button",
 		"hr",
@@ -305,7 +303,7 @@ class Hxx {
 		"main"
 	];
 
-	/** Elements whose text and inline elements are laid out as one flow (see `ashui.text.InlineFlow`). **/
+	/** Tags whose text and inline children share one text flow. See `ashui.text.InlineFlow`. **/
 	static final FLOW_TAGS = [
 		"p",
 		"h1",
@@ -321,10 +319,10 @@ class Hxx {
 		"figcaption"
 	];
 
-	/** Inside a `<pre>`, whose text does not wrap. **/
+	/** Nesting depth inside `<pre>`, where text does not wrap. **/
 	static var preformatted = 0;
 
-	/** Built-in elements whose class is not named after their tag. **/
+	/** Built-in tags whose class names differ from their tag names. **/
 	static final BUILT_IN_CLASSES = [
 		"a" => "Anchor",
 		"textarea" => "TextArea",
@@ -375,10 +373,9 @@ class Hxx {
 	}
 
 	/**
-		An `Image` of the bitmap in `src`. `fit`, or one of Tailwind's
-		`object-*` fitting and positioning classes, says how
-		it fills a box of another shape, `fill` by default as an `<img>`'s;
-		other classes, `style` and attributes set the element as they do any.
+		Compiles an image from its `src` bitmap. `fit` and `object-*` utilities
+		control fitting and positioning; the default is fill. Other classes,
+		styles, and attributes apply to the image element normally.
 	**/
 	static function lowerImg(node:Node):Expr {
 		var el = '__img${counter++}';
@@ -423,10 +420,9 @@ class Hxx {
 	}
 
 	/**
-		An `Svg` of the markup itself, parsed and checked now. Quoted attributes
-		and everything inside are SVG; on the `<svg>`, `class`, a `style` that
-		is an expression, and `width`, `height` and `color` given as
-		expressions set the element instead.
+		Parses inline SVG at compile time. Quoted attributes and child markup
+		belong to the SVG document. On the outer element, `class` and expression
+		values for `style`, `width`, `height`, and `color` configure the Ashui element.
 	**/
 	static function lowerSvg(node:Node):Expr {
 		var el = '__svg${counter++}';
@@ -459,7 +455,7 @@ class Hxx {
 		};
 	}
 
-	/** Adds the elements inside `node`, SVG all the way down, to `xml`. **/
+	/** Copies nested SVG children into the XML document. **/
 	static function svgChildren(node:Node, xml:Xml):Void {
 		if (node.children == null)
 			return;
@@ -488,7 +484,7 @@ class Hxx {
 			}
 	}
 
-	/** A `Text` from a run of text and interpolations, with its attributes. **/
+	/** Builds a text element from text, interpolations, and attributes. **/
 	static function textElement(parts:Array<Child>, attributes:Array<Attribute>, pos:Position):Expr {
 		var el = '__text${counter++}';
 		var pieces:Array<Expr> = [];
@@ -536,7 +532,7 @@ class Hxx {
 		};
 	}
 
-	/** `new Tag({props}, [children])` for a `Component` subclass. **/
+	/** Builds a typed component constructor with props and children. **/
 	static function lowerComponent(node:Node):Expr {
 		var tag = node.name.value;
 		// A built-in element's class is ashui.ui's, needing no import.
@@ -612,7 +608,7 @@ class Hxx {
 		};
 	}
 
-	/** The `Props` of `ashui.ui.Component<Props>` that `type` extends, or null. **/
+	/** Resolves the props type of a `Component<Props>` subclass, or null. **/
 	static function componentProps(type:Type):Null<Type> {
 		var current = switch type {
 			case TInst(c, _): c.get().superClass;
@@ -627,7 +623,7 @@ class Hxx {
 		return null;
 	}
 
-	/** A prop's value: reactive when the prop takes `IntoReactive<T>`. **/
+	/** Builds a prop value, adding reactive binding for `IntoReactive<T>`. **/
 	static function propValue(value:Expr, propType:Type):Expr {
 		return switch propType {
 			case TAbstract(_.get() => {pack: [], name: 'Null'}, [inner]): propValue(value, inner);
@@ -637,7 +633,7 @@ class Hxx {
 		}
 	}
 
-	/** Handler attributes and the event each takes. **/
+	/** Supported handler attributes and their event types. **/
 	static final HANDLERS = [
 		"onClick" => "PointerEvent",
 		"onPointerDown" => "PointerEvent",
@@ -655,9 +651,8 @@ class Hxx {
 	];
 
 	/**
-		`onClick={e -> ...}` and the other handlers, `focusable={true}` and
-		`disabled={...}`: they go to the node's `ashui.input.Interaction`. A
-		handler may take its event or nothing.
+		Binds handlers, `focusable`, and `disabled` to the node interaction.
+		Handlers may accept an event argument or no argument.
 	**/
 	static function inputSetter(el:String, name:String, value:Expr):Null<Expr> {
 		var interaction = macro ashui.input.Interaction.of($i{el}.node);
@@ -679,11 +674,11 @@ class Hxx {
 		}
 	}
 
-	/** `ref={x}`: `x`, a `Ref` of the element's type, holds the element; a `Ref` of another type does not compile. **/
+	/** Binds a typed HXX reference. A reference to a different element type is a compile error. **/
 	static function refSetter(value:Expr, el:String):Expr
 		return macro @:pos(value.pos) $value.bind($i{el});
 
-	/** `el.node.set(Prop.Key, value)` for one attribute, or its input setter. **/
+	/** Builds a node property or input-handler assignment for an attribute. **/
 	static function setter(el:String, attribute:Attribute, tag:String):Expr {
 		return switch attribute {
 			case Regular(name, value) if (name.value == "hidden"):
@@ -718,7 +713,7 @@ class Hxx {
 		}
 	}
 
-	/** An attribute value as `Node.set` takes it: bound, computed, or constant. **/
+	/** Converts an attribute value to a constant, signal binding, or computed binding. **/
 	static function bindable(value:Expr, valueType:Type):Expr {
 		var type = typeOf(value);
 		if (type != null && isReactive(type))
@@ -730,13 +725,13 @@ class Hxx {
 		return value;
 	}
 
-	/** A condition or list read inside a `Show` or `For`: a signal or computed is read. **/
+	/** Reads reactive values used as conditions or lists in `Show` and `For`. **/
 	static function read(e:Expr):Expr {
 		var type = typeOf(e);
 		return type != null && isReactive(type) ? macro @:pos(e.pos) $e.get() : e;
 	}
 
-	/** An interpolated value as a string piece, and whether it reads a signal. **/
+	/** Builds a string interpolation and reports whether it reads reactive state. **/
 	static function readValue(e:Expr):{expr:Expr, reactive:Bool} {
 		var type = typeOf(e);
 		if (type != null && isReactive(type))
@@ -744,7 +739,7 @@ class Hxx {
 		return {expr: e, reactive: reads(e)};
 	}
 
-	/** Whether `e` reads a signal: a `.get()` call, or a `@:state` field of the component. **/
+	/** Detects signal reads through `.get()` or component `@:state` fields. **/
 	static function reads(e:Expr):Bool {
 		return callsGet(e) || readsState(e);
 	}
@@ -804,7 +799,7 @@ class Hxx {
 }
 
 #if macro
-/** One element, or an array of them spliced into the children. **/
+/** A single child element or an array inserted into the child list. **/
 private enum Piece {
 	One(e:Expr);
 	Many(e:Expr);

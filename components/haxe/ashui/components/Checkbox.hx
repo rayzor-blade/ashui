@@ -5,25 +5,25 @@ import ashui.layout.IntoReactive;
 import ashui.ui.Component;
 
 typedef CheckboxProps = {
-	/** Whether it is checked. A signal is read and written; a constant sets it once. **/
+	/** Checked state. A supplied signal is read and updated; a constant sets the initial state. **/
 	?checked:IntoReactive<Bool>,
 	?indeterminate:IntoReactive<Bool>,
 	?disabled:IntoReactive<Bool>,
 	?required:Bool,
-	/** Small, medium (default) or large marker and label (git-bug e8a1b50). **/
+	/** Small, medium (default), or large box and label (e8a1b50). **/
 	?size:Size,
 	?name:String,
 	?id:String,
-	/** Called with whether it is checked after the user changes it. **/
+	/** Receives the checked state after a user change. **/
 	?onChange:Bool->Void
 }
 
 /**
-	A checkbox with its label: the built-in `<input type="checkbox">` inside
-	a `<label>`, so a press on the text checks it too. Its children are the
-	label's text. CSS: `.ui-checkbox-field` (the label, `[data-disabled]`),
-	`.ui-checkbox` (the box, `:checked`, `:indeterminate`, `:disabled`),
-	`.ui-checkbox-text`.
+	A checkbox with a clickable label supplied by its children.
+	Wraps the built-in checkbox input in a label so clicking the text toggles
+	the checkbox. CSS: `.ui-checkbox-field` with `[data-disabled]`,
+	`.ui-checkbox` with `:checked`, `:indeterminate`, and `:disabled`,
+	and `.ui-checkbox-text`.
 **/
 class Checkbox extends Component<CheckboxProps> {
 	function render():Element {

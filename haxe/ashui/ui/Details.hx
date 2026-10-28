@@ -7,22 +7,22 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 typedef DetailsProps = {
-	/** Whether it is open. A signal is read and written: toggling it sets it. **/
+	/** Whether the details are expanded. A supplied signal is updated when the summary is toggled. **/
 	?open:IntoReactive<Bool>,
 
-	/** Called with whether it is open, after its summary toggles it. **/
+	/** Runs after the summary is toggled, with the new open state. **/
 	?onToggle:Bool->Void
 }
 
 /**
-	HTML's `<details>`, built in: its `<summary>` shows always, and a click,
-	Enter or Space on the summary shows or hides the rest. It is marked
-	`[open]` while open, which the user-agent stylesheet reads to hide its
-	content and turn the summary's marker. Without a summary, it shows
-	"Details", as HTML's does.
+	An expandable section, written as `<details>` in HXX.
+
+	The `<summary>` remains visible. Click it, or press Enter or Space while
+	focused, to toggle the content. The `[open]` attribute controls the content
+	and marker styles. A missing summary defaults to "Details".
 **/
 class Details extends Component<DetailsProps> {
-	/** Whether it is open; the caller's signal when `open` was one. **/
+	/** Current open state. Uses the supplied signal when available. **/
 	public var opened(default, null):Signal<Bool>;
 
 	function render():Element {

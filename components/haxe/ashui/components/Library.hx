@@ -26,10 +26,8 @@ class Library {
 	static var used = false;
 
 	/**
-		Puts the library's stylesheet, `components/css/components.css`, in
-		force under the page's sheets. Every component calls this when it is
-		made; only the first call builds the sheet, and later calls return at
-		once.
+		Loads `components/css/components.css` below application stylesheets.
+		Components call this automatically; the stylesheet is built only once.
 	**/
 	public static function use():Void {
 		if (used)

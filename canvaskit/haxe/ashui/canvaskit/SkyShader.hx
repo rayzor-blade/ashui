@@ -1,18 +1,16 @@
 package ashui.canvaskit;
 
 /**
-	`SkyboxPass`'s shader: one triangle over the whole layer, each pixel
-	the sky seen through it from the eye, an environment at the skybox's
-	mip level or a gradient by height, exposed and tone-mapped as the
-	meshes are. Its own settings are in `sky`: the inverse view-projection's
-	columns, the eye, the kind (1 a sky, 2 a gradient), mip level,
-	intensity and whether it is grounded (the kind 3 a panorama), the gradient's zenith, horizon
-	and ground (linear), then a grounded sky's floor, height and radius,
-	or a panorama's spread, whether it is upside down, its texels a radian
-	and its turn as a share of the way round, then its sphere's centre and
-	radius (0 for infinitely far), and whether it is drawing for bloom's
-	glow pass; a
-	grounded sky's floor darkens under the scene's shadows.
+	Draws the sky on a fullscreen triangle behind scene geometry.
+	Supports environment maps, height gradients, and panoramas. Environment
+	and gradient skies use scene exposure and tone mapping; grounded skies
+	can receive shadows on their floor.
+
+	The `sky` uniforms contain inverse view-projection columns, camera
+	position, sky type, mip level, intensity, gradient colors, and ground
+	projection settings. Panorama settings include spread, orientation,
+	texels per radian, rotation, and optional sphere center/radius. A glow
+	flag selects linear output for bloom.
 **/
 class SkyShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {

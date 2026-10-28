@@ -3,59 +3,62 @@ package ashui.components.code;
 import ashui.layout.Element;
 import ashui.reactive.Signal;
 
-/** A range of the text to mark, and how. **/
+/** A text range and its visual decoration. **/
 typedef CodeDecoration = {
-	/** The range, as offsets into the text, as `CodeEditor.select` takes them. **/
+	/** Start offset in the document, using the same indexing as `CodeEditor.select`; `to` is the end offset. **/
 	var from:Int;
 	var to:Int;
-	/** A CSS class, which makes the range look as it should: `ui-code-squiggle-error`, `ui-code-line-current` or the app's own. **/
+	/** CSS class for the range, such as `ui-code-squiggle-error`, `ui-code-line-current`, or an application class. **/
 	var className:String;
-	/** What the range says, for a hover; it may run over several lines. **/
+	/** Hover text for the range. May contain multiple lines. **/
 	@:optional var title:String;
-	/** Paints the full width of each line the range touches, not only the range's own columns. **/
+	/** Decorates the full width of every touched line instead of only the specified columns. **/
 	@:optional var wholeLine:Bool;
-	/** Also marks each line it touches in the minimap, in its class's `color`. **/
+	/** Adds minimap marks on touched lines using the class `color`. **/
 	@:optional var minimap:Bool;
 }
 
-/** An element in the gutter beside a line. **/
+/** A visual marker beside a source line in the gutter. **/
 typedef CodeMarker = {
-	/** The line, from 0 as `CodeEditor.toggleFold` counts. **/
+	/** Zero-based source line. **/
 	var line:Int;
-	/** A CSS class: `ui-code-marker-breakpoint` or the app's own. **/
+	/** CSS marker class, such as `ui-code-marker-breakpoint` or an application class. **/
 	var className:String;
 	@:optional var title:String;
-	/** An SVG in place of the default dot; no view or click handler is kept with a marker. **/
+	/** SVG replacing the default dot. Markers store no view or click handler. **/
 	@:optional var icon:ashui.svg.SvgDocument;
 	/**
-		Sits on the boundary below `line`, between it and the next, in place of beside the line: the small triangle of VS Code's
-		"deleted after this line". It does not take the line's own marker slot.
+		Places a marker on the boundary below the line, such as a deletion
+		indicator. Leaves the regular marker slot available.
 	**/
 	@:optional var boundary:Bool;
 	/**
-		A change bar: a thin strip at the gutter's edge, the height of the line, in its own lane. It does not take the line's marker
-		slot, so a breakpoint or a code action on the same line is still shown beside it.
+		Draws a line-height strip in a separate lane at the gutter edge.
+		Leaves the regular marker slot available for breakpoints or code actions.
 	**/
 	@:optional var bar:Bool;
-	/** Also marks the line in the minimap as a bar at its edge, in its class's `color`: a change bar. **/
+	/** Adds an edge bar to the minimap using the marker class `color`. **/
 	@:optional var minimap:Bool;
 }
 
-/** An element placed between two lines. **/
+/** An element inserted between source lines. **/
 typedef CodeZone = {
-	/** The line the zone goes below, from 0; the zone is between it and the next line. **/
+	/** Zero-based source line below which the zone appears. **/
 	var line:Int;
-	/** What is shown there. It takes the editor's content width, less the gutter, and its own height; the app made it and owns what it reads. **/
+	/**
+		Element to display. Uses the content width after the gutter and its own
+		height. The application creates the element; the editor manages its placement.
+	**/
 	var element:Element;
 }
 
-/** A zone as kept: where it is in the text, which `follow` moves, and the height its element measured. **/
+/** A registered zone with an edit-tracking text offset and measured height. **/
 class ZonePlace {
 	public var offset:Int;
 	public final line:Int;
 	public final element:Element;
 	public var height = 0.0;
-	/** The element's holder in the editor, made when the zone is first drawn. **/
+	/** Holder created when the zone is first displayed. **/
 	public var view:Null<ashui.ui.Div> = null;
 
 	public function new(offset:Int, line:Int, element:Element) {
@@ -67,34 +70,32 @@ class ZonePlace {
 
 private typedef Zones = {list:Array<ZonePlace>, follow:Bool};
 
-/** A marker as kept: where it is in the text, which `follow` moves, and the line it was given. **/
+/** A registered marker with its source line and edit-tracking offset. **/
 private typedef Place = {offset:Int, line:Int, className:String, ?title:String, ?icon:ashui.svg.SvgDocument, ?boundary:Bool, ?bar:Bool, ?minimap:Bool};
 
-/** A mark the minimap draws: the line it is on, its class, and whether it is a bar at the edge (a marker's) or a whole row's width (a decoration's). **/
+/** A minimap mark for a source line: a full-width decoration or an edge bar. **/
 typedef MinimapMark = {line:Int, className:String, bar:Bool};
 
 private typedef Decorations = {list:Array<CodeDecoration>, follow:Bool};
 private typedef Markers = {list:Array<Place>, follow:Bool};
 
 /**
-	What an app marks in an editor's text and gutter, in sets by owner name: a
-	producer, such as a compiler's problems or a debugger's breakpoints,
-	replaces its own set and leaves the others as they are.
+	Stores editor decorations, gutter markers, and zones by owner name.
+	Each producer, such as compiler diagnostics or debugger breakpoints,
+	replaces its own set without affecting other producers.
 
-	A set made to `follow` the edits moves with the text it was set on: its
-	offsets shift with insertions and deletions before them, as a breakpoint
-	stays with its line. Another set is kept as given, for its producer to send
-	again after a change.
+	Sets with `follow` track insertions and deletions. Other sets keep
+	their supplied positions until the producer replaces them.
 **/
 class CodeAnnotations {
-	/** Moves when any set is replaced or follows an edit; what is drawn from the sets follows it. **/
+	/** Changes whenever annotations are replaced or moved by an edit. **/
 	public final revision = Signal.make(0);
 
 	final document:CodeDocument;
 	final decorationSets = new Map<String, Decorations>();
 	final markerSets = new Map<String, Markers>();
 	final zoneSets = new Map<String, Zones>();
-	/** The owners in the order their sets were first given, which is the order they are drawn in. **/
+	/** Owner names in registration order, which also determines drawing order. **/
 	final owners:Array<String> = [];
 	var markerLines:Null<Map<Int, CodeMarker>> = null;
 	var markerLinesAt = -1;
@@ -109,7 +110,7 @@ class CodeAnnotations {
 		if (owners.indexOf(owner) < 0)
 			owners.push(owner);
 
-	/** Replaces `owner`'s decorations with `list`; an empty list clears them. **/
+	/** Replaces one owner decoration set. An empty list clears it. **/
 	public function decorate(owner:String, list:Array<CodeDecoration>, follow = false):Void {
 		own(owner);
 		var kept = [for (d in list) {from: Std.int(Math.max(0, Math.min(d.from, d.to))), to: Std.int(Math.max(0, Math.max(d.from, d.to))), className: d.className, title: d.title, wholeLine: d.wholeLine, minimap: d.minimap}];
@@ -120,7 +121,7 @@ class CodeAnnotations {
 		touch();
 	}
 
-	/** Replaces `owner`'s markers with `list`, dropping a line the document does not have; an empty list clears them. **/
+	/** Replaces one owner marker set, ignoring nonexistent lines. An empty list clears it. **/
 	public function mark(owner:String, list:Array<CodeMarker>, follow = false):Void {
 		own(owner);
 		var kept:Array<Place> = [];
@@ -134,7 +135,7 @@ class CodeAnnotations {
 		touch();
 	}
 
-	/** Replaces `owner`'s zones with `list`, dropping a line the document does not have; an empty list clears them. **/
+	/** Replaces one owner zone set, ignoring nonexistent lines. An empty list clears it. **/
 	public function zone(owner:String, list:Array<CodeZone>, follow = false):Void {
 		own(owner);
 		var kept:Array<ZonePlace> = [];
@@ -151,7 +152,7 @@ class CodeAnnotations {
 		touch();
 	}
 
-	/** Zones replaced or cleared since they were last asked for, which the editor must take out of its content. **/
+	/** Replaced zones awaiting removal from the editor content. **/
 	var gone:Array<ZonePlace> = [];
 
 	public function takeGone():Array<ZonePlace> {
@@ -160,7 +161,7 @@ class CodeAnnotations {
 		return taken;
 	}
 
-	/** Every zone, owner by owner. **/
+	/** Returns all zones in owner registration order. **/
 	public function zonePlaces():Array<ZonePlace> {
 		var all:Array<ZonePlace> = [];
 		for (owner in owners) {
@@ -172,7 +173,7 @@ class CodeAnnotations {
 		return all;
 	}
 
-	/** The line a zone is below now, which a set that follows the edits has moved. **/
+	/** Returns the current source line above a zone, including tracked edits. **/
 	public function zoneLine(place:ZonePlace):Int {
 		for (set in zoneSets)
 			if (set.list.indexOf(place) >= 0)
@@ -180,13 +181,13 @@ class CodeAnnotations {
 		return place.line;
 	}
 
-	/** `owner`'s zones' lines now. **/
+	/** Returns current zone lines for an owner. **/
 	public function zoneLinesOf(owner:String):Array<Int> {
 		var set = zoneSets.get(owner);
 		return set == null ? [] : [for (p in set.list) set.follow ? document.lineAt(p.offset) : p.line];
 	}
 
-	/** Every decoration, owner by owner, at its current offsets. **/
+	/** Returns all decorations at their current offsets, in owner registration order. **/
 	public function decorations():Array<CodeDecoration> {
 		var all:Array<CodeDecoration> = [];
 		for (owner in owners) {
@@ -198,13 +199,13 @@ class CodeAnnotations {
 		return all;
 	}
 
-	/** `owner`'s decorations at their current offsets, which a set that follows the edits has moved. **/
+	/** Returns decorations for an owner at their current offsets, including tracked edits. **/
 	public function decorationsOf(owner:String):Array<CodeDecoration> {
 		var set = decorationSets.get(owner);
 		return set == null ? [] : [for (d in set.list) {from: d.from, to: d.to, className: d.className, title: d.title, wholeLine: d.wholeLine, minimap: d.minimap}];
 	}
 
-	/** The decorations over `offset`: a range with it inside, or a whole-line one on its line. **/
+	/** Returns decorations covering an offset, including whole-line decorations on that line. **/
 	public function decorationsAt(offset:Int):Array<CodeDecoration> {
 		var line = document.lines[document.lineAt(offset)], end = line.start + line.text.length;
 		return [for (d in decorations()) if (d.wholeLine == true ? d.from <= end && d.to >= line.start : d.from <= offset && offset < d.to) d];
@@ -213,13 +214,13 @@ class CodeAnnotations {
 	function lineOf(place:Place, follow:Bool):Int
 		return follow ? document.lineAt(place.offset) : place.line;
 
-	/** `owner`'s markers' lines now, which a set that follows the edits has moved. **/
+	/** Returns current marker lines for an owner, including tracked edits. **/
 	public function markerLinesOf(owner:String):Array<Int> {
 		var set = markerSets.get(owner);
 		return set == null ? [] : [for (p in set.list) lineOf(p, set.follow)];
 	}
 
-	/** Whether any line needs the icon/dot column; change bars and boundary marks have their own positions. **/
+	/** Returns whether any line needs the icon/dot column. Boundary marks and change bars use separate positions. **/
 	public function hasLineMarkers():Bool {
 		revision.get();
 		for (set in markerSets)
@@ -228,7 +229,7 @@ class CodeAnnotations {
 		return false;
 	}
 
-	/** The marker on `line`, from the first owner that has one there. **/
+	/** Returns the line marker from the first registered owner, or null. **/
 	public function markerAt(line:Int):Null<CodeMarker> {
 		if (markerLines == null || markerLinesAt != revision.get()) {
 			markerLines = new Map();
@@ -251,19 +252,19 @@ class CodeAnnotations {
 	var boundaryLines:Map<Int, CodeMarker> = new Map();
 	var barLines:Map<Int, CodeMarker> = new Map();
 
-	/** The change bar on `line`, from the first owner that has one there. **/
+	/** Returns the line change bar from the first registered owner, or null. **/
 	public function barAt(line:Int):Null<CodeMarker> {
 		markerAt(-1);
 		return barLines.get(line);
 	}
 
-	/** The boundary marker below `line`, from the first owner that has one there. **/
+	/** Returns the boundary marker from the first registered owner, or null. **/
 	public function boundaryAt(line:Int):Null<CodeMarker> {
 		markerAt(-1);
 		return boundaryLines.get(line);
 	}
 
-	/** What the minimap draws: one mark for each line and class a decoration or marker that asked for it falls on, up to `limit`. **/
+	/** Returns up to `limit` minimap marks for annotations requesting them, grouped by line and class. **/
 	public function minimapMarks(limit:Int):Array<MinimapMark> {
 		var seen = new Map<String, Bool>(), out:Array<MinimapMark> = [];
 		function add(line:Int, className:String, bar:Bool):Void {
@@ -291,7 +292,7 @@ class CodeAnnotations {
 		return out;
 	}
 
-	/** Moves what follows the edits for the text having changed from `before` to `after`. **/
+	/** Moves edit-tracking annotations from the old text positions to the new text positions. **/
 	public function edited(before:String, after:String):Void {
 		var following = false;
 		for (set in decorationSets)

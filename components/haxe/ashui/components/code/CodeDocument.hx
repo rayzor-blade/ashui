@@ -3,13 +3,13 @@ package ashui.components.code;
 import ashui.components.code.CodeHighlighter;
 
 /**
-	One line of a document: its text, and the tokens a highlighter made of it, kept as three integers each (start, end and the
-	index of its kind) so a long file's colouring is a few bytes a token and not an object. `tokens` makes them objects, a new
-	array each time it is read, for a caller that wants them as the highlighter gave them; the editor and the minimap read
-	`tokenCount`, `tokenFrom`, `tokenTo` and `tokenKind` instead.
+	A source line with compact syntax tokens.
+	Stores start, end, and kind as three integers per token. Use `tokenCount`,
+	`tokenFrom`, `tokenTo`, and `tokenKind` to avoid allocation. Reading
+	`tokens` creates a new array of token objects for external consumers.
 **/
 class CodeLine {
-	/** The kinds a token's index is into. **/
+	/** Token kinds referenced by packed indices. **/
 	static final KINDS:Array<CodeTokenKind> = [Plain, Keyword, StringLiteral, Comment, Number, Type, Function, Operator, Tag, Attribute, MarkupText];
 
 	static function indexOfKind(kind:CodeTokenKind):Int
@@ -32,7 +32,7 @@ class CodeLine {
 	var packed:Null<Array<Int>> = null;
 	var styles:Null<Array<Null<CodeTokenStyle>>>;
 
-	/** Counts the times the tokens were set, so a reader can tell they are the ones it saw. **/
+	/** Changes whenever tokens are replaced, allowing cached consumers to detect updates. **/
 	public var tokenRevision(default, null) = 0;
 
 	public var incoming:Null<String>;
@@ -60,7 +60,7 @@ class CodeLine {
 	public inline function tokenStyle(i:Int):Null<CodeTokenStyle>
 		return styles == null ? null : styles[i];
 
-	/** The tokens as objects, made afresh each time; setting them packs them. **/
+	/** Tokens as objects. Each read allocates an array; assignments repack the tokens. **/
 	public var tokens(get, set):Array<CodeToken>;
 
 	function get_tokens():Array<CodeToken>
@@ -99,7 +99,7 @@ class CodeDocument {
 	/** Number of lines re-lexed by the last update, useful in performance diagnostics. **/
 	public var highlighted(default, null) = 0;
 	public var generation(default, null) = 0;
-	/** Matching source offsets, filled alongside fold detection (357ddef). **/
+	/** Matching bracket offsets, populated during fold detection (357ddef). **/
 	public final brackets = new Map<Int, Int>();
 	var syntax:CodeHighlighter;
 
@@ -166,7 +166,7 @@ class CodeDocument {
 		return true;
 	}
 
-	/** Pair adjacent to a caret, with the opening offset first; strings/comments have none. **/
+	/** Returns the bracket pair adjacent to the caret, opening offset first. Ignores brackets in strings and comments. **/
 	public function matchingBrackets(caret:Int):Array<Int> {
 		var at = brackets.exists(caret - 1) ? caret - 1 : caret;
 		var other = brackets.get(at);
@@ -186,7 +186,7 @@ class CodeDocument {
 		}
 	}
 
-	/** Toggle a zero-based source line; return false when it has no block. **/
+	/** Toggles folding at a zero-based source line. Returns false if the line has no foldable block. **/
 	public function toggleFold(line:Int):Bool {
 		if (line < 0 || line >= lines.length || lines[line].foldEnd < 0) return false;
 		lines[line].folded = !lines[line].folded;
@@ -194,7 +194,7 @@ class CodeDocument {
 		return true;
 	}
 
-	/** Reveal a source position before programmatic selection or navigation. **/
+	/** Expands folds hiding a source offset before programmatic selection or navigation. **/
 	public function unfoldAt(index:Int):Bool {
 		var at = lineAt(index), changed = false;
 		for (i in 0...at) if (lines[i].folded && lines[i].foldEnd >= at) { lines[i].folded = false; changed = true; }

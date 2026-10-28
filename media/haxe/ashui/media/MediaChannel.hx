@@ -24,12 +24,14 @@ private enum ChannelEvent {
 }
 
 /**
-	A typed, bounded native channel. Writes and polls do not wait for capacity
-	or data. A rejected write leaves the input owned by its caller; an accepted
-	write retains it natively, so the caller can close its handle. Every output
-	read is owned by its caller. Finish drains before EOF; close cancels.
+	A typed native media channel with bounded input and output queues.
+	Writes and polls never block for capacity or data. Rejected inputs remain
+	caller-owned; accepted inputs are retained natively, so the caller can
+	close its handle. Each read transfers ownership of its output to the caller.
+	`finish()` drains queued media before EOF; `close()` cancels processing.
 
-	Created inside an Owner, it closes on cleanup; standalone callers close it.
+	The current owner closes channels on cleanup. Without an owner, the
+	caller must close the channel.
 **/
 class MediaChannel<Input, Output> {
 	public final state:Signal<ChannelState>;
@@ -66,7 +68,7 @@ class MediaChannel<Input, Output> {
 			Owner.onCleanup(this.close);
 	}
 
-	/** False means backpressure: retain the same input and retry after draining output. **/
+	/** Attempts a nonblocking write. False means backpressure: keep the input and retry after draining output. **/
 	public function tryWrite(value:Input):Bool {
 		checkOpen();
 		if (state.get() == Draining || state.get() == Ended)
@@ -79,7 +81,7 @@ class MediaChannel<Input, Output> {
 			return fail(e);
 	}
 
-	/** Pending, Ready, or Ended. Ready output must be read before polling can advance. **/
+	/** Returns `Pending`, `Ready`, or `Ended`. Read a ready output before polling can advance. **/
 	public function poll():StreamReadStatus {
 		checkOpen();
 		try {
@@ -91,7 +93,7 @@ class MediaChannel<Input, Output> {
 			return fail(e);
 	}
 
-	/** Transfers one ready output to the caller, who must close native frame/chunk handles. **/
+	/** Transfers one ready output to the caller. The caller must close native frame or chunk handles. **/
 	public function read():Output {
 		if (poll() != StreamReadStatus.Ready)
 			throw "Poll must report Ready before reading media";
@@ -101,7 +103,7 @@ class MediaChannel<Input, Output> {
 			return fail(e);
 	}
 
-	/** Stops accepting input and flushes queued media. Continue reading until Ended. **/
+	/** Stops new writes and flushes queued media. Continue reading until `Ended`. **/
 	public function finish():Void {
 		checkOpen();
 		if (state.get() == Draining || state.get() == Ended)

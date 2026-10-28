@@ -1,30 +1,16 @@
 package ashui.canvaskit;
 
 /**
-	What a 3D scene shows behind its meshes, where they leave the canvas
-	uncovered, as `<scene-kit skybox={...}>` takes it (drawn by a
-	`SkyboxPass`):
+	Display settings for a panorama.
 
-	```haxe
-	skybox={Sky(night, 0.3)}                     // an environment, a little blurred
-	skybox={Grounded(studio, 1.7, 20, 0)}        // its floor laid under the scene
-	skybox={Panorama(milkyWay)}                  // an image, shown as it is
-	skybox={Gradient(0x6aa0ff, 0xe8eef8, 0x404040)}  // colours, by height
-	```
-**/
-/**
-	Options for how a `Panorama` is shown.
-
-	- `intensity` scales its brightness (default 1).
-	- `turn` rotates it about the vertical, in radians (default 0).
-	- `upsideDown` is for an image whose top row is what lies below.
-	- `radius` and `centre`: by default the panorama is infinitely far away
-	  and only moves when the camera turns. With a radius, it is painted on
-	  the inside of a sphere of that radius around `centre`, with the camera
-	  inside. Orbiting then moves the near side of the sphere past the far
-	  side, which gives the sky depth, as in a model viewer.
-	- `spread` shows that many times more sky through each pixel than the
-	  camera's lens would, making the sky look further away (default 1).
+	- `intensity`: brightness multiplier, default 1.
+	- `turn`: rotation around the vertical axis in radians, default 0.
+	- `upsideDown`: flips images whose top row represents the ground.
+	- `radius` and `centre`: project inside a finite sphere for parallax while
+	  orbiting. By default the panorama is infinitely distant and responds
+	  only to camera rotation.
+	- `spread`: sky coverage multiplier relative to the camera lens, default 1.
+	  Larger values make the sky appear farther away.
 **/
 typedef PanoramaOptions = {
 	?intensity:Float,
@@ -35,31 +21,37 @@ typedef PanoramaOptions = {
 	?spread:Float
 };
 
+/**
+	Background of a 3D scene, displayed wherever meshes leave the canvas clear.
+	Use with `<scene-kit skybox={...}>` or a `SkyboxPass`.
+
+	```haxe
+	skybox={Sky(night, 0.3)}                     // blurred environment
+	skybox={Grounded(studio, 1.7, 20, 0)}        // environment with a floor
+	skybox={Panorama(milkyWay)}                  // full-resolution image
+	skybox={Gradient(0x6aa0ff, 0xe8eef8, 0x404040)}
+	```
+**/
 enum Skybox {
-	/** `environment` seen from the eye, `blur` 0 sharp to 1 its blurriest, its light times `intensity`. **/
+	/** Displays an environment map. `blur` ranges from zero (sharp) to one (most blurred); `intensity` scales brightness. **/
 	Sky(environment:Environment, ?blur:Float, ?intensity:Float);
 
 	/**
-		`environment` with its lower half projected onto the ground. A sky
-		photographed with a floor in it then has that floor under the scene,
-		instead of infinitely far below. `height` is how high the sky's camera
-		was above the floor, `floor` is the floor's height (0 by default), and
-		`radius` is how far the floor reaches before the sky curves up. `blur`
-		and `intensity` work as they do for `Sky`.
+		Projects the lower environment onto a ground plane. `height` is the
+		original panorama camera height, `floor` is the ground height (default 0),
+		and `radius` sets where the ground curves into the sky. `blur` and
+		`intensity` use the same values as `Sky`.
 	**/
 	Grounded(environment:Environment, height:Float, radius:Float, ?floor:Float, ?blur:Float, ?intensity:Float);
 
 	/**
-		An equirectangular `image`, shown as it is: twice as wide as it is tall,
-		running all the way around from left to right and from straight up to
-		straight down from top to bottom. It is sampled at its full resolution,
-		and its colours are not changed by exposure or tone mapping. Use it for
-		a photo or painting of a sky, which a cubemap made from it would
-		soften. Fog only tints a band near its horizon, where the far ground's
-		haze meets it. See `PanoramaOptions`.
+		Displays a full-resolution 2:1 equirectangular image covering all directions.
+		Preserves source colors without exposure or tone mapping. Useful for
+		photos and paintings that a cubemap would soften. Fog affects only a
+		band near the horizon. See `PanoramaOptions`.
 	**/
 	Panorama(image:ashui.types.Bitmap, ?options:PanoramaOptions);
 
-	/** From `zenith` overhead through `horizon` round the level to `ground` below, `0xRRGGBB`. **/
+	/** Creates a sky gradient from `zenith` overhead through `horizon` to `ground`, using `0xRRGGBB` colors. **/
 	Gradient(zenith:Int, horizon:Int, ground:Int);
 }

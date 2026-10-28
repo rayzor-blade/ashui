@@ -10,12 +10,12 @@ import ashui.ui.Component;
 import ashui.ui.For;
 
 typedef PaginationProps = {
-	/** The page shown, from 1. A signal is read and written; a constant sets it once. **/
+	/** Current page, starting at 1. A supplied signal is read and updated; a constant sets the initial page. **/
 	?page:IntoReactive<Int>,
 	total:Int,
-	/** Pages shown each side of the current one before an ellipsis; 1 by default. **/
+	/** Number of neighboring pages on each side before an ellipsis. Defaults to 1. **/
 	?siblings:Int,
-	/** Buttons to the first and last pages too. **/
+	/** Adds first-page and last-page navigation buttons. **/
 	?edges:Bool,
 	?size:Size,
 	?onPageChange:Int->Void,
@@ -23,11 +23,10 @@ typedef PaginationProps = {
 }
 
 /**
-	Pages to step through: previous and next, the first and last pages, the
-	current one with its neighbours, ellipses for the rest; the buttons
-	follow the page as it changes. CSS: `.ui-pagination` (`[data-size]`),
-	`.ui-pagination-button` (`[data-state]` active, `:hover`, `:disabled`),
-	`.ui-pagination-ellipsis`.
+	Page navigation with previous/next controls, boundary pages, nearby pages,
+	and ellipses for omitted pages. Buttons update with the current page.
+	CSS: `.ui-pagination[data-size]`, `.ui-pagination-button` with active
+	`[data-state]`, `:hover`, and `:disabled`, plus `.ui-pagination-ellipsis`.
 **/
 class Pagination extends Component<PaginationProps> {
 	public var page(default, null):Signal<Int>;

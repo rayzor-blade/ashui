@@ -14,9 +14,9 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef TabsProps = {
-	/** The value of the tab shown. A signal is read and written; a constant sets the first shown. Without it, the first tab's. **/
+	/** Selected tab value. A supplied signal is read and updated; a constant sets the initial selection. Defaults to the first tab. **/
 	?value:IntoReactive<String>,
-	/** Called with the value of the tab chosen. **/
+	/** Receives the selected tab value. **/
 	?onValueChange:String->Void,
 	?size:Size,
 	?id:String
@@ -38,7 +38,7 @@ typedef TabsProps = {
 	`-trigger-radius`.
 **/
 class Tabs extends Component<TabsProps> {
-	/** The value of the tab shown; the caller's signal when `value` was one. **/
+	/** Current selected value. Uses the supplied signal when available. **/
 	public var value(default, null):Signal<String>;
 
 	function render():Element {
@@ -109,10 +109,10 @@ class Tabs extends Component<TabsProps> {
 }
 
 /**
-	The row of a tabs' triggers, with one decorative background that follows
-	the selected trigger. `indicator={false}` keeps the stationary active
-	background. CSS: `.ui-tabs-indicator`, `[data-state]`, pointer events none
-	(5bc757e).
+	Row of tab triggers with an animated background for the selected tab.
+	Set `indicator={false}` to use a stationary active background.
+	The `.ui-tabs-indicator[data-state]` is decorative and ignores pointer
+	events (5bc757e).
 **/
 class TabsList extends Component<{?id:String, ?indicator:Bool}> {
 	var active:Null<TabsTrigger> = null;
@@ -173,18 +173,18 @@ class TabsList extends Component<{?id:String, ?indicator:Bool}> {
 	}
 }
 
-/** Active while `tabs`, the value of the tabs it is in, is `value`. **/
+/** Returns the active state when the parent tabs value matches this value. **/
 private function state(tabs:Signal<Null<Signal<String>>>, value:String):Computed<Null<String>>
 	return Computed.make(() -> {
 		var chosen = tabs.get();
 		(chosen != null && chosen.get() == value ? "active" : "inactive" : Null<String>);
 	});
 
-/** A tab's trigger, which shows the content of its `value` when chosen. **/
+/** Selects the content panel with the same `value`. **/
 class TabsTrigger extends Component<{value:String, ?disabled:IntoReactive<Bool>, ?id:String}> {
 	public var interaction(default, null):Interaction;
 
-	/** The value of the tabs it is in, set by them. **/
+	/** Selected value signal supplied by the parent tabs component. **/
 	public final tabs = Signal.make((null : Null<Signal<String>>));
 
 	function render():Element {
@@ -196,9 +196,9 @@ class TabsTrigger extends Component<{value:String, ?disabled:IntoReactive<Bool>,
 	}
 }
 
-/** What a tab shows while its trigger, of the same `value`, is chosen. **/
+/** Content panel displayed when its matching trigger is selected. **/
 class TabsContent extends Component<{value:String, ?id:String}> {
-	/** The value of the tabs it is in, set by them. **/
+	/** Selected value signal supplied by the parent tabs component. **/
 	public final tabs = Signal.make((null : Null<Signal<String>>));
 
 	function render():Element

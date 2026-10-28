@@ -1,17 +1,15 @@
 package ashui.canvaskit;
 
 /**
-	`GroundGrid`'s shader: a square on the plane at the grid's height,
-	centred under the eye and as wide as the grid fades over, so it has a
-	depth meshes hide it by. Each pixel works out its lines from where it
-	is on the plane, a pixel wide at any distance (by the coordinates'
-	screen derivatives), minor and major, the X axis red and the Z axis
-	blue, faded by distance from the eye, with the scene's shadows falling
-	on it as darkness under the lines. It sees the scene through
-	ashui's `Scene` module, and reads its own settings from `grid`: size,
-	subdivisions, fade start and end; minor and major colours (sRGB, with
-	alpha); height, whether it draws axes and whether it catches shadows. Ported from Blinc's canvas
-	kit grid, there a full-screen pass without depth.
+	Renders `GroundGrid` on a depth-tested plane centered below the camera.
+	Screen derivatives keep minor and major lines one pixel wide at any
+	distance. The X axis is red and Z is blue; lines fade with distance
+	and can receive scene shadows.
+
+	Reads scene transforms and lighting from `Scene`. The `grid` uniforms
+	supply spacing, subdivisions, fade distances, colors, height, axis
+	visibility, and shadow reception. Adapted from Blinc's canvas grid,
+	with scene depth instead of a fullscreen pass.
 **/
 class GridShader implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hxsl.Shader #end {
 	static var SRC = {

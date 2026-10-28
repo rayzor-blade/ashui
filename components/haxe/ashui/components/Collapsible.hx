@@ -9,7 +9,7 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef CollapsibleProps = {
-	/** Whether it is open. A signal is read and written; a constant sets it once. **/
+	/** Whether the panel is open. A supplied signal is read and updated; a constant sets the initial state. **/
 	?open:IntoReactive<Bool>,
 	?onOpenChange:Bool->Void,
 	?disabled:Bool,
@@ -17,15 +17,14 @@ typedef CollapsibleProps = {
 }
 
 /**
-	A panel that opens and closes: a `CollapsibleTrigger` and a
-	`CollapsibleContent`, which grows open and shrinks shut by layout
-	animation, its content revealed rather than stretched. CSS:
-	`.ui-collapsible`, `.ui-collapsible-trigger`, `.ui-collapsible-content`,
-	each `[data-state]` open or closed (closed content is laid out at no
-	height).
+	An expandable panel controlled by a `CollapsibleTrigger`.
+	`CollapsibleContent` animates its height while revealing the content
+	without stretching it. Closed content has zero height. CSS parts:
+	`.ui-collapsible`, `.ui-collapsible-trigger`, and `.ui-collapsible-content`,
+	each with `[data-state="open"]` or `[data-state="closed"]`.
 **/
 class Collapsible extends Component<CollapsibleProps> {
-	/** Whether it is open; the caller's signal when `open` was one. **/
+	/** Current open state. Uses the supplied signal when available. **/
 	public var opened(default, null):Signal<Bool>;
 
 	function render():Element {
@@ -55,7 +54,7 @@ class Collapsible extends Component<CollapsibleProps> {
 	}
 }
 
-/** What opens and closes a collapsible: clicked, or Enter or Space while it has focus. **/
+/** Toggles a collapsible panel on click, Enter, or Space. **/
 class CollapsibleTrigger extends Component<{?id:String}> {
 	final state = Signal.make((null : Null<Computed<Null<String>>>));
 	var toggle:Null<Void->Void> = null;
@@ -78,9 +77,9 @@ class CollapsibleTrigger extends Component<{?id:String}> {
 	}
 }
 
-/** What a collapsible shows while open, growing in and shrinking out by layout animation. **/
+/** Panel content with animated expansion and collapse. **/
 class CollapsibleContent extends Component<{?id:String}> {
-	/** The collapsible's state, set by it. **/
+	/** Open state supplied by the parent collapsible. **/
 	@:allow(ashui.components)
 	final state = Signal.make((null : Null<Computed<Null<String>>>));
 

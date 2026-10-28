@@ -13,76 +13,73 @@ import ashui.reactive.Watch;
 typedef CanvasPaint = ashui.core.render.CanvasFrame->Void;
 #else
 
-/** A build without the renderer lays a canvas out and never paints it. **/
+/** A GPU paint callback. Builds without a renderer lay out the canvas but do not paint it. **/
 typedef CanvasPaint = Dynamic->Void;
 #end
 
 typedef CanvasProps = {
 	/**
-		Paints the canvas with the GPU, in every frame drawn: handed the
-		render pass at the canvas's place in paint order, scissored to its
-		clipped box (see `CanvasFrame`).
+		Draws into the current GPU render pass at the canvas position in paint order.
+		The pass is clipped to the visible canvas bounds. See `CanvasFrame`.
 	**/
 	?paint:CanvasPaint,
 
 	/**
-		Draws the canvas with a `DrawContext` of its size: shapes and paths
-		filled and stroked, in its own coordinates. Run as a computed is, it
-		draws again when a signal it read changes, its size included, and
-		only then.
+		Records shapes and paths with a `DrawContext` in canvas coordinates.
+		Reactive dependencies, including canvas size, trigger a new recording
+		only when they change.
 	**/
 	?draw:ashui.draw.DrawContext->Void,
 
-	/** Runs a sketch: drawn again every frame, on the animation scheduler's clock. **/
+	/** Runs a sketch on every animation frame, using the animation scheduler clock. **/
 	?sketch:ashui.draw.Sketch,
 
 	/**
-		Keeps what a build of `draw` left on the CPU for as long as the canvas lives. A canvas that is not built for a couple of
-		seconds gives it back, and makes it again at the next build; for one that is costly to build and comes into view again
-		and again, such as a map, that is the more expensive.
+		Keeps CPU drawing data for the lifetime of the canvas. Otherwise, the cache
+		is released after a few seconds without a build and rebuilt when needed.
+		Enable this for expensive drawings that repeatedly return to view, such as maps.
 	**/
 	?retain:Bool,
 
-	/** While true, a frame is drawn every tick of the animation scheduler, so `paint` animates. **/
+	/** Requests a frame on every animation tick while true. Use this to animate `paint`. **/
 	?animate:IntoReactive<Bool>,
 
 	/**
-		Called with true when meshes it draws start waiting for their
-		textures, which are compressed in the background, and with false when
-		all are in place; a mesh is not drawn until its textures are.
+		Reports whether the 3D scene is waiting for textures to finish background
+		compression. Meshes appear once their textures are ready.
 	**/
 	?onLoading:Bool->Void,
 
-	/** Called after each frame in which its 3D scene was rendered afresh: what a frame counter counts. **/
+	/** Runs after each new render of the 3D scene. Use this to count scene frames. **/
 	?onSceneFrame:Void->Void,
 
 	?id:String
 }
 
 /**
-	HTML's `<canvas>`, built in: a box that paints itself with the GPU. Its
-	`paint` runs whenever a frame is drawn, at the canvas's place in paint
-	order, under its transform, clips and opacity; `repaint` asks for a
-	frame when what it paints changes, and `animate` asks for every frame.
-	It is 300 by 150 unless sized, as HTML's is. Its `draw`, when it has
-	one, is recorded and played by the GPU after `paint`.
+	A drawing surface, written as `<canvas>` in HXX.
+
+	`paint` draws directly with the GPU. `draw` records shapes and paths that
+	the GPU renders after `paint`. Both respect the canvas transform, clipping,
+	and opacity. Call `repaint()` when custom paint data changes, or enable
+	`animate` to draw continuously. The default size is 300 by 150 layout units.
 **/
 class Canvas extends Component<CanvasProps> {
 	static final bySlot = new Map<Int, Canvas>();
 	static var nextSlot = 0;
 
-	/** The canvas the display list knows as `slot`, if it is still there. **/
+	/** Returns the canvas registered at a display-list slot, or null if it has been removed. **/
 	public static function at(slot:Int):Null<Canvas>
 		return bySlot.get(slot);
 
 	final ticks = Signal.make(0);
 
-	/** Its size as last laid out, which `draw` reads. **/
+	/** Last measured canvas width, tracked by the drawing callback. **/
 	final width = Signal.make(0.0);
 
 	final height = Signal.make(0.0);
 
-	/** What `draw` drew, last time it ran. **/
+	/** Most recent recording from the `draw` callback. **/
 	var recorded:Null<ashui.draw.DrawContext> = null;
 
 	#if ashui_gpu
@@ -224,22 +221,22 @@ class Canvas extends Component<CanvasProps> {
 		return box;
 	}
 
-	/** Its width as last laid out; read in a computed or watch, which follows it. **/
+	/** Returns the last measured width. Reactive readers subscribe to size changes. **/
 	public function laidWidth():Float
 		return width.get();
 
-	/** Its height as last laid out, followed as `laidWidth` is. **/
+	/** Returns the last measured height. Reactive readers subscribe to size changes. **/
 	public function laidHeight():Float
 		return height.get();
 
-	/** Asks for a frame: what `paint` draws has changed. **/
+	/** Requests a frame after custom paint data changes. **/
 	public function repaint():Void
 		ticks.set(ticks.get() + 1);
 
 	/**
-		Whether painting it now, through `transform` at `ratio` pixels to a unit, with the image atlas at `atlasRevision`, would
-		draw something other than it drew last time: a canvas with a paint callback always may, one drawn with `draw` does when its
-		drawing was made again or it moved, and a 3D scene when it is to be rendered again. The renderer leaves the rest as they are.
+		Reports whether the canvas needs a new render at this transform, pixel ratio,
+		and atlas revision. Paint callbacks may change every frame; recorded drawings
+		change when rebuilt or moved, and 3D scenes change when their render is dirty.
 	**/
 	@:allow(ashui.core.render.Renderer)
 	function changed(transform:ashui.draw.Affine, ratio:Float, atlasRevision:Int):Bool {

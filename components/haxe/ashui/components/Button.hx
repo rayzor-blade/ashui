@@ -19,7 +19,7 @@ enum abstract ButtonSize(String) to String {
 	var Sm = "sm";
 	var Md = "md";
 	var Lg = "lg";
-	/** Square, for an icon alone. **/
+	/** Square size for an icon-only button. **/
 	var Icon = "icon";
 }
 
@@ -27,9 +27,9 @@ typedef ButtonProps = {
 	?variant:ButtonVariant,
 	?size:ButtonSize,
 	?disabled:IntoReactive<Bool>,
-	/** HTML's button type in a form: `submit` (the default), `reset` or `button`. **/
+	/** Form action: `submit` (default), `reset`, or `button`. **/
 	?type:String,
-	/** Submit button name and value, included in FormData; value becomes a method=dialog return value. **/
+	/** Submit button name. The associated `value` is included in `FormData` and supplies the result for `method="dialog"`. **/
 	?name:String,
 	?value:String,
 	?onClick:PointerEvent->Void,

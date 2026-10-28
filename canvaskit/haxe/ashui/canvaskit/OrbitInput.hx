@@ -17,19 +17,19 @@ import ashui.reactive.Owner;
 class OrbitInput {
 	public final camera:OrbitCamera;
 
-	/** Radians a drag across the whole height of the element turns the camera. **/
+	/** Rotation in radians for a drag covering the full element height. **/
 	public var dragSensitivity = Math.PI;
 
-	/** How much one unit of the wheel comes nearer. **/
+	/** Zoom sensitivity per wheel unit. **/
 	public var zoomSensitivity = 0.0015;
 
-	/** What a turn's speed is kept of each second after it is let go. **/
+	/** Fraction of rotation velocity retained per second after release. **/
 	public var momentumDecay = 0.02;
 
 	public function new(camera:OrbitCamera)
 		this.camera = camera;
 
-	/** Moves `camera` as `node` is dragged and scrolled, until the owner it was attached under is disposed. **/
+	/** Attaches drag and scroll controls to a node. Detaches when the current owner is disposed. **/
 	public function attach(node:ashui.layout.Node):Void {
 		var interaction = Interaction.of(node);
 		var drag:Null<LayoutTree->Void> = null;

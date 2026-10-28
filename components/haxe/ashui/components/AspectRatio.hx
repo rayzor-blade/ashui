@@ -4,9 +4,9 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 /**
-	A box kept at a width-to-height `ratio` (16 / 9 by default), its height
-	following its width; what it holds fills it. CSS: `.ui-aspect-ratio`,
-	whose `aspect-ratio` a stylesheet may set instead.
+	A container with a fixed width-to-height ratio. Defaults to 16:9; height
+	follows width and children fill the container. Style `.ui-aspect-ratio`
+	or set its CSS `aspect-ratio` to override the ratio.
 **/
 class AspectRatio extends Component<{?ratio:Float, ?id:String}> {
 	function render():Element {

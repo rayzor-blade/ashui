@@ -1,16 +1,16 @@
 package ashui.components.code;
 
 typedef CodeSelection = {final caret:Int; final anchor:Int;}
-/** A replacement of the text from `from` to `to`, offsets as `CodeEditor.select` takes them. **/
+/** Replacement text for a range of document offsets, using the same indexing as `CodeEditor.select`. **/
 typedef CodeEdit = {final from:Int; final to:Int; final text:String;}
-/** A stretch of the text, where it was before the edit, replaced by another. **/
+/** A replacement patch containing the original offset, removed text, and inserted text. **/
 typedef CodePatch = {final from:Int; final removed:String; final inserted:String;}
 private typedef Edit = {parts:Array<CodePatch>, before:CodeSelection, after:CodeSelection, bytes:Int};
 
 /**
-	Bounded replacement patches; history never retains a full document per keystroke (e53597f). An edit is one
-	patch for typing, and several when code replaces stretches far apart as one step (a rename), so what lies
-	between them is not kept.
+	Bounded undo history stored as replacement patches (e53597f).
+	Typing creates one patch; operations such as rename can group distant
+	patches into one undo step without retaining the unchanged text between them.
 **/
 class CodeHistory {
 	final undoStack:Array<Edit> = [];
@@ -20,7 +20,7 @@ class CodeHistory {
 	public function new(limit = 1024 * 1024) this.limit = limit;
 	public function clear():Void { undoStack.resize(0); redoStack.resize(0); bytes = 0; }
 
-	/** Records the change from `before` to `after` as one patch. **/
+	/** Records the transition from `before` to `after` as one patch. **/
 	public function record(before:String, after:String, selection:CodeSelection, next:CodeSelection):Void {
 		var parts = difference(before, after);
 		if (parts.length > 0) push(parts, selection, next);
@@ -37,7 +37,7 @@ class CodeHistory {
 		return [{from:from, removed:before.substring(from,before.length-suffix), inserted:after.substring(from,after.length-suffix)}];
 	}
 
-	/** Records `parts`, in order and not overlapping, positions in the text before them, as one step. **/
+	/** Records ordered, nonoverlapping patches as one undo step. Offsets refer to the text before the edits. **/
 	public function recordParts(parts:Array<CodePatch>, selection:CodeSelection, next:CodeSelection):Void {
 		if (parts.length > 0) push(parts, selection, next);
 	}

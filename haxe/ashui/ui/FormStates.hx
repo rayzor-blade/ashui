@@ -4,7 +4,7 @@ import ashui.input.Interaction;
 import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
-/** Which constraint a control breaks, as the field of HTML's `ValidityState` that says so. **/
+/** Constraint identifiers matching the fields of HTML `ValidityState`. **/
 enum abstract ValidityFlag(String) to String {
 	var ValueMissing = "valueMissing";
 	var TypeMismatch = "typeMismatch";
@@ -18,13 +18,13 @@ enum abstract ValidityFlag(String) to String {
 	var CustomError = "customError";
 }
 
-/** One broken constraint: which, and what a browser would say of it. **/
+/** A validation failure and its message. **/
 typedef ValidityProblem = {
 	flag:ValidityFlag,
 	message:String
 }
 
-/** What a control's constraints say of it, as HTML's `ValidityState` does: each broken one, and whether none is. **/
+/** Current constraint flags and overall validity, following HTML `ValidityState`. **/
 typedef ValidityState = {
 	valueMissing:Bool,
 	typeMismatch:Bool,
@@ -40,13 +40,12 @@ typedef ValidityState = {
 }
 
 /**
-	A control's validity: the constraints its own `check` finds broken, and
-	a message a script sets with `setCustomValidity`, which makes the
-	control invalid while it is not empty and is the message it reports
-	first, as a browser's is.
+	Combines built-in validation failures with an application error message.
+	A nonempty custom message makes the control invalid and takes priority
+	over built-in messages.
 **/
 class Validity {
-	/** A script's message; empty for none. **/
+	/** Custom validation message. Empty means no custom error. **/
 	public final custom = Signal.make("");
 
 	final check:Void->Array<ValidityProblem>;
@@ -54,7 +53,7 @@ class Validity {
 	public function new(check:Void->Array<ValidityProblem>)
 		this.check = check;
 
-	/** Every constraint broken now, a script's message first. **/
+	/** Returns all current validation failures, with the custom error first. **/
 	public function problems():Array<ValidityProblem> {
 		var out = check();
 		var message = custom.get();
@@ -82,23 +81,22 @@ class Validity {
 		};
 	}
 
-	/** Why it is invalid, the first reason as a browser says it; empty when it is valid. **/
+	/** Returns the first validation message, or an empty string when valid. **/
 	public function message():String {
 		var found = problems();
 		return found.length == 0 ? "" : found[0].message;
 	}
 
-	/** Sets the script's message; empty clears it. **/
+	/** Sets the custom validation message. Empty clears the custom error. **/
 	public function setCustom(message:String):Void
 		custom.set(message == null ? "" : message);
 }
 
-/** The form states CSS reads of a control, kept as its value and constraints make them. **/
+/** Keeps CSS form states synchronized with validation and user interaction. **/
 class FormStates {
 	/**
-		Keeps `i`'s `:required` and `:optional`, and its `:valid`,
-		`:invalid`, `:user-valid` and `:user-invalid` as `validity` and
-		`touched` say: the user ones once the user has changed it.
+		Updates `:required`, `:optional`, `:valid`, and `:invalid` from the control
+		constraints. Applies `:user-valid` and `:user-invalid` once `touched` is true.
 	**/
 	public static function keep(i:Interaction, required:Bool, validity:Validity, touched:Signal<Bool>):Void {
 		i.formState("required").set(required);
@@ -116,7 +114,7 @@ class FormStates {
 		});
 	}
 
-	/** Text too long or, once the user has edited it, too short, as a browser says it; empty when neither. **/
+	/** Returns text-length failures. Minimum length applies after user edits; maximum length always applies. **/
 	public static function lengthProblems(text:String, minlength:Null<Int>, maxlength:Null<Int>, touched:Bool):Array<ValidityProblem> {
 		var out:Array<ValidityProblem> = [];
 		if (minlength != null && text.length < minlength && touched)
@@ -126,10 +124,7 @@ class FormStates {
 		return out;
 	}
 
-	/**
-		Checks `control` as a form or a script does: true when it is valid,
-		and otherwise calls `onInvalid`, as HTML fires `invalid`.
-	**/
+	/** Returns whether a control is valid and calls `onInvalid` on failure. **/
 	public static function check(control:FormControl, onInvalid:Null<Void->Void>):Bool {
 		if (control.validity().valid)
 			return true;

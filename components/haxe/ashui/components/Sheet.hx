@@ -6,26 +6,25 @@ import ashui.input.Interaction;
 import ashui.layout.Element;
 
 /**
-	A sheet: a dialog that slides in from an edge of the window, floating
-	just inside it over the page frosted behind, for settings or details
-	beside the page. Its parts are the dialog's: a `SheetTrigger`, a
-	`SheetContent` holding a `SheetHeader` (`SheetTitle`,
-	`SheetDescription`), what it shows and a `SheetFooter`, a band along its
-	bottom; a close button sits in its corner, and `SheetClose` closes it
-	too. Escape or a press on the page behind closes it. CSS:
-	`.ui-sheet` (`[data-side]`, `[data-size]`, `[open]`, `[closing]`),
-	`.ui-sheet-close`, and the dialog's header, title, description and
-	footer classes inside it; `--ui-sheet-width`, `-height`. Its sizes are
-	the dialog's: `Sm`, `Md` (the default), `Lg` reach 320, 400 and 540
-	across from the left or right, 200, 300 and 400 from the top or bottom;
-	`Full`, the whole window.
+	An edge panel for settings or details, displayed over a frosted backdrop.
+
+	Compose the dialog-style parts: `SheetTrigger`, `SheetContent`,
+	`SheetHeader`, `SheetTitle`, `SheetDescription`, `SheetFooter`, and
+	`SheetClose`. A corner close button, Escape, or a backdrop click dismisses
+	the sheet. The footer occupies a band along the bottom.
+
+	`Sm`, `Md` (default), and `Lg` allow widths of 320, 400, and 540 for side
+	sheets, or heights of 200, 300, and 400 for top/bottom sheets. `Full` fills
+	the window. CSS: `.ui-sheet` with `[data-side]`, `[data-size]`, `[open]`,
+	and `[closing]`, plus `.ui-sheet-close` and the dialog content classes.
+	Size variables: `--ui-sheet-width` and `--ui-sheet-height`.
 **/
 class Sheet extends Dialog {}
 
-/** A button that opens the sheet it is in. **/
+/** Button that opens its containing sheet. **/
 class SheetTrigger extends DialogTrigger {}
 
-/** A button that closes the sheet it is in. **/
+/** Button that closes its containing sheet. **/
 class SheetClose extends DialogClose {}
 
 class SheetHeader extends DialogHeader {}
@@ -33,7 +32,7 @@ class SheetTitle extends DialogTitle {}
 class SheetDescription extends DialogDescription {}
 class SheetFooter extends DialogFooter {}
 
-/** The sheet's panel, along its edge in the top layer while open: a dialog panel, its `side` the edge, a close button in its corner. **/
+/** Sheet panel in the top layer. `side` selects the edge; a close button appears in the corner. **/
 class SheetContent extends DialogContent {
 	static var cross:Null<ashui.svg.SvgDocument> = null;
 

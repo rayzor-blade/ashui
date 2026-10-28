@@ -5,21 +5,22 @@ import ashui.input.Interaction;
 import ashui.layout.Element;
 
 typedef AnchorProps = {
-	/** Where it goes: a URL opened in the system's browser when it is followed, unless `onClick` prevents that. **/
+	/** URL to open with the system handler when the link is activated. `onClick` can prevent navigation. **/
 	?href:String,
 
-	/** Called when it is followed, before `href` is opened; `preventDefault` keeps `href` from opening. **/
+	/** Runs before navigation. Call `preventDefault()` to keep the URL from opening. **/
 	?onClick:PointerEvent->Void,
 
 	?id:String
 }
 
 /**
-	HTML's `<a>`, built in as hxx's `<a>`: a link, followed by a click or by
-	Enter while it has focus. Following it calls `onClick`, then opens
-	`href` with the system's handler for it, a web page in the browser.
-	Only an `<a>` with an `href` takes focus, as HTML's. Its look is the
-	user-agent stylesheet's `a`, with `:hover` and `:focus-visible`.
+	A link, written as `<a>` in HXX.
+
+	Activate the link with a click or Enter. Activation calls `onClick`, then
+	opens `href` with the system handler unless the event was prevented.
+	Only links with an `href` receive focus. The user-agent stylesheet supplies
+	the `a`, `:hover`, and `:focus-visible` styles.
 **/
 class Anchor extends Component<AnchorProps> {
 	function render():Element {
@@ -37,7 +38,7 @@ class Anchor extends Component<AnchorProps> {
 		return box;
 	}
 
-	/** Opens `url` with the system's handler for it. **/
+	/** Opens a URL with the system handler, such as the default web browser. **/
 	public static function open(url:String):Void {
 		#if wasm
 		// A page starts no process, and xwindow has no command to ask it to open a link.

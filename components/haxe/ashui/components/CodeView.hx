@@ -3,9 +3,9 @@ package ashui.components;
 typedef CodeViewProps = ashui.components.CodeEditor.CodeEditorProps;
 
 /**
-	Selectable code with highlighting, line numbers and folding (e53597f).
-	Accepts the same source, grammar and display options as CodeEditor;
-	selection/copy/scroll stay available, and source edits are refused.
+	A read-only code view with highlighting, line numbers, and folding (e53597f).
+	Accepts the source, grammar, and display options of `CodeEditor`.
+	Selection, copying, and scrolling remain available; source edits are disabled.
 **/
 class CodeView extends CodeEditor {
 	override function editable():Bool return false;

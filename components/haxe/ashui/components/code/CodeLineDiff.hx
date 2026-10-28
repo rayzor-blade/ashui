@@ -1,18 +1,17 @@
 package ashui.components.code;
 
-/** A line of a text: where it starts, and where its text ends, before its line break. **/
+/** Source line boundaries, excluding the line break. **/
 private typedef Span = {start:Int, end:Int};
 
 /**
-	Where the lines of a stretch of text that was replaced went, by comparing
-	the old lines with the new: a line the two share keeps its place, a line
-	between two such lines goes to the line in the same place between them in
-	the new text, and what has no such line is left out. It tells a file
-	read again from a file typed in, where only the stretch between the first
-	and last difference moved.
+	Maps source lines through a replaced text region.
+	Shared lines keep their corresponding positions. Lines between shared
+	anchors map by position within the gap; lines without a destination
+	are omitted. This preserves line-based state across file reloads as
+	well as local edits.
 **/
 class CodeLineDiff {
-	/** The most lines the two stretches may differ by; past it the lines are not compared. **/
+	/** Maximum changed-line count for line mapping. Larger changes skip comparison. **/
 	static inline var LIMIT = 400;
 
 	final oldLines:Array<Span>;
@@ -26,8 +25,8 @@ class CodeLineDiff {
 	}
 
 	/**
-		Compares the lines of `before` from `start` to `oldEnd` with those of `after` from `start` to `newEnd`, the lines
-		that lie whole inside each stretch; null when there are none to compare or the texts differ by too many.
+		Compares complete lines inside the replaced regions of `before` and
+		`after`. Returns null when there are no complete lines or too many changes.
 	**/
 	public static function of(before:String, after:String, start:Int, oldEnd:Int, newEnd:Int):Null<CodeLineDiff> {
 		var oldLines = wholeLines(before, start, oldEnd), newLines = wholeLines(after, start, newEnd);
@@ -37,7 +36,7 @@ class CodeLineDiff {
 		return matched == null ? null : new CodeLineDiff(oldLines, newLines, pairGaps(matched, newLines.length));
 	}
 
-	/** Where `offset`, in a line of the old stretch, is in the new text; -1 when its line has no place there. **/
+	/** Maps an old source offset to the new text, or -1 when its line has no destination. **/
 	public function map(offset:Int):Int {
 		for (i in 0...oldLines.length) {
 			var line = oldLines[i];
@@ -54,7 +53,7 @@ class CodeLineDiff {
 		return -1;
 	}
 
-	/** The lines of `text` that lie whole inside `from` to `to`. **/
+	/** Returns complete lines within the specified text range. **/
 	static function wholeLines(text:String, from:Int, to:Int):Array<Span> {
 		var lines = [], at = from;
 		// A first line that starts before `from` is cut by it.
@@ -77,7 +76,10 @@ class CodeLineDiff {
 		return lines;
 	}
 
-	/** For each of `a`'s lines the line of `b` it is the same as in a shortest edit, or -1; null when that takes more than `LIMIT` lines changed. **/
+	/**
+		Maps original lines to equal modified lines in a shortest edit sequence.
+		Unmatched lines use -1; returns null if more than `LIMIT` lines change.
+	**/
 	static function match(a:Array<String>, b:Array<String>):Null<Array<Int>> {
 		var n = a.length, m = b.length, result = [for (_ in a) -1];
 		var limit = Std.int(Math.min(n + m, LIMIT)), shift = limit + 1;
@@ -125,7 +127,7 @@ class CodeLineDiff {
 		return result;
 	}
 
-	/** Gives the old lines between two shared lines the new lines between them, the first to the first and so on, the last new line to any left over. **/
+	/** Pairs lines between shared anchors by position. Extra old lines map to the final new line in the gap. **/
 	static function pairGaps(matched:Array<Int>, newCount:Int):Array<Int> {
 		var pair = matched.copy(), lowest = 0, taken = 0;
 		for (i in 0...matched.length) {

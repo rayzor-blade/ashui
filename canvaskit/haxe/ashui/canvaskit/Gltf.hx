@@ -14,7 +14,7 @@ import haxe.io.Bytes;
 import haxe.io.Float32Array;
 import haxe.io.UInt16Array;
 
-/** A mesh of a glTF scene and where its node places it. **/
+/** A glTF mesh with its node transform. **/
 typedef GltfDraw = {mesh:MeshData, transform:Mat4};
 
 /**
@@ -30,11 +30,11 @@ typedef GltfDraw = {mesh:MeshData, transform:Mat4};
 **/
 typedef GltfOptions = {?maxTextureSize:Int, ?compressed:Bool};
 
-/** A node of the scene's tree: where it sits in its parent, as the file gives it, and what it holds. **/
+/** A node in the glTF hierarchy, with its parent-relative transform and content. **/
 class GltfNode {
 	public final name:Null<String>;
 
-	/** Its parent's index in `Gltf.nodes`, -1 for a root. **/
+	/** Parent index in `Gltf.nodes`, or -1 for a root. **/
 	public final parent:Int;
 
 	public final children:Array<Int>;
@@ -42,16 +42,16 @@ class GltfNode {
 	public final rotation:Quat;
 	public final scale:Vec3;
 
-	/** Its transform when the file gives it as a matrix, which animations do not move; null when given as `translation`, `rotation` and `scale`. **/
+	/** Explicit local matrix, or null for translation/rotation/scale transforms. Matrix-based nodes are not animated. **/
 	public final matrix:Null<Mat4>;
 
-	/** Its mesh's index in `Gltf.meshes`, -1 for none. **/
+	/** Mesh index in `Gltf.meshes`, or -1 when absent. **/
 	public final mesh:Int;
 
-	/** Its skin's index in `Gltf.skins`, -1 for none. **/
+	/** Skin index in `Gltf.skins`, or -1 when absent. **/
 	public final skin:Int;
 
-	/** Its mesh's morph target weights, its own or else its mesh's. **/
+	/** Node morph weights, falling back to the mesh weights. **/
 	public final weights:Array<Float>;
 
 	public function new(name, parent, children, translation, rotation, scale, matrix, mesh, skin, weights) {
@@ -67,12 +67,12 @@ class GltfNode {
 		this.weights = weights;
 	}
 
-	/** Its transform in its parent, at rest. **/
+	/** Returns the rest transform relative to the parent. **/
 	public function local():Mat4
 		return matrix != null ? matrix : Mat4.compose(translation, rotation, scale);
 }
 
-/** A glTF mesh: its triangle primitives, and the morph target weights it starts with. **/
+/** A glTF mesh containing triangle primitives and initial morph weights. **/
 class GltfMesh {
 	public final name:Null<String>;
 	public final primitives:Array<GltfPrimitive>;
@@ -86,20 +86,19 @@ class GltfMesh {
 }
 
 /**
-	One primitive of a mesh: the triangles ashui draws, and what a skinned
-	or morphed drawing of them needs besides, each per vertex in the order
-	of `mesh`'s vertices.
+	A drawable mesh primitive with optional skinning and morph data.
+	Per-vertex attributes follow the vertex order of `mesh`.
 **/
 class GltfPrimitive {
 	public final mesh:MeshData;
 
-	/** Four joints a vertex, each an index into its skin's `joints`; null when it is not skinned. **/
+	/** Four joint indices per vertex into the skin joints, or null for unskinned geometry. **/
 	public final joints:Null<UInt16Array>;
 
-	/** Four weights a vertex, one for each of its `joints`. **/
+	/** Four weights per vertex corresponding to the joint indices. **/
 	public final weights:Null<Float32Array>;
 
-	/** What each morph target moves its vertices by. **/
+	/** Vertex deltas for each morph target. **/
 	public final targets:Array<GltfMorphTarget>;
 
 	public function new(mesh, joints, weights, targets) {
@@ -110,7 +109,7 @@ class GltfPrimitive {
 	}
 }
 
-/** How far a morph target moves each vertex's position, normal and tangent at full weight, three numbers a vertex; null where it moves none. **/
+/** Position, normal, and tangent deltas at full morph weight. Each uses three values per vertex; absent channels are null. **/
 class GltfMorphTarget {
 	public final positions:Null<Float32Array>;
 	public final normals:Null<Float32Array>;
@@ -123,13 +122,13 @@ class GltfMorphTarget {
 	}
 }
 
-/** A skin: the nodes that are its joints, and each one's inverse bind matrix, from the mesh's space into the joint's at rest. **/
+/** Joint nodes and inverse bind matrices mapping rest mesh space to joint space. **/
 class GltfSkin {
 	public final name:Null<String>;
 	public final joints:Array<Int>;
 	public final inverseBindMatrices:Array<Mat4>;
 
-	/** The node its skeleton hangs from, -1 when the file does not say. **/
+	/** Skeleton root node index, or -1 when unspecified. **/
 	public final skeleton:Int;
 
 	public function new(name, joints, inverseBindMatrices, skeleton) {
@@ -160,19 +159,19 @@ class GltfSkin {
 	in a custom `ScenePass`.
 **/
 class Gltf {
-	/** Each triangle mesh where the scene's nodes place it at rest. **/
+	/** Triangle meshes with their rest transforms in the scene. **/
 	public final draws:Array<GltfDraw>;
 
 	public final nodes:Array<GltfNode>;
 
-	/** The default scene's top nodes. **/
+	/** Root node indices of the default scene. **/
 	public final roots:Array<Int>;
 
 	public final meshes:Array<GltfMesh>;
 	public final skins:Array<GltfSkin>;
 	public final animations:Array<GltfAnimation>;
 
-	/** The corners of the box round every mesh where its node places it. **/
+	/** Minimum corner of the scene bounds. `max` stores the opposite corner. **/
 	public final min:Vec3;
 
 	public final max:Vec3;
@@ -199,7 +198,7 @@ class Gltf {
 		max = draws.length > 0 ? hi : Vec3.ZERO;
 	}
 
-	/** The animation named `name`, if there is one. **/
+	/** Returns the animation with the given name, or null when absent. **/
 	public function animation(name:String):Null<GltfAnimation> {
 		for (a in animations)
 			if (a.name == name)
@@ -207,20 +206,20 @@ class Gltf {
 		return null;
 	}
 
-	/** Draws every mesh at rest, all placed by `transform` too when it is given. **/
+	/** Draws every mesh at rest, optionally applying an additional transform. **/
 	public function draw(ctx:DrawContext, ?transform:Mat4):Void
 		for (d in draws)
 			ctx.drawMesh(d.mesh, transform != null ? transform.mul(d.transform) : d.transform);
 
-	/** The `.gltf` or `.glb` at `path`, a file or what `Assets` has embedded there, its buffers and images read from beside it, as `options` say. **/
+	/** Loads a `.gltf` or `.glb` from a file or embedded asset. Resolves external buffers and images relative to that path. **/
 	public static function load(path:String, ?options:GltfOptions):Gltf {
 		var dir = haxe.io.Path.directory(path);
 		return parse(ashui.core.Assets.bytes(path), uri -> ashui.core.Assets.bytes(dir == "" ? uri : haxe.io.Path.join([dir, uri])), options);
 	}
 
 	/**
-		A scene from the bytes of a `.gltf` or `.glb`; `read` gives the bytes
-		of a file it names by a relative `uri`. Throws when it is not glTF 2.0.
+		Parses glTF bytes. `read` resolves external relative URIs to bytes.
+		Throws for input that is not glTF 2.0.
 	**/
 	public static function parse(file:Bytes, read:String->Bytes, ?options:GltfOptions):Gltf {
 		var json:Dynamic, bin:Null<Bytes> = null;
@@ -246,7 +245,7 @@ class Gltf {
 	}
 }
 
-/** Reads one file's JSON: its buffers, accessors, textures, materials and nodes, each once. **/
+/** Reads buffers, accessors, textures, materials, and nodes once per glTF file. **/
 private class Reader {
 	final json:Dynamic;
 	final bin:Null<Bytes>;
@@ -439,9 +438,8 @@ private class Reader {
 	}
 
 	/**
-		A material's `KHR_texture_transform`: the first of its textures' that
-		has one, the base colour's first. ashui places all of a material's
-		textures by one transform, as Blinc does; glTF lets each have its own.
+		Uses the first available `KHR_texture_transform`, preferring base color.
+		Ashui shares one transform across a material, while glTF permits one per texture.
 	**/
 	static function textureTransform(infos:Array<Dynamic>):Null<ashui.draw3d.TextureTransform> {
 		for (info in infos) {
@@ -455,7 +453,7 @@ private class Reader {
 		return null;
 	}
 
-	/** `ASHUI_BC_FILES=0` reads the images and ignores the block-compressed files, as `compressed: false` does, for comparing the two; off when unset, safe either way. **/
+	/** Set `ASHUI_BC_FILES=0` to ignore block-compressed sidecars and decode source images, matching `compressed: false`. **/
 	static final NO_FILES = Sys.getEnv("ASHUI_BC_FILES") == "0";
 
 	function texture(info:Dynamic, role:TextureRole):Null<Bitmap> {
@@ -492,14 +490,14 @@ private class Reader {
 		return made;
 	}
 
-	/** Gives `bitmap`, not decoded yet, the file for `role` beside `image`, if there is one. **/
+	/** Attaches a role-specific compressed sidecar before the bitmap is decoded, when available. **/
 	function compressedFor(bitmap:Bitmap, image:Dynamic, role:TextureRole):Void {
 		var form = precompressed(image, role);
 		if (form != null)
 			bitmap.addCompressed(role, form);
 	}
 
-	/** The block-compressed file beside `image` for `role`, `textures/a.color.dds` for `textures/a.png`; null when there is none or it does not fit. **/
+	/** Returns a suitable role-specific sidecar, such as `a.color.dds` for `a.png`, or null when absent or unsuitable. **/
 	function precompressed(image:Dynamic, role:TextureRole):Null<BcImage> {
 		if (options.compressed == false || NO_FILES || image.uri == null || StringTools.startsWith(image.uri, "data:"))
 			return null;
@@ -532,16 +530,15 @@ private class Reader {
 		return made;
 	}
 
-	/** A buffer view's bytes. **/
+	/** Returns a buffer view as bytes. **/
 	function view(index:Int):Bytes {
 		var v:Dynamic = list(json.bufferViews)[index];
 		return buffer(v.buffer).sub(v.byteOffset != null ? v.byteOffset : 0, v.byteLength);
 	}
 
 	/**
-		An accessor's elements, each component a float; integer components
-		scaled to 0..1 (or -1..1) when normalized. A sparse accessor is its
-		buffer view's elements, or zeros, with those it lists replaced.
+		Reads accessor components as floats. Normalized integers map to 0–1 or
+		-1–1. Sparse accessors replace listed elements in the base data or zeros.
 	**/
 	function floats(index:Int):Array<Float> {
 		var a:Dynamic = list(json.accessors)[index];
@@ -570,7 +567,7 @@ private class Reader {
 		return out;
 	}
 
-	/** `count` elements of `n` components from `data`, element `i` into `out` at element `into(i)`. **/
+	/** Copies `count` elements of `n` components into `out`, mapping destination indices through `into`. **/
 	static function elements(data:Bytes, start:Int, stride:Int, count:Int, n:Int, type:Int, normalized:Bool, into:Int->Int, out:Array<Float>):Void {
 		var size = componentSize(type);
 		for (i in 0...count) {
@@ -625,7 +622,7 @@ private class Reader {
 	static function list(v:Dynamic):Array<Dynamic>
 		return v != null ? v : [];
 
-	/** A linear colour as `0xRRGGBB` sRGB, each channel clamped to 0..1. **/
+	/** Converts linear RGB to packed sRGB `0xRRGGBB`, clamping channels to 0–1. **/
 	static function srgb(r:Float, g:Float, b:Float):Int {
 		inline function channel(c:Float):Int {
 			var v = Math.max(0, Math.min(1, c));

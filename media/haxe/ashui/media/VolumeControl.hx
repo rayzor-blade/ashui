@@ -13,13 +13,13 @@ import ashui.ui.Ref;
 
 typedef VolumeControlProps = {
 	player:Player,
-	/** Optional controlled popover state. **/
+	/** Popover open state. A supplied signal allows the application to control it. **/
 	?open:IntoReactive<Bool>,
 	?onOpenChange:Bool->Void,
 	?id:String
 }
 
-/** An icon trigger opens a compact volume slider and a mute icon button. **/
+/** A volume icon trigger with a popup slider and a mute icon button. **/
 class VolumeControl extends Component<VolumeControlProps> {
 	function render():Element {
 		Library.use();

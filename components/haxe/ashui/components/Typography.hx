@@ -4,11 +4,10 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 /**
-	Long-form text: the HTML elements inside it, headings, paragraphs,
-	quotations, lists, inline code, tables and rules, set for reading, with
-	the space between them coming from what they are rather than from
-	margins of their own. It is no wider than a comfortable line by
-	default. CSS: `.ui-prose`; `--ui-prose-width`.
+	A reading layout for long-form content.
+	Styles headings, paragraphs, quotations, lists, code, tables, and rules
+	with consistent spacing and a limited line width.
+	CSS: `.ui-prose` and `--ui-prose-width`.
 **/
 class Prose extends Component<{?id:String}> {
 	function render():Element {
@@ -17,7 +16,7 @@ class Prose extends Component<{?id:String}> {
 	}
 }
 
-/** The paragraph that opens a piece, larger and quieter than the text after it. CSS: `.ui-lead`. **/
+/** Introductory paragraph with larger, muted text. CSS: `.ui-lead`. **/
 class Lead extends Component<{?id:String}> {
 	function render():Element
 		return flow("ui-lead", children, props.id);
@@ -31,13 +30,13 @@ class Lead extends Component<{?id:String}> {
 	}
 }
 
-/** Text a size up and heavier, for a short statement that stands out. CSS: `.ui-large`. **/
+/** Larger, heavier text for a short prominent statement. CSS: `.ui-large`. **/
 class Large extends Component<{?id:String}> {
 	function render():Element
 		return Lead.flow("ui-large", children, props.id);
 }
 
-/** Smaller, quieter text, for what comments on what is around it. CSS: `.ui-muted`. **/
+/** Smaller, muted text for supporting information. CSS: `.ui-muted`. **/
 class Muted extends Component<{?id:String}> {
 	function render():Element
 		return Lead.flow("ui-muted", children, props.id);

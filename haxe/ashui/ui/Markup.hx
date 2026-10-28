@@ -27,12 +27,12 @@ class Markup {
 	#if macro
 	static var enabled = false;
 
-	/** Packages whose classes hold no templates: the standard library and the compiler's own. **/
+	/** Packages excluded from template processing, including the standard library and compiler internals. **/
 	static final SKIPPED = [
 		"haxe", "sys", "hl", "cpp", "js", "jvm", "eval", "neko", "php", "python", "cs", "java", "lua", "flash", "tink"
 	];
 
-	/** Macros that take inline markup as it is written: `hxx(<div/>)`, `SvgDocument.of(<svg/>)`, `SvgDocument.embed`. **/
+	/** Macros that accept inline markup, including `hxx`, `SvgDocument.of`, and `SvgDocument.embed`. **/
 	static final READERS = ["hxx", "of", "embed"];
 
 	static function readsMarkup(callee:Expr):Bool {
@@ -49,7 +49,7 @@ class Markup {
 		}
 	}
 
-	/** Lowers inline markup in every class the build types from here on. **/
+	/** Enables inline HXX processing for subsequently typed classes. **/
 	public static function enable():Void {
 		if (enabled)
 			return;
@@ -58,10 +58,9 @@ class Markup {
 	}
 
 	/**
-		The embedded `{expr}` of markup `source` at `pos` that holds the
-		display position, up to it, parsed where it stands in the file, so
-		the compiler's display request lands in it; null when the cursor is
-		in no expression, as in a tag's name or text.
+		Parses the embedded Haxe expression under the compiler display cursor,
+		preserving file positions for completion. Returns null when the cursor
+		is in markup text or a tag rather than an expression.
 	**/
 	static function displayed(pos:Position, source:String):Null<Expr> {
 		var at = Compiler.getDisplayPos();
@@ -108,7 +107,7 @@ class Markup {
 		return focus;
 	}
 
-	/** Where the `{` … `}` around `offset` closes, or the end of `source` when it does not. **/
+	/** Finds the closing brace of the interpolation containing `offset`, or the source end if unclosed. **/
 	static function closing(source:String, offset:Int):Int {
 		var depth = 0;
 		for (i in offset...source.length) {
@@ -124,13 +123,13 @@ class Markup {
 		return source.length;
 	}
 
-	/** `source` from `start` to `end` parsed as an expression where it stands in the file; null when it does not parse. **/
+	/** Parses a source slice as a Haxe expression at its file position. Returns null on parse failure. **/
 	static function parseAt(source:String, start:Int, end:Int, info:{file:String, min:Int, max:Int}):Null<Expr> {
 		var p = Context.makePosition({file: info.file, min: info.min + start, max: info.min + end});
 		return try Context.parseInlineString(source.substring(start, end), p) catch (_:Dynamic) null;
 	}
 
-	/** The heads of the `<for {…}>` tags still open at `before`, outermost first: where each head's text starts and ends. **/
+	/** Returns enclosing `<for>` header ranges at a position, outermost first. **/
 	static function loopHeads(source:String, before:Int):Array<{start:Int, end:Int}> {
 		var open:Array<{start:Int, end:Int}> = [];
 		var tag = ~/<(\/?)for\b/g;
@@ -152,7 +151,7 @@ class Markup {
 		return open;
 	}
 
-	/** The class's fields with each inline markup expression made the `hxx` of it; null when it has none, so the class is left alone. **/
+	/** Rewrites inline markup in class fields through the HXX macro. Returns null when no markup needs processing. **/
 	public static function build():Null<Array<Field>> {
 		var cls = Context.getLocalClass();
 		if (cls == null)

@@ -15,7 +15,7 @@ import ashui.reactive.Watch;
 import ashui.ui.Div;
 import ashui.ui.Text;
 
-/** What a pane shows of each row: the original's lines, the modified text's, or both in one column of rows. **/
+/** Source shown by a diff pane: original, modified, or both as inline rows. **/
 enum CodeDiffSide {
 	Original;
 	Modified;
@@ -23,8 +23,9 @@ enum CodeDiffSide {
 }
 
 /**
-	A button shown on the first row of each change, as "Stage hunk" or "Revert hunk" are; `run` is given the change. It shows the
-	`label` as its text, or when it has an `icon`, shows only the icon and the label is its tooltip.
+	An action on the first row of a change. `run` receives the change.
+	Without an icon, the button displays `label`; with an icon, the label
+	is used as its tooltip.
 **/
 typedef CodeDiffAction = {
 	final label:String;
@@ -32,7 +33,7 @@ typedef CodeDiffAction = {
 	final run:CodeChange->Void;
 }
 
-/** Whether the text face is known, shared by the panes of one diff: until it is, there is no width to measure and no row to build. **/
+/** Font readiness shared by diff panes. Measurement and row creation wait until the text font is known. **/
 class CodeDiffFont {
 	public var dirty = true;
 	public var revision = 0;
@@ -45,32 +46,32 @@ typedef CodeDiffPaneConfig = {
 	final rows:Signal<Null<CodeDiffRows>>;
 	final original:CodeMetrics;
 	final modified:CodeMetrics;
-	/** The lines of each text, tokenised as rows ask for them. **/
+	/** Original source lines, tokenized on demand. **/
 	final originalText:CodeDiffText;
 	final modifiedText:CodeDiffText;
 	final tabSize:Int;
-	/** Counts the times what the rows are measured against changed. **/
+	/** Revision of row measurement inputs. **/
 	final revision:Signal<Int>;
 	final font:CodeDiffFont;
 	final lineNumbers:Bool;
-	/** Buttons for the first row of each change; none for a pane that has no room for them. **/
+	/** Actions on the first row of each change, when the pane has space. **/
 	final actions:Array<CodeDiffAction>;
 	final hint:(Bool, Int)->Null<CodeDiffHint>;
 	final hasHints:Void->Bool;
-	/** Called with the modified line a placeholder's hidden run starts at, when the placeholder is pressed. **/
+	/** Expands a collapsed run identified by its first hidden modified line. **/
 	final open:Int->Void;
-	/** The change last gone to, from 0, or -1: its buttons stay shown, so the keyboard can reach them. **/
+	/** Current zero-based change index, or -1. Keeps its action buttons visible for keyboard access. **/
 	final current:Signal<Int>;
-	/** Called with 1 or -1 when the pane has focus and F7 or Shift+F7 is pressed, to go to the next change or the previous. **/
+	/** Navigates by 1 for F7 or -1 for Shift+F7 while the pane has focus. **/
 	final step:Int->Void;
 	final label:String;
-	/** The mark at the start of the row of a folded run. **/
+	/** Icon for a collapsed run. **/
 	final foldIcon:ashui.svg.Icon;
 }
 
 private typedef Run = {text:String, kind:String, x:Single};
 private typedef Mark = {x:Single, width:Single, kind:String};
-/** A pooled token element: the `index`th run of its `kind` in the row its slot shows. **/
+/** A pooled token run, identified by kind and index within its displayed row. **/
 private typedef Token = {kind:String, index:Int};
 private typedef Shown = {
 	row:Int,
@@ -91,16 +92,16 @@ private typedef Shown = {
 };
 
 /**
-	One column of a diff, scrolling on its own: a viewport of rows that are all one height. Rows are pooled as the code editor's
-	are (row `r` is shown by slot `r % capacity`, so scrolling a line changes the bindings of the one slot whose row changed and
-	builds nothing), with a gutter of line numbers that stays at the left edge, a background for each kind of row, the changed
-	words marked behind the text, and a placeholder that opens a hidden run of unchanged lines when it is pressed.
+	A scrollable diff column with fixed-height, pooled rows.
+	The gutter stays at the left edge. Rows show change backgrounds and word
+	highlights; placeholder rows expand hidden unchanged sections.
+	Scrolling reassigns pool slots instead of building new row elements.
 **/
 class CodeDiffPane {
-	/** Between the gutter and the text, and the room kept to the right of the longest line. **/
+	/** Spacing between gutter and text, also reserved after the longest line. **/
 	static inline var PAD = 8.0;
 
-	/** The column for the "+" or "-" of a changed line. **/
+	/** Width of the added/removed sign column. **/
 	static inline var SIGN = 16.0;
 
 	public final view:Div;
@@ -113,7 +114,7 @@ class CodeDiffPane {
 	final slotPools:Array<Map<String, Array<Token>>> = [];
 	final slotKinds:Array<Array<String>> = [];
 	final distributed:Array<Null<Shown>> = [];
-	/** False until the viewport exists: the window of rows is worked out from its scroll. **/
+	/** Whether the viewport exists and its scroll position can determine visible rows. **/
 	final mounted = Signal.make(false);
 	final contentWidth:Computed<Single>;
 	final contentHeight:Computed<Single>;
@@ -205,7 +206,7 @@ class CodeDiffPane {
 		return Std.int(Math.min(set.count, Math.ceil((scroll.y.get() + viewHeight.get()) / config.original.lineHeight) + 3));
 	}
 
-	/** The rows from `first` to `end`, as what a slot shows of each; one already made is kept, so a scroll makes only the rows that came into the window. **/
+	/** Returns visible rows in the requested range, reusing cached rows where possible. **/
 	function shownRows(first:Int, end:Int):Array<Shown> {
 		config.revision.get();
 		var set = config.rows.get();
@@ -303,7 +304,7 @@ class CodeDiffPane {
 		return slotShown[i];
 	}
 
-	/** Gives each slot the row of the window it shows, setting only the slots whose row is another one. **/
+	/** Assigns rows to viewport slots, updating only changed slots. **/
 	function distribute(list:Array<Shown>, capacity:Int):Void {
 		var next:Array<Null<Shown>> = [for (_ in 0...capacity) null];
 		for (row in list)
@@ -321,7 +322,7 @@ class CodeDiffPane {
 		}
 	}
 
-	/** Gives slot `i` the token elements of each kind that `row` needs: it keeps what it has, grows when a row has more, and gives back when a row needs under a quarter. **/
+	/** Reuses token elements by kind, grows as needed, and trims when usage falls below one quarter. **/
 	function fitTokens(i:Int, row:Null<Shown>):Void {
 		var pools = slotPools[i], kinds = slotKinds[i], need = row == null ? null : row.byKind, changed = false;
 		if (need != null)
@@ -422,7 +423,7 @@ class CodeDiffPane {
 		return element;
 	}
 
-	/** The mark at the start of a folded run's row. **/
+	/** Builds the icon for a collapsed section. **/
 	function foldIcon():Element {
 		var glyph = new ashui.components.Icon({document: config.foldIcon});
 		Identity.of(glyph.tree, glyph.node.id).addClasses(["ui-code-diff-fold-icon"]);
@@ -489,7 +490,7 @@ class CodeDiffPane {
 		return element;
 	}
 
-	/** The buttons of the first row of each change, at the right edge of what is on screen; the stylesheet shows them while the pointer is over the row. **/
+	/** Builds change actions at the visible right edge. CSS shows them on row hover. **/
 	function actionsSlot(row:Signal<Null<Shown>>):Element {
 		var first = Computed.make(() -> {
 			var r = row.get();
@@ -541,7 +542,7 @@ class CodeDiffPane {
 		return action.icon != null ? new ashui.components.Tooltip({label: action.label, side: "top", delay: 0.3}, [button]) : button;
 	}
 
-	/** Reads the viewport's size and keeps the scroll inside the content; true when anything changed. **/
+	/** Measures the viewport and clamps scroll position to content bounds. Returns whether anything changed. **/
 	public function measure(tree:LayoutTree):Bool {
 		var bounds = tree.getBounds(view.node);
 		// A pane with no layout box keeps its last usable size, so hiding it does not discard its rows.
@@ -565,24 +566,24 @@ class CodeDiffPane {
 		return changed;
 	}
 
-	/** The row at the top of the view. **/
+	/** Returns the row at the top of the viewport. **/
 	public function topRow():Int
 		return Std.int(Math.max(0, Math.floor(scroll.y.get() / Math.max(1, config.original.lineHeight))));
 
-	/** Whether the whole of `row` is in the view. **/
+	/** Returns whether the entire row is visible. **/
 	public function rowVisible(row:Int):Bool {
 		var lh = config.original.lineHeight, top = row * lh;
 		return top >= scroll.y.get() && top + lh <= scroll.y.get() + viewHeight.get();
 	}
 
-	/** Scrolls so `row` is a third of the view from the top, or in the middle when `centered`. **/
+	/** Scrolls a row one third of the viewport from the top, or centers it when requested. **/
 	public function scrollToRow(row:Int, centered = false):Void {
 		var lh = config.original.lineHeight, h = viewHeight.get();
 		var target = row * lh - (centered ? (h - lh) / 2 : h / 3);
 		scroll.jumpTo(scroll.x.get(), Math.max(0, target));
 	}
 
-	/** The rows now in slots, in row order, with their kind and the text they show; for checks. **/
+	/** Returns current pooled rows in display order for inspection and tests. **/
 	public function shownNow():Array<{row:Int, kind:String, text:String, oldNumber:String, newNumber:String}> {
 		var result = [];
 		for (s in distributed)

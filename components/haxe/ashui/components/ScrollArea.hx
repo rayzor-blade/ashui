@@ -4,18 +4,18 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 typedef ScrollAreaProps = {
-	/** When its scrollbar shows: "auto" while it scrolls (the default), "always", "hover" or "hidden". **/
+	/** Scrollbar visibility: `auto` while scrolling (default), `always`, `hover`, or `hidden`. **/
 	?scrollbars:String,
-	/** Which ways it scrolls: "vertical" (the default), "horizontal" or "both". **/
+	/** Scroll direction: `vertical` (default), `horizontal`, or `both`. **/
 	?orientation:String,
 	?id:String
 }
 
 /**
-	A box its content scrolls in, under the wheel or a trackpad, a thin
-	thumb showing how far along it is; size it with the element's own width
-	and height. CSS: `.ui-scroll-area` (`[data-scrollbars]`,
-	`[data-orientation]`), which sets `overflow` and `scrollbar-visibility`.
+	A scrollable container with wheel and trackpad support.
+	Set width and height to define the visible area. A thin scrollbar thumb
+	shows scroll position. CSS: `.ui-scroll-area` with `[data-scrollbars]`
+	and `[data-orientation]`, controlling `overflow` and `scrollbar-visibility`.
 **/
 class ScrollArea extends Component<ScrollAreaProps> {
 	function render():Element

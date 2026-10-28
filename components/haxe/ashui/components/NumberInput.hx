@@ -8,15 +8,15 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef NumberInputProps = {
-	/** Its number. A signal is read and written; a constant sets it once. **/
+	/** Numeric value. A supplied signal is read and updated; a constant sets the initial value. **/
 	?value:IntoReactive<Float>,
 	?min:Float,
 	?max:Float,
-	/** What the buttons, arrow keys and wheel move it by; 1 by default. **/
+	/** Step size for buttons, arrow keys, and wheel input. Defaults to 1. **/
 	?step:Float,
-	/** Show the minus/plus buttons (default true). Hiding them keeps typing, arrow keys and wheel stepping. **/
+	/** Shows decrement and increment buttons. Defaults to true; hiding them preserves typing, arrow keys, and wheel stepping. **/
 	?showStepButtons:Bool,
-	/** Small (24px), medium (32px, default) or large (40px). **/
+	/** Control height in layout units: 24 for small, 32 for medium (default), or 40 for large. **/
 	?size:Size,
 	?disabled:IntoReactive<Bool>,
 	?name:String,

@@ -23,80 +23,81 @@ import ashui.ui.Div;
 import ashui.ui.For;
 import ashui.ui.Text;
 
-/** One series of a chart: its name, a value for each label, and its colour, any CSS colour; the palette's next, `--chart-1` to `--chart-5`, when unset. **/
+/** A named data series with one value per label. `color` accepts any CSS color and defaults to the next palette entry, `--chart-1` through `--chart-5`. **/
 typedef ChartSeries = {name:String, values:Array<Float>, ?color:String};
 
-/** How a line goes from one value to the next. **/
+/** Interpolation between line chart values. **/
 enum abstract ChartCurve(Int) {
-	/** Straight. **/
+	/** Straight segments between values. **/
 	var Linear;
 
-	/** A smooth curve that never overshoots its values. **/
+	/** Smooth interpolation without overshooting the values. **/
 	var Smooth;
 
-	/** Level, stepping at each value. **/
+	/** Horizontal segments with a step at each value. **/
 	var Step;
 }
 
-/** A range of values marked across a chart, as a budget is. **/
+/** A highlighted value range across a chart, such as a performance budget. **/
 typedef ChartBand = {from:Float, to:Float, ?color:String, ?label:String};
 
-/** A value marked by a line across a chart. **/
+/** A reference line at a specific value. **/
 typedef ChartMarker = {value:Float, ?label:String, ?color:String};
 
 typedef ChartProps = {
-	/** The series drawn, each a value per label. A signal or computed is followed, its changes animated. **/
+	/** Data series with one value per label. Reactive updates animate to the new values. **/
 	series:IntoReactive<Array<ChartSeries>>,
-	/** A label for each value, along the category axis; their numbers when unset. **/
+	/** Category labels. Defaults to numeric indices. **/
 	?labels:IntoReactive<Array<String>>,
-	/** The plot's height, axes included; 200 by default. The chart is as wide as it is laid out. **/
+	/** Chart height including axes. Defaults to 200 layout units; width follows layout. **/
 	?height:Float,
-	/** Lines: how they go between values; smooth by default. **/
+	/** Line interpolation. Defaults to smooth. **/
 	?curve:ChartCurve,
-	/** Lines: a dot at each value. **/
+	/** Shows a dot at each line value. **/
 	?dots:Bool,
-	/** Series added to those before them, in one bar or one area. **/
+	/** Stacks series within a bar or area. **/
 	?stacked:Bool,
-	/** Bars: along the value axis left to right, labels down the side. **/
+	/** Draws horizontal bars with category labels on the side. **/
 	?horizontal:Bool,
-	/** Lines across at the value axis's ticks; true by default. **/
+	/** Shows grid lines at value-axis ticks. Defaults to true. **/
 	?grid:Bool,
-	/** The labels and the value axis's ticks; true by default. **/
+	/** Shows category labels and value-axis ticks. Defaults to true. **/
 	?axes:Bool,
-	/** Each series' colour and name under the plot; true when there is more than one series. **/
+	/** Shows series names and colors below the plot. Defaults to true for multiple series. **/
 	?legend:Bool,
-	/** The values at the label under the pointer, in a box beside it; true by default. **/
+	/** Shows values for the category under the pointer. Defaults to true. **/
 	?tooltip:Bool,
-	/** Values as the axis and tooltip write them; compact numbers by default, 12.5k. **/
+	/** Formats axis and tooltip values. Defaults to compact numbers such as `12.5k`. **/
 	?format:Float->String,
-	/** The value axis's ends; from the values when unset, from 0 for areas and bars. **/
+	/** Minimum value-axis bound. Defaults to the data range, or zero for area and bar charts; `max` sets the upper bound. **/
 	?min:Float,
 	?max:Float,
 	?id:String
 }
 
 /**
-	Lines through each series' values, smooth by default, over a grid with
-	the labels below and the value axis's ticks beside it. Hovering shows
-	the values at the label under the pointer; a change to the series moves
-	the lines to their new values. CSS: `.ui-chart`, `.ui-chart-plot`,
-	`.ui-chart-axis`, `.ui-chart-tooltip` and its rows, `.ui-chart-legend`,
-	`.ui-chart-swatch`, `.ui-chart-c1` to `.ui-chart-c5` (the palette, from
-	`--chart-1` to `--chart-5`), `.ui-chart-grid` and `.ui-chart-cursor`
-	(their `color` is the grid's and the cursor's).
+	A line chart with animated data updates and hover tooltips.
+	Lines use smooth interpolation by default, with category labels below
+	and value-axis ticks beside the plot.
+
+	CSS: `.ui-chart`, `.ui-chart-plot`, `.ui-chart-axis`, `.ui-chart-tooltip`
+	and its rows, `.ui-chart-legend`, and `.ui-chart-swatch`. Series colors
+	use `.ui-chart-c1` through `.ui-chart-c5` from `--chart-1` through
+	`--chart-5`. The `color` of `.ui-chart-grid` and `.ui-chart-cursor`
+	controls grid and cursor lines.
 **/
 class LineChart extends Component<ChartProps> {
 	function render():Element
 		return ChartPlot.make(Lines(false), props);
 }
 
-/** A `LineChart` filled down to its axis, each area fading toward it; `stacked` piles them. **/
+/** A line chart filled down to the axis with a fading area. Set `stacked` to stack series. **/
 class AreaChart extends Component<ChartProps> {
 	function render():Element
 		return ChartPlot.make(Lines(true), props);
 }
 
-/** Bars for each label, one per series side by side, or piled when `stacked`; rounded at their ends. **/
+/** A bar chart with rounded ends. Series appear side by side, or stack when `stacked` is true. **/
 class BarChart extends Component<ChartProps> {
 	function render():Element
 		return ChartPlot.make(Bars, props);
@@ -104,18 +105,18 @@ class BarChart extends Component<ChartProps> {
 
 typedef SparklineProps = {
 	values:IntoReactive<Array<Float>>,
-	/** Any CSS colour; the palette's first by default. **/
+	/** Any CSS color. Defaults to the first palette color. **/
 	?color:String,
-	/** Filled down to its lowest value, fading. **/
+	/** Fills the area down to the lowest value with a fade. **/
 	?filled:Bool,
 	?curve:ChartCurve,
-	/** 100 by 24 by default. **/
+	/** Sparkline width in layout units. Defaults to 100; height defaults to 24. **/
 	?width:Float,
 	?height:Float,
 	?id:String
 }
 
-/** A trend in a line of text: a line through the values, nothing else. **/
+/** A compact line chart for showing a trend alongside text. **/
 class Sparkline extends Component<SparklineProps> {
 	function render():Element {
 		var values = props.values;
@@ -135,16 +136,16 @@ class Sparkline extends Component<SparklineProps> {
 typedef ThresholdChartProps = {
 	values:IntoReactive<Array<Float>>,
 	?labels:IntoReactive<Array<String>>,
-	/** Ranges marked behind the line; each value's dot takes the colour of the band it falls in. **/
+	/** Value bands behind the line. Each data point uses the color of its containing band. **/
 	?bands:Array<ChartBand>,
-	/** A value marked by a dashed line, as a target is. **/
+	/** Reference value shown as a dashed line, such as a target. **/
 	?baseline:Float,
 	?height:Float,
 	?format:Float->String,
 	?id:String
 }
 
-/** A line over bands of good and bad values, its dots coloured by the band each falls in: frame times against their budgets. **/
+/** A line chart with threshold bands and points colored by their band. Useful for values such as frame times against a budget. **/
 class ThresholdChart extends Component<ThresholdChartProps> {
 	function render():Element {
 		var values = props.values;
@@ -162,13 +163,13 @@ class ThresholdChart extends Component<ThresholdChartProps> {
 }
 
 typedef HistogramProps = {
-	/** The values counted into bins. **/
+	/** Values to count into histogram bins. **/
 	values:IntoReactive<Array<Float>>,
-	/** 20 by default. **/
+	/** Number of histogram bins. Defaults to 20. **/
 	?bins:Int,
-	/** Values marked by lines across the bins, as a noise floor is. **/
+	/** Reference lines across the histogram, such as a noise floor. **/
 	?markers:Array<ChartMarker>,
-	/** Counts on a logarithmic axis, so a long tail shows. **/
+	/** Uses a logarithmic count axis to show long-tail distributions. **/
 	?logScale:Bool,
 	?color:String,
 	?height:Float,
@@ -176,7 +177,7 @@ typedef HistogramProps = {
 	?id:String
 }
 
-/** How the values fall into equal bins: a bar each, labelled by where the bin starts. **/
+/** A histogram with equal-width bins, labeled by the start of each bin. **/
 class Histogram extends Component<HistogramProps> {
 	function render():Element {
 		var values = props.values, bins = props.bins != null ? props.bins : 20, log = props.logScale == true;
@@ -209,14 +210,17 @@ typedef ComparisonItem = {label:String, baseline:Float, current:Float};
 
 typedef ComparisonChartProps = {
 	items:IntoReactive<Array<ComparisonItem>>,
-	/** How far, in percent, current may grow past baseline before its change is marked bad; 10 by default. **/
+	/** Allowed percentage increase over the baseline before marking a change as bad. Defaults to 10. **/
 	?threshold:Float,
 	?height:Float,
 	?format:Float->String,
 	?id:String
 }
 
-/** Each item's baseline and current value side by side, left to right, with the change between them: red past the threshold, green when it fell. **/
+/**
+	Compares baseline and current values with paired horizontal bars. Changes
+	are red above the allowed increase, or green when the value decreases.
+**/
 class ComparisonChart extends Component<ComparisonChartProps> {
 	function render():Element {
 		var items = props.items, threshold = props.threshold != null ? props.threshold : 10.0;
@@ -244,38 +248,38 @@ class ComparisonChart extends Component<ComparisonChartProps> {
 	}
 }
 
-/** One slice of a pie: its label, its value, and its colour, any CSS colour; the palette's next when unset. **/
+/** A labeled pie slice. `color` accepts any CSS color and defaults to the next palette entry. **/
 typedef PieSlice = {label:String, value:Float, ?color:String};
 
 typedef PieChartProps = {
-	/** The slices, each as large as its share of the total. A signal or computed is followed, its changes animated. **/
+	/** Slices sized by their share of the total. Reactive changes animate to the new values. **/
 	slices:IntoReactive<Array<PieSlice>>,
-	/** A hole in the middle, as a share of the radius from 0 to 0.9: a donut. None by default. **/
+	/** Donut hole as a fraction of the radius, from 0 to 0.9. Defaults to no hole. **/
 	?donut:Float,
-	/** In the donut's hole, the total and this word under it: "Visitors". Only with `donut`. **/
+	/** Caption below the total in the donut hole, such as "Visitors". Requires `donut`. **/
 	?total:String,
-	/** 220 by default; the pie is as wide as it is high. **/
+	/** Pie diameter in layout units. Defaults to 220. **/
 	?height:Float,
-	/** Each slice's colour and label beside the pie; true by default. **/
+	/** Shows slice colors and labels beside the pie. Defaults to true. **/
 	?legend:Bool,
-	/** The slice under the pointer pulled out, its label, value and share in a box; true by default. **/
+	/** Pulls out the hovered slice and shows its label, value, and percentage. Defaults to true. **/
 	?tooltip:Bool,
 	?format:Float->String,
 	?id:String
 }
 
 /**
-	A whole in slices, each as large as its share, from the top clockwise;
-	a donut with `donut`, its total in the middle with `total`. Hovering
-	pulls the slice out and shows its value and share. The slices sweep in
-	when first drawn and move to new values. CSS: those of `LineChart`, and
-	`.ui-chart-pie-total` and `.ui-chart-pie-caption` in the hole.
+	A pie chart with animated slices, arranged clockwise from the top.
+	Set `donut` to add a center hole and `total` for a caption below the total.
+	Hovering pulls out a slice and shows its value and percentage. Slices
+	animate on entry and value changes. Uses the `LineChart` CSS parts, plus
+	`.ui-chart-pie-total` and `.ui-chart-pie-caption` in the center.
 **/
 class PieChart extends Component<PieChartProps> {
-	/** How long a change of values takes to show, in seconds. **/
+	/** Value transition duration in seconds. **/
 	static inline var TRANSITION = 0.7;
 
-	/** How far the slice under the pointer is pulled out, in layout units. **/
+	/** Hovered slice offset in layout units. **/
 	static inline var PULL = 6.0;
 
 	function render():Element {
@@ -356,7 +360,7 @@ class PieChart extends Component<PieChartProps> {
 			return box;
 		}
 
-		/** Where slice `i` starts and ends, in radians clockwise from the top. **/
+		/** Returns slice start and end angles, clockwise from the top in radians. **/
 		function angles(list:Array<Float>):Array<{start:Float, end:Float}> {
 			var at = -Math.PI / 2, out = [];
 			for (share in list) {
@@ -493,15 +497,15 @@ class PieChart extends Component<PieChartProps> {
 	}
 }
 
-/** What a chart draws for its series. **/
+/** Shape used to draw chart data. **/
 enum ChartMark {
-	/** Lines, filled to the axis when `area`. **/
+	/** Lines, with an optional fill down to the axis. **/
 	Lines(area:Bool);
 
 	Bars;
 }
 
-/** What only some charts add to the plot. **/
+/** Optional plot features used by specific chart types. **/
 typedef ChartExtras = {
 	?bare:Bool,
 	?width:Float,
@@ -513,31 +517,30 @@ typedef ChartExtras = {
 	?annotate:Int->Null<{text:String, tone:Null<String>}>
 }
 
-/** Where a plot's parts are: its canvas's size, the value axis's range and ticks, the box the series are drawn in. **/
+/** Plot dimensions, value range and ticks, and the rectangle used to draw data. **/
 typedef ChartGeometry = {w:Float, h:Float, lo:Float, hi:Float, ticks:Array<Float>, x0:Float, y0:Float, x1:Float, y1:Float};
 
-/** The values of `values` counted into `bins` equal bins: each one's count and start. **/
+/** Histogram counts and bin starts, with the minimum value and bin width. **/
 typedef Binned = {counts:Array<Float>, starts:Array<Float>, lo:Float, width:Float};
 
 /**
-	The plot every chart is: a canvas drawing the grid and the series, with
-	the axes' labels, the tooltip and the legend as elements over and under
-	it. The value axis runs up, or right when horizontal; the category axis
-	holds one slot per label, its points at the slots' middles for lines.
+	Shared chart renderer: a canvas for data and grid lines, with element-based
+	axes, tooltip, and legend. The value axis runs upward, or rightward for
+	horizontal charts. Categories occupy equal slots; line points use slot centers.
 **/
 class ChartPlot {
-	/** The palette's length: `--chart-1` to `--chart-5`. **/
+	/** Number of palette colors, from `--chart-1` through `--chart-5`. **/
 	static inline var PALETTE = 5;
 
-	/** How long a change of values takes to show, in seconds. **/
+	/** Value transition duration in seconds. **/
 	static inline var TRANSITION = 0.6;
 
-	/** Room for the axes: below the plot for its labels, above it so the top tick's label fits. **/
+	/** Space for labels below the plot and the top value-axis tick. **/
 	static inline var BOTTOM = 24.0;
 
 	static inline var TOP = 8.0;
 
-	/** The average width of a character of the axes' text, for the room their labels need. **/
+	/** Estimated axis character width used to reserve label space. **/
 	static inline var CHAR = 6.6;
 
 	public static function make(mark:ChartMark, props:ChartProps, ?extras:ChartExtras):Element {
@@ -651,7 +654,7 @@ class ChartPlot {
 		// Colours: each series' swatch, styled by the palette's classes or its own colour, read back when it is restyled.
 		var swatches:Array<Null<Identity>> = [];
 		var inks = Signal.make(0);
-		/** A colour as `identity` reads it: `own`, any CSS colour, else its computed `color`. **/
+		/** Resolves an explicit CSS color or the identity computed color. **/
 		var ink:(identity:Null<Identity>, ?own:String, ?fallback:Int) -> {rgb:Int, alpha:Float} = null;
 		ink = (identity:Null<Identity>, ?own:String, ?fallback:Int) -> {
 			var otherwise = fallback != null ? fallback : 0x888888;
@@ -729,18 +732,18 @@ class ChartPlot {
 			};
 		}
 		var geo:Null<Computed<ChartGeometry>> = null;
-		/** A value's place along the value axis. **/
+		/** Maps a value to its coordinate on the value axis. **/
 		inline function valueAt(g:ChartGeometry, v:Float):Float {
 			var f = (v - g.lo) / (g.hi - g.lo);
 			return horizontal ? g.x0 + f * (g.x1 - g.x0) : g.y1 - f * (g.y1 - g.y0);
 		}
-		/** Label `i`'s slot along the category axis: where it starts and how long it is. **/
+		/** Returns the start and size of a category slot. **/
 		function slot(g:ChartGeometry, i:Int, n:Int):{start:Float, size:Float} {
 			var a = horizontal ? g.y0 : g.x0, b = horizontal ? g.y1 : g.x1;
 			var size = n > 0 ? (b - a) / n : b - a;
 			return {start: a + i * size, size: size};
 		}
-		/** Where a line's point for label `i` is along the category axis: from end to end when bare, else at its slot's middle. **/
+		/** Returns a line point coordinate: slot center, or edge-to-edge for bare plots. **/
 		function pointAt(g:ChartGeometry, i:Int, n:Int):Float {
 			if (bare)
 				return n > 1 ? g.x0 + i / (n - 1) * (g.x1 - g.x0) : (g.x0 + g.x1) / 2;
@@ -1066,7 +1069,7 @@ class ChartPlot {
 		return root;
 	}
 
-	/** A prop's value now; read in a computed, followed. **/
+	/** Reads a constant, signal, or computed. Reactive callers subscribe to changes. **/
 	public static function read<T>(v:IntoReactive<T>):T {
 		return switch (v : ReactiveType<T>) {
 			case Const(x): x;
@@ -1075,7 +1078,7 @@ class ChartPlot {
 		}
 	}
 
-	/** A number as a chart writes it: 1.2k, 3.4M, or itself to two places at most. **/
+	/** Formats compact numbers such as `1.2k` or `3.4M`, otherwise using at most two decimal places. **/
 	public static function compact(v:Float):String {
 		var a = Math.abs(v);
 		inline function short(x:Float, unit:String)
@@ -1083,7 +1086,7 @@ class ChartPlot {
 		return a >= 1e9 ? short(v / 1e9, "B") : a >= 1e6 ? short(v / 1e6, "M") : a >= 1e4 ? short(v / 1e3, "k") : Std.string(Math.round(v * 100) / 100);
 	}
 
-	/** Ticks at round numbers covering `lo` to `hi`, about `count` of them. **/
+	/** Returns roughly `count` round-number ticks covering the range from `lo` to `hi`. **/
 	public static function niceTicks(lo:Float, hi:Float, count:Int):Array<Float> {
 		var span = hi - lo;
 		if (!(span > 0))
@@ -1103,7 +1106,7 @@ class ChartPlot {
 		return out;
 	}
 
-	/** `values` counted into `bins` equal bins from their least to their greatest. **/
+	/** Counts values into equal-width bins spanning the data minimum and maximum. **/
 	public static function bin(values:Array<Float>, bins:Int):Binned {
 		var lo = Math.POSITIVE_INFINITY, hi = Math.NEGATIVE_INFINITY;
 		for (v in values) {
@@ -1121,11 +1124,11 @@ class ChartPlot {
 		return {counts: counts, starts: [for (i in 0...bins) lo + i * width], lo: lo, width: width};
 	}
 
-	/** The band colours a threshold chart takes unless given its own: good, then a warning, then bad. **/
+	/** Default threshold colors for good, warning, and bad regions. **/
 	static function bandColor(k:Int):String
 		return k == 0 ? "var(--success)" : k == 1 ? "var(--warning)" : "var(--error)";
 
-	/** Adds a line through the points to `path`, starting it with a move when `start`, else carrying on from where it is. **/
+	/** Adds interpolated segments to a path. Starts with a move when `start` is true, otherwise continues the path. **/
 	static function follow(path:Path, xs:Array<Float>, ys:Array<Float>, curve:ChartCurve, start:Bool):Void {
 		var n = xs.length;
 		if (start)
@@ -1169,7 +1172,7 @@ class ChartPlot {
 		}
 	}
 
-	/** A bar rounded by `r` at one end: 0 its top, 1 its right, 2 its bottom, 3 its left. **/
+	/** Creates a bar with one rounded end: 0 top, 1 right, 2 bottom, or 3 left. **/
 	static function bar(x:Float, y:Float, w:Float, h:Float, r:Float, end:Int):Path {
 		var p = new Path();
 		r = Math.max(0, Math.min(r, end == 0 || end == 2 ? Math.min(w / 2, h) : Math.min(h / 2, w)));

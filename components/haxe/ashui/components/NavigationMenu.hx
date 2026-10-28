@@ -8,12 +8,11 @@ import ashui.ui.Component;
 import ashui.ui.Div;
 
 /**
-	A site's navigation: a row of `NavigationMenuLink`s and
-	`NavigationMenuItem`s, each item a `NavigationMenuTrigger` whose
-	`NavigationMenuContent` opens under it while the pointer rests on it or
-	it is pressed, one at a time; moving to another item opens that one in
-	its place. CSS: `.ui-nav-menu`, `.ui-nav-link` (`[data-active]`),
-	`.ui-nav-trigger` (`[data-state]`), `.ui-nav-content`.
+	A navigation row with links and expandable panels.
+	`NavigationMenuItem` pairs a trigger with content that opens on hover
+	or press. Only one panel opens at a time; moving to another item
+	switches panels. CSS: `.ui-nav-menu`, `.ui-nav-link[data-active]`,
+	`.ui-nav-trigger[data-state]`, and `.ui-nav-content`.
 **/
 class NavigationMenu extends Component<{?id:String}> {
 	var items:Array<NavigationMenuItem> = [];
@@ -25,7 +24,7 @@ class NavigationMenu extends Component<{?id:String}> {
 		return Library.part("ui-nav-menu", "nav", null, children, props.id);
 	}
 
-	/** Closes every item but `open`, when it opens. **/
+	/** Closes other panels when an item opens. **/
 	@:allow(ashui.components.NavigationMenuItem)
 	function opened(open:NavigationMenuItem):Void
 		for (i in items)
@@ -33,7 +32,7 @@ class NavigationMenu extends Component<{?id:String}> {
 				i.close();
 }
 
-/** Where a navigation item is: closed, waiting to open, open, or waiting to close. **/
+/** Navigation panel lifecycle: closed, waiting to open, open, or waiting to close. **/
 private enum NavState {
 	Closed;
 	Waiting;
@@ -49,7 +48,7 @@ private enum NavEvent {
 	Close;
 }
 
-/** One of the menu's items with a panel: its trigger and its content. **/
+/** Navigation item containing a trigger and a panel. **/
 class NavigationMenuItem extends Component<{?id:String}> {
 	@:allow(ashui.components.NavigationMenu) var menu:Null<NavigationMenu> = null;
 	var machine:Null<Machine<NavState, NavEvent>> = null;
@@ -109,7 +108,7 @@ class NavigationMenuItem extends Component<{?id:String}> {
 			machine.send(Close);
 }
 
-/** An item's trigger: its label and a chevron that turns while its panel is open. **/
+/** Panel trigger with a label and a chevron that indicates the open state. **/
 class NavigationMenuTrigger extends Component<{?id:String}> {
 	static var chevron:Null<ashui.svg.SvgDocument> = null;
 
@@ -125,7 +124,7 @@ class NavigationMenuTrigger extends Component<{?id:String}> {
 	}
 }
 
-/** An item's panel: kept while closed, under its trigger in the top layer while open. **/
+/** Navigation panel retained while closed and displayed below its trigger in the top layer while open. **/
 class NavigationMenuContent extends Component<{?id:String}> {
 	@:allow(ashui.components.NavigationMenuItem)
 	var panel(default, null):Div;
@@ -138,7 +137,7 @@ class NavigationMenuContent extends Component<{?id:String}> {
 	}
 }
 
-/** A link of the menu, or of a panel; `active` marks the page shown. **/
+/** Navigation link in the row or a panel. `active` marks the current page. **/
 class NavigationMenuLink extends Component<{?active:Bool, ?onClick:ashui.input.Events.PointerEvent->Void, ?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-nav-link", "a", props.active == true ? ["active" => ""] : null, children, props.id);

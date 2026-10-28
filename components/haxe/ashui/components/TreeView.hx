@@ -10,25 +10,26 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef TreeViewProps = {
-	/** The item chosen, by its value. A signal is read and written; a constant sets it once. **/
+	/** Selected item value, or null. A supplied signal is read and updated; a constant sets the initial selection. **/
 	?selected:IntoReactive<Null<String>>,
 	?onSelect:String->Void,
-	/** A line down each open item's children; true by default. **/
+	/** Shows guide lines along expanded child groups. Defaults to true. **/
 	?guides:Bool,
 	?id:String
 }
 
 /**
-	A tree of `TreeItem`s, each a row that chooses it and, with items of its
-	own, opens and closes them: they grow in and fold away by layout
-	animation, the rows below moving with them, its chevron turning. The
-	arrows move among the rows shown, Right opens a row or steps into it,
-	Left closes it or steps out to its parent, Home and End go to the first
-	and last, and Enter or Space chooses. CSS: `.ui-tree` (`[data-guides]`),
-	`.ui-tree-item` (`[data-state]` open or closed), `.ui-tree-row`
-	(`[data-selected]`, `:hover`, `:focus-visible`), `.ui-tree-chevron`,
-	`.ui-tree-icon`, `.ui-tree-label`, `.ui-tree-group` (`[data-state]`;
-	closed, laid out at no height).
+	A selectable tree with animated expansion and collapse.
+
+	Each `TreeItem` has a row and optional children. Up/Down navigate visible
+	rows; Right expands or enters children, and Left collapses or moves to
+	the parent. Home/End reach the first or last row; Enter/Space select.
+	Expanding animates child height and the positions of later rows.
+
+	CSS: `.ui-tree[data-guides]`, `.ui-tree-item[data-state]`,
+	`.ui-tree-row` with `[data-selected]`, `:hover`, and `:focus-visible`,
+	plus `.ui-tree-chevron`, `.ui-tree-icon`, `.ui-tree-label`, and
+	`.ui-tree-group[data-state]`. Closed groups have zero height.
 **/
 class TreeView extends Component<TreeViewProps> {
 	public var selected(default, null):Signal<Null<String>>;
@@ -102,34 +103,35 @@ class TreeView extends Component<TreeViewProps> {
 }
 
 typedef TreeItemProps = {
-	/** What choosing it chooses. **/
+	/** Value stored when this item is selected. **/
 	value:String,
-	/** Its row's text; elements other than items among its children follow it. **/
+	/** Row label. Non-item children appear after the label. **/
 	?label:String,
-	/** An icon before its label, drawn in the text's colour: `SvgDocument.of(<svg>...</svg>)`, read at compile time, or SVG markup. **/
+	/** Leading SVG icon using the text color. Accepts a compiled SVG document or SVG markup. **/
 	?icon:ashui.svg.Icon,
-	/** Whether its items show. A signal is read and written; a constant sets it once. **/
+	/** Whether children are expanded. A supplied signal is read and updated; a constant sets the initial state. **/
 	?expanded:IntoReactive<Bool>,
 	/**
-		Makes the items under it, once, when it is first opened, instead of with it: a folder of many entries builds none of them until
-		it is looked into. Elements that are not items are left out. Until it is opened the item has a chevron and no items.
+		Creates child items once, on first expansion. Useful for large folders.
+		Only tree items are retained from the result. Before loading, the row
+		shows a chevron without creating the children.
 	**/
 	?load:Void->Array<Element>,
 	?id:String
 }
 
 /**
-	One item of a tree: its row, and the items under it while it is open.
-	A tree of many entries, as a file explorer is, makes the items of each
-	folder only when it is first opened: `<tree-item load={() -> entries(dir)}/>`.
+	A tree row with optional child items.
+	Use `load` for children that should be created on first expansion,
+	such as `<tree-item load={() -> entries(dir)}/>` in a file explorer.
 **/
 class TreeItem extends Component<TreeItemProps> {
 	public var expanded(default, null):Signal<Bool>;
 
-	/** The items under it. **/
+	/** Child tree items. **/
 	@:allow(ashui.components) var items(default, null):Array<TreeItem> = [];
 
-	/** Its row's interaction, which has focus while the arrows are on it. **/
+	/** Row interaction used by keyboard navigation. **/
 	@:allow(ashui.components) var row(default, null):Null<Interaction> = null;
 
 	@:allow(ashui.components) var parent(default, null):Null<TreeItem> = null;
@@ -208,12 +210,12 @@ class TreeItem extends Component<TreeItemProps> {
 		return box;
 	}
 
-	/** Whether it has items, or makes them when it opens. **/
+	/** Returns whether this item has children or can load them on expansion. **/
 	@:allow(ashui.components)
 	function branch():Bool
 		return items.length > 0 || props.load != null;
 
-	/** Tells it and the items under it what is chosen and how to choose, and which item is above it. **/
+	/** Connects this item and its descendants to selection handlers and parent navigation. **/
 	@:allow(ashui.components)
 	function bindTree(selected:Null<Signal<Null<String>>>, onChoose:Null<String->Void>, up:Null<TreeItem>):Void {
 		chosen.set(selected);

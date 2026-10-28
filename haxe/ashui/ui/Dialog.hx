@@ -10,7 +10,7 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 import ashui.ui.TopLayer;
 
-/** A close request; preventDefault keeps the dialog open. Programmatic close and form submission do not send it. **/
+/** A dialog close request. Call `preventDefault()` to keep the dialog open. Programmatic `close()` and form submission do not send this event. **/
 class DialogCancelEvent {
 	public final target:Dialog;
 	public var defaultPrevented(default, null) = false;
@@ -24,52 +24,53 @@ class DialogCancelEvent {
 }
 
 typedef DialogProps = {
-	/** Whether it is open. A signal is read and written: closing it with Escape or the backdrop sets it false. **/
+	/** Whether the dialog is open. User dismissal writes false to a supplied signal. **/
 	?open:IntoReactive<Bool>,
 
-	/** In the top layer over a dimmed backdrop, holding focus, as `showModal()` opens HTML's; true by default. In place when false. **/
+	/** Opens in the top layer with a backdrop and focus trap. Defaults to true; false displays the dialog in place. **/
 	?modal:Bool,
 
 	?id:String,
 
-	/** Classes of the dialog itself, for a component library that styles it. **/
+	/** CSS classes applied to the dialog panel. **/
 	?classes:Array<String>,
 
-	/** What dims the page behind a modal one; black at 40% by default. **/
+	/** Brush for the modal backdrop. Defaults to black at 40% opacity. **/
 	?backdrop:ashui.types.Brush,
 
-	/** Whether Escape and a press on the backdrop close it; true by default, as HTML's. False for one only its own controls close. **/
+	/** Allows Escape and backdrop clicks to close the dialog. Defaults to true; see `closedby` for finer control. **/
 	?dismissible:Bool,
-	/** User dismissal: any (Escape/backdrop), closerequest (Escape) or none. Omitted, preserves dismissible's behavior. **/
+	/** Allowed user dismissal: `any` for Escape or backdrop, `closerequest` for Escape, or `none`. Defaults to the `dismissible` behavior. **/
 	?closedby:String,
-	/** Called before a user or requestClose closes it; preventDefault refuses the request. **/
+	/** Runs before user dismissal or `requestClose()`. Call `preventDefault()` to refuse the request. **/
 	?onCancel:DialogCancelEvent->Void,
 
-	/** Where a modal one opens in the top layer: centred by default, or along an edge (a sheet). **/
+	/** Position of a modal dialog in the top layer. Defaults to centered; edge placement creates a sheet. **/
 	?placement:ashui.ui.TopLayer.Placement,
 
-	/** Called when it closes, however it closes. **/
+	/** Runs whenever the dialog closes. **/
 	?onClose:Void->Void
 }
 
 /**
-	HTML's `<dialog>`, built in. Modal, as by default, it opens in the top
-	layer, centred over a dimmed backdrop; Tab and Shift+Tab stay inside it,
-	its first focusable element takes focus, and Escape or a press on the
-	backdrop closes it, giving focus back to what had it. Not modal, it is
-	shown in place while open. Either way it is a `dialog` element marked
-	`[open]` while open, for CSS.
+	A dialog, written as `<dialog>` in HXX.
+
+	Dialogs are modal by default: they open above the page with a dimmed
+	backdrop, focus the first available control, and keep Tab navigation inside.
+	Escape or a backdrop click dismisses the dialog unless disabled. Closing
+	restores the previous focus. Non-modal dialogs appear in place while open.
+	Both modes expose `[open]` for CSS.
 **/
 class Dialog extends Component<DialogProps> {
 	static final registry = new ashui.layout.Registry<Dialog>();
 
-	/** Whether it is open; the caller's signal when `open` was one. **/
+	/** Current open state. Uses the supplied signal when available. **/
 	public var opened(default, null):Signal<Bool>;
 
-	/** The dialog element itself: in place when not modal, in the top layer while a modal one is open. **/
+	/** The dialog panel. Modal dialogs move this element into the top layer while open. **/
 	public var panel(default, null):Div;
 
-	/** The value supplied by close(), requestClose() or a method=dialog submit button. **/
+	/** Result supplied by `close()`, `requestClose()`, or a `method="dialog"` submit button. **/
 	public var returnValue = "";
 
 	var entry:Null<TopEntry> = null;
@@ -77,7 +78,7 @@ class Dialog extends Component<DialogProps> {
 	var before:Null<Interaction> = null;
 	var pending:Null<LayoutTree->Void> = null;
 
-	/** The dialog containing a node, including a modal panel moved into the top layer. **/
+	/** Finds the dialog containing a node, including modal panels moved into the top layer. **/
 	@:noCompletion public static function near(tree:LayoutTree, node:haxe.Int64):Null<Dialog> {
 		return registry.near(tree, node);
 	}
@@ -97,7 +98,7 @@ class Dialog extends Component<DialogProps> {
 		};
 	}
 
-	/** Closes without sending cancel. Omitting a value preserves the previous returnValue. **/
+	/** Closes without a cancel event. Omitting `value` preserves the previous `returnValue`. **/
 	public function close(?value:String):Void {
 		if (!opened.get())
 			return;
@@ -107,7 +108,7 @@ class Dialog extends Component<DialogProps> {
 		hide();
 	}
 
-	/** Sends cancel, then closes unless a handler prevents it. closedby restricts user actions, not this API. **/
+	/** Sends a cancel event and closes unless prevented. The `closedby` setting limits user dismissal, not this method. **/
 	public function requestClose(?value:String):Void {
 		if (!opened.get())
 			return;

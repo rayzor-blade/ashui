@@ -8,18 +8,18 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef SliderProps = {
-	/** Where it is. A signal is read and written; a constant sets it once. **/
+	/** Numeric value. A supplied signal is read and updated; a constant sets the initial value. **/
 	?value:IntoReactive<Float>,
 	?min:Float,
 	?max:Float,
 	?step:Float,
-	/** Horizontal by default; vertical increases from bottom to top. **/
+	/** Range axis. Defaults to horizontal; vertical values increase from bottom to top. **/
 	?orientation:String,
-	/** Small, medium (default) or large track, thumb and label (git-bug e8a1b50). **/
+	/** Small, medium (default), or large track, thumb, and label (e8a1b50). **/
 	?size:Size,
-	/** A label over it, its value shown at the other end. **/
+	/** Label above the slider, with the value at the opposite end. **/
 	?label:String,
-	/** How the value is shown beside the label; to two decimals by default. **/
+	/** Formats the displayed value. Defaults to two decimal places. **/
 	?format:Float->String,
 	?disabled:IntoReactive<Bool>,
 	/** Called on pointer or keyboard edits; changes to the bound value do not call it. **/
@@ -29,13 +29,14 @@ typedef SliderProps = {
 }
 
 /**
-	A slider: the built-in `<input type="range">` (its keys, its drag) in
-	the library's look, with a label over it and its value at the label's
-	end. CSS: `.ui-slider-field`, `.ui-slider-header`, `.ui-slider-label`,
-	`.ui-slider-value`, `.ui-slider` (the range, its `.fill`, `.rest`,
-	`.thumb`, `:disabled`).
-	Children decorate the range itself; position an icon absolutely so it
-	does not take space from the track. A press on it still seeks the range.
+	A themed range slider with an optional label and value readout.
+	Uses the built-in range input for dragging and keyboard controls.
+	Children decorate the range; position icons absolutely to preserve
+	track space. Presses on those icons still seek the range.
+
+	CSS: `.ui-slider-field`, `.ui-slider-header`, `.ui-slider-label`,
+	`.ui-slider-value`, and `.ui-slider` with `.fill`, `.rest`, `.thumb`,
+	and `:disabled`.
 **/
 class Slider extends Component<SliderProps> {
 	public var value(default, null):Signal<Float>;

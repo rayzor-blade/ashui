@@ -6,14 +6,16 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 /**
-	A table in the library's look: the built-in `<table>`, every row a grid
-	of the same columns, with `TableHeader`, `TableBody` and `TableFooter`
-	of `TableRow`s of `TableHead` and `TableCell`, and a `TableCaption`
-	under it. Cells accept `colspan` and `rowspan`, including 0 through the
-	row group's end (471d54e / 8780d6b). Rows highlight under the pointer. CSS: `.ui-table`,
-	`.ui-table-header`, `.ui-table-body`, `.ui-table-footer`,
-	`.ui-table-row` (`:hover`, `[data-state="selected"]`), `.ui-table-head`,
-	`.ui-table-cell`, `.ui-table-caption`.
+	A themed table with aligned columns, row highlighting, and spanning cells.
+
+	Compose `TableHeader`, `TableBody`, and `TableFooter` from `TableRow`
+	elements containing `TableHead` and `TableCell`. `TableCaption` appears
+	below the table. Cells accept `colspan` and `rowspan`; a rowspan of zero
+	extends to the end of the row group (471d54e / 8780d6b).
+
+	CSS: `.ui-table`, `.ui-table-header`, `.ui-table-body`, `.ui-table-footer`,
+	`.ui-table-row` with `:hover` and `[data-state="selected"]`, plus
+	`.ui-table-head`, `.ui-table-cell`, and `.ui-table-caption`.
 **/
 class Table extends Component<{?id:String}> {
 	function render():Element {
@@ -39,7 +41,7 @@ class TableFooter extends Component<{?id:String}> {
 		return Library.part("ui-table-footer", "tfoot", null, children, props.id);
 }
 
-/** A row; `selected` marks it chosen. **/
+/** Table row. Set `selected` to apply the selected state. **/
 class TableRow extends Component<{?selected:ashui.layout.IntoReactive<Bool>, ?id:String}> {
 	function render():Element {
 		var data:Null<Map<String, ashui.layout.IntoReactive<Null<String>>>> = null;

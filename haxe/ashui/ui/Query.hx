@@ -34,7 +34,7 @@ import ashui.reactive.Watch;
 	on a `RefList` applies to current elements and those added later.
 **/
 class Query {
-	/** A handle on `target`: an element, a `Ref`, or a selector with `within`, an element or a tree, to look under. **/
+	/** Creates a query for an element, `Ref`, `RefList`, or selector. Selector queries require an element or tree in `within`. **/
 	public static macro function query(target:Expr, ?within:Expr):Expr {
 		var type = try Context.typeof(target) catch (_:Dynamic) Context.error("query: cannot type this", target.pos);
 		inline function is(name:String)
@@ -82,10 +82,10 @@ class Query {
 	#if !macro
 	final tree:Null<LayoutTree>;
 
-	/** What it acts on now. **/
+	/** Returns the nodes currently targeted by the query. **/
 	final current:Void->Array<Node>;
 
-	/** What it was told, done again to each element a ref comes to hold; null when it acts once. **/
+	/** Operations to replay when a reference gains elements. Null for a one-time query. **/
 	final replay:Null<Array<Node->Void>>;
 
 	function new(tree:Null<LayoutTree>, current:Void->Array<Node>, replay:Null<Array<Node->Void>>) {
@@ -145,7 +145,7 @@ class Query {
 		return new Query(tree, () -> nodes, null);
 	}
 
-	/** Does `f` to each element now, and to each a ref comes to hold. **/
+	/** Applies an operation to current nodes and replays it for future reference targets. **/
 	function each(f:Node->Void):Query {
 		if (replay != null)
 			replay.push(f);
@@ -200,15 +200,15 @@ class Query {
 
 	// --- Input state ---
 
-	/** Whether Tab and a press give it focus. **/
+	/** Allows matched elements to receive focus through Tab or a pointer press. **/
 	public function focusable(value = true):Query
 		return each(n -> Interaction.of(n).setFocusable(value));
 
-	/** Whether it takes no input and matches `:disabled`; a signal or computed is followed. **/
+	/** Disables matched elements and applies `:disabled`. Accepts reactive values. **/
 	public function disabled(value:IntoReactive<Bool>):Query
 		return each(n -> Interaction.of(n).setDisabled(value));
 
-	/** Gives the first focus, a ring showing when `visible`, as the keyboard gives it. **/
+	/** Focuses the first matched element. Set `visible` to show the keyboard focus ring. **/
 	public function focus(visible = false):Query {
 		var n = current()[0];
 		if (n != null)
@@ -216,7 +216,7 @@ class Query {
 		return this;
 	}
 
-	/** A press and release at the middle of the first, as the pointer makes them: for scripts and tests. **/
+	/** Simulates a pointer press and release at the first element center. Useful for scripts and tests. **/
 	public function click():Query {
 		var n = current()[0];
 		if (n == null)
@@ -232,11 +232,11 @@ class Query {
 
 	// --- What CSS sees ---
 
-	/** Sets attribute `name`, or removes it when `value` is null; `data-state` and the like. **/
+	/** Sets an attribute such as `data-state`. A null value removes the attribute. **/
 	public function attr(name:String, value:Null<String>):Query
 		return each(n -> identity(n).setAttribute(name, value));
 
-	/** Attribute `name` of the first, or null. **/
+	/** Returns an attribute from the first match, or null when absent. **/
 	public function getAttr(name:String):Null<String> {
 		var n = current()[0];
 		return n == null ? null : identity(n).attribute(name);
@@ -251,11 +251,11 @@ class Query {
 			i.setClasses([for (c in i.classes()) if (c != name) c]);
 		});
 
-	/** Adds `name` when `on`, else removes it. **/
+	/** Adds a class when `on` is true, or removes the class when false. **/
 	public function toggleClass(name:String, on:Bool):Query
 		return on ? addClass(name) : removeClass(name);
 
-	/** Whether the first has class `name`. **/
+	/** Returns whether the first match has the class. **/
 	public function hasClass(name:String):Bool {
 		var n = current()[0];
 		return n != null && identity(n).hasClass(name);
@@ -263,21 +263,21 @@ class Query {
 
 	// --- Properties and where it is ---
 
-	/** Binds layout or visual property `prop`, as an attribute would: a constant, or a signal or computed followed. **/
+	/** Sets a layout or visual property. Signals and computeds update the property reactively. **/
 	public function set<T>(prop:Prop<T>, value:IntoReactive<T>):Query
 		return each(n -> n.set(prop, value));
 
-	/** The first one's box as last laid out, or null. **/
+	/** Returns the first match bounds from the last layout pass, or null when no element matches. **/
 	public function bounds():Null<ashui.layout.Bounds> {
 		var n = current()[0];
 		return n == null ? null : treeOf(n).getBounds(n);
 	}
 
-	/** How many it acts on now. **/
+	/** Returns the current number of matched nodes. **/
 	public function count():Int
 		return current().length;
 
-	/** Its nodes now. **/
+	/** Returns the currently matched nodes. **/
 	public function nodes():Array<Node>
 		return current().copy();
 

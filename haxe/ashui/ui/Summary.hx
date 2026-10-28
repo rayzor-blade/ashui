@@ -2,7 +2,7 @@ package ashui.ui;
 
 import ashui.layout.Element;
 
-/** HTML's `<summary>`: the heading of a `<details>`, which toggles it; a marker before its content turns as it opens. **/
+/** The heading of a `<details>` section. Activating it toggles the section; its marker indicates the open state. **/
 class Summary extends Component<{}> {
 	static final MARKER = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>);
 

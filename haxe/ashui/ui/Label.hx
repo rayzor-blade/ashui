@@ -4,17 +4,18 @@ import ashui.input.Interaction;
 import ashui.layout.Element;
 
 typedef LabelProps = {
-	/** The id of the control it labels; hxx's `for`. Without it, the label labels the first input inside it. **/
+	/** ID of the associated control, written as `for` in HXX. Defaults to the first input inside the label. **/
 	?htmlFor:String,
 
 	?id:String
 }
 
 /**
-	HTML's `<label>`, built in: clicking it operates its control, the input
-	whose id its `for` names, or else the first input inside it, as clicking
-	the control itself would: a checkbox flips, a radio is checked, and the
-	control takes focus.
+	A label that activates its associated control.
+
+	Use `<label for="control-id">` in HXX, or place an input inside the label.
+	Clicking the label focuses the control and performs its normal activation,
+	such as toggling a checkbox or selecting a radio.
 **/
 class Label extends Component<LabelProps> {
 	function render():Element {
@@ -39,7 +40,7 @@ class Label extends Component<LabelProps> {
 		return select == null ? null : {node:select.node, control:select};
 	}
 
-	/** The form control this label operates. **/
+	/** Resolves the associated form control. **/
 	function target(box:Div):Null<{node:ashui.layout.Node, control:FormControl}> {
 		var tree = box.tree;
 		if (props.htmlFor != null) {

@@ -17,18 +17,19 @@ typedef AlertProps = {
 }
 
 /**
-	A callout: an optional icon (an `<svg>` first), an `AlertTitle` and an
-	`AlertDescription`. With an icon, the icon takes a column of its own.
-	CSS: `.ui-alert`, `[data-variant]` (default, destructive, success,
-	warning, info), `.ui-alert-title`, `.ui-alert-description`;
-	`--ui-alert-bg`, `-fg`, `-border`, `-icon`, `-padding`, `-radius`.
+	A callout with a title, description, and optional leading SVG icon.
+	The icon occupies a separate column when supplied as the first child.
+
+	CSS: `.ui-alert`, `[data-variant]` (default, destructive, success, warning,
+	info), `.ui-alert-title`, `.ui-alert-description`. Variables:
+	`--ui-alert-bg`, `-fg`, `-border`, `-icon`, `-padding`, and `-radius`.
 **/
 class Alert extends Component<AlertProps> {
 	function render():Element
 		return Library.part("ui-alert", null, ["variant" => (props.variant == null ? Default : props.variant : String)], children, props.id);
 }
 
-/** An alert's title, a flow of text. **/
+/** Title text for an alert. **/
 class AlertTitle extends Component<{?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-alert-title", null, null, children, props.id);
@@ -37,7 +38,7 @@ class AlertTitle extends Component<{?id:String}> {
 	}
 }
 
-/** An alert's description, a flow of text. **/
+/** Supporting text for an alert. **/
 class AlertDescription extends Component<{?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-alert-description", null, null, children, props.id);

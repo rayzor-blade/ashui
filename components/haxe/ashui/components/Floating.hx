@@ -10,10 +10,9 @@ import ashui.ui.Div;
 import ashui.ui.TopLayer;
 
 /**
-	A panel opened in the top layer beside an anchor while `open` is true: a
-	popover's, a menu's. A press outside it or Escape closes it, setting
-	`open` false; focus goes back to where it was. The panel is kept while
-	closed, to open again as it was.
+	Positions a retained popup beside an anchor while its open signal is true.
+	Outside clicks and Escape close the popup, update the signal, and restore
+	previous focus. Closing preserves the panel for the next opening.
 **/
 class Floating {
 	public final open:Signal<Bool>;
@@ -21,17 +20,17 @@ class Floating {
 	var anchor:Null<Element> = null;
 	var side = "bottom";
 	var gap = 4.0;
-	/** Lined up with the anchor's start or end instead of centred on it. **/
+	/** Anchor alignment: `start` or `end`, rather than the default centered placement. **/
 	public var align:Null<String> = null;
 	var entry:Null<ashui.ui.TopEntry> = null;
-	/** A point to open at instead of beside the anchor, as a context menu opens at the pointer. **/
+	/** Explicit opening point for menus positioned at the pointer. **/
 	var point:Null<{x:Float, y:Float}> = null;
-	/** Opened with no backdrop, the page beneath still under the pointer: a hover card. **/
+	/** Omits the backdrop so the page remains interactive, as for a hover card. **/
 	public var modeless = false;
-	/** Called with its top-layer entry each time it opens. **/
+	/** Receives the top-layer entry each time the popup opens. **/
 	public var shown:Null<ashui.ui.TopEntry->Void> = null;
 	var before:Null<Interaction> = null;
-	/** Called after it opens, to move focus into it; the panel takes focus when it is null. **/
+	/** Moves focus after opening. When absent, the panel receives focus. **/
 	public var opened:Null<Void->Void> = null;
 
 	public function new(open:Signal<Bool>, panel:Element) {
@@ -41,7 +40,7 @@ class Floating {
 		ashui.reactive.Owner.onCleanup(hide);
 	}
 
-	/** Where it opens: `side` of `anchor` ("bottom", "top", "left" or "right"), `gap` from it. **/
+	/** Anchors the popup to `bottom`, `top`, `left`, or `right` with the given gap. **/
 	public function anchorTo(anchor:Element, side:String, gap:Float):Void {
 		this.anchor = anchor;
 		this.side = side;
@@ -50,7 +49,7 @@ class Floating {
 			show();
 	}
 
-	/** Opens it with its top-left at `(x, y)` in the tree's coordinates. **/
+	/** Opens with the panel top-left at `(x, y)` in tree coordinates. **/
 	public function openAt(x:Float, y:Float):Void {
 		if (entry != null)
 			entry.close();

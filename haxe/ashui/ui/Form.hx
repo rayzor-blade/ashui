@@ -7,29 +7,29 @@ import ashui.layout.LayoutTree;
 import ashui.layout.Node;
 
 typedef FormProps = {
-	/** Called with what the form submits, when it is submitted and valid (or `novalidate`). **/
+	/** Receives named control values after a valid submission, or any submission with `novalidate`. **/
 	?onSubmit:FormData->Void,
 
-	/** Called after a reset puts each control's first value back. **/
+	/** Runs after reset restores the initial control values. **/
 	?onReset:Void->Void,
 
-	/** Submits without checking its controls' constraints. **/
+	/** Skips constraint validation on submission. **/
 	?novalidate:Bool,
-	/** dialog also closes the containing dialog after valid submission. **/
+	/** Set to `dialog` to close the containing dialog after a valid submission. **/
 	?method:String,
 
 	?id:String,
 	?name:String
 }
 
-/** What a form submits: each named control's value, in document order, as HTML's `FormData`. **/
+/** Named control values collected during form submission, in document order. **/
 class FormData {
-	/** Each name and value, in document order; a name may come more than once. **/
+	/** Name/value entries in document order. Names may repeat. **/
 	public final entries:Array<{name:String, value:String}> = [];
 
 	public function new() {}
 
-	/** The first value under `name`, null for none. **/
+	/** Returns the first value for a name, or null when absent. **/
 	public function get(name:String):Null<String> {
 		for (e in entries)
 			if (e.name == name)
@@ -37,20 +37,20 @@ class FormData {
 		return null;
 	}
 
-	/** Every value under `name`, as checkboxes of one name give. **/
+	/** Returns every value for a name, such as a group of checkboxes. **/
 	public function getAll(name:String):Array<String>
 		return [for (e in entries) if (e.name == name) e.value];
 }
 
 /**
-	HTML's `<form>`, built in: the controls inside it, submitted together.
-	A click on a `<button>` in it submits it (a button's type is `submit`
-	unless it says `button` or `reset`), as does Enter in a text input or a
-	number. Submitting first checks every control's constraints, unless the
-	form is `novalidate`: when any is invalid, each is marked touched, so
-	`:user-invalid` shows, the first invalid one takes focus, and nothing is
-	submitted. Otherwise `onSubmit` gets each named control's value. A
-	`reset` button puts every control's first value back.
+	A group of controls submitted together, written as `<form>` in HXX.
+
+	Submit with a submit button or Enter in a text or number input. Buttons
+	inside a form default to `type="submit"`; use `button` or `reset` for
+	other actions. Submission validates controls unless `novalidate` is set.
+	Invalid forms mark controls touched, expose `:user-invalid`, and focus
+	the first invalid control. Valid forms pass named values to `onSubmit`.
+	A reset button restores the initial values.
 **/
 class Form extends Component<FormProps> {
 	static final registry = new ashui.layout.Registry<Form>();
@@ -102,7 +102,7 @@ class Form extends Component<FormProps> {
 		return box;
 	}
 
-	/** Enter uses the first submit button in tree order, as clicking that button would. **/
+	/** Handles Enter by activating the first submit button in document order. **/
 	@:allow(ashui.ui.Input)
 	function defaultSubmitter():Null<Node> {
 		function find(id:haxe.Int64):Null<Node> {
@@ -123,7 +123,7 @@ class Form extends Component<FormProps> {
 		return find(node.id);
 	}
 
-	/** The controls in it, in document order: inputs, text areas and selects. **/
+	/** Returns input, text area, and select controls in document order. **/
 	function controls():Array<FormControl> {
 		var found:Array<FormControl> = [];
 		var tree = node.tree;
@@ -152,7 +152,7 @@ class Form extends Component<FormProps> {
 		return control;
 	}
 
-	/** Whether every control in it is valid now; each that is not has its `onInvalid` called. **/
+	/** Returns whether every control is valid. Calls `onInvalid` on each invalid control. **/
 	public function checkValidity():Bool {
 		var valid = true;
 		for (c in controls())
@@ -162,9 +162,8 @@ class Form extends Component<FormProps> {
 	}
 
 	/**
-		As `checkValidity`; when any control is invalid, every control is
-		marked touched, so `:user-invalid` shows, and the first invalid one
-		takes focus, as a submit that fails does.
+		Checks validity and calls `onInvalid` on invalid controls. On failure, marks
+		controls touched and focuses the first invalid control, as submission does.
 	**/
 	public function reportValidity():Bool {
 		var all = controls();
@@ -177,7 +176,7 @@ class Form extends Component<FormProps> {
 		return false;
 	}
 
-	/** Submits it, as its submit button does: checked first unless `novalidate`. **/
+	/** Submits as a submit button would, validating controls unless `novalidate` is set. **/
 	public function requestSubmit(?submitter:Node):Void {
 		if (submitter != null && submitter.tree != tree)
 			throw "requestSubmit needs a submit button belonging to this form";
@@ -221,7 +220,7 @@ class Form extends Component<FormProps> {
 		}
 	}
 
-	/** Puts each control's first value back, untouched, as its reset button does. **/
+	/** Restores the initial control values and clears touched state. **/
 	public function reset():Void {
 		for (c in controls())
 			c.reset();

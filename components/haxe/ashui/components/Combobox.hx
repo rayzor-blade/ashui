@@ -12,17 +12,17 @@ import ashui.ui.Component;
 typedef ComboboxOption = {value:String, label:String};
 
 typedef ComboboxProps = {
-	/** The chosen option's value, "" for none. A signal is read and written; a constant sets it once. **/
+	/** Selected value, or an empty string for none. A supplied signal is read and updated; a constant sets the initial selection. **/
 	?value:IntoReactive<String>,
 	options:Array<ComboboxOption>,
 	?placeholder:String,
-	/** The search field's placeholder. **/
+	/** Placeholder in the search field. **/
 	?searchPlaceholder:String,
-	/** What the list says when nothing matches. **/
+	/** Message displayed when no option matches the search. **/
 	?empty:String,
 	?disabled:IntoReactive<Bool>,
 	?onChange:String->Void,
-	/** Small, medium (default) or large trigger and search list (git-bug e8a1b50). **/
+	/** Small, medium (default), or large trigger and search list (e8a1b50). **/
 	?size:Size,
 	?id:String
 }

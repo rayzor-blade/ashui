@@ -3,9 +3,9 @@ package ashui.canvaskit;
 import ashui.draw3d.ScenePass;
 
 /**
-	A `Skybox` drawn behind a scene's meshes, as `<scene-kit skybox={...}>`
-	draws it: set `skybox` to what to show. It frees what it put on the
-	GPU with `dispose`.
+	Draws a `Skybox` behind scene meshes.
+	Used by `<scene-kit skybox={...}>`; custom passes can set `skybox`
+	directly. Call `dispose()` to release GPU resources.
 **/
 class SkyboxPass implements ScenePass implements GlowCaster {
 	public var skybox:Null<Skybox>;
@@ -20,20 +20,20 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 		return false;
 
 	#if ashui_gpu
-	/** Rows of `SkyShader`'s settings. **/
+	/** Number of uniform rows used by `SkyShader`. **/
 	static inline var ROWS = 12;
 
 	var pipeline:Null<gpu.GpuPipeline> = null;
 	var settings:Null<gpu.GpuBuffer> = null;
 	var group:Null<gpu.GpuBindGroup> = null;
 
-	/** For bloom's glow pass: its pipeline, and settings and a bind group flagged for glow. **/
+	/** Pipeline, settings, and bind group for the bloom glow pass. **/
 	var glowPipeline:Null<gpu.GpuPipeline> = null;
 
 	var glowSettings:Null<gpu.GpuBuffer> = null;
 	var glowGroup:Null<gpu.GpuBindGroup> = null;
 
-	/** Whether what it shows is on the GPU: a panorama waits for its texture. **/
+	/** Whether sky resources are uploaded. Panoramas wait for their texture. **/
 	var ready = false;
 
 	public function prepare(frame:ScenePassFrame):Void {
@@ -144,7 +144,7 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 		frame.encoder.renderDraw(3, 1);
 	}
 
-	/** Draws the sky's light, without tone mapping, for bloom. **/
+	/** Draws linear sky radiance for bloom without tone mapping. **/
 	public function drawGlow(frame:ScenePassFrame):Void {
 		if (skybox == null || !ready || glowGroup == null)
 			return;
@@ -153,7 +153,7 @@ class SkyboxPass implements ScenePass implements GlowCaster {
 		frame.encoder.renderDraw(3, 1);
 	}
 
-	/** Frees what it put on the GPU; drawn again, it makes it again. **/
+	/** Releases GPU resources. Drawing again recreates them. **/
 	public function dispose():Void {
 		if (group != null)
 			group.destroy();

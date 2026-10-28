@@ -7,57 +7,57 @@ import ashui.input.Interaction;
 import ashui.reactive.Computed;
 import ashui.reactive.Signal;
 
-/** Where a caret can stand: a string index, its x from the text's left, and its line. **/
+/** A valid caret position: string index, horizontal text offset, and line index. **/
 typedef CaretStop = {index:Int, x:Float, line:Int};
 
 /**
-	The editing behind `TextField` and `TextArea`: a value, a caret and a
-	selection over it, the keys and pointer moves that change them, and the
-	caret's blink. The views draw what it holds and hand it their events.
+	Shared editing state and behavior for `TextField` and `TextArea`.
+	Owns the text value, caret, selection, input handling, and caret blink.
+	Views render this state and forward their events.
 
-	Positions are indices in the Haxe string. The caret stands only on the
-	character boundaries the text engine reports for the view's font, laid
-	out on one line, or wrapped at `wrapWidth` when it is above 0.
+	Positions use Haxe string indices. Caret movement follows character
+	boundaries from the text engine. Text stays on one line unless
+	`wrapWidth` is greater than zero.
 **/
 class TextEditing {
-	/** Seconds the caret shows, then hides, while the view has focus. **/
+	/** Time the caret remains visible or hidden during blinking, in seconds. **/
 	static inline var BLINK = 0.53;
 
-	/** Seconds each blink fades over, eased, as macOS softens its caret. **/
+	/** Caret fade duration in seconds. **/
 	static inline var FADE = 0.06;
 
-	/** The text being edited, which edits set. **/
+	/** Editable text signal, updated by edits. **/
 	public final value:Signal<String>;
 
-	/** Where the caret is, and where the selection started; equal when nothing is selected. **/
+	/** Caret offset. `anchor` marks the selection start; equal offsets mean no selection. **/
 	public final caret = Signal.make(0);
 
 	public final anchor = Signal.make(0);
 
-	/** Whether the view has focus. **/
+	/** Whether the text view has focus. **/
 	public final focused = Signal.make(false);
 
-	/** The caret's opacity: 1 shown, 0 hidden, between while it fades. **/
+	/** Caret opacity: zero when hidden, one when visible, with intermediate values during fades. **/
 	public final caretAlpha = Signal.make(1.0);
 
-	/** An input method's text being composed at the caret, not yet in the value; empty when none. **/
+	/** Uncommitted IME text at the caret. Empty when no composition is active. **/
 	public final composing = Signal.make("");
 
-	/** Where the input method's caret is in `composing`, or -1 for its end. **/
+	/** Caret offset within the composition, or -1 for the composition end. **/
 	var composeCursor = -1;
 
-	/** What a press selects as it is dragged: 1 characters, 2 words, 3 paragraphs; and what the press first selected. **/
+	/** Drag selection unit: 1 for characters, 2 for words, or 3 for paragraphs. **/
 	var granularity = 1;
 
 	var pressRange = {from: 0, to: 0};
 
-	/** The view's resolved CSS font size; the theme's small text size before it is styled (e8a1b50). **/
+	/** Resolved CSS font size. Uses the theme small-text size before styling (e8a1b50). **/
 	public final fontSize:Computed<Single>;
 
-	/** Whether Enter starts a new line and Up and Down move between lines, as in a text area. **/
+	/** Enables newlines and vertical caret movement for multiline editing. **/
 	public final multiline:Bool;
 
-	/** The width lines wrap at; 0 keeps the text on one line. **/
+	/** Wrapping width. Zero keeps text on one line. **/
 	public var wrapWidth(default, set):Float;
 
 	final styledSize = Signal.make((null : Null<Single>));
@@ -69,43 +69,46 @@ class TextEditing {
 
 	var fontFields:Array<Null<String>> = [];
 
-	/** Called with the new value after each edit. **/
+	/** Receives the new value after each edit. **/
 	public var onInput:Null<String->Void>;
 
-	/** Called immediately before a replacement, for an editor's undo history (e53597f). **/
+	/** Runs immediately before a text replacement, allowing the editor to capture undo state (e53597f). **/
 	public var onBeforeInput:Null<Void->Void>;
 
-	/** Selection and copying remain available while edits are refused. **/
+	/** Disables edits while preserving selection and copying. **/
 	public var readOnly = false;
 
-	/** Optional geometry for virtualized text; ordinary fields use native shaping below. **/
+	/** Optional geometry for virtualized text. Ordinary fields use native text shaping. **/
 	public var metrics:Null<TextGeometry>;
 
-	/** Called with the value on Enter, or Command+Enter when multiline. **/
+	/** Receives the value on Enter, or the platform submit shortcut for multiline text. **/
 	public var onSubmit:Null<String->Void>;
 
-	/** Takes focus away, as Escape does. **/
+	/** Handles Escape, typically by clearing focus. **/
 	public var onEscape:Null<Void->Void>;
 
-	/** Lines a page moves by, for Page Up and Page Down. **/
+	/** Returns the number of lines moved by Page Up and Page Down. **/
 	public var pageLines:Void->Int = () -> 10;
 
-	/** The text node the stops are measured for; set by the view. **/
+	/** Text node used for measuring caret stops. Supplied by the view. **/
 	public var text:Null<Text>;
 
-	/** A password's: the character each of the value's is shown and measured as, and copying and cutting are refused; null shows the value. **/
+	/**
+		Password mask character used for display and measurement. Null displays
+		the value normally. A mask also disables copying and cutting.
+	**/
 	public var mask:Null<String> = null;
 
-	/** While true, a masked value shows as it is, as a password's reveal button makes it; copying stays refused. **/
+	/** Reveals masked text while true. Copying remains disabled. **/
 	public final revealed = ashui.reactive.Signal.make(false);
 
-	/** What may be typed or pasted: the inserted text, with anything refused taken out; null takes everything. **/
+	/** Filters typed or pasted text before insertion. Null accepts all text. **/
 	public var accept:Null<String->String> = null;
 
-	/** Called first with each key going down; true when it handled the key, so editing does not. **/
+	/** Runs before built-in key handling. Return true to skip the editing action. **/
 	public var onKey:Null<KeyEvent->Bool> = null;
 
-	/** The view's input state, whose `disabled` stops editing; set by the view. **/
+	/** Input interaction supplied by the view. Its disabled state prevents editing. **/
 	public var interaction:Null<Interaction>;
 
 	var stops:Array<CaretStop> = [{index: 0, x: 0, line: 0}];
@@ -113,12 +116,12 @@ class TextEditing {
 	var measuredSize = 0.0;
 	var measuredWidth = 0.0;
 
-	/** The height of a line, and how many the value takes, as last measured. **/
+	/** Last measured line height. `lineCount` stores the number of measured lines. **/
 	public var lineHeight(default, null) = 0.0;
 
 	public var lines(default, null) = 1;
 
-	/** The x the caret keeps to across Up and Down, until it moves another way. **/
+	/** Horizontal caret target preserved during vertical navigation. **/
 	var goalX:Null<Float> = null;
 
 	var dragging = false;
@@ -178,7 +181,7 @@ class TextEditing {
 
 	// --- geometry ---
 
-	/** The caret stops of `s`, from the text engine, measured once per value and font size. **/
+	/** Returns caret stops, cached per text value and font size. **/
 	public function stopsFor(s:String):Array<CaretStop> {
 		geometry.get();
 		var size:Float = fontSize.get();
@@ -203,7 +206,7 @@ class TextEditing {
 		return stops;
 	}
 
-	/** The stop the caret before string index `i` stands at. **/
+	/** Returns the caret stop at or before a string index. **/
 	public function stopAt(i:Int, s:String):CaretStop {
 		if (metrics != null) {
 			prepareMetrics(s);
@@ -217,7 +220,7 @@ class TextEditing {
 		return best;
 	}
 
-	/** The stop nearest `x` on `line`, or on the nearest line there is. **/
+	/** Returns the nearest caret index at `x` on a line, clamping to an existing line. **/
 	public function indexAt(x:Float, line:Int):Int {
 		if (metrics != null) {
 			prepareMetrics(value.get());
@@ -240,14 +243,14 @@ class TextEditing {
 		return best;
 	}
 
-	/** For a view whose lines are not all one height, the line a point `y` from the text's top falls on; without it they are. **/
+	/** Optional Y-to-line mapping for views with variable line heights. **/
 	public var lineAtHeight:Null<Float->Int> = null;
 
-	/** The line a point `y` from the text's top falls on. **/
+	/** Returns the line at a text-local Y coordinate. **/
 	public function lineAtY(y:Float):Int
 		return lineAtHeight != null ? lineAtHeight(y) : lineHeight > 0 ? Std.int(Math.floor(y / lineHeight)) : 0;
 
-	/** The width of `line`: its last stop's x. **/
+	/** Returns line width from the final caret stop. **/
 	public function lineWidth(line:Int):Float {
 		if (metrics != null) {
 			prepareMetrics(value.get());
@@ -260,7 +263,7 @@ class TextEditing {
 		return w;
 	}
 
-	/** The stop after, or before, string index `i`. **/
+	/** Returns the previous or next caret stop around a string index. **/
 	function step(i:Int, forward:Bool):Int {
 		if (metrics != null) {
 			prepareMetrics(value.get());
@@ -282,7 +285,7 @@ class TextEditing {
 		return previous;
 	}
 
-	/** Where the word before, or after, `i` starts or ends. **/
+	/** Finds the previous or next word boundary. **/
 	function word(i:Int, forward:Bool):Int {
 		// A password is one word, so moving by word gives nothing of it away.
 		var s = masked(value.get());
@@ -304,7 +307,7 @@ class TextEditing {
 		return j;
 	}
 
-	/** The first, or last, stop on the line `i` is on. **/
+	/** Returns the first or last caret stop on the line containing an index. **/
 	function lineEdge(i:Int, end:Bool):Int {
 		if (metrics != null) {
 			prepareMetrics(value.get());
@@ -325,7 +328,7 @@ class TextEditing {
 		return edge;
 	}
 
-	/** The stop `by` lines down (up when negative) from `i`, keeping to the goal x. **/
+	/** Moves by `by` lines while preserving the horizontal caret target. **/
 	function vertical(i:Int, by:Int):Int {
 		var here = stopAt(i, value.get());
 		if (goalX == null)
@@ -356,18 +359,18 @@ class TextEditing {
 		restartBlink();
 	}
 
-	/** The selection as string indices, `from` before `to`. **/
+	/** Returns ordered selection offsets, with `from` before `to`. **/
 	public function selectionRange():{from:Int, to:Int} {
 		return {from: Std.int(Math.min(caret.get(), anchor.get())), to: Std.int(Math.max(caret.get(), anchor.get()))};
 	}
 
-	/** The selected text. **/
+	/** Returns the selected text. **/
 	public function selection():String {
 		var r = selectionRange();
 		return value.get().substring(r.from, r.to);
 	}
 
-	/** The text as shown: the value, with any composition in place of the selection, masked for a password. **/
+	/** Returns displayed text, including IME composition in place of the selection and any password mask. **/
 	public function display():String {
 		var c = composing.get();
 		if (c == "")
@@ -377,11 +380,11 @@ class TextEditing {
 		return masked(s.substr(0, r.from) + c + s.substr(r.to));
 	}
 
-	/** `s` as shown: one mask character for each of its, keeping indices, or `s` itself, also while revealed. **/
+	/** Applies one mask character per source character while preserving indices. Returns unmasked text when revealed. **/
 	function masked(s:String):String
 		return mask == null || revealed.get() ? s : StringTools.lpad("", mask, s.length);
 
-	/** Where the caret is shown in `display()`: in the composition while there is one. **/
+	/** Returns the caret offset in displayed text, including the active composition. **/
 	public function displayCaret():Int {
 		var c = composing.get();
 		if (c == "")
@@ -389,7 +392,7 @@ class TextEditing {
 		return selectionRange().from + (composeCursor >= 0 ? composeCursor : c.length);
 	}
 
-	/** The composition's range in `display()`, or null while there is none. **/
+	/** Returns the composition range in displayed text, or null when inactive. **/
 	public function composedRange():Null<{from:Int, to:Int}> {
 		var c = composing.get();
 		if (c == "")
@@ -398,7 +401,7 @@ class TextEditing {
 		return {from: from, to: from + c.length};
 	}
 
-	/** An input method's composition changed; empty text when it ends, as it commits or cancels. **/
+	/** Updates IME composition. Empty composition text ends the composition after commit or cancellation. **/
 	public function compose(e:CompositionEvent):Void {
 		if (disabled() || readOnly)
 			return;
@@ -407,7 +410,7 @@ class TextEditing {
 		restartBlink();
 	}
 
-	/** Replaces the selection with `insert`, leaving the caret after it. **/
+	/** Replaces the selection and places the caret after the inserted text. **/
 	public function replace(insert:String):Void {
 		if (disabled() || readOnly) return;
 		var s = value.get();
@@ -421,7 +424,7 @@ class TextEditing {
 			onInput(next);
 	}
 
-	/** Deletes the selection, or from the caret to `to` when nothing is selected. **/
+	/** Deletes the selection, or the range between the caret and `to` when no selection exists. **/
 	function erase(to:Int):Void {
 		if (disabled() || readOnly) return;
 		// Undo captures the user's caret before deletion expands its range (e53597f).
@@ -437,7 +440,7 @@ class TextEditing {
 	function disabled():Bool
 		return interaction != null && interaction.disabled.get();
 
-	/** Inserts typed text in place of the selection; a line break is a space unless multiline. **/
+	/** Inserts typed text over the selection. Converts line breaks to spaces for single-line editing. **/
 	public function type(e:TextInputEvent):Void {
 		if (disabled() || readOnly)
 			return;
@@ -446,7 +449,7 @@ class TextEditing {
 			replace(multiline ? typed : ~/\r\n|\r|\n/g.replace(typed, " "));
 	}
 
-	/** Moves, selects, deletes, copies, pastes or submits for a key going down. **/
+	/** Handles key actions for navigation, selection, editing, clipboard, and submission. **/
 	public function key(e:KeyEvent):Void {
 		// The input method handles keys while it composes.
 		if (disabled() || composing.get() != "")
@@ -529,17 +532,16 @@ class TextEditing {
 		}
 	}
 
-	/** Keeps Space and Enter coming up from clicking the view. **/
+	/** Prevents Space and Enter key releases from activating the surrounding view. **/
 	public function keyUp(e:KeyEvent):Void {
 		if (e.key.match(Named(Space) | Named(Enter)))
 			e.preventDefault();
 	}
 
 	/**
-		A press at `(x, y)` from the text's top-left: the caret goes there, and
-		Shift extends the selection to it. A double-click selects the word
-		there and a triple-click its paragraph; dragging after either extends
-		the selection by words or paragraphs.
+		Handles a press in text-local coordinates. Shift extends the selection.
+		Double-click selects a word; triple-click selects a paragraph. Dragging
+		after either action extends selection in the same units.
 	**/
 	public function press(x:Float, y:Float, shift:Bool, clicks = 1):Void {
 		if (disabled())
@@ -556,7 +558,7 @@ class TextEditing {
 		dragging = true;
 	}
 
-	/** The pointer moved to `(x, y)` from the text's top-left: a drag selects to it, by the unit the press chose. **/
+	/** Extends a drag selection to text-local coordinates, using the selection unit chosen on press. **/
 	public function drag(x:Float, y:Float):Void {
 		if (!dragging || interaction == null || !interaction.pressed.get())
 			return;
@@ -576,7 +578,7 @@ class TextEditing {
 		}
 	}
 
-	/** The word, or paragraph, around string index `i`, as the press's granularity takes it. **/
+	/** Returns the word or paragraph containing an index for the current selection unit. **/
 	function unit(i:Int):{from:Int, to:Int} {
 		var s = masked(value.get());
 		if (granularity >= 3) {
@@ -597,18 +599,18 @@ class TextEditing {
 		return {from: from, to: to};
 	}
 
-	/** The press ended: dragging selects no further. **/
+	/** Ends pointer drag selection. **/
 	public function release():Void {
 		dragging = false;
 	}
 
-	/** The view gained focus. **/
+	/** Handles focus entering the view. **/
 	public function focus():Void {
 		focused.set(true);
 		restartBlink();
 	}
 
-	/** The view lost focus: any composition is dropped and the selection collapses to the caret. **/
+	/** Handles focus leaving: drops composition and collapses selection to the caret. **/
 	public function blur():Void {
 		focused.set(false);
 		dragging = false;
@@ -618,11 +620,11 @@ class TextEditing {
 
 	// --- caret blink ---
 
-	/** Whether the caret is drawn at all: the view has focus in the active, visible window. **/
+	/** Returns whether the caret should be drawn in the focused, active, visible window. **/
 	public function showsCaret():Bool
 		return focused.get() && ashui.input.WindowState.active.get() && ashui.input.WindowState.visible.get();
 
-	/** Shows the caret steadily, without blinking. **/
+	/** Stops blinking and leaves the caret visible. **/
 	public function stopBlink():Void {
 		if (blinkTimer != null)
 			blinkTimer.cancel();
@@ -632,7 +634,7 @@ class TextEditing {
 		caretAlpha.set(1);
 	}
 
-	/** Shows the caret at once and starts its blink afresh. **/
+	/** Shows the caret immediately and restarts blinking. **/
 	public function restartBlink():Void {
 		if (readOnly) { stopBlink(); return; }
 		if (blinkTimer != null)
@@ -644,7 +646,7 @@ class TextEditing {
 		blinkTimer = ashui.animation.AnimationScheduler.main.after(BLINK, blink);
 	}
 
-	/** Starts the caret fading out or in, and sets the next blink while the view has focus. **/
+	/** Begins the next caret fade and schedules the following blink while focused. **/
 	function blink():Void {
 		blinkTimer = null;
 		if (!showsCaret()) {
@@ -656,7 +658,7 @@ class TextEditing {
 		blinkTimer = ashui.animation.AnimationScheduler.main.after(BLINK, blink);
 	}
 
-	/** Eases the caret's opacity to `target` over `FADE`; frames are drawn only while it moves. **/
+	/** Animates caret opacity over `FADE`, requesting frames only during the transition. **/
 	function fadeTo(target:Float):Void {
 		var id = ++fadeId;
 		var from = caretAlpha.get();
@@ -672,7 +674,7 @@ class TextEditing {
 		});
 	}
 
-	/** Whether a blink is waiting to fire; for tests. **/
+	/** Returns whether a blink callback is scheduled. Used by tests. **/
 	@:noCompletion public function blinking():Bool
 		return blinkTimer != null;
 }

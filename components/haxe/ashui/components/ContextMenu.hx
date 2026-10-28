@@ -6,16 +6,15 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 /**
-	A menu opened where the pointer is by a secondary press (a right-click)
-	on its `ContextMenuTrigger`, an area of the page, or by the context menu
-	key while the area has focus. Its panel and items are a dropdown menu's
-	(`ContextMenuContent`, `ContextMenuItem`, `ContextMenuLabel`,
-	`ContextMenuSeparator`), with its keys. CSS: `.ui-context-menu-trigger`,
-	and the menu's classes.
+	A menu opened at the pointer by a right-click on `ContextMenuTrigger`,
+	or by the context-menu key while the trigger has focus.
+	`ContextMenuContent`, `ContextMenuItem`, `ContextMenuLabel`, and
+	`ContextMenuSeparator` share dropdown menu behavior and keyboard controls.
+	CSS: `.ui-context-menu-trigger` and the dropdown menu classes.
 **/
 class ContextMenu extends DropdownMenu {}
 
-/** The area a secondary press opens the menu on; its children are what it covers. **/
+/** Area that opens a context menu on right-click. Children supply the visible content. **/
 class ContextMenuTrigger extends Component<{?id:String}> {
 	function render():Element {
 		var area = Library.part("ui-context-menu-trigger", null, null, children, props.id);

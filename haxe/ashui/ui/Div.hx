@@ -10,15 +10,15 @@ import ashui.types.Color;
 import ashui.types.CornerRadius;
 import ashui.types.Style;
 
-/** A `Div`'s attributes: each optional, each one property of its node (see `Prop`). **/
+/** Optional layout, styling, and input attributes for `Div`. See `Prop` for the underlying node properties. **/
 typedef DivAttributes = {
-	/** Its element type for CSS, `div` unless a built-in element sets another: `h1`, `p`, `button`. **/
+	/** CSS element name. Defaults to `div`; built-in elements use names such as `h1`, `p`, and `button`. **/
 	?tag:String,
-	/** Its id, which CSS's `#id` selects. **/
+	/** Element ID, selected by `#id` in CSS. **/
 	?id:String,
-	/** Its CSS classes, which CSS's `.class` selects; a signal or computed of them is followed. **/
+	/** CSS class names. Signals and computeds update the class list reactively. **/
 	?classes:IntoReactive<Array<String>>,
-	/** Applied before the other attributes, which win over it. **/
+	/** Base style. Explicit attributes override properties set by this style. **/
 	?style:ashui.style.Style,
 	// --- Tier 1: Visual Properties ---
 	?bg:IntoReactive<Brush>,
@@ -31,7 +31,7 @@ typedef DivAttributes = {
 	?pointerEvents:IntoReactive<PointerEvents>,
 	?color:IntoReactive<Color>,
 	?accentColor:IntoReactive<Color>,
-	/** The shape it and everything inside it are clipped to; see `ClipPath`. **/
+	/** Clips the element and its children to this shape. See `ClipPath`. **/
 	?clipPath:IntoReactive<ashui.types.ClipPath>,
 
 	// --- Tier 2: Layout & Flexbox Properties ---
@@ -52,20 +52,23 @@ typedef DivAttributes = {
 	?flexShrink:IntoReactive<Single>,
 	?flexWrap:IntoReactive<FlexWrap>,
 	?flexBasis:IntoReactive<Single>,
-	/** CSS grid, written as CSS writes it: the tracks of a `display: Grid` box, `repeat(3, 1fr) 120px`, and the lines a child takes, `span 2`, `1 / -1`. **/
-	/** CSS's `mask-image`: a gradient brush (`Brush.linear(..., true)`), whose alpha it and what it holds are drawn through, as a fade at an edge. **/
+	/** Masks the element and its children with a gradient brush. The brush alpha controls visibility, as in CSS `mask-image`. **/
 	?maskImage:IntoReactive<ashui.types.Brush>,
-	/** Drawn as this notch instead of its rounded box: concave corners, steps and edge modifiers (see `ashui.types.Notch`); a signal of one animates it. **/
+	/** Replaces the rounded box outline with a notch shape. Supports concave corners, steps, and edge modifiers; reactive values update the shape. **/
 	?notch:IntoReactive<ashui.types.Notch>,
-	/** Eases from where it was to where layout puts it whenever its place or size changes (see `ashui.animation.LayoutAnimation`). **/
+	/** Animates position and size changes caused by layout. See `ashui.animation.LayoutAnimation`. **/
 	?animateLayout:Bool,
+	/** CSS column tracks, such as `repeat(3, 1fr) 120px`. Requires grid display. **/
 	?gridTemplateColumns:IntoReactive<String>,
+	/** CSS row tracks for a grid container. **/
 	?gridTemplateRows:IntoReactive<String>,
+	/** Grid columns occupied by this child, such as `span 2` or `1 / -1`. **/
 	?gridColumn:IntoReactive<String>,
+	/** Grid rows occupied by this child, using CSS grid-line syntax. **/
 	?gridRow:IntoReactive<String>,
 	?display:IntoReactive<Display>,
 	?overflow:IntoReactive<Overflow>,
-	/** Release offscreen descendant image pixels and reclaim their atlas space; false by default. **/
+	/** Releases pixels and atlas space for offscreen descendant images. Defaults to false. **/
 	?virtualizeImages:Bool,
 	?position:IntoReactive<Position>,
 	?order:IntoReactive<Int>,
@@ -95,22 +98,21 @@ typedef DivAttributes = {
 	?onComposition:ashui.input.Events.CompositionEvent->Void,
 	?onFocus:ashui.input.Events.FocusEvent->Void,
 	?onBlur:ashui.input.Events.FocusEvent->Void,
-	/** Whether Tab and a press give it focus. **/
+	/** Allows the element to receive focus through Tab or a pointer press. **/
 	?focusable:Bool,
-	/** Whether it takes no input and matches `:disabled`; a signal or computed is followed. **/
+	/** Disables input and applies the CSS `:disabled` state. Accepts reactive values. **/
 	?disabled:IntoReactive<Bool>
 }
 
 /**
-	A box: the basic element, laid out with flexbox, holding other elements
-	as its children. Each attribute sets one property of its node and takes
-	a constant, a signal or a computed (see `IntoReactive`), so
-	`new Div({width: 120, bg: background}, [child])` makes a box whose
-	background follows the signal `background`. In a template it is
-	`<div>`, which also takes classes and event handlers.
+	A container for arranging and styling child elements.
+
+	Use `<div>` in HXX. The default layout is flexbox; CSS and attributes control
+	spacing, sizing, appearance, and input handlers. Attributes typed
+	`IntoReactive<T>` accept constants, signals, or computeds.
 **/
 class Div extends Element {
-	/** Draws `div` as `notch`, following it when it is a signal or computed, until the current owner is cleaned up. **/
+	/** Applies a notch shape and tracks reactive changes. Clears the shape when the current owner is disposed. **/
 	public static function bindNotch(div:Div, notch:IntoReactive<ashui.types.Notch>):Void {
 		var tree = div.tree, id = div.node.id;
 		switch (notch : ashui.layout.IntoReactive.ReactiveType<ashui.types.Notch>) {
@@ -126,7 +128,7 @@ class Div extends Element {
 		ashui.reactive.Owner.onCleanup(() -> tree.setNotch(id, null));
 	}
 
-	/** The handlers and input state `attr` gives, on `node`'s Interaction; none made when it gives none. **/
+	/** Binds input handlers and state to the node. Creates an `Interaction` only when an input attribute is supplied. **/
 	static function bindInput(node:Node, attr:DivAttributes):Void {
 		if (attr.onClick == null && attr.onPointerDown == null && attr.onPointerUp == null && attr.onPointerMove == null && attr.onPointerEnter == null
 			&& attr.onPointerLeave == null && attr.onWheel == null && attr.onKeyDown == null && attr.onKeyUp == null && attr.onTextInput == null

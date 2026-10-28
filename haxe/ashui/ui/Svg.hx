@@ -9,21 +9,22 @@ import ashui.svg.SvgDocument;
 import ashui.types.Color;
 
 typedef SvgAttributes = {
-	/** The size it is laid out at; the document's natural size by default. **/
+	/** Display width in layout units. Defaults to the SVG document width. **/
 	?width:IntoReactive<Single>,
 	?height:IntoReactive<Single>,
-	/** What `currentColor` is; inherited from the elements it is in by default, as text colour is. **/
+	/** Color used by SVG `currentColor`. Inherits the parent text color when omitted. **/
 	?color:IntoReactive<Color>
 }
 
 /**
-	Draws an SVG image in its box, fitted and centred, rasterized at the size
-	it covers on screen so it stays sharp when zoomed. A mask SVG, one drawn
-	only in `currentColor`, takes the element's text colour, its own or the
-	one it inherits, so classes such as `text-primary` on it or on anything
-	around it, and transitions, colour it.
+	Displays an SVG, fitted and centered in its box.
 
-	In hxx, write the SVG itself: `<svg class="w-6 h-6 text-primary" viewBox="0 0 24 24"><path d="..."/></svg>`.
+	Rasterization uses the on-screen size to keep zoomed images sharp. SVGs
+	drawn only with `currentColor` follow the element text color, including
+	inherited colors, CSS utilities such as `text-primary`, and transitions.
+
+	Write SVG directly in HXX:
+	`<svg class="w-6 h-6 text-primary" viewBox="0 0 24 24"><path d="..."/></svg>`.
 **/
 class Svg extends Element {
 	static final intrinsic = new haxe.ds.ObjectMap<ashui.css.Identity, Svg>();
@@ -32,7 +33,7 @@ class Svg extends Element {
 	final naturalWidth:Bool;
 	final naturalHeight:Bool;
 
-	/** The parsed SVG it draws. **/
+	/** The parsed source SVG. **/
 	public final document:SvgDocument;
 
 	public function new(document:SvgDocument, ?attr:SvgAttributes, ?tree:LayoutTree) {
@@ -70,7 +71,7 @@ class Svg extends Element {
 		ImageResidency.register(node, null, _ -> {});
 	}
 
-	/** Removing a size rule restores the document's dimensions, without owning them (e8a1b50). **/
+	/** Restores intrinsic dimensions when a size rule is removed, without claiming inline ownership (e8a1b50). **/
 	function restoreIntrinsic(identity:ashui.css.Identity):Void {
 		var width = ashui.css.Css.computed(identity, "width"),
 			height = ashui.css.Css.computed(identity, "height");

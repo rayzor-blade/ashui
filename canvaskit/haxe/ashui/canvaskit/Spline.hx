@@ -3,14 +3,13 @@ package ashui.canvaskit;
 import ashui.math.Vec3;
 
 /**
-	A smooth curve through points: a centripetal Catmull-Rom spline, which
-	passes through every point and does not loop or overshoot between points
-	that are close together. Use it for a profile or a character line, then
-	`sample` it into the points of a cage or a path.
+	A centripetal Catmull-Rom curve through control points.
+	Use for profiles and surface details, then `sample` points for a cage or
+	path. Centripetal spacing avoids loops and overshoot between nearby points.
 
-	`at(t)` runs from the first point at 0 to the last at 1, each span
-	between neighbouring points taking an equal share of `t`. A closed spline
-	runs on from the last point back round to the first.
+	`at(t)` runs from the first point at zero to the last at one, with equal
+	parameter spans between neighboring control points. Closed splines
+	continue from the last point back to the first.
 **/
 class Spline {
 	public final points:Array<Vec3>;
@@ -23,13 +22,13 @@ class Spline {
 		this.closed = closed;
 	}
 
-	/** How many spans the curve has between its points. **/
+	/** Number of curve spans between control points. **/
 	public var spans(get, never):Int;
 
 	function get_spans():Int
 		return closed ? points.length : points.length - 1;
 
-	/** The curve's point at `t`, 0 to 1. **/
+	/** Returns the curve point at `t` from zero to one. **/
 	public function at(t:Float):Vec3 {
 		var s = spans;
 		var f = (t < 0 ? 0 : t > 1 ? 1 : t) * s;
@@ -47,17 +46,17 @@ class Spline {
 		return b1.scale((t2 - tt) / (t2 - t1)).add(b2.scale((tt - t1) / (t2 - t1)));
 	}
 
-	/** The direction the curve runs at `t`, a unit vector. **/
+	/** Returns the unit tangent direction at `t`. **/
 	public function tangent(t:Float):Vec3 {
 		var h = 1e-4;
 		return at(Math.min(1, t + h)).sub(at(Math.max(0, t - h))).normalize();
 	}
 
-	/** `count` points along the curve, the first at its start and the last at its end. **/
+	/** Returns `count` sampled points including the curve start and end. **/
 	public function sample(count:Int):Array<Vec3>
 		return [for (i in 0...count) at(count < 2 ? 0 : i / (count - 1))];
 
-	/** The point `i`, wrapping round a closed curve; past an open curve's ends, its end span carried on straight. **/
+	/** Returns a control point, wrapping for closed curves or linearly extrapolating beyond open ends. **/
 	function point(i:Int):Vec3 {
 		var n = points.length;
 		if (closed)

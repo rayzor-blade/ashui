@@ -4,7 +4,7 @@ import ashui.components.code.CodeHistory.CodeEdit;
 
 typedef CodeSearchMatch = {from:Int, to:Int};
 
-/** Text offsets and a compiled Haxe expression, independent of an editor or its rendered rows. */
+/** Text search results and a compiled regular expression, independent of editor views and rendered rows. **/
 class CodeSearch {
 	public final matches:Array<CodeSearchMatch> = [];
 	public var error(default, null):Null<String>;

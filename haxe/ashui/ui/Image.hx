@@ -12,12 +12,12 @@ import ashui.types.ObjectFit;
 typedef ImagePosition = ashui.types.ImagePosition;
 
 typedef ImageAttributes = {
-	/** The size it is laid out at; the bitmap's own by default. **/
+	/** Display width in layout units. Defaults to the bitmap width. **/
 	?width:IntoReactive<Single>,
 	?height:IntoReactive<Single>,
-	/** How the bitmap fills a box of another shape, as CSS's `object-fit`; `Fill` by default, as an `<img>`'s. **/
+	/** How the image fits its box. Defaults to `Fill`, matching CSS `object-fit: fill`. **/
 	?fit:ObjectFit,
-	/** The same positioning as CSS object-position; centered by default. **/
+	/** Position within the box, following CSS `object-position`. Defaults to centered. **/
 	?objectPosition:ImagePosition
 }
 
@@ -50,7 +50,7 @@ class Image extends Element {
 		offsetY: 0
 	};
 
-	/** CSS object-fit through the existing bitmap renderer. **/
+	/** Converts a CSS `object-fit` value to an image fitting mode. **/
 	@:noCompletion public static function cssFit(value:String):ObjectFit {
 		return switch StringTools.trim(value).toLowerCase() {
 			case "cover": Cover;
@@ -79,7 +79,7 @@ class Image extends Element {
 		ashui.css.Identity.forgetHooks.push(identity -> byNode.remove(identity.node));
 	}
 
-	/** Applies fitting without overriding the element's own fit attribute or utility. **/
+	/** Applies CSS fitting unless an explicit attribute or utility owns the fit property. **/
 	@:noCompletion public static function styleFit(node:ashui.layout.Node, fit:ObjectFit):Void {
 		var image = byNode.get(node);
 		if (image == null || image.authoredFit || image.fitted == fit)
@@ -122,7 +122,7 @@ class Image extends Element {
 		}
 	}
 
-	/** The image it draws. **/
+	/** The source bitmap. **/
 	public final bitmap:Bitmap;
 
 	public function new(bitmap:Bitmap, ?attr:ImageAttributes, ?tree:LayoutTree) {

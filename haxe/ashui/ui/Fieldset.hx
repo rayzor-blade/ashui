@@ -9,7 +9,7 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 typedef FieldsetProps = {
-	/** Disables every control it holds, but those in its first `<legend>`, while true. **/
+	/** Disables all descendant controls except those in the first `<legend>`. **/
 	?disabled:IntoReactive<Bool>,
 
 	?id:String,
@@ -17,11 +17,11 @@ typedef FieldsetProps = {
 }
 
 /**
-	HTML's `<fieldset>`, built in: a bordered group of controls, captioned
-	by a `<legend>` as its first child. While disabled, every control in it
-	is disabled too, matching `:disabled` and taking no input, but those in
-	its first legend, as HTML has it; controls added to it later are as
-	well. It is marked `[disabled]` meanwhile.
+	A group of form controls, written as `<fieldset>` in HXX.
+
+	Use a first-child `<legend>` for the caption. Disabling the fieldset disables
+	its controls, including controls added later, except those inside the first
+	legend. The fieldset exposes `[disabled]`; disabled controls match `:disabled`.
 **/
 class Fieldset extends Component<FieldsetProps> {
 	function render():Element {

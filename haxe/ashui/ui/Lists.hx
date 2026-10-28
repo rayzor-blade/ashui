@@ -10,22 +10,21 @@ typedef UlProps = {
 }
 
 typedef OlProps = {
-	/** The number of its first item; 1, or the count of items when reversed. **/
+	/** First item number. Defaults to 1, or the item count for a reversed list. **/
 	?start:Int,
 
-	/** Counts down instead of up. **/
+	/** Counts downward instead of upward. **/
 	?reversed:Bool,
 
-	/** How it counts, as HTML's `type`: `1` (the default), `a`, `A`, `i` or `I`. **/
+	/** Numbering style: `1` (default), `a`, `A`, `i`, or `I`. **/
 	?type:String,
 
 	?id:String
 }
 
 /**
-	What `<ul>` and `<ol>` share: they mark their `<li>`s again whenever
-	items come or go, and mark the lists nested in them, which know their
-	depth only once they are in place.
+	Updates list markers when items change. Also updates nested lists after
+	attachment, when their nesting depth is known.
 **/
 private class Marking {
 	static final lists = new Map<String, {tree:LayoutTree, mark:Void->Void}>();
@@ -40,7 +39,7 @@ private class Marking {
 		mark();
 	}
 
-	/** Lists inside `items`, not inside another list of them. **/
+	/** Updates nested lists without descending through another list first. **/
 	public static function markNested(tree:LayoutTree, items:Array<haxe.Int64>):Void {
 		var stack = items.copy();
 		while (stack.length > 0) {
@@ -55,7 +54,7 @@ private class Marking {
 		}
 	}
 
-	/** How many lists `node` is inside. **/
+	/** Returns the number of enclosing lists. **/
 	public static function depth(tree:LayoutTree, node:haxe.Int64):Int {
 		var n = 0;
 		for (up in tree.ancestors(node))
@@ -64,14 +63,14 @@ private class Marking {
 		return n;
 	}
 
-	/** The items among `node`'s children. **/
+	/** Returns the list items directly under a node. **/
 	public static function items(tree:LayoutTree, node:haxe.Int64):Array<Li>
 		return [for (c in tree.children(node)) if (Li.at(c) != null) Li.at(c)];
 }
 
 /**
-	HTML's `<ul>`, built in: a list whose items are marked with a bullet,
-	a disc, then a circle in a list inside one, then a square deeper.
+	A bulleted list, written as `<ul>` in HXX. Nested lists use disc, circle,
+	then square bullets by default.
 **/
 class Ul extends Component<UlProps> {
 	static final BULLETS = ["disc", "circle", "square"];
@@ -91,9 +90,9 @@ class Ul extends Component<UlProps> {
 }
 
 /**
-	HTML's `<ol>`, built in: a list whose items are numbered, from `start`,
-	counting down when `reversed`, in the style of `type`; an item's `value`
-	sets its number and those after it.
+	A numbered list, written as `<ol>` in HXX. `start` sets the first number,
+	`reversed` counts downward, and `type` selects the numbering style.
+	An item `value` overrides its number and the count for later items.
 **/
 class Ol extends Component<OlProps> {
 	function render():Element {
@@ -120,7 +119,7 @@ class Ol extends Component<OlProps> {
 		return box;
 	}
 
-	/** `n` written as `type` counts: decimal, letters, or roman numerals, in either case. **/
+	/** Formats a number as decimal digits, letters, or Roman numerals in the selected case. **/
 	public static function counter(n:Int, type:Null<String>):String {
 		return switch type {
 			case "a" | "A" if (n > 0):

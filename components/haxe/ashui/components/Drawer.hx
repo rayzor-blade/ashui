@@ -14,27 +14,27 @@ import ashui.reactive.Watch;
 import ashui.types.Transform;
 
 /**
-	A drawer: a panel pulled in from an edge of the window, the bottom by
-	default, that a drag takes away again. It follows the pointer from its
-	handle or anywhere on it but its controls; let go past a third of its
-	size, or flicked toward its edge, it closes from where it is, and short
-	of that it springs back. Escape and a press on the page behind close it
-	too. From the bottom or top it is as tall as what it holds, its handle
-	a bar across its inner edge; from the left or right, a floating panel
-	for navigation, dragged by anywhere on it. Its parts are the dialog's:
-	a `DrawerTrigger`, a `DrawerContent` holding a `DrawerHeader`
-	(`DrawerTitle`, `DrawerDescription`), what it shows and a
-	`DrawerFooter`; `DrawerClose` closes it. CSS: `.ui-drawer`
-	(`[data-side]`, `[data-size]`, `[data-dragging]`, `[open]`,
-	`[closing]`), `.ui-drawer-handle` and its `.ui-drawer-handle-bar`, and
-	the dialog's header, title, description and footer classes inside it.
+	A panel that slides from a window edge and supports drag dismissal.
+
+	The default bottom drawer sizes to its content and has a handle along
+	the inner edge. Top drawers behave the same way. Left and right drawers
+	use a floating panel that can be dragged from any non-control area.
+	A drag beyond one third of the panel size, or a flick toward the edge,
+	dismisses the drawer. Shorter drags spring back. Escape and backdrop
+	clicks also close it.
+
+	Compose `DrawerTrigger`, `DrawerContent`, `DrawerHeader`, `DrawerTitle`,
+	`DrawerDescription`, `DrawerFooter`, and `DrawerClose` as dialog parts.
+	CSS: `.ui-drawer` with `[data-side]`, `[data-size]`, `[data-dragging]`,
+	`[open]`, and `[closing]`; `.ui-drawer-handle`, `.ui-drawer-handle-bar`,
+	and the dialog header, title, description, and footer classes.
 **/
 class Drawer extends Dialog {}
 
-/** A button that opens the drawer it is in. **/
+/** Button that opens its containing drawer. **/
 class DrawerTrigger extends DialogTrigger {}
 
-/** A button that closes the drawer it is in. **/
+/** Button that closes its containing drawer. **/
 class DrawerClose extends DialogClose {}
 
 class DrawerHeader extends DialogHeader {}
@@ -42,12 +42,12 @@ class DrawerTitle extends DialogTitle {}
 class DrawerDescription extends DialogDescription {}
 class DrawerFooter extends DialogFooter {}
 
-/** The drawer's panel, along its edge in the top layer while open; `side` is the edge, "bottom" by default. **/
+/** Drawer panel in the top layer. `side` selects the window edge and defaults to `bottom`. **/
 class DrawerContent extends DialogContent {
-	/** How far past which, as a share of its size, a drag closes it. **/
+	/** Drag distance required for dismissal, as a fraction of panel size. **/
 	public static inline var DISMISS_SHARE = 1 / 3;
 
-	/** How fast toward its edge, in layout units a second, a flick closes it however far it went. **/
+	/** Flick velocity required for dismissal regardless of distance, in layout units per second. **/
 	public static inline var FLICK_SPEED = 600.0;
 
 	function side():String

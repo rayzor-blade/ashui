@@ -5,23 +5,23 @@ import ashui.layout.Element;
 import ashui.types.Bitmap;
 
 typedef AvatarProps = {
-	/** `sm`, `md` (the default) or `lg`. **/
+	/** Avatar size: `sm`, `md` (default), or `lg`. **/
 	?size:String,
 	?id:String
 }
 
 /**
-	A person's picture, an `AvatarImage`, or their initials in an
-	`AvatarFallback` when it has none: the fallback shows only without an
-	image. CSS: `.ui-avatar`, `[data-size]`, `.ui-avatar-image`,
-	`.ui-avatar-fallback`; `--ui-avatar-size`, `-radius`, `-bg`, `-fg`.
+	A profile image with an initials fallback.
+	Use `AvatarImage` for the picture and `AvatarFallback` when no image
+	is supplied. CSS: `.ui-avatar`, `[data-size]`, `.ui-avatar-image`, and
+	`.ui-avatar-fallback`; variables: `--ui-avatar-size`, `-radius`, `-bg`, `-fg`.
 **/
 class Avatar extends Component<AvatarProps> {
 	function render():Element
 		return Library.part("ui-avatar", null, ["size" => props.size == null ? "md" : props.size], children, props.id);
 }
 
-/** An avatar's picture, covering it. **/
+/** An image cropped to cover the avatar. **/
 class AvatarImage extends Component<{bitmap:Bitmap}> {
 	function render():Element {
 		Library.use();
@@ -32,7 +32,7 @@ class AvatarImage extends Component<{bitmap:Bitmap}> {
 	}
 }
 
-/** An avatar's initials, shown while it has no picture. **/
+/** Initials or other content shown when no avatar image is supplied. **/
 class AvatarFallback extends Component<{?id:String}> {
 	function render():Element
 		return Library.part("ui-avatar-fallback", null, null, children, props.id);

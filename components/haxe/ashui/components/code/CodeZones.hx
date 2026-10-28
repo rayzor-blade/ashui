@@ -1,19 +1,20 @@
 package ashui.components.code;
 
 /**
-	Where the rows of an editor sit when elements, its zones, are placed between them. Every row has the one height of a line;
-	a zone adds its own below the row it follows, and pushes every later row down by it. The zones are kept sorted by row with
-	the heights of those before each summed, so the top of a row and the row at a height are a binary search each, and a
-	document of tens of thousands of lines with a few zones costs nothing it did not.
+	Maps text rows to vertical positions when view zones add height between lines.
+
+	Rows retain a fixed line height; each zone pushes subsequent rows down.
+	Sorted zone positions and cumulative heights allow binary searches
+	between rows and Y coordinates without allocating data for every line.
 **/
 class CodeZones {
 	var at:Array<Int> = [];
-	/** `sum[i]` is the height of the zones at `at[0]` to `at[i]`. **/
+	/** Cumulative zone heights through each sorted row position. **/
 	var sum:Array<Float> = [];
 
 	public function new() {}
 
-	/** The zones: each a row it follows and a height. Zones on one row add up; a row below 0 follows nothing and is left out. **/
+	/** Replaces zone row/height data. Combines zones on the same row and ignores negative row indices. **/
 	public function set(zones:Array<{row:Int, height:Float}>):Void {
 		var sorted = [for (z in zones) if (z.row >= 0 && z.height > 0) z];
 		sorted.sort((a, b) -> a.row - b.row);
@@ -36,11 +37,11 @@ class CodeZones {
 	inline function get_count():Int
 		return at.length;
 
-	/** The height of every zone. **/
+	/** Returns total added zone height. **/
 	public inline function total():Float
 		return sum.length == 0 ? 0.0 : sum[sum.length - 1];
 
-	/** The height of the zones after the rows before `row`. **/
+	/** Returns zone height added before a row. **/
 	public function before(row:Int):Float {
 		// The last zone row below `row`.
 		var low = 0, high = at.length;
@@ -54,7 +55,7 @@ class CodeZones {
 		return low == 0 ? 0.0 : sum[low - 1];
 	}
 
-	/** The height of the zones on `row`: what stands between it and the next row. **/
+	/** Returns zone height between a row and the next row. **/
 	public function after(row:Int):Float {
 		var low = 0, high = at.length;
 		while (low < high) {
@@ -67,11 +68,11 @@ class CodeZones {
 		return low < at.length && at[low] == row ? sum[low] - (low == 0 ? 0.0 : sum[low - 1]) : 0.0;
 	}
 
-	/** The distance from the text's top to the top of `row`, rows `lineHeight` high. **/
+	/** Returns the row top, including preceding zones, for the given line height. **/
 	public inline function yOf(row:Int, lineHeight:Float):Float
 		return row * lineHeight + before(row);
 
-	/** The last of `count` rows whose top is at or above `y`; 0 above the first. **/
+	/** Returns the last row starting at or above `y`, or zero above the first row. **/
 	public function rowAt(y:Float, lineHeight:Float, count:Int):Int {
 		if (count <= 0 || y <= 0)
 			return 0;
@@ -86,7 +87,7 @@ class CodeZones {
 		return low;
 	}
 
-	/** Whether `y` is in the height of a zone, between a row and the next. **/
+	/** Returns whether `y` lies inside a zone between rows. **/
 	public function inZone(y:Float, lineHeight:Float, count:Int):Bool {
 		if (at.length == 0 || y < 0)
 			return false;
@@ -94,7 +95,7 @@ class CodeZones {
 		return y >= yOf(row, lineHeight) + lineHeight && after(row) > 0;
 	}
 
-	/** `y` as a row and the part of the way through it, so a position in a zone is its row's bottom. **/
+	/** Converts `y` to a fractional row position. Positions inside a zone map to the preceding row bottom. **/
 	public function fraction(y:Float, lineHeight:Float, count:Int):Float {
 		var row = rowAt(y, lineHeight, count), into = y - yOf(row, lineHeight);
 		return row + Math.max(0, Math.min(1, into / Math.max(1, lineHeight)));

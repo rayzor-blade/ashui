@@ -23,14 +23,14 @@ typedef VideoEncoding = {
 	?limits:MediaLimits
 }
 
-/** Native worker codecs with typed input/output, bounded queues and reactive FSM states. **/
+/** A native worker codec with typed inputs and outputs, bounded queues, and reactive FSM states. **/
 class Codec<Input, Output> extends MediaChannel<Input, Output> {
 	public static inline var AAC = "mp4a.40.2";
 	public static inline var H264 = "avc1.42001E";
 
 	var configurationNative:Null<Void->CodecConfiguration>;
 
-	/** After the encoder first reports Ready. Returns an owned configuration; caller must close it. **/
+	/** Returns an owned codec configuration after the encoder first reaches `Ready`. The caller must close it. **/
 	public function getConfiguration():CodecConfiguration {
 		checkOpen();
 		if (configurationNative == null)

@@ -10,14 +10,14 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef DialogProps = {
-	/** Whether it is open. A signal is read and written, so the dialog and your code share it; a constant sets it once. **/
+	/** Whether the dialog is open. A supplied signal is read and updated; a constant sets the initial state. **/
 	?open:IntoReactive<Bool>,
-	/** Called with whether it is open, each time that changes. **/
+	/** Receives the open state whenever it changes. **/
 	?onOpenChange:Bool->Void,
 	?id:String
 }
 
-/** How wide a dialog may grow: 400, 500 (the default), 600 or 800 units. **/
+/** Dialog maximum width: 400, 500 (default), 600, or 800 layout units. **/
 enum abstract DialogSize(String) to String {
 	var Sm = "sm";
 	var Md = "md";
@@ -54,10 +54,10 @@ enum abstract DialogSize(String) to String {
 	`-shadow` and `-width`.
 **/
 class Dialog extends Component<DialogProps> {
-	/** Whether it is open; the caller's signal when `open` was one. **/
+	/** Current open state. Uses the supplied signal when available. **/
 	public var opened(default, null):Signal<Bool>;
 
-	/** Each dialog by its root's node and its panel's, so a trigger or a close button inside finds the one it is in. **/
+	/** Registers each dialog by root and panel nodes so triggers and close buttons can find their dialog. **/
 	static final registry = new Registry<Dialog>();
 
 	function render():Element {
@@ -84,12 +84,12 @@ class Dialog extends Component<DialogProps> {
 		return root;
 	}
 
-	/** The dialog the node `id` of `tree` is in: its panel's, or the one whose trigger it is. **/
+	/** Finds the dialog associated with a root, trigger, or panel node. **/
 	public static function near(tree:LayoutTree, id:haxe.Int64):Null<Dialog>
 		return registry.near(tree, id);
 }
 
-/** A button that opens the dialog it is in; it takes a Button's `variant` and `size`. **/
+/** Button that opens its containing dialog. Accepts button `variant` and `size`. **/
 class DialogTrigger extends Component<{?variant:ButtonVariant, ?size:ButtonSize, ?id:String}> {
 	function render():Element {
 		var button:Null<Button> = null;
@@ -108,7 +108,7 @@ class DialogTrigger extends Component<{?variant:ButtonVariant, ?size:ButtonSize,
 	}
 }
 
-/** A button that closes the dialog it is in; an outline button unless given a `variant`. **/
+/** Button that closes its containing dialog. Defaults to the outline variant. **/
 class DialogClose extends Component<{?variant:ButtonVariant, ?size:ButtonSize, ?id:String}> {
 	function render():Element {
 		var button:Null<Button> = null;
@@ -129,38 +129,38 @@ class DialogClose extends Component<{?variant:ButtonVariant, ?size:ButtonSize, ?
 
 typedef DialogContentProps = {
 	?size:DialogSize,
-	/** any allows Escape and backdrop requests; closerequest only Escape; none only explicit controls. **/
+	/** Allowed user dismissal: `any` for Escape or backdrop, `closerequest` for Escape, or `none` for explicit controls only. **/
 	?closedby:String,
 	?onCancel:ashui.ui.Dialog.DialogCancelEvent->Void,
 	?onClose:Void->Void,
-	/** A sheet's edge: "right", "left", "top" or "bottom"; a dialog has none. **/
+	/** Sheet edge: `right`, `left`, `top`, or `bottom`. Omit for a centered dialog. **/
 	?side:String,
 	?id:String
 }
 
-/** The dialog's panel, in the top layer while it is open. **/
+/** Dialog panel displayed in the top layer while open. **/
 class DialogContent extends Component<DialogContentProps> {
-	/** Whether the panel is open: the dialog keeps it and its own `opened` together. **/
+	/** Panel open state, synchronized with the parent dialog. **/
 	final open = Signal.make(false);
 
 	var panel:Null<ashui.ui.Div> = null;
 
-	/** Whether Escape and the page behind close it. **/
+	/** Returns whether Escape and backdrop clicks can dismiss the panel. **/
 	function dismissible():Bool
 		return true;
 
-	/** The panel's class, and where it opens. **/
+	/** Returns the CSS class used for the panel type. **/
 	function panelClass():String
 		return "ui-dialog";
 
 	function placement():ashui.ui.TopLayer.Placement
 		return Centered;
 
-	/** What dims the page behind it. **/
+	/** Returns the backdrop brush. **/
 	function backdrop():ashui.types.Brush
 		return ashui.types.Brush.solid(0x000000, 0.5);
 
-	/** What the panel holds: its children, and for a subclass anything it adds. **/
+	/** Returns panel children, including any content added by a subclass. **/
 	function contents():Array<Element>
 		return children;
 
@@ -195,7 +195,7 @@ class DialogContent extends Component<DialogContentProps> {
 		return dialog;
 	}
 
-	/** Whether a dialog keeps this panel's open state together with its own. **/
+	/** Whether a parent dialog manages this panel open state. **/
 	var bound = false;
 
 	@:allow(ashui.components.Dialog)
@@ -210,13 +210,13 @@ class DialogContent extends Component<DialogContentProps> {
 	}
 }
 
-/** The panel's title and description. **/
+/** Header containing the dialog title and description. **/
 class DialogHeader extends Component<{?id:String}> {
 	function render():Element
 		return Library.part("ui-dialog-header", null, null, children, props.id);
 }
 
-/** The dialog's title, a flow of text. **/
+/** Title text for a dialog. **/
 class DialogTitle extends Component<{?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-dialog-title", null, null, children, props.id);
@@ -225,7 +225,7 @@ class DialogTitle extends Component<{?id:String}> {
 	}
 }
 
-/** What the dialog is for, under its title, a flow of text. **/
+/** Supporting text explaining the dialog purpose. **/
 class DialogDescription extends Component<{?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-dialog-description", null, null, children, props.id);
@@ -234,21 +234,21 @@ class DialogDescription extends Component<{?id:String}> {
 	}
 }
 
-/** The panel's actions, at its end. **/
+/** Footer containing dialog actions. **/
 class DialogFooter extends Component<{?id:String}> {
 	function render():Element
 		return Library.part("ui-dialog-footer", null, null, children, props.id);
 }
 
 /**
-	A dialog that asks for a decision: as `Dialog`, but Escape and the page
-	behind do not close it, only its own actions. Its parts are
-	`AlertDialogContent` and the dialog's own (`DialogTrigger`,
-	`DialogHeader`, `DialogClose` and the rest).
+	A modal dialog that requires an explicit decision.
+	Escape and backdrop clicks do not dismiss it. Use `AlertDialogContent`
+	with the standard dialog parts, including `DialogTrigger`, `DialogHeader`,
+	and `DialogClose`.
 **/
 class AlertDialog extends Dialog {}
 
-/** An alert dialog's panel: only its own actions close it. **/
+/** Alert dialog panel that closes only through explicit controls. **/
 class AlertDialogContent extends DialogContent {
 	override function dismissible():Bool
 		return false;

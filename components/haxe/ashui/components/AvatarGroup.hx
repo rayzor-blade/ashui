@@ -4,9 +4,9 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 /**
-	Avatars in a row, each overlapping the one before and ringed in the
-	page's colour; past `max` of them, a bubble counts the rest. CSS:
-	`.ui-avatar-group` (`[data-size]`), `.ui-avatar-more`.
+	Overlapping avatars in a row, outlined with the page color. When `max`
+	is exceeded, a count badge represents the remaining avatars.
+	CSS: `.ui-avatar-group`, `[data-size]`, and `.ui-avatar-more`.
 **/
 class AvatarGroup extends Component<{?max:Int, ?size:String, ?id:String}> {
 	function render():Element {

@@ -10,24 +10,23 @@ import ashui.ui.Component;
 import ashui.ui.Div;
 
 typedef PopoverProps = {
-	/** Whether it is open. A signal is read and written; a constant sets it once. **/
+	/** Whether the popover is open. A supplied signal is read and updated; a constant sets the initial state. **/
 	?open:IntoReactive<Bool>,
-	/** Which side of its trigger it opens on: "bottom" (the default), "top", "left" or "right"; the other side when there is no room. **/
+	/** Preferred side: `bottom` (default), `top`, `left`, or `right`. Flips when there is insufficient space. **/
 	?side:String,
 	?onOpenChange:Bool->Void,
 	?id:String
 }
 
 /**
-	A popover: a `PopoverTrigger` that opens and closes it, and a
-	`PopoverContent` shown beside the trigger in the top layer, rising into
-	place. A press outside it or Escape closes it. CSS:
-	`.ui-popover-root` (`[data-state]`), `.ui-popover` (the panel,
-	`[data-side]`, `[closing]`); `--ui-popover-bg`, `-border`, `-radius`,
-	`-padding`, `-shadow`, `-width`.
+	An anchored popup controlled by `PopoverTrigger`.
+	`PopoverContent` animates into place in the top layer. Outside clicks
+	and Escape close it. CSS: `.ui-popover-root[data-state]` and
+	`.ui-popover` with `[data-side]` and `[closing]`. Variables:
+	`--ui-popover-bg`, `-border`, `-radius`, `-padding`, `-shadow`, and `-width`.
 **/
 class Popover extends Component<PopoverProps> {
-	/** Whether it is open; the caller's signal when `open` was one. **/
+	/** Current open state. Uses the supplied signal when available. **/
 	public var opened(default, null):Signal<Bool>;
 
 	@:allow(ashui.components)
@@ -70,7 +69,7 @@ class Popover extends Component<PopoverProps> {
 	}
 }
 
-/** A button that opens and closes the popover it is in; it takes a Button's `variant` and `size`. **/
+/** Button that toggles its containing popover. Accepts button `variant` and `size`. **/
 class PopoverTrigger extends Component<{?variant:ButtonVariant, ?size:ButtonSize, ?id:String}> {
 	function render():Element {
 		var button:Null<Button> = null;
@@ -89,7 +88,7 @@ class PopoverTrigger extends Component<{?variant:ButtonVariant, ?size:ButtonSize
 	}
 }
 
-/** What a popover shows: kept while it is closed, in the top layer while it is open. **/
+/** Popup content retained while closed and displayed in the top layer while open. **/
 class PopoverContent extends Component<{?id:String}> {
 	@:allow(ashui.components.Popover)
 	var panel(default, null):Div;

@@ -3,8 +3,9 @@ package ashui.canvaskit;
 import ashui.reactive.Signal;
 
 /**
-	The ids selected on a 2D canvas, as a signal: what reads it draws or
-	acts again when it changes.
+	Reactive selection model for a 2D canvas.
+	Reading the selected IDs in a drawing callback or reactive computation
+	subscribes to selection changes.
 
 	```haxe
 	var selection = new Selection2D();
@@ -13,7 +14,7 @@ import ashui.reactive.Signal;
 	```
 **/
 class Selection2D {
-	/** The selected ids, in the order they were selected. **/
+	/** Selected IDs in selection order. **/
 	public final ids = Signal.make(([] : Array<String>));
 
 	public function new() {}
@@ -21,11 +22,11 @@ class Selection2D {
 	public function has(id:String):Bool
 		return ids.get().indexOf(id) >= 0;
 
-	/** Selects `id` alone. **/
+	/** Selects only the given ID. **/
 	public function select(id:String):Void
 		set([id]);
 
-	/** Selects these, and nothing else. **/
+	/** Replaces the selection with these IDs. **/
 	public function set(next:Array<String>):Void {
 		var now = ids.get();
 		if (now.length == next.length && [for (i in 0...now.length) now[i] == next[i]].indexOf(false) < 0)
@@ -41,7 +42,7 @@ class Selection2D {
 		if (has(id))
 			ids.set(ids.get().filter(x -> x != id));
 
-	/** Adds `id`, or takes it out when it is selected. **/
+	/** Adds an ID, or removes it if already selected. **/
 	public function toggle(id:String):Void
 		has(id) ? remove(id) : add(id);
 

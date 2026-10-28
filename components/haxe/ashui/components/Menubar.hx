@@ -6,11 +6,11 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 /**
-	A bar of menus, File, Edit, View: `MenubarMenu`s, each a
-	`MenubarTrigger` and a `MenubarContent` of `MenubarItem`s. While one is
-	open, the pointer crossing another trigger opens that one instead, and
-	left and right move to the menu beside. CSS: `.ui-menubar`,
-	`.ui-menubar-trigger` (`[data-state]`), and the menu's classes.
+	A row of application menus, such as File, Edit, and View.
+	Each `MenubarMenu` contains a `MenubarTrigger` and `MenubarContent`
+	with menu items. While a menu is open, hovering another trigger or
+	pressing Left/Right switches menus. CSS: `.ui-menubar`,
+	`.ui-menubar-trigger[data-state]`, and the dropdown menu classes.
 **/
 class Menubar extends Component<{?id:String}> {
 	var menus:Array<MenubarMenu> = [];
@@ -22,11 +22,11 @@ class Menubar extends Component<{?id:String}> {
 		return Library.part("ui-menubar", null, null, children, props.id);
 	}
 
-	/** The menu open now, if any. **/
+	/** Returns the currently open menu, or null. **/
 	function openMenu():Null<MenubarMenu>
 		return Lambda.find(menus, m -> m.opened.get());
 
-	/** Opens `next` in place of the open menu. **/
+	/** Closes the current menu and opens `next`. **/
 	@:allow(ashui.components.MenubarMenu)
 	function switchTo(next:MenubarMenu):Void {
 		var current = openMenu();
@@ -37,14 +37,14 @@ class Menubar extends Component<{?id:String}> {
 		next.opened.set(true);
 	}
 
-	/** The menu `dir` places beside `from`, wrapping round. **/
+	/** Returns the adjacent menu in direction `dir`, wrapping at the ends. **/
 	@:allow(ashui.components.MenubarMenu)
 	function beside(from:MenubarMenu, dir:Int):MenubarMenu {
 		var at = menus.indexOf(from);
 		return menus[(at + dir + menus.length) % menus.length];
 	}
 
-	/** The menu whose trigger is under `(x, y)`, for the pointer crossing the bar while a menu is open. **/
+	/** Finds the menu trigger under a pointer position while a menu is open. **/
 	@:allow(ashui.components.MenubarMenu)
 	function menuAt(x:Float, y:Float):Null<MenubarMenu> {
 		for (m in menus) {
@@ -59,7 +59,7 @@ class Menubar extends Component<{?id:String}> {
 	}
 }
 
-/** One of a menubar's menus. **/
+/** One menu in a menubar. **/
 class MenubarMenu extends DropdownMenu {
 	@:allow(ashui.components.Menubar) var bar:Null<Menubar> = null;
 	@:allow(ashui.components.Menubar) var trigger:Null<Element> = null;
@@ -91,7 +91,7 @@ class MenubarMenu extends DropdownMenu {
 	}
 }
 
-/** A menubar menu's trigger: plain text, highlighted while its menu is open. **/
+/** Text trigger highlighted while its menu is open. **/
 class MenubarTrigger extends DropdownMenuTrigger {
 	override function render():Element {
 		var box = Library.part("ui-menubar-trigger", "button", null, children, props.id);

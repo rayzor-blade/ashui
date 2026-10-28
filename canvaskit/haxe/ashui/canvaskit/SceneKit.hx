@@ -9,116 +9,115 @@ import ashui.ui.Canvas;
 import ashui.ui.Component;
 
 typedef SceneKitProps = {
-	/** Draws the scene's meshes, then any shapes over them; the scene is set before it is called. **/
+	/** Draws meshes and overlay shapes after the scene settings have been applied. **/
 	?draw:DrawContext->Void,
 
-	/** The camera, moved by dragging and scrolling; a new one, looking at the origin, by default. **/
+	/** Orbit camera used by drag and scroll controls. Defaults to a new camera looking at the origin. **/
 	?camera:OrbitCamera,
 
 	?lights:IntoReactive<Array<Light>>,
 
-	/** The light that reaches everywhere, `0xRRGGBB`, and how strong. **/
+	/** Ambient light color as `0xRRGGBB`. `ambientStrength` controls strength. **/
 	?ambient:IntoReactive<Int>,
 
 	?ambientStrength:IntoReactive<Float>,
 
-	/** What lit colours are multiplied by before tone mapping. **/
+	/** Exposure multiplier applied before tone mapping. **/
 	?exposure:IntoReactive<Float>,
 
-	/** What is behind the scene, and how opaque; by default nothing, so the page shows through. **/
+	/** Background color. `backgroundAlpha` controls opacity; defaults to transparent so the page shows through. **/
 	?background:IntoReactive<Int>,
 
 	?backgroundAlpha:IntoReactive<Float>,
 
-	/** Light from all round, and what surfaces reflect: a sky, from an `.hdr` with `Environment.fromHdr`. **/
+	/** Environment lighting and reflections. Load an HDR sky with `Environment.fromHdr`. **/
 	?environment:IntoReactive<Null<Environment>>,
 
 	?environmentIntensity:IntoReactive<Float>,
 
-	/** What is drawn behind the scene: an environment, blurred or not, or colours (see `Skybox`). **/
+	/** Backdrop for the scene, such as an environment or color sky. See `Skybox`. **/
 	?skybox:IntoReactive<Null<Skybox>>,
 
-	/** Haze that the scene, and its sky's horizon, fade into with distance (see `Fog`). There is none by default. **/
+	/** Distance haze applied to the scene and sky horizon. Defaults to none; see `Fog`. **/
 	?fog:IntoReactive<ashui.draw3d.Fog>,
 
-	/** How strongly the scene is bent by a fish-eye lens. 0, the default, means no lens; 0.2 to 0.6 resembles a wide-angle lens. **/
+	/** Fish-eye distortion. Zero (default) disables it; 0.2–0.6 gives a wide-angle appearance. **/
 	?lens:IntoReactive<Float>,
 
-	/** How much the scene's edges and corners are darkened, from 0 (the default, none) to 1. **/
+	/** Edge and corner darkening from zero (default, none) to one. **/
 	?vignette:IntoReactive<Float>,
 
-	/** Film grain, from 0 (the default, none) to 1 (heavy). It hides banding in dark gradients. **/
+	/** Film grain from zero (default, none) to one. Can reduce visible banding in dark gradients. **/
 	?grain:IntoReactive<Float>,
 
-	/** Chromatic aberration: colour fringes towards the edges, from 0 (the default, none) to 1 (strong). **/
+	/** Chromatic color fringes near the image edges, from zero (default, none) to one. **/
 	?aberration:IntoReactive<Float>,
 
-	/** A colour grade for the final image (see `ColorGrade`); none by default. **/
+	/** Final image color grade. Defaults to none; see `ColorGrade`. **/
 	?grade:IntoReactive<ashui.draw3d.ColorGrade>,
 
-	/** Whether edges are smoothed by FXAA anti-aliasing; off by default. **/
+	/** Enables FXAA edge smoothing. Defaults to false. **/
 	?antialias:IntoReactive<Bool>,
 
-	/** Motion blur: how long the shutter stays open, as a share of a frame, from 0 (the default, none) to 1. **/
+	/** Motion-blur shutter duration as a fraction of a frame, from zero (default, none) to one. **/
 	?motionBlur:IntoReactive<Float>,
 
-	/** Bloom: bright parts of the scene glow onto their surroundings (see `Bloom`). There is none by default. **/
+	/** Glow around bright parts of the scene. Defaults to none; see `Bloom`. **/
 	?bloom:IntoReactive<ashui.draw3d.Bloom>,
 
-	/** Whether the first light, if directional, casts shadows. **/
+	/** Enables shadows from the first light when it is directional. **/
 	?shadows:IntoReactive<Bool>,
 
-	/** How much of the first light its shadows keep off, 0 to 1; 0.7 by default. The rest of the light, ambient and sky, still reaches into them. **/
+	/** Fraction of direct light blocked by shadows, from zero to one. Defaults to 0.7; ambient and environment light remain. **/
 	?shadowStrength:IntoReactive<Float>,
 
 	/**
-		How far around the camera's target shadows are cast. Use it for a
-		scene too wide for one shadow map to cover sharply. By default, or at
-		0, shadows cover the whole scene.
+		Shadow coverage radius around the camera target. Limit this for sharper
+		shadows in wide scenes. Zero or omitted covers the whole scene.
 	**/
 	?shadowReach:IntoReactive<Float>,
 
-	/** A ground grid under the scene, `GroundGrid.studio()` or one's own (see `GroundGrid`). **/
+	/** Ground grid beneath the scene, such as `GroundGrid.studio()`. **/
 	?grid:IntoReactive<Null<GroundGrid>>,
 
 	/**
-		True for a scene drawn anew every frame, as one with a pass that
-		animates (an `animated` `ScenePass`) needs: the canvas asks for every
-		frame. False by default: it is drawn as what it reads changes.
+		Renders continuously while true, for example with an animated `ScenePass`.
+		Defaults to false, redrawing only when reactive inputs change.
 	**/
 	?animate:IntoReactive<Bool>,
 
-	/** Whether dragging and scrolling move the camera; true by default. **/
+	/** Enables camera drag and scroll controls. Defaults to true. **/
 	?controls:Bool,
 
-	/** Bounds registered in `draw`; `selection.draw` adds a mask and edges, transform handlers add gizmos. c16e24c, 8ceba8d, 6a3a68b. **/
+	/**
+		Object selection model. Register bounds in `draw`, wrap selected meshes
+		with `selection.draw`, and supply transform handlers for gizmos
+		(c16e24c, 8ceba8d, 6a3a68b).
+	**/
 	?selection:Selection3D,
 
-	/** Selected-object tool; Orbit by default. Accepts a signal or computed. git-bug 6a3a68b. **/
+	/** Selected-object tool. Defaults to `Orbit`; accepts reactive values (6a3a68b). **/
 	?gizmoMode:IntoReactive<GizmoMode>,
 
-	/** Show a world orientation widget in the top-right corner. Click an axis to look along it. **/
+	/** Shows a world orientation widget in the top-right corner. Click an axis to look along it. **/
 	?worldGizmo:Bool,
 
-	/** Corner widget's right inset, in layout units; 16 by default. **/
+	/** World-widget right inset in layout units. Defaults to 16. **/
 	?worldGizmoRight:Float,
 
-	/** Corner widget's top inset, in layout units; 16 by default. **/
+	/** World-widget top inset in layout units. Defaults to 16. **/
 	?worldGizmoTop:Float,
 
 	/**
-		Set to true while meshes it draws wait for their textures, which are
-		compressed in the background, and to false when all are in place: show
-		a loading state while it is true. A mesh is not drawn until its
-		textures are, so none shows plain. Start it at true to show the
-		loading state from the first frame.
+		Receives true while meshes wait for background texture compression,
+		then false once all textures are ready. Meshes remain hidden until ready.
+		Initialize to true to display loading UI from the first frame.
 	**/
 	?loading:ashui.reactive.Signal<Bool>,
 
 	/**
-		Set to the frames a second the scene is rendered at, once a second
-		while it renders; 0 a second after it stops, as it does when nothing
-		in it moves or changes.
+		Receives rendered frames per second, updated once per second while
+		rendering. Becomes zero one second after rendering stops.
 	**/
 	?fps:ashui.reactive.Signal<Float>,
 
@@ -140,10 +139,10 @@ typedef SceneKitProps = {
 	`camera.reset()`.
 **/
 class SceneKit extends Component<SceneKitProps> {
-	/** Editor controls, when `selection` or `worldGizmo` is supplied. **/
+	/** Editor gizmos, available when selection or the world widget is enabled. **/
 	public var gizmos(default, null):Null<SceneGizmos>;
 
-	/** A key light from above and in front, as a scene has with no `lights`. **/
+	/** Default directional key light from above and in front. **/
 	static final defaultLights:Array<Light> = [Directional(new ashui.math.Vec3(-0.4, -1, -0.3), 0xffffff, 2.5)];
 
 	function render():Element {
@@ -205,9 +204,9 @@ class SceneKit extends Component<SceneKitProps> {
 	}
 
 	/**
-		Counts frames into `fps`: the rate over each second they come in, set
-		as the second ends, and 0 once a second goes by with none. Only a
-		timer waiting on the last frame runs, so an idle scene costs nothing.
+		Returns a frame callback that updates FPS each second and reports zero
+		after a second without frames. Schedules only a timeout after the most
+		recent frame, so no timer remains active while idle.
 	**/
 	static function frameCounter(fps:ashui.reactive.Signal<Float>):Void->Void {
 		var frames = 0, since = -1.0, last = 0.0;
@@ -244,7 +243,7 @@ class SceneKit extends Component<SceneKitProps> {
 		};
 	}
 
-	/** A prop's value now, followed when it is a signal or computed; `fallback` when it is not given. **/
+	/** Reads a reactive prop or returns the fallback when omitted. **/
 	static function read<T>(prop:Null<IntoReactive<T>>, fallback:T):T
 		return prop == null ? fallback : switch (prop : ashui.layout.IntoReactive.ReactiveType<T>) {
 			case Const(v): v;

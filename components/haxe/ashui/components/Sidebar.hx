@@ -9,22 +9,22 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef SidebarProps = {
-	/** Whether it is collapsed to its icons. A signal is read and written; a constant sets it once. **/
+	/** Whether the sidebar is collapsed to icons. A supplied signal is read and updated; a constant sets the initial state. **/
 	?collapsed:IntoReactive<Bool>,
 	?onCollapsedChange:Bool->Void,
 	?id:String
 }
 
 /**
-	A side navigation that collapses to its icons: a toggle at its top, then
-	`SidebarItem`s, icon and label, in `SidebarGroup`s under labels.
-	Collapsing eases its width to its icons' and back, by a transition, the
-	page beside it in a `SidebarLayout`, a `SidebarInset`, moving with it;
-	its labels fade and its group labels fold away as it narrows, so
-	nothing in it jumps. CSS: `.ui-sidebar` (`[data-state]`
-	expanded or collapsed), `.ui-sidebar-toggle`, `.ui-sidebar-group`,
-	`.ui-sidebar-group-label`, `.ui-sidebar-item` (`[data-active]`,
-	`:hover`), `.ui-sidebar-icon`, `.ui-sidebar-label`.
+	Side navigation that collapses to icons with an animated width transition.
+	Place labeled `SidebarItem` elements in `SidebarGroup` sections. Labels
+	fade and group headings collapse as the sidebar narrows. Use
+	`SidebarLayout` and `SidebarInset` to move the adjacent page with it.
+
+	CSS: `.ui-sidebar` with expanded or collapsed `[data-state]`,
+	`.ui-sidebar-toggle`, `.ui-sidebar-group`, `.ui-sidebar-group-label`,
+	`.ui-sidebar-item` with `[data-active]` and `:hover`, plus
+	`.ui-sidebar-icon` and `.ui-sidebar-label`.
 **/
 class Sidebar extends Component<SidebarProps> {
 	public var collapsed(default, null):Signal<Bool>;
@@ -58,7 +58,7 @@ class Sidebar extends Component<SidebarProps> {
 	}
 }
 
-/** Items under a label, which hides with the labels while the sidebar is collapsed. **/
+/** Sidebar items under a heading. The heading hides when the sidebar collapses. **/
 class SidebarGroup extends Component<{?label:String, ?id:String}> {
 	function render():Element {
 		var parts:Array<Element> = [];
@@ -69,15 +69,15 @@ class SidebarGroup extends Component<{?label:String, ?id:String}> {
 }
 
 typedef SidebarItemProps = {
-	/** Its icon, drawn in the text's colour: `SvgDocument.of(<svg>...</svg>)`, read at compile time, or SVG markup. **/
+	/** SVG icon using the text color. Accepts a compiled SVG document or SVG markup. **/
 	?icon:ashui.svg.Icon,
-	/** The page shown. **/
+	/** Marks this item as the current page. **/
 	?active:IntoReactive<Bool>,
 	?onClick:ashui.input.Events.PointerEvent->Void,
 	?id:String
 }
 
-/** One of the sidebar's places: its icon, and its label while the sidebar is expanded. **/
+/** Sidebar navigation item with an icon and an expanded-state label. **/
 class SidebarItem extends Component<SidebarItemProps> {
 
 	function render():Element {
@@ -102,13 +102,13 @@ class SidebarItem extends Component<SidebarItemProps> {
 	}
 }
 
-/** A sidebar and what is beside it, in a row. **/
+/** Row containing a sidebar and its adjacent page. **/
 class SidebarLayout extends Component<{?id:String}> {
 	function render():Element
 		return Library.part("ui-sidebar-layout", null, null, children, props.id);
 }
 
-/** The page beside the sidebar, which moves over as the sidebar's width eases. **/
+/** Page area that follows the sidebar width transition. **/
 class SidebarInset extends Component<{?id:String}> {
 	function render():Element
 		return Library.part("ui-sidebar-inset", "main", null, children, props.id);

@@ -11,15 +11,15 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 import ashui.ui.For;
 
-/** A day, by its year, month (0 to 11) and day of the month. **/
+/** Calendar date with a year, zero-based month (0–11), and day of the month. **/
 typedef CalendarDay = {year:Int, month:Int, day:Int};
 
 typedef CalendarProps = {
-	/** The day chosen, or null. A signal is read and written; a constant sets it once. **/
+	/** Selected date, or null. A supplied signal is read and updated; a constant sets the initial selection. **/
 	?value:IntoReactive<Null<CalendarDay>>,
-	/** Today, for its mark; the clock's day by default. **/
+	/** Date marked as today. Defaults to the current system date. **/
 	?today:CalendarDay,
-	/** The first day of the week: 0 for Sunday (the default), 1 for Monday. **/
+	/** First weekday: 0 for Sunday (default), 1 for Monday. **/
 	?weekStart:Int,
 	/** Earliest year available for navigation and selection, inclusive. **/
 	?minYear:Int,
@@ -218,7 +218,7 @@ class Calendar extends Component<CalendarProps> {
 	}
 
 	var body:Null<ashui.ui.Div> = null;
-	/** Set as the keys turn the month, so the day they are on takes focus once its cell is made. **/
+	/** Requests focus on the new day cell after keyboard navigation changes the month. **/
 	var refocus = false;
 
 	function nav(kind:String, run:Void->Void, disabled:IntoReactive<Bool>):Element {
@@ -247,7 +247,7 @@ class Calendar extends Component<CalendarProps> {
 	static function dayOfWeek(d:CalendarDay):Int
 		return new Date(d.year, d.month, d.day, 0, 0, 0).getDay();
 
-	/** `d` moved by `n` days, across months and years; at midday, so a clock change does not move it a day. **/
+	/** Adds days across month and year boundaries. Uses midday to avoid date shifts at daylight-saving transitions. **/
 	static function addDays(d:CalendarDay, n:Int):CalendarDay {
 		var t = new Date(d.year, d.month, d.day, 12, 0, 0).getTime() + n * 86400000.0;
 		var r = Date.fromTime(t);
@@ -259,7 +259,7 @@ class Calendar extends Component<CalendarProps> {
 		return {year: Math.floor(total / 12), month: ((total % 12) + 12) % 12};
 	}
 
-	/** The same day `n` months on, or the month's last day when it has fewer. **/
+	/** Adds months, clamping the day to the last day of the destination month. **/
 	static function monthOver(d:CalendarDay, n:Int):CalendarDay {
 		var m = shift({year: d.year, month: d.month}, n);
 		var days = DateTools.getMonthDays(new Date(m.year, m.month, 1, 0, 0, 0));
@@ -267,7 +267,7 @@ class Calendar extends Component<CalendarProps> {
 	}
 }
 
-/** A month on screen: the side it came in from, if it slid in, and the side it is leaving by. **/
+/** A displayed month with entry and exit directions for its sliding transition. **/
 private class Page {
 	public final year:Int;
 	public final month:Int;

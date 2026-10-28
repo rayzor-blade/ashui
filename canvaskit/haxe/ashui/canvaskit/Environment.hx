@@ -4,34 +4,33 @@ import ashui.math.Vec3;
 import haxe.io.Bytes;
 
 /**
-	Light from all around a 3D scene: a sky, as a cubemap. Surfaces reflect
-	it, sharply where they are polished and blurred where they are rough,
-	and are lit by its average from the way they face, through a `LightRig`;
-	a scene can show it behind its meshes too (`Skybox`).
+	HDR cubemap for environment lighting and reflections.
 
-	Made from a Radiance `.hdr` photo of the whole sky (`fromHdr`), the
-	kind HDRI sites give, or from colours (`gradient`). Its faces are
-	`size` texels square, with every mip level each half the last, each
-	the average of four below it, so a level is the sky blurred as a rough
-	surface blurs it. Texels are 16-bit floats, eight bytes each: brighter
-	than white where the sky is.
+	Polished surfaces sample sharp levels; rough surfaces use blurred mip
+	levels. `LightRig` also uses the environment for diffuse lighting, and
+	`Skybox` can display it behind the scene.
 
-	Building one from a 2K sky takes a moment: build it on the worker
-	thread, `Worker.run(() -> Environment.fromHdr(bytes), sky -> ...)`, and
-	the scene draws with its ambient light until it comes. Its pixels are
-	freed once it is on the GPU, and its GPU copy by `dispose`.
+	Create from an equirectangular Radiance `.hdr` image with `fromHdr`, or
+	from colors with `gradient`. Each face is `size` texels square. Successive
+	mip levels halve the dimensions and average four texels. RGBA16F texels
+	use eight bytes and preserve values brighter than white.
+
+	Large HDR conversion should run on a worker, for example
+	`Worker.run(() -> Environment.fromHdr(bytes), sky -> ...)`. Scenes can
+	use ambient light while loading. CPU pixels are released after upload;
+	call `dispose()` to release the GPU cubemap.
 **/
 class Environment {
-	/** Texels along a face's edge, at the sharpest level. **/
+	/** Width and height of each cubemap face at the sharpest mip level. **/
 	public final size:Int;
 
-	/** How many mip levels, the last one texel a face. **/
+	/** Mip-level count, ending at one texel per face. **/
 	public final levels:Int;
 
-	/** Each level's six faces in WebGPU's order (+X, -X, +Y, -Y, +Z, -Z), row by row, RGBA as 16-bit floats; null once uploaded. **/
+	/** RGBA16F face data per mip level, in WebGPU order +X, -X, +Y, -Y, +Z, -Z. Null after GPU upload. **/
 	@:noCompletion public var faces:Null<Array<Bytes>>;
 
-	/** Frees it, and its cubemap on the GPU; it must not be drawn with after. **/
+	/** Releases CPU and GPU resources. Do not use the environment afterward. **/
 	public function dispose():Void {
 		#if ashui_gpu
 		var t = uploaded.get(this);
@@ -45,10 +44,10 @@ class Environment {
 	}
 
 	#if ashui_gpu
-	/** Environments' cubemaps, shared by every canvas, kept until the environment is disposed. **/
+	/** GPU cubemaps shared by canvases until the environment is disposed. **/
 	static final uploaded = new haxe.ds.ObjectMap<Environment, {texture:gpu.GpuTexture, view:gpu.GpuTextureView}>();
 
-	/** Its cubemap on the GPU, every level, made the first time and its pixels then freed. **/
+	/** Uploads all mip levels on first use and releases CPU pixels. Returns the cached texture view on later calls. **/
 	public function upload(device:gpu.GpuDevice):gpu.GpuTextureView {
 		var known = uploaded.get(this);
 		if (known != null)
@@ -88,9 +87,8 @@ class Environment {
 	}
 
 	/**
-		From the bytes of a Radiance `.hdr` file, an equirectangular photo of
-		the whole sky (2:1, the horizon across its middle), into faces `size`
-		texels square. Throws when they are not one.
+		Converts a 2:1 equirectangular Radiance `.hdr` image to square cubemap
+		faces. `size` is the face width and height in texels. Throws for invalid input.
 	**/
 	public static function fromHdr(bytes:Bytes, size = 256):Environment {
 		var sky = Rgbe.decode(bytes);
@@ -98,7 +96,10 @@ class Environment {
 		return fill(size, sky.sampleInto, 1);
 	}
 
-	/** A sky from `zenith` overhead to `horizon` round the level to `ground` below, `0xRRGGBB`, each times `intensity`. **/
+	/**
+		Creates a sky gradient from overhead `zenith` through `horizon` to
+		`ground`, using `0xRRGGBB` colors multiplied by `intensity`.
+	**/
 	public static function gradient(zenith:Int, horizon:Int, ground:Int, intensity = 1.0, size = 64):Environment {
 		inline function lin(c:Int, shift:Int):Float {
 			var v = (c >> shift & 0xff) / 255;
@@ -115,7 +116,7 @@ class Environment {
 		});
 	}
 
-	/** Faces `size` square of the light `radiance` gives each way, linear, averaged over four points a texel. **/
+	/** Samples linear radiance by direction into square faces, averaging four samples per texel. **/
 	public static function fromFunction(size:Int, radiance:Vec3->Vec3):Environment
 		return fill(size, (x, y, z, out) -> {
 			var c = radiance(new Vec3(x, y, z));
@@ -125,10 +126,9 @@ class Environment {
 		});
 
 	/**
-		Faces `size` square, each texel the average of `sample` at four points
-		in it, or at its middle with `samples` 1: `sample(x, y, z, out)` writes the light from the unit direction
-		`(x, y, z)` into `out[0..2]`. Nothing is made a sample, so a large sky
-		leaves no garbage behind.
+		Fills square faces by sampling unit directions into `out[0..2]`.
+		Averages four samples per texel by default, or uses the center when
+		`samples` is 1. Reuses the output buffer rather than allocating per sample.
 	**/
 	static function fill(size:Int, sample:(Float, Float, Float, haxe.ds.Vector<Float>) -> Void, samples = 4):Environment {
 		var one = new haxe.ds.Vector<Float>(3);
@@ -219,7 +219,7 @@ class Environment {
 		return new Environment(size, faces);
 	}
 
-	/** The way through texel `(u, v)`, -1 to 1 across and down, of cube face `face`, as WebGPU lays a cube out. **/
+	/** Returns the direction through cube-face coordinates from -1 to 1, using WebGPU face order. **/
 	public static function direction(face:Int, u:Float, v:Float):Vec3 {
 		var d = switch face {
 			case 0: new Vec3(1, -v, -u);
@@ -232,7 +232,7 @@ class Environment {
 		return d.normalize();
 	}
 
-	/** `f` as a 16-bit float's bits, rounded to nearest, clamped to the largest finite one. **/
+	/** Encodes a 16-bit float, rounding to nearest and clamping to the largest finite value. **/
 	@:noCompletion public static function half(f:Float):Int {
 		if (!(f > 0))
 			return 0;
@@ -251,13 +251,13 @@ class Environment {
 	}
 }
 
-/** A Radiance `.hdr` image as it is stored, four bytes a pixel: red, green, blue and a shared exponent. **/
+/** Radiance HDR pixels stored as red, green, blue, and a shared exponent byte. **/
 @:noCompletion class Rgbe {
 	final width:Int;
 	final height:Int;
 	final pixels:Bytes;
 
-	/** 2 to the power of each exponent byte, less 136: what a channel byte is multiplied by. **/
+	/** Channel scale for each exponent byte: `2^(e - 136)`, or zero for exponent zero. **/
 	static final SCALE = [for (e in 0...256) e == 0 ? 0.0 : Math.pow(2, e - 136)];
 
 	function new(width:Int, height:Int, pixels:Bytes) {
@@ -314,14 +314,14 @@ class Environment {
 		return new Rgbe(width, height, pixels);
 	}
 
-	/** The light the sky sends from direction `d`, interpolated between its four nearest pixels. **/
+	/** Samples radiance from a direction with bilinear interpolation. **/
 	public function sample(d:Vec3):Vec3 {
 		var out = new haxe.ds.Vector<Float>(3);
 		sampleInto(d.x, d.y, d.z, out);
 		return new Vec3(out[0], out[1], out[2]);
 	}
 
-	/** `sample`, for the unit direction `(dx, dy, dz)`, written into `out[0..2]`. **/
+	/** Samples a unit direction and writes radiance to `out[0..2]` without allocating a vector. **/
 	public function sampleInto(dx:Float, dy:Float, dz:Float, out:haxe.ds.Vector<Float>):Void {
 		var u = 0.5 + Math.atan2(dx, -dz) / (2 * Math.PI);
 		var v = Math.acos(Math.max(-1, Math.min(1, dy))) / Math.PI;

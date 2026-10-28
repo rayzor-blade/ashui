@@ -32,11 +32,11 @@ class Ref<T:Element> {
 	public function get():Null<T>
 		return cast current.get();
 
-	/** Whether it holds an element now; followed as `get` is. **/
+	/** Returns whether an element is bound. Reactive readers subscribe to changes. **/
 	public function bound():Bool
 		return current.get() != null;
 
-	/** Holds `element` until the owner it was built under is disposed, or another is bound. What `ref=` does. **/
+	/** Binds an element until replaced or its owner is disposed. Called by HXX `ref` attributes. **/
 	public function bind(element:T):Void {
 		current.set(element);
 		if (Owner.current != null)

@@ -10,19 +10,19 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 enum abstract ToggleVariant(String) to String {
-	/** No edge; a faint fill while on. **/
+	/** Borderless style with a subtle fill while selected. **/
 	var Default = "default";
-	/** A hairline edge, on or off. **/
+	/** Thin border in both selected and unselected states. **/
 	var Outline = "outline";
 }
 
 typedef ToggleProps = {
-	/** Whether it is on. A signal is read and written; a constant sets it once. **/
+	/** Pressed state. A supplied signal is read and updated; a constant sets the initial state. **/
 	?pressed:IntoReactive<Bool>,
 	?variant:ToggleVariant,
 	?size:Size,
 	?disabled:IntoReactive<Bool>,
-	/** Called with whether it is on after a press turns it. **/
+	/** Receives the new pressed state after activation. **/
 	?onChange:Bool->Void,
 	?id:String
 }
@@ -67,11 +67,11 @@ class Toggle extends Component<ToggleProps> {
 }
 
 typedef ToggleGroupProps = {
-	/** "single" (the default), one on at a time, or "multiple". **/
+	/** Selection mode: `single` (default) or `multiple`. **/
 	?type:String,
-	/** The values of the items on. A signal is read and written. **/
+	/** Selected item values. A supplied signal is read and updated. **/
 	?value:IntoReactive<Array<String>>,
-	/** Whether the item on in a single group can be turned off, leaving none; false by default. **/
+	/** Allows a single-selection group to clear its selection. Defaults to false. **/
 	?deselectable:Bool,
 	?variant:ToggleVariant,
 	?size:Size,
@@ -81,10 +81,12 @@ typedef ToggleGroupProps = {
 }
 
 /**
-	Toggles that act as one: `ToggleGroupItem`s, each with a `value`, one
-	on at a time or several; the arrows, Home and End move among them.
-	Text alignment in an editor's toolbar. CSS: `.ui-toggle-group`
-	(`[data-variant]`, `[data-size]`), its items `.ui-toggle`.
+	A set of toggle buttons with shared selection and keyboard navigation.
+	Each `ToggleGroupItem` has a `value`; single mode selects one item,
+	and multiple mode allows several. Arrows, Home, and End navigate items.
+	Useful for toolbar choices such as text alignment.
+	CSS: `.ui-toggle-group` with `[data-variant]` and `[data-size]`,
+	and `.ui-toggle` for each item.
 **/
 class ToggleGroup extends Component<ToggleGroupProps> {
 	public var value(default, null):Signal<Array<String>>;
@@ -141,7 +143,7 @@ class ToggleGroup extends Component<ToggleGroupProps> {
 	}
 }
 
-/** One of a toggle group's items; its children are its label or icon. **/
+/** One toggle choice with a label or icon supplied by its children. **/
 class ToggleGroupItem extends Component<{value:String, ?disabled:IntoReactive<Bool>, ?id:String}> {
 	@:allow(ashui.components.ToggleGroup) var interaction(default, null):Interaction;
 	final group = Signal.make((null : Null<Signal<Array<String>>>));

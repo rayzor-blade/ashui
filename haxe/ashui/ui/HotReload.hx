@@ -1,35 +1,31 @@
 package ashui.ui;
 
 /**
-	Hot reload for development, on Ash.
+	Reloads component code during development on Ash.
 
-	Run the program with `ash --hot-reload` (hybrid or jit mode; the
-	interpreter alone ignores the flag) and call `HotReload.check()` once per
-	frame; `WindowedApp` does when built with `-D ashui_hot_reload`, which
-	release builds leave off to skip the per-frame file check.
+	Run with `ash --hot-reload` in hybrid or JIT mode. Build with
+	`-D ashui_hot_reload` so `WindowedApp` calls `check()` each frame;
+	release builds omit the flag and its file checks.
 
-	When the .hl file has changed, Ash swaps in the new method bodies, and
-	every component no other component built renders again from the new
-	code, keeping its fields, `@:state` included. The components that render
-	builds take over the `@:state` of the ones built before them in the same
-	place (see `Component.rerender`).
+	When the bytecode changes, Ash replaces method bodies and root components
+	render again. Fields retain their values, including `@:state`. Replacement
+	children inherit state as described by `Component.rerender`.
 
-	Ash takes edits to method bodies, a template's new reactive expressions
-	and callbacks, new classes such as a new child component, and methods
-	added to or removed from a class; what it refuses it names, and the
-	program keeps running the old code. Elsewhere `check()` does nothing.
+	Supported changes include method bodies, reactive expressions, callbacks,
+	new classes, and added or removed methods. Rejected changes are reported
+	and the program keeps running the previous code. `check()` has no effect
+	on other runtimes or in interpreter-only mode.
 **/
 class HotReload {
 	#if ashui_hot_reload
 	/**
-		Present only in a `-D ashui_hot_reload` build, whose `@:state`
-		accessors make a field's signal on first use: how Ash tells that a
-		state field a reload adds is safe to leave null on live instances.
+		Marks hot-reload builds whose state accessors initialize new signals on
+		first use. Ash can then leave newly added state fields null in existing instances.
 	**/
 	@:keep @:noCompletion public static var stateOnFirstUse = true;
 	#end
 
-	/** True when the program was reloaded and its root components rendered again. **/
+	/** Checks for a reload. Returns true if new code was loaded and root components rendered again. **/
 	public static function check():Bool {
 		#if hl
 		if (!hl.Api.checkReload())

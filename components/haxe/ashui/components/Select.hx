@@ -5,7 +5,7 @@ import ashui.ui.Component;
 
 typedef SelectProps = {
 	> ashui.ui.Select.SelectProps,
-	/** Small, medium (default) or large trigger and options (git-bug e8a1b50). **/
+	/** Small, medium (default), or large trigger and options (e8a1b50). **/
 	?size:Size
 }
 
@@ -34,7 +34,7 @@ class Select extends Component<SelectProps> {
 	}
 }
 
-/** One of a select's options: the built-in `<option>`, of the class `ui-select-item`, which its row in the list takes too. **/
+/** An option styled with `.ui-select-item`, including its row in the open list. Uses the built-in option behavior. **/
 class SelectItem extends ashui.ui.Option {
 	override function render():Element {
 		var el = super.render();

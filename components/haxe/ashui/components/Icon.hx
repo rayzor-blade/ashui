@@ -4,13 +4,13 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 /**
-	An SVG icon in a template: `<icon document={Icons.PLAY_LINE} class="size-5"/>`.
+	An SVG icon, such as `<icon document={Icons.PLAY_LINE} class="size-5"/>`.
 
-	It takes a compiled document, from an `ashui.svg.IconSet` or
-	`SvgDocument.of(<svg>...</svg>)`, or SVG markup in a string. An icon drawn
-	in `currentColor` takes the colour of the text it is in, so `text-primary`
-	on it or around it tints it. Its size is the document's, unless CSS gives
-	it one: `size-5`, `w-6 h-6`. It has the class `ui-icon`.
+	Accepts an `IconSet` document, `SvgDocument.of(<svg>...</svg>)`, or SVG
+	markup. Icons using `currentColor` inherit the surrounding text color
+	and respond to utilities such as `text-primary`. CSS controls size with
+	classes such as `size-5` or `w-6 h-6`; otherwise the document size is used.
+	The element exposes `.ui-icon`.
 **/
 class Icon extends Component<{document:ashui.svg.Icon, ?id:String}> {
 	function render():Element {

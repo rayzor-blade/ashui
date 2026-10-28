@@ -7,28 +7,27 @@ import ashui.ui.Ref;
 
 typedef InputProps = {
 	> ashui.ui.Input.InputProps,
-	/** Small, medium (default) or large; sizes all the field's parts (git-bug e8a1b50). **/
+	/** Small, medium (default), or large sizing for all field parts (e8a1b50). **/
 	?size:Size,
 	/**
-		A password's: a button inside the field shows its value and hides it
-		again. Its state is `reveal` when that is a signal, a signal of its
-		own otherwise.
+		Adds a password visibility button. Uses a supplied `reveal` signal,
+		or creates local reveal state when none is supplied.
 	**/
 	?revealable:Bool
 }
 
 /**
-	A text field in the library's look: the built-in `<input>`, its
-	constraints, validity and forms as they are, with the class `ui-input`.
-	It takes every prop the built-in does. A checkbox, radio or range typed
-	here gets the class of the library's own (`ui-checkbox`, `ui-radio`,
-	`ui-slider`); `Checkbox`, `RadioGroup` and `Slider` lay those out with
-	their labels. A `revealable` password has an eye button inside it that
-	shows and hides its value, keeping focus in the field. `InputIcon`
-	children place SVG icons before or after the editable text (git-bug 27e0124).
-	CSS: `.ui-input` (`:hover`, `:focus`, `:disabled`, `:user-invalid`),
-	`.ui-input-reveal`, `.ui-input-icon[data-side]`;
-	`--ui-input-bg`, `-border`, `-radius`, `-height`, `-padding`.
+	A themed input with the core input behavior, validation, and form support.
+
+	Accepts all built-in input props and adds `.ui-input`. Checkbox, radio,
+	and range types use `.ui-checkbox`, `.ui-radio`, and `.ui-slider`; use
+	`Checkbox`, `RadioGroup`, or `Slider` for their composed layouts.
+	`revealable` passwords include an eye button that preserves field focus.
+	`InputIcon` children add leading or trailing SVG icons (27e0124).
+
+	CSS: `.ui-input` with `:hover`, `:focus`, `:disabled`, and `:user-invalid`,
+	`.ui-input-reveal`, and `.ui-input-icon[data-side]`. Variables:
+	`--ui-input-bg`, `-border`, `-radius`, `-height`, and `-padding`.
 **/
 class Input extends Component<InputProps> {
 	function render():Element {
@@ -81,7 +80,7 @@ class Input extends Component<InputProps> {
 		return decorate(el, cls);
 	}
 
-	/** Leading icon parts precede the native text clip, keeping the same input node and focus (git-bug 27e0124). **/
+	/** Places leading icons before the native text clip while preserving the input node and focus (27e0124). **/
 	function decorate(el:ashui.ui.Input, cls:String):Element {
 		ashui.css.Identity.of(el.tree, el.node.id).addClasses([cls]).setAttribute("data-size", props.size == null ? Size.Md : props.size);
 		if (cls == "ui-input") {
@@ -99,7 +98,7 @@ class Input extends Component<InputProps> {
 	}
 }
 
-/** The side of the editable text an input's decorative icon occupies. **/
+/** Position of a decorative icon relative to the editable text. **/
 enum abstract InputIconSide(String) to String {
 	var Leading = "leading";
 	var Trailing = "trailing";

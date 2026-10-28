@@ -11,30 +11,30 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef NumberGaugeProps = {
-	/** Shared numeric value; starts at min (0 by default). **/
+	/** Numeric value. Defaults to the lower bound, which is zero unless `min` is set. **/
 	?value:IntoReactive<Float>,
-	/** Bounds default to 0–100. Values snap to step from min. **/
+	/** Lower bound. The range defaults to 0–100, with values snapped to `step` from `min`. **/
 	?min:Float,
 	?max:Float,
 	?step:Float,
-	/** Sm/Md/Lg are 24/32/40 px high; Md by default. **/
+	/** Control height in layout units: 24 for `Sm`, 32 for `Md` (default), or 40 for `Lg`. **/
 	?size:Size,
-	/** Formats the centered value, e.g. n -> n + " %". **/
+	/** Formats the centered value, for example `n -> n + " %"`. **/
 	?format:Float->String,
 	?disabled:IntoReactive<Bool>,
-	/** User edits only; programmatic changes do not call it. **/
+	/** Receives user edits only. Programmatic value changes do not call this callback. **/
 	?onChange:Float->Void,
 	?name:String,
 	?id:String
 }
 
 /**
-	A filled numeric range with a centered value and a vertical SVG grip,
-	without step buttons (git-bug 095fab4). Press or drag the fill edge,
-	wheel anywhere over it, or use the built-in range's arrows, Page Up/Down
-	and Home/End. All edits share the core range's snapping and form behavior.
+	A numeric range displayed as a fill with a centered value and a vertical
+	SVG grip, without step buttons (095fab4). Drag the fill edge, scroll
+	anywhere over the control, or use arrows, Page Up/Down, and Home/End.
+	Uses the core range snapping and form behavior.
 	CSS: `.ui-number-gauge`, `.fill`, `.rest`, `.thumb`,
-	`.ui-number-gauge-grip` and `.ui-number-gauge-value`.
+	`.ui-number-gauge-grip`, and `.ui-number-gauge-value`.
 **/
 class NumberGauge extends Component<NumberGaugeProps> {
 	public var value(default, null):Signal<Float>;

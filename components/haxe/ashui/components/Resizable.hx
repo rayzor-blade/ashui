@@ -12,26 +12,27 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef ResizableProps = {
-	/** "horizontal", panels side by side (the default), or "vertical", one over the next. **/
+	/** Panel layout: `horizontal` (default) for a row, or `vertical` for a column. **/
 	?direction:String,
-	/** A grip on each handle, for a handle that should read as one at a glance. **/
+	/** Shows a grip on each resize handle. **/
 	?grip:Bool,
 	?id:String
 }
 
 /**
-	Panels in a row or a column with a handle between each two: dragging a
-	handle, or its arrow keys while it has focus, moves the space between
-	the panels either side, each kept within its `minSize` and `maxSize`.
-	A double click on a handle puts the two back as they began. A handle's
-	cursor is `col-resize`, or `row-resize` in a vertical group, and it keeps
-	it for as long as it is dragged, wherever the pointer goes. CSS:
-	`.ui-resizable` (`[data-direction]`), `.ui-resizable-panel`,
-	`.ui-resizable-handle` (`[data-dragging]`, `:hover`, `:focus-visible`),
-	its `.ui-resizable-line` and `.ui-resizable-grip`.
+	Resizable panels arranged in a row or column.
+
+	Drag a handle, or use its arrow keys while focused, to resize the adjacent
+	panels within their `minSize` and `maxSize` bounds. Double-click resets
+	both panels to their initial sizes. The resize cursor remains active
+	throughout a drag, even outside the handle.
+
+	CSS: `.ui-resizable[data-direction]`, `.ui-resizable-panel`,
+	`.ui-resizable-handle` with `[data-dragging]`, `:hover`, and `:focus-visible`,
+	plus `.ui-resizable-line` and `.ui-resizable-grip`.
 **/
 class Resizable extends Component<ResizableProps> {
-	/** How far an arrow key moves a handle. **/
+	/** Distance moved by each arrow-key step, in layout units. **/
 	public static inline var STEP = 10.0;
 
 	function render():Element {
@@ -151,22 +152,21 @@ class Resizable extends Component<ResizableProps> {
 
 typedef ResizablePanelProps = {
 	/**
-		Its width in a row, its height in a column, in layout units; a signal
-		is read and written as the handles move it. Without one, the panel
-		shares the space the sized panels leave, by `grow`, until a handle
-		moves it while another still shares that space.
+		Panel width in a row, or height in a column, in layout units. Dragging
+		updates a supplied signal. Unsized panels share remaining space by
+		`grow` until resized while another panel still shares that space.
 	**/
 	?size:IntoReactive<Float>,
 	?minSize:Float,
 	?maxSize:Float,
-	/** Its share of the space left, against the other unsized panels; 1 by default. **/
+	/** Share of remaining space relative to other unsized panels. Defaults to 1. **/
 	?grow:Float,
 	?id:String
 }
 
-/** One of a `Resizable`'s panels. **/
+/** One panel inside a `Resizable` group. **/
 class ResizablePanel extends Component<ResizablePanelProps> {
-	/** Its size, NaN while it shares the space left. **/
+	/** Current panel size. NaN means the panel shares remaining space. **/
 	public var size(default, null):Signal<Float>;
 
 	function render():Element {

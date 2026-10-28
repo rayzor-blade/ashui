@@ -13,9 +13,9 @@ typedef PlaybackProps = {
 	?loop:IntoReactive<Bool>,
 	?muted:IntoReactive<Bool>,
 	?volume:IntoReactive<Float>,
-	/** Optional caller-owned equalizer; null restores flat playback. **/
+	/** Caller-owned equalizer. Null restores flat playback. **/
 	?equalizer:IntoReactive<Null<Equalizer>>,
-	/** Standard playback controls, true by default. **/
+	/** Shows the default playback controls. Defaults to true. **/
 	?controls:IntoReactive<Bool>,
 	?onReady:Player->Void,
 	?onEnded:Void->Void,

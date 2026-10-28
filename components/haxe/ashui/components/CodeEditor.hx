@@ -46,47 +46,47 @@ import ashui.ui.TextCaret;
 import ashui.ui.TextEditing;
 
 typedef CodeEditorProps = {
-	/** Persistent document/history/navigation data. Use instead of `value` to release and recreate the view. **/
+	/** Persistent document, history, and navigation state. Use instead of `value` when the view may be disposed and recreated. **/
 	?state:CodeEditorState,
-	/** A shared signal, initial string, or derived source. Line endings should be LF. **/
+	/** Document text as a shared signal, initial string, or computed source. Use LF line endings. **/
 	?value:IntoReactive<String>,
-	/** haxe/hxx, javascript/js/jsx, typescript/ts/tsx, rust, json, css, python/py, lua or plain. **/
+	/** Syntax language: haxe/hxx, javascript/js/jsx, typescript/ts/tsx, rust, json, css, python/py, lua, or plain. **/
 	?language:IntoReactive<String>,
-	/** An application grammar, in place of the built-in lexical highlighter. **/
+	/** Custom highlighter that replaces the built-in lexical highlighter. **/
 	?highlighter:CodeHighlighter,
-	/** Completed background grammars can replace the current highlighter without replacing the editor. **/
+	/** Reactive highlighter source. Use this to install a background-loaded grammar without replacing the editor. **/
 	?highlighterSource:IntoReactive<Null<CodeHighlighter>>,
-	/** Render optional inline styles on highlight spans; ordinary syntax stays CSS themed. **/
+	/** Applies optional token styles inline. Ordinary syntax colors remain CSS themed. **/
 	?tokenStyles:Bool,
 	?lineNumbers:Bool,
 	?folding:Bool,
 	?indentGuides:Bool,
-	/** Highlight the matching pair next to a caret or pointer selection. **/
+	/** Highlights matching brackets beside the caret or pointer selection. **/
 	?highlightBrackets:Bool,
-	/** Shows a document overview on the right. Click, drag its viewport slider or scroll over it to navigate. **/
+	/** Shows a document minimap on the right. Click, drag the viewport indicator, or scroll to navigate. **/
 	?minimap:Bool,
 	/** Content above the text viewport, beside the minimap. **/
 	?header:Element,
-	/** Reserves a gutter column for `markers`. Clicks in this column call `onGutterClick`. **/
+	/** Reserves a marker column in the gutter. Clicks in this column call `onGutterClick`. **/
 	?gutterMarkers:Bool,
-	/** Collapses unused marker and fold columns; leave false for an always-clickable breakpoint gutter. **/
+	/** Collapses unused marker and fold columns. Keep false for an always-clickable breakpoint gutter. **/
 	?compactGutter:Bool,
-	/** Keeps activated compact gutter columns until this view is disposed, so edits cannot shift the text. **/
+	/** Keeps compact gutter columns once activated, preventing edits from shifting the text during this view lifetime. **/
 	?stableGutter:Bool,
 	/**
 		Returns a hover hint for a text offset after the pointer rests there.
 		Null falls back to decoration titles at that position.
 	**/
 	?hover:Int->Null<CodeHint>,
-	/** Definition navigation at a text offset on Command-click (macOS) or Control-click; handled before selection. **/
+	/** Receives a text offset for definition navigation on Command-click (macOS) or Control-click. Runs before selection. **/
 	?onNavigate:Int->Void,
 	/** Delay before requesting a hover hint, in seconds. Defaults to 0.45. **/
 	?hintDelay:Float,
-	/** Maximum minimap width in pixels, default 96. Capped at one quarter of the editor width. **/
+	/** Maximum minimap width in pixels. Defaults to 96 and is capped at one quarter of the editor width. **/
 	?minimapWidth:Float,
-	/** Spaces per tab stop and indentation level, 4 by default. **/
+	/** Spaces per tab stop and indentation level. Defaults to 4. **/
 	?tabSize:Int,
-	/** Insert spaces for Tab by default; false inserts a tab character. **/
+	/** Inserts spaces for Tab. Defaults to true; false inserts a tab character. **/
 	?insertSpaces:Bool,
 	?readOnly:IntoReactive<Bool>,
 	?disabled:IntoReactive<Bool>,
@@ -97,7 +97,7 @@ typedef CodeEditorProps = {
 		The event still reaches other handlers; call `preventDefault` to prevent default processing.
 	**/
 	?onKey:KeyEvent->Bool,
-	/** Handle the built-in find/replace shortcuts, true by default. Apps may use showFind/findNext with their own bindings. **/
+	/** Enables built-in find/replace shortcuts. Defaults to true; use `showFind` and `findNext` for application key bindings. **/
 	?findShortcuts:Bool,
 	/** Accessible name for the editing surface. **/
 	?label:String,
@@ -108,16 +108,19 @@ private enum CodePhase { Resting; Selecting; }
 private enum CodeEvent { Press; Release; Blur; }
 private typedef Run = {text:String, kind:String, x:Single, ?style:CodeTokenStyle};
 private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Int, left:Float, right:Float};
-/** A pooled token element: the `index`th run of its `kind` in the row its slot shows. **/
+/** A pooled token run, identified by kind and index within its displayed row. **/
 private typedef Token = {kind:String, index:Int};
-/** A decoration's mark on one row. **/
+/** One row segment of a text decoration. **/
 private typedef DecorationBox = {x:Single, top:Single, width:Single, height:Single, className:String};
 
 /**
-	A virtualized code editor, built from Ashui text, buttons and scrolling
-	(e53597f). The shared TextEditing engine handles grapheme navigation,
-	clipboard, selection and IME. This view adds line highlighting, folding,
-	indentation and bounded undo/redo. All appearance is components.css.
+	A virtualized code editor with syntax highlighting, line numbers, folding,
+	indentation, and bounded undo/redo (e53597f).
+
+	Uses Ashui text, buttons, and scrolling. `TextEditing` handles grapheme
+	navigation, selection, clipboard, and IME. Appearance is defined in
+	`components.css`; annotations, completion, and navigation APIs let an
+	application connect its language services.
 **/
 class CodeEditor extends Component<CodeEditorProps> {
 	public var value(default, null):Signal<String>;
@@ -134,11 +137,14 @@ class CodeEditor extends Component<CodeEditorProps> {
 	var gutterNow:Void->Float = () -> 0;
 	var markerColumn:Computed<Bool>;
 	var foldColumn:Computed<Bool>;
-	/** Called with a line, from 0, and the press, when the gutter's marker slot is pressed, whether or not the line has a marker (`gutterMarkers`). **/
+	/**
+		Receives the zero-based line and pointer event when the gutter marker
+		column is pressed, even if that line has no marker. Requires `gutterMarkers`.
+	**/
 	public var onGutterClick:Null<(Int, ashui.input.Events.PointerEvent)->Void> = null;
 	final revision = Signal.make(0);
 	final revealRevision = Signal.make(0);
-	/** The zones between rows, and a count that moves when the height an element measured does. **/
+	/** Elements inserted between text rows, tracked with measured height changes. **/
 	final zones = new CodeZones();
 	final zoneHeights = Signal.make(0);
 	var zoneLayout:Computed<Int>;
@@ -172,19 +178,19 @@ class CodeEditor extends Component<CodeEditorProps> {
 	var phase:Machine<CodePhase, CodeEvent>;
 	static inline var PAD = 12.0;
 
-	/** The gutter's marker slot, in layout units. **/
+	/** Width of the gutter marker column, in layout units. **/
 	static inline var MARKER = 18.0;
 
-	/** The width of one wave of a squiggle. **/
+	/** Width of one squiggle period. **/
 	static inline var SQUIGGLE = 4.0;
 
-	/** The distance from the content's top to the top of display row `row`, with the zones above it. **/
+	/** Returns the top of a display row, including preceding view-zone heights. **/
 	function rowTop(row:Int):Float {
 		zoneLayout.get();
 		return PAD + zones.yOf(row, metrics.lineHeight);
 	}
 
-	/** The display row a zone is below, or -1 when its line is folded away. **/
+	/** Returns the display row above a zone, or -1 when the source line is folded. **/
 	function zoneRow(place:ZonePlace):Int {
 		var line = annotations.zoneLine(place);
 		if (line < 0 || line >= document.lines.length) return -1;
@@ -192,13 +198,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return row >= 0 && row < document.visible.length && document.visible[row] == line ? row : -1;
 	}
 
-	/** Takes out of the content the zones that were replaced, whose holders the `for` over the zones no longer keeps. **/
+	/** Removes replaced zone elements no longer retained by the zone loop. **/
 	function removeGoneZones():Void {
 		for (p in annotations.takeGone())
 			if (p.view != null) { p.view.remove(); p.view = null; }
 	}
 
-	/** A zone's holder: below its row, over the gutter's width, as high as its element is, which the layout hook reads back. **/
+	/** Builds a zone holder below its row, aligned after the gutter. Layout measures the element height. **/
 	function zoneView(place:ZonePlace, gutter:Computed<Float>, contentWidth:Computed<Single>):Element {
 		var top = Computed.make(() -> { revision.get(); var r = zoneRow(place); (r < 0 ? 0 : rowTop(r) + metrics.lineHeight : Single); });
 		var shown = Computed.make(() -> (zoneRow(place) >= 0 ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
@@ -209,7 +215,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return holder;
 	}
 
-	/** CodeView keeps the same selection and scrolling behavior without editing. **/
+	/** Allows source edits. `CodeView` overrides this while retaining selection and scrolling. **/
 	function editable():Bool return true;
 
 	function render():Element {
@@ -586,11 +592,14 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return box;
 	}
 
-	/** Replaces `owner`'s decorations with `list`; an empty list clears them. With `follow`, they move with the text as it is edited. **/
+	/** Replaces decorations registered under `owner`. Empty clears them. With `follow`, ranges track text edits. **/
 	public function decorate(owner:String, list:Array<CodeDecoration>, follow = false):Void
 		annotations.decorate(owner, list, follow);
 
-	/** Replaces `owner`'s gutter markers with `list`, which leaves out a line the document does not have; needs `gutterMarkers`. With `follow`, they stay with their lines as the text is edited. **/
+	/**
+		Replaces gutter markers registered under `owner`, ignoring missing lines.
+		Requires `gutterMarkers`. With `follow`, markers track line changes during edits.
+	**/
 	public function markers(owner:String, list:Array<CodeMarker>, follow = false):Void
 		annotations.mark(owner, list, follow);
 
@@ -606,19 +615,19 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public function zone(owner:String, list:Array<CodeZone>, follow = false):Void
 		annotations.zone(owner, list, follow);
 
-	/** The lines `owner`'s zones are below now, moved by the edits if it follows them. **/
+	/** Returns the current lines above zones registered under `owner`, including tracked edits. **/
 	public function zoneLinesOf(owner:String):Array<Int>
 		return annotations.zoneLinesOf(owner);
 
-	/** `owner`'s decorations as they are now, moved by the edits if it follows them. **/
+	/** Returns current decorations registered under `owner`, including tracked edits. **/
 	public function decorationsOf(owner:String):Array<CodeDecoration>
 		return annotations.decorationsOf(owner);
 
-	/** The lines `owner`'s markers are on now, moved by the edits if it follows them. **/
+	/** Returns current marker lines registered under `owner`, including tracked edits. **/
 	public function markerLinesOf(owner:String):Array<Int>
 		return annotations.markerLinesOf(owner);
 
-	/** Where the character at `offset` is, in the window's coordinates; null when it is out of the view. **/
+	/** Returns the character rectangle at a text offset in window coordinates, or null when outside the viewport. **/
 	public function rectAt(offset:Int):Null<CodeRect> {
 		var b = pane == null ? null : pane.tree.getScrolledBounds(pane.node);
 		if (b == null)
@@ -631,7 +640,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return {x: b.x + gutterNow() + PAD + stop.x - scroll.x.get(), y: top, width: next.line == stop.line && next.x > stop.x ? next.x - stop.x : metrics.characterWidth, height: metrics.lineHeight};
 	}
 
-	/** The offset of the character under the point `(x, y)` in the window; -1 over the gutter, below the text or past the end of a line. **/
+	/** Returns the character offset at a window point. Returns -1 over the gutter, below the document, or past a line end. **/
 	public function offsetAt(x:Float, y:Float):Int {
 		var b = pane == null ? null : pane.tree.getScrolledBounds(pane.node);
 		if (b == null || x < b.x + gutterNow() || x >= b.x + b.width || y < b.y || y >= b.y + b.height)
@@ -645,7 +654,11 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return editing.indexAt(Math.max(0, px - metrics.characterWidth / 2), row);
 	}
 
-	/** Opens `hint` in a popover at its range. `pinned`, it stays until `hideHint`, Escape, an edit or a scroll; otherwise it closes when the pointer leaves the range and the popover. **/
+	/**
+		Opens a hint at its text range. A pinned hint stays until `hideHint`,
+		Escape, an edit, or scrolling. Other hints close when the pointer leaves
+		both the range and popover.
+	**/
 	public function showHint(hint:CodeHint, pinned = false):Void
 		if (hints != null)
 			hints.show(hint, pinned);
@@ -654,15 +667,16 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (hints != null)
 			hints.hide();
 
-	/** The offset of the character the pointer rests on, or -1; for an app that answers `hover` later and opens the popover with `showHint`. **/
+	/** Character offset under the resting pointer, or -1. Use this to validate asynchronous hover results before calling `showHint`. **/
 	public var hoverOffset(get, never):Int;
 
 	function get_hoverOffset():Int
 		return hints == null ? -1 : hints.hovered;
 
 	/**
-		Opens a list of `items` under the word that starts at `from` (the word before the caret by default), narrowed to what has
-		been typed since; Up, Down, Enter, Tab and Escape work it, and the chosen one is put in the text as one undo step.
+		Opens completions below the word starting at `from`, defaulting to the
+		word before the caret. Typed text filters the list. Up, Down, Enter, Tab,
+		and Escape navigate it; accepting a completion creates one undo step.
 	**/
 	public function showCompletions(items:Array<CodeCompletion>, ?from:Int):Void {
 		if (completions == null)
@@ -678,21 +692,21 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (completions != null)
 			completions.hide();
 
-	/** Whether the completion list is open. **/
+	/** Returns whether the completion list is open. **/
 	public function completionsOpen():Bool
 		return completions != null && completions.isOpen();
 
 	static function isWordCharacter(code:Int):Bool
 		return code == "_".code || code == "$".code || (code >= "0".code && code <= "9".code) || (code >= "a".code && code <= "z".code) || (code >= "A".code && code <= "Z".code) || code > 127;
 
-	/** How many rows are in the viewport's pool now; for checks. **/
+	/** Returns the current viewport row-pool size for inspection and tests. **/
 	public function shownRowCount():Int {
 		var n = 0;
 		for (r in shownRows) if (r != null) n++;
 		return n;
 	}
 
-	/** The decorations over the character at `offset`, for a hover's `title`. **/
+	/** Returns decorations covering a text offset, including hover titles. **/
 	public function decorationsAt(offset:Int):Array<CodeDecoration>
 		return annotations.decorationsAt(offset);
 
@@ -702,7 +716,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (reveal) revealRevision.set(revealRevision.get() + 1);
 	}
 
-	/** The signal of slot `i`'s row, made with the slot. **/
+	/** Creates or returns the row signal for a viewport slot. **/
 	function slotAt(i:Int):Signal<Null<Row>> {
 		while (slotRows.length <= i) {
 			slotRows.push(Signal.make((null : Null<Row>)));
@@ -714,7 +728,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return slotRows[i];
 	}
 
-	/** Gives each slot the row of the window it shows, setting only the slots whose row is another one. **/
+	/** Assigns visible rows to pool slots, updating only slots whose row changed. **/
 	function distribute(list:Array<Row>, capacity:Int):Void {
 		var next:Array<Null<Row>> = [for (_ in 0...capacity) null];
 		for (row in list)
@@ -730,7 +744,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		}
 	}
 
-	/** Gives slot `i` the token elements of each kind that `row` needs: it keeps what it has, grows when a row has more, and gives back when a row needs under a quarter. **/
+	/** Reuses token elements by kind, grows the pool when needed, and trims a pool when usage falls below one quarter. **/
 	function fitTokens(i:Int, row:Null<Row>):Void {
 		var pools = slotPools[i], kinds = slotKinds[i], need = row == null ? null : row.byKind, changed = false;
 		if (need != null)
@@ -819,10 +833,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return mark;
 	}
 
-	/** The waves widths come in, a few steps of a half more each, so any underline's wavy line is one of a few documents and atlas entries. **/
+	/** Shared squiggle widths. Geometric steps keep SVG documents and atlas entries bounded. **/
 	static final WAVES = [4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512];
 
-	/** The least of `WAVES` that covers `width`; the widest for any more. **/
+	/** Returns the smallest supported wave count covering the width, capped at the largest count. **/
 	static function waves(width:Float):Int {
 		var need = Math.ceil(width / SQUIGGLE);
 		for (w in WAVES)
@@ -831,7 +845,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return WAVES[WAVES.length - 1];
 	}
 
-	/** A wavy line `periods` waves wide, in the mark's text colour; the mark clips it to its own width, so the few widths there are share their documents. **/
+	/** Builds a shared wavy underline in the mark color. Each mark clips the SVG to its own width. **/
 	function squiggle(periods:Int):Svg {
 		var width = periods * SQUIGGLE, path = new StringBuf();
 		path.add("M0 3");
@@ -840,7 +854,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return new Svg(SvgDocument.parse('<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="4" viewBox="0 0 $width 4"><path d="${path.toString()}" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>'));
 	}
 
-	/** The gutter's marker slot of the row in `row`'s slot: its marker's class and title, and a press in it is the app's, never the editor's. **/
+	/** Builds the marker column for a displayed row. Marker clicks go to the application rather than text selection. **/
 	function markerSlot(row:Signal<Null<Row>>):Element {
 		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.markerAt(r.source); });
 		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-marker"] : ["ui-code-marker", m.className].concat(m.icon == null ? [] : ["ui-code-marker-with-icon"]); });
@@ -857,7 +871,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return slot;
 	}
 
-	/** The change bar of the row's line, in its own lane at the gutter's left edge. **/
+	/** Builds the line change bar in a dedicated lane at the left gutter edge. **/
 	function barSlot(row:Signal<Null<Row>>):Element {
 		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.barAt(r.source); });
 		var classes = Computed.make(() -> { var m = marker.get(); m == null ? ["ui-code-bar"] : ["ui-code-bar", m.className]; });
@@ -865,7 +879,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return new Div({classes: classes, visibility: shown});
 	}
 
-	/** A marker on the boundary below the row's line, drawn at its bottom edge in the gutter: a small triangle, or the marker's icon. **/
+	/** Draws a boundary marker at the bottom of a row, using its icon or a default triangle. **/
 	function boundarySlot(row:Signal<Null<Row>>, rowHeight:Computed<Single>):Element {
 		var marker = Computed.make(() -> { revision.get(); annotations.revision.get(); var r = row.get(); r == null ? null : annotations.boundaryAt(r.source); });
 		var shown = Computed.make(() -> (marker.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
@@ -877,7 +891,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		return holder;
 	}
 
-	/** The mark of a boundary marker with no icon of its own: a small triangle pointing at the text. **/
+	/** Default boundary marker: a small triangle pointing toward the text. **/
 	static final BOUNDARY:ashui.svg.Icon = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><path d="M0 0 L8 5 L0 10 Z" fill="currentColor"/></svg>';
 
 	// The button is always there and answers only while its slot's row opens a fold, so a row entering the window builds no button.
@@ -986,7 +1000,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		if (x != scroll.x.get() || y != scroll.y.get()) scroll.jumpTo(Math.max(0, x), Math.max(0, y));
 	}
 
-	/** Zero-based source line. Folding never changes the source or undo history. **/
+	/** Toggles folding at a zero-based source line. Leaves the source and undo history unchanged. **/
 	public function toggleFold(line:Int):Void {
 		if (props.folding == false || !document.toggleFold(line)) return;
 		var block = document.lines[line], end = document.lines[block.foldEnd];

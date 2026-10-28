@@ -1,6 +1,6 @@
 package ashui.media;
 
-/** Optional media components. Add -lib ashui-media to the build. **/
+/** Media APIs and playback components. Add `-lib ashui-media` to the build. **/
 class Library {
 	static var used = false;
 

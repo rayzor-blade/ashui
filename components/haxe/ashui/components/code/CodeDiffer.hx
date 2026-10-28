@@ -1,8 +1,9 @@
 package ashui.components.code;
 
 /**
-	A stretch of lines that differs between two texts. Lines are counted from zero. A stretch with no lines on one side is
-	a point between two lines of that text: an insertion has `originalLines` of 0, a deletion has `modifiedLines` of 0.
+	A changed range of source lines, indexed from zero.
+	Insertions have zero `originalLines`; deletions have zero `modifiedLines`.
+	A zero-length side identifies a position between lines.
 **/
 typedef CodeChange = {
 	final originalStart:Int;
@@ -11,7 +12,7 @@ typedef CodeChange = {
 	final modifiedLines:Int;
 }
 
-/** A stretch of characters that differs between two versions of one line: `from` is where it starts and `to` where it ends. **/
+/** A changed character range within a line, from `from` to `to`. **/
 typedef CodeWordChange = {
 	final originalFrom:Int;
 	final originalTo:Int;
@@ -19,7 +20,7 @@ typedef CodeWordChange = {
 	final modifiedTo:Int;
 }
 
-/** Collects changes in the order they are found and joins the ones that touch. **/
+/** Collects changes in order and merges adjacent changes. **/
 private class Changes {
 	public final list:Array<CodeChange> = [];
 
@@ -41,7 +42,7 @@ private class Changes {
 	}
 }
 
-/** Gives each distinct string a number, so comparing two of them is comparing two integers. **/
+/** Assigns integer IDs to distinct strings so the diff can compare integers instead of strings. **/
 private class Interner {
 	final ids = new Map<String, Int>();
 	var count = 0;
@@ -67,45 +68,46 @@ private class Interner {
 }
 
 /**
-	Finds what changed between two texts: which lines, and which words of an edited line. It reads no document and makes no
-	element, so it can run on a worker thread, and a caller who gets its changes from elsewhere (a version-control library's
-	patch) can skip `lines` and keep the rest.
+	Computes line and word changes without UI or document dependencies.
+	Can run on a worker thread. Applications with external diff data can
+	skip `lines` and use the remaining helpers.
 
-	`lines` is Myers's algorithm, which finds the fewest lines changed, with two limits so a bad case is slow to refine and
-	never slow to answer: the search gives up after `SEARCH` edits, and the stretch it gave up on is split at the lines that
-	occur once on each side and are in the same order on both, which are also searched. A stretch with no such lines is one
-	change. The changes always turn the original into the modified text; only their being the fewest is lost.
+	Line comparison uses Myers search up to `SEARCH` edits. Beyond that
+	limit, unique shared lines split the problem into smaller searches,
+	up to `DEPTH` levels. A region without usable anchors becomes one change.
+	The result always transforms original into modified text; limited
+	searches may produce more changes than the minimum.
 **/
 class CodeDiffer {
-	/** The most single-line edits Myers's search tries before it gives up on a stretch; its memory is the square of this. **/
+	/** Maximum edit count per Myers search. Search memory grows quadratically with this limit. **/
 	static inline var SEARCH = 1000;
 
-	/** How many times a stretch that gave up is split at lines both sides have once, before it is taken as one change. **/
+	/** Maximum fallback split depth before treating a region as one change. **/
 	static inline var DEPTH = 6;
 
-	/** The longest a line may be for its words to be compared or matched; a longer one is shown whole, as a rewritten line is. **/
+	/** Maximum line length for word comparison and similarity matching. Longer lines receive whole-line change treatment. **/
 	public static inline var LONG = 2000;
 
-	/** The share of a line's characters that two versions must have in common for their words to be compared. **/
+	/** Minimum fraction of shared characters needed for word-level highlighting. **/
 	static inline var SIMILAR = 0.4;
 
-	/** The most lines either side of a change may have for its lines to be matched by how alike they are; past it they are matched by position. **/
+	/** Maximum lines per change side for similarity matching. Larger equal-sized sides pair by position; unequal sides remain unpaired. **/
 	static inline var MATCHING = 64;
 
-	/** The changes that turn the lines `original` into the lines `modified`, in order, with none touching another. **/
+	/** Returns ordered, nonadjacent line changes that transform original lines into modified lines. **/
 	public static function lines(original:Array<String>, modified:Array<String>):Array<CodeChange> {
 		var interner = new Interner(), a = interner.all(original), b = interner.all(modified), out = new Changes();
 		range(a, 0, a.length, b, 0, b.length, out, 0);
 		return out.list;
 	}
 
-	/** The lines of `text`, split at line feeds. **/
+	/** Splits text at line-feed characters. **/
 	public static inline function split(text:String):Array<String>
 		return text.split("\n");
 
 	/**
-		Whether `changes` is a diff of the two: in order, inside both texts, touching nothing else, and with the same line wherever
-		neither text changes. A caller checks the changes it was given before it trusts them.
+		Validates externally supplied changes: ordered, in bounds, nonoverlapping,
+		and with identical source text between changes.
 	**/
 	public static function valid(original:Array<String>, modified:Array<String>, changes:Array<CodeChange>):Bool {
 		var o = 0, m = 0;
@@ -165,7 +167,7 @@ class CodeDiffer {
 		out.add(aFrom, aTo - aFrom, bFrom, bTo - bFrom);
 	}
 
-	/** Myers's search over `a[aFrom...aTo]` and `b[bFrom...bTo]`, adding the changes it finds; false, adding nothing, when it needs more than `SEARCH` edits. **/
+	/** Runs Myers search on the specified integer slices. Returns false without adding changes when more than `SEARCH` edits are needed. **/
 	static function search(a:Array<Int>, aFrom:Int, aTo:Int, b:Array<Int>, bFrom:Int, bTo:Int, out:Changes):Bool {
 		var n = aTo - aFrom, m = bTo - bFrom, max = n + m < SEARCH ? n + m : SEARCH, offset = max + 1;
 		var v = new Array<Int>();
@@ -230,8 +232,8 @@ class CodeDiffer {
 	}
 
 	/**
-		The lines that occur once in `a[aFrom...aTo]` and once in `b[bFrom...bTo]` and keep their order, as pairs of indices
-		(`a`'s then `b`'s) in one flat array: the longest such run, found by patience sorting.
+		Finds the longest ordered sequence of lines occurring once on each side,
+		using patience sorting. Returns alternating original and modified indices.
 	**/
 	static function anchorsOf(a:Array<Int>, aFrom:Int, aTo:Int, b:Array<Int>, bFrom:Int, bTo:Int):Array<Int> {
 		var inA = new Map<Int, Int>(), inB = new Map<Int, Int>(), at = new Map<Int, Int>();
@@ -285,7 +287,7 @@ class CodeDiffer {
 
 	// ---- Words ----
 
-	/** The start of each token of `text` and its end at the last place: words, runs of white space, and each other character. **/
+	/** Returns token boundaries for words, whitespace runs, and individual punctuation characters. **/
 	static function tokens(text:String, ids:Interner, into:Array<Int>):Array<Int> {
 		var starts = new Array<Int>(), i = 0, n = text.length;
 		while (i < n) {
@@ -312,8 +314,8 @@ class CodeDiffer {
 		return c == " ".code || c == "\t".code;
 
 	/**
-		The words that differ between two versions of a line, or null when the versions have too little in common for the marks
-		to help (a rewritten line is better shown whole). Neighbouring changes with only white space between them are one.
+		Returns word-level changes, or null when lines are too dissimilar for
+		useful word highlighting. Merges changes separated only by whitespace.
 	**/
 	public static function words(original:String, modified:String):Null<Array<CodeWordChange>> {
 		if (original == modified)
@@ -376,10 +378,10 @@ class CodeDiffer {
 	// ---- Pairing ----
 
 	/**
-		Which removed line of `change` and which added line are the same line edited, as pairs of indices into `original` and
-		`modified` in one flat array, both rising. When the two sides have as many lines each takes the one in its own place; when
-		not, lines are matched by how alike they are, so an insertion among edited lines does not shift the pairs, and a line
-		with no likeness is left out. A change too large to compare by likeness pairs nothing unless its sides are equal in size.
+		Pairs removed and added lines representing edits. Returns alternating
+		original and modified indices in ascending order. Equal-sized sides
+		pair by position; unequal sides use similarity and omit unmatched lines.
+		Large unequal changes remain unpaired.
 	**/
 	public static function pairs(original:Array<String>, modified:Array<String>, change:CodeChange):Array<Int> {
 		var n = change.originalLines, m = change.modifiedLines, result = new Array<Int>();

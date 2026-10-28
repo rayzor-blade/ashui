@@ -5,18 +5,18 @@ import ashui.layout.Node;
 import ashui.reactive.Owner;
 
 /**
-	Something placed in the UI: the base of `Div`, `Text`, `Image`, `Svg`
-	and every `Component`. An element owns one `node` of its `tree`, which a
-	subclass makes in its constructor, and places its children's nodes under
-	it. `node` is null after `remove`.
+	Base class for UI elements, including `Div`, `Text`, `Image`, and components.
+
+	Each element owns a node in a layout tree. Subclasses create the node and
+	attach child nodes to it. Removing the element clears `node` to null.
 **/
 class Element {
 	public var node(default, null):Node;
 	public var tree(default, null):LayoutTree;
 
 	/**
-		`tree` defaults to the current owner's. An element built under an
-		owner is removed when that owner is disposed.
+		Creates an element in `tree`, or the current owner tree when omitted.
+		Elements created within an owner are removed when that owner is disposed.
 	**/
 	public function new(?tree:LayoutTree) {
 		var owner = Owner.current;
@@ -26,14 +26,14 @@ class Element {
 		Owner.onCleanup(remove);
 	}
 
-	/** Places `child`'s node last among this element's children. **/
+	/** Appends a child node after the existing children. **/
 	public inline function appendChild(child:Element):Void {
 		if (this.node != null && child.node != null) {
 			tree.addChild(this.node.id, child.node.id);
 		}
 	}
 
-	/** Removes this element's node and everything below it from the tree. **/
+	/** Removes this element and all descendant nodes from the layout tree. **/
 	public function remove():Void {
 		if (node != null) {
 			ashui.css.Identity.forgetSubtree(tree, node.id);

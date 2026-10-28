@@ -4,44 +4,42 @@ import ashui.components.code.CodeDocument.CodeLine;
 import ashui.components.code.CodeHighlighter.CodeToken;
 
 /**
-	The lines of one text of a diff, tokenised only when a row asks for them. A diff of a large file shows a few hundred of its
-	lines and folds the rest, so what is kept for the text is its lines (the strings the comparison was made from, not copies of
-	them) and a bounded number of tokenised ones: not a line object and a token array for every line, as a `CodeDocument` has.
+	Source lines with on-demand syntax tokens and a bounded token cache.
+	Keeps the comparison strings rather than copying them or creating a
+	`CodeLine` for every source line.
 
-	Colouring a line needs the lexical state the line before it ended in. A row that follows the one shown before it takes that
-	state from it; any other row finds it from a checkpoint kept every `STEP` lines, reached by colouring the lines between and
-	forgetting them. `fill` makes the checkpoints a slice at a time, so a jump far into a large file has little left to do.
-	A line longer than `CLIP` characters is shown cut there, with an ellipsis, so one very long line cannot cost what the rest
-	of the file does.
+	Lexical checkpoints every `STEP` lines preserve multiline syntax state.
+	`fill` builds checkpoints in batches to reduce work on distant jumps.
+	Lines longer than `CLIP` display an ellipsis at the limit.
 **/
 class CodeDiffText {
-	/** Lines between checkpoints of the lexical state. **/
+	/** Number of lines between lexical checkpoints. **/
 	static inline var STEP = 256;
 
-	/** The most tokenised lines kept; when there are more, they are all let go and the next rows make theirs again. **/
+	/** Maximum cached tokenized lines before clearing the cache. **/
 	static inline var KEEP = 1500;
 
-	/** The longest a line is shown. **/
+	/** Maximum displayed characters per line. **/
 	public static inline var CLIP = CodeDiffer.LONG;
 
 	public var lines(default, null):Array<String> = [""];
 	var syntax:CodeHighlighter;
 	final kept = new Map<Int, CodeLine>();
 	var keptCount = 0;
-	/** The lexical state before line `k * STEP`, for each `k` up to `known`. **/
+	/** Lexical state before line `k * STEP`, for checkpoints through `known`. **/
 	final checkpoints:Array<String> = [""];
 	var known = 0;
 
 	public function new(syntax:CodeHighlighter)
 		this.syntax = syntax;
 
-	/** The number of lines. **/
+	/** Source line count. **/
 	public var length(get, never):Int;
 
 	inline function get_length():Int
 		return lines.length;
 
-	/** Takes other lines, to be coloured by `syntax`, and lets go of everything made for the last. **/
+	/** Replaces source lines and highlighter, releasing the previous caches. **/
 	public function reset(lines:Array<String>, syntax:CodeHighlighter):Void {
 		this.lines = lines.length == 0 ? [""] : lines;
 		this.syntax = syntax;
@@ -51,7 +49,7 @@ class CodeDiffText {
 		known = 0;
 	}
 
-	/** The line `index`, from 0, with its tokens; an empty line for an index there is no line at. **/
+	/** Returns a tokenized line by zero-based index, or an empty line for an invalid index. **/
 	public function line(index:Int):CodeLine {
 		var found = kept.get(index);
 		if (found != null)
@@ -81,7 +79,7 @@ class CodeDiffText {
 		return line;
 	}
 
-	/** The state before line `index`: from the nearest checkpoint, through the lines between it and `index`. **/
+	/** Resolves lexical state before a line from the nearest checkpoint. **/
 	function stateAt(index:Int):String {
 		var c = Std.int(index / STEP);
 		if (c > known)
@@ -104,7 +102,7 @@ class CodeDiffText {
 	static inline function clip(text:String):String
 		return text.length > CLIP ? text.substr(0, CLIP) : text;
 
-	/** Makes the checkpoints for the next `budget` lines; true when there are checkpoints all the way to the end. **/
+	/** Builds checkpoints for up to `budget` more lines. Returns true when the entire text is covered. **/
 	public function fill(budget:Int):Bool {
 		var at = known * STEP, end = lines.length;
 		if (at >= end)

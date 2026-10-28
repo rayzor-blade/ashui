@@ -7,7 +7,7 @@ import media.MediaPlayer;
 import media.PlaybackState;
 import media.VideoFrame;
 
-/** File playback state, including the controller's empty, error and disposed states. **/
+/** Playback lifecycle, including empty, error, and disposed states. **/
 enum PlayerState {
 	Empty;
 	Opening;
@@ -37,9 +37,9 @@ typedef PlayerOptions = {
 	?loop:Bool,
 	?volume:Float,
 	?muted:Bool,
-	/** Shared settings; the player does not own or close the equalizer. **/
+	/** Shared equalizer settings. The player does not own or close the equalizer. **/
 	?equalizer:Equalizer,
-	/** Usually the UI frame scheduler. Native playback still uses its own real-time clock. **/
+	/** Scheduler used to poll playback, normally the UI frame scheduler. Native playback keeps its own real-time clock. **/
 	?scheduler:AnimationScheduler
 }
 
@@ -75,7 +75,7 @@ class Player {
 	final machine:Machine<PlayerState, PlayerEvent>;
 	var native:Null<MediaPlayer> = null;
 	var frame:Null<VideoFrame> = null;
-	/** The ticker that follows the native player, while it has one; the scheduler says when it has dropped it. **/
+	/** Scheduler ticker that polls native playback while attached. **/
 	var ticker:Null<ashui.animation.AnimationScheduler.Ticker> = null;
 	var generation = 0;
 	var nativeState = PlayerState.Empty;
@@ -122,7 +122,10 @@ class Player {
 			load(source);
 	}
 
-	/** Replaces the source, releases its frames, and opens it paused unless autoplay is true. Empty unloads it. **/
+	/**
+		Replaces the source and releases retained frames. Opens paused unless
+		autoplay is enabled. An empty path unloads the source.
+	**/
 	public function load(path:String, ?autoplay:Bool):Void {
 		checkOpen();
 		release();
@@ -184,13 +187,13 @@ class Player {
 			play();
 	}
 
-	/** Playback intent, including a seek or buffering while playing. Paused seeking stays paused. **/
+	/** Returns playback intent, including buffering or seeking during playback. A paused seek remains paused. **/
 	public function isPlaying():Bool {
 		var current = state.get();
 		return playIntent.get() && current != Ended && current != Failed && current != Empty && current != Closed;
 	}
 
-	/** Seeks to a bounded position; a paused seek also updates the displayed frame. **/
+	/** Seeks within the media duration. Also updates the displayed frame while paused. **/
 	public function seek(seconds:Float):Void {
 		checkOpen();
 		if (native == null)
@@ -228,7 +231,7 @@ class Player {
 		looping.set(value);
 	}
 
-	/** Attach shared settings. Later edits apply immediately, including while paused. Null restores flat playback. **/
+	/** Attaches shared equalizer settings, applied immediately even while paused. Null restores flat playback. **/
 	public function setEqualizer(value:Null<Equalizer>):Void {
 		checkOpen();
 		if (value != null)
@@ -251,11 +254,14 @@ class Player {
 	public inline function clearEqualizer():Void
 		setEqualizer(null);
 
-	/** A clone of the latest frame; null for audio or before the first video frame. **/
+	/**
+		Returns an independent handle to the latest frame, or null for audio
+		or before the first video frame. The caller must close the returned handle.
+	**/
 	public function currentFrame():Null<VideoFrame>
 		return frame == null ? null : frame.clone();
 
-	/** Poll once on the same thread that opened it. Normally the scheduler does this. **/
+	/** Polls playback on the thread that opened it. Normally called by the scheduler. **/
 	public function update():Void {
 		if (disposed || native == null)
 			return;
@@ -290,7 +296,7 @@ class Player {
 			fail(e);
 	}
 
-	/** Releases the native player and retained frame. Terminal and idempotent. **/
+	/** Releases native playback and the retained frame. Repeated calls are safe; the player cannot be reused after closing. **/
 	public function close():Void {
 		if (disposed)
 			return;
@@ -383,7 +389,7 @@ class Player {
 		machine.send(Failure);
 	}
 
-	/** The state as a CSS-friendly name. **/
+	/** Returns the current state as a CSS-compatible name. **/
 	public function stateName():String
 		return Type.enumConstructor(state.get()).toLowerCase();
 

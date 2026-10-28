@@ -4,15 +4,16 @@ import ashui.input.WindowState;
 import ashui.reactive.Watch;
 
 /**
-	Tells the window where a focused text view's caret is, so it turns its
-	input method on and shows the method's candidates beside the caret
-	(`WindowState.textCaret`), and that there is none once focus leaves.
+	Publishes the focused text caret to the window input method.
+
+	`WindowState.textCaret` places IME candidates beside the caret. The caret
+	is cleared when focus leaves the text view.
 **/
 class TextCaret {
 	/**
-		Publishes `editing`'s caret, at the window rect `where` gives, while
-		it has focus. Moving focus between views hands the caret over: a view
-		clears the signal only while it still holds that view's rect.
+		Publishes the window caret rectangle returned by `where` while `editing`
+		is focused. When focus changes, only the previous publisher can clear
+		its own rectangle.
 	**/
 	public static function publish(editing:TextEditing, where:Void->Null<ashui.input.WindowState.CaretArea>):Void {
 		var mine:Null<ashui.input.WindowState.CaretArea> = null;

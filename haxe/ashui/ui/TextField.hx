@@ -10,20 +10,20 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 typedef TextFieldProps = {
-	/** The text, read and written: the field sets it as the user edits. A signal of its own by default. **/
+	/** Editable text. Uses the supplied signal, or creates a local signal when omitted. **/
 	?value:Signal<String>,
-	/** Shown, dimmed, while the value is empty. **/
+	/** Placeholder text shown while the value is empty. **/
 	?placeholder:String,
 	?disabled:IntoReactive<Bool>,
-	/** HTML's input type, which CSS's `input[type=...]` sees: `text` by default; `password` shows dots and refuses copying. **/
+	/** Input type used by CSS `input[type="..."]`. Defaults to `text`; `password` masks text and disables copying. **/
 	?type:String,
-	/** Its width in layout units; the user-agent stylesheet's by default. **/
+	/** Width in layout units. Defaults to the user-agent stylesheet width. **/
 	?width:Single,
-	/** Called with the new value after each edit. **/
+	/** Receives the new value after each edit. **/
 	?onInput:String->Void,
-	/** Called with the value when Enter is pressed. **/
+	/** Receives the value when Enter is pressed. **/
 	?onSubmit:String->Void,
-	/** A password's: while true it shows its value rather than dots; copying stays refused. **/
+	/** Shows password characters instead of dots while true. Copying remains disabled. **/
 	?reveal:IntoReactive<Bool>
 }
 
@@ -47,7 +47,7 @@ typedef TextFieldProps = {
 	Use `TextArea` for multiline editing.
 **/
 class TextField extends Component<TextFieldProps> {
-	/** Space kept between the clipped text and the field's inner edge, so a glyph or the caret at either end is not cut. **/
+	/** Space between the text clipping region and the inner field edge, preventing clipped glyphs or carets. **/
 	static inline var INSET = 2.0;
 
 	public var editing(default, null):TextEditing;
@@ -56,7 +56,7 @@ class TextField extends Component<TextFieldProps> {
 	final alignment = Signal.make((0 : Single));
 	final placeholderLeft = Signal.make((0 : Single));
 	var box:Div;
-	/** The part of the field the text shows through. **/
+	/** Clipping region for the displayed text. **/
 	var clip:Div;
 	var text:Text;
 	final hint = new Ref<Text>();
@@ -243,7 +243,7 @@ class TextField extends Component<TextFieldProps> {
 			scroll.set(s);
 	}
 
-	/** `windowX` from the text's left edge; its bounds already include the scroll, which moves it by layout. **/
+	/** Converts a window X coordinate to text coordinates. Text bounds already include scrolling. **/
 	function textX(windowX:Float):Float {
 		var b = text.tree.getBounds(text.node);
 		return b == null ? 0 : windowX - b.x;

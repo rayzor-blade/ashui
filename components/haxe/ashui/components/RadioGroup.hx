@@ -7,25 +7,25 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef RadioGroupProps = {
-	/** The chosen item's value. A signal is read and written; a constant sets it once. **/
+	/** Selected item value. A supplied signal is read and updated; a constant sets the initial selection. **/
 	?value:IntoReactive<String>,
-	/** "vertical" (the default) or "horizontal". **/
+	/** Item layout: `vertical` (default) or `horizontal`. **/
 	?orientation:String,
-	/** Small, medium (default) or large; inherited by every item (git-bug e8a1b50). **/
+	/** Small, medium (default), or large sizing inherited by items (e8a1b50). **/
 	?size:Size,
 	?name:String,
 	?disabled:IntoReactive<Bool>,
-	/** Called with the value chosen. **/
+	/** Receives the selected value. **/
 	?onValueChange:String->Void,
 	?id:String
 }
 
 /**
-	A set of radios, one chosen: `RadioGroupItem`s, each a built-in
-	`<input type="radio">` with its label, sharing the group's value, so the
-	arrow keys move among them and choose. CSS: `.ui-radio-group`
-	(`[data-orientation]`), `.ui-radio-field` (an item's label), `.ui-radio`
-	(the dial, `:checked`, `:disabled`), `.ui-radio-text`.
+	A group of labeled radio buttons with one selected value.
+	Each `RadioGroupItem` uses the built-in radio input and shares the group
+	value. Arrow keys move focus and selection between items. CSS:
+	`.ui-radio-group[data-orientation]`, `.ui-radio-field`, `.ui-radio` with
+	`:checked` and `:disabled`, and `.ui-radio-text`.
 **/
 class RadioGroup extends Component<RadioGroupProps> {
 	public var value(default, null):Signal<String>;
@@ -54,7 +54,7 @@ class RadioGroup extends Component<RadioGroupProps> {
 	}
 }
 
-/** One of a radio group's choices; its children are the label's text. **/
+/** A radio choice with label text supplied by its children. **/
 class RadioGroupItem extends Component<{value:String, ?disabled:IntoReactive<Bool>, ?size:Size, ?id:String}> {
 	var field:Null<ashui.ui.Label> = null;
 
@@ -67,7 +67,7 @@ class RadioGroupItem extends Component<{value:String, ?disabled:IntoReactive<Boo
 		return field;
 	}
 
-	/** Its radio, made once the group gives it the shared value: radios are one set by sharing it. **/
+	/** Radio input created after the group supplies its shared value signal. **/
 	@:allow(ashui.components.RadioGroup)
 	function bindTo(group:Signal<String>, name:Null<String>, disabled:Null<IntoReactive<Bool>>, groupSize:Size):Void {
 		var f = field;

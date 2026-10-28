@@ -3,19 +3,19 @@ package ashui.ui;
 import ashui.layout.Element;
 
 typedef OptionProps = {
-	/** What the select holds while it is chosen; its label when left out, as HTML's. **/
+	/** Selected value stored by the select. Defaults to the option label. **/
 	?value:String,
 
-	/** What the select shows for it; its text when left out. **/
+	/** Display label. Defaults to the option text. **/
 	?label:String,
 
 	?disabled:Bool
 }
 
 /**
-	HTML's `<option>`, inside a `<select>` or an `<optgroup>`: a choice, its
-	label the text it holds. The select draws it in its list of options as
-	an element of type `option`, `:checked` while it is the select's value.
+	A choice inside a `<select>` or `<optgroup>`, written as `<option>` in HXX.
+	The select displays the option label and applies `:checked` to the selected
+	option in the open list.
 **/
 class Option extends Component<OptionProps> {
 	function render():Element {
@@ -24,7 +24,7 @@ class Option extends Component<OptionProps> {
 		return box;
 	}
 
-	/** What the select shows for it. **/
+	/** Returns the display label. **/
 	public function labelText():String {
 		if (props.label != null)
 			return props.label;
@@ -35,7 +35,7 @@ class Option extends Component<OptionProps> {
 		return StringTools.trim(out.toString());
 	}
 
-	/** What the select holds while it is chosen. **/
+	/** Returns the value stored when this option is selected. **/
 	public function valueText():String
 		return props.value != null ? props.value : labelText();
 

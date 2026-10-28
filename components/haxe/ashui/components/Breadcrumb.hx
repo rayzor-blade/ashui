@@ -5,17 +5,17 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 typedef BreadcrumbProps = {
-	/** Text between the items, as "/" or "→"; a chevron by default. **/
+	/** Separator text, such as `/` or `→`. Defaults to a chevron. **/
 	?separator:String,
 	?size:Size,
 	?id:String
 }
 
 /**
-	Where a page sits, a path of `BreadcrumbItem`s, links back up, ending
-	in the current page (`current={true}`), with a separator between each.
-	CSS: `.ui-breadcrumb` (`[data-size]`), `.ui-breadcrumb-item`
-	(`[data-current]`, `:hover`), `.ui-breadcrumb-separator`.
+	A navigation path ending at the current page.
+	Use `BreadcrumbItem` for each level and set `current={true}` on the last
+	item. Separators appear between items. CSS: `.ui-breadcrumb`, `[data-size]`,
+	`.ui-breadcrumb-item`, `[data-current]`, `:hover`, and `.ui-breadcrumb-separator`.
 **/
 class Breadcrumb extends Component<BreadcrumbProps> {
 	static var chevron:Null<ashui.svg.SvgDocument> = null;
@@ -40,7 +40,7 @@ class Breadcrumb extends Component<BreadcrumbProps> {
 	}
 }
 
-/** One step of a breadcrumb: a link up, or the current page. **/
+/** A link to a parent page, or the current page in a breadcrumb. **/
 class BreadcrumbItem extends Component<{?current:Bool, ?onClick:ashui.input.Events.PointerEvent->Void, ?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-breadcrumb-item", props.current == true ? null : "a", props.current == true ? ["current" => "page"] : null, children,

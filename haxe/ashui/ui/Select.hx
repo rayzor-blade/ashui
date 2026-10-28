@@ -12,34 +12,33 @@ import ashui.reactive.Watch;
 import ashui.ui.TopLayer;
 
 typedef SelectProps = {
-	/** The chosen option's value. A signal is read and written, so the select and your code share it; a constant sets it once. **/
+	/** Selected option value. A supplied signal is read and updated; a constant sets the initial selection. **/
 	?value:IntoReactive<String>,
 
 	?disabled:IntoReactive<Bool>,
 
-	/** Its id, which CSS's `#id` and a label's `for` find. **/
+	/** Element ID used by CSS selectors and a label `for` attribute. **/
 	?id:String,
 
 	?name:String,
 
-	/** Invalid while its value is empty, as when a placeholder or an option with `value=""` shows. **/
+	/** Requires a nonempty selected value. A placeholder or `value=""` option remains invalid. **/
 	?required:Bool,
 
-	/** Lays out only nearby options in a long, ungrouped list. Each option must have this fixed height, including padding. **/
+	/** Enables virtualization for a long, ungrouped option list. All rows must use this fixed height, including padding. **/
 	?virtualRowHeight:Single,
 
 	/**
-		Shown while the value is none of its options', which it may then
-		stay rather than choosing the first: "Choose a fruit…". The select
-		is marked `[data-placeholder]` while it shows. Not HTML's, which has
-		none for a select.
+		Label shown when the value matches no option. Allows an empty selection
+		instead of choosing the first option, and exposes `[data-placeholder]`.
+		This attribute extends the HTML select behavior.
 	**/
 	?placeholder:String,
 
-	/** Called with the new value after the user chooses an option. **/
+	/** Receives the value selected by the user. **/
 	?onChange:String->Void,
 
-	/** Called when it is checked and found invalid, by its form's submit or a script's `checkValidity`, as HTML's `invalid` event. **/
+	/** Runs when form submission or `checkValidity()` finds the control invalid. **/
 	?onInvalid:Void->Void
 }
 
@@ -50,33 +49,33 @@ private typedef Choice = {
 }
 
 /**
-	HTML's `<select>`, built in, with its `<option>`s, directly or in
-	`<optgroup>`s. It shows the chosen option's label; a click, Enter, Space
-	or an arrow key opens its list of options in the top layer, below it.
-	In the list the arrows, Home and End move among the enabled options,
-	typing jumps to the first whose label starts with what was typed, and
-	Enter or a click chooses; Escape, Tab or a click outside closes it
-	without choosing. Closed and focused, typing chooses by label too.
+	An option picker, written as `<select>` in HXX.
 
-	Its options may come from `<for>` and `<if>` as from authored children,
-	and are listed as they come and go.
+	Supply `<option>` children directly or inside `<optgroup>`. Dynamic
+	options from `<for>` and `<if>` are tracked as they change. The closed
+	control displays the selected label; click, Enter, Space, or an arrow key
+	opens the list in the top layer.
 
-	Its look is the user-agent stylesheet's: `select`, its list `listbox`,
-	the options in it `option` (`:checked` the chosen one, `:focus` the one
-	the keys are on) and the group headings `optgroup`.
+	In the list, arrows, Home, and End move between enabled options. Typing
+	searches by label; Enter or a click selects. Escape, Tab, or an outside
+	click closes without changing the selection. Typing also selects by label
+	when the closed control has focus.
+
+	The user-agent stylesheet uses `select`, `listbox`, `option`, and `optgroup`.
+	Options expose `:checked` for selection and `:focus` for keyboard navigation.
 **/
 class Select extends Component<SelectProps> implements FormControl {
 	static final byNode = new Map<String, Select>();
 
-	/** The select at `node`, null if it is none, for a form to find. **/
+	/** Returns the select registered for a node, or null when absent. **/
 	public static function at(node:haxe.Int64):Null<Select>
 		return byNode.get(haxe.Int64.toStr(node));
 
-	/** Its name, which a form submits its value under; null for none. **/
+	/** Returns the form field name, or null when unnamed. **/
 	public function name():Null<String>
 		return props.name;
 
-	/** The chosen option's value; the caller's signal when `value` was one. **/
+	/** Current selected value. Uses the supplied signal when available. **/
 	public var value(default, null):Signal<String>;
 
 	var choices:Array<Choice> = [];
@@ -90,7 +89,7 @@ class Select extends Component<SelectProps> implements FormControl {
 	var typed = "";
 	var typedAt = 0.0;
 
-	/** The options and option groups that exist, found by the identity of the element each draws. **/
+	/** Maps rendered identities to their option and option-group components. **/
 	static final parts = new haxe.ds.ObjectMap<ashui.css.Identity, Component<Dynamic>>();
 
 	@:allow(ashui.ui)
@@ -100,7 +99,11 @@ class Select extends Component<SelectProps> implements FormControl {
 		Owner.onCleanup(() -> parts.remove(identity));
 	}
 
-	/** Calls `found` with each option at or under `node` and the group it is in, going through the fragments of `<for>` and `<if>`. Returns whether it went through a fragment. **/
+	/**
+		Visits options below a node, including `<for>` and `<if>` fragments, and
+		passes each option and its group to `found`. Returns whether a fragment
+		was encountered.
+	**/
 	@:allow(ashui.ui)
 	static function walk(tree:ashui.layout.LayoutTree, node:haxe.Int64, group:Null<Optgroup>, found:(Option, Null<Optgroup>) -> Void):Bool {
 		var fragment = tree.isFragment(node);
@@ -120,7 +123,7 @@ class Select extends Component<SelectProps> implements FormControl {
 		return fragment;
 	}
 
-	/** Collects the choices, and reports whether any came through a fragment, since those can change. **/
+	/** Collects options and notes whether fragments can change the list later. **/
 	function collect():{choices:Array<Choice>, fragments:Bool} {
 		var out:Array<Choice> = [], fragments = false;
 		for (c in children)
@@ -133,7 +136,10 @@ class Select extends Component<SelectProps> implements FormControl {
 		return {choices: out, fragments: fragments};
 	}
 
-	/** Collects the choices again after a fragment changed them. If the value is no longer one of them, the first enabled option is chosen, as when the select is built. **/
+	/**
+		Refreshes options after a fragment changes. Selects the first enabled
+		option if the current value is no longer available.
+	**/
 	function refresh():Void {
 		choices = collect().choices;
 		if (props.placeholder == null && !Lambda.exists(choices, c -> c.option.valueText() == value.get())) {
@@ -146,11 +152,11 @@ class Select extends Component<SelectProps> implements FormControl {
 			onOptions([for (c in choices) c.option]);
 	}
 
-	/** The options it lists now, in order. **/
+	/** Returns the current options in display order. **/
 	public function options():Array<Option>
 		return [for (c in choices) c.option];
 
-	/** Called with the options after each change a fragment makes to them, so a library can dress the new ones. **/
+	/** Receives refreshed options after a fragment changes, allowing component libraries to style new options. **/
 	@:allow(ashui.components) var onOptions:Null<Array<Option>->Void> = null;
 
 	function render():Element {
@@ -223,18 +229,18 @@ class Select extends Component<SelectProps> implements FormControl {
 		return c == null ? "" : c.option.labelText();
 	}
 
-	/** The constraints it breaks now, each with what a browser says of it. **/
+	/** Returns the current validation failures and their messages. **/
 	function problems():Array<FormStates.ValidityProblem>
 		return props.required == true && value.get() == "" ? [{flag: ValueMissing, message: "Please select an item in the list."}] : [];
 
 	public function formValue():Null<String>
 		return value.get();
 
-	/** Whether it is valid now; when it is not, `onInvalid` is called, as HTML fires `invalid`. **/
+	/** Returns whether the value is valid. Calls `onInvalid` when invalid. **/
 	public function checkValidity():Bool
 		return FormStates.check(this, props.onInvalid);
 
-	/** As `checkValidity`; when it is invalid it is also marked touched and takes focus. **/
+	/** Checks validity. An invalid control is marked touched and focused. **/
 	public function reportValidity():Bool {
 		if (checkValidity())
 			return true;
@@ -243,15 +249,15 @@ class Select extends Component<SelectProps> implements FormControl {
 		return false;
 	}
 
-	/** Which of its constraints it breaks now, as HTML's `ValidityState` says. **/
+	/** Returns the current constraint flags, following HTML `ValidityState`. **/
 	public function validity():FormStates.ValidityState
 		return validityOf.state();
 
-	/** Why it is invalid, as a browser would say it; empty when it is valid. **/
+	/** Returns the validation message, or an empty string when valid. **/
 	public function validationMessage():String
 		return validityOf.message();
 
-	/** Makes it invalid with `message`, as HTML's `setCustomValidity` does; empty makes it valid again. **/
+	/** Sets a custom validation error. An empty string clears the custom error. **/
 	public function setCustomValidity(message:String):Void
 		validityOf.setCustom(message);
 
@@ -266,7 +272,7 @@ class Select extends Component<SelectProps> implements FormControl {
 	public function focus():Void
 		Focus.set(interaction, true);
 
-	/** Sets the value, as the user choosing does, and closes the list. **/
+	/** Selects a value and optionally closes the list, as user selection does. **/
 	function choose(v:String, close = true):Void {
 		var changed = value.get() != v;
 		// Choosing is the user changing it: `:user-invalid` may show.
@@ -278,7 +284,7 @@ class Select extends Component<SelectProps> implements FormControl {
 			open.close();
 	}
 
-	/** The choice whose label starts with what was typed in the last second, `text` added; null if none. **/
+	/** Finds an option by the label prefix typed within the last second, including `text`. Returns null if none matches. **/
 	function typeahead(text:String, among:Array<Choice>):Null<Choice> {
 		var now = ashui.input.InputClock.now();
 		typed = (now - typedAt > 1.0 ? "" : typed) + text.toLowerCase();
@@ -286,7 +292,7 @@ class Select extends Component<SelectProps> implements FormControl {
 		return Lambda.find(among, c -> StringTools.startsWith(c.option.labelText().toLowerCase(), typed));
 	}
 
-	/** Opens the list of options in the top layer, under the select, the chosen one focused. **/
+	/** Opens the options in the top layer below the control and focuses the selected option. **/
 	function show():Void {
 		if (open != null || interaction.disabled.get())
 			return;
@@ -412,7 +418,7 @@ class Select extends Component<SelectProps> implements FormControl {
 			Focus.set(first.interaction, Focus.byKeyboard);
 	}
 
-	/** The same select and option behaviour with a fixed-height window of rows. **/
+	/** Opens a virtualized list of fixed-height option rows using the same selection behavior. **/
 	function showVirtual(tree:ashui.layout.LayoutTree, b:ashui.layout.Bounds, owner:Owner, rowHeight:Single):Void {
 		var rootBounds = tree.root == null ? null : tree.getBounds(tree.root);
 		var maxHeight = rootBounds == null ? 320.0 : Math.max(0, Math.max(rootBounds.height - b.y - b.height, b.y) - LIST_MARGIN);
@@ -530,11 +536,11 @@ class Select extends Component<SelectProps> implements FormControl {
 			focusIndex(enabled[0]);
 	}
 
-	/** Whether its list of options is open. **/
+	/** Returns whether the option list is open. **/
 	public function isOpen():Bool
 		return open != null;
 
-	/** Gap the open list keeps from the window's edge. **/
+	/** Minimum gap between the open list and the window edge. **/
 	static inline var LIST_MARGIN = 8.0;
 
 	static final CHEVRON = ashui.svg.SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>);

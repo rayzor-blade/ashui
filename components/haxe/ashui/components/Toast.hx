@@ -20,15 +20,15 @@ typedef ToastOptions = {
 	title:String,
 	?description:String,
 	?variant:ToastVariant,
-	/** Seconds it shows for, while the pointer is not on it; 5 by default, 0 until it is dismissed. **/
+	/** Display duration in seconds, paused while hovered. Defaults to 5; zero keeps the toast until dismissed. **/
 	?duration:Float,
-	/** A button on it: its label, and what it does before the toast goes. **/
+	/** Action label and callback. Runs the callback before dismissing the toast. **/
 	?action:{label:String, run:Void->Void},
-	/** Whether it has a close button; true by default. **/
+	/** Shows a close button. Defaults to true. **/
 	?closable:Bool
 }
 
-/** A shown toast, to take it away before its time. **/
+/** Handle for dismissing a toast before its duration expires. **/
 class ToastHandle {
 	final entry:ToastEntry;
 
@@ -40,7 +40,7 @@ class ToastHandle {
 		entry.machine.send(Dismiss);
 }
 
-/** Where a toast is: shown, held while the pointer is on it, leaving, gone. **/
+/** Toast lifecycle: shown, paused on hover, leaving, or removed. **/
 private enum ToastState {
 	Shown;
 	Held;
@@ -57,24 +57,26 @@ private enum ToastEvent {
 }
 
 /**
-	The toasts: placed once, at the end of the app's root, it stacks every
-	toast `Toaster.show` makes in a corner, the newest nearest the edge.
-	Each toast stays its `duration`, longer while the pointer is on it, then
-	slides away; the rest close the gap by layout animation. Its life is a
-	`Machine`: `data-state` on the toast is shown, held or leaving.
+	Displays and manages toast notifications in a window corner.
+
+	Place one `Toaster` at the end of the application root. `Toaster.show`
+	adds notifications, with the newest nearest the edge. Hovering pauses
+	the dismissal timer. Toasts slide out on dismissal and the remaining
+	items close the gap with layout animation. An FSM manages the
+	`shown`, `held`, and `leaving` states.
 
 	```haxe
 	<div ...>{app}<toaster /></div>
 	Toaster.show({title: "Saved", description: "Your changes are saved.", variant: Success});
 	```
 
-	CSS: `.ui-toaster` (`[data-position]`), `.ui-toast` (`[data-variant]`,
-	`[data-state]`), `.ui-toast-icon`, `.ui-toast-body`, `.ui-toast-title`,
-	`.ui-toast-description`, `.ui-toast-close`; `--ui-toast-bg`,
-	`-border`, `-radius`, `-width`, `-shadow`.
+	CSS: `.ui-toaster[data-position]`, `.ui-toast` with `[data-variant]` and
+	`[data-state]`, `.ui-toast-icon`, `.ui-toast-body`, `.ui-toast-title`,
+	`.ui-toast-description`, and `.ui-toast-close`. Variables:
+	`--ui-toast-bg`, `-border`, `-radius`, `-width`, and `-shadow`.
 **/
 class Toaster extends Component<{?position:String, ?id:String}> {
-	/** The toaster `show` puts toasts in: the last one made. **/
+	/** Destination for `show()`. Uses the most recently created toaster. **/
 	public static var current(default, null):Null<Toaster> = null;
 
 	@:allow(ashui.components)
@@ -90,7 +92,7 @@ class Toaster extends Component<{?position:String, ?id:String}> {
 		return root;
 	}
 
-	/** Shows a toast in the current toaster; its handle dismisses it early. Without a toaster, nothing is shown. **/
+	/** Shows a notification in the current toaster and returns a dismissal handle. Returns null if no toaster exists. **/
 	public static function show(options:ToastOptions):Null<ToastHandle> {
 		var toaster = current;
 		if (toaster == null)

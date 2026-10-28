@@ -14,41 +14,42 @@ typedef TableProps = {
 }
 
 typedef ColgroupProps = {
-	/** Columns it stands for when it holds no `<col>`; 1 by default. **/
+	/** Number of columns when no `<col>` children are supplied. Defaults to 1. **/
 	?span:Int
 }
 
 typedef ColProps = {
-	/** Columns it stands for; 1 by default. **/
+	/** Number of columns represented. Defaults to 1. **/
 	?span:Int,
 
-	/** Its width: layout units (`"120"`), a percentage of the table (`"25%"`), or a share of what is left (`"2*"`); sized by its cells by default. **/
+	/** Column width: layout units (`"120"`), table percentage (`"25%"`), or remaining-space share (`"2*"`). Defaults to content sizing. **/
 	?width:String
 }
 
 typedef CellProps = {
-	/** Columns it spans; 1 by default. **/
+	/** Number of columns spanned by the cell. Defaults to 1. **/
 	?colspan:Int,
 
-	/** Rows it spans within its row group; 1 by default, 0 through the group's end. **/
+	/** Number of rows spanned within the row group. Defaults to 1; zero spans all remaining rows in the group. **/
 	?rowspan:Int,
 
 	?id:String
 }
 
 /**
-	HTML's `<table>`, built in: rows, `<tr>`, directly or in `<thead>`,
-	`<tbody>` and `<tfoot>`, of cells, `<td>` and `<th>`, under an optional
-	`<caption>`. Every row is a grid of the same columns, so cells line up
-	down the table: as many as its widest row has, sized by their cells'
-	unbreakable and one-line widths unless a `<col>` gives a width. A cell's
-	`colspan` spans columns and its content constrains automatic tracks.
-	`rowspan` spans rows in the same group, with 0 spanning its remaining rows.
-	Rows that come or go later are laid out the same. Cells retain their row
-	parents for CSS and input, including when they extend into a later row.
+	A table with shared column sizing and spanning cells.
+	Use `<table>` in HXX with `<tr>` rows containing `<td>` or `<th>` cells.
+	Rows can be direct children or grouped in `<thead>`, `<tbody>`, and
+	`<tfoot>`. An optional `<caption>` labels the table.
 
-	Its look is the user-agent stylesheet's `table`, `caption`, `thead`,
-	`tbody`, `tfoot`, `tr`, `th` and `td`.
+	All rows share columns. Automatic widths use cell content measurements;
+	`<col>` can set explicit widths. `colspan` contributes content constraints
+	across columns. `rowspan` extends within the row group, with zero spanning
+	the remaining rows. Dynamic rows use the same layout rules, and spanning
+	cells retain their row parents for CSS and input.
+
+	The user-agent stylesheet styles `table`, `caption`, `thead`, `tbody`,
+	`tfoot`, `tr`, `th`, and `td`.
 **/
 class Table extends Component<TableProps> {
 	function render():Element {
@@ -357,7 +358,7 @@ private class TableColumns {
 			}
 	}
 
-	/** A column's track: its width, or an equal share that may shrink below its content. **/
+	/** Returns an explicit column track, or an equal share allowed to shrink below content width. **/
 	static function track(width:Null<String>):String {
 		if (width == null || StringTools.trim(width) == "")
 			return "minmax(0, 1fr)";
@@ -375,7 +376,7 @@ private class TableColumns {
 		return identity != null && Lambda.exists(identity.types, t -> types.indexOf(t) >= 0);
 	}
 
-	/** Whether a change of `parent`'s children moves this table's rows or cells. **/
+	/** Returns whether a child-list change affects this table's rows or cells. **/
 	static function within(tree:LayoutTree, table:haxe.Int64, parent:haxe.Int64):Bool {
 		if (parent == table)
 			return true;
@@ -428,7 +429,7 @@ private class TableColumns {
 	}
 }
 
-/** HTML's `<colgroup>`: columns of a table, given by the `<col>`s it holds or by its `span`. Not drawn. **/
+/** Declares table columns using `<col>` children or `span`. Produces no visible content. **/
 class Colgroup extends Component<ColgroupProps> {
 	function render():Element
 		return new Div({tag: "colgroup"});
@@ -441,7 +442,7 @@ class Colgroup extends Component<ColgroupProps> {
 	}
 }
 
-/** HTML's `<col>`: one or more columns of a table and their width. Not drawn. **/
+/** Declares a width for one or more table columns. Produces no visible content. **/
 class Col extends Component<ColProps> {
 	function render():Element
 		return new Div({tag: "col"});
@@ -450,7 +451,7 @@ class Col extends Component<ColProps> {
 		return props.span != null && props.span > 0 ? props.span : 1;
 }
 
-/** What `<td>` and `<th>` share: their spans, and a way for the table to find them. **/
+/** Shared cell behavior for `<td>` and `<th>`, including spans and table registration. **/
 abstract class Cell extends Component<CellProps> {
 	static final byNode = new Map<String, Cell>();
 
@@ -487,13 +488,13 @@ abstract class Cell extends Component<CellProps> {
 		return byNode.get(haxe.Int64.toStr(node));
 }
 
-/** HTML's `<td>`: a cell of a table. **/
+/** A data cell, written as `<td>` in HXX. **/
 class Td extends Cell {
 	function render():Element
 		return cell("td");
 }
 
-/** HTML's `<th>`: a heading cell of a table. **/
+/** A heading cell, written as `<th>` in HXX. **/
 class Th extends Cell {
 	function render():Element
 		return cell("th");

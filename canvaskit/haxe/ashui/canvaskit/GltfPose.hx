@@ -8,9 +8,10 @@ import ashui.math.Vec3;
 import haxe.io.Bytes;
 
 /**
-	Where a glTF scene's nodes are, and its meshes' morph weights: at rest
-	until an animation moves them. The time is the caller's; a game keeps
-	its own clock, loops, blends or scrubs, and plays each frame:
+	Node transforms and morph weights for a glTF scene.
+
+	Starts at rest; `play` samples an animation at a caller-supplied time.
+	The application controls the clock, looping, blending, and scrubbing.
 
 	```haxe
 	var pose = new GltfPose(drone);
@@ -21,11 +22,10 @@ import haxe.io.Bytes;
 	}} />;
 	```
 
-	`update` works out each node's transform in the scene into `matrices`,
-	and `palette` a skin's joint matrices into a buffer ready to upload;
-	`weights` holds each node's morph weights. A pass that skins or morphs
-	the meshes itself reads them; `world` and `joints` give the same as
-	`Mat4`s.
+	`update` writes world transforms into `matrices`; `palette` writes skin
+	joint matrices into an upload buffer. `weights` stores node morph weights.
+	Custom skinning and morph passes can read these buffers, or use the
+	`world` and `joints` matrix arrays.
 **/
 class GltfPose {
 	public final scene:Gltf;
@@ -33,27 +33,27 @@ class GltfPose {
 	public final rotations:Array<Quat>;
 	public final scales:Array<Vec3>;
 
-	/** Each node's mesh's morph target weights. **/
+	/** Morph-target weights per node. **/
 	public final weights:Array<Array<Float>>;
 
-	/** Whether `draw` draws each node's mesh; all true to begin with. **/
+	/** Whether each node mesh is drawn. Defaults to true for every node. **/
 	public final visible:Array<Bool>;
 
-	/** Bytes to a matrix in `matrices` and `palette`: sixteen 32-bit floats, column by column. **/
+	/** Bytes per column-major matrix: sixteen 32-bit floats. **/
 	public static inline var MATRIX_BYTES = 64;
 
-	/** Each node's transform in the scene once `update` has run, `MATRIX_BYTES` a node in `Gltf.nodes` order. **/
+	/** World transforms after `update`, with `MATRIX_BYTES` per node in `Gltf.nodes` order. **/
 	public final matrices:Bytes;
 
-	/** The default scene's tree, each node after its parent. **/
+	/** Default-scene nodes in parent-before-child order. **/
 	final order:Array<Int> = [];
 
-	/** Each node's parent in that tree, -1 for a root or a node outside it. **/
+	/** Parent indices in the default scene, or -1 for roots and nodes outside it. **/
 	final above:Array<Int>;
 
 	final reached:Array<Bool>;
 
-	/** Each skin's inverse bind matrices as 32-bit floats, made the first time it is asked for. **/
+	/** Lazily converted inverse bind matrices per skin, stored as 32-bit floats. **/
 	final binds:Array<Null<Bytes>>;
 
 	final sampled:Array<Float> = [0, 0, 0, 0];
@@ -83,7 +83,7 @@ class GltfPose {
 			visit(r, -1, 0);
 	}
 
-	/** Every node back where the file has it. **/
+	/** Restores every node to its file-defined rest state. **/
 	public function reset():Void {
 		for (i in 0...scene.nodes.length) {
 			var n = scene.nodes[i];
@@ -95,7 +95,7 @@ class GltfPose {
 		}
 	}
 
-	/** The nodes `animation` moves where it has them at `time` seconds; the rest stay where they are. **/
+	/** Samples animated properties at `time` seconds. Leaves untargeted properties unchanged. **/
 	public function play(animation:GltfAnimation, time:Float):Void {
 		for (c in animation.channels) {
 			if (c.node < 0 || c.node >= scene.nodes.length)
@@ -119,17 +119,16 @@ class GltfPose {
 		}
 	}
 
-	/** A node's transform in its parent. A node the file gives as a matrix keeps it. **/
+	/** Returns the node parent-relative transform, preserving any explicit file matrix. **/
 	public function local(node:Int):Mat4 {
 		var n = scene.nodes[node];
 		return n.matrix != null ? n.matrix : Mat4.compose(translations[node], rotations[node], scales[node]);
 	}
 
 	/**
-		Works out each node's transform in the scene into `matrices`, a
-		parent's before its children's; a node outside the default scene's
-		tree gets its own. With `-D ash_simd` each matrix product is four
-		columns of four lanes.
+		Writes world transforms to `matrices` in parent-before-child order.
+		Nodes outside the default scene use their local transform.
+		`-D ash_simd` enables SIMD matrix multiplication.
 	**/
 	public function update():Void {
 		for (i in 0...scene.nodes.length)
@@ -145,13 +144,10 @@ class GltfPose {
 	}
 
 	/**
-		A skin's joint matrices into `out` from `offset`, `MATRIX_BYTES` a
-		joint in its `joints` order, as a joint buffer is uploaded: each
-		joint's transform in the scene, as `update` last worked it out, times
-		its inverse bind matrix. That takes a vertex from where the mesh has
-		it at rest to where the joints put it in the scene; glTF has the
-		skinned mesh's own node not place it, so it is drawn with no further
-		transform.
+		Writes skin joint matrices into `out` at `offset`, with `MATRIX_BYTES`
+		per joint in skin order. Uses the latest world transforms from `update`
+		multiplied by inverse bind matrices. The result maps rest vertices to
+		world space; draw skinned meshes without another node transform.
 	**/
 	public function palette(skin:Int, out:Bytes, offset = 0):Void {
 		var s = scene.skins[skin];
@@ -166,13 +162,13 @@ class GltfPose {
 			multiply(matrices, s.joints[j] * MATRIX_BYTES, b, j * MATRIX_BYTES, out, offset + j * MATRIX_BYTES, SIMD);
 	}
 
-	/** Each node's transform in the scene, in `Gltf.nodes` order. **/
+	/** Returns world transforms in `Gltf.nodes` order. **/
 	public function world():Array<Mat4> {
 		update();
 		return [for (i in 0...scene.nodes.length) readMat4(matrices, i * MATRIX_BYTES)];
 	}
 
-	/** A skin's joint matrices as `palette` gives them, one a joint. **/
+	/** Returns one joint matrix per skin joint, equivalent to the `palette` buffer. **/
 	public function joints(skin:Int):Array<Mat4> {
 		update();
 		var n = scene.skins[skin].joints.length;
@@ -182,10 +178,9 @@ class GltfPose {
 	}
 
 	/**
-		Draws the meshes of visible nodes without a skin where this pose puts
-		them, all placed by `transform` too when it is given, each in the
-		material `material` gives for its own when that is given; morph
-		targets are not applied. A skinned mesh is the game's to draw.
+		Draws visible, unskinned meshes with the current pose. Optionally adds
+		a transform and maps materials through `material`. Does not apply morph
+		targets; the application draws skinned geometry in its own pass.
 	**/
 	public function draw(ctx:DrawContext, ?transform:Mat4, ?material:ashui.draw3d.Material->ashui.draw3d.Material):Void {
 		update();
@@ -200,7 +195,7 @@ class GltfPose {
 		}
 	}
 
-	/** Node `i`'s transform in its parent into `out` at `o`, as 32-bit floats column by column. **/
+	/** Writes a node local transform as column-major 32-bit floats at the given byte offset. **/
 	function writeLocal(i:Int, out:Bytes, o:Int):Void {
 		var m = scene.nodes[i].matrix;
 		if (m != null) {
@@ -240,7 +235,7 @@ class GltfPose {
 	/** Whether matrix products go through ash-simd. **/
 	static inline var SIMD = #if (ash_simd && hl) true #else false #end;
 
-	/** `a` times `b` into `out`, each a column-major matrix of 32-bit floats at its offset; `out` is neither. **/
+	/** Multiplies column-major float matrices into a distinct output buffer. **/
 	static function multiply(a:Bytes, ai:Int, b:Bytes, bi:Int, out:Bytes, oi:Int, simd:Bool):Void {
 		#if (ash_simd && hl)
 		if (simd) {

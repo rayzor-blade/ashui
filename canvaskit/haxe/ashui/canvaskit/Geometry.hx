@@ -5,12 +5,12 @@ import ashui.draw3d.MeshData;
 import ashui.math.Vec3;
 
 /**
-	Meshes of simple shapes, centred on the origin, with normals, texture
-	coordinates and tangents, made of `material` (`Material.DEFAULT` when
-	it is left out). Curved ones take how many pieces to make them of.
+	Primitive mesh builders centered at the origin.
+	Meshes include normals, texture coordinates, and tangents. Omitted
+	materials use `Material.DEFAULT`; segment counts control curved detail.
 **/
 class Geometry {
-	/** A box `width` by `height` by `depth`, each face its own four vertices so its edges stay sharp. **/
+	/** Builds a box with separate face vertices to preserve sharp edges. **/
 	public static function box(width = 1.0, height = 1.0, depth = 1.0, ?material:Material):MeshData {
 		var p:Array<Float> = [],
 			n:Array<Float> = [],
@@ -40,7 +40,7 @@ class Geometry {
 		return MeshData.build(p, idx, n, uv, null, material);
 	}
 
-	/** A sphere of `radius`, in `rings` from pole to pole and `segments` round. **/
+	/** Builds a sphere with `rings` from pole to pole and `segments` around the equator. **/
 	public static function sphere(radius = 0.5, rings = 32, segments = 48, ?material:Material):MeshData {
 		var p:Array<Float> = [],
 			n:Array<Float> = [],
@@ -72,7 +72,7 @@ class Geometry {
 		return MeshData.build(p, idx, n, uv, null, material);
 	}
 
-	/** A flat square `width` by `depth` on the ground, facing up, in `divisions` each way. **/
+	/** Builds an upward-facing ground plane with the given width, depth, and divisions. **/
 	public static function plane(width = 1.0, depth = 1.0, divisions = 1, ?material:Material):MeshData {
 		var p:Array<Float> = [],
 			n:Array<Float> = [],
@@ -100,13 +100,10 @@ class Geometry {
 	}
 
 	/**
-		Ground `width` by `depth`, centred on the origin and raised by
-		`heightMap`. Black in the map stays on the plane and white rises to
-		`height`. The ground is split into `divisions` squares each way, and
-		each vertex takes the map's pixel at its position. Texture coordinates
-		run from 0 to 1 across the ground, so a material's `textureTransform`
-		can repeat a texture over it. Use it with a terrain height map or a
-		material's displacement map.
+		Builds terrain from a height map. Black remains at the base plane and
+		white rises to `height`. The centered grid has `divisions` cells per axis,
+		with vertex heights sampled from the bitmap. UVs span 0–1; use a material
+		`textureTransform` to repeat textures. Accepts terrain or displacement maps.
 	**/
 	public static function terrain(heightMap:ashui.types.Bitmap, width = 10.0, depth = 10.0, height = 1.0, divisions = 256, ?material:Material):MeshData {
 		var d = Std.int(Math.max(1, divisions));
@@ -123,14 +120,10 @@ class Geometry {
 	}
 
 	/**
-		Ground `width` by `depth`, centred on the origin and split into
-		`divisions` squares each way. Each vertex sits `heightAt(i, j)` above
-		the plane, where `i` counts across and `j` counts into the scene, both
-		from 0 to `divisions`. Normals come from the slopes between heights,
-		and texture coordinates run from 0 to 1 across. `heightAt` is also
-		asked for one step past each edge, to get the slopes there right, so
-		pieces of ground built side by side from the same height function
-		meet without a visible seam in their shading.
+		Builds a centered terrain grid from `heightAt(i, j)`, where both indices
+		run from zero through `divisions`. Samples one step beyond each edge to
+		calculate slope normals, allowing adjacent tiles using the same function
+		to share smooth shading. UVs span 0–1.
 	**/
 	public static function heightField(width:Float, depth:Float, divisions:Int, heightAt:(i:Int, j:Int) -> Float, ?material:Material):MeshData {
 		var d = Std.int(Math.max(1, divisions)), w = d + 1, ring = d + 3;
@@ -167,7 +160,7 @@ class Geometry {
 		return MeshData.build(p, idx, n, uv, null, material);
 	}
 
-	/** An upright cylinder of `radius` and `height`, closed at both ends, in `segments` round. **/
+	/** Builds an upright cylinder with capped ends and the given radial segment count. **/
 	public static function cylinder(radius = 0.5, height = 1.0, segments = 48, ?material:Material):MeshData {
 		var p:Array<Float> = [],
 			n:Array<Float> = [],
@@ -214,7 +207,7 @@ class Geometry {
 		return MeshData.build(p, idx, n, uv, null, material);
 	}
 
-	/** A ring lying flat, `radius` to the middle of its tube and the tube `tube` thick, in `rings` round and `sides` round the tube. **/
+	/** Builds a flat torus. `radius` reaches the tube center; `tube` sets tube thickness. `rings` and `sides` control subdivisions. **/
 	public static function torus(radius = 0.5, tube = 0.2, rings = 48, sides = 24, ?material:Material):MeshData {
 		var p:Array<Float> = [],
 			n:Array<Float> = [],
@@ -248,13 +241,10 @@ class Geometry {
 	}
 
 	/**
-		A surface turned round the upright axis, as on a lathe: `profile`'s
-		points, each a radius `r` from the axis and a height `y`, swept round
-		in `segments`. The surface faces the side to the right of the profile's
-		direction in the plane of `r` and `y`: going up at a positive radius,
-		it faces out. A closed profile, such as a tyre's section, joins its last
-		point to its first; a profile that reaches the axis closes there.
-		Normals are smooth, from each point's neighbours along the profile.
+		Revolves a radius/height profile around the vertical axis. An upward
+		profile at positive radius faces outward; normals blend along the profile.
+		`closed` joins the profile ends, as for a tire. A profile touching the
+		axis closes at that point.
 	**/
 	public static function lathe(profile:Array<{r:Float, y:Float}>, segments = 48, closed = false, ?material:Material):MeshData {
 		var pts = closed ? profile.concat([profile[0]]) : profile;

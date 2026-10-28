@@ -10,33 +10,33 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 typedef TextAreaProps = {
-	/** Its id, which CSS selectors and a label's for attribute find. **/
+	/** Element ID used by CSS selectors and a label `for` attribute. **/
 	?id:String,
-	/** The text, read and written: the area sets it as the user edits. A signal of its own by default. **/
+	/** Editable text. Uses the supplied signal, or creates a local signal when omitted. **/
 	?value:Signal<String>,
-	/** Shown, dimmed, while the value is empty. **/
+	/** Placeholder text shown while the value is empty. **/
 	?placeholder:String,
 	?disabled:IntoReactive<Bool>,
-	/** Its size in layout units; 320 by 120 by default. **/
+	/** Width in layout units. The default size is 320 by 120. **/
 	?width:Single,
 	?height:Single,
-	/** Called with the new value after each edit. **/
+	/** Receives the new value after each edit. **/
 	?onInput:String->Void,
-	/** Called with the value on Command+Enter (Control+Enter elsewhere). **/
+	/** Receives the value on Command+Enter, or Control+Enter on other platforms. **/
 	?onSubmit:String->Void,
 
-	/** Its name, which a form submits its text under. **/
+	/** Name used to submit the text in a form. **/
 	?name:String,
 
-	/** Invalid while empty. **/
+	/** Requires a nonempty value. **/
 	?required:Bool,
 
-	/** Invalid when shorter, once the user has edited it, or longer, in characters. **/
+	/** Minimum character count, enforced after user edits. `maxlength` limits the maximum count. **/
 	?minlength:Int,
 
 	?maxlength:Int,
 
-	/** Called when it is checked and found invalid, by its form's submit or a script's `checkValidity`, as HTML's `invalid` event. **/
+	/** Runs when form submission or `checkValidity()` finds the control invalid. **/
 	?onInvalid:Void->Void
 }
 
@@ -44,7 +44,7 @@ typedef TextAreaProps = {
 	A multiline text editor with word wrapping and scrolling.
 	Uses the same editing model as `TextField`, with these additional controls:
 
-	- Enter inserts a newline; Command+Enter calls `onSubmit`.
+	- Enter inserts a newline; Command+Enter (Control+Enter elsewhere) calls `onSubmit`.
 	- Up and Down preserve the caret's horizontal position.
 	- Page Up and Page Down move by the visible page height.
 	- Home and End move to line ends. Command+arrows move to line or text ends.
@@ -59,15 +59,15 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 	static final layouts = new haxe.ds.ObjectMap<ashui.layout.LayoutTree, Array<TextArea>>();
 	static var layoutHook = false;
 
-	/** The text area at `node`, null if it is none, for a form to find. **/
+	/** Returns the text area registered for a node, or null when absent. **/
 	public static function at(node:haxe.Int64):Null<TextArea>
 		return byNode.get(haxe.Int64.toStr(node));
 
 	static inline var PADDING = 10.0;
 	static inline var BORDER = 2.0;
-	/** Room kept right of the text for the caret at the end of a full line. **/
+	/** Space reserved for the caret at the end of a full line. **/
 	static inline var CARET_ROOM = 4.0;
-	/** How far past a line's text a selection that runs on to the next line reaches. **/
+	/** Extra selection width at a newline. **/
 	static inline var LINE_END = 5.0;
 
 	public var editing(default, null):TextEditing;
@@ -209,7 +209,7 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 		return box;
 	}
 
-	/** Actual CSS padding/borders and layout width govern wrapping and editing together (git-bug e8a1b50). **/
+	/** Uses CSS padding, borders, and layout width for both wrapping and editing (e8a1b50). **/
 	function measureLayout():Bool {
 		var b = box.tree.getBounds(box.node);
 		if (b == null || (!geometryDirty && b.width == laidWidth && b.height == laidHeight)) return false;
@@ -226,7 +226,7 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 		return true;
 	}
 
-	/** The constraints it breaks now, each with what a browser says of it. **/
+	/** Returns the current validation failures and their messages. **/
 	function problems():Array<FormStates.ValidityProblem> {
 		var v = editing.value.get();
 		if (v == "")
@@ -240,11 +240,11 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 	public function formValue():Null<String>
 		return editing.value.get();
 
-	/** Whether it is valid now; when it is not, `onInvalid` is called, as HTML fires `invalid`. **/
+	/** Returns whether the value is valid. Calls `onInvalid` when invalid. **/
 	public function checkValidity():Bool
 		return FormStates.check(this, props.onInvalid);
 
-	/** As `checkValidity`; when it is invalid it is also marked touched and takes focus. **/
+	/** Checks validity. An invalid control is marked touched and focused. **/
 	public function reportValidity():Bool {
 		if (checkValidity())
 			return true;
@@ -253,15 +253,15 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 		return false;
 	}
 
-	/** Which of its constraints it breaks now, as HTML's `ValidityState` says. **/
+	/** Returns the current constraint flags, following HTML `ValidityState`. **/
 	public function validity():FormStates.ValidityState
 		return validityOf.state();
 
-	/** Why it is invalid, as a browser would say it; empty when it is valid. **/
+	/** Returns the validation message, or an empty string when valid. **/
 	public function validationMessage():String
 		return validityOf.message();
 
-	/** Makes it invalid with `message`, as HTML's `setCustomValidity` does; empty makes it valid again. **/
+	/** Sets a custom validation error. An empty string clears the custom error. **/
 	public function setCustomValidity(message:String):Void
 		validityOf.setCustom(message);
 
@@ -276,7 +276,7 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 	public function focus():Void
 		Focus.set(editing.interaction, true);
 
-	/** The selection as one rect per line it covers, in the text's coordinates. **/
+	/** Returns one selection rectangle per covered line, in text coordinates. **/
 	function selectionRects(caret:Int, anchor:Int, s:String):Array<{x:Single, y:Single, w:Single, h:Single}> {
 		var e = editing;
 		if (caret == anchor)
@@ -315,7 +315,7 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 			scroller.jumpTo(scroller.x.get(), to);
 	}
 
-	/** A window point from the text's top-left, scrolled content included. **/
+	/** Converts a window X coordinate to text coordinates, including scroll offset. **/
 	function textX(windowX:Float):Float {
 		var b = text.tree.getBounds(text.node);
 		return b == null ? 0 : windowX - b.x + (scroller != null ? scroller.x.get() : 0);

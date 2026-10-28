@@ -13,13 +13,13 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 typedef InputProps = {
-	/** HTML's input type: `checkbox`, `radio`, `range`, `number`, or a text type: `text` (the default), `password`, `search`, `email`, `tel` or `url`. **/
+	/** Input type: `checkbox`, `radio`, `range`, `number`, `text` (default), `password`, `search`, `email`, `tel`, or `url`. **/
 	?type:String,
 
-	/** Whether it is checked. A signal is read and written, so the input and your code share it; a constant sets it once. **/
+	/** Checked state. A supplied signal is read and updated; a constant sets the initial state. **/
 	?checked:IntoReactive<Bool>,
 
-	/** A checkbox in neither state, until it is clicked; CSS's `:indeterminate`. **/
+	/** Shows a checkbox in the indeterminate state until activated. Exposes CSS `:indeterminate`. **/
 	?indeterminate:IntoReactive<Bool>,
 
 	/**
@@ -29,58 +29,56 @@ typedef InputProps = {
 	**/
 	?value:IntoReactive<String>,
 
-	/** A number's or a range's value, read and written when a signal; NaN while a number input is empty. **/
+	/** Numeric value for number and range inputs. Updates a supplied signal; an empty number input has value NaN. **/
 	?valueAsNumber:IntoReactive<Float>,
 
-	/** A number's or a range's bounds and the step its value moves by; a range is 0 to 100 in steps of 1 by default. **/
+	/** Lower bound for number and range inputs. Ranges default to 0–100 with a step of 1. **/
 	?min:Float,
 	?max:Float,
 	?step:Float,
 
-	/** A range's axis: horizontal (the default) or vertical, increasing from bottom to top. **/
+	/** Range axis: `horizontal` (default) or `vertical`. Vertical values increase from bottom to top. **/
 	?orientation:String,
 
-	/** Shown, dimmed, while a text input or a number is empty; CSS's `:placeholder-shown` meanwhile. **/
+	/** Placeholder for an empty text or number input. Exposes CSS `:placeholder-shown`. **/
 	?placeholder:String,
 
-	/** Must be filled in, ticked, or one of its radios chosen, for it to be valid, and for a form it is in to submit. **/
+	/** Requires a value, a checked checkbox, or a selected radio before form submission. **/
 	?required:Bool,
 
-	/** A text input's value must match this regular expression, the whole value. **/
+	/** Regular expression that must match the entire text value. **/
 	?pattern:String,
 
-	/** A text input's least and greatest length; no more than `maxlength` can be typed or pasted. **/
+	/** Minimum text length. `maxlength` limits typed and pasted text. **/
 	?minlength:Int,
 	?maxlength:Int,
 
 	/**
-		Radios sharing a value: the checked one's, set as one is checked, so
-		a radio is checked while the group holds its value. Radios with a
-		group form one set for the arrow keys.
+		Shared selected value for a radio group. Selecting a radio updates this
+		signal. Radios sharing the signal also form one keyboard navigation group.
 	**/
 	?group:Signal<String>,
 
-	/** Radios of the same name in a tree form one set, as HTML's do, when they share no `group`. **/
+	/** Form field name. Radios with the same name in one tree form a group when no explicit `group` is supplied. **/
 	?name:String,
 
 	?disabled:IntoReactive<Bool>,
 
-	/** Its id, which CSS's `#id` and a label's `for` find. **/
+	/** Element ID used by CSS selectors and a label `for` attribute. **/
 	?id:String,
 
-	/** A checkbox's or a radio's: called after a click, Space or a label checks or unchecks it, with whether it is checked now. **/
+	/** Receives the new checked state after checkbox or radio activation by pointer, Space, or label. **/
 	?onChange:Bool->Void,
 
-	/** A text input's, a number's or a range's: called with the value as text after each edit, step or drag. **/
+	/** Receives the text value after an edit, step, or range drag. **/
 	?onInput:String->Void,
 
-	/** Called when it is checked and found invalid, by its form's submit or a script's `checkValidity`, as HTML's `invalid` event. **/
+	/** Runs when form submission or `checkValidity()` finds the control invalid. **/
 	?onInvalid:Void->Void,
 
 	/**
-		A password's: while true it shows its value rather than dots, as a
-		reveal button does; copying stays refused. Not HTML's, which has no
-		such attribute.
+		Shows password characters instead of dots while true. Copying remains
+		disabled. This attribute extends the HTML password input behavior.
 	**/
 	?reveal:IntoReactive<Bool>
 }
@@ -112,44 +110,44 @@ typedef InputProps = {
 	Number steppers use `.steppers`, `.step-up` and `.step-down`.
 **/
 class Input extends Component<InputProps> implements FormControl {
-	/** Inputs by node, for labels to find. **/
+	/** Input lookup used by labels. **/
 	static final byNode = new Map<String, Input>();
 
-	/** The radios of each tree, in no order; `tree.order()` gives theirs. **/
+	/** Radios registered per tree. Resolve document order through `tree.order()`. **/
 	static final radios = new haxe.ds.ObjectMap<LayoutTree, Array<Input>>();
 
 	static var checkMark:Null<ashui.svg.SvgDocument> = null;
 	static var dashMark:Null<ashui.svg.SvgDocument> = null;
 
-	/** Whether it is checked; the caller's signal when `checked` was one. **/
+	/** Current checked state. Uses the supplied signal when available. **/
 	public var state(default, null):Signal<Bool>;
 
-	/** A text input's or a number's text; the caller's signal when `value` was one. **/
+	/** Current text for text and number inputs. Uses the caller `value` signal when supplied. **/
 	public var value(default, null):Null<Signal<String>> = null;
 
-	/** A number's or a range's value; the caller's signal when `valueAsNumber` was one. **/
+	/** Current numeric value for number and range inputs. Uses the caller `valueAsNumber` signal when supplied. **/
 	public var valueAsNumber(default, null):Null<Signal<Float>> = null;
 
-	/** A text input's or a number's editing: its caret, selection and what it shows. **/
+	/** Caret, selection, and display state for text and number inputs. **/
 	public var editing(default, null):Null<TextEditing> = null;
 
 	var interaction:Interaction;
 	var setRange:Null<Float->Void>;
 	var dragRange:Null<(Float, Float) -> Void>;
 
-	/** A composed range's additional live limit, applied before publishing an edit (095fab4). **/
+	/** Additional limit applied before a range edit is published. Used by composed range controls (095fab4). **/
 	public var rangeLimit:Null<Float->Float>;
 
-	/** Changed by the user and left, or its form submitted: `:user-invalid` shows from then on. **/
+	/** Tracks whether editing and blur, or form submission, have enabled user-validity styles. **/
 	final touched = Signal.make(false);
 
-	/** Its constraints and a script's message, which its form states and `validity` read. **/
+	/** Constraint results and custom error message, shared by validity methods and CSS states. **/
 	var validityOf:FormStates.Validity;
 
-	/** Edited since it took focus, so leaving it touches it. **/
+	/** Whether the user has edited the value since focus began. **/
 	var edited = false;
 
-	/** What `reset` puts back. **/
+	/** Initial values restored by `reset()`. **/
 	var initial:{text:Null<String>, checked:Bool, group:Null<String>} = {text: null, checked: false, group: null};
 
 	var initialRange:Null<Float>;
@@ -171,7 +169,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return el;
 	}
 
-	/** Keeps its form states, those CSS reads, as its value and constraints make them. **/
+	/** Updates CSS form states from the current value and constraints. **/
 	function constrain(type:String):Void {
 		var i = interaction;
 		initial = {text: value != null ? value.get() : null, checked: state.get(), group: props.group != null ? props.group.get() : null};
@@ -187,7 +185,7 @@ class Input extends Component<InputProps> implements FormControl {
 		i.onFocus(_ -> edited = false);
 	}
 
-	/** The constraints it breaks now, each with what a browser says of it. **/
+	/** Returns the current validation failures and their messages. **/
 	function problems():Array<FormStates.ValidityProblem> {
 		var type = props.type == null ? "text" : props.type.toLowerCase();
 		inline function one(flag:FormStates.ValidityFlag, message:String):Array<FormStates.ValidityProblem>
@@ -231,11 +229,11 @@ class Input extends Component<InputProps> implements FormControl {
 		return out.concat(FormStates.lengthProblems(v, props.minlength, props.maxlength, touched.get()));
 	}
 
-	/** Whether it is valid now; when it is not, `onInvalid` is called, as HTML fires `invalid`. **/
+	/** Returns whether the value is valid. Calls `onInvalid` when invalid. **/
 	public function checkValidity():Bool
 		return FormStates.check(this, props.onInvalid);
 
-	/** As `checkValidity`; when it is invalid it is also marked touched and takes focus. **/
+	/** Checks validity. An invalid control is marked touched and focused. **/
 	public function reportValidity():Bool {
 		if (checkValidity())
 			return true;
@@ -244,23 +242,23 @@ class Input extends Component<InputProps> implements FormControl {
 		return false;
 	}
 
-	/** Which of its constraints it breaks now, as HTML's `ValidityState` says. **/
+	/** Returns the current constraint flags, following HTML `ValidityState`. **/
 	public function validity():FormStates.ValidityState
 		return validityOf.state();
 
-	/** Why it is invalid, as a browser would say it; empty when it is valid. **/
+	/** Returns the validation message, or an empty string when valid. **/
 	public function validationMessage():String
 		return validityOf.message();
 
-	/** Makes it invalid with `message`, as HTML's `setCustomValidity` does; empty makes it valid again. **/
+	/** Sets a custom validation error. An empty string clears the custom error. **/
 	public function setCustomValidity(message:String):Void
 		validityOf.setCustom(message);
 
-	/** Marks it as the user having changed it, as submitting its form does, so `:user-invalid` shows. **/
+	/** Marks the control touched so user-validity styles can appear. **/
 	public function touch():Void
 		touched.set(true);
 
-	/** Puts back the value it was built with, checked or not, and untouched, as a form's reset does. **/
+	/** Restores the initial value and checked state, then clears touched state. **/
 	public function reset():Void {
 		if (value != null && initial.text != null)
 			value.set(initial.text);
@@ -273,11 +271,11 @@ class Input extends Component<InputProps> implements FormControl {
 		touched.set(false);
 	}
 
-	/** Its name, which a form submits its value under; null for none. **/
+	/** Returns the form field name, or null when unnamed. **/
 	public function name():Null<String>
 		return props.name;
 
-	/** What a form submits for it: its value, a checkbox's or radio's only while checked; null for nothing. **/
+	/** Returns the value to submit, or null to omit the control. Checkboxes and radios submit only while checked. **/
 	public function formValue():Null<String> {
 		var type = props.type == null ? "text" : props.type.toLowerCase();
 		return switch type {
@@ -288,19 +286,19 @@ class Input extends Component<InputProps> implements FormControl {
 		}
 	}
 
-	/** Whether it is a text input or a number, where Enter submits its form. **/
+	/** Returns whether Enter submits the form for this input type. **/
 	public function submitsOnEnter():Bool {
 		var type = props.type == null ? "text" : props.type.toLowerCase();
 		return type == "number" || TEXT_TYPES.indexOf(type) >= 0;
 	}
 
-	/** Takes focus, as a form does to the first control that is invalid. **/
+	/** Moves focus to this control. **/
 	public function focus():Void
 		ashui.input.Focus.set(interaction, true);
 
 	static final TEXT_TYPES = ["text", "password", "search", "email", "tel", "url"];
 
-	/** The value prop as a constant, for a radio's or a checkbox's; null when it is not one. **/
+	/** Returns the constant value of a radio or checkbox, or null for other input types. **/
 	function constValue():Null<String>
 		return switch props.value {
 			case Const(v): v;
@@ -393,7 +391,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return box;
 	}
 
-	/** A text input, or a number: a `TextField`, with a number's steppers inside it. **/
+	/** Builds a `TextField` for text or number input, adding steppers for numbers. **/
 	function textual(type:String):Element {
 		var text = switch props.value {
 			case Bound(s): s;
@@ -493,7 +491,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return field;
 	}
 
-	/** A number's or a range's value: `valueAsNumber`, else `value` read as a number, else `initial`. **/
+	/** Resolves numeric state from `valueAsNumber`, then parsed `value`, then the initial value. **/
 	function numberState(initial:Float):Signal<Float> {
 		switch props.valueAsNumber {
 			case Bound(s):
@@ -510,7 +508,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return Signal.make(Math.isNaN(parsed) ? initial : parsed);
 	}
 
-	/** Moves a number by `by` steps from where it is, or from nothing, within its bounds. **/
+	/** Changes a number by `by` steps, clamped to its bounds. Also handles an empty value. **/
 	public function stepNumber(by:Int):Void {
 		if (valueAsNumber == null || by == 0 || interaction.disabled.get())
 			return;
@@ -530,16 +528,16 @@ class Input extends Component<InputProps> implements FormControl {
 	}
 
 	/**
-		Starts this range's existing pointer drag at window coordinates.
-		Composed controls can choose an endpoint, focus it, then delegate its
-		drag here. Inert for other input types or disabled ranges (095fab4).
+		Starts a range drag at window coordinates. Composed controls can select
+		and focus an endpoint, then delegate dragging here. Has no effect on
+		other input types or disabled ranges (095fab4).
 	**/
 	public function beginRangeDrag(x:Float, y:Float):Void {
 		if (dragRange != null && !interaction.disabled.get())
 			dragRange(x, y);
 	}
 
-	/** A range: a slider, its `.fill` and `.rest` either side of its `.thumb`, grown in proportion to the value. **/
+	/** Builds a range slider with `.fill`, `.thumb`, and `.rest` sized from the value. **/
 	function range():Element {
 		var vertical = props.orientation == "vertical";
 		if (props.orientation != null && props.orientation != "horizontal" && !vertical)
@@ -643,7 +641,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return box;
 	}
 
-	/** `v` on the grid of `step` from `min` (or 0), within `min` and `max` where given, rounded to the step's decimals. **/
+	/** Snaps a number to `step` from `min` (or zero), clamps to supplied bounds, and rounds to the step precision. **/
 	public static function constrainNumber(v:Float, ?min:Float, ?max:Float, step = 1.0):Float
 		return snap(v, min, max, step > 0 ? step : 1);
 
@@ -678,7 +676,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return Std.int(Math.max(0, (dot < 0 ? 0 : mantissa.length - dot - 1) - places));
 	}
 
-	/** `s` as a number, as HTML reads one: NaN when it is not one, or empty. **/
+	/** Parses a numeric input value. Returns NaN for empty or invalid text. **/
 	static function parseNumber(s:String):Float
 		return ~/^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?$/.match(StringTools.trim(s)) ? Std.parseFloat(StringTools.trim(s)) : Math.NaN;
 
@@ -699,7 +697,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return up ? upMark : downMark;
 	}
 
-	/** Checks or flips it, as a click, Space or its label does, or focuses any other type; nothing while it is disabled. **/
+	/** Toggles a checkbox, selects a radio, or focuses another input type. Disabled controls ignore activation. **/
 	public function activate():Void {
 		if (interaction.disabled.get())
 			return;
@@ -721,13 +719,13 @@ class Input extends Component<InputProps> implements FormControl {
 			props.onChange(state.get());
 	}
 
-	/** Whether it is checked now: a grouped radio while its group holds its value, read now rather than when `state` catches up. **/
+	/** Returns the current checked state. Grouped radios read the group directly rather than waiting for the state signal. **/
 	public function isChecked():Bool
 		return props.group != null
 			&& props.type != null
 			&& props.type.toLowerCase() == "radio" ? props.group.get() == constValue() : state.get();
 
-	/** Checks this radio: its group takes its value, or the others of its name uncheck. **/
+	/** Selects this radio and clears the other selection in its signal or named group. **/
 	function check():Void {
 		if (props.group != null) {
 			props.group.set(constValue());
@@ -739,7 +737,7 @@ class Input extends Component<InputProps> implements FormControl {
 				other.state.set(false);
 	}
 
-	/** The radios of this one's set, in document order: those sharing its group, or else its name. **/
+	/** Returns the radio group in document order, using the explicit group or the shared name. **/
 	function set():Array<Input> {
 		var all = radios.get(tree);
 		if (all == null)
@@ -757,7 +755,7 @@ class Input extends Component<InputProps> implements FormControl {
 		return mine;
 	}
 
-	/** Moves to the next (`by` 1) or previous (-1) enabled radio of the set, wrapping, focuses it and checks it. **/
+	/** Selects and focuses the next (`1`) or previous (`-1`) enabled radio, wrapping at either end. **/
 	function step(by:Int):Void {
 		var list = set().filter(r -> r == this || !r.interaction.disabled.get());
 		if (list.length < 2)
@@ -771,7 +769,7 @@ class Input extends Component<InputProps> implements FormControl {
 		}
 	}
 
-	/** The input at `node` of `tree`, for a label to operate; null if it is none. **/
+	/** Returns the input at a node in `tree`, or null when absent. **/
 	public static function at(tree:LayoutTree, node:haxe.Int64):Null<Input>
 		return byNode.get(haxe.Int64.toStr(node));
 }

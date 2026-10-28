@@ -5,14 +5,13 @@ import ashui.math.Vec3;
 import ashui.reactive.Signal;
 
 /**
-	A camera that circles a target: turned about it by `azimuth` (radians
-	round the vertical, 0 looking down -Z) and raised by `elevation`
-	(radians above the level), `distance` away. Each is a signal, so a
-	canvas that reads `camera()` while drawing draws again when the camera
-	moves, and only then.
+	A reactive camera orbiting a target.
+	`azimuth` rotates around the vertical axis in radians, with zero looking
+	down -Z. `elevation` sets radians above the horizontal, and `distance`
+	sets the target distance. These values are signals; drawing callbacks
+	that read `camera()` redraw when the camera changes.
 
-	`orbit`, `zoom` and `pan` move it as a drag, a scroll and a
-	shift-drag do in `SceneKit3D`.
+	`orbit`, `zoom`, and `pan` support the drag and scroll controls in `SceneKit`.
 **/
 class OrbitCamera {
 	public final azimuth:Signal<Float>;
@@ -21,12 +20,12 @@ class OrbitCamera {
 	public final target:Signal<Vec3>;
 	public final fovY:Signal<Float>;
 
-	/** How near and how far it may come. **/
+	/** Minimum target distance. `maxDistance` limits the maximum. **/
 	public var minDistance = 0.2;
 
 	public var maxDistance = 200.0;
 
-	/** How far above and below the level it may go: a little short of straight up or down, where the view would turn over. **/
+	/** Maximum absolute elevation in radians, stopping short of vertical to prevent the view from flipping. **/
 	public var maxElevation = 1.55;
 
 	final initial:{
@@ -51,31 +50,30 @@ class OrbitCamera {
 		};
 	}
 
-	/** Where it is. **/
+	/** Returns the camera world position. **/
 	public function eye():Vec3 {
 		var a = azimuth.get(), e = elevation.get(), d = distance.get();
 		var c = Math.cos(e);
 		return target.get().add(new Vec3(Math.sin(a) * c * d, Math.sin(e) * d, Math.cos(a) * c * d));
 	}
 
-	/** The camera to draw with; read while drawing, it is followed. **/
+	/** Returns the drawing camera. Reactive readers subscribe to camera changes. **/
 	public function camera():Camera
 		return new Camera(eye(), target.get(), null, fovY.get(), Math.max(0.01, distance.get() * 0.01), Math.max(100, distance.get() * 50));
 
-	/** Turned round the target by `dAzimuth` and raised by `dElevation`, in radians. **/
+	/** Rotates around the target by azimuth and elevation deltas in radians. **/
 	public function orbit(dAzimuth:Float, dElevation:Float):Void {
 		azimuth.set(azimuth.get() + dAzimuth);
 		elevation.set(Math.max(-maxElevation, Math.min(maxElevation, elevation.get() + dElevation)));
 	}
 
-	/** Nearer by `factor` below 1, further above it. **/
+	/** Multiplies the target distance by `factor`: below one moves closer, above one moves farther. **/
 	public function zoom(factor:Float):Void
 		distance.set(Math.max(minDistance, Math.min(maxDistance, distance.get() * factor)));
 
 	/**
-		The target moved across the view, `dx` right and `dy` up, in
-		fractions of the view's height at the target, so a drag across the
-		whole view moves it as far as the view is high there.
+		Moves the target right by `dx` and up by `dy`, measured as fractions
+		of the view height at the target distance.
 	**/
 	public function pan(dx:Float, dy:Float):Void {
 		var eye = this.eye(), t = target.get();
@@ -86,7 +84,7 @@ class OrbitCamera {
 		target.set(t.add(right.scale(dx * height)).add(up.scale(dy * height)));
 	}
 
-	/** Back where it began. **/
+	/** Restores the initial camera state. **/
 	public function reset():Void {
 		azimuth.set(initial.azimuth);
 		elevation.set(initial.elevation);
@@ -94,7 +92,7 @@ class OrbitCamera {
 		target.set(initial.target);
 	}
 
-	/** Placed to see the box from `min` to `max` whole, from where it looks now. **/
+	/** Frames the box from `min` to `max` while preserving the viewing direction. **/
 	public function frame(min:Vec3, max:Vec3):Void {
 		target.set(min.lerp(max, 0.5));
 		var radius = max.sub(min).length() / 2;

@@ -2,31 +2,31 @@ package ashui.canvaskit;
 
 import haxe.io.Float32Array;
 
-/** What of a node a channel moves. **/
+/** Node property targeted by an animation channel. **/
 enum GltfPath {
 	Translation;
 	Rotation;
 	Scale;
 
-	/** Its mesh's morph target weights. **/
+	/** Mesh morph-target weights. **/
 	Weights;
 }
 
-/** How a sampler goes from one keyframe to the next. **/
+/** Interpolation between animation keyframes. **/
 enum GltfInterpolation {
-	/** Each keyframe's value until the next. **/
+	/** Keeps each keyframe value until the next keyframe. **/
 	Step;
 
-	/** Straight between keyframes; rotations along the shorter arc. **/
+	/** Linear interpolation, using the shortest arc for rotations. **/
 	Linear;
 
-	/** A Hermite curve through the keyframes, each with the tangents in and out of it. **/
+	/** Hermite interpolation with incoming and outgoing tangents per keyframe. **/
 	CubicSpline;
 }
 
 /**
-	A glTF animation: channels, each moving one thing of one node by a
-	sampler's keyframes, over `duration` seconds.
+	A glTF animation clip with channels targeting node properties.
+	Each channel samples keyframes over `duration` seconds.
 
 	```haxe
 	var pose = new GltfPose(drone);
@@ -38,7 +38,7 @@ class GltfAnimation {
 	public final name:Null<String>;
 	public final channels:Array<GltfChannel>;
 
-	/** Its last keyframe's time, in seconds. **/
+	/** Time of the final keyframe, in seconds. **/
 	public final duration:Float;
 
 	public function new(name:Null<String>, channels:Array<GltfChannel>) {
@@ -52,9 +52,9 @@ class GltfAnimation {
 	}
 }
 
-/** One thing of one node an animation moves. **/
+/** Animation of one property on one node. **/
 class GltfChannel {
-	/** The node's index in `Gltf.nodes`. **/
+	/** Target index in `Gltf.nodes`. **/
 	public final node:Int;
 
 	public final path:GltfPath;
@@ -68,10 +68,10 @@ class GltfChannel {
 }
 
 /**
-	Keyframes: their times in seconds, ascending, and `width` numbers of
-	value each (3 a translation or scale, 4 a rotation, as many as the
-	mesh's morph targets for weights). A cubic spline's keyframe holds
-	three of those, the tangent in, the value and the tangent out.
+	Keyframe times and values. Times ascend in seconds; each value has
+	`width` components: 3 for translation/scale, 4 for rotation, or one per
+	morph target. Cubic-spline keys store incoming tangent, value, and
+	outgoing tangent.
 **/
 class GltfSampler {
 	public final times:Float32Array;
@@ -87,10 +87,9 @@ class GltfSampler {
 	}
 
 	/**
-		The value at `time` seconds, `width` numbers into `out`; before the
-		first keyframe its value, after the last the last's. `rotation` reads
-		the values as quaternions: turned the shorter way, and of unit length.
-		With `-D ash_simd` four numbers are blended at once.
+		Samples into `out` at `time` seconds, clamping outside the keyframe range.
+		Rotation samples use normalized quaternions and the shortest arc.
+		`-D ash_simd` enables four-component blending.
 	**/
 	public function sample(time:Float, out:Array<Float>, rotation = false):Void
 		blend(time, out, rotation, #if (ash_simd && hl) true #else false #end);

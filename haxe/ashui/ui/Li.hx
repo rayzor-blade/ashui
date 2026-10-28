@@ -7,19 +7,19 @@ import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 
 typedef LiProps = {
-	/** In an `<ol>`, the number it shows; the items after it count on from it. **/
+	/** Number for this item in an ordered list. Subsequent items continue counting from this value. **/
 	?value:Int,
 
 	?id:String
 }
 
 /**
-	HTML's `<li>`, built in: an item of a `<ul>` or `<ol>`, its `.marker`
-	beside its `.content`. The list it is in sets the marker: a number, or a
-	`.bullet` drawn as a shape, the marker classed `.disc`, `.circle` or
-	`.square`. The marker holds text either way, so it is a line of the
-	item's text tall, and the bullet is set on that line at the middle of
-	its lowercase letters.
+	A list item, written as `<li>` inside `<ul>` or `<ol>`.
+
+	The parent list supplies a number or bullet. The `.marker` sits beside
+	`.content`; bullet markers use `.bullet` with `.disc`, `.circle`, or
+	`.square`. Marker height follows the text line, with bullets centered
+	on the lowercase letter height.
 **/
 class Li extends Component<LiProps> {
 	static final byNode = new Map<String, Li>();
@@ -28,13 +28,13 @@ class Li extends Component<LiProps> {
 	var ordinal = 1;
 	var defaultStyle:Null<String> = null;
 
-	/** Its marker's text: its number in an `<ol>`; a space, holding the line, beside a bullet. **/
+	/** Marker text: the number in an ordered list, or a space that preserves bullet line height. **/
 	public final marker = Signal.make("");
 
-	/** `disc`, `circle` or `square` for a shape, empty for text, `none` to remove the marker and its space. **/
+	/** Bullet shape: `disc`, `circle`, or `square`. Empty uses text; `none` removes the marker and its spacing. **/
 	public final bullet = Signal.make("");
 
-	/** The list-style-type keywords drawn by the existing marker and counter implementations. **/
+	/** Resolves CSS `list-style-type` values supported by the marker renderer. **/
 	@:noCompletion public static function cssType(value:String):String {
 		var key = StringTools.trim(value).toLowerCase();
 		return switch key {
@@ -44,7 +44,7 @@ class Li extends Component<LiProps> {
 		};
 	}
 
-	/** Keeps the list's counting rules while CSS chooses how to show this item's ordinal. **/
+	/** Updates the marker style without changing the parent list counting rules. **/
 	@:noCompletion public function mark(number:Int, fallback:String):Void {
 		ordinal = number;
 		defaultStyle = fallback;
@@ -108,7 +108,7 @@ class Li extends Component<LiProps> {
 		return box;
 	}
 
-	/** The item at `node`, null if it is none. **/
+	/** Returns the list item registered for a node, or null when absent. **/
 	public static function at(node:haxe.Int64):Null<Li>
 		return byNode.get(haxe.Int64.toStr(node));
 }

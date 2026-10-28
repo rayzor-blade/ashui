@@ -7,7 +7,7 @@ import ashui.math.Quat;
 import ashui.math.Vec3;
 import ashui.reactive.Signal;
 
-/** A selectable object's local bounds, placement and optional world rotation handler. **/
+/** Selectable object bounds, transform, pivot, and optional rotation, scale, and movement handlers. **/
 typedef SceneRegion = {
 	id:String,
 	min:Vec3,
@@ -22,9 +22,10 @@ typedef SceneRegion = {
 }
 
 /**
-	Single object selection for SceneKit (git-bug c16e24c). Register bounds
-	inside `draw`, as CanvasKit registers its 2D regions. The application
-	keeps its meshes and transforms; the kit reports world rotation deltas.
+	Single-object selection and transform callbacks for `SceneKit` (c16e24c).
+	Register bounds inside `draw`, as with 2D canvas regions. The application
+	owns meshes and transforms; callbacks report world rotation and movement
+	deltas or local scale factors.
 **/
 class Selection3D {
 	public final id = Signal.make((null : String));
@@ -68,7 +69,7 @@ class Selection3D {
 			edges.clear();
 	}
 
-	/** Release callbacks and bounds when the viewport's owner is disposed. **/
+	/** Releases callbacks and bounds when the viewport owner is disposed. **/
 	@:allow(ashui.canvaskit.SceneKit)
 	function forgetRegions():Void {
 		regions.clear();
@@ -77,10 +78,10 @@ class Selection3D {
 	}
 
 	/**
-		Draws an object's meshes with a subdued selection mask and silhouette edges (8ceba8d, 67cca2c, 8d44ccf).
-		Wrap either one `ctx.drawMesh` or a whole model's `draw`. Register its
-		bounds with `region` as usual. Materials, textures, shaders and mesh
-		vertices are preserved; only the selected object's draws are decorated.
+		Adds a subdued mask and outer silhouette edges to selected-object draws
+		(8ceba8d, 67cca2c, 8d44ccf). Wrap one `ctx.drawMesh` call or a complete
+		model draw, and register bounds with `region`. Decoration applies only
+		to the selected object; source meshes and materials remain intact.
 	**/
 	public function draw(object:String, ctx:DrawContext, draw:Void->Void):Void {
 		var selected = has(object), first = ctx.ops.length;
@@ -161,7 +162,7 @@ class Selection3D {
 		return object == null ? null : get(object);
 	}
 
-	/** Nearest oriented bounding box along a world ray; singular transforms cannot be picked. **/
+	/** Returns the nearest registered object hit by a world ray. Singular transforms cannot be picked. **/
 	public function pick(origin:Vec3, direction:Vec3, near = 0.0, ?far:Float):Null<String> {
 		var best = far != null ? far : Math.POSITIVE_INFINITY,
 			found:Null<String> = null;

@@ -2,7 +2,7 @@ package ashui.canvaskit;
 
 import ashui.draw3d.ScenePass;
 
-/** A ground grid's settings, each optional; see `GroundGrid`. **/
+/** Optional settings for `GroundGrid`. **/
 typedef GroundGridOptions = {
 	?size:Float,
 	?subdivisions:Int,
@@ -42,7 +42,7 @@ class GroundGrid implements ScenePass {
 	public final fadeNear:Float;
 	public final fadeFar:Float;
 
-	/** Whether the scene's shadows darken it; `<scene-kit>` turns this off while a grounded sky's floor catches them. **/
+	/** Allows scene shadows to darken the grid. `SceneKit` disables this when a grounded sky floor receives shadows. **/
 	public var catchesShadows = true;
 
 	public final height:Float;
@@ -62,7 +62,7 @@ class GroundGrid implements ScenePass {
 		height = o.height != null ? o.height : 0;
 	}
 
-	/** A studio floor: a line a unit, tenths between, axes coloured, fading out by twenty units; at `height`. **/
+	/** Creates a studio grid at `height`, with unit major lines, tenths between, colored axes, and a fade ending at 20 units. **/
 	public static function studio(height = 0.0):GroundGrid
 		return new GroundGrid({height: height});
 
@@ -127,7 +127,7 @@ class GroundGrid implements ScenePass {
 		frame.encoder.renderDraw(6, 1);
 	}
 
-	/** Frees what it put on the GPU; drawn again, it makes it again. **/
+	/** Releases GPU resources. Drawing again recreates them. **/
 	public function dispose():Void {
 		if (group != null)
 			group.destroy();

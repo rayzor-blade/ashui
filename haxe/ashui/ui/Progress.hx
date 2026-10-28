@@ -7,20 +7,21 @@ import ashui.layout.Prop;
 import ashui.reactive.Computed;
 
 typedef ProgressProps = {
-	/** How much is done, from 0 to `max`; without it the progress is indeterminate. **/
+	/** Completed amount from zero to `max`. Omit for indeterminate progress. **/
 	?value:IntoReactive<Float>,
 
-	/** What `value` counts up to; 1 by default. **/
+	/** Total amount to complete. Defaults to 1. **/
 	?max:Float,
 
 	?id:String
 }
 
 /**
-	HTML's `<progress>`, built in: a bar filled to `value` over `max`.
-	Without a value it is indeterminate, CSS's `:indeterminate`, and the
-	user-agent stylesheet pulses a part-filled bar. Its look is the
-	stylesheet's `progress` and its `.bar`.
+	A progress bar, written as `<progress>` in HXX.
+
+	The `.bar` fill shows `value / max`. Omitting `value` applies
+	`:indeterminate`, which the user-agent stylesheet displays as a pulsing
+	partial bar. Style the control with `progress` and its `.bar` child.
 **/
 class Progress extends Component<ProgressProps> {
 	function render():Element {

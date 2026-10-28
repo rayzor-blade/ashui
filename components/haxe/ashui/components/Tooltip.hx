@@ -11,31 +11,22 @@ import ashui.ui.Text;
 import ashui.ui.TopLayer;
 
 typedef TooltipProps = {
-	/** What it says. **/
+	/** Tooltip text. Accepts reactive values. **/
 	label:IntoReactive<String>,
-	/** Where it shows: `top` (the default), `bottom`, `left` or `right`, the other side when there is no room. **/
+	/** Preferred side: `top` (default), `bottom`, `left`, or `right`. Flips when space is limited. **/
 	?side:String,
-	/** Seconds the pointer rests on what it holds before it shows; 0.5 by default. **/
+	/** Hover delay before showing the tooltip, in seconds. Defaults to 0.5. **/
 	?delay:Float,
 	?id:String
 }
 
-/**
-	A tooltip: a short label shown beside what it holds when the pointer
-	rests on it, or when it takes focus from the keyboard, and gone when the
-	pointer leaves, a press lands or focus goes. It is drawn in the top layer
-	and never takes the pointer. Its states are a `Machine`: closed, waiting
-	(the delay running), open, and closing (fading out, then gone). CSS:
-	`.ui-tooltip-trigger` (what it holds, `[data-state]` the machine's
-	state), `.ui-tooltip`, `[data-side]`, `[closing]` while it fades;
-	`--ui-tooltip-bg`, `-fg`, `-radius`.
-**/
+/** Tooltip lifecycle states. **/
 private enum TipState {
 	Closed;
-	/** The pointer rests on what it holds; it shows when the delay runs out. **/
+	/** Waiting for the hover delay to expire. **/
 	Waiting;
 	Open;
-	/** Fading out; gone when the top layer takes it away. **/
+	/** Fading out before the top-layer entry is removed. **/
 	Closing;
 }
 
@@ -47,8 +38,18 @@ private enum TipEvent {
 	Gone;
 }
 
+/**
+	A short label shown on hover or keyboard focus.
+	Wrap the target in a tooltip. The label appears in the top layer after
+	the hover delay and closes on pointer leave, press, or focus loss.
+	It ignores pointer input. An FSM manages the delay and exit fade.
+
+	CSS: `.ui-tooltip-trigger[data-state]`, `.ui-tooltip`, `[data-side]`,
+	and `[closing]`. States are `closed`, `waiting`, `open`, and `closing`.
+	Variables: `--ui-tooltip-bg`, `--ui-tooltip-fg`, and `--ui-tooltip-radius`.
+**/
 class Tooltip extends Component<TooltipProps> {
-	/** Where it is: closed, waiting, open or closing, a machine of signals; `data-state` on what it holds follows it. **/
+	/** Lifecycle FSM. Its state is exposed on the trigger through `data-state`. **/
 	var machine:Machine<TipState, TipEvent>;
 
 	function render():Element {

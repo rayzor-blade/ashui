@@ -9,29 +9,28 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef InputOtpProps = {
-	/** How many characters; 6 by default. **/
+	/** Number of character slots. Defaults to 6. **/
 	?length:Int,
-	/** The code typed. A signal is read and written; a constant sets it once. **/
+	/** Entered code. A supplied signal is read and updated; a constant sets the initial value. **/
 	?value:IntoReactive<String>,
-	/** Slots before a dash; none by default. **/
+	/** Number of slots before a separator dash. Defaults to no separator. **/
 	?separator:Int,
-	/** Digits only; true by default. **/
+	/** Restricts input to digits. Defaults to true. **/
 	?digits:Bool,
 	?disabled:IntoReactive<Bool>,
-	/** Called with the code once every slot is filled. **/
+	/** Receives the code when all slots are filled. **/
 	?onComplete:String->Void,
-	/** Small, medium (default) or large slots and spacing (git-bug e8a1b50). **/
+	/** Small, medium (default), or large slots and spacing (e8a1b50). **/
 	?size:Size,
 	?id:String
 }
 
 /**
-	A one-time code in a row of slots, a character each: one text field
-	over the slots takes the typing, a paste and Backspace, so it behaves as
-	any field does, and the slots show what it holds, the next to fill
-	marked while it has focus. CSS: `.ui-input-otp`, `.ui-input-otp-slot`
-	(`[data-filled]`, `[data-active]`), `.ui-input-otp-separator`,
-	`.ui-input-otp-field` (the field, transparent over the slots).
+	A one-time-code input with one character per visible slot.
+	A transparent text field handles typing, paste, and Backspace; slots
+	display its value and highlight the active position while focused.
+	CSS: `.ui-input-otp`, `.ui-input-otp-slot` with `[data-filled]` and
+	`[data-active]`, `.ui-input-otp-separator`, and `.ui-input-otp-field`.
 **/
 class InputOtp extends Component<InputOtpProps> {
 	public var value(default, null):Signal<String>;

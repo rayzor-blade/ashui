@@ -5,29 +5,26 @@ import ashui.draw3d.ScenePass;
 import ashui.draw3d.SceneLighting;
 
 /**
-	A scene's lighting as a studio sets it up: its lights, the light that
-	reaches everywhere, and an `Environment`, a sky that lights the meshes
-	from all round, at `environmentIntensity`, and that they reflect.
-	`<scene-kit>` makes one from its `lights`, `ambient` and `environment`;
-	a canvas sets one with `ctx.setLighting(rig)`.
+	Shadow settings for the first light, when directional.
 
-	With `shadows`, its first light casts them, if it is directional: the
-	light's view is fitted round the scene's meshes each render, into a map
-	`size` pixels square (2048 by default), `strength` dark (0.7), with
-	`bias` keeping surfaces from shadowing themselves.
-**/
-/**
-	Options for the first light's shadows.
-
-	- `size` is the shadow map's width and height in pixels (default 2048).
-	- `strength` is how much light a shadow blocks (default 0.7).
-	- `bias` keeps surfaces from shadowing themselves (default 0.004).
-	- `reach` and `focus`: for a scene too wide for one map to cover
-	  sharply, only the part within `reach` of `focus` casts and receives
-	  shadows.
+	- `size`: shadow-map width and height in pixels; defaults to 2048.
+	- `strength`: fraction of direct light blocked; defaults to 0.7.
+	- `bias`: offset to reduce self-shadowing; defaults to 0.004.
+	- `reach` and `focus`: limit shadow coverage around a point for sharper
+	  shadows in a wide scene.
 **/
 typedef ShadowOptions = {?size:Int, ?strength:Float, ?bias:Float, ?reach:Float, ?focus:ashui.math.Vec3};
 
+/**
+	Scene lights, ambient light, and environment lighting in one rig.
+	`SceneKit` creates a rig from its lighting props; custom canvases can
+	apply one with `ctx.setLighting(rig)`. An `Environment` supplies reflections
+	and diffuse light, scaled by `environmentIntensity`.
+
+	With shadow options, the first light casts shadows when directional.
+	Coverage fits the scene meshes on each render, optionally limited by
+	`reach` and `focus`. See `ShadowOptions` for resolution, strength, and bias.
+**/
 class LightRig implements SceneLighting {
 	public final rig:Array<Light>;
 	public final ambient:Int;
@@ -61,10 +58,8 @@ class LightRig implements SceneLighting {
 		return settled;
 
 	/**
-		The first light's shadows, its view an orthographic box round `min` to
-		`max` along its direction, or round the part of them within the
-		options' `reach` of their `focus`; null without a directional first
-		light.
+		Fits an orthographic shadow view around scene bounds, optionally limited
+		by `reach` around `focus`. Returns null without a directional first light.
 	**/
 	function fitShadows(min:ashui.math.Vec3, max:ashui.math.Vec3):Null<ShadowSettings> {
 		if (shadowOptions == null || rig.length == 0)

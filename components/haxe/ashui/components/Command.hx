@@ -10,28 +10,29 @@ import ashui.reactive.Signal;
 import ashui.ui.Component;
 
 typedef CommandProps = {
-	/** Called with an item's value when it is chosen, after the item's own `onSelect`. **/
+	/** Receives the selected item value after the item `onSelect` callback. **/
 	?onSelect:String->Void,
 	?id:String
 }
 
 /**
-	A searchable list of commands, in the manner of cmdk: a `CommandInput`
-	over a `CommandList` of `CommandItem`s, grouped by `CommandGroup`s
-	with headings and `CommandSeparator`s between, and a `CommandEmpty` for
-	when nothing matches. Typing filters the items by their value and
-	keywords; groups with nothing left hide, and so does a separator beside
-	one. The arrows move the highlight among what is left and Enter chooses
-	it; focus stays in the input. CSS: `.ui-command`, `.ui-command-input`,
-	`.ui-command-list`, `.ui-command-group` (`[data-hidden]`),
-	`.ui-command-heading`, `.ui-command-item` (`[data-selected]`,
-	`[data-hidden]`, `:disabled`), `.ui-command-empty`,
-	`.ui-command-separator`.
+	A searchable command list with keyboard navigation.
+
+	Place a `CommandInput` above a `CommandList` containing `CommandItem`
+	elements. Use `CommandGroup` for headings, `CommandSeparator` between
+	groups, and `CommandEmpty` for no matches. Search filters by item value
+	and keywords, hiding empty groups and their adjacent separators. Arrows
+	move the highlight and Enter selects; focus remains in the search field.
+
+	CSS: `.ui-command`, `.ui-command-input`, `.ui-command-list`,
+	`.ui-command-group`, `.ui-command-heading`, `.ui-command-item`,
+	`.ui-command-empty`, and `.ui-command-separator`. Items expose
+	`[data-selected]`, `[data-hidden]`, and `:disabled`; groups expose `[data-hidden]`.
 **/
 class Command extends Component<CommandProps> {
-	/** What is typed in the input. **/
+	/** Current search text. **/
 	public final query = Signal.make("");
-	/** The value of the item highlighted, "" for none. **/
+	/** Highlighted item value, or an empty string when none is highlighted. **/
 	public final active = Signal.make("");
 
 	var items:Array<CommandItem> = [];
@@ -176,7 +177,7 @@ class Command extends Component<CommandProps> {
 			props.onSelect(item.props.value);
 	}
 
-	/** Whether `item` matches what is typed: every word of it in the item's value, keywords or label. **/
+	/** Returns whether every search word occurs in the item value, keywords, or label. **/
 	@:allow(ashui.components.CommandItem)
 	static function matches(item:CommandItem, query:String):Bool {
 		var q = StringTools.trim(query).toLowerCase();
@@ -190,7 +191,7 @@ class Command extends Component<CommandProps> {
 	}
 }
 
-/** The search field over the list; it keeps focus while the arrows move the highlight. **/
+/** Search field that keeps focus while arrow keys navigate the command list. **/
 class CommandInput extends Component<{?placeholder:String, ?id:String}> {
 	static var glass:Null<ashui.svg.SvgDocument> = null;
 	final text = Signal.make("");
@@ -214,13 +215,13 @@ class CommandInput extends Component<{?placeholder:String, ?id:String}> {
 		new ashui.reactive.Watch(() -> t.get(), v -> query.set(v));
 	}
 
-	/** Focuses the field, as a combobox does when it opens. **/
+	/** Moves focus to the search field. **/
 	public function focus():Void
 		if (field != null)
 			ashui.input.Focus.set(Interaction.of(field.node), false);
 }
 
-/** The list of groups and items, scrolling past its height. **/
+/** Scrollable container for command items and groups. **/
 class CommandList extends Component<{?id:String}> {
 	var box:ashui.ui.Div;
 
@@ -260,7 +261,7 @@ class CommandList extends Component<{?id:String}> {
 	}
 }
 
-/** Shown when nothing matches what is typed. **/
+/** Content displayed when no command matches the search. **/
 class CommandEmpty extends Component<{?id:String}> {
 	var box:Null<ashui.ui.Div> = null;
 
@@ -276,7 +277,7 @@ class CommandEmpty extends Component<{?id:String}> {
 		ashui.css.Identity.of(box.tree, box.node.id).bindAttribute("data-hidden", Computed.make(() -> (any.get() ? "" : null : Null<String>)));
 }
 
-/** A group of items under a heading; it hides when none of them matches. **/
+/** Commands under a heading. Hidden when all contained items are filtered out. **/
 class CommandGroup extends Component<{?heading:String, ?id:String}> {
 	var box:Null<ashui.ui.Div> = null;
 
@@ -294,7 +295,7 @@ class CommandGroup extends Component<{?heading:String, ?id:String}> {
 		ashui.css.Identity.of(box.tree, box.node.id).bindAttribute("data-hidden", Computed.make(() -> (any.get() ? null : "" : Null<String>)));
 }
 
-/** A rule between groups, hidden while a search narrows the list. **/
+/** Separator between groups. Hidden while search filters the list. **/
 class CommandSeparator extends Component<{?id:String}> {
 	var box:Null<ashui.ui.Div> = null;
 
@@ -310,9 +311,9 @@ class CommandSeparator extends Component<{?id:String}> {
 }
 
 typedef CommandItemProps = {
-	/** What it is matched and chosen by. **/
+	/** Value used for search and selection. **/
 	value:String,
-	/** More words it matches. **/
+	/** Additional search terms. **/
 	?keywords:Array<String>,
 	?onSelect:Void->Void,
 	?disabled:Bool,
@@ -320,9 +321,9 @@ typedef CommandItemProps = {
 	?id:String
 }
 
-/** One of the commands; its children are its label. **/
+/** One selectable command. Children supply its label. **/
 class CommandItem extends Component<CommandItemProps> {
-	/** Whether it matches what is typed; true until it is in a command. **/
+	/** Whether this item matches the search. Defaults to true before attachment to a command list. **/
 	public final shown = Signal.make(true);
 	var box:Null<ashui.ui.Div> = null;
 	var command:Null<Command>;

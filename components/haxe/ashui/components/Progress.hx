@@ -4,7 +4,7 @@ import ashui.layout.Element;
 import ashui.ui.Component;
 
 typedef ProgressProps = {
-	/** How far, of `max`; indeterminate when left out. **/
+	/** Completed amount from zero to `max`. Omit for indeterminate progress. **/
 	?value:ashui.layout.IntoReactive<Float>,
 	?max:Float,
 	?size:Size,
@@ -12,9 +12,9 @@ typedef ProgressProps = {
 }
 
 /**
-	A progress bar: the built-in `<progress>` in the library's look, its bar
-	easing to each new value. CSS: `.ui-progress` (`[data-size]`), its
-	`.bar`.
+	A themed progress bar that animates value changes.
+	Uses the built-in progress behavior. CSS: `.ui-progress[data-size]`
+	and its `.bar` child.
 **/
 class Progress extends Component<ProgressProps> {
 	function render():Element {

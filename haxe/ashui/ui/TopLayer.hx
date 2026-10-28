@@ -7,37 +7,35 @@ import ashui.layout.LayoutTree;
 import ashui.types.Brush;
 import ashui.types.Style;
 
-/** Where top-layer content goes: under a box on screen (a picker under its control), or centred. **/
+/** Placement of content above the page, such as dialogs, menus, and pickers. **/
 enum Placement {
-	/** Below the box at `(x, y)`, `width` by `height`, or above it when there is no room below; at least as wide, its content stretched to that. **/
+	/** Places content below the anchor rectangle, or above when space is limited. Stretches content to at least the anchor width. **/
 	Below(x:Float, y:Float, width:Float, height:Float);
 
 	Centered;
 
 	/**
-		On `side` of the box at `(x, y)`, `width` by `height` ("top", "bottom",
-		"left" or "right"), `gap` from it and centred along it, as wide as its
-		content; on the opposite side when there is no room, and never past
-		the root's edges. A tooltip's place. `align` "start" or "end" lines it
-		up with that end of the box instead of centring it, as a menubar's
-		menus line up with their triggers.
+		Places content beside an anchor rectangle with the given gap.
+		`side` is `top`, `bottom`, `left`, or `right`; placement flips when needed
+		and stays within root bounds. Content is centered along the anchor unless
+		`align` is `start` or `end`.
 	**/
 	Beside(x:Float, y:Float, width:Float, height:Float, side:String, gap:Float, ?align:String);
 
-	/** Along one edge of the root, "left", "right", "top" or "bottom", stretched along it: a sheet's place. **/
+	/** Stretches content along the root edge: `left`, `right`, `top`, or `bottom`. Used by sheets. **/
 	Edge(side:String);
 
-	/** Its top-left at `(x, y)`, or flipped left and up of it where it would run past the root's edges: a context menu at the pointer. **/
+	/** Places the content top-left at `(x, y)`, flipping left or upward to stay within root bounds. Used by context menus. **/
 	At(x:Float, y:Float);
 }
 
-/** The user action asking a top-layer entry to close. **/
+/** User action requesting dismissal of a top-layer entry. **/
 enum DismissReason {
 	Escape;
 	Backdrop;
 }
 
-/** One entry of the top layer; `close` takes it out. **/
+/** An open top-layer entry. Call `close()` to remove it. **/
 class TopEntry {
 	public final content:Element;
 
@@ -48,16 +46,16 @@ class TopEntry {
 	final placement:Placement;
 	var closed = false;
 
-	/** Entries that have been closed and are still playing their way out, whose layers have yet to be taken out. **/
+	/** Closed entries waiting for exit animations before their layers can be removed. **/
 	static final leaving:Array<TopEntry> = [];
 
-	/** The content was opened again in another entry while this one was leaving: it is no longer this one's to clean up. **/
+	/** Whether another entry has reopened the content and taken responsibility for cleanup. **/
 	var reclaimed = false;
 
 	/**
-		Opens `content` afresh while an entry that closed with it is still leaving: it is taken out from under that entry's
-		holder, which would otherwise still list it once it is under a new one, and lose it when the old layer goes. The
-		old entry's backdrop goes on fading; the content is no longer closing.
+		Reopens content while its previous entry is still animating out.
+		Detaches the content from the old holder to prevent later cleanup from
+		removing the reopened content. The old backdrop continues fading.
 	**/
 	@:allow(ashui.ui.TopLayer)
 	static function reclaim(content:Element):Void {
@@ -77,7 +75,7 @@ class TopEntry {
 		}
 	}
 
-	/** Where the holder was last put, so placing it again only moves it when the content's size moved it. **/
+	/** Last holder position, used to avoid redundant placement updates. **/
 	var placed:Null<{left:Float, top:Float}> = null;
 
 	@:allow(ashui.ui.TopLayer)
@@ -91,10 +89,9 @@ class TopEntry {
 	}
 
 	/**
-		Puts an anchored entry where its placement says for the content's
-		size now: under or beside its box, flipped to the other side when
-		there is no room, never past the root's edges. True when that moved
-		it, for another layout pass. A centred entry is placed by layout.
+		Repositions anchored content for its current size. Flips and clamps
+		placement to fit the root. Returns true when another layout pass is
+		needed; centered content is positioned by layout.
 	**/
 	@:allow(ashui.ui.TopLayer)
 	function place():Bool {
@@ -200,7 +197,7 @@ class TopEntry {
 			onClose();
 	}
 
-	/** The backdrop's interaction: what the pointer does over the page while it is open, a menubar watching for another of its menus. **/
+	/** Returns the backdrop interaction, for example to switch menubar menus on hover. **/
 	public function backdrop():Interaction
 		return Interaction.of(layer.node);
 
@@ -211,20 +208,18 @@ class TopEntry {
 }
 
 /**
-	HTML's top layer: what draws above everything else in a tree, a
-	select's list of options or a modal dialog. An entry is placed last
-	under the tree's root, absolutely positioned in its coordinates, so it
-	is drawn over the rest, hit first, and clipped by no element.
+	Displays overlays above the rest of a layout tree.
 
-	Beneath its content is a backdrop as large as the root: transparent, or
-	dimmed for a modal. A press on the backdrop, outside the content,
-	closes the entry, as does Escape anywhere in it.
+	Entries attach to the root and use root coordinates. They draw last,
+	receive hit tests first, and bypass ancestor clipping. A root-sized
+	backdrop can block or dim the page; backdrop clicks and Escape dismiss
+	entries unless configured otherwise.
 **/
 class TopLayer {
 	static final entries:Array<TopEntry> = [];
 	static var hooked = false;
 
-	/** Anchored entries are placed again after each layout pass that changed their content's size, before the frame is drawn. **/
+	/** Repositions anchored entries after layout changes their content size, before painting. **/
 	static function hook():Void {
 		if (hooked)
 			return;
@@ -239,13 +234,13 @@ class TopLayer {
 	}
 
 	/**
-		Opens `content` in `tree`'s top layer, placed by `placement`.
-		`backdrop` dims what is beneath; `onClose` runs however it closes.
-		Not `dismissible`, a press on the backdrop or Escape leaves it open:
-		only its own controls close it, as an alert dialog's. `modeless`, it
-		has no backdrop at all: the page beneath takes presses and the pointer
-		as before while the content takes its own, as a hover card's.
-		With onDismiss, user actions go to that callback instead of closing directly.
+		Opens content in the tree top layer at the requested placement.
+
+		`backdrop` dims the page; `onClose` runs whenever the entry closes.
+		Set `dismissible` to false to ignore Escape and backdrop clicks.
+		Set `modeless` to true to omit the backdrop and keep the page interactive.
+		When supplied, `onDismiss` handles user dismissal requests instead of
+		closing the entry directly.
 	**/
 	public static function open(tree:LayoutTree, content:Element, placement:Placement, ?backdrop:Brush, ?onClose:Void->Void, passThrough = false,
 			dismissible = true, modeless = false, ?onDismiss:DismissReason->Void):TopEntry {
@@ -354,7 +349,7 @@ class TopLayer {
 		return entry;
 	}
 
-	/** The open entries, the topmost last. **/
+	/** Returns open entries in stacking order, with the topmost entry last. **/
 	public static function openEntries():Array<TopEntry>
 		return entries.copy();
 }

@@ -16,55 +16,60 @@ import ashui.ui.Div;
 import ashui.ui.Text;
 import ashui.ui.TopLayer;
 
-/** One thing the list offers: what it shows, and what it puts in the text. **/
+/** A completion suggestion with display text and insertion data. **/
 typedef CodeCompletion = {
-	/** What the row says, and what is matched against what was typed, unless `filter` gives other text. **/
+	/** Display label and default search text. Override search text with `filter`. **/
 	var label:String;
-	/** What goes into the text, `label` if left out. **/
+	/** Text inserted on acceptance. Defaults to `label`. **/
 	@:optional var insert:String;
-	/** A signature or a type, dim and at the end of the row. **/
+	/** Muted type or signature shown at the row end. **/
 	@:optional var detail:String;
-	/** Documentation, shown under the list while the row is the selected one; lines are kept, and it wraps. **/
+	/** Documentation below the list for the selected row. Preserves line breaks and wraps text. **/
 	@:optional var docs:String;
-	/** `function`, `method`, `class`, `type`, `interface`, `keyword`, `variable`, `field`, `property` or another, which only gives its letter. **/
+	/** Suggestion category, such as `function`, `class`, or `variable`. Unknown categories use their first letter. **/
 	@:optional var kind:String;
-	/** Text to match instead of `label`. **/
+	/** Search text used instead of the label. **/
 	@:optional var filter:String;
-	/** The order among equal matches; otherwise the order they were given in. **/
+	/** Sort key for equally ranked matches. Defaults to the supplied item order. **/
 	@:optional var sort:String;
-	/** What else the choice changes, such as an import added at the top of the file. **/
+	/** Additional edits applied on acceptance, such as adding an import. **/
 	@:optional var more:Array<CodeEdit>;
 }
 
-/** What the list needs of the editor it is in. **/
+/** Editor operations needed by the completion list. **/
 typedef CompletionHost = {
 	final tree:LayoutTree;
 	final rectAt:Int->Null<CodeRect>;
 	final text:Void->String;
 	final caret:Void->Int;
-	/** Puts `edits` in the text as one step. **/
+	/** Applies edits as one undo step. **/
 	final apply:Array<CodeEdit>->Void;
 }
 
 private typedef Row = {item:CodeCompletion, index:Int};
 
 /**
-	A list of completions under the caret. The app gives it what the compiler or a language server offered and where the word being
-	completed starts; the editor narrows it to what was typed since, as `from` to the caret, keeps the selected row in view, and
-	puts the chosen one in the text. Up, Down, Page Up, Page Down, Home and End move the selection; Enter and Tab choose it;
-	Escape closes the list, and so does the caret leaving the word, a character that is not part of a word, or nothing matching.
-	Only visible rows and nearby ones are mounted; closing releases the offered items.
-	A press on a row chooses it. Styled by `.ui-code-completion` and the classes in it, and by `--ui-code-completion-bg`,
-	`--ui-code-completion-selected` and `--ui-code-completion-width`.
+	A virtualized completion popup below the caret.
+	The application supplies language-service suggestions and the word start.
+	Typing filters suggestions; accepting one replaces the typed word.
+
+	Up/Down, Page Up/Down, Home, and End navigate. Enter, Tab, or a row click
+	accepts; Escape closes. Leaving the word, typing a non-word character,
+	or finding no matches also closes the list. Only visible and nearby
+	rows are mounted; closing releases the suggestions.
+
+	CSS: `.ui-code-completion` and its child classes. Variables:
+	`--ui-code-completion-bg`, `--ui-code-completion-selected`,
+	and `--ui-code-completion-width`.
 **/
 class CodeCompletions {
-	/** A row's height, in layout units, which the list scrolls by. **/
+	/** Completion row height in layout units. **/
 	static inline var ROW = 22.0;
 
-	/** The rows the list holds at most, narrowed from however many were offered. **/
+	/** Maximum number of filtered suggestions retained. **/
 	static inline var MOST = 200;
 
-	/** The rows seen at once. **/
+	/** Number of rows visible at once. **/
 	static inline var SEEN = 10;
 
 	static inline var OVERSCAN = 2;
@@ -86,7 +91,7 @@ class CodeCompletions {
 	public function isOpen():Bool
 		return entry != null;
 
-	/** Offers `items` for the word that starts at `from`; what has been typed since narrows them. **/
+	/** Shows suggestions for the word beginning at `start`, filtering by text typed after that offset. **/
 	public function show(offered:Array<CodeCompletion>, start:Int):Void {
 		hide();
 		items = offered;
@@ -118,7 +123,7 @@ class CodeCompletions {
 		clear();
 	}
 
-	/** Whether the pointer is over the list: a press on it takes focus from the editor, which must not close it. **/
+	/** Returns whether the pointer is over the list, allowing row presses to transfer focus without closing it. **/
 	public function pointerOver():Bool {
 		if (panel == null)
 			return false;
@@ -146,7 +151,7 @@ class CodeCompletions {
 		panel = null;
 	}
 
-	/** The text or the caret changed: narrows the list to what is typed now, or closes it. **/
+	/** Refilters or closes suggestions after the text or caret changes. **/
 	public function moved():Void {
 		if (entry == null)
 			return;
@@ -168,13 +173,13 @@ class CodeCompletions {
 	static function isWordCharacter(code:Int):Bool
 		return code == "_".code || code == "$".code || (code >= "0".code && code <= "9".code) || (code >= "a".code && code <= "z".code) || (code >= "A".code && code <= "Z".code) || code > 127;
 
-	/** What is typed since the word began: the text from `from` to the caret. **/
+	/** Returns text from the completion start to the caret. **/
 	function typed():String {
 		var at = host.caret(), text = host.text();
 		return at >= from && at <= text.length ? text.substring(from, at) : "";
 	}
 
-	/** The offered items that the typed text matches, best first: a prefix, then the starts of words, then letters in order. **/
+	/** Ranks matches by prefix, word initials, then subsequence. **/
 	function narrow():Array<Row> {
 		var query = typed().toLowerCase();
 		var found:Array<{row:Row, score:Int, sort:String}> = [];
@@ -210,7 +215,7 @@ class CodeCompletions {
 		return allBoundaries && boundaries == query.length ? 1 : 2;
 	}
 
-	/** The keys the open list takes; true when it took this one. **/
+	/** Handles a key while the list is open. Returns whether the key was handled. **/
 	public function key(event:KeyEvent):Bool {
 		if (entry == null || event.control || event.alt || event.superKey)
 			return false;
@@ -251,7 +256,7 @@ class CodeCompletions {
 			scroll.jumpTo(0, at + ROW - SEEN * ROW);
 	}
 
-	/** Puts the `index`th row in the text, in place of what was typed since the word began. **/
+	/** Accepts a row, replacing text typed since the completion word began. **/
 	public function accept(index:Int):Void {
 		var all = rows.get();
 		if (index < 0 || index >= all.length)

@@ -20,64 +20,59 @@ import ashui.types.Brush;
 import ashui.ui.Canvas;
 import ashui.ui.Div;
 
-/** What a minimap reads of the editor it sits beside, and writes back to through `scroll`. **/
+/** Editor state used by the minimap, including a callback for scrolling the editor. **/
 typedef MinimapHost = {
 	final document:CodeDocument;
 	final metrics:CodeMetrics;
 	final scroll:Scroll;
-	/** The editor's height and width on screen, and a count that moves when what it shows is made again. **/
+	/** Visible editor height. Other host signals supply width and content revision. **/
 	final viewHeight:Signal<Float>;
 	final viewWidth:Signal<Float>;
 	/** The strip can extend above the text viewport alongside an editor header. **/
 	@:optional final mapHeight:Signal<Float>;
-	/** The editor's whole width, the strip's included, which the strip's own width does not move. **/
+	/** Total editor width, including the minimap. Does not depend on the minimap width. **/
 	final boxWidth:Signal<Float>;
 	final revision:Signal<Int>;
 	final tabSize:Int;
-	/** The space above the first line, in the editor's layout units. **/
+	/** Padding above the first text line, in layout units. **/
 	final pad:Float;
-	/** The widest the strip gets. **/
+	/** Maximum minimap width. **/
 	final maxWidth:Float;
-	/** What the app marks, for the marks of decorations and markers that ask to be in the strip. **/
+	/** Source annotations requesting minimap marks. **/
 	final annotations:CodeAnnotations;
-	/** The zones between the editor's rows and a read of them that moves when they do, so the slider keeps to the rows on screen. **/
+	/** View zones and their reactive revision, used to align the viewport indicator with visible rows. **/
 	final zones:CodeZones;
 	final zoneStamp:Void->Int;
 }
 
 /**
-	A strip down an editor's right edge that draws the whole document scaled
-	down, a line to a row and each token a run of its syntax colour, with a
-	slider over the part on screen. Pressing the strip scrolls the editor to
-	that line, dragging the slider scrolls as it moves, and the wheel over the
-	strip scrolls the editor.
+	A document overview beside the editor, with a draggable viewport indicator.
+	Clicking seeks to a line; dragging the indicator or scrolling over the
+	minimap scrolls the editor. The overview always represents the full document.
+	Long documents are scaled and sampled to fit.
 
-	The rows are drawn once per revision, a moment after the last change, in
-	one canvas; scrolling moves only the slider. A document of more lines
-	than the strip has rows is drawn smaller to fit it and shows every
-	few lines, so the strip is always the whole document and never scrolls.
-	Colours are read from the editor's own token styles, so a theme changes
-	them; the strip, its slider and its border are styled by
+	One canvas redraws after content revisions settle; scrolling moves only
+	the indicator. Syntax colors follow the editor theme. Variables:
 	`--ui-code-minimap-bg`, `--ui-code-minimap-slider`,
-	`--ui-code-minimap-slider-hover`, `--ui-code-minimap-slider-active` and
-	`--ui-code-minimap-border`.
+	`--ui-code-minimap-slider-hover`, `--ui-code-minimap-slider-active`,
+	and `--ui-code-minimap-border`.
 **/
 class CodeMinimap {
-	/** Token kinds the stylesheet colours; any other is drawn as plain. **/
+	/** Styled token kinds. Unrecognized kinds use the plain text color. **/
 	static final KINDS = ["plain", "markup-text", "tag", "attribute", "keyword", "string", "comment", "number", "type", "function", "operator"];
 
-	/** A line's row, and the thickness of what is drawn in it, in layout units. **/
+	/** Default minimap row height in layout units. **/
 	static inline var ROW = 2.0;
 
 	static inline var THICK = 1.5;
 
-	/** A slider is never thinner than this, so it can be taken hold of. **/
+	/** Minimum viewport indicator height for pointer dragging. **/
 	static inline var SLIDER_MIN = 12.0;
 
-	/** The most marks drawn over the rows. **/
+	/** Maximum annotation marks drawn over the overview. **/
 	static inline var MARKS = 600;
 
-	/** The wait after a change before the rows are drawn again, in seconds. **/
+	/** Delay after a content change before redrawing, in seconds. **/
 	static inline var SETTLE = 0.12;
 
 	public static function make(host:MinimapHost):Div {
@@ -125,7 +120,7 @@ class CodeMinimap {
 		Css.restyled.push(restyled);
 		Owner.onCleanup(() -> Css.restyled.remove(restyled));
 
-		/** Layout units a line takes in the strip: a line's row, or less when the document has more lines than the strip has rows. **/
+		/** Returns scaled line spacing in the minimap. **/
 		function pitch():Float
 			return Math.min(ROW, mapHeight.get() / Math.max(1, host.document.visible.length));
 
@@ -241,7 +236,7 @@ class CodeMinimap {
 		var strip = new Div({classes: ["ui-code-minimap"], width: width, height: height}, [(canvas : Element), (layer : Element), slider].concat(probeBoxes));
 		Identity.of(strip.tree, strip.node.id).bindAttribute("data-dragging", Computed.make(() -> (dragging.get() ? "true" : null : Null<String>)));
 
-		/** Scrolls the editor so the slider's top is at `top` in the strip. **/
+		/** Scrolls the editor to place the viewport indicator at the given minimap offset. **/
 		function scrollTo(top:Float):Void {
 			host.scroll.scrollTo(host.scroll.x.get(), yOf(top / pitch()));
 		}

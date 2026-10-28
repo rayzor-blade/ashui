@@ -1,19 +1,18 @@
 package ashui.canvaskit;
 
-/** A rectangle in a `SpatialIndex`, and its place in drawing order: a later one is on top. **/
+/** A named rectangle with drawing order. Higher order appears above lower order. **/
 typedef Region = {id:String, x:Float, y:Float, width:Float, height:Float, order:Int};
 
 /**
-	Rectangles by id, found by point or by area without looking at all of
-	them: the plane is cut into square cells `cellSize` across, and each
-	rectangle is listed in every cell it touches. A point looks in one cell,
-	an area in the cells it covers, so lookups stay fast however many
-	rectangles there are, as long as most are not much larger than a cell.
+	A uniform-grid spatial index for rectangular hit tests and area queries.
+	Rectangles register in every cell they overlap. Point queries check one
+	cell; area queries check covered cells. This avoids scanning all regions
+	when most rectangles are similar in size to a grid cell.
 
 	```haxe
 	var index = new SpatialIndex(100);
 	index.set("a", 10, 10, 50, 30);
-	index.hitTest(20, 20); // "a"
+	index.hitTest(20, 20); // region "a"
 	index.query(0, 0, 200, 200); // ["a"]
 	```
 **/
@@ -27,10 +26,10 @@ class SpatialIndex {
 	public function new(cellSize = 100.0)
 		this.cellSize = cellSize;
 
-	/** How many rectangles it holds. **/
+	/** Number of registered rectangles. **/
 	public var length(default, null) = 0;
 
-	/** Puts `id` at this rectangle, on top of all before it; moves it there if it is in already. **/
+	/** Adds or replaces a rectangle and moves it to the top of drawing order. **/
 	public function set(id:String, x:Float, y:Float, width:Float, height:Float):Void {
 		remove(id);
 		var r:Region = {
@@ -51,7 +50,7 @@ class SpatialIndex {
 		});
 	}
 
-	/** Takes `id` out; false when it was not in. **/
+	/** Removes a rectangle. Returns false when the ID was absent. **/
 	public function remove(id:String):Bool {
 		var r = regions.get(id);
 		if (r == null)
@@ -69,7 +68,7 @@ class SpatialIndex {
 		return true;
 	}
 
-	/** Empties it. **/
+	/** Removes all registered rectangles. **/
 	public function clear():Void {
 		regions.clear();
 		cells.clear();
@@ -80,7 +79,7 @@ class SpatialIndex {
 	public function get(id:String):Null<Region>
 		return regions.get(id);
 
-	/** The topmost rectangle containing the point, or null. **/
+	/** Returns the topmost region containing a point, or null. **/
 	public function hitTest(x:Float, y:Float):Null<Region> {
 		var list = cells.get(key(Math.floor(x / cellSize), Math.floor(y / cellSize)));
 		if (list == null)
@@ -92,7 +91,7 @@ class SpatialIndex {
 		return best;
 	}
 
-	/** The ids of every rectangle that overlaps the area, bottom first. **/
+	/** Returns overlapping IDs in drawing order, bottom to top. **/
 	public function query(x:Float, y:Float, width:Float, height:Float):Array<String> {
 		var x1 = x + width, y1 = y + height;
 		var seen = new Map<String, Bool>();

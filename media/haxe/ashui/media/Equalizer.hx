@@ -31,7 +31,7 @@ class Equalizer {
 	final closed = Signal.make(false);
 	final listeners:Array<Void->Void> = [];
 
-	/** 1–16 center frequencies in Hz. Defaults to 60, 250, 1000, 4000 and 12000 Hz, flat at Q=1. **/
+	/** Creates 1–16 frequency bands in Hz. Defaults to 60, 250, 1000, 4000, and 12000 Hz with zero gain and Q=1. **/
 	public function new(?frequencies:Array<Float>) {
 		if (frequencies == null)
 			frequencies = [60, 250, 1000, 4000, 12000];
@@ -58,7 +58,7 @@ class Equalizer {
 		Owner.onCleanup(this.close);
 	}
 
-	/** Gain −24…+24 dB, Q 0.1–20. Also enables the band. Invalid settings leave it unchanged. **/
+	/** Sets and enables a band. Gain ranges from -24 to +24 dB and Q from 0.1 to 20. Invalid settings leave the band unchanged. **/
 	public function setBand(index:Int, frequency:Float, gainDb:Float, q:Float):Void {
 		checkBand(index);
 		native.setBand(index, frequency, gainDb, q);
@@ -90,7 +90,7 @@ class Equalizer {
 		changed();
 	}
 
-	/** −60…0 dB. Negative preamp gives boosted bands headroom. **/
+	/** Sets preamp gain from -60 to 0 dB. Negative gain reserves headroom for boosted bands. **/
 	public function setPreamp(gainDb:Float):Void {
 		checkOpen();
 		native.setPreamp(gainDb);
@@ -98,7 +98,7 @@ class Equalizer {
 		changed();
 	}
 
-	/** Bypasses both the bands and preamp; retains their settings. **/
+	/** Bypasses bands and preamp while preserving their settings. **/
 	public function setBypass(value:Bool):Void {
 		checkOpen();
 		native.setBypass(value);
@@ -106,7 +106,7 @@ class Equalizer {
 		changed();
 	}
 
-	/** Restore zero gain and preamp, preserving center frequencies, Q and bypass. **/
+	/** Resets band gains and preamp to zero, preserving frequencies, Q, and bypass state. **/
 	public function flatten():Void {
 		checkOpen();
 		for (index in 0...bands.length) {
@@ -124,19 +124,19 @@ class Equalizer {
 		changed();
 	}
 
-	/** Borrow the input; return owned interleaved F32 PCM. The caller must close the result. **/
+	/** Processes borrowed input and returns owned interleaved F32 PCM. The caller must close the result. **/
 	public function process(data:AudioData):AudioData {
 		checkOpen();
 		return native.process(data);
 	}
 
-	/** Clear PCM filter history without changing settings. Playback histories belong to their players. **/
+	/** Clears the PCM filter history without changing settings. Playback histories remain owned by their players. **/
 	public function reset():Void {
 		checkOpen();
 		native.reset();
 	}
 
-	/** Detaches attached players, restoring flat playback. Terminal and idempotent. **/
+	/** Detaches players and restores flat playback. Repeated calls are safe; the equalizer cannot be reused after closing. **/
 	public function close():Void {
 		if (disposed)
 			return;

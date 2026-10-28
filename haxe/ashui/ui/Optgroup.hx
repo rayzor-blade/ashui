@@ -3,14 +3,14 @@ package ashui.ui;
 import ashui.layout.Element;
 
 typedef OptgroupProps = {
-	/** The heading over its options. **/
+	/** Heading displayed above the options. **/
 	label:String,
 
-	/** Disables every option in it. **/
+	/** Disables every option in this group. **/
 	?disabled:Bool
 }
 
-/** HTML's `<optgroup>`: options under a heading in a select's list. **/
+/** A labeled group of options inside a `<select>`, written as `<optgroup>` in HXX. **/
 class Optgroup extends Component<OptgroupProps> {
 	function render():Element {
 		var box = new Div({tag: "optgroup", display: ashui.types.Style.Display.None}, children);
@@ -18,7 +18,7 @@ class Optgroup extends Component<OptgroupProps> {
 		return box;
 	}
 
-	/** The options in it now, those a `<for>` or `<if>` holds included. **/
+	/** Returns the current options, including those supplied by `<for>` and `<if>`. **/
 	public function options():Array<Option> {
 		var out:Array<Option> = [];
 		for (c in children)

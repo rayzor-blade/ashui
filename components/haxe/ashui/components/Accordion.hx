@@ -13,29 +13,30 @@ import ashui.ui.Component;
 import ashui.ui.Svg;
 
 typedef AccordionProps = {
-	/** `single` (the default): one item open at a time; `multiple`: any. **/
+	/** `single` (default) allows one open section; `multiple` allows several. **/
 	?type:String,
-	/** The values of the items open. A signal is read and written; a constant sets them once. **/
+	/** Values of the open sections. A supplied signal is read and updated; a constant sets the initial state. **/
 	?value:IntoReactive<Array<String>>,
-	/** With `single`, whether the open item closes when its trigger is clicked again; true by default. **/
+	/** Allows the open section to close when clicked again in single mode. Defaults to true. **/
 	?collapsible:Bool,
 	?onValueChange:Array<String>->Void,
 	?id:String
 }
 
 /**
-	Sections that open and close under their headings: `AccordionItem`s,
-	each with a `value`, an `AccordionTrigger` (its heading) and an
-	`AccordionContent`. A section opens and closes by layout animation, and
-	the sections below make room for it as smoothly. In the triggers, the
-	arrows, Home and End move among them. CSS: `.ui-accordion`,
-	`.ui-accordion-item`, `.ui-accordion-trigger` (its `.ui-accordion-chevron`
-	turning while open), `.ui-accordion-content`, each `[data-state]` open
-	or closed. Its items may come from `<for>` and `<if>`, and are taken up
-	as they come and go.
+	Expandable sections with animated layout changes.
+
+	Each `AccordionItem` has a unique `value`, an `AccordionTrigger` heading,
+	and `AccordionContent`. Opening or closing a section also animates the
+	positions of the sections below. Arrows, Home, and End navigate triggers.
+	Items supplied by `<for>` and `<if>` are tracked as they change.
+
+	CSS parts: `.ui-accordion`, `.ui-accordion-item`, `.ui-accordion-trigger`,
+	`.ui-accordion-chevron`, and `.ui-accordion-content`. Parts expose
+	`[data-state="open"]` or `[data-state="closed"]`; the chevron rotates on open.
 **/
 class Accordion extends Component<AccordionProps> {
-	/** The values of the items open; the caller's signal when `value` was one. **/
+	/** Values of the open sections. Uses the supplied signal when available. **/
 	public var value(default, null):Signal<Array<String>>;
 
 	function render():Element {
@@ -119,13 +120,13 @@ class Accordion extends Component<AccordionProps> {
 	}
 }
 
-/** One section of an accordion, of a `value`: its trigger and its content. **/
+/** One accordion section, identified by `value`, containing a trigger and content. **/
 class AccordionItem extends Component<{value:String, ?disabled:Bool, ?id:String}> {
 	@:allow(ashui.components) var trigger:Null<AccordionTrigger> = null;
 	var content:Null<AccordionContent> = null;
 	final state = Signal.make((null : Null<Computed<Null<String>>>));
 
-	/** The items that exist, found by the identity of the element each draws. **/
+	/** Maps rendered identities to their accordion items. **/
 	@:allow(ashui.components) static final items = new haxe.ds.ObjectMap<ashui.css.Identity, AccordionItem>();
 
 	function render():Element {
@@ -162,7 +163,7 @@ class AccordionItem extends Component<{value:String, ?disabled:Bool, ?id:String}
 	}
 }
 
-/** An accordion item's heading, which opens and closes it; a chevron turns while it is open. **/
+/** An accordion heading that toggles its section. The chevron indicates the open state. **/
 class AccordionTrigger extends Component<{?id:String}> {
 	@:allow(ashui.components) final state = Signal.make((null : Null<Computed<Null<String>>>));
 	@:allow(ashui.components) var interaction:Interaction;
@@ -187,7 +188,7 @@ class AccordionTrigger extends Component<{?id:String}> {
 	}
 }
 
-/** What an accordion item shows while open, growing in and shrinking out by layout animation. **/
+/** Section content that expands and collapses with layout animation. **/
 class AccordionContent extends Component<{?id:String}> {
 	@:allow(ashui.components) final state = Signal.make((null : Null<Computed<Null<String>>>));
 

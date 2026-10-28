@@ -93,10 +93,11 @@ private enum Action {
 }
 
 /**
-	SceneKit's rotation, scale and translation tools and world orientation widget (c16e24c, 6a3a68b).
-	Paths are projected once when the reactive canvas records a changed
-	scene, then reused for picking. Only a captured drag installs a pointer
-	hook; there is no timer or frame loop while idle.
+	Rotation, scale, and translation tools with a world orientation widget
+	for `SceneKit` (c16e24c, 6a3a68b).
+	Projected handle paths are cached when the reactive canvas records a
+	changed scene and reused for picking. Pointer hooks exist only during
+	a captured drag; the gizmos do no periodic work while idle.
 **/
 class SceneGizmos {
 	static final axes = [new Vec3(1, 0, 0), Vec3.UP, new Vec3(0, 0, 1)];
@@ -143,13 +144,13 @@ class SceneGizmos {
 
 	public var world = false;
 
-	/** False when SceneKit's camera controls are disabled; the world widget remains visible. **/
+	/** Enables world-widget camera control. The widget remains visible when false. **/
 	public var cameraControls = true;
 
 	public var worldRight = 16.0;
 	public var worldTop = 16.0;
 
-	/** The selected rings' minimum and maximum screen radius, in layout units. **/
+	/** Minimum screen radius of selected-object rings. `maxRadius` limits the maximum; both use layout units. **/
 	public var minRadius = 72.0;
 
 	public var maxRadius = 180.0;
@@ -192,7 +193,7 @@ class SceneGizmos {
 		};
 	}
 
-	/** Draw after the meshes: clear editor lines above the lit/post-processed image. **/
+	/** Draws editor handles after meshes, above lighting and post-processing. **/
 	public function draw(ctx:DrawContext):Void {
 		width = ctx.width;
 		height = ctx.height;
@@ -306,7 +307,7 @@ class SceneGizmos {
 		return Math.min(maxRadius, Math.max(minRadius, extent * focal / depth * 1.12)) * depth / focal;
 	}
 
-	/** Local axes end in square grips; the center grip scales all axes together. 6a3a68b. **/
+	/** Draws local-axis square grips and a center grip for uniform scaling (6a3a68b). **/
 	function drawScale(ctx:DrawContext, r:SceneRegion, active:Int):Void {
 		var center = projectPoint(r.pivot);
 		if (center == null)
@@ -461,7 +462,7 @@ class SceneGizmos {
 		ctx.fillCircle(worldCenter.x, worldCenter.y, 4, white);
 	}
 
-	/** The last recorded handle under a canvas-local point; -1 for empty space. **/
+	/** Returns the cached handle under a canvas-local point, or -1 for empty space. **/
 	public function hit(x:Float, y:Float):Int {
 		if (x < 0 || y < 0 || x > width || y > height)
 			return -1;
@@ -505,7 +506,7 @@ class SceneGizmos {
 		return handle;
 	}
 
-	/** Editor controls precede OrbitInput; handled presses prevent a camera drag. **/
+	/** Attaches gizmo input before `OrbitInput`, so handled presses prevent camera dragging. **/
 	public function attach(node:ashui.layout.Node):Void {
 		var input = Interaction.of(node).setFocusable(true);
 		input.onPointerMove(p -> if (drag == null) hover(hit(p.localX, p.localY)));
@@ -820,7 +821,7 @@ class SceneGizmos {
 	static function scaleFactors(handle:Int, value:Float):Vec3
 		return new Vec3(handle == 0 || handle == 3 ? value : 1, handle == 1 || handle == 3 ? value : 1, handle == 2 || handle == 3 ? value : 1);
 
-	/** Positive or negative X/Y/Z view, preserving the orbit target and distance. **/
+	/** Snaps to a positive or negative X/Y/Z view, preserving the orbit target and distance. **/
 	public function snapView(handle:Int):Void {
 		if (handle < 4 || handle > 9)
 			return;
@@ -839,7 +840,7 @@ class SceneGizmos {
 		}
 	}
 
-	/** World point in a canvas, or null outside the depth range. **/
+	/** Projects a world point into canvas coordinates, or returns null outside the camera depth range. **/
 	public static function project(camera:Camera, point:Vec3, width:Float, height:Float):Null<Point> {
 		if (width <= 0 || height <= 0)
 			return null;

@@ -8,16 +8,16 @@ import ashui.ui.Component;
 import ashui.ui.Div;
 
 typedef HoverCardProps = {
-	/** Which side of its trigger it opens on: "bottom" (the default), "top", "left" or "right". **/
+	/** Side of the trigger: `bottom` (default), `top`, `left`, or `right`. **/
 	?side:String,
-	/** Seconds the pointer rests on the trigger before it opens; 0.5 by default. **/
+	/** Hover delay before opening, in seconds. Defaults to 0.5. **/
 	?openDelay:Float,
-	/** Seconds after the pointer leaves before it closes, so it can cross to the card; 0.3 by default. **/
+	/** Delay before closing after the pointer leaves, allowing movement into the card. Defaults to 0.3 seconds. **/
 	?closeDelay:Float,
 	?id:String
 }
 
-/** Where a hover card is: closed, waiting to open, open, or waiting to close. **/
+/** Hover-card lifecycle: closed, waiting to open, open, or waiting to close. **/
 private enum CardState {
 	Closed;
 	Waiting;
@@ -32,14 +32,14 @@ private enum CardEvent {
 }
 
 /**
-	A card of detail shown while the pointer rests on its `HoverCardTrigger`,
-	a profile behind a name: it opens after a delay, beside the trigger, and
-	stays while the pointer is on the trigger or on the card, so the card can
-	be read and its links followed. It takes no backdrop: the page beneath
-	stays under the pointer. Its life is a `Machine`; `data-state` on the
-	trigger is closed, waiting, open or leaving. CSS:
-	`.ui-hover-card-trigger` (`[data-state]`), `.ui-hover-card` (the card,
-	`[data-side]`, `[data-state]`, `[closing]`).
+	A detail card displayed after hovering over `HoverCardTrigger`.
+	The card remains open while the pointer is over the trigger or the card,
+	so its content and links remain usable. It has no backdrop and leaves
+	the page interactive. An FSM manages opening and closing delays.
+
+	CSS: `.ui-hover-card-trigger[data-state]` and `.ui-hover-card` with
+	`[data-side]`, `[data-state]`, and `[closing]`. Trigger states are
+	`closed`, `waiting`, `open`, and `leaving`.
 **/
 class HoverCard extends Component<HoverCardProps> {
 	function render():Element {
@@ -88,7 +88,7 @@ class HoverCard extends Component<HoverCardProps> {
 	}
 }
 
-/** What the pointer rests on to open the card; its children are the trigger, a name or an avatar. **/
+/** Hover target that opens the card. Children can be a name, avatar, or other content. **/
 class HoverCardTrigger extends Component<{?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-hover-card-trigger", null, null, children, props.id);
@@ -97,7 +97,7 @@ class HoverCardTrigger extends Component<{?id:String}> {
 	}
 }
 
-/** The card: kept while closed, in the top layer while open. **/
+/** Hover-card panel, retained while closed and moved to the top layer while open. **/
 class HoverCardContent extends Component<{?id:String}> {
 	@:allow(ashui.components.HoverCard)
 	var panel(default, null):Div;

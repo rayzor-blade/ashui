@@ -26,60 +26,61 @@ import ashui.ui.Component;
 import ashui.ui.Div;
 import ashui.ui.Text;
 
-/** How the two texts are laid out: one column of removed and added lines, or the original and the modified text side by side. **/
+/** Diff arrangement: removed and added lines in one column, or original and modified text side by side. **/
 enum abstract CodeDiffLayout(String) from String to String {
 	var Inline = "inline";
 	var Split = "split";
 }
 
-/** Icons the diff draws its own controls with, in place of the ones it has; each is an icon from a set, a compiled document or SVG markup that draws in `currentColor`. **/
+/** Replacement icons for diff controls. Accepts icon-set entries, compiled SVGs, or markup using `currentColor`. **/
 typedef CodeDiffIconProps = {
-	/** The button for the previous change, in the navigation bar. **/
+	/** Previous-change navigation icon. **/
 	?previous:ashui.svg.Icon,
-	/** The button for the next change. **/
+	/** Next-change navigation icon. **/
 	?next:ashui.svg.Icon,
-	/** The mark at the start of the row of a folded run of unchanged lines. **/
+	/** Icon for a collapsed section of unchanged lines. **/
 	?folded:ashui.svg.Icon,
-	/** The button of `onStage`. **/
+	/** Stage action icon. **/
 	?stage:ashui.svg.Icon,
-	/** The button of `onRevert`. **/
+	/** Revert action icon. **/
 	?revert:ashui.svg.Icon
 }
 
 typedef CodeDiffProps = {
-	/** The text before, as a string or a signal of one. Line endings should be LF. **/
+	/** Original text. Accepts reactive values; use LF line endings. **/
 	original:IntoReactive<String>,
-	/** The text after. **/
+	/** Modified text. Accepts reactive values; use LF line endings. **/
 	modified:IntoReactive<String>,
-	/** haxe/hxx, javascript/js/jsx, typescript/ts/tsx, rust, json, css, python/py, lua or plain, as CodeEditor takes it. **/
+	/** Syntax language, using the same names and aliases as `CodeEditor`. **/
 	?language:IntoReactive<String>,
-	/** An application grammar, in place of the built-in lexical highlighter. **/
+	/** Custom highlighter that replaces the built-in lexical highlighter. **/
 	?highlighter:CodeHighlighter,
-	/** `Inline` (the default) or `Split`; a signal switches between them. **/
+	/** `Inline` (default) or `Split`. Reactive changes switch the layout. **/
 	?layout:IntoReactive<CodeDiffLayout>,
 	/**
-		The changes, when the caller has them, as a version-control library gives them: take the runs of removed and added lines of
-		a patch, not a hunk with its context lines. They are checked against the two texts, and ignored if they do not fit. Without
-		them the component finds the changes itself.
+		Optional changes supplied by a version-control library. Supply runs of
+		removed and added lines, excluding context lines. Changes are validated
+		against both texts and ignored when they do not match. When omitted,
+		the component computes the diff.
 	**/
 	?hunks:IntoReactive<Array<CodeChange>>,
-	/** Unchanged lines kept on each side of a change, 3 by default; the rest of a long run is a row that opens when pressed. A negative number keeps every line. **/
+	/** Unchanged context lines on each side of a change. Defaults to 3; negative keeps all lines. Longer unchanged runs collapse into expandable rows. **/
 	?context:Int,
-	/** Line numbers, true by default. **/
+	/** Shows line numbers. Defaults to true. **/
 	?lineNumbers:Bool,
-	/** A bar above the rows with "2 of 5" and buttons for the previous and the next change; off by default. F7 and Shift+F7 work with or without it. **/
+	/** Shows a change counter and previous/next buttons. Defaults to false. F7 and Shift+F7 work regardless of this setting. **/
 	?navigation:Bool,
-	/** Spaces per tab stop, 4 by default. **/
+	/** Spaces per tab stop. Defaults to 4. **/
 	?tabSize:Int,
-	/** Called with a change when its Stage button is pressed. Setting it puts a Stage button, with a tooltip, on the first row of each change. **/
+	/** Adds a Stage button to the first row of each change and receives that change when pressed. **/
 	?onStage:CodeChange->Void,
-	/** Called with a change when its Revert button is pressed; likewise puts a Revert button on each. **/
+	/** Adds a Revert button to the first row of each change and receives that change when pressed. **/
 	?onRevert:CodeChange->Void,
-	/** More buttons on the first row of each change, after Stage and Revert: `{label, ?icon, run}`. **/
+	/** Additional actions after Stage and Revert on the first row of each change: `{label, ?icon, run}`. **/
 	?hunkActions:Array<CodeDiffAction>,
 	/** Inline labels at the ends of changed lines, such as revision authors. Only visible rows mount labels. **/
 	?lineHints:IntoReactive<Array<CodeDiffHint>>,
-	/** Icons for the diff's own controls, in place of the plain ones it draws; give a set's, such as Remix's, to match an app. **/
+	/** Replacement control icons, such as Remix icons matching the application. **/
 	?icons:CodeDiffIconProps,
 	/** Accessible name of the diff. **/
 	?label:String,
@@ -99,10 +100,10 @@ typedef CodeDiffProps = {
 	until the new comparison completes.
 **/
 class CodeDiff extends Component<CodeDiffProps> {
-	/** How many changes the texts have. **/
+	/** Number of changes in the current diff. **/
 	public final changeCount = Signal.make(0);
 
-	/** The change last gone to with `goToChange`, from 0; -1 before any. **/
+	/** Zero-based index of the change last selected through navigation, or -1 before navigation. **/
 	public final currentChange = Signal.make(-1);
 
 	/** Whether a comparison is running on the worker thread. **/
@@ -126,7 +127,7 @@ class CodeDiff extends Component<CodeDiffProps> {
 	var hintAt:(Bool, Int)->Null<CodeDiffHint> = (_, _) -> null;
 	var hasHints:Void->Bool = () -> false;
 
-	/** The icons the controls have unless the app gives others: plain strokes, so the component needs no icon set. **/
+	/** Default stroke icons used when the application supplies no icon set. **/
 	static final PREVIOUS:ashui.svg.Icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15 L12 9 L18 15"/></svg>';
 
 	static final NEXT:ashui.svg.Icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9 L12 15 L18 9"/></svg>';
@@ -137,10 +138,10 @@ class CodeDiff extends Component<CodeDiffProps> {
 
 	static final FOLDED:ashui.svg.Icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9 L12 5 L16 9"/><path d="M8 15 L12 19 L16 15"/></svg>';
 
-	/** Past this many lines in both texts together, the comparison runs on the worker thread. **/
+	/** Combined line-count threshold for moving comparison to a worker thread. **/
 	static inline var SYNCHRONOUS = 4000;
 
-	/** A text of at least this many lines has its lexical checkpoints made ahead, `FILL_SLICE` lines a frame. **/
+	/** Line-count threshold for building lexical checkpoints ahead, in `FILL_SLICE` batches per frame. **/
 	static inline var FILLING = 5000;
 
 	static inline var FILL_SLICE = 4000;
@@ -269,7 +270,7 @@ class CodeDiff extends Component<CodeDiffProps> {
 		return box;
 	}
 
-	/** The panes of a layout: one for inline, two for side by side with their vertical scroll tied together. **/
+	/** Builds one inline pane or two side-by-side panes with synchronized vertical scrolling. **/
 	function body(layout:CodeDiffLayout):Element {
 		var lineNumbers = props.lineNumbers != false, actions:Array<CodeDiffAction> = [];
 		if (props.onStage != null)
@@ -324,7 +325,7 @@ class CodeDiff extends Component<CodeDiffProps> {
 		return row;
 	}
 
-	/** The bar of the `navigation` prop: where the view is among the changes, and buttons for the previous and the next. **/
+	/** Builds the optional change counter and navigation buttons. **/
 	function navigationBar():Element {
 		var text = Computed.make(() -> {
 			var n = changeCount.get(), c = currentChange.get();
@@ -348,15 +349,15 @@ class CodeDiff extends Component<CodeDiffProps> {
 		]);
 	}
 
-	/** Scrolls to the next change after the current one, or after where the view is when the current one is off screen; wraps from the last to the first. **/
+	/** Scrolls to the next change and wraps at the end. Uses the viewport position when the current change is offscreen. **/
 	public function nextChange():Void
 		goToChange(1);
 
-	/** Scrolls to the previous change; wraps from the first to the last. **/
+	/** Scrolls to the previous change, wrapping from the first to the last. **/
 	public function previousChange():Void
 		goToChange(-1);
 
-	/** Scrolls to the change `index`, from 0, and makes it the current one. An index out of range is brought into it. **/
+	/** Scrolls to a zero-based change index and selects it. Clamps indices to the available range. **/
 	public function showChange(index:Int):Void {
 		var set = rows.get();
 		if (set == null || set.changes.length == 0 || panes.length == 0)
@@ -367,7 +368,7 @@ class CodeDiff extends Component<CodeDiffProps> {
 			p.scrollToRow(set.rowOfChange(target));
 	}
 
-	/** Scrolls to the change `delta` away from the current one, or from where the view is when the current one is off screen; wraps at both ends. **/
+	/** Moves by `delta` changes, wrapping at both ends. Uses the viewport position when the current change is offscreen. **/
 	public function goToChange(delta:Int):Void {
 		var set = rows.get();
 		if (set == null || set.changes.length == 0 || panes.length == 0)
@@ -399,7 +400,7 @@ class CodeDiff extends Component<CodeDiffProps> {
 		showChange(target);
 	}
 
-	/** Scrolls to the line `line` of the modified text, from 0, opening the folded run that hides it. **/
+	/** Reveals a zero-based line in the modified text, expanding unchanged sections when needed. **/
 	public function reveal(line:Int):Void {
 		var set = rows.get(), c = compared;
 		if (set == null || c == null || panes.length == 0)
@@ -416,20 +417,20 @@ class CodeDiff extends Component<CodeDiffProps> {
 				p.scrollToRow(row, true);
 	}
 
-	/** Opens every folded run of unchanged lines. **/
+	/** Expands all collapsed sections of unchanged lines. **/
 	public function expandAll():Void {
 		allOpen = true;
 		rebuild();
 	}
 
-	/** Folds the runs opened since the texts were last compared. **/
+	/** Restores the default collapsed sections for the current comparison. **/
 	public function collapseAll():Void {
 		allOpen = false;
 		opened.clear();
 		rebuild();
 	}
 
-	/** Makes the lexical checkpoints of a large text a slice at a time between frames, so far jumps through it have little to work out. **/
+	/** Builds lexical checkpoints in frame-sized batches to reduce work on distant scroll jumps. **/
 	function fillCheckpoints(text:CodeDiffText, generation:Int):Void {
 		if (text.length < FILLING)
 			return;
@@ -439,18 +440,18 @@ class CodeDiff extends Component<CodeDiffProps> {
 		ashui.animation.AnimationScheduler.main.after(0, slice);
 	}
 
-	/** Makes the rows again from the texts compared, for the layout now, with the runs opened so far kept whole. **/
+	/** Rebuilds rows for the current diff and layout while preserving expanded sections. **/
 	function rebuild():Void {
 		var c = compared;
 		rows.set(c == null ? null : CodeDiffRows.build(c.original, c.modified, c.changes, layoutNow() == Split, props.context == null ? 3 : props.context,
 			key -> allOpen || opened.exists(key)));
 	}
 
-	/** The changes now compared, as the rows were made from them. **/
+	/** Returns the changes used to build the current rows. **/
 	public function changes():Array<CodeChange>
 		return compared == null ? [] : compared.changes;
 
-	/** What the panes show now, row by row, in each pane's order; for checks. **/
+	/** Returns visible row data for each pane, in display order. Used for inspection and tests. **/
 	public function shownNow():Array<Array<{row:Int, kind:String, text:String, oldNumber:String, newNumber:String}>>
 		return [for (p in panes) p.shownNow()];
 

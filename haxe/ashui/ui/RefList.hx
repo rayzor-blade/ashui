@@ -22,15 +22,15 @@ class RefList<T:Element> {
 
 	public function new() {}
 
-	/** The elements, in the order built; read in a computed or watch, followed. **/
+	/** Returns the elements in construction order. Reactive readers subscribe to membership changes. **/
 	public function get():Array<T>
 		return cast current.get();
 
-	/** How many it holds; followed as `get` is. **/
+	/** Returns the element count. Reactive readers subscribe to membership changes. **/
 	public function length():Int
 		return current.get().length;
 
-	/** Adds `element` until the owner it was built under is disposed. What `ref=` does. **/
+	/** Adds an element until its owner is disposed. Called by HXX `ref` attributes. **/
 	public function bind(element:T):Void {
 		current.set(current.get().concat([element]));
 		if (Owner.current != null)

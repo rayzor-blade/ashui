@@ -1,6 +1,6 @@
 package ashui.components;
 
-/** A component's size, as its `data-size` attribute: `sm`, `md` (the default) or `lg`. **/
+/** Shared component sizes: `sm`, `md` (default), and `lg`, exposed through the `data-size` attribute. **/
 enum abstract Size(String) to String {
 	var Sm = "sm";
 	var Md = "md";

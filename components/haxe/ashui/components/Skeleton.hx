@@ -4,9 +4,9 @@ import ashui.ui.Component;
 import ashui.layout.Element;
 
 /**
-	A placeholder where content is loading, a highlight sweeping across it;
-	size it with the element's own width and height. CSS: `.ui-skeleton`;
-	`--ui-skeleton-bg`, `-highlight`, `-radius`, `-duration`.
+	A loading placeholder with a sweeping highlight. Set width and height
+	to match the expected content. CSS: `.ui-skeleton`; variables:
+	`--ui-skeleton-bg`, `-highlight`, `-radius`, and `-duration`.
 **/
 class Skeleton extends Component<{?id:String}> {
 	function render():Element

@@ -17,7 +17,7 @@ import ashui.ui.Ref;
 typedef VideoProps = {
 	> PlaybackProps,
 	?fit:IntoReactive<VideoFit>,
-	/** Fade idle controls while playing; pointer movement or keyboard focus reveals them. Defaults to true. **/
+	/** Hides idle controls during playback and reveals them on pointer movement or keyboard focus. Defaults to true. **/
 	?autoHideControls:IntoReactive<Bool>,
 	/** Seconds of inactivity before fading controls. Defaults to 2. **/
 	?controlsHideDelay:Float
@@ -36,10 +36,12 @@ private enum ControlsEvent {
 }
 
 /**
-	`<video src={path} />`: native audio/video playback through CanvasKit.
-	`controls={false}` leaves the video surface and any supplied HXX children;
-	use `player={controller}` to build custom controls around its signals.
-	CSS: `.ui-media-video`, `.ui-media-surface`, `.ui-media-controls`.
+	A video playback surface with native audio/video through CanvasKit.
+
+	Use `<video src={path} />` in HXX. Set `controls={false}` to show only
+	the video and supplied children. Pass `player={controller}` to connect
+	custom controls to the same playback state.
+	CSS: `.ui-media-video`, `.ui-media-surface`, and `.ui-media-controls`.
 **/
 class Video extends Component<VideoProps> {
 	public var player(default, null):Player;

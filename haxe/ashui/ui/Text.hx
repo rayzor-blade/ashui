@@ -7,32 +7,32 @@ import ashui.layout.Prop;
 import ashui.types.Color;
 
 typedef TextAttributes = {
-	/** Its colour; inherited from the elements it is in by default. **/
+	/** Text color. Inherits the parent text color when omitted. **/
 	?color:IntoReactive<Color>,
-	/** In layout units; 16 by default. **/
+	/** Font size in layout units. Defaults to 16. **/
 	?fontSize:Single,
-	/** Whether lines break at the width it is laid out at; true by default. **/
+	/** Wraps text to the available width. Defaults to true. **/
 	?wrap:Bool
 }
 
 /**
-	A run of text. Its content is a string, or a signal or computed of one,
-	which it follows. Without a colour of its own it takes the text colour
-	of the elements it is in, as in CSS. In a template it is `<text>`, or
-	text written directly inside a `<div>`.
+	Displays text from a string, signal, or computed value.
+
+	Use `<text>...</text>` in HXX, or write text directly inside an element.
+	Reactive content updates automatically. Text inherits the parent color
+	unless a color is supplied.
 **/
 class Text extends Element {
-	/** `content` is a string, or a signal or computed of one. **/
-	/** What it shows: a string, or a signal or computed of one. **/
+	/** The displayed content. Signals and computeds update the text reactively. **/
 	public final content:IntoReactive<String>;
 
 	static final byNode = new Map<String, Text>();
 
-	/** The text element at node `id`, null if it is none. **/
+	/** Returns the text element for a node ID, or null if the node has no text element. **/
 	public static function at(id:haxe.Int64):Null<Text>
 		return byNode.get(haxe.Int64.toStr(id));
 
-	/** Its text now. **/
+	/** Returns the current string, reading the signal or computed when content is reactive. **/
 	public function text():String {
 		return switch (content : ReactiveType<String>) {
 			case Const(s): s;

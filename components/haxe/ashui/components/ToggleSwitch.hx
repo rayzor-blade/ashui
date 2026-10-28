@@ -9,29 +9,31 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef ToggleSwitchProps = {
-	/** Whether it is on. A signal is read and written, so the switch and your code share it; a constant sets it once. **/
+	/** Checked state. A supplied signal is read and updated; a constant sets the initial state. **/
 	?checked:IntoReactive<Bool>,
 	?disabled:IntoReactive<Bool>,
-	/** Called with whether it is on, after a click, Enter or Space turns it. **/
+	/** Receives the new checked state after click, Enter, or Space activation. **/
 	?onChange:Bool->Void,
 	?size:Size,
 	?id:String
 }
 
 /**
-	An on and off switch: a track and its `thumb`, which slides across when
-	it is on. Its children go inside the knob; inline SVGs are centered and
-	sized with it. Give two SVGs `ui-switch-icon-off` and `ui-switch-icon-on`
-	classes to fade and rotate between them without rebuilding either (26f6deb).
-	It takes focus, and a click, Enter or Space turns it. In hxx
-	it is `<toggle-switch>`: `switch` is a Haxe keyword hxx keeps. CSS:
-	`.ui-switch`, `:checked`, `:hover`, `:disabled`, `[data-state]` (on,
-	off), `[data-size]`, `.ui-switch-thumb`; `--ui-switch-width`, `-height`, `-thumb`,
-	`-travel`, `-track`, `-track-hover`, `-track-on`, `-track-on-hover`,
-	`-thumb-bg`, `-icon-size`, `-icon-color`.
+	An on/off switch with an animated thumb.
+
+	Use `<toggle-switch>` in HXX. Children appear inside the thumb; inline
+	SVGs are centered and sized to fit. Apply `ui-switch-icon-off` and
+	`ui-switch-icon-on` to two SVGs to crossfade and rotate them without
+	rebuilding either icon (26f6deb). Click, Enter, or Space toggles the switch.
+
+	CSS: `.ui-switch` with `:checked`, `:hover`, `:disabled`, `[data-state]`
+	(on or off), and `[data-size]`, plus `.ui-switch-thumb`. Variables:
+	`--ui-switch-width`, `-height`, `-thumb`, `-travel`, `-track`,
+	`-track-hover`, `-track-on`, `-track-on-hover`, `-thumb-bg`, `-icon-size`,
+	and `-icon-color`.
 **/
 class ToggleSwitch extends Component<ToggleSwitchProps> {
-	/** Whether it is on; the caller's signal when `checked` was one. **/
+	/** Current checked state. Uses the supplied signal when available. **/
 	public var state(default, null):Signal<Bool>;
 
 	function render():Element {

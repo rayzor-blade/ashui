@@ -13,12 +13,15 @@ import ashui.media.Player.PlayerState;
 
 typedef PlaybackControlsProps = {
 	player:Player,
-	/** Keeps an enclosing video's controls visible while a popup is being used. **/
+	/** Reports popup engagement so enclosing video controls can stay visible. **/
 	?onEngagedChange:Bool->Void,
 	?id:String
 }
 
-/** Optional controls, also usable next to a video with controls=false or on their own. **/
+/**
+	Playback controls that can be used independently or alongside a video
+	with `controls={false}`. Connect to the same player as the playback surface.
+**/
 class PlaybackControls extends Component<PlaybackControlsProps> {
 	function render():Element {
 		Library.use();

@@ -13,24 +13,25 @@ import ashui.ui.Div;
 
 typedef DropdownMenuProps = {
 	?open:IntoReactive<Bool>,
-	/** Which side of its trigger it opens on; "bottom" by default. **/
+	/** Side of the trigger where the menu opens. Defaults to `bottom`. **/
 	?side:String,
 	?onOpenChange:Bool->Void,
 	?id:String
 }
 
 /**
-	A menu that drops down from a button: a `DropdownMenuTrigger` and a
-	`DropdownMenuContent` of `DropdownMenuItem`s, with
-	`DropdownMenuLabel`s and `DropdownMenuSeparator`s among them. Choosing
-	an item, by a press or by Enter or Space, calls its `onSelect` and closes
-	the menu; the arrows, Home and End move among the items; Escape or a
-	press outside closes it, focus going back to the trigger. Opened by
-	the keyboard, its first item takes focus. CSS: `.ui-dropdown-menu`
-	(`[data-state]`), `.ui-menu` (the panel, `[data-side]`, `[closing]`),
-	`.ui-menu-item` (`[data-variant="destructive"]`, `:hover`,
-	`:focus-visible`, `:disabled`), `.ui-menu-shortcut`, `.ui-menu-label`,
-	`.ui-menu-separator`, `.ui-dropdown-menu-trigger`.
+	A button-triggered menu with keyboard navigation.
+
+	Use `DropdownMenuTrigger` and `DropdownMenuContent` containing items,
+	labels, and separators. Click, Enter, or Space selects an item, calls
+	its `onSelect`, and closes the menu. Arrows, Home, and End navigate items.
+	Escape or an outside click closes and restores trigger focus. Opening
+	from the keyboard focuses the first item.
+
+	CSS: `.ui-dropdown-menu[data-state]`, `.ui-dropdown-menu-trigger`,
+	`.ui-menu` with `[data-side]` and `[closing]`, `.ui-menu-item` with
+	`[data-variant="destructive"]`, `:hover`, `:focus-visible`, and `:disabled`,
+	plus `.ui-menu-shortcut`, `.ui-menu-label`, and `.ui-menu-separator`.
 **/
 class DropdownMenu extends Component<DropdownMenuProps> {
 	public var opened(default, null):Signal<Bool>;
@@ -41,7 +42,7 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 	var panel:Null<Div> = null;
 	var floating:Null<Floating> = null;
 
-	/** Opens the menu with its top-left at `(x, y)`, as a context menu opens at the pointer. **/
+	/** Opens the menu at `(x, y)`, as a context menu does. **/
 	public function openAt(x:Float, y:Float):Void
 		if (floating != null)
 			floating.openAt(x, y);
@@ -117,11 +118,11 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 		return root;
 	}
 
-	/** Left or right in the open menu: nothing for a dropdown menu; a menubar's moves to the next menu. True when it acted. **/
+	/** Handles a horizontal menu key. Dropdown menus ignore it; menubars switch menus. Returns whether the key was handled. **/
 	function sideKey(dir:Int):Bool
 		return false;
 
-	/** The menu's enabled items, in order. **/
+	/** Returns enabled menu items in display order. **/
 	function items():Array<Interaction> {
 		var out = [];
 		if (panel == null)
@@ -137,7 +138,7 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 		return out;
 	}
 
-	/** Chooses the item of `interaction`: its `onSelect`, then the menu closes. **/
+	/** Runs the item selection callback, then closes the menu. **/
 	function select(interaction:Interaction):Void {
 		var item = DropdownMenuItem.registry.near(interaction.node.tree, interaction.node.id);
 		if (item != null && item.props.onSelect != null)
@@ -146,7 +147,7 @@ class DropdownMenu extends Component<DropdownMenuProps> {
 	}
 }
 
-/** The button that opens the menu, a chevron after its label; an outline button unless given a `variant`. **/
+/** Menu trigger with a trailing chevron. Defaults to an outline button. **/
 class DropdownMenuTrigger extends Component<{?variant:ButtonVariant, ?size:ButtonSize, ?id:String}> {
 	static var chevron:Null<ashui.svg.SvgDocument> = null;
 
@@ -172,7 +173,7 @@ class DropdownMenuTrigger extends Component<{?variant:ButtonVariant, ?size:Butto
 	}
 }
 
-/** The menu's panel: kept while closed, in the top layer while open. **/
+/** Menu panel, retained while closed and moved to the top layer while open. **/
 class DropdownMenuContent extends Component<{?id:String}> {
 	@:allow(ashui.components.DropdownMenu)
 	var panel(default, null):Div;
@@ -186,17 +187,17 @@ class DropdownMenuContent extends Component<{?id:String}> {
 }
 
 typedef DropdownMenuItemProps = {
-	/** Called when it is chosen. **/
+	/** Runs when the item is selected. **/
 	?onSelect:Void->Void,
-	/** A key combination shown at its end, as `⌘N`; only shown. **/
+	/** Shortcut label such as `⌘N`. Displays the combination without binding it. **/
 	?shortcut:String,
-	/** A destructive action, in the error colour. **/
+	/** Styles a destructive action with the error color. **/
 	?destructive:Bool,
 	?disabled:IntoReactive<Bool>,
 	?id:String
 }
 
-/** One of the menu's choices. **/
+/** A selectable menu action. **/
 class DropdownMenuItem extends Component<DropdownMenuItemProps> {
 	@:allow(ashui.components)
 	static final registry = new Registry<DropdownMenuItem>();
@@ -221,7 +222,7 @@ class DropdownMenuItem extends Component<DropdownMenuItemProps> {
 	}
 }
 
-/** A heading over a group of items. **/
+/** Heading for a group of menu items. **/
 class DropdownMenuLabel extends Component<{?id:String}> {
 	function render():Element {
 		var box = Library.part("ui-menu-label", null, null, children, props.id);
@@ -230,7 +231,7 @@ class DropdownMenuLabel extends Component<{?id:String}> {
 	}
 }
 
-/** A rule between groups of items. **/
+/** Separator between groups of menu items. **/
 class DropdownMenuSeparator extends Component<{?id:String}> {
 	function render():Element
 		return Library.part("ui-menu-separator", null, null, null, props.id);

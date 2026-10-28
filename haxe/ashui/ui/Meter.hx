@@ -7,29 +7,29 @@ import ashui.reactive.Computed;
 import ashui.reactive.Watch;
 
 typedef MeterProps = {
-	/** The measurement, between `min` and `max`. **/
+	/** Measured value, clamped between `min` and `max`. **/
 	?value:IntoReactive<Float>,
 
-	/** The range it is measured in; 0 to 1 by default. **/
+	/** Lower bound of the measurement range. The range defaults to 0–1. **/
 	?min:Float,
 	?max:Float,
 
-	/** Where the low and high parts of the range end; `min` and `max` by default. **/
+	/** Upper boundary of the low region. `high` sets the lower boundary of the high region; defaults are `min` and `max`. **/
 	?low:Float,
 	?high:Float,
 
-	/** The best value; the middle of the range by default. Which part it is in says which part is good. **/
+	/** Preferred value. Defaults to the midpoint; its region determines which values are considered optimal. **/
 	?optimum:Float,
 
 	?id:String
 }
 
 /**
-	HTML's `<meter>`, built in: a gauge of a measurement within a known
-	range, as a disk's fullness is. Its `.bar` is filled to the value and
-	classed by how good the value is, as HTML judges it from `low`, `high`
-	and `optimum`: `.optimum`, `.suboptimum` or `.even-less-good`, which
-	the user-agent stylesheet colours as success, warning and error.
+	A gauge for a measurement within a known range, such as disk usage.
+
+	Use `<meter>` in HXX. The `.bar` fill follows `value`. The `low`, `high`,
+	and `optimum` bounds select `.optimum`, `.suboptimum`, or `.even-less-good`,
+	styled as success, warning, and error by the user-agent stylesheet.
 **/
 class Meter extends Component<MeterProps> {
 	function render():Element {
@@ -54,7 +54,7 @@ class Meter extends Component<MeterProps> {
 		return new Div({tag: "meter", id: props.id}, [bar]);
 	}
 
-	/** HTML's judgement of `v`: good in the part of the range the optimum is in, less so next to it, worse beyond. **/
+	/** Classifies a value by its distance in regions from the optimum region. **/
 	static function region(v:Float, low:Float, high:Float, optimum:Float):String {
 		inline function part(x:Float)
 			return x < low ? 0 : x > high ? 2 : 1;

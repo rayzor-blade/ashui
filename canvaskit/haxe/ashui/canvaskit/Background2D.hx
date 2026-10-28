@@ -3,28 +3,28 @@ package ashui.canvaskit;
 import ashui.draw.DrawContext;
 import ashui.types.Brush;
 
-/** The pattern a `Background2D` draws. **/
+/** Pattern drawn by a 2D canvas background. **/
 enum BackgroundPattern {
 	None;
 
-	/** A dot at every crossing of the grid. **/
+	/** Dots at grid intersections. **/
 	Dots;
 
-	/** Lines along the grid. **/
+	/** Horizontal and vertical grid lines. **/
 	Grid;
 
-	/** Lines at 45° both ways. **/
+	/** Diagonal lines in both 45-degree directions. **/
 	Crosshatch;
 }
 
 /**
-	A 2D canvas's background: a pattern every `spacing` content units, in
-	`color` (`0xRRGGBB`) at `alpha`. Dots are `size` screen pixels across
-	and lines `size` screen pixels wide at any zoom. As the view zooms out
-	and the pattern grows dense, every `coarsen`-th crossing is kept and the
-	rest fade out, so it never becomes a solid wash and never jumps from one
-	density to the next. The GPU draws it (`Brush.pattern`), so it costs the
-	same at any zoom.
+	A GPU-drawn canvas pattern that follows pan and zoom.
+
+	`spacing` uses content units; `size` uses screen pixels so dots and lines
+	keep their visual width while zooming. `color` is `0xRRGGBB` with `alpha`.
+	Dense patterns fade between levels, keeping every `coarsen`-th grid
+	intersection instead of turning into a solid fill. Rendering uses
+	`Brush.pattern` with fixed drawing cost across zoom levels.
 
 	```haxe
 	<canvas-kit background={Background2D.dots(0x8a8f98)} />
@@ -37,10 +37,10 @@ class Background2D {
 	public final alpha:Float;
 	public final size:Float;
 
-	/** How many crossings of one level make one of the next, coarser, level. **/
+	/** Grid-spacing multiplier between detail levels. **/
 	public final coarsen:Int;
 
-	/** How close together, in screen pixels, crossings may come before the finer level has faded out. **/
+	/** Minimum screen-pixel spacing before the finer pattern level fully fades out. **/
 	public final minGap:Float;
 
 	final brush:Null<Brush>;
@@ -71,7 +71,7 @@ class Background2D {
 	public static function crosshatch(color = 0x8a8f98, spacing = 24.0, width = 1.0):Background2D
 		return new Background2D(Crosshatch, spacing, color, 0.2, width);
 
-	/** Draws the pattern over the content rect `(x0, y0)` to `(x1, y1)`, the part in view, in content coordinates. **/
+	/** Draws the pattern over the visible content rectangle in content coordinates. **/
 	public function draw(ctx:DrawContext, x0:Float, y0:Float, x1:Float, y1:Float, zoom:Float):Void
 		if (brush != null && x1 > x0 && y1 > y0)
 			ctx.fillRect(x0, y0, x1 - x0, y1 - y0, brush);

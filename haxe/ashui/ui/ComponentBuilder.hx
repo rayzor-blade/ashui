@@ -5,16 +5,15 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 
 /**
-	Runs on every `Component` subclass:
+	Generates reactive state accessors and template bodies for component subclasses.
 
-	- `@:state var x:T = init` becomes a property backed by a signal: reading
-	  `x` reads the signal, so a computed, watch or template attribute that
-	  reads it follows it, and assigning `x` sets the signal.
-	  `__takeState` hands the signals to the instance a hot reload builds in
-	  this one's place, so its state carries over. Built with
-	  `-D ashui_hot_reload`, a state field a reload added reads as its
-	  initial value on an instance built before it, which has no signal yet.
-	- `function render() '<template>'` becomes `return hxx('<template>')`.
+	`@:state var x:T = init` becomes a signal-backed property. Reads participate
+	in dependency tracking; assignments update the signal. Hot reload transfers
+	these signals to replacement instances. With `-D ashui_hot_reload`, a new
+	state field initializes on first access in an existing instance.
+
+	Also supports the template-body shorthand `function render() '<template>'`
+	by expanding it to a return from the underlying HXX macro.
 **/
 class ComponentBuilder {
 	public static function build():Array<Field> {
@@ -36,7 +35,7 @@ class ComponentBuilder {
 		return out;
 	}
 
-	/** `__takeState(old)`: the superclass's signals, then this class's, taken from `old`. **/
+	/** Generates `__takeState(old)` to transfer superclass signals, then this class's state signals. **/
 	static function takeState(signals:Array<String>):Field {
 		var self = Context.toComplexType(Context.getLocalType());
 		var pos = Context.currentPos();

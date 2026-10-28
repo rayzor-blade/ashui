@@ -12,63 +12,60 @@ import ashui.types.Brush;
 import ashui.ui.Canvas;
 import ashui.ui.Component;
 
-/** What dragging the empty canvas with the left button does. **/
+/** Action for left-dragging empty canvas space. **/
 enum CanvasTool {
-	/** Moves the view. **/
+	/** Pans the viewport. **/
 	Pan;
 
-	/** Draws a selection box. **/
+	/** Draws a box to select regions. **/
 	Select;
 }
 
 typedef CanvasKitProps = {
-	/** GPU content at this canvas's place in paint order, under its clips and opacity. **/
+	/** GPU drawing callback at the canvas position in paint order, respecting clipping and opacity. **/
 	?paint:ashui.ui.Canvas.CanvasPaint,
 
-	/** Whether the kit handles pan, zoom and selection input; true by default. **/
+	/** Enables pan, zoom, and selection input. Defaults to true. **/
 	?interactive:Bool,
 
 	/**
-		Draws the content, in content coordinates: the view's pan and zoom
-		are applied already. Register what can be clicked, selected and
-		dragged with `kit.region(id, x, y, width, height)` as it is drawn;
-		a later region is on top of an earlier one.
+		Draws in content coordinates with pan and zoom already applied.
+		Register interactive bounds with `kit.region(id, x, y, width, height)`.
+		Later regions appear above earlier regions for hit testing.
 	**/
 	?draw:(ctx:DrawContext, kit:CanvasKit) -> Void,
 
-	/** Where it looks; a new one, at no pan and a zoom of 1, by default. **/
+	/** Pan and zoom state. Defaults to a new viewport with no pan and zoom 1. **/
 	?viewport:Viewport2D,
 
-	/** Behind the content; dots by default. **/
+	/** Canvas background. Defaults to dots. **/
 	?background:IntoReactive<Background2D>,
 
-	/** The selected regions' ids; a new one by default. **/
+	/** Selected region IDs. Defaults to a new selection model. **/
 	?selection:Selection2D,
 
-	/** What a left drag on the empty canvas does: `Pan` by default. Shift-drag always draws a selection box. **/
+	/** Left-drag action on empty space. Defaults to `Pan`; Shift-drag always selects a box. **/
 	?tool:IntoReactive<CanvasTool>,
 
-	/** The grid moved regions snap to, in content units; 0 or none for none. **/
+	/** Snap-grid spacing in content units. Zero or omitted disables snapping. **/
 	?snap:IntoReactive<Float>,
 
 	/**
-		Called as the selected regions are dragged, with their ids and how
-		far they moved since the last call, in content units, snapped to
-		`snap` when it is set. The app moves its own items and they draw
-		where it put them.
+		Receives selected IDs and incremental drag distances in content units,
+		snapped when `snap` is set. The application updates its own item positions.
 	**/
 	?onDrag:(ids:Array<String>, dx:Float, dy:Float) -> Void,
 
-	/** Called when a drag of regions ends, with their ids. **/
+	/** Receives selected IDs when a region drag ends. **/
 	?onDragEnd:(ids:Array<String>) -> Void,
 
-	/** Called when a region is clicked without being dragged, with its id and the event. **/
+	/** Receives the region ID and pointer event for a click without dragging. **/
 	?onClick:(id:String, event:ashui.input.Events.PointerEvent) -> Void,
 
-	/** Called when the pointer moves onto a region or off every region (null). **/
+	/** Receives the hovered region ID, or null when the pointer leaves all regions. **/
 	?onHover:Null<String>->Void,
 
-	/** While true, the canvas draws every frame (for content that animates). **/
+	/** Requests continuous frames while true, for animated content. **/
 	?animate:IntoReactive<Bool>,
 
 	?id:String
@@ -107,26 +104,26 @@ class CanvasKit extends Component<CanvasKitProps> {
 	public var viewport(default, null):Viewport2D;
 	public var selection(default, null):Selection2D;
 
-	/** The regions drawn last, in content coordinates. **/
+	/** Spatial index of the most recently drawn regions, in content coordinates. **/
 	public final index = new SpatialIndex(100);
 
-	/** The id under the pointer, or null. **/
+	/** Region ID under the pointer, or null. **/
 	public var hovered(default, null):Null<String> = null;
 
-	/** How much one unit of the wheel zooms. **/
+	/** Zoom sensitivity per wheel unit. **/
 	public var zoomSensitivity = 0.0015;
 
-	/** What a pan's speed keeps of itself each second after it is let go. **/
+	/** Fraction of pan velocity retained per second after release. **/
 	public var momentumDecay = 0.02;
 
-	/** Screen pixels a press must move before it is a drag rather than a click. **/
+	/** Pointer travel in screen pixels required to begin a drag. **/
 	public var dragThreshold = 3.0;
 
 	var canvas:Null<Canvas> = null;
 	var width = 0.0;
 	var height = 0.0;
 
-	/** The selection box being drawn, in content coordinates, and the selection it adds to. **/
+	/** Active selection box in content coordinates and the selection to extend. **/
 	var marquee:Null<{
 		x0:Float,
 		y0:Float,
@@ -135,30 +132,30 @@ class CanvasKit extends Component<CanvasKitProps> {
 		base:Array<String>
 	}> = null;
 
-	/** Registers a region the pointer can hit, in content coordinates, on top of those before it. Call it from `draw`. **/
+	/** Registers interactive bounds in content coordinates. Call from `draw`; later regions take precedence. **/
 	public function region(id:String, x:Float, y:Float, width:Float, height:Float):Void
 		index.set(id, x, y, width, height);
 
-	/** Asks for a frame after content drawn by `paint` changes. **/
+	/** Requests a frame after custom `paint` data changes. **/
 	public function repaint():Void {
 		if (canvas != null)
 			canvas.repaint();
 	}
 
-	/** Whether the content rect is at least partly in view: draw only what is, for large scenes. **/
+	/** Returns whether a content rectangle intersects the viewport. Use to skip offscreen work in large scenes. **/
 	public function visible(x:Float, y:Float, w:Float, h:Float):Bool {
 		var a = viewport.screenToContent(0, 0),
 			b = viewport.screenToContent(width, height);
 		return x <= b.x && x + w >= a.x && y <= b.y && y + h >= a.y;
 	}
 
-	/** `v` on the snap grid, or as it is with none. **/
+	/** Snaps a value to the grid, or returns it unchanged when snapping is disabled. **/
 	public function snap(v:Float):Float {
 		var s = read(props.snap, 0.0);
 		return s > 0 ? Math.round(v / s) * s : v;
 	}
 
-	/** Shows every region, or the selected ones with `selected`, whole, easing there. **/
+	/** Animates the viewport to fit all registered regions, or only selected regions when `selected` is true. **/
 	public function fitContent(selected = false, seconds = 0.26):Void {
 		var ids = selected ? selection.ids.get() : null;
 		var x0 = Math.POSITIVE_INFINITY,
@@ -178,7 +175,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 			viewport.fit(x0, y0, x1 - x0, y1 - y0, width, height, seconds);
 	}
 
-	/** The background when none is given, made the first time one is needed. **/
+	/** Lazily created default background. **/
 	static var defaultBackground:Null<Background2D> = null;
 
 	function render():Element {
@@ -214,7 +211,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 		return c;
 	}
 
-	/** The selection box: a dashed outline a screen pixel wide, over a faint fill. **/
+	/** Draws a translucent selection box with a one-screen-pixel dashed outline. **/
 	function drawMarquee(ctx:DrawContext, zoom:Float):Void {
 		marqueeDrawn.get();
 		var m = marquee;
@@ -228,7 +225,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 		ctx.strokeRect(x, y, w, h, new ashui.draw.Stroke(1 / zoom, null, null, 4, [4 / zoom, 3 / zoom]), Brush.solid(0x3380ff, 0.85));
 	}
 
-	/** Bumped as the selection box changes, so the canvas draws it again. **/
+	/** Revision used to redraw changes to the selection box. **/
 	final marqueeDrawn = ashui.reactive.Signal.make(0);
 
 	function attachInput(node:ashui.layout.Node):Void {
@@ -393,7 +390,7 @@ class CanvasKit extends Component<CanvasKitProps> {
 		});
 	}
 
-	/** A prop's value now, followed when it is a signal or computed; `fallback` when it is not given. **/
+	/** Reads a reactive prop or returns the fallback when omitted. **/
 	static function read<T>(prop:Null<IntoReactive<T>>, fallback:T):T
 		return prop == null ? fallback : switch (prop : ashui.layout.IntoReactive.ReactiveType<T>) {
 			case Const(v): v;

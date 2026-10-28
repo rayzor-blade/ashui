@@ -14,23 +14,23 @@ import ashui.reactive.Watch;
 import ashui.ui.Component;
 
 typedef NumberRangeGaugeProps = {
-	/** The interval's two values; default to min and max. **/
+	/** Lower endpoint. `upper` supplies the other endpoint; defaults are `min` and `max`. **/
 	?lower:IntoReactive<Float>,
 	?upper:IntoReactive<Float>,
-	/** Bounds default to 0–100; both endpoints snap to step from min. **/
+	/** Lower bound. The range defaults to 0–100; both endpoints snap to `step` from `min`. **/
 	?min:Float,
 	?max:Float,
 	?step:Float,
 	?size:Size,
-	/** Formats the centered interval, e.g. (lo, hi) -> lo + "–" + hi + " °C". **/
+	/** Formats the centered interval, for example `(lo, hi) -> lo + "–" + hi + " °C"`. **/
 	?format:(Float, Float)->String,
 	?disabled:IntoReactive<Bool>,
-	/** User edits only; endpoints cannot cross. **/
+	/** Receives user edits only. Endpoint values cannot cross. **/
 	?onChange:(Float, Float)->Void,
-	/** Separate form names for the lower and upper values. **/
+	/** Form field name for the lower endpoint. `upperName` names the upper endpoint. **/
 	?lowerName:String,
 	?upperName:String,
-	/** Optional ids for labels targeting either endpoint. **/
+	/** ID for labels targeting the lower endpoint. `upperId` identifies the upper endpoint. **/
 	?lowerId:String,
 	?upperId:String,
 	?id:String
