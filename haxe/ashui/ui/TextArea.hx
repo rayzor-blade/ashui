@@ -10,6 +10,8 @@ import ashui.reactive.Signal;
 import ashui.reactive.Watch;
 
 typedef TextAreaProps = {
+	/** Its id, which CSS selectors and a label's for attribute find. **/
+	?id:String,
 	/** The text, read and written: the area sets it as the user edits. A signal of its own by default. **/
 	?value:Signal<String>,
 	/** Shown, dimmed, while the value is empty. **/
@@ -140,7 +142,7 @@ class TextArea extends Component<TextAreaProps> implements FormControl {
 					opacity={Computed.make(() -> (e.showsCaret() ? e.caretAlpha.get() : 0 : Single))} />
 			</div>;
 		// Styles set default dimensions; explicit developer dimensions still win (git-bug e8a1b50).
-		box = new Div({tag: "textarea"}, [content]);
+		box = new Div({tag: "textarea", id: props.id}, [content]);
 		if (props.width != null) box.node.set(ashui.layout.Prop.Width, props.width);
 		if (props.height != null) box.node.set(ashui.layout.Prop.Height, props.height);
 		var i = Interaction.of(box.node).setFocusable(true);

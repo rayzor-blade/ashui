@@ -57,7 +57,8 @@ class ComponentSizes {
 				<input id="number" size={size} type="number" valueAsNumber={1.0} />
 				<select id="select" size={size} value={choice} placeholder="Choose" disabled={disabled}><select-item value="a">Alpha</select-item><select-item value="b">Beta</select-item></select>
 				<combobox id="combo" size={size} options={[{value: "a", label: "Alpha"}, {value: "b", label: "Beta"}]} disabled={disabled} />
-				<textarea ref={area} size={size} value={Signal.make("A paragraph whose caret must wrap at the same width as its visible text.")} disabled={disabled} />
+				<label id="note-label" for="note">Note</label>
+				<textarea id="note" ref={area} size={size} value={Signal.make("A paragraph whose caret must wrap at the same width as its visible text.")} disabled={disabled} />
 				<textarea ref={custom} size={size} width={220} height={180} value={Signal.make("Another paragraph, in a developer sized field.")} />
 				<input-otp id="otp" size={size} length={4} separator={2} value={code} onComplete={v -> completed = v} disabled={disabled} />
 				<checkbox id="check" size={size} checked={checked} disabled={disabled}>Updates</checkbox>
@@ -140,6 +141,9 @@ class ComponentSizes {
 		Keyboard.input(tree, key(Named(Enter), Enter)); settle();
 		check('$size required search with icons blocks empty form submission', submits == 1 && search.validity().valueMissing);
 		var coreArea = ashui.ui.TextArea.at(area.get().node.id), edges = tree.getBox(area.get().node), b = bounds(area.get().node.id);
+		check('$size Textarea keeps its id on the editable control', node("note") == area.get().node.id && Css.query(tree, root.node.id, "textarea#note.ui-textarea").length == 1);
+		click(node("note-label"));
+		check('$size Textarea labels focus the editing control', coreArea.editing.interaction.focused.get());
 		var wrap = b.width - edges.padding[1] - edges.padding[3] - edges.border[1] - edges.border[3] - 4;
 		check('$size Textarea measures its actual inner width', coreArea.editing.wrapWidth == wrap && coreArea.editing.fontSize.get() == font,
 			[coreArea.editing.wrapWidth, wrap, coreArea.editing.fontSize.get()]);
