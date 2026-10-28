@@ -135,6 +135,10 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path fixtures/render -main NestedClipTextPixels -hl bin/nested-clip-text-pixels.hl
 	run nested-clip-text-pixels.hl
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path fixtures/render -main NestedRoundedClipPixels -hl bin/nested-rounded-clip-pixels.hl
+	run nested-rounded-clip-pixels.hl
 	# A frame drawn as the parts of the last that changed matches the frame drawn whole (git-bug 9f040d8).
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \
