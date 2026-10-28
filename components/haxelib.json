@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.0",
-  "releasenote": "CodeEditor keeps minimaps beside editor headers and compact gutter geometry stable during edits. Textarea inherits id support from ashui 0.2.0.",
+  "version": "0.2.1",
+  "releasenote": "Clearer component API documentation and code editor, diff and form guides. Uses ashui 0.2.1.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.0"
+    "ashui": "0.2.1"
   }
 }

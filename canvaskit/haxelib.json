@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.0",
-  "releasenote": "Compatible with ashui 0.2.0.",
+  "version": "0.2.1",
+  "releasenote": "Clearer canvas, scene, gizmo and asset-loading documentation. Uses ashui 0.2.1.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.0"
+    "ashui": "0.2.1"
   }
 }

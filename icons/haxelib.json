@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.0",
-  "releasenote": "Remix Icon 4.8.0 as typed ashui constants, compatible with ashui 0.2.0.",
+  "version": "0.2.1",
+  "releasenote": "Clearer SVG icon setup and naming documentation. Uses ashui 0.2.1.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.0"
+    "ashui": "0.2.1"
   }
 }

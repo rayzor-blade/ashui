@@ -14,8 +14,8 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.0",
-  "releasenote": "TextArea accepts id and labels can focus TextArea and Select controls. Adds Caribou rendering and desktop application integration with the pinned blinc_abi plugin.",
+  "version": "0.2.1",
+  "releasenote": "Clearer API comments and setup, styling, theme, web and window guides.",
   "classPath": "haxe",
   "dependencies": {
     "hashlink": "",

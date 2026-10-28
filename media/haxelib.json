@@ -14,13 +14,13 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.0",
-  "releasenote": "Uses matching ashui 0.2.0 core, component and canvas packages with hlavi 0.1.2.",
+  "version": "0.2.1",
+  "releasenote": "Clearer playback, equalizer and resource-ownership documentation. Uses matching ashui 0.2.1 packages.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.0",
-    "ashui-components": "0.2.0",
-    "ashui-canvaskit": "0.2.0",
+    "ashui": "0.2.1",
+    "ashui-components": "0.2.1",
+    "ashui-canvaskit": "0.2.1",
     "hlavi": "0.1.2"
   }
 }
