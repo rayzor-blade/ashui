@@ -5,7 +5,7 @@ import ashui.ui.Text;
 import ashui.ui.TextEditing.CaretStop;
 import ashui.components.code.CodeDocument.CodeLine;
 
-typedef CodeLineMetrics = {final expanded:String; final columns:Array<Int>; final stops:Array<CaretStop>; final width:Float;}
+typedef CodeLineMetrics = {final expanded:String; final columns:Array<Int>; final stops:Array<CaretStop>; final width:Float; final ordered:Bool;}
 
 /** Native grapheme positions measured lazily, with at most 96 shaped lines retained (e53597f). **/
 class CodeMetrics implements ashui.ui.TextGeometry {
@@ -83,7 +83,9 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 			while (at < columns.length - 1 && columns[at] < stop.index) at++;
 			if (columns[at] == stop.index) stops.push({index: at, x: stop.x, line: 0});
 		}
-		found = {expanded: shown, columns: columns, stops: stops, width: native[native.length - 1].x};
+		var ordered = true;
+		for (i in 1...stops.length) if (stops[i].x < stops[i-1].x || stops[i].index < stops[i-1].index) { ordered = false; break; }
+		found = {expanded: shown, columns: columns, stops: stops, width: native[native.length - 1].x, ordered:ordered};
 		cache.set(line, found); recent.push(line);
 		if (recent.length > 96) cache.remove(recent.shift());
 		return found;
@@ -91,12 +93,35 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 
 	public function sourceLine(row:Int):Int return document.visible[Std.int(Math.max(0, Math.min(document.visible.length - 1, row)))];
 	public function xAt(line:CodeLine, column:Int):Float {
-		var stops = measure(line).stops, low = 0, high = stops.length;
+		return xIn(measure(line),column);
+	}
+
+	/** Reuses a row's measured geometry without touching the shape cache for every token. **/
+	public static function xIn(line:CodeLineMetrics, column:Int):Float {
+		var stops = line.stops, low = 0, high = stops.length;
 		while (low < high) {
 			var middle = (low + high) >> 1;
 			if (stops[middle].index <= column) low = middle + 1; else high = middle;
 		}
 		return low == 0 ? 0 : stops[low-1].x;
+	}
+
+	/** Source bounds at cluster edges covering the horizontal window; visual reordering keeps its full context. **/
+	public static function window(line:CodeLineMetrics, left:Float, right:Float):{from:Int,to:Int} {
+		var stops = line.stops;
+		if (!line.ordered || stops.length == 0) return {from:0,to:line.columns.length-1};
+		var low = 0, high = stops.length;
+		while (low < high) {
+			var middle = (low+high)>>1;
+			if (stops[middle].x <= left) low = middle+1; else high = middle;
+		}
+		var from = stops[Std.int(Math.max(0,low-1))].index;
+		low = 0; high = stops.length;
+		while (low < high) {
+			var middle = (low+high)>>1;
+			if (stops[middle].x < right) low = middle+1; else high = middle;
+		}
+		return {from:from,to:stops[Std.int(Math.min(low,stops.length-1))].index};
 	}
 	public function stopAt(index:Int):CaretStop {
 		var source = document.lineAt(index), row = document.rows[source];
