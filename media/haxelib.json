@@ -14,13 +14,13 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.5",
-  "releasenote": "Uses ashui 0.1.5, hlavi 0.1.2 and matching components and canvas packages. A page plays audio through hlavi's web build.",
+  "version": "0.2.0",
+  "releasenote": "Uses matching ashui 0.2.0 core, component and canvas packages with hlavi 0.1.2.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.1.5",
-    "ashui-components": "0.1.5",
-    "ashui-canvaskit": "0.1.5",
+    "ashui": "0.2.0",
+    "ashui-components": "0.2.0",
+    "ashui-canvaskit": "0.2.0",
     "hlavi": "0.1.2"
   }
 }

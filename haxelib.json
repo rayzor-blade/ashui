@@ -14,8 +14,8 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.1.5",
-  "releasenote": "Takes hlwindow 0.3.2, whose wait yields for the other windows: a program with several windows wakes when any of them has an event, where 0.1.4's would sleep until the first window had one. Windows and menus: independent desktop windows, application menus, file dialogs attached to a window, and WindowedApp.close. A page's ?debug writes to the console only. CSS: scroll-shadow: auto and scroll reach signals, utility border widths with a theme colour fallback. Mounting a control costs far less: equal style values are shared, tweens are made when a property first changes, a state listener replaces a watch and signals per pseudo-class, and the first style pass allocates about half as much. Text measurement is cached (Blinc's measure cache). Runs on Caribou's gpu and window plugins, and blinc_abi builds as a Caribou plugin.",
+  "version": "0.2.0",
+  "releasenote": "TextArea accepts id and labels can focus TextArea and Select controls. Adds Caribou rendering and desktop application integration with the pinned blinc_abi plugin.",
   "classPath": "haxe",
   "dependencies": {
     "hashlink": "",
