@@ -71,17 +71,19 @@ return <div class="flex flex-col gap-3">
 </div>;
 ```
 
-The default `PlaybackControls` can also be placed separately, as
-`<playback-controls player={player} />`. It reuses framework **Button** and
-**Slider**, including their keyboard, focus and pointer behavior. Play/Pause
-is an icon button. HXX children can supply any additional UI. Video controls
-overlay the video with a translucent background and backdrop blur; the
-reactive `controls` prop shows or hides them without resizing the video.
-The single row has backward/forward 10-second seeks, Play/Pause, a timeline,
-elapsed/total time, a speaker icon and a menu for repeat/restart. Timeline
-clicks, drags and keyboard edits seek; playback updates only move its thumb.
-`<volume-control player={player} />` opens a compact horizontal slider,
-percentage and mute icon button, using the existing Popover focus/dismissal behavior.
+Use `<playback-controls player={player} />` to place the default controls
+separately. They reuse framework **Button**, **Slider** and Popover behavior,
+including keyboard navigation, focus and dismissal. HXX children can provide
+additional controls.
+
+Video controls use a translucent, blurred overlay. The reactive `controls`
+prop shows or hides them without resizing the video. The toolbar includes
+10-second backward/forward seeks, an icon Play/Pause button, timeline,
+elapsed/total time, volume and a repeat/restart menu. Timeline clicks, drags
+and key presses seek; playback position updates only move the thumb.
+
+`<volume-control player={player} />` opens a compact horizontal slider with
+a percentage and mute icon button.
 
 Video controls fade out after two seconds without pointer movement during
 playback and return when the pointer moves over or re-enters the video.
@@ -109,12 +111,13 @@ and an optional animation scheduler. It works independently of UI owners.
 | `close()` / `dispose()` | Terminal, idempotent release of player and frames |
 
 Signals expose `source`, `state`, `error`, `position`, `duration`, `volume`,
-`muted`, `looping`, `equalizer`, `videoWidth`, `videoHeight`, and `frameVersion`. Read them
-to build UI; change playback through methods. Times are **seconds**. The FSM
-owns `Opening`, `Seeking`, `Buffering` and the stable playback states, with
-opening/seek timers canceled on transitions and disposal. `stateName()`
-returns the lowercase CSS state; `isPlaying()` preserves playback intent
-through buffering and seeks, including a seek while paused.
+`muted`, `looping`, `equalizer`, `videoWidth`, `videoHeight` and `frameVersion`.
+Read them for UI state and use methods to control playback. Times are **seconds**.
+
+The FSM manages `Opening`, `Seeking`, `Buffering` and stable playback states.
+Opening and seek timers are cancelled on transitions and disposal.
+`stateName()` returns the lowercase CSS state. `isPlaying()` reflects playback
+intent through buffering and seeks, including seeks started while paused.
 
 Drive playback on the **main event-loop thread**. Native playback uses real
 time, independently of animation steps. A standalone host must pump its
@@ -168,13 +171,15 @@ Boosted bands may need negative preamp to avoid clipping at native playback's
 output. The native DSP smooths settings changes over 10 ms; frequencies at or
 above half the input sample rate are inactive.
 
-An equalizer created under an Owner closes on cleanup. Standalone callers must
-close it. Players never close a caller-owned equalizer; closing the equalizer
-restores flat playback for its attached players. `process` keeps history across
-contiguous PCM blocks and resets on timing or format changes. Use one controller
-per PCM stream and close every returned block; the input remains caller-owned.
-Output preserves timestamps, sample rate and channel count. For raw native
-handles without reactive integration, `media.AudioEqualizer` remains available.
+An equalizer created under an Owner closes during cleanup. Otherwise, call
+`close` explicitly. Players leave caller-owned equalizers open. Closing an
+equalizer detaches it and restores flat playback on attached players.
+
+For PCM processing, use one controller per stream. `process` retains filter
+history across contiguous blocks and resets on timing or format changes.
+Close each returned block; the input remains caller-owned. Output preserves
+timestamps, sample rate and channel count. Use `media.AudioEqualizer` for
+raw native handles without reactive integration.
 
 ## Native data API
 

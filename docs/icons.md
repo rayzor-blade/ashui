@@ -1,9 +1,7 @@
 # Icons
 
-A toolbar needs a play button, a pause button and a save button. Those symbols
-should be there wherever a panel is built, without a file to load or SVG to
-parse each time the panel opens. ashui makes each icon a typed constant,
-compiled into the program.
+ashui compiles SVG icons into typed constants. Panels can reuse them without
+loading or parsing icon files each time they open.
 
 ## Use a catalogue
 
@@ -21,9 +19,9 @@ var toolbar = <div class="flex flex-row items-center gap-3 p-2 text-primary">
 </div>;
 ```
 
-Build the template where its owner is, as for any template, and enable inline
-markup with `--macro ashui.ui.Markup.enable()`. A constant also fits a component
-property typed `ashui.svg.Icon`, such as a tree item's `icon`.
+Build the template inside an owner scope and enable HXX with
+`--macro ashui.ui.Markup.enable()`. Icon constants also work in component
+props typed `ashui.svg.Icon`, such as a tree item's `icon`.
 
 ## A set of your own
 
@@ -35,41 +33,41 @@ files, and from several at once:
 class Icons {}
 ```
 
-The directories are looked up on Haxe's class paths, so a library's own
-directory is named as it is inside the library, `"ashui/icons/remix"`, and an
-app's `assets/icons` is found when its parent is a `-cp`, even when the
-compiler is run from another directory.
+Directories resolve through Haxe class paths. Reference library directories
+relative to their class path, such as `"ashui/icons/remix"`. For application
+assets, add the parent of `assets/icons` with `-cp`. This also works when the
+compiler runs from another directory.
 
-A file name becomes an upper-case name with every character that is not a letter
-or a digit an underscore: `play-line.svg` is `PLAY_LINE`, and `save-3-line.svg` is
-`SAVE_3_LINE`. A name that would start with a digit takes an underscore first, so
-`4k-line.svg` is `_4K_LINE`. Folders only organize the files, so they are not in
-the name, and two files that make one name are a compile error even in different
-folders or different directories. So are a missing directory, XML that does not
-parse and an SVG path that is not valid, each reported at the file.
+Filenames become uppercase constants, with non-alphanumeric characters
+replaced by underscores. For example, `play-line.svg` becomes `PLAY_LINE`
+and `save-3-line.svg` becomes `SAVE_3_LINE`. A leading digit adds an initial
+underscore: `4k-line.svg` becomes `_4K_LINE`.
+
+Folder names do not affect constants. Duplicate names are compile errors,
+even across different directories. Missing directories, malformed XML and
+invalid SVG paths are also reported at their source files.
 
 ## What the program holds
 
-ashui checks each SVG while Haxe compiles it. The program carries its canonical
-markup, its natural size and whether it can be tinted, but not the file, so it
-needs no asset at run time. Reading a constant makes its document the first
-time and keeps it, and the renderer rasterizes the markup at the size it is drawn
-and caches the image. Parsing the optional `document.nodes` shape tree happens
-only if code asks for it.
+The build validates each SVG and embeds canonical markup, intrinsic size
+and tint information. Runtime icon files are unnecessary.
+Each constant lazily creates and caches its document. The renderer caches
+rasterized images by size. The optional `document.nodes` shape tree is
+parsed only when accessed.
 
-The class is marked `@:dce`, so an icon the program never names is removed with its
-markup. Building the class still checks every file, but using one icon does not
-make the rest at start-up. The files and the directories are dependencies of the
-class, so a compilation server rebuilds it when a file changes, appears or goes.
+The generated class uses `@:dce`, so unused icons and their markup can be
+removed. The build validates every file, but startup creates only the icons
+the program uses. File and directory dependencies let the compilation server
+detect changes, additions and removals.
 
 ## Let the text colour tint it
 
-An icon drawn only in `currentColor` is a mask, and the colour of the element it
-is in tints it: `text-primary` on the icon or on anything around it, and a
-transition on that colour. The theme's text colour, its scheme changes and its
-token overrides all reach it without a rebuild. Set the size with a class or an
-attribute, `size-5` or `width={20}`; the authored viewBox stays whole. An SVG with
-fixed paints keeps its own colours and is not a mask.
+An icon painted only with `currentColor` becomes a tintable mask.
+It inherits the displaying element's text color, including `text-primary`,
+color transitions and theme overrides. These changes reuse the rasterized mask.
+Set dimensions with utilities such as `size-5` or attributes such as
+`width={20}`. The full viewBox is preserved. SVGs with fixed paints keep
+their authored colors and do not use masks.
 
 ## The Remix catalogue
 

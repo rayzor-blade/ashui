@@ -1,8 +1,9 @@
 # Themes
 
-A `Theme` defines one light or dark scheme. A `ThemeBundle` pairs both
-schemes and can include CSS. `ThemeState` holds the active bundle for the
-application; components, theme utilities and `Themed` bindings use its tokens.
+A `Theme` defines the tokens for one light or dark scheme. A `ThemeBundle`
+pairs both schemes and can include CSS. `ThemeState` selects the active
+bundle in the current UI context. Components, utilities and `Themed`
+bindings read its tokens.
 
 ## Choose a theme
 
@@ -86,11 +87,14 @@ shows every field. Leaving out `shape` disables automatic corner smoothing.
 
 ## Shape and motion
 
-`RadiusTokens` controls corner size. `ShapeTokens(smoothing, exponent,
-threshold)` controls their contour: smoothing ranges from 0 to 1, an
-exponent of 2 gives circular corners, and the threshold is the minimum
-corner radius in pixels that receives smoothing. Keep the default radius
-at or above the threshold if default surfaces should have smoothed corners.
+`RadiusTokens` sets corner sizes. `ShapeTokens(smoothing, exponent, threshold)`
+sets their contour:
+
+- Smoothing ranges from 0 to 1.
+- An exponent of 2 produces circular corners.
+- The threshold is the minimum radius to smooth, in pixels.
+
+Keep the default radius at or above the threshold to smooth default surfaces.
 
 `AnimationTokens` defines duration steps and easing curves for state
 changes, navigation, spring motion and sheets. Use tokens in your UI so

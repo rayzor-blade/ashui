@@ -62,20 +62,25 @@ used alongside either mode.
 
 ## GPU errors
 
-A window keeps running when the GPU reports an error while a frame is drawn. The error is written once to stderr,
-starting with `[ashui] gpu error drawing, the frame goes on`, and the next frame is drawn whole. The count of such
-frames is `offscreen.failedFrames`. Anything that draws with an `Offscreen` directly, such as a test or a snapshot,
-throws instead, until `offscreen.strictErrors` is set to `false`.
+A window continues running after a GPU drawing error. The error is written
+to stderr once, starting with `[ashui] gpu error drawing, the frame goes on`.
+The next frame receives a full redraw. `offscreen.failedFrames` counts failures.
 
-The GPU reports an error after the frame, without saying which texture or buffer it was about, so the message names
-the limit that was passed and little else. A canvas whose triangles do not fit in a texture says so on stderr and
-draws the first of them, and a mesh texture larger than the device's limit is shrunk to it.
+Direct `Offscreen` users, including tests and snapshots, throw by default.
+Set `offscreen.strictErrors=false` to continue after errors instead.
+
+GPU errors arrive after the frame and may not identify the offending resource.
+Messages therefore report the exceeded limit when known. A canvas that exceeds
+texture capacity logs the problem and draws the triangles that fit.
+Oversized mesh textures are reduced to the device limit.
 
 ## Partial redraws
 
-A frame that has a backdrop filter is drawn into a layer that stays from one frame to the next. When the next frame
-differs from it in only a few records or canvases, only the boxes of what changed are drawn again; the rest of the layer
-is kept. `ASHUI_DAMAGE=0` turns this off, to compare. `offscreen.drew` says how the last frame was drawn: `full`, `none`,
-or the rectangles drawn again.
-The records the frame is drawn from go to the GPU the same way: of the rows of the records texture, only those from the first
-that changed to the last, not all of them, are written. `ASHUI_DIFF_UPLOAD=0` writes them all, to compare.
+Frames with backdrop filters use a persistent offscreen layer. If only a few
+records or canvases change, the renderer redraws their affected areas and
+keeps the rest. Set `ASHUI_DAMAGE=0` to compare against full redraws.
+`offscreen.drew` reports `full`, `none` or the redrawn rectangles.
+
+Record-texture uploads use the same change detection. Only the range from
+the first changed row to the last is uploaded. Set `ASHUI_DIFF_UPLOAD=0`
+to upload all rows for comparison.

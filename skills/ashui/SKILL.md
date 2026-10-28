@@ -5,7 +5,9 @@ description: Build, style, debug and test native UI with ashui, the Haxe UI fram
 
 # ashui for agents
 
-ashui is a native, reactive UI framework for Haxe. If you know **JSX**, **SolidJS** and **Tailwind**, most of it transfers, with Haxe types and a few deliberate differences. This file is the map. Where it says "check", read the named source rather than guessing.
+ashui is a native, reactive UI framework for Haxe. This guide maps JSX,
+SolidJS and Tailwind concepts to its APIs. Check the named sources when
+behavior or support is unclear.
 
 ## The mental model (30 seconds)
 
@@ -35,33 +37,48 @@ ashui is a native, reactive UI framework for Haxe. If you know **JSX**, **SolidJ
 | `key` | none; `<for>` keeps item objects it already has by `==` |
 | fragments | none needed; a branch/loop body of several elements is wrapped in a `<div>` (watch your layout) |
 
-Text directly inside a `<div>` becomes a `<text>`. `<switch>` and `<let>` do not exist (compile error). `bg={…}` is the background attribute; any other attribute name is the node property of that name.
+Text directly inside a `<div>` becomes a `<text>` element. `<switch>` and
+`<let>` are unsupported. `bg={…}` sets `Prop.Background`; other attributes
+map to the node property with the same name.
 
 ## Cheat sheet: SolidJS → ashui
 
 | Solid | ashui |
 | --- | --- |
 | `createSignal(0)` → `[get, set]` | `signal(0)` → object; `s.get()`, `s.set(v)` |
-| `createMemo(fn)` | `computed(fn)` — **it does not cut off equal values**: dependents re-run on every recompute. To stop propagation when a value is unchanged, `new Watch(() -> value(), v -> sig.set(v))` (a watch reacts only when its value differs) and read `sig`. |
+| `createMemo(fn)` | `computed(fn)` propagates each recomputation, even if the result is equal. To suppress unchanged values, use `new Watch(() -> value(), v -> sig.set(v))` and read `sig`. Watches react only when their result changes. |
 | `createEffect(fn)` | `watch(read, react)`: `read` tracks dependencies and **must only read**; `react` runs once at creation, then at the **next layout flush** when the value changed. Several writes before a flush give one reaction with the latest value. `react` may set signals and build/remove UI. |
 | `onCleanup(fn)` | `Owner.onCleanup(fn)` |
 | `createRoot(fn)` | `Owner.root(tree, stop -> element)` (tests and tools; `WindowedApp.run` does it for you) |
 | `<Show when>` / `<Else>` | `<if {cond}>…<else>…</if>` |
 | `<For each>` | `<for {x in list}>` |
 | `<Switch>/<Match>` | not available; nest `<if>` or compute a value |
-| stores, context | none that I found; pass signals as props or share them from a module/model class (check `ashui.reactive` before assuming) |
-| props are getters | a prop typed `IntoReactive<T>` follows what its attribute expression reads; other props are read once |
+| stores, context | Pass signals as props or share a model/module. Check `ashui.reactive` for available state APIs before assuming store or context support. |
+| props are getters | Props typed `IntoReactive<T>` track their attribute expressions. Other props are read once. |
 
-Imports: `import ashui.reactive.Reactive;` gives the `signal`, `computed` and `watch` shortcuts. `Owner` scopes elements, computeds, watches and cleanup: removing UI (an `<if>` branch, a `<for>` item, a component) disposes its bindings. Signals may outlive a scope.
+Import `ashui.reactive.Reactive` for `signal`, `computed` and `watch`.
+`Owner` manages elements, computeds, watches and cleanup callbacks.
+Components, `<if>` branches and `<for>` items each have an owner.
+Removing them disposes their bindings. Signals can outlive an owner.
 
 ### The reactivity rules that cause real bugs
 
-1. **`${f()}` is frozen.** A text or attribute interpolation re-evaluates only when it reads a signal **itself, in plain sight**: `${count.get()}` yes, `${format()}` where `format` reads signals no. Wrap it: `var t = computed(() -> format()); … ${t.get()}`.
-2. **An `<if>`/`<for>` body is built inside its branch.** What it shows must be created there: make it a **call** (`<if {x}>${panel()}</if>`), not a variable declared before the tag (that one is never disposed or rebuilt). The condition itself runs reactively, so `${m.flag()}` is fine in it.
-3. A `watch`'s `react` runs **after** that flush's canvas draws are recorded. Changing non-signal state a canvas draws from `react` shows one selection late; apply the state inside the draw instead.
-4. `computed` never cuts off (above). Use `watch` + a signal to dedupe.
-5. A mutable flag meaning "my ticker is running" goes stale when the scheduler drops the ticker; ask the `Ticker` (`ticker.running`).
-6. State read right after a native call that the web build answers asynchronously (e.g. `play()` then `state()`) is the old state.
+1. **Interpolation detects direct signal reads.** `${count.get()}` updates reactively.
+   A helper such as `${format()}` does not expose its internal reads to the macro.
+   Wrap it in `var t = computed(() -> format())`, then interpolate `${t.get()}`.
+2. **Build conditional and repeated elements inside their branch.** Use a builder call,
+   such as `<if {x}>${panel()}</if>`. An element built before the branch outlives it
+   and is not recreated on reentry. Conditions are tracked at runtime, so calls
+   such as `${m.flag()}` work there.
+3. **Watch reactions run after canvas draws are recorded for that flush.** A reaction
+   that changes non-signal drawing state can leave the canvas one update behind.
+   Apply that state inside the draw callback.
+4. **Computeds propagate each recomputation.** Use a watch feeding a signal when
+   unchanged values should stop propagation.
+5. **Use `ticker.running` for ticker state.** A separate flag becomes stale if the
+   scheduler removes a finished or failed ticker.
+6. **Web native calls may complete asynchronously.** Reading state immediately after
+   calls such as `play()` can return the previous state.
 
 ## Hello world and build
 
@@ -94,7 +111,10 @@ class Hello {
 -hl bin/hello.hl
 ```
 
-`haxe build.hxml && ash --preset application bin/hello.hl`. Needs Haxe 4.3.6+ and the Ash runtime. **Quote macro arguments in zsh** (`--macro 'ashui.ui.Markup.enable()'`): unquoted `()` makes the whole haxe command silently do nothing. Window code compiles only with `-D ashui_window`.
+Run `haxe build.hxml && ash --preset application bin/hello.hl`.
+Requires Haxe 4.3.6+ and Ash. Quote macro arguments in zsh, for example
+`--macro 'ashui.ui.Markup.enable()'`; unquoted parentheses can prevent the
+command from running correctly. Window code requires `-D ashui_window`.
 
 ## Components
 
@@ -122,7 +142,7 @@ class Badge extends ashui.ui.Component<BadgeProps> {
 - **Variants** `hover: focus: focus-visible: active: disabled: dark: group-hover: peer-…`: the string also needs the **plain class for the same property**, or the value is a compile error (`bg-surface hover:bg-primary`). Add `transition-colors` for the change to animate.
 - Not Tailwind: `bg-glass` + `glass-*` (liquid glass), `corner-squircle`, `fade-*`, `ease-spring`.
 - Arbitrary values exist only for `[clip-path:…]` and `[glass-*:…]` (`w-[317px]` is a compile error: "use a token or an attribute otherwise"). For one-off numbers use attributes (`width={317}`) or CSS.
-- The full list and rules are the header of `haxe/ashui/style/Tw.hx`.
+- See `docs/css.md` for utility classes and rules. `haxe/ashui/style/Tw.hx` implements them.
 
 **Attributes** set node properties directly and win over classes: `width={420} height={240} gap={8} padding={24} flexDirection={Column} position={Absolute} left={150}`. Numbers are layout px. A `<div>` lays out as a **row** by default (give wrappers `flex-col` / `flexDirection={Column}`), unlike a block element.
 
@@ -134,15 +154,33 @@ class Badge extends ashui.ui.Component<BadgeProps> {
 
 ## Elements and controls you will reach for
 
-Built-ins follow HTML names, import-free: `<div>`, `<span>`, `<p>`, `<h1>`…, `<a>`, `<ul>/<ol>/<li>`, `<button>`, `<input>`, `<textarea>`, `<select>`, `<label>`, `<form>`, `<dialog>`, `<details>`, `<table>` and its parts, `<progress>`, `<meter>`, `<svg>`, `<canvas>` (2D drawing), and ashui's own `<text>`. `<img>` needs `src={bitmap}`. From `ashui-components`: Card, Dialog, Tabs, Accordion, Select, Slider, ToggleSwitch, NumberInput, Calendar, Command, Tooltip, TreeView, CodeEditor, CodeDiff, and more (`components/README.md`). 3D and scenes: `ashui-canvaskit` (`<scene-kit>`). Audio/video: `ashui-media`. Icons: `ashui-icons` is a **separate package** (Remix, licence reasons): components never depend on it; pass icons as props.
+Built-in tags need no imports: `<div>`, `<span>`, `<p>`, headings, links, lists,
+buttons, inputs, forms, dialogs, tables, progress, meters, SVG and 2D canvas.
+Ashui also supplies `<text>`. `<img>` accepts `src={bitmap}`.
 
-Big lists and panels: only mount what is shown. `CodeEditor`/`CodeDiff` pool their rows; `Select` takes `virtualRowHeight`; build a heavy panel on first open (`<if {opened.get()}>${panel()}</if>`). A styled control costs real memory; thousands of mounted controls is the thing to avoid.
+Import styled controls from `ashui-components`; see `components/README.md`.
+Use `ashui-canvaskit` for `<scene-kit>` and `ashui-media` for audio/video.
+`ashui-icons` is a separate Remix package. Components accept icons as props
+and do not depend on an icon set.
+
+Mount only visible or active content. `CodeEditor` and `CodeDiff` pool rows;
+`Select` supports `virtualRowHeight`. Build heavy panels on first use with
+`<if {opened.get()}>${panel()}</if>`. Mounted controls consume native and
+language-side resources even when hidden.
 
 ## Windows, menus, web
 
-`WindowedApp.run({title, width, height}, build)` runs the loop; more windows with `WindowedApp.open(...)`, native application menus and file dialogs in `docs/windows.md`. A page build (wasm) is described in `docs/web.md`; `?debug` on the page address logs frame statistics to the browser console, `?log` also shows the log on the page.
+`WindowedApp.run({title, width, height}, build)` starts the application loop.
+Use `WindowedApp.open(...)` for additional windows. `docs/windows.md` covers
+window-local services, application menus and file dialogs.
+`docs/web.md` covers browser builds. Add `?debug` to log browser frame
+statistics, or `?log` to display output on the page.
 
-## Verify your work (do this, don't guess)
+## Verify your work
+
+Choose checks for the change. Documentation edits need accurate references, working
+links and valid examples. UI or runtime changes also need the relevant build and
+behavior checks below.
 
 1. **Compile**: `haxe build.hxml`. Typed HXX means most mistakes are compile errors, including unknown props, bad classes and missing variant base classes.
 2. **See it**: render a scene to a PNG instead of describing it: write a scene class (see `tools/snapshot/scenes/*.hx`, e.g. `CodeEditorZones.hx`), run `sh tools/snapshot/run.sh path/to/Scene.hx`, and **look at** `.ashui/snapshots/<Name>-*.png`. `SCHEME=light` renders light; `Snapshot.sequence` takes callbacks to drive state between frames. Kill any interactive window you start.
@@ -150,6 +188,13 @@ Big lists and panels: only mount what is shown. `CodeEditor`/`CodeDiff` pool the
 4. **Frame stats**: `ASHUI_FRAME_STATS=1` prints frame and loop lines each second.
 
 Working on ashui itself (not an app): the repo's scripts expect sibling checkouts next to it (`../ash`, `../hlwgpu`, `../hlwindow`).
+
+## Documentation
+
+Start API comments with the purpose. Use short sentences and explicit names.
+Keep units, ownership, timing and error behavior clear. Put long reference
+material in a guide and link to it from hover text. Use current HXX syntax in
+examples, and check issue status before documenting a workaround.
 
 ## Pitfalls checklist
 
@@ -159,8 +204,8 @@ Working on ashui itself (not an app): the repo's scripts expect sibling checkout
 - `bg-blue-500`-style palette classes: use theme tokens.
 - Selecting `.overflow-auto` etc. in CSS: add your own class.
 - `computed` expecting equality cutoff: it has none.
-- `pointerEvents={None}` on a parent also hid its `Auto` children from input (git-bug 0fe11ba when written; test before relying on either behaviour); for a full-size overlay use a zero-size root with absolutely placed children.
-- `var()` inside a gradient's color stop raised a null access (git-bug 07b31c3 when written): write literal colors per scheme.
+- `pointerEvents={None}` suppresses descendant input, including children set to `Auto` (git-bug 0fe11ba). For overlays, use a zero-size root with absolutely positioned children.
+- `var()` in gradient color stops is tracked in open issue 07b31c3. Use literal colors per scheme until that issue is resolved.
 - A `<div>` is a row; `<if>`/`<for>` bodies of several elements add a wrapping `<div>`.
 - Hover/focus state comes from `Interaction`; don't poll the pointer.
 - Do not add per-element maps, polling loops or "rebuild everything" refreshes: the framework is push-based.

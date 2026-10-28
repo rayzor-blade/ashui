@@ -12,19 +12,48 @@ WindowedApp.run({title: "Project one", width: 1000, height: 700}, () -> {
 });
 ```
 
-Each window has its own surface, renderer, layout tree, focus, input method, theme, stylesheet cascade and viewport. Stylesheets installed before `run` are inherited by each window. Install window-specific styles or themes in its builder. Reactive reads, watches, owners and scheduler callbacks retain their creation context. `WindowedApp.current` identifies that context's window; retain the instance when controlling a specific window later.
+Each window has its own surface, renderer, layout tree, focus, input method,
+theme, CSS cascade and viewport. Stylesheets installed before `run` are
+inherited by every window. Install window-specific styles and themes in
+that window's builder.
 
-The manager dispatches each window's input and draws only changed windows. It waits until input, application work, an animation or a timer requires a turn. Closing the first window leaves the others running. The loop returns when the last window closes. It releases each window's root owner, tree and surface independently, and releases the shared device last. `windows()` returns a snapshot; `windowRevision` changes as windows open and close.
+Reactive reads, watches, owners and scheduler callbacks retain their creation
+context. `WindowedApp.current` identifies the window for that context.
+Keep the instance when you need to control a specific window later.
 
-`open` may enqueue a builder from a worker. Builders and platform calls run on the UI thread. Queue data only; do not create elements on workers. An additional window whose builder fails is cleaned up and reported on stderr while other windows continue.
+The manager dispatches input and redraws only changed windows. It waits until
+input, application work, an animation or a timer needs processing.
+Closing the first window leaves other windows running. The loop returns
+after the last window closes.
 
-A config's `onClose:Void->Bool` may defer closing. Return false while showing a save decision, then call the retained window's `close()` once the answer is in: `close()` closes without asking again, while a native close request and `quit()` both pass through the guard. `disposed` becomes true after cleanup; its tree and renderer must then no longer be used.
+Each window releases its root owner, tree and surface independently.
+The shared GPU device is released last. `windows()` returns a snapshot of
+open windows; `windowRevision` changes when windows open or close.
+
+Workers may call `open` to queue a builder, but builders and platform calls
+run on the UI thread. Pass data from workers and create elements inside the
+builder. If an additional window's builder fails, its resources are cleaned
+up and the error is reported on stderr. Other windows continue running.
+
+Use `onClose:Void->Bool` to defer closing, for example while asking whether
+to save. Return false while the decision is pending. Then call the retained
+window's `close()` to close without invoking the guard again.
+Native close requests and `quit()` both invoke the guard.
+
+After cleanup, `disposed` becomes true. Stop using that window's tree and renderer.
 
 This requires hlwindow with xwindow's cross-window wait support: waiting on one window yields when another has events or a pending redraw. Rebuild the native adapter when upgrading.
 
 ## Application menus
 
-`ashui.app.ApplicationMenu` installs a menu model for its window. `update` replaces that model; macOS activates the focused window's menu in the system menu bar. Actions are queued by the native callback, wake the event loop, and execute in the originating UI context after the platform pump returns. Owner disposal removes its callbacks. The application menu supplies About, Hide and Quit. Pass the application's guarded quit action to its constructor.
+`ashui.app.ApplicationMenu` installs a window's menu model; `update` replaces it.
+On macOS, the focused window's menu appears in the system menu bar.
+The default application menu supplies About, Hide and Quit. Pass the
+application's guarded quit action to the constructor.
+
+Native callbacks queue actions and wake the event loop. Actions run in their
+originating UI context after the platform pump returns. Disposing the owner
+removes its callbacks.
 
 ```haxe
 var menus = new ApplicationMenu("Example", () -> {
@@ -37,10 +66,26 @@ menus.update([{label: "File", items: [
 ]}]);
 ```
 
-A `MenuItem` can include `enabled`, a display `shortcut`, and a `key` record with a key name and `meta`, `ctrl`, `alt`, `shift` flags. On Windows and Linux render the same model with the components library's `Menubar`, `MenubarMenu`, `MenubarTrigger`, `MenubarContent` and `MenubarItem`. `Keyboard.edit(tree, action)` dispatches undo, redo, cut, copy, paste and select-all to the focused control.
+A `MenuItem` accepts `enabled`, a display `shortcut`, and a `key` record with
+a key name and `meta`, `ctrl`, `alt` and `shift` flags. On Windows and Linux,
+render the model with `Menubar`, `MenubarMenu`, `MenubarTrigger`,
+`MenubarContent` and `MenubarItem` from the components library.
+
+`Keyboard.edit(tree, action)` sends undo, redo, cut, copy, paste or select-all
+to the focused control.
 
 Native lifecycle tests are in `tests/Windows.hx`; build with the usual UI class paths and `-D ashui_window`, and run on a desktop display.
 
 ## File and folder dialogs
 
-`FileDialog.open(app, options, complete)` presents an asynchronous macOS sheet on `app.window`. Options include `title`, `folder`, `directory` and file `extensions`. Completion runs in that window's UI context and receives the selected path, or null on cancellation. The returned function cancels a pending request; a window's disposal also cancels it. Dispose the request when replacing a workspace owner. Native callbacks only enqueue results and wake the platform loop; application code runs after the pump returns. Use `FileDialog.available()` before selecting this implementation on other platforms. `tests/FileDialogWindow.hx` is an isolated native smoke app for selection and cancellation.
+`FileDialog.open(app, options, complete)` opens an asynchronous macOS sheet
+on `app.window`. Options include `title`, `folder`, `directory` and `extensions`.
+The completion callback runs in the window's UI context and receives a path,
+or null on cancellation.
+
+The returned function cancels the request. Window disposal also cancels it.
+Cancel pending requests when replacing a workspace owner. Native callbacks
+only queue results and wake the loop; application code runs after the pump returns.
+
+Check `FileDialog.available()` before using this implementation on another
+platform. `tests/FileDialogWindow.hx` tests native selection and cancellation.

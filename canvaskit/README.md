@@ -129,18 +129,21 @@ restores its transform. Clicking a positive or negative world axis sets
 the camera's view, keeping its target and distance. Dragging elsewhere
 still orbits or pans the camera.
 
-Register bounds through the same transform used to draw the object. Picking
-uses oriented bounds, rather than individual triangles. The rotation callback
-receives a quaternion delta in world space; the application keeps its own
-transform state. The scale callback receives positive multipliers for local
-X/Y/Z, so scaling preserves the object's rotation. The optional `pivot`
-argument to `region()` sets a world pivot other than the object's origin;
-`onScale` follows it, then optional `onMove` receives world-space translation
-deltas. Register only visible objects; bounds are refreshed
-when the scene draws. Omit a callback to keep the object selectable
-without handles for that tool. `kit.gizmos.transforming` identifies a captured
-object gesture; `onTransformEnd` receives `false` when it commits or `true`
-when canceled. An editor can use these to group a drag into one undo entry.
+Register bounds with the same transform used to draw the object. Picking
+uses oriented bounds. The application owns the transform state and applies
+the callbacks:
+
+- Rotation: compose the world-space quaternion delta with the current rotation.
+- Scale: multiply the positive local X/Y/Z factors into the scale.
+- Move: add the world-space translation delta to the position.
+
+`region()` accepts an optional world-space `pivot`, followed by `onScale`
+and `onMove`. Register visible objects on each draw. Omit a tool's callback
+to allow selection without that tool's handles.
+
+`kit.gizmos.transforming` identifies a captured object gesture.
+`onTransformEnd` receives false on commit or true on cancellation.
+Use these to group a drag into one undo entry.
 
 Wrap the object's mesh or model draws in `selection.draw(id, ctx, draw)`
 to give the selected object a subdued blue mask, a soft rim and highlighted
@@ -170,29 +173,34 @@ or select a model in Studio3D.
 
 ### Texture files
 
-A model's images are read, decoded and, where the GPU samples block compression
-(BC), compressed as a mesh texture is made: for a car with two 4096 pixel images
-that is a second or two on a desktop and several in a page, and a hundred
-megabytes while it lasts. Do it once, ahead of time:
+Creating mesh textures can include image decoding and block compression.
+For a car with two 4096-pixel images, this takes one or two seconds on desktop,
+several seconds on the web, and about a hundred megabytes of temporary memory.
+Precompress the images once before shipping:
 
 ```sh
 tools/bcpack/run.sh assets/car/scene.gltf --max 2048
 ```
 
-`bcpack` writes a `.dds` file beside each image for each way the model's
-materials read it: `scene_baseColor.color.dds` for `scene_baseColor.png`, and
-`.data.dds` for metallic and roughness, `.occlusion.dds` and `.normal.dds`, BC1
-(BC3 where colour has alpha), BC4 or BC5 with every mip level. `--max` shrinks an
-image that is larger first; the car in the dashboard is seen at about 700 pixels,
-so 2048 gives it plenty, at a sixth of the size of 4096 on the GPU.
+`bcpack` writes sidecars beside each source image, based on material usage:
 
-`Gltf.load` finds the files by their names and never decodes the image: the
-file is uploaded as it is, which takes no time and little memory (a 2048 pixel
-colour map is 2.7 MB where its RGBA8 mip chain is 22). A GPU that cannot sample
-BC decodes the image when it needs its pixels, as it always did, so keep the
-images beside the files. A file larger than `maxTextureSize` is not used, and
-`{compressed: false}` ignores them all. In the dashboard, loading the car from
-files takes about 0.8 s less in a page and leaves a desktop app about 200 MB lighter.
+- `.color.dds` for color, such as `scene_baseColor.color.dds`.
+- `.data.dds` for metallic/roughness data.
+- `.occlusion.dds` and `.normal.dds` for those texture roles.
+
+Files include every mip level, using BC1, BC3 for color with alpha, BC4 or BC5.
+`--max` resizes oversized images before compression. The dashboard car appears
+at about 700 pixels, so 2048-pixel textures provide enough detail and reduce
+GPU memory use compared with 4096-pixel textures.
+
+`Gltf.load` discovers sidecars by name and uploads compressed bytes directly.
+A 2048-pixel color map uses 2.7 MB, compared with 22 MB for an RGBA8 mip chain.
+Keep source images for GPUs without BC support; they decode those images
+when needed.
+
+Sidecars exceeding `maxTextureSize` are skipped. `{compressed: false}` ignores
+all sidecars. In dashboard measurements, prepared files reduced web loading
+by about 0.8 s and desktop memory by about 200 MB.
 
 ### Modelling smooth shapes
 

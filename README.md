@@ -7,8 +7,7 @@
 ashui is a native, reactive UI framework for Haxe. Build interfaces with typed
 HXX elements and reusable controls, style them with CSS or Tailwind-style
 classes, and add animations. Three built-in themes coordinate color, shape
-and motion. Optional libraries provide 2D/3D
-canvases and audio/video APIs.
+and motion. Separate libraries add interactive 2D/3D canvases and audio/video APIs.
 
 ![An electric car's dashboard built with ashui, in light and dark: a car turning in a 3D studio under frosted glass panels, live gauges, a street map, and a notched island whose menus open as the pointer moves across it](docs/images/banner.gif)
 
@@ -51,9 +50,9 @@ class Hello {
 
 ## For AI agents
 
-[`skills/ashui/SKILL.md`](skills/ashui/SKILL.md) is a skill file that maps what an agent already knows
-from React/JSX, SolidJS and Tailwind onto ashui's API, conventions and tooling, with the rules that
-most often cause bugs. Copy it into an agent's skills directory.
+[`skills/ashui/SKILL.md`](skills/ashui/SKILL.md) explains ashui's APIs, conventions
+and tools for agents familiar with React/JSX, SolidJS or Tailwind. It also covers
+common mistakes. Copy it into your agent's skills directory.
 
 ## Quick setup
 
@@ -194,7 +193,7 @@ actually reads, including conditional branches.
   changes. Several updates before a flush produce one reaction with the latest
   value. Reactions can update state and create or remove UI.
 - **`Owner`** scopes elements, computeds, watches and cleanup callbacks.
-  Components, `<for>` items and `<show>` branches have their own scopes, so
+  Components, `<for>` items and `<if>` branches have their own scopes, so
   removing UI disposes its bindings and resources. Signals can outlive a scope
   and be shared between components.
 

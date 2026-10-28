@@ -49,7 +49,14 @@ Code stays unwrapped and scrolls in both directions; the gutter stays visible
 when scrolling horizontally. Closing a fold keeps its opening line visible.
 Nested folds keep their state. Folding does not alter the source.
 
-Set `compactGutter={true}` to collapse marker and fold columns a document does not use. Markers outside the viewport still keep their column, so scrolling does not shift the code. Change bars and boundary marks do not reserve the icon column. Add `stableGutter={true}` to keep each column once used for the lifetime of the view, including while asynchronous markers refresh or edits temporarily remove folds. Leave compact gutters off when an empty marker gutter must remain clickable for setting breakpoints.
+Set `compactGutter={true}` to collapse unused marker and fold columns.
+Markers outside the viewport still reserve their column, so scrolling does
+not shift the code. Change bars and boundary marks do not reserve the icon column.
+
+Add `stableGutter={true}` to retain each column once used, until the view is
+disposed. This prevents text shifts while markers refresh asynchronously or
+edits temporarily remove folds. Leave compact gutters disabled if empty
+gutter space must remain clickable for breakpoints.
 
 Built-in lexical highlighters cover Haxe (`hxx`), JavaScript (`js`, `jsx`), TypeScript (`ts`, `tsx`),
 Rust (`rs`), JSON, CSS, Python (`py`) and Lua. Multiline comments and strings
@@ -103,12 +110,14 @@ var document = new CodeEditorState(textSignal);
 return <if {selected.get()}><code-editor state={document} language="haxe" /></if>;
 ```
 
-The state keeps text, bounded undo/redo patches, syntax/fold caches,
-annotations, selection and scroll position. Disposing the view saves navigation
-and releases its watches, row pools, measured text and minimap. Remounting reuses
-the document cache and restores navigation after layout. `state.mounted` is false
-when it holds no view capture hook. One state serves one mounted editor; a keyed
-replacement may mount before the previous view is disposed.
+The state retains text, bounded undo/redo patches, syntax and fold caches,
+annotations, selection and scroll position. Disposing the view saves
+navigation and releases its watches, row pools, measured text and minimap.
+Remounting reuses the document cache and restores navigation after layout.
+
+`state.mounted` is false when no view capture hook is attached. Each state
+serves one mounted editor. During a keyed replacement, the new view may
+mount before the old view is disposed.
 
 An external text replacement while unmounted clears incompatible undo on remount.
 Drop the state itself to release its document and history. Without `state`, an
@@ -117,13 +126,15 @@ the entire view alive, and disposing it discards its history.
 
 ## Zones between lines
 
-`zone(owner, list, follow = false)` places an element between two lines: a peek at a change
-under the line that changed, "Accept current | Accept incoming" above a conflict, an inline
-blame, a code lens. Each entry is `{line, element}`; the element goes below the line
-`line`, counted from 0, takes the editor's width beside the gutter and its own height, and the lines after it move
-down by that height. It scrolls with the text, and the caret, selection, find marks, minimap
-slider, `rectAt` and `offsetAt` all take it into account; a point inside a zone is over no
-character.
+`zone(owner, list, follow = false)` inserts UI elements between code lines.
+Use zones for conflict actions, inline blame, code lenses or change previews.
+Each entry is `{line, element}`. The element sits below the zero-based `line`,
+uses the editor's width beside the gutter, and keeps its own height.
+Later lines shift down by that height.
+
+Zones scroll with the text. Carets, selections, search marks, the minimap
+slider, `rectAt` and `offsetAt` all account for them. A point inside a zone
+does not map to a character.
 
 ```tsx
 var choices:Element = Owner.root(tree, _ -> <div class="flex-row gap-2">
@@ -133,32 +144,37 @@ var choices:Element = Owner.root(tree, _ -> <div class="flex-row gap-2">
 editor.zone("conflict", [{line: 41, element: choices}], true);
 ```
 
-Each owner's zones replace its own, as decorations and markers do, and `zone("conflict", [])` clears
-them. With `follow` a zone stays with its line as the text is edited. A zone whose line is folded
-away takes no room and comes back when the fold opens. `zoneLinesOf(owner)` says where an owner's zones are now.
+Each call replaces that owner's zones without affecting other owners.
+`zone("conflict", [])` removes them. With `follow=true`, zones track their
+lines through edits. A folded line's zone takes no space and reappears when
+the fold opens. `zoneLinesOf(owner)` returns the current zone line numbers.
 
-The element is the editor's once it is given: make it under your own `Owner.root`, and know that a zone
-replaced or cleared has its element taken out of the editor. The editor reads the height the element
-lays out to, so a zone can change its own height and the lines below follow.
+Create zone elements under your own `Owner.root`. The editor takes ownership
+once they are supplied and removes them when replaced or cleared.
+It measures each element's layout height, so changing a zone's height
+repositions later lines automatically.
 
 ## Change marks
 
-Two options of `markers` and `decorate` show changes the way a source-control view does.
+Use `markers` and `decorate` to display source-control changes.
 
-A marker with `boundary: true` sits on the boundary below its line instead of beside it, as a small
-triangle at the line's bottom edge in the gutter: "lines were deleted after this line". It takes
-its colour from its class (`ui-code-change-removed` by default colours it as an error), and an
-`icon` replaces the triangle. It does not use the line's own marker slot, so a line can have both. `title` is its tooltip.
+A marker with `boundary: true` appears below its line, indicating deleted
+lines. The default icon is a small triangle; `icon` replaces it and `title`
+provides its tooltip. Its class sets the color. The default
+`ui-code-change-removed` uses the error color.
+Boundary marks have their own slot, so they can coexist with a line marker.
 
-A marker with `bar: true` is a change bar: a thin strip at the gutter's left edge, the height of its line, in its
-own lane. It does not take the line's marker slot, so a breakpoint or a code action on the same line is still shown
-beside it. Use it, not a plain marker, for added, modified and removed lines.
+A marker with `bar: true` draws a thin change bar along the gutter's left edge.
+It spans the line height and uses a separate lane, leaving room for breakpoints
+or code actions. Use bars for added, modified and removed lines.
 
-A marker or decoration with `minimap: true` is also drawn in the minimap, above the rows and without
-drawing them again: a marker as a thin bar at the edge of its line, a decoration as a mark the width of the
-strip on each line it touches. Both take the colour of their class, so `ui-code-change-added`, `-modified`
-and `-removed` give the usual change colours (`--ui-diff-added-bar`, `--ui-diff-modified-bar` and
-`--ui-diff-removed-bar` override them). At most 600 marks are drawn; a line hidden in a fold has none.
+Set `minimap: true` on a marker or decoration to include it in the minimap.
+Markers appear as thin bars at their line's edge. Decorations span the strip
+on each affected line. Both draw above the minimap rows without redrawing them.
+
+Colors come from their classes. Use `ui-code-change-added`, `-modified` and
+`-removed`, or override `--ui-diff-added-bar`, `--ui-diff-modified-bar` and
+`--ui-diff-removed-bar`. The minimap draws at most 600 marks and skips folded lines.
 
 ```tsx
 editor.markers("scm", [
@@ -288,8 +304,23 @@ scrolling, Escape and disposing the editor also close its hints.
 
 ## External collaboration ownership
 
-`CodeEditorState.onTransaction` receives one local edit with its previous/next text, ordered `CodePatch` ranges and selections. Multi-range `applyEdits` retains the original ranges as one transaction. `onUndo`, when supplied, owns undo and redo for the document; ordinary local history is not recorded alongside it.
+`CodeEditorState.onTransaction` reports each local edit with its previous and
+next text, ordered `CodePatch` ranges and selections. Multi-range `applyEdits`
+keeps the original ranges in one transaction.
 
-Use `state.applyRemote(text, selection)` for incoming changes. It updates a mounted editor or its inactive data without emitting input or another transaction. With ordinary local undo it clears the previous history, whose offsets cannot safely be reused after external edits. A collaboration owner must defer incoming changes while `editor.editing.composing` is nonempty.
+Supply `onUndo` to own document undo and redo. The editor then stops recording
+ordinary local history alongside it.
 
-`state.peers` holds data-only participant selections (`id`, `name`, `caret`, `anchor`, `color`). The editor renders carets, name labels and selection spans only on visible rows, using four CSS palette classes. Update their offsets after each shared edit. Clear peer data and callbacks when leaving a collaboration session. Disposing a presentation removes its external-apply hook; the state retains no disposed editor.
+Use `state.applyRemote(text, selection)` for incoming changes. It updates
+both mounted editors and inactive state without emitting input or another
+transaction. With ordinary local undo, it clears history because those old
+offsets are no longer safe to reuse. Defer incoming changes while
+`editor.editing.composing` is nonempty.
+
+`state.peers` stores participant selections as data: `id`, `name`, `caret`,
+`anchor` and `color`. The editor renders peer carets, labels and selections
+on visible rows using four CSS palette classes. Update offsets after each
+shared edit. Clear peer data and callbacks when leaving the session.
+
+Disposing a view removes its external-apply hook. The state does not retain
+the disposed editor.

@@ -31,13 +31,15 @@ x86_64 native libraries. The packaging job installs and compiles the generated
 Haxelibs and verifies that the core's build macro stages the host HDLL before
 publication.
 
-Assets include `ashui.zip`, `ashui-components.zip`, `ashui-canvaskit.zip`,
-`ashui-media.zip`, `ashui-icons.zip`, the five platform HDLLs and `blinc_abi.wasm`,
-the library a web build loads. The core ZIP bundles every desktop HDLL and the
-wasm library and ashui's web page (`web/`); all five packages use matching
-internal dependency versions. hlwgpu's and hlwindow's ZIPs carry their own web
-builds, which a build defined `wasm` stages beside its output, so a web app needs
-no Rust toolchain. Nightlies retain the version from `haxelib.json` and are marked as prereleases.
+Release assets include `ashui.zip`, `ashui-components.zip`,
+`ashui-canvaskit.zip`, `ashui-media.zip`, `ashui-icons.zip`, five platform
+HDLLs and `blinc_abi.wasm`.
+
+The core ZIP bundles every desktop HDLL, the wasm library and the web host
+under `web/`. All five packages use matching internal dependency versions.
+hlwgpu and hlwindow provide their own web builds, which `-D wasm` stages
+beside the output. Package users do not need a Rust toolchain.
+Nightlies keep the version from `haxelib.json` and are marked as prereleases.
 
 ## Manual validation or release
 
@@ -82,16 +84,15 @@ publication uses that repository's secret. Missing registry dependencies
 block a batch before its first submission. Already published versions are
 skipped, and submission refuses to overwrite a version.
 
-The stack also installs all nine release ZIPs in a fresh Haxelib repository,
-compiles an HXX consumer and verifies all six native install macros, including
-the stock HashLink Future and SIMD libraries, before any registry submission. Validation can run before the
-packages are registered on Haxelib.
+Before submission, the stack installs all nine release ZIPs in a fresh
+Haxelib repository. It compiles an HXX consumer and verifies all six native
+install macros, including the stock HashLink Future and SIMD libraries.
+This validation can run before the packages are registered on Haxelib.
 
-The publisher validates native contents or checksummed downloads before
-submission. Publish copies of existing release ZIPs set `rayzor` as the first contributor
-and keep `darmie` as an additional contributor. This also supplies the missing
-contributor in older `ash-future` releases, preserving the Haxe sources and
-native binaries.
+The publisher validates bundled native files or checksummed downloads before
+submission. Publication copies list `rayzor` as the first contributor and
+retain `darmie` as an additional contributor. This fills the missing contributor
+in older `ash-future` releases without changing Haxe sources or native binaries.
 
 ### Installing before registry publication
 

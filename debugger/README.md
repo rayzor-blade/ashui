@@ -1,22 +1,16 @@
 # ashui debugger
 
-An app for reviewing what an ashui UI did, frame by frame. It is built
-with `ashui.components` and lives beside the libraries as a project of its
-own.
+A standalone ashui app for reviewing UI recordings frame by frame.
+Built with `ashui.components`.
 
 It opens a recording made by `ashui.debug.MotionRecorder` and plays it back:
 
-- the recorded frames, with transport controls to play, pause, step a
-  frame at a time, scrub, slow down and repeat, and to turn the gizmos
-  (the motion overlay's outlines, trails, labels and bars) on and off;
-- a timeline of every animation in the recording: its element and
-  property, a bar from when it began to when it ended, marked when its
-  checks found a problem. Selecting one outlines its element on the frame
-  and shows its verdict;
-- what changed in the element tree at each frame: elements added and
-  removed, boxes, states and restyled values;
-- the motion report, and the frame regression result when the recording
-  was checked against a baseline.
+- Frame playback with play, pause, step, scrub, speed and repeat controls.
+  Toggle motion outlines, trails, labels and progress bars.
+- An animation timeline showing each element, property, duration and failed
+  check. Select a track to highlight its element and inspect the result.
+- Per-frame tree changes: added/removed elements, bounds, states and styles.
+- Motion reports and baseline frame-regression results.
 
 ## Running it
 
@@ -38,16 +32,15 @@ It needs the same sibling checkouts as `tools/demo` (`../hlwgpu`,
 ASHUI_HAXE_FLAGS="--class-path $PWD/debugger/haxe" tools/snapshot/run.sh debugger/scenes/DebuggerScene.hx
 ```
 
-`RECORDING` picks the recording; `ASHUI_DEBUGGER_TAB` (`timeline`, `tree`,
-`report`), `ASHUI_DEBUGGER_AT` (seconds) and `ASHUI_DEBUGGER_TRACK` (a track
-id) pick what the page shows, and `ASHUI_DEBUGGER_GIZMOS=0` shows frames
-without their gizmos.
+Use `RECORDING` to select a recording. Set `ASHUI_DEBUGGER_TAB` to `timeline`,
+`tree` or `report`; `ASHUI_DEBUGGER_AT` selects a time in seconds, and
+`ASHUI_DEBUGGER_TRACK` selects a track id. `ASHUI_DEBUGGER_GIZMOS=0` hides
+the motion overlay.
 
 ## Building on it
 
-The views are components that take a `RecordingPlayer`, the way
-`ashui.media`'s controls take a `Player`, so they can be arranged in
-another layout:
+Each view accepts a `RecordingPlayer`, so you can arrange the components
+in a custom layout. This follows the media controls' `Player` pattern:
 
 ```tsx
 var player = new RecordingPlayer(new Recording(dir));

@@ -94,8 +94,8 @@ share native text editing, viewport rendering and theme styling. Use a signal
 for an editable source, or a read-only CodeView for selectable examples.
 
 The [code diff](https://github.com/rayzor-blade/ashui/blob/main/docs/code-diff.md)
-compares two versions of a text, inline or side by side, with the changed words marked and
-long unchanged runs folded.
+compares text inline or side by side. It marks changed words and folds long
+unchanged sections.
 
 ## Gallery
 
@@ -155,11 +155,10 @@ rendering defect; the components themselves keep the theme's font token.
 
 ### Tabs
 
-`TabsList` draws one selection background beneath its triggers. It slides
-and resizes to the selected tab on clicks, keyboard navigation and bound
-`value` changes, using the framework's FLIP layout animation and the theme's
-motion tokens. Rapid choices continue from the background's current
-position. The existing trigger and content behavior stays in place.
+`TabsList` draws a selection background beneath its triggers. It slides
+and resizes after clicks, keyboard navigation or bound `value` changes.
+The framework's FLIP layout animation uses the theme's motion tokens.
+Rapid selections continue from the background's current position.
 
 Triggers size to their labels and padding. For a strip that fills its
 available width with unequal labels, give the triggers `class="flex-auto"`.
@@ -273,14 +272,16 @@ interactive action. Style `.ui-input-icon[data-side]` or set
 
 ### Numeric inputs
 
-`NumberInput` uses the shared `Size` enum. Medium is the default; large
-keeps its original 40 px design. Buttons, arrow keys and the wheel share
-the same decimal steps and bounds. Wheel up increases the value; trackpad
-movement accumulates into steps. Disabled fields let their parent scroll.
-An ongoing parent scroll keeps its gesture when a numeric control moves
-under the pointer, including momentum; those deltas never edit the value.
-Moving onto a control or waiting for the 250 ms wheel gap lets a new gesture
-edit it without scrolling its parent.
+`NumberInput` supports `Sm`, `Md` and `Lg` sizes. Medium is the default;
+large keeps the original 40 px height. Buttons, arrow keys and the wheel
+use the same decimal steps and bounds. Wheel up increases the value;
+trackpad movement accumulates into steps. Disabled fields allow parent scrolling.
+
+An active parent scroll retains its gesture, including momentum, when a
+numeric control moves under the pointer. Those deltas do not edit the value.
+Move onto the control or wait for the 250 ms wheel gap to begin a new gesture
+that edits the value without scrolling the parent.
+
 The field and step buttons resize together:
 
 ```tsx

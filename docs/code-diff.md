@@ -1,9 +1,9 @@
 # Code diff
 
-Import `CodeDiff` from `ashui.components` to show two versions of a text compared:
-the lines that were removed and added in colour, the words that changed inside an
-edited line marked, the line numbers of both texts in the gutter, and long runs of
-unchanged lines folded into a row that opens when it is pressed. It is read-only.
+Import `CodeDiff` from `ashui.components` to compare two versions of a text.
+The read-only view highlights added and removed lines, marks changed words,
+and shows both line numbers. Long unchanged sections collapse into rows
+that expand when clicked.
 
 ```tsx
 import ashui.components.CodeDiff;
@@ -24,34 +24,31 @@ including `--macro ashui.ui.Markup.enable()` in `build.hxml`.
 | Prop | Default | Purpose |
 | --- | --- | --- |
 | `original`, `modified` | required | The two texts, as strings or signals of strings. Use LF line endings. |
-| `language` | `plain` | The syntax colours, as `CodeEditor` takes it. |
-| `highlighter` | none | An application grammar, as `CodeEditor` takes it. |
+| `language` | `plain` | Syntax language, using the same values as `CodeEditor`. |
+| `highlighter` | none | A custom syntax highlighter, using the same interface as `CodeEditor`. |
 | `layout` | `inline` | `inline` for one column of removed and added lines, `split` for the original and the modified text side by side. A signal switches between them. |
 | `context` | `3` | Unchanged lines kept on each side of a change. A longer run is folded into one row. A negative number keeps every line. |
 | `hunks` | found | The changes, when you have them already. See below. |
 | `lineHints` | none | Reactive inline annotations on changed lines: `{side:"original" or "modified", line:0-based, text, ?detail}`. |
 | `lineNumbers` | `true` | The numbers in the gutter. |
-| `navigation` | `false` | A bar above the rows with where the view is among the changes ("2 of 5") and buttons for the previous and the next. |
+| `navigation` | `false` | A toolbar with the current change position ("2 of 5") and previous/next buttons. |
 | `tabSize` | `4` | Spaces per tab stop. |
-| `onStage`, `onRevert` | none | Setting either puts a Stage or a Revert button on the first row of each change, and calls it with the change when pressed. See [Stage and revert](#stage-and-revert). |
-| `hunkActions` | none | More buttons of your own on those rows, after Stage and Revert. |
+| `onStage`, `onRevert` | none | Adds a Stage or Revert button to each change. Clicking it calls the supplied handler with that change. See [Stage and revert](#stage-and-revert). |
+| `hunkActions` | none | Additional change actions, placed after Stage and Revert. |
 | `icons` | plain strokes | Icons for the diff's own controls: `{previous, next, folded, stage, revert}`. See [Icons](#icons). |
 | `label`, `id` | none | The accessible name and the element id. |
 
 ## Layouts
 
-Inline lists a change as its removed lines and then its added lines, with both
-numbers in the gutter. Side by side lists the original in the left column and the
-modified text in the right. Rows are all one height, so a line that has no partner
-on the other side has a filler opposite it. The two columns scroll up and down
-together, and each scrolls sideways on its own.
+Inline layout shows removed lines followed by added lines, with both source
+line numbers in the gutter. Split layout shows the original on the left and
+the modified text on the right. Fixed-height filler rows keep unmatched lines
+aligned. The columns scroll vertically together and horizontally independently.
 
-A removed line and an added line that are the same line edited share a row, and the
-words that changed are marked on both. When a change has as many removed lines as
-added lines, the first removed line is opposite the first added line, and so on.
-When it has not, lines are matched by how alike they are, so a line inserted among
-edited lines does not shift the lines that follow it. A line with too little in
-common with its partner is shown whole, without word marks.
+Edited lines share a row, with changed words marked on both sides.
+If a change removes and adds the same number of lines, rows are paired in order.
+Otherwise, similarity matching keeps inserted lines from shifting later pairs.
+Lines with too little similarity show no word-level marks.
 
 ## Inline annotations
 
@@ -63,14 +60,18 @@ var hints = signal(([{side: "modified", line: 4, text: "Ada", detail: "Edited in
 return <code-diff original={before} modified={after} lineHints={hints} />;
 ```
 
-Line numbers start at zero in each source text, independently of the layout. Context and filler rows do not show annotations. Updating the signal replaces the labels; only visible pooled rows mount them. Long labels are truncated, with `detail` (or the full label) in a tooltip. The component does not fetch authors or interpret revision metadata.
+Hint line numbers are zero-based in each source, independent of layout.
+Context and filler rows do not show hints. Updating the signal replaces the
+labels, and only visible rows mount them. Long labels truncate; their tooltip
+shows `detail`, or the full label when no detail is supplied. The component
+does not fetch authors or interpret revision metadata.
 
 ## Folding
 
-Unchanged lines more than `context` away from a change are left out, and a row
-says how many (`47 unchanged lines`). Pressing it shows them. `expandAll()` opens
-every folded run and `collapseAll()` folds them again. Runs of fewer than three
-lines are never folded, because the row would save too little.
+Unchanged sections beyond the `context` range collapse into a row such as
+`47 unchanged lines`. Click the row to expand it. `expandAll()` opens every
+section; `collapseAll()` folds them again. Runs shorter than three lines
+stay visible because folding would save too little space.
 
 ## Navigation
 
@@ -80,21 +81,21 @@ Three methods move through the changes:
 | --- | --- |
 | `nextChange()` | Scrolls to the next change, and from the last to the first. |
 | `previousChange()` | Scrolls to the previous change, and from the first to the last. |
-| `showChange(index)` | Scrolls to the change `index`, counted from 0; an index out of range is brought into it. |
+| `showChange(index)` | Scrolls to a zero-based change index, clamped to the valid range. |
 
-`goToChange(delta)` is the general form of the first two. They count from the
-current change when it is on screen, and from where the view is when it is not,
-so scrolling past a change and then asking for the next goes to the one ahead.
-`currentChange` is a signal holding the index of the change last gone to, and -1
-before any; `changeCount` is a signal of how many there are.
+`goToChange(delta)` provides relative navigation. If the current change is
+visible, navigation starts there. Otherwise it starts at the viewport,
+so scrolling past a change and requesting the next moves forward.
+`currentChange` holds the last navigated index, or -1 initially.
+`changeCount` holds the total number of changes. Both are signals.
 
 `reveal(line)` scrolls to a line of the modified text, counted from 0, and opens
 the folded run that hides it.
 
-Set `navigation` for a bar that does it for the user: it says "3 changes", or
-"2 of 3" once one has been gone to, and has a button for the previous change and
-one for the next, each with a tooltip. F7 goes to the next change and Shift+F7
-to the previous whenever a column of the diff has focus, with or without the bar.
+Set `navigation` to show a toolbar with previous/next buttons and tooltips.
+It displays the change count, then the current position once you navigate,
+such as "2 of 3". F7 moves to the next change; Shift+F7 moves to the previous.
+These shortcuts work whenever a diff column has focus, even without the toolbar.
 
 ```tsx
 var diff = new Ref<CodeDiff>();
@@ -107,35 +108,33 @@ return <div class="flex-col gap-2">
 
 ## Changes you already have
 
-Without `hunks` the component compares the texts itself. A comparison of a large
-pair of texts (more than 4,000 lines between them) runs on the worker thread, and
-the rows that were shown stay until it is done. The `comparing` signal is true in
-the meantime.
+Without `hunks`, the component compares the texts itself. Comparisons totaling
+more than 4,000 lines run on a worker thread. The previous result stays visible
+until completion, and `comparing` is true while the comparison runs.
 
-When a version-control library gives you the changes, pass them as `hunks`: an
-array of `{originalStart, originalLines, modifiedStart, modifiedLines}`, with lines
-counted from 0. A change that only adds lines has `originalLines` of 0, and one
-that only removes them has `modifiedLines` of 0. Pass the runs of removed and added
-lines of a patch, not a hunk with its context lines: a context line given as part
-of a change would be shown as changed. The component checks the changes against the
-two texts, and ignores them if any line outside the changes differs.
+Pass precomputed changes through `hunks` as
+`{originalStart, originalLines, modifiedStart, modifiedLines}` records.
+Line numbers are zero-based. Insertions have `originalLines=0`; deletions
+have `modifiedLines=0`.
 
-`CodeDiffer.lines(original, modified)` makes the same changes from two arrays of
-lines, and `CodeDiffer.words(a, b)` finds the changed words between two versions of
-a line, so a program can use either without a view. They read no document and make
-no element, so they can run on any thread.
+Include only changed lines, excluding patch context. Context included in a
+change would be highlighted as changed. The component validates the supplied
+changes against both texts and ignores them if any line outside the ranges differs.
+
+`CodeDiffer.lines(original, modified)` compares arrays of lines.
+`CodeDiffer.words(a, b)` finds changed words within a line.
+Neither API requires a document or UI element, so both can run on any thread.
 
 ## Stage and revert
 
-The diff only shows changes; staging one or putting it back is the app's work, and the
-buttons are only a way to ask for it. `onStage` and `onRevert` are hooks: give either a
-function and a button appears on the first row of every change, at its right, while the
-pointer is over the row, and for the current change (the one `nextChange` or F7 went
-to) always, so the keyboard reaches them: F7, then Tab to a button, then Enter or Space.
-A press calls the function with the
-change, `{originalStart, originalLines, modifiedStart, modifiedLines}`, so the app can
-turn it into a patch. The buttons are icons, and the label ("Stage change", "Revert
-change") is their tooltip.
+The application owns staging and reverting. Supply `onStage` or `onRevert`
+to add an icon button on the first row of each change. Clicking a button
+passes `{originalStart, originalLines, modifiedStart, modifiedLines}` to
+its callback so the application can create a patch.
+
+Actions appear on hover and remain visible for the current navigated change.
+Keyboard users can press F7, Tab to an action, then Enter or Space.
+Button tooltips are "Stage change" and "Revert change".
 
 ```tsx
 <code-diff original={head} modified={working} height={420}
@@ -143,9 +142,10 @@ change") is their tooltip.
     onRevert={change -> git.revert(file, change)} />
 ```
 
-`hunkActions` adds buttons of your own after those: an array of `{label, ?icon, run}`. With
-an `icon` the button shows only the icon and the `label` is its tooltip; without one it
-shows the label. In a side-by-side layout the buttons are in the modified column.
+`hunkActions` adds actions after Stage and Revert. Each entry is
+`{label, ?icon, run}`. With an icon, the label becomes a tooltip;
+otherwise it appears as button text. In split layout, actions appear in
+the modified column.
 
 ```tsx
 <code-diff original={head} modified={working} height={420}
@@ -154,11 +154,10 @@ shows the label. In a side-by-side layout the buttons are in the modified column
 
 ## Icons
 
-The diff draws five icons of its own: the arrows of the navigation bar's two buttons, a mark at the
-start of the row of a folded run, and the Stage and Revert buttons. It draws them as plain strokes, so the component needs no icon
-set, and an app that wants its own gives them as `icons`. Each is an icon as the `icon` element takes
-one: a document from an icon set, a compiled `SvgDocument`, or SVG markup in a string, drawn in
-`currentColor` so it takes the text colour.
+The diff supplies five stroke icons: previous, next, folded, stage and revert.
+Override them through `icons`. Each value accepts the same input as `<icon>`:
+an icon-set document, a compiled `SvgDocument`, or SVG markup.
+Use `currentColor` to inherit the text color.
 
 ```tsx
 import ashui.icons.Remix;
@@ -171,9 +170,9 @@ import ashui.icons.Remix;
     }} />
 ```
 
-The buttons of `hunkActions` take their icons the same way, one to an action. The Remix set is in
-`ashui-icons`, a separate package so that an app that does not use it does not carry its licence;
-any other icons work the same.
+Each `hunkActions` entry accepts an icon in the same way.
+Remix is distributed separately in `ashui-icons`, so applications only include
+that package and its license when needed. Other SVG icon sets also work.
 
 ## Styling
 
@@ -198,27 +197,22 @@ in [Code view and editor](code-editor.md#styling)). The parts to style are
 
 ## Large files
 
-A diff of tens of thousands of lines costs what it shows, not what it compares. Only the
-rows in the viewport, and a few more either side, are elements, and they are reused as
-you scroll. The lines are not made into a document: a line is coloured when a row first
-shows it, and a bounded number of coloured lines are kept, so memory does not grow with
-the length of the file, apart from the text itself. Folded runs of unchanged lines cost
-nothing but their place in the file. Opening one, or `expandAll()`, colours lines as they
-scroll into view, as the rest do.
+Only viewport rows and a small overscan are mounted. Rows are reused during
+scrolling. Syntax highlighting runs when a line first becomes visible and
+uses a bounded cache, so rendering memory stays bounded apart from the source
+text itself. Folded sections store only their positions. Expanding a section
+highlights its lines as they scroll into view.
 
-A line longer than 2,000 characters is shown cut there, with an ellipsis, and has no word
-marks. This keeps one minified line from costing what the rest of the file does.
+Lines longer than 2,000 characters are truncated with an ellipsis and skip
+word-level marks. This bounds the cost of minified or generated lines.
 
 ## For maintainers
 
-The rows are made by `ashui.components.code.CodeDiffRows` from the changes of
-`CodeDiffer`, kept as integers, five to a row. A pane (`CodeDiffPane`) pools row
-elements as the code editor does, so scrolling a line builds nothing. The lines of each
-text are a `CodeDiffText`, which colours a line from the lexical state the line above ends
-in: the line shown before it when there is one, otherwise a checkpoint kept every 256 lines,
-filled a slice a frame for a large text.
+`CodeDiffRows` builds rows from `CodeDiffer` changes, using five integers per row.
+`CodeDiffPane` pools row elements, so scrolling one line creates no new rows.
+Each `CodeDiffText` highlights lines using the previous line's lexical state
+or a checkpoint stored every 256 lines. Large texts build checkpoints in
+per-frame slices.
 
-The rows are not the code editor's panes with a filler element between lines, as VS Code
-builds its diff editor, because every row here is one height; that is why this view needed
-no zone widgets in `CodeEditor`, and why an editable modified side, which would, is not part
-of it yet.
+Diff rows have a fixed height and do not use `CodeEditor` panes or zone widgets.
+An editable modified column would need a different layout and is not supported yet.

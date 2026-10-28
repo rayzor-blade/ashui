@@ -81,10 +81,10 @@ rules in the running application.
 ## Compiled and runtime stylesheets
 
 [`CompiledCss.file`](https://github.com/rayzor-blade/ashui/blob/main/haxe/ashui/css/CompiledCss.hx)
-parses a stylesheet during Haxe compilation and emits its rules, selectors,
-media queries and keyframes as typed data. Startup constructs those objects
-without parsing the CSS text. Theme variables, selector matching and state
-changes still resolve at runtime.
+compiles a stylesheet and its imports into an embedded binary resource during
+the Haxe build. The native engine decodes that resource at runtime without
+parsing CSS text. Theme variables, selector matching and state changes still
+resolve at runtime.
 
 - Paths passed to `CompiledCss.file` are relative to the calling Haxe file.
 - Paths in `ashui_css` resolve on the class path or from the compiler's
@@ -121,10 +121,10 @@ An element's own settings take precedence over stylesheet rules, including
 explicit attributes such as `padding={24}`. This lets a local element
 override a shared stylesheet deliberately.
 
-Utility classes are compiled into those local settings, so they are not class names on
-the element: `class="overflow-auto"` leaves no `overflow-auto` class for a selector to match.
-To style such an element from a stylesheet, give it a class of your own, such as `scrolls`,
-and select that.
+Utility classes compile into local settings rather than CSS class names.
+For example, `class="overflow-auto"` does not leave an `overflow-auto` class
+for selectors to match. Add an application class such as `scrolls` when
+you need to target the element from a stylesheet.
 
 Typography inherits through the element tree: font family, size, weight,
 style, line height, letter spacing and alignment. Color also reaches the
@@ -385,20 +385,25 @@ container's existing watcher; hiding the scrollbar avoids fade timers.
 
 #### Edge shadows and reach
 
-`scroll-shadow: auto` on a scroll container draws an inset shadow along each edge that
-hides content: along the top once it is scrolled down, along the bottom while there is more
-below, and the same for left and right. `none` (the default) draws none. `--ui-scroll-shadow-color`
-sets the colour (black at 35% by default). The shadows are the user-agent sheet's rules for the
-attributes `data-scroll-shadow` and `data-more-above`, `-below`, `-left` and `-right`, which are set
-only at the edges that hide content, so a stylesheet can draw its own instead.
+`scroll-shadow: auto` draws an inset shadow at each edge with hidden content.
+The top shadow appears after scrolling down; the bottom shadow appears while
+more content remains below. Left and right edges behave the same way.
+`none`, the default, disables these shadows.
+
+Set `--ui-scroll-shadow-color` to change the color, which defaults to black
+at 35% opacity. The user-agent stylesheet draws the shadows from
+`data-scroll-shadow` and `data-more-above`, `-below`, `-left` and `-right`.
+These attributes identify edges with hidden content, so application CSS can
+provide a different effect.
 
 ```css
 .sidebar { overflow-y: auto; scroll-shadow: auto; --ui-scroll-shadow-color: rgba(0, 0, 0, 0.5); }
 ```
 
-From code, `Scroll.of(node).moreAbove`, `moreBelow`, `moreLeft` and `moreRight` are signals of the
-same four facts. A signal is made, and the container's reach followed after each layout and scroll,
-the first time one is read; each moves only when an edge is crossed.
+Read `Scroll.of(node).moreAbove`, `moreBelow`, `moreLeft` and `moreRight`
+to track the same edge states. These signals are created on first access.
+The container then checks them after layout and scrolling, and updates
+them only when an edge state changes.
 
 ### Sticky positioning, stacking and text limits
 
@@ -491,12 +496,48 @@ Use the [theme guide](themes.md) to change the values behind these classes.
 Application-specific styles go in declared CSS classes, which can be mixed
 with utilities in the same `class` attribute.
 
+### Utility reference
+
+Use these families for common styling. Token-based values follow the theme;
+numeric durations use milliseconds and numeric transform angles use degrees.
+
+| Family | Examples and behavior |
+| --- | --- |
+| Spacing and size | `p-4`, `px-2`, `m-3`, `gap-y-2`, `w-full`, `w-1/2`, `size-6`, `min-w-0`, `max-h-32`, `mx-auto`, `inset-0`. Spacing steps run from `0` through `32`, including half steps. |
+| Layout | `flex`, `flex-col`, `items-center`, `justify-between`, `grow`, `shrink-0`, `absolute`. Grid alignment and positioning are covered above. |
+| Colors | `bg-primary`, `text-secondary`, `border-border`, `outline-primary`, `ring-primary`. Theme colors, `white`, `black` and `transparent` support `/0`–`/100` opacity suffixes. |
+| Borders | `border`, `border-0`–`border-8`, `border-t`, `border-x-2`, `border-t-primary`. Width-only utilities use the theme border color. |
+| Corners | `rounded`, `rounded-sm`–`rounded-3xl`, `rounded-full`; `corner-round`, `corner-squircle`, `corner-bevel`, `corner-scoop`, `corner-notch`, `corner-square`. |
+| Shadows | `shadow`, `shadow-sm`–`shadow-2xl`, `shadow-inner`, `shadow-none`. |
+| Typography | `text-xs`–`text-5xl`, `font-thin`–`font-black`, `leading-none`–`leading-loose`, `tracking-tighter`–`tracking-wider`, `italic`, `text-left`–`text-justify`. Tracking uses ems relative to the element's font size. |
+| Text limits | `truncate`, `text-ellipsis`, `text-clip`, `whitespace-nowrap`, `line-clamp-1`–`line-clamp-6`, `line-clamp-none`. |
+| Scroll and clipping | `overflow-hidden`, `overflow-auto`, `overflow-scroll`, and axis variants such as `overflow-y-auto`. `fade-4`, `fade-y-8` and `fade-t-2` fade clipped content at the specified edges. |
+| Filters | `grayscale`, `sepia`, `invert`, `brightness-50`, `contrast-200`, `saturate-0`, `hue-rotate-15`, `blur-xs`–`blur-3xl`, `drop-shadow-xs`–`drop-shadow-2xl`. Filters apply to the element and its children as one layer. `opacity-*` also fades groups together. |
+| Backdrop filters | `backdrop-blur-xs`–`backdrop-blur-3xl`, plus brightness, contrast, saturation, hue, grayscale, invert and sepia variants. `backdrop-blur` means `backdrop-blur-sm`. |
+| Liquid glass | `bg-glass`, `glass-blur-2`, `glass-tint-white/20`, `glass-aberration-30`, `glass-noise-3`, `glass-bevel-35`, `glass-inset`, `glass-outset`, `glass-frosted`, `glass-liquid`. Blur uses pixels; aberration, noise and bevel use percentages. |
+| Clip paths | `[clip-path:circle()]`, `[clip-path:inset(8px_round_16px)]`, `[clip-path:polygon(50%_0,100%_100%,0_100%)]`, `[clip-path:none]`. Underscores represent spaces; values are checked at compile time. |
+| Outlines and rings | `outline`, `outline-2`, `outline-offset-2`, `outline-none`, `ring`, `ring-2`, `ring-offset-2`. Outlines follow corners outside the border; offsets leave a clear gap. `ring` uses width 3. |
+| Transitions | `transition`, `transition-colors`, `transition-opacity`, `transition-shadow`, `transition-transform`, `transition-all`, `transition-none`. Combine with `duration-fast`, `duration-150`, `delay-150` and easing utilities. |
+| Easing | `ease-default`, `ease-in`, `ease-out`, `ease-in-out`, `ease-state`, `ease-nav`, `ease-spring`, `ease-sheet`, `ease-linear`. |
+| Transforms | `translate-x-4`, `translate-y-2`, `rotate-45`, `scale-95`, `scale-x-110`, `skew-x-6`. Translation uses spacing steps; scale uses percentages. Prefix translate, rotate or skew utilities with `-` for negative values. Components compose as translate, rotate, skew X, skew Y, scale. |
+| Looping motion | `animate-spin`, `animate-ping`, `animate-pulse`, `animate-bounce`. |
+| Gradients | `bg-linear-to-r` or `bg-gradient-to-r`, other side/corner directions, and `bg-radial`. Combine `from-*`, `via-*`, `to-*` and stop positions such as `via-30%`. |
+| Lists and cursors | `list-disc`, `list-decimal`, `list-lower-alpha`, `list-upper-roman`, `list-none`; `cursor-pointer`, `cursor-text`, `cursor-grab`, `cursor-none` and resize cursors. |
+
+`bg-glass` defaults to 12px blur, white/10 tint, 30% aberration, no noise
+and liquid mode. Glass utilities set the same `background: glass` and
+`glass-*` properties available to CSS. Arbitrary values are supported for
+clip paths and glass settings; use CSS or typed attributes for other custom values.
+
 ## Responsive size
 
-`@media (max-width: …)` and `(max-height: …)` read the viewport in layout units, so a rule can change a layout where a window is
-small. To keep everything on screen without choosing what to hide, a window can instead lay its UI out in more units than it has
-pixels for, as a browser zoomed out does. A `WindowedApp` reads `--ui-zoom` on `:root`: a zoom of 0.8 lays the UI out in 1.25
-times as many units, drawn at the window's own resolution, so text and shapes stay sharp and pointer input follows.
+`@media (max-width: …)` and `(max-height: …)` query viewport dimensions in
+layout units. Use these rules to adapt layouts to smaller windows.
+
+For a uniformly scaled layout, set `--ui-zoom` on `:root`. A zoom of 0.8
+provides 1.25 times as many layout units. Rendering stays at the window's
+native resolution, so text and shapes remain sharp and pointer coordinates
+stay aligned.
 
 ```css
 :root { --ui-zoom: 1; }
@@ -504,9 +545,10 @@ times as many units, drawn at the window's own resolution, so text and shapes st
 @media (max-width: 1043px), (max-height: 791px) { :root { --ui-zoom: 0.8; } }
 ```
 
-The `@media` rules that set `--ui-zoom`, and every other rule, read the window's own size, in the units a zoom of 1 would give,
-so a zoom cannot change what chose it. Of two rules that both hold, the later wins, so steps go from the largest window to the
-smallest. The zoom is kept between 0.25 and 4, and `WindowedApp.zoom` gives the one in force.
+All media queries use the window's unzoomed dimensions. Changing zoom cannot
+change the media query that selected it. When rules overlap, later rules win;
+order the steps from largest to smallest windows. Zoom is clamped to 0.25–4.
+Read the active value from `WindowedApp.zoom`.
 
 ## Variants and reusable styles
 
