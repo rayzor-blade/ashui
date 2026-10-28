@@ -14,8 +14,8 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.1",
-  "releasenote": "Clearer API comments and setup, styling, theme, web and window guides.",
+  "version": "0.2.2",
+  "releasenote": "Browser-aware keyboard conventions, module-relative web assets and startup configuration without URL parameters.",
   "classPath": "haxe",
   "dependencies": {
     "hashlink": "",

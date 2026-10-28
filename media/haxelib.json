@@ -14,13 +14,13 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.1",
-  "releasenote": "Clearer playback, equalizer and resource-ownership documentation. Uses matching ashui 0.2.1 packages.",
+  "version": "0.2.2",
+  "releasenote": "Uses matching ashui 0.2.2 packages.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.1",
-    "ashui-components": "0.2.1",
-    "ashui-canvaskit": "0.2.1",
+    "ashui": "0.2.2",
+    "ashui-components": "0.2.2",
+    "ashui-canvaskit": "0.2.2",
     "hlavi": "0.1.2"
   }
 }

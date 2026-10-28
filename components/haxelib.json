@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.1",
-  "releasenote": "Clearer component API documentation and code editor, diff and form guides. Uses ashui 0.2.1.",
+  "version": "0.2.2",
+  "releasenote": "Reactive background syntax highlighting and horizontal editor text culling. Uses ashui 0.2.2.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.1"
+    "ashui": "0.2.2"
   }
 }
