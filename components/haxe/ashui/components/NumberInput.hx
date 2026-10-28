@@ -24,17 +24,19 @@ typedef NumberInputProps = {
 }
 
 /**
-	A number between a − and a + that step it: the built-in
-	`<input type="number">` (typed into, its constraints) joined to its two
-	buttons in one bordered piece. CSS: `.ui-number-input` (`[data-size]`),
-	`.ui-number-step` (`[data-step]` down or up, `:disabled`),
-	`.ui-number-field`. The shared `Size` variants scale the field and both
-	buttons together; `Lg` keeps the original dimensions (git-bug ffc482f).
-	`showStepButtons=false` omits both buttons and keeps the centered editable
-	field and its wheel stepping (git-bug e1d5d1b).
-	`--ui-input-height` and `-radius` retune the outer box; `--ui-number-step-width`
-	and `-font-size`, and `--ui-number-field-width`, `-padding` and `-font-size`
-	retune its parts at any size.
+	A centered numeric input with decrement and increment buttons.
+	Uses the built-in number input for editing and validation.
+	`Size` scales the field and both buttons; `Lg` preserves the original
+	large dimensions (ffc482f).
+
+	Set `showStepButtons=false` to hide the buttons. Manual entry, centered
+	alignment and wheel stepping remain available (e1d5d1b).
+
+	CSS targets: `.ui-number-input[data-size]`, `.ui-number-field` and
+	`.ui-number-step[data-step="down"|"up"]`. Step buttons support `:disabled`.
+	Customize the container with `--ui-input-height` and `--ui-input-radius`.
+	Part tokens use `--ui-number-step-*` and `--ui-number-field-*` for width,
+	font size and field padding.
 **/
 class NumberInput extends Component<NumberInputProps> {
 	public var value(default, null):Signal<Float>;

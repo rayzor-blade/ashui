@@ -6,18 +6,17 @@ import ashui.layout.Node;
 import ashui.reactive.Owner;
 
 /**
-	A component: the element `render` builds from typed props, usually a
-	`Div`. The component is that element, not a box around it.
+	Builds an element from typed props. The component exposes the element
+	returned by `render` without adding a wrapper box.
 
-	hxx builds `<Tag a={x}>kids</Tag>` as `new Tag({a: x}, [kids])`, checks
-	each attribute against `Props`, and makes a prop typed `IntoReactive<T>`
-	follow what its attribute expression reads, as `Div` attributes do.
+	HXX creates `<my-card a={x}>...</my-card>` as a `MyCard` instance with
+	props and children. Attributes are checked against `Props`. Props typed
+	`IntoReactive<T>` track the dependencies read by their expressions.
 
-	`render` runs under the component's own owner, so what it creates is
-	cleaned up when the component is removed. Field initializers run before
-	it, so a component can keep signals in fields; `@:state var x:T = init`
-	does that for it, and `function render() '<template>'` is a template
-	(see `ComponentBuilder`).
+	`render` runs in the component's owner scope. Removing the component
+	cleans up everything created in that scope. Field initializers run first,
+	so components can store signals in fields. `@:state var x:T = init`
+	creates that signal automatically. See `ComponentBuilder`.
 **/
 @:autoBuild(ashui.ui.ComponentBuilder.build())
 abstract class Component<Props> extends Element {

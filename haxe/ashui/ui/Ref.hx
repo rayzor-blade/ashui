@@ -5,27 +5,30 @@ import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 
 /**
-	A name for an element a template builds, so code can reach it without
-	the template being broken up:
+	A reactive reference to an element created by HXX:
 
-		var panel = new Ref<Div>();
-		hxx('<div ref={panel} class="rounded-3xl">...</div>');
-		panel.get().node.set(Prop.Opacity, 0.5);
+	```haxe
+	var panel = new Ref<Div>();
+	var view = <div ref={panel} class="rounded-3xl">...</div>;
+	panel.get().node.set(Prop.Opacity, 0.5);
+	```
 
-	`ref={x}` takes a `Ref` of the element's own type: a `Ref<Div>` on a
-	`<div>`, a `Ref<Card>` on a `<card>`; another is a compile error. It is
-	set as the element is built and cleared when the element's owner
-	disposes it, so under `<if>` it follows the element that is there now.
-	Reading it with `get` in a computed or watch follows it, as a signal's
-	does. Under `<for>`, each item's element sets it in turn, so it holds the
-	last built.
+	The reference type must match the element type: `Ref<Div>` for `<div>`,
+	`Ref<Card>` for `<card>`. HXX sets the reference during construction and
+	clears it when the element's owner is disposed.
+
+	A reference inside `<if>` follows the current element. Inside `<for>`,
+	it holds the last element built; use `RefList` to retain all items.
+	Calling `get` inside a computed or watch tracks reference changes.
 **/
 class Ref<T:Element> {
 	final current = Signal.make((null : Null<Element>));
 
 	public function new() {}
 
-	/** The element, or null before it is built and after it is gone; read in a computed or watch, followed. **/
+	/**
+		Returns the current element, or null before construction and after disposal. Reactive reads track changes.
+	**/
 	public function get():Null<T>
 		return cast current.get();
 

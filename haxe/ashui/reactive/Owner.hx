@@ -5,19 +5,18 @@ import ashui.core.externs.BlincNative;
 import ashui.layout.LayoutTree;
 
 /**
-	The scope that cleans up after a piece of UI. What is created while an
-	owner is current belongs to it: elements, computeds, watches, child
-	owners, and functions registered with `onCleanup`. Disposing an owner
-	disposes its child owners, then runs its own cleanups, latest first:
-	elements remove their nodes from the tree, computeds are released and
-	watches stop. Signals are not owned.
+	Manages the lifetime of a UI subtree.
+	Elements, computeds, watches and child owners created in this scope are
+	cleaned up when it is disposed. Signals are not owned.
 
-	Each component renders under an owner of its own, and each item of a
-	`For` and branch of a `Show` under another, so removing one disposes
-	everything it built. A program starts its UI under `Owner.root`. An
-	owner also carries the `LayoutTree` its elements go in, so elements and
-	components built under one need not be given a tree. The model is
-	SolidJS's owner.
+	Disposal first removes child owners, then runs cleanup callbacks in reverse
+	registration order. Elements remove their nodes, computeds release their
+	native handles and watches unsubscribe.
+
+	Components, `For` items and `Show` branches each have an owner. Removing
+	them disposes their contents. Start an application subtree with `Owner.root`.
+	The owner also provides the `LayoutTree` for elements created in its scope.
+	This follows SolidJS's ownership model.
 **/
 class Owner {
 	/** The owner of what is being created now; null outside every owner. **/
@@ -65,7 +64,7 @@ class Owner {
 		}
 	}
 
-	/** Disposes what it owns, as above, and leaves its parent; once only. **/
+	/** Disposes this scope and removes it from its parent. Repeated calls have no effect. **/
 	public function dispose():Void {
 		tree.context.run(disposeOwned);
 	}
@@ -83,8 +82,8 @@ class Owner {
 	}
 
 	/**
-		Runs `fn` under a new owner of `tree` with no parent, passing it the
-		function that disposes that owner; SolidJS's `createRoot`.
+		Runs `fn` in a new root owner for `tree`. Passes a function that disposes the root to `fn`.
+		The new owner has no parent. This is similar to SolidJS's `createRoot`.
 	**/
 	public static function root<R>(tree:LayoutTree, fn:(dispose:Void->Void)->R):R {
 		var previous = current;

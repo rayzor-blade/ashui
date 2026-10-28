@@ -28,12 +28,13 @@ typedef ComboboxProps = {
 }
 
 /**
-	A select you can search: a trigger showing the chosen option, or the
-	placeholder, that opens a `Command` under it, its search field focused,
-	its options filtered as you type; choosing one sets the value and
-	closes it. CSS: `.ui-combobox-trigger` (`[data-placeholder]`,
-	`[data-state]`, `:disabled`), `.ui-combobox-chevron`, and the command's
-	classes on `.ui-combobox-content`.
+	A searchable select. The trigger shows the current option or placeholder.
+	Opening it focuses a `Command` search field. Typing filters options;
+	choosing an option updates the value and closes the popup.
+
+	CSS targets: `.ui-combobox-trigger`, `.ui-combobox-chevron` and
+	`.ui-combobox-content`, which also uses the command's classes.
+	The trigger exposes `[data-placeholder]`, `[data-state]` and `:disabled`.
 **/
 class Combobox extends Component<ComboboxProps> {
 	public var value(default, null):Signal<String>;

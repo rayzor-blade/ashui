@@ -10,12 +10,13 @@ typedef SelectProps = {
 }
 
 /**
-	A select in the library's look: the built-in `<select>` (its keys, its
-	list in the top layer) with the class `ui-select`, and `SelectItem`s
-	for its options. It takes the built-in's props, `placeholder` among
-	them. CSS: `.ui-select` (`[open]`, `[data-placeholder]`, `:disabled`),
-	`.ui-select-item` (`:checked`, `:focus`), and the list,
-	`listbox:has(> .ui-select-item)`.
+	A styled version of the built-in select. Retains its keyboard behavior
+	and top-layer option list. Use `SelectItem` for options. Accepts the
+	built-in props, including `placeholder`.
+
+	CSS targets: `.ui-select` with `[open]`, `[data-placeholder]` and
+	`:disabled`; `.ui-select-item` with `:checked` and `:focus`.
+	Target the list with `listbox:has(> .ui-select-item)`.
 **/
 class Select extends Component<SelectProps> {
 	function render():Element {

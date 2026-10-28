@@ -3,22 +3,23 @@ package ashui.reactive;
 import ashui.core.externs.BlincNative;
 
 /**
-	Runs code when a value read from signals changes:
-	`new Watch(() -> count.get(), n -> trace(n))`. Where a `Computed` derives
-	a value, a watch acts on one.
+	Runs a reaction when a tracked value changes:
 
-	`read` is tracked as a computed's closure is: it runs again only when a
-	signal or computed it read changes. A watch whose value may have changed
-	is due: its `read` runs at the next `LayoutTree.flush`, or when a layout
-	settles, and the flush calls `react` once with the new value, if it
-	differs, so several changes before a flush make one reaction. `react` may set signals and build and
-	remove elements; `read` must only read. `react` also runs once at
-	creation. The watch stops when the owner current at its creation is
-	disposed, or on `stop`. Modelled on a SolidJS effect.
+	```haxe
+	new Watch(() -> count.get(), n -> trace(n));
+	```
 
-	Blinc holds no closure for a watch, only its slot: at a flush the due
-	slots come back in one call, and each `read` runs in Haxe between the
-	slot's begin and end, which record what it reads.
+	`read` tracks its signal and computed dependencies. When a dependency
+	changes, the next `LayoutTree.flush` reevaluates `read`. If the result
+	differs, `react` receives the new value. Multiple changes before a flush
+	are batched into one reaction. `react` also runs once during construction.
+
+	Keep `read` read-only. `react` may update signals or add and remove UI
+	elements. Call `stop` to unsubscribe, or let the current `Owner` stop the
+	watch when disposed. This is similar to a SolidJS effect.
+
+	Blinc tracks dependencies through a native slot. Haxe runs `read` between
+	the slot's begin and end calls; native code does not retain its closure.
 **/
 class Watch<T> {
 	/** Watches by slot. **/
@@ -40,9 +41,8 @@ class Watch<T> {
 	var queued = false;
 
 	/**
-		Not to be created inside a computed's closure: the dependency graph is
-		locked while it runs. `same` decides when a new value needs no
-		reaction; by default `==`.
+		Do not create a watch inside a computed; evaluation holds the dependency-graph lock.
+		`same` compares values before reacting. It defaults to `==`.
 	**/
 	public function new(read:Void->T, react:T->Void, ?same:(T, T) -> Bool) {
 		this.read = ashui.core.UiContext.capture(read);
@@ -81,10 +81,8 @@ class Watch<T> {
 	}
 
 	/**
-		Runs every due watch's `read`, queueing those whose value changed for
-		`runQueued`. Layout calls it once it settles, so what a watch records
-		from the layout, as a canvas's drawing at its size, is current before
-		the frame is drawn.
+		Reevaluates pending watches and queues changed values for `runQueued`.
+		Layout calls this after settling, so watches read final geometry before rendering.
 	**/
 	@:noCompletion public static function readDue():Void {
 		while (true) {

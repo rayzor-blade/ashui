@@ -59,25 +59,21 @@ enum SvgNode {
 }
 
 /**
-	An SVG image: its markup, its natural size, and its shapes. Any SVG is
-	drawn whole: gradients, patterns, text, `<use>`, clip paths, masks,
-	filters, images and CSS in `<style>` included. ashui also reads it, with
-	Haxe's XML support, into a typed model of its shapes, paths, paints,
-	groups and transforms, in `nodes`; elements outside that model are
-	`Other` nodes there and still drawn.
+	Stores SVG markup, intrinsic dimensions and a typed shape model.
+	The renderer draws the complete document, including gradients, patterns,
+	text, `<use>`, clipping, masks, filters, images and embedded CSS.
+	The `nodes` model describes supported shapes, paths, paints, groups and
+	transforms. Unsupported model elements remain `Other` nodes and still render.
 
-	Get one at compile time with `SvgDocument.embed("icon.svg")`, from Haxe
-	inline markup with `SvgDocument.of(<svg viewBox="0 0 24 24">...</svg>)`,
-	or by writing the `<svg>` straight into an hxx template; malformed SVG
-	is then a compile error, as is path data that does not parse. At runtime `SvgDocument.parse(source)` reads a
-	string. Documents with the same content are one document, so an icon used
-	many times is rasterized once per size.
+	Create a document with `embed("icon.svg")`, `of(<svg>...</svg>)`, or inline
+	HXX `<svg>` markup. These paths validate SVG and path data at compile time.
+	Use `parse(source)` for runtime strings. Identical content shares one
+	document and rasterization per size.
 
-	`currentColor` in an SVG is the colour of the element showing it. An SVG
-	whose only colour is `currentColor`, in shapes and groups alone, is a
-	**mask**: rasterized once and tinted when drawn, so it can follow the
-	theme or animate without rasterizing it again. Any other SVG is
-	rasterized with that colour in it.
+	`currentColor` uses the displaying element's color. A document containing
+	only shapes/groups painted with `currentColor` becomes a tintable mask.
+	It can follow theme changes or color animations without rasterizing again.
+	Other documents rasterize with that color applied.
 **/
 class SvgDocument {
 	static var nextId = 0;

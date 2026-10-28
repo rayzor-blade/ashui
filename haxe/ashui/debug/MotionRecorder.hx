@@ -48,30 +48,21 @@ typedef MotionRecording = {
 }
 
 /**
-	Records a UI's motion for review: runs it frame by frame on a fixed step,
-	as `Snapshot.sequence` does, with a motion trace recording and its
-	overlay drawn over every frame, and writes to
+	Records fixed-step UI animation for visual review. Writes artifacts to
 	`<snapshot dir>/motion/<name>/`:
 
-	- `frame-000.png` …, each frame with its trails, bars and curves, and
-	  `plain-000.png` …, each frame without them;
-	- `filmstrip.png`, a contact sheet of frames picked evenly, each with
-	  its number and time, to see a whole animation in one image;
-	- `curves.png`, every track's curve as declared and as it ran;
-	- `report.txt`, `MotionCheck`'s verdict on every track, and
-	  `trace.json`, the whole trace, and `frames.json`, each frame's time
-	  into it;
-	- `tree-first.json` and `tree-last.json`, the tree as the first and
-	  last frames drew it, and `tree.txt`, what changed in it frame by
-	  frame: elements added, removed, moved, restyled and their states.
+	- `frame-NNN.png`: frames with motion overlays.
+	- `plain-NNN.png`: frames without overlays.
+	- `filmstrip.png`: evenly sampled frames with frame numbers and times.
+	- `curves.png`: declared and measured curves for every track.
+	- `report.txt`: `MotionCheck` results.
+	- `trace.json` and `frames.json`: motion data and frame times.
+	- `tree-first.json` and `tree-last.json`: initial and final trees.
+	- `tree.txt`: per-frame structure, layout, style and state changes.
 
-	With `ASHUI_BASELINE` set, the frames are also checked against a
-	baseline (see `FrameRegression`): `regression.txt` and a `diff-NNN.png`
-	for each frame that changed.
-
-	A line goes to `events.log` naming the directory and how many tracks had
-	problems, for an agent tailing it to read the report and look at the
-	filmstrip.
+	Set `ASHUI_BASELINE` to compare against a baseline. `FrameRegression`
+	writes `regression.txt` and a `diff-NNN.png` for each changed frame.
+	`events.log` reports the artifact directory and number of problem tracks.
 **/
 class MotionRecorder {
 	public static function record(name:String, width:Int, height:Int, build:Void->Element, ?options:MotionRecordOptions):MotionRecording {

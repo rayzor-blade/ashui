@@ -23,9 +23,9 @@ typedef InputProps = {
 	?indeterminate:IntoReactive<Bool>,
 
 	/**
-		Its value as text. A text input's or a number's: a signal is read and
-		written, as `checked` is. A radio's: what its group holds while it is
-		checked. A range's: where it starts, unless `valueAsNumber` is given.
+		The input value as text. Text and number inputs read and write a supplied
+		signal. Radios use this as their selected group value. Ranges use it as
+		the initial value unless `valueAsNumber` is supplied.
 	**/
 	?value:IntoReactive<String>,
 
@@ -86,34 +86,30 @@ typedef InputProps = {
 }
 
 /**
-	HTML's `<input>`, built in. A checkbox flips when clicked, when Space is
-	released while it has focus, or when its label is clicked; a radio is
-	checked the same ways, and the arrow keys move focus to the next or
-	previous radio of its set and check it. Disabled, it takes none of that.
+	The built-in HTML-style input control. `type` selects its behavior:
 
-	A text input is a `TextField`: `password` shows dots and refuses copying,
-	and Escape empties a `search`. A text input's children are placed inside
-	its box after the text, as a reveal button or an icon is. A `number` is one that takes only what a
-	number is written with; the up and down arrows, or its steppers, move it
-	by `step` within `min` and `max`. A `range` is a slider: pressing or
-	dragging along it sets the value, as do the arrows, Page Up and Page
-	Down (a tenth of the range), Home and End.
+	- `checkbox`: toggles on click, label activation or Space release.
+	- `radio`: selects on the same actions. Arrow keys move within the group.
+	- Text types: use `TextField`. Passwords hide text and prevent copying;
+	  Escape clears a search input. Children can add icons or reveal buttons.
+	- `number`: supports numeric entry and stepping within `min` and `max`.
+	- `range`: supports pointer dragging, arrows, Home and End. Page Up and
+	  Page Down move by one tenth of the range.
 
-	It is valid by HTML's constraints: `required`, `pattern`, `minlength`
-	and `maxlength`, an `email` or `url` well formed, a `number` within `min`
-	and `max` and on its `step`. CSS reads that as `:valid` and `:invalid`,
-	and as `:user-valid` and `:user-invalid` once the user has changed it and
-	left it, or a form it is in was submitted. `checkValidity`,
-	`reportValidity`, `validity` (HTML's `ValidityState` flags) and
-	`validationMessage` read it; `setCustomValidity` adds a rule of the
-	program's own, and `onInvalid` is called when a check finds it invalid.
-	`reset` puts its first value back.
+	Disabled controls reject input. Validation follows the relevant HTML
+	constraints: `required`, `pattern`, text length, email/URL format,
+	numeric bounds and step. CSS validity pseudo-classes reflect the result.
+	User-validity states apply after editing and leaving the control, or after
+	form submission.
 
-	Its look is the user-agent stylesheet's, through `input[type="..."]`,
-	`:checked`, `:indeterminate`, `:hover`, `:focus`, `:focus-visible` and
-	`:disabled`, so CSS or Tw classes restyle it. A range's parts are
-	`.fill`, `.thumb` and `.rest`; a number's steppers `.steppers` with
-	`.step-up` and `.step-down`.
+	Use `validity` and `validationMessage` to inspect validation. Call
+	`checkValidity` or `reportValidity` to validate, and `setCustomValidity`
+	to add an application error. Invalid checks call `onInvalid`.
+	`reset` restores the initial value.
+
+	The user-agent stylesheet styles `input[type="..."]` and its state
+	pseudo-classes. Range parts are `.fill`, `.thumb` and `.rest`.
+	Number steppers use `.steppers`, `.step-up` and `.step-down`.
 **/
 class Input extends Component<InputProps> implements FormControl {
 	/** Inputs by node, for labels to find. **/

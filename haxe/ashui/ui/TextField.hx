@@ -28,22 +28,23 @@ typedef TextFieldProps = {
 }
 
 /**
-	A single-line text field. Clicking or tabbing to it gives it focus; then
-	typing inserts at the caret, Backspace and Delete remove, the arrows,
-	Home and End move the caret, Shift with any of them selects, Alt moves
-	by word and Command (Control elsewhere) to the ends, Command+A selects
-	everything, Command+C, X and V copy, cut and paste (see
-	`ashui.input.Clipboard`), Escape gives focus up and Enter calls
-	`onSubmit`. Clicking places the caret and dragging selects. A value
-	longer than the field scrolls to keep the caret in view. `TextEditing`
-	does the editing; `TextArea` is the many-line view of the same.
-	CSS `text-align` positions the text and its editing marks together
-	inside the visible field (git-bug d5a8df1).
+	A single-line editor backed by `TextEditing`.
+	Click or press Tab to focus it. Clicking places the caret; dragging
+	selects text. Long values scroll horizontally to keep the caret visible.
+	CSS `text-align` aligns the text, caret and selection together (d5a8df1).
 
-	It is the `<input>` of a text type: its look is the user-agent
-	stylesheet's `input[type="text"]` (or the type given), with `:hover`,
-	`:focus` and `:disabled`. Children are placed after the text, inside
-	the box, as a number input's steppers are.
+	Keyboard controls:
+
+	- Typing inserts text; Backspace and Delete remove it.
+	- Arrows, Home and End move the caret. Hold Shift to select.
+	- Alt moves by word. Command (Control elsewhere) moves to the ends.
+	- Command+A selects all; Command+C, X and V copy, cut and paste.
+	- Escape clears focus. Enter calls `onSubmit`.
+
+	Text-type `<input>` elements use this component. The user-agent stylesheet
+	styles `input[type="..."]` and its hover, focus and disabled states.
+	Children appear inside the field after the text, such as number steppers.
+	Use `TextArea` for multiline editing.
 **/
 class TextField extends Component<TextFieldProps> {
 	/** Space kept between the clipped text and the field's inner edge, so a glyph or the caret at either end is not cut. **/

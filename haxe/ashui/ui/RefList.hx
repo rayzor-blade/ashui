@@ -5,17 +5,17 @@ import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 
 /**
-	The elements a template builds under one `ref=`, each item of a `<for>`
-	its own, in the order they were built:
+	Collects elements assigned to the same HXX `ref`, in construction order:
 
-		var rows = new RefList<Div>();
-		<for {item in items}><div ref={rows}>{item}</div></for>;
-		query(rows).onClick(e -> pick(e));
+	```haxe
+	var rows = new RefList<Div>();
+	<for {item in items}><div ref={rows}>{item}</div></for>;
+	query(rows).onClick(e -> pick(e));
+	```
 
-	An element joins it as it is built and leaves when its owner disposes
-	it, as an item does when its value leaves the list. Reading it with
-	`get` in a computed or watch follows it. `query` on one does what it is
-	told to every element in it, and to each that joins later.
+	Elements join during construction and leave when their owners are disposed.
+	Calling `get` inside a computed or watch tracks membership changes.
+	A query applies to current members and any elements added later.
 **/
 class RefList<T:Element> {
 	final current = Signal.make(([] : Array<Element>));

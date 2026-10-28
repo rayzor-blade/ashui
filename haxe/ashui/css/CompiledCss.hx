@@ -6,20 +6,17 @@ import haxe.macro.Expr;
 #end
 
 /**
-	Stylesheets compiled when the program is: blinc_abi's CSS compiler
-	(`CssCompiler`) reads the sheet and every file it imports, its errors are
-	compile errors and its warnings compile warnings at their line in the
-	file they are in, and its compiled form is embedded in the program. At
-	run time the native engine decodes it: nothing is parsed and no file is
-	read.
+	Embeds stylesheets compiled during the Haxe build.
+	`CssCompiler` processes each file and its imports. Errors and warnings
+	appear at the original source locations. At runtime, the native engine
+	decodes the embedded data without parsing CSS or reading files.
 
 	```haxe
 	Css.useLibrary("my-library", CompiledCss.file("../css/library.css"));
 	```
 
-	`Css.useUserAgent` and `ashui.components.Library` use these. A page's
-	own sheets, loaded with `Css.load` or `Css.loadFile`, are parsed at run
-	time, so live reload keeps working.
+	Built-in and component styles use this path. `Css.load` and `Css.loadFile`
+	parse at runtime instead, which supports live reload.
 **/
 class CompiledCss {
 	/**

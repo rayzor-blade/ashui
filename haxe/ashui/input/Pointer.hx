@@ -34,8 +34,8 @@ class Pointer {
 	static final EMPTY:Array<Hit> = [];
 
 	/**
-		What the cursor follows: the nodes the left button went down on while it is held, as a captured pointer is,
-		so a divider keeps its resize cursor when the pointer runs ahead of it; otherwise what the pointer is over.
+		Uses the nodes pressed by the left button until release, so drag cursors stay consistent outside the target.
+		Otherwise uses the nodes currently under the pointer.
 	**/
 	@:allow(ashui.input.Cursor)
 	static function cursorChain(tree:LayoutTree):Array<Hit> {

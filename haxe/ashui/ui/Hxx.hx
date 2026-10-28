@@ -14,37 +14,29 @@ using haxe.macro.TypeTools;
 #end
 
 /**
-	Templates lowered at compile time:
+	Compiles HXX templates into typed element construction and property bindings.
+	`Markup.enable()` lets applications write elements directly in Haxe code.
+	This class also provides the underlying `hxx` template macro.
 
-		hxx('<div width={w} bg={color}><text>Value: ${count}</text></div>')
+	Tags use kebab case: `<my-card>` resolves to an imported `MyCard` component;
+	`<ui.my-card>` names `ui.MyCard`. Component attributes are checked against
+	its props. `<div>` and `<text>` compile to constructors and direct property
+	writes. `bg` maps to `Prop.Background`; other attributes map by name.
+	Inline `<svg>` content is parsed and checked at compile time.
 
-	`<svg>` is SVG, written as it is: it is parsed and checked at compile
-	time and becomes an `Svg` element (see `lowerSvg`).
+	Styling applies in this order: utility classes, `style`, then explicit
+	attributes. See `ashui.style.Tw`.
 
-	Tags are lowercase kebab-case. `<div>` and `<text>` become their
-	constructor plus one `node.set(Prop.X, v)` per attribute, with no
-	attribute object; `bg` is `Prop.Background` and any other name is the key
-	of that name, capitalised. Any other tag names a `Component` class by its
-	kebab-case name, `<my-card>` for `MyCard` and `<ui.my-card>` for
-	`ui.MyCard`: it is built as `new MyCard({attributes}, [children])` and
-	each attribute is checked against the component's props.
+	Signals and computeds create bindings. Attribute expressions that read
+	reactive values become computeds automatically. For component props,
+	this requires `IntoReactive<T>`. Text interpolation reads signals and
+	computeds; element and element-array interpolation inserts children.
+	Bare text inside a `<div>` becomes a `<text>` element.
 
-	A `<div>` or `<text>` also takes `class="p-4 bg-surface rounded-lg"`, utility
-	classes over the theme's tokens resolved at compile time (see
-	`ashui.style.Tw`), and `style={s}`, an `ashui.style.Style`. Classes apply
-	first, then the style, then the element's own attributes.
-
-	A value typed as a signal or computed is bound as it is. An attribute or
-	text interpolation that reads a signal, by calling `.get()` or by reading
-	a `@:state` field of the component it is in, becomes a computed of that
-	expression, so it follows what it reads; for a component, only props typed
-	`IntoReactive<T>` do. Interpolating a signal or computed reads it.
-	Interpolating an element or an array of elements places them as children.
-	Text and interpolations directly inside a `<div>` become a `<text>`.
-
-	`<if {cond}>...<else>...</if>` is a `Show` and `<for {v in list}>...</for>`
-	a `For`; a branch or loop body of more than one element is wrapped in a
-	`<div>`. Elements take their tree from the current `Owner`.
+	`<if {cond}>...<else>...</if>` creates a `Show`.
+	`<for {v in list}>...</for>` creates a `For`. Branches or loop bodies
+	with multiple elements receive a `<div>` wrapper. All elements use
+	the current owner's tree.
 **/
 class Hxx {
 	public static macro function hxx(template:Expr):Expr {

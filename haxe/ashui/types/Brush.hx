@@ -24,9 +24,9 @@ typedef BrushStop = {
 }
 
 /**
-	A gradient as it was made, for code that paints it itself, as a canvas
-	does: linear from `(x1, y1)` to `(x2, y2)`, or radial about `(x1, y1)`
-	out to `x2`; in fractions of the box it fills when `boundingBox`.
+	Describes a gradient for custom drawing, such as a canvas fill.
+	Linear gradients run from `(x1, y1)` to `(x2, y2)`. Radial gradients use
+	center `(x1, y1)` and radius `x2`. With `boundingBox`, coordinates are fractions of the filled box.
 **/
 typedef BrushGradient = {
 	final radial:Bool;
@@ -59,12 +59,12 @@ enum abstract PatternKind(Int) to Int {
 }
 
 /**
-	A pattern as it was made, for a canvas to draw: `kind` every `spacing`
-	units of the space it is drawn in, its dots `size` pixels across or its
-	lines `size` pixels wide on screen, whatever the scale. Where the
-	pattern would come closer together on screen than `minGap` pixels, only
-	every `coarsen`-th line or dot is kept, and the ones in between fade out
-	as it nears that limit.
+	Describes a canvas pattern with `spacing` in drawing units.
+	Dots use an on-screen diameter of `size` pixels; lines use that width.
+	Their screen size stays constant when zooming.
+
+	When the pattern spacing approaches `minGap` pixels on screen,
+	intermediate marks fade out. Only every `coarsen`-th mark remains.
 **/
 typedef BrushPattern = {
 	final kind:PatternKind;
@@ -128,17 +128,19 @@ class Brush implements IValue {
 	}
 
 	/**
-		Frosted glass, as iOS and macOS draw it: what is behind the box
-		blurred by `blur` and tinted with `tintHex` at `tintAlpha`. `simple`
-		is the plain frosting, without refraction, highlights or a bevel at
-		the edge. `noise`, 0 to about 0.1, adds a frosted grain. Liquid glass's
-		`aberration`, 0 to 1 (default 0.3), separates the refracted backdrop
-		and the bevel's highlights into red, green and blue: 0 disables it,
-		1 gives a strong colour fringe. `bevel`, 0 to 1 (default 1), scales
-		the rim's width, refraction and highlights; `inset` bends it inward
-		instead of outward. Colour separation is controlled by `aberration`
-		independently of bevel strength; zero bevel removes the rim entirely.
-		Simple glass ignores these rim settings.
+		Creates a glass brush from the backdrop, with blur and a colored tint.
+
+		- `blur`: backdrop blur radius.
+		- `tintHex` and `tintAlpha`: tint color and opacity.
+		- `simple`: plain frosting without refraction, highlights or a bevel.
+		- `noise`: grain strength, typically 0–0.1.
+		- `aberration`: RGB separation, from 0 (none) to 1 (strong). Default 0.3.
+		- `bevel`: rim width, refraction and highlight strength, from 0 to 1.
+		  Default 1. Zero removes the rim entirely.
+		- `inset`: bends the rim inward instead of outward.
+
+		Aberration controls color separation independently of bevel strength.
+		Simple glass ignores rim settings.
 	**/
 	public static inline function glass(blur:Single, tintHex:Int, tintAlpha:Single = 0.1, simple:Bool = false, noise:Single = 0, aberration:Single = 0.3,
 			bevel:Single = 1, inset:Bool = false):Brush {

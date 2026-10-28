@@ -4,18 +4,19 @@ import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /**
-	How each corner of a box curves, top-left first, as a number `n`, as
-	CSS's `corner-shape: superellipse(n)`. The corner follows the
-	superellipse `|x|^k + |y|^k = 1` with `k = 2^|n|`, scaled to its
-	`CornerRadius`: 1 is a circular arc, the usual rounded corner; 2 a
-	squircle, squarer, blending into the straight sides with no visible
-	join; 0 a straight bevel; higher values come closer to a square corner,
-	and 100 or more is one. A negative `n` curves the corner inward: -1 is
-	a scoop, and -100 or less a square notch.
+	Defines each corner's shape, starting at the top left.
+	Values follow CSS `corner-shape: superellipse(n)`. The curve is
+	`|x|^k + |y|^k = 1`, with `k = 2^|n|`, scaled by `CornerRadius`.
 
-	Set on a node, it wins over the theme's corner smoothing (see
-	`ashui.theme.ShapeTokens`), which turns round corners into squircles;
-	`lock` keeps a round shape round too.
+	- `1`: a circular rounded corner.
+	- `2`: a squircle that blends smoothly into straight sides.
+	- `0`: a straight bevel.
+	- Larger values approach a square corner; `100` or more is square.
+	- Negative values curve inward: `-1` is a scoop; `-100` or less is a notch.
+
+	Explicit corner shapes override theme smoothing. Set `lock` to prevent
+	an explicitly round shape from being smoothed into a squircle.
+	See `ashui.theme.ShapeTokens`.
 **/
 class CornerShape implements IValue {
 	public var ptr(default, null):ValueHandle;

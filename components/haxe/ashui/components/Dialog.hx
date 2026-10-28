@@ -26,29 +26,32 @@ enum abstract DialogSize(String) to String {
 }
 
 /**
-	A dialog: a `DialogTrigger` that opens it and a `DialogContent`, the
-	panel, which opens in the top layer over a dimmed page, growing in.
-	Inside the panel, a `DialogHeader` holds a `DialogTitle` and a
-	`DialogDescription`, and a `DialogFooter` its actions, a `DialogClose`
-	among them. Escape, a press on the page behind, or a `DialogClose`
-	closes it, and focus goes back where it was; Tab stays inside while it
-	is open. It is HTML's modal `<dialog>` (`ashui.ui.Dialog`) underneath.
+	A modal dialog built on `ashui.ui.Dialog`. `DialogTrigger` opens the
+	`DialogContent` panel above a dimmed backdrop. Escape, a backdrop press
+	or `DialogClose` closes it. Tab stays within the open dialog; closing
+	restores the previous focus.
 
 	```haxe
 	<dialog>
-		<dialog-trigger variant={Outline}>Edit profile</dialog-trigger>
-		<dialog-content>
-			<dialog-header><dialog-title>Edit profile</dialog-title><dialog-description>Changes save when you press Save.</dialog-description></dialog-header>
-			<dialog-footer><dialog-close>Cancel</dialog-close><button onClick={save}>Save</button></dialog-footer>
-		</dialog-content>
+	    <dialog-trigger variant={Outline}>Edit profile</dialog-trigger>
+	    <dialog-content>
+	        <dialog-header>
+	            <dialog-title>Edit profile</dialog-title>
+	            <dialog-description>Press Save to apply changes.</dialog-description>
+	        </dialog-header>
+	        <dialog-footer>
+	            <dialog-close>Cancel</dialog-close>
+	            <button onClick={save}>Save</button>
+	        </dialog-footer>
+	    </dialog-content>
 	</dialog>
 	```
 
-	CSS: `.ui-dialog-root` (`[data-state]` open, closed), `.ui-dialog` (the
-	panel, `[data-size]`, `[open]`, `[closing]`), `.ui-dialog-header`,
-	`.ui-dialog-title`, `.ui-dialog-description`, `.ui-dialog-footer`;
-	`--ui-dialog-bg`, `-border`, `-radius`, `-padding`, `-gap`, `-shadow`,
-	`-width`.
+	CSS: `.ui-dialog-root[data-state="open"|"closed"]` and `.ui-dialog`
+	with `[data-size]`, `[open]` and `[closing]`. Header, title, description
+	and footer parts use the `ui-dialog-` prefix.
+	Tokens: `--ui-dialog-bg`, `-border`, `-radius`, `-padding`, `-gap`,
+	`-shadow` and `-width`.
 **/
 class Dialog extends Component<DialogProps> {
 	/** Whether it is open; the caller's signal when `open` was one. **/

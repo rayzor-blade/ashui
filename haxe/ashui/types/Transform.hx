@@ -4,11 +4,10 @@ import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 
 /**
-	A 2D transform of an element, applied about its centre after its
-	ancestors' transforms, as CSS's `transform` is. It keeps its parts —
-	move, turn, slant and stretch — and composes them in Tailwind's order:
-	translate, rotate, skew x, skew y, scale. A transition between two
-	transforms moves each part, so a turn turns rather than shrinking.
+	A 2D element transform applied around its center, after ancestor transforms.
+	Keeps translation, rotation, skew and scale as separate components.
+	They compose in Tailwind order: translate, rotate, skew X, skew Y, scale.
+	Transitions interpolate these components, so rotations animate as rotations.
 **/
 class Transform implements IValue {
 	public var ptr(default, null):ValueHandle;

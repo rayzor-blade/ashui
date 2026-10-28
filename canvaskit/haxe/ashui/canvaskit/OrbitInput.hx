@@ -7,13 +7,12 @@ import ashui.layout.LayoutTree;
 import ashui.reactive.Owner;
 
 /**
-	Moves an `OrbitCamera` as an element is used, as `<scene-kit>` does
-	for its canvas. Dragging turns the camera round its target; dragging
-	with Shift, or with the right or middle button, moves the target
-	across the view; scrolling comes nearer or goes further. A turn let go
-	of while moving carries on, slowing to a stop on the animation
-	scheduler's clock. A drag follows the pointer outside the element
-	until the button comes up.
+	Adds orbit-camera controls to an element. Used by `<scene-kit>`.
+
+	Drag to rotate around the target. Shift-drag, middle-drag or right-drag
+	pans the target. Scrolling zooms in or out. Rotation continues with
+	inertia after release and decelerates on the animation scheduler.
+	Drags remain active outside the element until the button is released.
 **/
 class OrbitInput {
 	public final camera:OrbitCamera;

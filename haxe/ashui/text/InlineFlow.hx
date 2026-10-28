@@ -204,30 +204,26 @@ typedef FlowWidths = {
 }
 
 /**
-	HTML's inline formatting: a paragraph's text and the inline elements in
-	it laid out as one flow, wrapped together at the paragraph's width, each
-	line's pieces on one baseline whatever their font. Whitespace collapses
-	as HTML's does: a run of it is one space, and none starts or ends a line.
+	Lays out text and inline elements as one wrapping paragraph.
+	Runs with different fonts share a baseline. Consecutive whitespace
+	collapses to one space; leading and trailing line whitespace is removed.
+	HXX enables this for paragraphs, headings and other text containers.
+	See `attach`.
 
-	A paragraph, a heading and the other elements that hold text are flows
-	(hxx makes them so; see `attach`). The elements in one keep their place
-	in the tree, so CSS styles them and they take input as before; only how
-	they are laid out changes:
+	Elements keep their tree positions, CSS styling and input behavior.
+	The flow changes only their layout:
 
-	- each `Text` is measured in its own font and hidden, and what each line
-	  shows of it is a piece, a text that does not wrap, placed under the
-	  same element so it is styled as the text is;
-	- an inline element that paints nothing of its own (`a`, `strong`, `em`)
-	  is a frame its pieces are placed in, so its text wraps freely and a
-	  click on any of it is a click on it;
-	- an inline element that paints a box (`code`'s background, `mark`'s),
-	  and anything that is not inline (an `img`, an `input`), is kept whole
-	  and placed as a box by its laid-out size, on its first text's baseline.
+	- `Text` nodes are measured in their own fonts, then hidden. Non-wrapping
+	  fragments render each line under the same element to preserve styling.
+	- Unpainted inline elements such as `a`, `strong` and `em` contain those
+	  fragments. Links can wrap while retaining their click behavior.
+	- Painted inline elements such as `code` and `mark` stay intact, as do
+	  non-inline elements such as images and inputs. They use their laid-out
+	  size and align to their first text baseline.
 
-	The flow's size comes from one box laid out in its place: as wide as its
-	longest line can be, no narrower than its longest word, and as tall as
-	its lines at the width it is given. After a layout pass it lays the lines
-	out again at that width, and asks for another pass when anything moved.
+	A placeholder box reports the flow's intrinsic width, minimum word width
+	and height at the assigned width. After layout, the flow recalculates
+	lines and requests another pass if geometry changed.
 **/
 class InlineFlow {
 	/** HTML's inline elements that ashui builds in. **/

@@ -11,16 +11,15 @@ typedef ScrollbarColor = {final rgb:Int; final alpha:Float;}
 typedef ScrollbarColors = {final thumb:ScrollbarColor; final track:ScrollbarColor;}
 
 /**
-	A scroll container: an element whose content, laid out taller or wider
-	than the element, moves under the wheel or trackpad. The `overflow-auto`,
-	`overflow-scroll`, `overflow-x-auto` and `overflow-y-auto` classes make
-	one. Its offset is a pair of signals, so code can read and set it.
+	Manages scrolling when an element's content exceeds its visible bounds.
+	Create a scroll container with `overflow-auto`, `overflow-scroll`,
+	`overflow-x-auto` or `overflow-y-auto`. Offset signals can be read or set
+	from application code.
 
-	A wheel event scrolls the innermost container under the pointer that can
-	still move that way, and goes on to the containers around it once that
-	one reaches its edge. A thumb shows how far along the content is while
-	it scrolls, then fades; `visibility` keeps it shown, shows it while the
-	pointer is over the container, or never shows it.
+	Wheel events scroll the innermost container that can move in the requested
+	direction. At an edge, scrolling continues in an ancestor container.
+	The scrollbar thumb appears during scrolling, then fades. `visibility`
+	can instead keep it visible, show it on hover or hide it entirely.
 **/
 class Scroll {
 	static final byNode = new haxe.ds.ObjectMap<Node, Scroll>();

@@ -44,13 +44,14 @@ typedef PlayerOptions = {
 }
 
 /**
-	Reactive file playback on hlavi's native audio/video clock. Create and drive
-	on the UI thread. A component disposes a player it creates; callers close
-	players they supply. No owner is needed to use the controller by itself.
+	Controls reactive audio/video playback using hlavi's native media clock.
+	Create and use players on the UI thread. Read signals for state and call
+	methods to change playback. Position and duration are measured in seconds.
 
-	Signals report native state; use the methods to change playback. Position
-	and duration are seconds. Only one decoded frame is retained; `currentFrame`
-	returns an independent handle that its caller must close.
+	A component disposes players it creates. Callers must close players they
+	supply. The controller can also be used without an `Owner`.
+	Only one decoded frame is retained. `currentFrame` returns an independent
+	handle that the caller must close.
 **/
 class Player {
 	public final source = Signal.make("");

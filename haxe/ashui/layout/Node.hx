@@ -8,14 +8,12 @@ import ashui.reactive.Guard;
 import ashui.types.IValue;
 
 /**
-	A handle to one node of a `LayoutTree`: a box laid out with flexbox, or
-	a run of text (`TextNode`). The node itself lives in the tree, natively;
-	this object holds its `id`, and is how its properties are set. Every
-	element owns one, as `Element.node`; make one directly with
-	`LayoutTree.createNode`.
+	A handle to a native node in a `LayoutTree`. Each element exposes its node
+	through `Element.node`. Create a node directly with `LayoutTree.createNode`.
+	Nodes represent layout boxes or text runs (`TextNode`).
 
-	Set a property with `set(Prop.X, value)`, the value a constant, a signal
-	or a computed (see `IntoReactive`).
+	Use `set(Prop.X, value)` to set a property. Values can be constants,
+	signals or computeds. See `IntoReactive`.
 **/
 class Node {
 	// How a router reads its arguments: the constant, the signal or the computed.
@@ -115,10 +113,8 @@ class Node {
 	}
 
 	/**
-		Binds `prop` to a constant, signal or computed. A binding applies the
-		current value at once and every change after it; `LayoutTree.flush`
-		makes them take effect. Under a `transition` that covers `prop`, each
-		change after the first moves there over the transition's time.
+		Sets a property or binds it to a signal or computed. `LayoutTree.flush` applies queued writes.
+		If a transition covers this property, changes after its initial value animate over that transition.
 	**/
 	public function set<T>(prop:Prop<T>, reactive:IntoReactive<T>):Void {
 		if (own == null)

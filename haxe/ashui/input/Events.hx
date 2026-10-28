@@ -9,10 +9,10 @@ import window.MouseButton;
 import window.PhysicalKey;
 
 /**
-	What an input event is going through. An event starts at its `target` and
-	bubbles: it is handed to the target's handlers, then to each ancestor's,
-	`currentTarget` naming the one whose handler runs, until a handler calls
-	`stopPropagation`. Keys, buttons and modifiers are hlwindow's own types.
+	An input event with a target and propagation state.
+	Handlers run on `target`, then each ancestor, until `stopPropagation` is
+	called. `currentTarget` identifies the node whose handler is running.
+	Keys, buttons and modifiers use hlwindow's types.
 **/
 class InputEvent {
 	/** No modifier key held. **/

@@ -6,43 +6,38 @@ import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 
 /**
-	A finite state machine on signals, for the transient states a component
-	passes through: a tooltip waiting to show, showing and fading; an overlay
-	opening, open and closing.
+	A reactive finite state machine for transient UI states, such as a tooltip
+	waiting to open or an overlay closing.
 
-	Its states are an enum, `S`, and so are the events it takes, `E`. The
-	transition function says where an event leads from a state, typically a
-	`switch` over both, which the compiler checks for cases left out;
-	returning null, or the state it is in, leaves it where it is:
+	The transition function maps a state and event to the next state.
+	Return null or the current state to ignore the event. Enum switches let
+	the compiler check transition cases:
 
 	```haxe
 	enum Tip { Closed; Waiting; Open; Closing; }
 	enum TipEvent { Enter; Leave; Timeout; Gone; }
 
 	var tip = new Machine<Tip, TipEvent>(Closed, (s, e) -> switch [s, e] {
-		case [Closed, Enter]: Waiting;
-		case [Waiting, Timeout]: Open;
-		case [Waiting, Leave]: Closed;
-		case [Open, Leave]: Closing;
-		case [Closing, Gone]: Closed;
-		case _: null;
+	    case [Closed, Enter]: Waiting;
+	    case [Waiting, Timeout]: Open;
+	    case [Waiting, Leave]: Closed;
+	    case [Open, Leave]: Closing;
+	    case [Closing, Gone]: Closed;
+	    case _: null;
 	});
 	tip.after(Waiting, 0.5, Timeout);
 	tip.after(Closing, 0.12, Gone);
 	tip.onEnter(Open, show);
 	```
 
-	Its state is a signal, so a computed, a watch, a bound property or a
-	`data-state` attribute (`name`) follows it, as anything follows a
-	signal. Actions run as it moves: the state left's exit actions, then
-	the state entered's entry actions, then that state's timers start,
-	each sending its event after its time on the scheduler's clock unless
-	the state is left first. An event an action sends is taken once the
-	move is done. States match by constructor, so an action or timer for
-	`Loading` covers `Loading(progress)` whatever its arguments.
+	The state is a signal that UI bindings can track. `name` exposes it for
+	`data-state` attributes. Each transition runs exit actions, then entry
+	actions, then starts the new state's timers. Leaving a state cancels its
+	timers. Events sent by actions are processed after the current transition.
 
-	It is cleaned up with the owner current when it is made: its timers
-	are cancelled and it takes no more events.
+	Actions and timers match enum constructors, so `Loading` also matches
+	`Loading(progress)`. Disposing the current owner cancels timers and stops
+	the machine from accepting events.
 **/
 class Machine<S:EnumValue, E> {
 	/** The state it is in. **/
@@ -110,7 +105,7 @@ class Machine<S:EnumValue, E> {
 			}
 	}
 
-	/** Runs the entry actions and starts the timers of the state it starts in, as if it had just entered it; once, after they are set. **/
+	/** Runs the initial state's entry actions and starts its timers. Call once after configuring the machine. **/
 	public function start():Machine<S, E> {
 		var s = state.get();
 		var entered = enters.get(Type.enumIndex(s));
@@ -133,7 +128,9 @@ class Machine<S:EnumValue, E> {
 		return this;
 	}
 
-	/** Sends `event` `seconds` after it enters a state of `kind`'s constructor, unless it leaves first: a transient state's way on. **/
+	/**
+		Sends `event` after `seconds` in a state matching `kind`'s constructor. Leaving the state cancels the timer.
+	**/
 	public function after(kind:S, seconds:Float, event:E):Machine<S, E> {
 		var list = delays.get(Type.enumIndex(kind));
 		if (list == null)
@@ -146,7 +143,9 @@ class Machine<S:EnumValue, E> {
 	public function is(kind:S):Bool
 		return Type.enumIndex(state.get()) == Type.enumIndex(kind);
 
-	/** Its state's constructor's name in kebab case, `Waiting` as `waiting`, for a `data-state` attribute that CSS reads. **/
+	/**
+		Returns the current state constructor name in kebab case, such as `Waiting` → `waiting`, for CSS attributes.
+	**/
 	public function name():Computed<Null<String>>
 		return Computed.make(() -> (kebab(Type.enumConstructor(state.get())) : Null<String>));
 

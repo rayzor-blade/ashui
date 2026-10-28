@@ -9,8 +9,7 @@ import sys.io.File;
 #end
 
 /**
-	A set of icons from directories of SVG files, as a class of typed
-	constants:
+	Generates typed icon constants from directories of SVG files:
 
 	```haxe
 	@:build(ashui.svg.IconSet.build(["assets/icons"]))
@@ -19,29 +18,24 @@ import sys.io.File;
 	var play = new ashui.ui.Svg(Icons.PLAY_LINE, {width: 20, height: 20});
 	```
 
-	Every `.svg` in the directories and their folders is checked and compiled
-	when the program is, and becomes `public static var NAME(get, never):
-	SvgDocument`; the name is the file's name in upper case with every other
-	character an underscore, and one that would start with a digit takes a
-	leading underscore: `play-line.svg` is `PLAY_LINE`, `4k-line.svg` is
-	`_4K_LINE`. Folders only organize the files, so two files that make the
-	same name are an error, whatever their folders, and so is a name a field
-	of the class already has. The directories are looked up on Haxe's class
-	paths, so a library's directory is named as it is under its own class
-	path: `"ashui/icons/remix"`. Several directories make one class, which is
-	how an app takes a catalogue's icons and its own together:
+	The macro recursively validates and compiles every `.svg` file.
+	Filenames become uppercase identifiers: `play-line.svg` → `PLAY_LINE`,
+	`4k-line.svg` → `_4K_LINE`. Non-identifier characters become underscores.
+	Duplicate names, including conflicts with existing class fields, are errors.
+	Folders organize files but do not affect constant names.
+
+	Directories resolve through Haxe class paths. Combine library and app icons:
 
 	```haxe
 	@:build(ashui.svg.IconSet.build(["ashui/icons/remix", "assets/own"]))
 	class Icons {}
 	```
 
-	The program carries each icon's markup, size and tint, not the file, and
-	reading a constant makes its document the first time and keeps it. The
-	class is `@:dce`, so only the icons a program names are in it. The files
-	are the class's compile dependencies: a compilation server rebuilds it
-	when one changes, appears or goes. An icon that uses `currentColor` is a
-	mask, which the colour of the element it is drawn in tints.
+	Each constant lazily creates and caches an `SvgDocument`. The program
+	embeds markup, dimensions and tint data; it does not load icon files at
+	runtime. Dead-code elimination removes unused icons. File changes,
+	additions and removals invalidate the compilation-server cache.
+	`currentColor` icons use masks tinted by their element's color.
 **/
 class IconSet {
 	#if macro

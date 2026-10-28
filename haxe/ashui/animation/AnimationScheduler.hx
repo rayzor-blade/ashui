@@ -1,13 +1,12 @@
 package ashui.animation;
 
 /**
-	Advances every registered spring together and drops each one as it
-	settles. Driven by `tick`, from a frame loop or from `run` on a thread
-	of its own.
+	Advances registered springs and removes them when they settle.
+	Call `tick` from a frame loop, or use `run` on a dedicated thread.
 
-	It also keeps timers: a callback due at a wall-clock time, such as a
-	caret's next blink. A timer is not animation, so a window waiting on
-	one sleeps until it is due (`untilNextTimer`) instead of drawing frames.
+	The scheduler also manages timed callbacks, such as caret blinks.
+	Timers do not require animation frames: a window can sleep until
+	`untilNextTimer` says the next callback is due.
 **/
 class AnimationScheduler {
 	/** The scheduler transitions run on; a window's loop ticks it. **/
@@ -193,18 +192,14 @@ class AnimationScheduler {
 	}
 
 	/**
-		The timers' clock, in seconds: what the ticks have added up to, so a
-		timer is due after the time ticked, as an animation is, and a program
-		that ticks a fixed step, a test or an offscreen render, sees the same
-		timers fire on every run.
+		The timer clock, in seconds. It advances by the elapsed time passed to `tick`.
+		Fixed-step tests and offscreen renders therefore fire timers deterministically.
 	**/
 	public var clock(default, null) = 0.0;
 
 	/**
-		Advances every spring `dt` seconds, dropping those that settle, and
-		the timers' clock `elapsed` seconds, `dt` unless given: a frame loop
-		that limits its step still passes the whole time slept, so a timer it
-		woke for is due.
+		Advances springs by `dt` seconds and removes settled springs. Advances timers by `elapsed` seconds,
+		which defaults to `dt`. Pass the full elapsed time when the animation step is capped.
 	**/
 	public function tick(dt:Float, ?elapsed:Float):Void {
 		locked(() -> {
@@ -274,7 +269,7 @@ class AnimationScheduler {
 					report("a timer", e);
 	}
 
-	/** What a callback threw, said where the program's output is, once per tick it does so. **/
+	/** Reports a callback exception to program output, at most once per tick. **/
 	function report(what:String, e:haxe.Exception):Void
 		Sys.println('ashui: $what threw and was dropped: ${e.message}\n${e.stack}');
 
@@ -312,7 +307,7 @@ class Ticker {
 	@:allow(ashui.animation.AnimationScheduler)
 	public var cancelled(default, null) = false;
 
-	/** False once the scheduler has dropped it: it returned false, was cancelled or threw. A caller that keeps a flag for "my ticker is running" can check this instead. **/
+	/** True while the ticker is registered. Becomes false when it finishes, is cancelled or throws. **/
 	public var running(default, null) = true;
 
 	@:allow(ashui.animation.AnimationScheduler)

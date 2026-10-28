@@ -1,12 +1,13 @@
 package ashui.reactive;
 
 /**
-	Carries exceptions out of computed and watch closures. Those closures are
-	called back from native code while the dependency graph is locked, so an
-	exception must not unwind out of one: `wrap` catches it, the computed
-	keeps its type's default, and the next `check`, which a signal's `set`,
-	a computed's `get` and `LayoutTree.flush` make, rethrows it in Haxe. A
-	watch may not be made meanwhile; `creating` says so instead of hanging.
+	Defers exceptions until native reactive evaluation returns to Haxe.
+	Computed callbacks run while the dependency-graph lock is held, so an
+	exception cannot unwind through the native callback. `wrap` catches it
+	and returns the type's default value. The next `check` rethrows it in Haxe.
+	Signal setters, computed getters and `LayoutTree.flush` call `check`.
+
+	`creating` rejects watch construction during evaluation to prevent a deadlock.
 **/
 class Guard {
 	static var pending:Null<haxe.Exception>;
@@ -29,10 +30,8 @@ class Guard {
 	}
 
 	/**
-		Throws when `what`, a watch, is being made while a computed or a
-		watch evaluates: it would wait forever on the graph's lock. Signals
-		and computeds can be made then. Thrown there, it is rethrown after the
-		evaluation, as any exception inside one is.
+		Rejects watch construction during computed or watch evaluation, which would deadlock on the graph lock.
+		Signals and computeds may still be created. The exception is rethrown after evaluation returns to Haxe.
 	**/
 	public static inline function creating(what:String):Void {
 		if (evaluating > 0)

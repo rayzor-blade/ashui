@@ -1,12 +1,15 @@
 package ashui.theme;
 
 /**
-	How the theme turns rounded corners into squircles (see
-	`ashui.types.CornerShape`). `cornerSmoothing` (0 to 1) pulls the
-	superellipse exponent from 2, a circle, toward `cornerExponent`; only
-	corners of at least `smoothingThreshold` pixels are smoothed. Off when
-	smoothing is 0 or the threshold is infinite. A node's own corner shape
-	wins over it, unless it is round and not locked.
+	Controls how the theme smooths rounded corners into squircles.
+
+	- `cornerSmoothing` blends from a circle (0) toward `cornerExponent` (1).
+	- `cornerExponent` sets the target superellipse exponent. A circle uses 2.
+	- `smoothingThreshold` is the minimum corner radius to smooth, in pixels.
+
+	Zero smoothing or an infinite threshold disables the effect. An explicit
+	node corner shape takes precedence, except for an unlocked round shape.
+	See `ashui.types.CornerShape`.
 **/
 @:structInit
 final class ShapeTokens {
@@ -46,7 +49,7 @@ final class ShapeTokens {
 		return F32.round(Math.max(Math.log(effectiveMathExponent()) / Math.log(2), 0));
 	}
 
-	/** From `from` to `to` by `t`, clamped; an infinite threshold is kept by the other end. **/
+	/** Interpolates with `t` clamped to 0–1. If one threshold is infinite, uses the finite threshold. **/
 	public static function lerp(from:ShapeTokens, to:ShapeTokens, t:Float):ShapeTokens {
 		var t = Math.max(0, Math.min(1, t));
 		var fromFinite = Math.isFinite(from.smoothingThreshold);

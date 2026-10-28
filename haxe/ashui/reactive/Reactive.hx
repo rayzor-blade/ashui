@@ -1,16 +1,16 @@
 /**
-	Short spellings for making reactive values, as SolidJS reads them:
+	Convenience macros for reactive state:
 
 	```haxe
-	import ashui.reactive.Reactive;   // brings signal, computed and watch in
+	import ashui.reactive.Reactive;
 
 	var count = signal(0);
 	var doubled = computed(() -> count.get() * 2);
 	watch(() -> doubled.get(), v -> trace(v));
 	```
 
-	`signal` and `computed` are `Signal.make` and `Computed.make`: the value's
-	type still picks the kind of signal, at compile time.
+	`signal` and `computed` call `Signal.make` and `Computed.make`.
+	The macros select the storage type at compile time.
 **/
 
 package ashui.reactive;
@@ -19,16 +19,16 @@ package ashui.reactive;
 import haxe.macro.Expr;
 #end
 
-/** A signal holding `value`, typed by it: `Signal.make(value)`. **/
+/** Creates a signal initialized with `value`. Equivalent to `Signal.make(value)`. **/
 macro function signal(value:Expr):Expr
 	return macro @:pos(value.pos) ashui.reactive.Signal.make($value);
 
-/** A computed of `fn`, run again when what it read changes: `Computed.make(fn)`. **/
+/** Creates a computed value that tracks the dependencies read by `fn`. Equivalent to `Computed.make(fn)`. **/
 macro function computed(fn:Expr):Expr
 	return macro @:pos(fn.pos) ashui.reactive.Computed.make($fn);
 
 #if !macro
-/** Calls `react` with what `read` returns each time that changes: `new Watch(read, react)`. **/
+/** Runs `react` when the tracked result of `read` changes. Equivalent to `new Watch(read, react)`. **/
 function watch<T>(read:Void->T, react:T->Void):Watch<T>
 	return new Watch(read, react);
 #end

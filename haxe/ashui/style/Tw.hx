@@ -7,134 +7,39 @@ import haxe.macro.Type;
 #end
 
 /**
-	Tailwind-style utility classes over the theme's tokens, resolved at
-	compile time:
+	Compiles Tailwind-style utility classes into typed styles and bindings:
 
-		final card = tw("p-4 gap-2 bg-surface rounded-lg shadow-md");
-		hxx('<div class="flex flex-col p-4 bg-surface-elevated">...</div>');
+	```haxe
+	var view = <div class="flex flex-col p-4 gap-2 bg-surface rounded-lg" />;
+	var card = tw("p-4 bg-surface-elevated shadow-md");
+	```
 
-	The classes come from the token families, so a token added to the theme
-	gets its classes with it:
+	Token enums generate the spacing, color, typography, radius, shadow and
+	motion classes. Token-based utilities follow theme changes without
+	rebuilding elements. Layout keywords such as `flex-col` use fixed values.
+	Unknown classes are compile errors with suggestions.
 
-	- spacing, `SpacingToken` steps: `p-`, `m-`, `gap-`, `w-`, `h-`, `size-`,
-	  `min-w-`, `max-w-`, `min-h-`, `max-h-`, `top-`, `right-`, `bottom-`,
-	  `left-`, `inset-` with `0`, `0.5`, `1` … `32`; one side with `pt-`,
-	  `pr-`, `pb-`, `pl-`, two with `px-`, `py-`, the same for `m`, and
-	  `gap-x-`, `gap-y-`;
-	- `auto` margins, sizes and insets (`mx-auto`, `w-auto`), and fractions of
-	  the parent (`w-full`, `w-1/2`, `h-2/3`, `basis-1/4` …);
-	- colours, `ColorToken` by its CSS variable name, and `white`, `black`
-	  and `transparent`: `bg-`, `text-`, `border-`, `outline-` and `ring-`
-	  with `primary`, `surface-elevated`, `text-secondary` …, each at an
-	  opacity with `/0` … `/100`, `bg-primary/50`, `border-white/40`;
-	- a backdrop blur, `backdrop-blur-xs` … `backdrop-blur-3xl`
-	  (`backdrop-blur` is `-sm`): what is behind the box blurred, under the
-	  box's background colour, so `bg-white/30 backdrop-blur-md` is frosted
-	  glass; and backdrop colour filters at Tailwind's scales,
-	  `backdrop-brightness-`, `-contrast-`, `-saturate-`, `-hue-rotate-`,
-	  `backdrop-grayscale`, `-invert`, `-sepia`, which filter what is behind
-	  with or without a blur;
-	- liquid glass, `bg-glass`, with `glass-blur-2` (pixels),
-	  `glass-tint-white/20` (fixed or theme colours), `glass-aberration-30`
-	  and `glass-noise-3` (percent), `glass-bevel-35`, `glass-inset` or
-	  `glass-outset`, and `glass-frosted` or `glass-liquid`.
-	  These declare CSS's `background: glass` and `glass-*` settings, so
-	  variables, stylesheets and state variants use the same brush. Defaults:
-	  12px blur, white/10 tint, 30% aberration, no noise, liquid mode;
-	- borders, `border`, `border-0` … `border-8`, and one side or two over
-	  it, `border-t`, `border-x-2`, `border-b-0` …, each side in the
-	  border's colour or its own, `border-t-primary`, `border-x-error` …;
-	  widths alone use the theme's border colour unless a colour is given;
-	- overflow fades, ashui's own: on a box that clips its children
-	  (`overflow-hidden`, `overflow-y-auto` …), `fade-4` fades them out
-	  over the spacing step in from every edge, `fade-y-8` from the top and
-	  bottom, `fade-t-2` from one side;
-	- colour filters over the element and everything inside it, drawn as
-	  one layer: `grayscale`, `sepia`, `invert` (and `-0`), `brightness-50`
-	  … `brightness-200`, `contrast-50` … `contrast-200`, `saturate-0` …
-	  `saturate-200`, `hue-rotate-15` … `hue-rotate-180` and their minus;
-	  and `blur-xs` … `blur-3xl` (`blur` is `blur-sm`), Tailwind 4's scale;
-	  `drop-shadow-xs` … `drop-shadow-2xl`, a shadow cast by what is drawn,
-	  its shape and its children, rather than by the box;
-	  `opacity-` over more than one painted element fades them as a group;
-	- clip paths, Tailwind's arbitrary property `[clip-path:…]` with any
-	  CSS shape, underscores for spaces: `[clip-path:circle()]`,
-	  `[clip-path:inset(8px_round_16px)]`,
-	  `[clip-path:polygon(50%_0,100%_100%,0_100%)]`, `[clip-path:none]`;
-	  checked at compile time (see `ashui.types.ClipPath`);
-	- outlines, a ring outside the border box that follows its corners:
-	  `outline`, `outline-2`, `outline-offset-2`, `outline-none`, and
-	  Tailwind's rings drawn the same way, `ring` (3), `ring-2`,
-	  `ring-offset-2`; the gap of an offset is left clear;
-	- corners, `RadiusToken`: `rounded`, `rounded-sm` … `rounded-3xl`,
-	  `rounded-full`, and the shapes `corner-squircle`, `corner-bevel`,
-	  `corner-scoop`, `corner-notch`, `corner-square`, `corner-round`;
-	- shadows, `ShadowToken`: `shadow`, `shadow-sm` … `shadow-2xl`,
-	  `shadow-inner`, `shadow-none`;
-	- type, `TypographyToken`: `text-xs` … `text-5xl`, `font-thin` …
-	  `font-black`, `leading-none` … `leading-loose`, `tracking-tighter` …
-	  `tracking-wider` (in ems of the element's font size). These, `text-left`
-	  … `text-justify`, `italic` and the `text-` colours are the element's
-	  own CSS declarations, so the text it holds inherits them, as in
-	  Tailwind;
-	- text limits: `truncate`, `text-ellipsis`, `text-clip`, `whitespace-nowrap`,
-	  `line-clamp-1` … `line-clamp-6` and `line-clamp-none`; and positioning
-	  with `sticky`, `fixed` (a parent-relative absolute alias), `z-0` … `z-50`
-	  in steps of ten, including negative forms; flex/grid ordering with
-	  `order-1` … `order-12`, negative forms, `order-first`, `order-last`, `order-none`;
-	- list markers: `list-disc`, `list-circle`, `list-square`, `list-decimal`,
-	  `list-decimal-leading-zero`, `list-lower-alpha`, `list-upper-roman` and
-	  their case counterparts, or `list-none` to remove the marker space;
-	  native keyword cursors with `cursor-pointer`, `cursor-text`,
-	  `cursor-grab`, `cursor-none`, resize cursors and their state variants;
-	- transitions, composed into one `ashui.animation.Transition`:
-	  `transition` (colours, opacity, shadow, transform), `transition-colors`,
-	  `-opacity`, `-shadow`, `-transform`, `-all`, `-none`; `duration-fastest`
-	  … `duration-slowest` from `AnimationToken`, or Tailwind's
-	  `duration-150` and so on in milliseconds; `ease-default`, `ease-in`,
-	  `ease-out`, `ease-in-out`, `ease-state`, `ease-nav`, `ease-spring`,
-	  `ease-sheet` from the theme's curves, and `ease-linear`; `delay-150`
-	  and the like. Without a duration or curve the theme's fast duration
-	  and default curve apply;
-	- transforms, composed into one `Transform` about the element's centre:
-	  `translate-x-` and `translate-y-` over the spacing steps, `rotate-`
-	  (degrees: 0, 1, 2, 3, 6, 12, 45, 90, 180), `scale-`, `scale-x-`,
-	  `scale-y-` (percent: 0, 50, 75, 90, 95, 100, 105, 110, 125, 150),
-	  `skew-x-`, `skew-y-` (degrees: 0, 1, 2, 3, 6, 12), a minus sign before
-	  translate, rotate and skew; and the state variants below on any of them;
-	- Tailwind's looping animations `animate-spin`, `animate-ping`,
-	  `animate-pulse`, `animate-bounce`, which replace the transform as CSS
-	  animations do;
-	- gradients over the colours: a direction, `bg-linear-to-r` (or
-	  Tailwind 3's `bg-gradient-to-r`) for each side and corner or
-	  `bg-radial`, with `from-`, `via-` and `to-` stops and positions such
-	  as `via-30%`. Where Tailwind composes these in the browser through CSS
-	  variables, they are composed here at compile time into one fill.
+	Utility families include sizing, flex/grid layout, text, borders, outlines,
+	shadows, gradients, transforms, filters, clipping, cursors and scrollbars.
+	Colors support opacity suffixes such as `bg-primary/50`. Clip paths and
+	glass settings accept `[clip-path:...]` and `[glass-*:...]` values,
+	with underscores for spaces.
+	See `docs/css.md` for the catalog and CSS equivalents.
 
-	`hover:`, `focus:`, `focus-visible:`, `active:`, `disabled:` and `dark:`
-	before a class apply it while the pointer is over the element, while it
-	has focus, while it has focus the keyboard gave it, while it is pressed,
-	while it is disabled, or in the dark scheme (see `ashui.input`).
-	`focus-within:` applies it while the element or anything inside it has
-	focus. `group-hover:` applies it while the nearest ancestor with the
-	class `group` is hovered, and `peer-hover:` while the nearest earlier
-	sibling with the class `peer` is; both take `focus`, `focus-visible`,
-	`focus-within`, `active` and `disabled` too. Where several hold, the
-	later wins, in Tailwind's order: `dark`, `group-`, `peer-`,
-	`focus-within`, `hover`, `focus`, `focus-visible`, `active`,
-	`disabled`. The string needs the plain class for the same property
-	too, the value otherwise. With `transition-colors` the change animates.
+	State variants include `hover:`, `active:`, `focus:`, `focus-visible:`,
+	`focus-within:`, `disabled:` and `dark:`. `group-` variants follow the
+	nearest marked ancestor; `peer-` variants follow the nearest earlier
+	marked sibling. A variant needs a plain utility for the property's
+	fallback value. Priority is `dark`, `group-`, `peer-`, `focus-within`,
+	`hover`, `focus`, `focus-visible`, `active`, then `disabled`.
 
-	A class bound to a token follows the theme: a scheme switch or an
-	override updates it, and nothing is rebuilt. Layout keywords with no
-	token are Tailwind's: `flex`, `flex-col`, `items-center`,
-	`justify-between`, `grow`, `shrink-0`, `overflow-hidden`, `absolute`,
-	scroll containers `overflow-auto`, `overflow-scroll` and their `-x-`/`-y-`
-	forms (see `ashui.input.Scroll`),
-	`opacity-50`, `border`, `border-2` and the like.
+	Transition utilities use the theme's fast duration and default curve
+	unless overridden. Transform utilities compose around the element center.
+	Looping animations replace the transform, as CSS animations do.
 
-	An unknown class is a compile error at the class, naming the nearest
-	known one; a class ashui cannot bind yet says why.
+	`bg-glass` accepts `glass-*` settings for blur, tint, aberration, noise
+	and bevel. Defaults are 12px blur, white/10 tint, 30% aberration,
+	no noise and liquid mode. State variants and CSS variables use the same brush.
 **/
 class Tw {
 	#if !macro

@@ -8,19 +8,22 @@ import ashui.reactive.Watch;
 import ashui.types.Style.GenericFont;
 
 /**
-	The tree of nodes a UI is laid out and drawn from. Elements make their
-	nodes in it and place them under one another as they are built. Each
-	frame, `flush` applies what changed, `computeLayout` lays the nodes
-	under a root out at a size, and `DisplayList.update` turns them into
-	what to draw; input is hit-tested against the same nodes.
+	Owns the native nodes used for layout, rendering and hit testing.
+	Elements add their nodes to this tree as they are built.
 
-	The nodes live natively, outside the Haxe heap. Haxe refers to each by
-	its id, a `haxe.Int64`: a `Node` is a handle holding one, and the
-	functions here that take an `Int64` take that id. A program can have any
-	number of trees; each is a view onto one native tree kept for the
-	process, so a node, its bindings and its queued writes belong to exactly
-	one of them. Its nodes are removed when this object is collected, or at
-	once with `dispose`.
+	A frame follows three steps:
+
+	1. `flush` applies reactive changes and queued property writes.
+	2. `computeLayout` calculates geometry under a root node.
+	3. `DisplayList.update` builds the render records from that geometry.
+
+	Nodes live outside the Haxe heap. Each `Node` holds a native `haxe.Int64`
+	id; methods that take an `Int64` expect that id. Multiple `LayoutTree`
+	instances share a process-wide native tree, but each node, binding and
+	queued write belongs to exactly one instance.
+
+	Call `dispose` to release the tree immediately. Otherwise its nodes are
+	removed when this object is collected.
 **/
 class LayoutTree {
 	/** The native tree, for the functions in `ashui.core.externs` that take one. **/
@@ -49,14 +52,14 @@ class LayoutTree {
 		this.ptr = LayoutTreeNative.blinc_tree_new();
 	}
 
-	/**
-		Frees the tree's native memory now instead of when this object is
-		collected, which can be long after for a large tree: the collector does
-		not see that memory. Its nodes' bindings go with it. Later calls on the
-		tree do nothing.
-	**/
+	/** Called before the tree's native nodes and bindings are released. **/
 	public static final disposeHooks:Array<LayoutTree->Void> = [];
 
+	/**
+		Releases native tree memory and node bindings immediately. Later calls on
+		the tree have no effect. Explicit disposal avoids waiting for Haxe GC,
+		which cannot account for the tree's native memory usage.
+	**/
 	public function dispose():Void {
 		ashui.input.Pointer.forget(this);
 		ashui.css.Identity.forgetTree(this);
@@ -100,16 +103,14 @@ class LayoutTree {
 	// items itself.
 
 	/**
-		Run at the start of each flush and after each round of reactions in
-		it, so what they set is applied in the same flush: how input resolves
-		relations, such as an element's group, once the element is placed.
+		Callbacks run at the start of a flush and after each reaction batch.
+		Their property writes are applied in the same flush. Input uses them to resolve relationships after placement.
 	**/
 	public static final flushHooks:Array<LayoutTree->Void> = [];
 
 	/**
-		Called with a node whose children are about to change: added, removed,
-		replaced or reordered. For a fragment's, it is called for the node the
-		fragment is laid out in too, whose laid-out children change with them.
+		Called before children are added, removed, replaced or reordered.
+		For a fragment, also notifies the ancestor whose layout children will change.
 	**/
 	public static final childrenHooks:Array<(LayoutTree, haxe.Int64) -> Void> = [];
 
@@ -384,10 +385,8 @@ class LayoutTree {
 	}
 
 	/**
-		Runs the reactions of watches whose values changed, then applies the
-		property writes queued since the last flush. True if anything changed
-		what is drawn: a watch reacted, or a write moved, resized or restyled
-		something, so a window draws a frame.
+		Runs pending watch reactions and applies queued property writes.
+		Returns true when a reaction or write changes the rendered UI, so the window can request a frame.
 	**/
 	public function flush():Bool {
 		for (hook in flushHooks)
@@ -426,9 +425,8 @@ class LayoutTree {
 	}
 
 	/**
-		Whether any of `node`'s box is on screen: inside the root, and inside
-		every box that clips it, scrolled as they are. A node under a transform
-		counts as in view.
+		Returns whether the node intersects the visible root and all ancestor clips, including scroll offsets.
+		Conservatively treats transformed nodes as visible.
 	**/
 	public function inView(node:haxe.Int64):Bool
 		return LayoutTreeNative.blinc_tree_in_view(this.ptr, node);
@@ -472,10 +470,8 @@ class LayoutTree {
 		return LayoutTreeNative.blinc_tree_text_align(this.ptr, node);
 
 	/**
-		Draws `node` moved by `(dx, dy)` from where layout puts it, and at
-		`width` by `height` with its children clipped to that when `width` is
-		not negative, as a layout animation does; its children move with it,
-		and `hitTest` finds it there. Layout is not touched.
+		Applies a visual offset without changing layout. Children move with the node, and hit tests use its visual position.
+		When `width` is nonnegative, also sets the visual size and clips children to it. Used by layout animations.
 	**/
 	public function setVisual(node:haxe.Int64, dx:Float, dy:Float, width:Float = -1, height:Float = -1):Void {
 		invalidateHits();
@@ -535,13 +531,13 @@ class LayoutTree {
 	}
 
 	/**
-		The nodes under `(x, y)` as they are drawn, through transforms and
-		inside clips: the topmost first, then each of its ancestors up to
-		`root`, each with the point in its own coordinates.
+		Returns the hit path at `(x, y)`, accounting for transforms and clips.
+		The topmost node comes first, followed by its ancestors up to `root`.
+		Each hit includes the point in that node's local coordinates.
 
-		With `region`, also writes four F32s (left, top, right, bottom) where
-		the hit path stays the same until `hitRevision` changes. Zero bounds
-		mean the point needs an exact hit test, as near a transformed edge.
+		If `region` is supplied, writes four F32 values: left, top, right and
+		bottom. The hit path is valid throughout this region until `hitRevision`
+		changes. Zero bounds require an exact hit test, such as near a transformed edge.
 	**/
 	public function hitTest(x:Float, y:Float, ?region:hl.Bytes):Array<Hit> {
 		if (root == null) {

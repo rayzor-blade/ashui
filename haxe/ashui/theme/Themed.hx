@@ -3,13 +3,15 @@ package ashui.theme;
 import ashui.reactive.Computed;
 
 /**
-	Token values as computeds for binding to a node's properties:
+	Creates computed token values for node-property bindings:
 
-		node.set(Prop.Background, Themed.brush(Surface));
+	```haxe
+	node.set(Prop.Background, Themed.brush(Surface));
+	```
 
-	Each reads `ThemeState.revision`, so the property follows scheme
-	switches, their colour transition and overrides, and nothing else is
-	rebuilt. Installs the default theme if none is.
+	Each binding tracks `ThemeState.revision`. Scheme changes, color
+	transitions and overrides update the property without rebuilding the node.
+	Installs the default theme if no theme is active.
 **/
 class Themed {
 	/** `token`'s colour, its alpha scaled by `alpha`, as Tailwind's `/50` does. **/
@@ -30,7 +32,7 @@ class Themed {
 		});
 	}
 
-	/** What is behind the box blurred by `radius`, under `token`'s colour at its alpha scaled by `alpha`. **/
+	/** Creates a backdrop blur with radius `radius` and a token-based tint. Scales the tint opacity by `alpha`. **/
 	public static function blur(radius:Float, token:ColorToken, alpha:Float = 1.0):Computed<ashui.types.Brush> {
 		var state = ready();
 		return Computed.make(() -> {
@@ -71,10 +73,11 @@ class Themed {
 	}
 
 	/**
-		A gradient over the box it fills, coordinates as fractions of it:
-		linear from `(x1, y1)` to `(x2, y2)`, or radial about `(x1, y1)` of
-		radius `x2`. Each stop is a theme colour at an offset, its alpha
-		scaled by `alpha`; the colours follow the theme.
+		Creates a gradient whose stop colors follow the theme.
+		Coordinates are fractions of the box size. A linear gradient runs from
+		`(x1, y1)` to `(x2, y2)`. A radial gradient is centered at `(x1, y1)`
+		with radius `x2`. Each stop specifies an offset and a color token.
+		`alpha` scales each stop's opacity.
 	**/
 	public static function gradient(radial:Bool, x1:Float, y1:Float, x2:Float, y2:Float,
 			stops:Array<{token:ColorToken, offset:Float, alpha:Float}>):Computed<ashui.types.Brush> {
@@ -90,10 +93,7 @@ class Themed {
 		});
 	}
 
-	/**
-		A letter spacing in pixels: `tracking`, a `Tracking…` token in ems,
-		times `size`, a `Text…` token's font size.
-	**/
+	/** Converts a tracking token from ems to pixels using the font-size token `size`. **/
 	public static function tracking(tracking:TypographyToken, size:TypographyToken):Computed<Single> {
 		var state = ready();
 		return Computed.make(() -> {

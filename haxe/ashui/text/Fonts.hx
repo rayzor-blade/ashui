@@ -9,26 +9,23 @@ import haxe.macro.Expr;
 #end
 
 /**
-	Fonts a program brings with it, for where the system has none, such as a
-	page, or to set text in the same faces on every machine. A registered face
-	is found by the family name it carries, as an installed one is, so
-	`font-family: Inter` finds it. Register fonts at start-up, before any text
-	is laid out.
+	Registers bundled fonts by their embedded family names. For example,
+	a registered Inter face is available through `font-family: Inter`.
+	Register fonts before laying out any text.
 
 	```haxe
-	Fonts.embed("assets/fonts/Inter.ttf");   // read at compile time
-	Fonts.load("fonts/Inter.ttf");           // read when called
+	Fonts.embed("assets/fonts/Inter.ttf"); // compile-time asset
+	Fonts.load("fonts/Inter.ttf");        // runtime load
 	```
 
-	A build defined `wasm` carries Arimo, a sans with the widths of Helvetica
-	and Arial, from this library's `fonts/`: text with no family of its own,
-	`system-ui` and `sans-serif` are set in it. To use another face, `embed`
-	its file in your program and let it carry the family name `Helvetica`,
-	`Helvetica Neue` or `Arial`, which is looked for before Arimo; a page has
-	no files to read when it runs, so `embed` is the way there, or `Assets.embed`
-	for a directory of them and `load` at run time. Define
-	`ashui_no_default_fonts` to leave Arimo out. The `monospace` and `serif`
-	families have no face in a page unless the program brings one.
+	Wasm builds bundle Arimo by default, using Helvetica/Arial-compatible
+	widths for unspecified fonts, `system-ui` and `sans-serif`. Embedded
+	faces named Helvetica, Helvetica Neue or Arial take precedence.
+	Define `ashui_no_default_fonts` to omit Arimo.
+
+	Web builds need embedded assets: use `embed`, or `Assets.embed` for a
+	directory followed by `load`. Bundle monospace and serif faces explicitly;
+	web builds do not supply defaults for those families.
 **/
 class Fonts {
 	/** The font file at `path`, relative to the build's working directory, put in the program at compile time and registered when this runs. Gives how many faces it added. **/

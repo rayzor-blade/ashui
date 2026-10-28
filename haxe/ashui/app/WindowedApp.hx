@@ -20,18 +20,17 @@ import window.Window;
 import window.TouchPhase;
 
 /**
-	Opens a window and draws a UI into it until the window closes. `run`
-	takes the window's settings and a function that builds the root
-	element:
+	Runs a windowed UI. Pass window settings and a root-element builder:
 
-		WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
+	```haxe
+	WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
+	```
 
-	A frame is drawn only when something changed: the tree on flush, the
-	theme (a scheme transition draws until it settles), the window's size
-	or scale. Between frames the loop waits on the window's events. The
-	scheme follows the window's appearance. The pointer, wheel, keys and
-	typed text go to the UI through `ashui.input.Pointer` and
-	`ashui.input.Keyboard`. Blinc's `WindowedApp` does the same.
+	Draws when the tree, theme, window size or scale changes. Color-scheme
+	transitions keep drawing until settled. Otherwise the loop waits for
+	window events. The theme follows the window's appearance.
+	Pointer, wheel, keyboard and text events are dispatched through
+	`ashui.input.Pointer` and `ashui.input.Keyboard`.
 **/
 class WindowedApp {
 	/** The UI context identifies the window being dispatched. **/

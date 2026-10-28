@@ -75,26 +75,32 @@ typedef CanvasKitProps = {
 }
 
 /**
-	A 2D canvas you pan, zoom and select in, `<canvas-kit>`: a whiteboard,
-	a diagram, a node editor. The left button drags the empty canvas (to
-	pan, or to draw a selection box with the `Select` tool or Shift), the
-	middle or right button always pans, and the wheel zooms about the
-	cursor (Shift-wheel, or a trackpad's sideways scroll, pans). A pan let
-	go of while moving carries on, slowing to a stop.
+	An interactive 2D canvas for whiteboards, diagrams and node editors.
+	Draw in content coordinates and register clickable regions with `region`.
+	A `SpatialIndex` handles hit testing.
 
-	The app draws its content in content coordinates and registers each
-	clickable thing as a region; the kit hit-tests them through a
-	`SpatialIndex`, selects them on click (Shift adds, Cmd or Ctrl toggles,
-	a box selects all it touches) and reports drags of the selection.
+	Controls:
+
+	- Left-drag empty space to pan, or box-select with `Select` or Shift.
+	- Middle/right-drag always pans. Released pans decelerate to a stop.
+	- Wheel zooms around the cursor. Shift-wheel or horizontal scrolling pans.
+	- Click selects; Shift adds; Command/Control toggles selection.
+	- A selection box selects every region it touches.
+
+	The kit reports selection drags so the application can update its content.
 
 	```haxe
 	var items = [{id: "a", x: 0.0, y: 0.0}];
 	<canvas-kit tool={Select} snap={8.0} widthPercent={1} heightPercent={1}
-		draw={(ctx, kit) -> for (it in items) {
-			ctx.fillRect(it.x, it.y, 80, 50, Brush.solid(kit.selection.has(it.id) ? 0x3b82f6 : 0x64748b), 6);
-			kit.region(it.id, it.x, it.y, 80, 50);
-		}}
-		onDrag={(ids, dx, dy) -> for (it in items) if (ids.contains(it.id)) { it.x += dx; it.y += dy; }} />;
+	    draw={(ctx, kit) -> for (it in items) {
+	        ctx.fillRect(it.x, it.y, 80, 50,
+	            Brush.solid(kit.selection.has(it.id) ? 0x3b82f6 : 0x64748b), 6);
+	        kit.region(it.id, it.x, it.y, 80, 50);
+	    }}
+	    onDrag={(ids, dx, dy) -> for (it in items) if (ids.contains(it.id)) {
+	        it.x += dx;
+	        it.y += dy;
+	    }} />;
 	```
 **/
 class CanvasKit extends Component<CanvasKitProps> {

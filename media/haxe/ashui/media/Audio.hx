@@ -5,10 +5,12 @@ import ashui.media.PlaybackProps.PlaybackBinding;
 import ashui.ui.Component;
 
 /**
-	`<audio src={path} />`: native file playback and optional default controls.
-	A supplied player remains caller-owned. With controls=false this renders
-	only its HXX children; a custom UI uses the public player and its signals.
-	Audio and video share hlavi's file/format support and volume behavior.
+	Plays native audio with optional default controls:
+	`<audio src={path} />`.
+
+	Set `controls={false}` to render only the supplied HXX children. Pass a
+	player to build custom controls from its signals; the caller owns that player.
+	Audio and video share hlavi's format support and volume behavior.
 **/
 class Audio extends Component<PlaybackProps> {
 	public var player(default, null):Player;

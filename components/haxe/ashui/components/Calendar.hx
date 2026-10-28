@@ -30,21 +30,20 @@ typedef CalendarProps = {
 }
 
 /**
-	A month to pick a day from: month and year selects between buttons to
-	the months before and after, the days of the week, and six weeks of days, those of
-	the months around it muted. Today is marked; the chosen day is filled.
-	A press chooses a day (one of another month moves to it); turning the
-	month slides the new one in from the side it is on. The arrows move
-	a day or a week, Page Up and Page Down a month, Home and End to the week's
-	ends, and Enter or Space chooses. CSS: `.ui-calendar`,
-	`.ui-calendar-header`, `.ui-calendar-caption`, `.ui-calendar-month-picker`,
-	`.ui-calendar-year-picker`, `.ui-calendar-nav`
-	(`[data-step]`), `.ui-calendar-body`, `.ui-calendar-weekdays`,
-	`.ui-calendar-weekday`, `.ui-calendar-months`, `.ui-calendar-grid` (a
-	month's days: `[data-enter]` and `[data-leaving]`, `next` or `prev`, as
-	it turns), `.ui-calendar-day`
-	(`[data-outside]`, `[data-today]`, `[data-selected]`, `:hover`,
-	`:focus-visible`).
+	A date picker with month/year selects, previous/next navigation and a
+	six-week day grid. Adjacent-month days are muted. Today is marked, and
+	the selected day is filled. Selecting an adjacent-month day navigates
+	to that month; month changes use a sliding transition.
+
+	Keyboard controls: arrows move by day or week; Page Up/Down change month;
+	Home/End move to the week's ends; Enter/Space select the focused day.
+
+	CSS parts: `.ui-calendar`, `-header`, `-caption`, `-month-picker`,
+	`-year-picker`, `-nav`, `-body`, `-weekdays`, `-weekday`, `-months`,
+	`-grid` and `-day`. All suffixes use the `ui-calendar` prefix.
+	Navigation exposes `[data-step]`. Month grids use `[data-enter]` and
+	`[data-leaving]` with `next` or `prev`. Days expose `[data-outside]`,
+	`[data-today]`, `[data-selected]`, `:hover` and `:focus-visible`.
 **/
 class Calendar extends Component<CalendarProps> {
 	public var value(default, null):Signal<Null<CalendarDay>>;

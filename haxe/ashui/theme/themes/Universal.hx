@@ -4,10 +4,7 @@ import ashui.theme.Easing;
 import ashui.theme.FontFamily;
 import ashui.theme.TypographyTokens;
 
-/**
-	What the Universal HID themes share: their type, and the timing curves
-	they pick from.
-**/
+/** Shared typography and easing curves for the Universal themes. **/
 class Universal {
 	public static final STANDARD = CubicBezier(0.25, 0.10, 0.25, 1.0);
 	public static final HYBRID_NAV = CubicBezier(0.30, 0.70, 0.10, 1.0);
@@ -19,8 +16,8 @@ class Universal {
 	public static final EXPRESSIVE_SPRING = CubicBezier(0.34, 1.56, 0.64, 1.0);
 
 	/**
-		Noto everywhere, so a Universal theme looks the same whatever the
-		platform's fonts, on the HID scale: 12 / 13 / base / 17 / 20 / …
+		Uses Noto font families with platform fallbacks for consistent typography.
+		The size scale starts at 12, 13, `textBase`, 17 and 20 pixels.
 	**/
 	public static function typography(textBase:Float):TypographyTokens {
 		return TypographyTokens.defaults().with({

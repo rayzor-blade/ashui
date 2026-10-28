@@ -8,58 +8,62 @@ import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 
 /**
-	A node's input state: the signals its `hover:`, `active:`, `focus:`,
-	`focus-visible:` and `disabled:` classes read, whether it takes focus, and
-	the handlers its events call. Get it with `Interaction.of(node)`, which
-	makes it the first time; in a template, `onClick={...}` and the other
-	handler attributes, `focusable` and `disabled` go to it. `Pointer`,
-	`Keyboard` and `Focus` keep it up to date. Each `on` method adds a
-	handler and returns the interaction, so calls chain:
-	`Interaction.of(node).setFocusable(true).onClick(e -> save())`.
+	Stores a node's input state and event handlers.
 
-	As with CSS's `:hover`, a node is hovered while the pointer is over it or
-	over anything drawn inside it, and pressed while a press that began there
-	is held. A disabled node and everything inside it takes no presses,
-	clicks or focus; it is still hovered.
+	Use `Interaction.of(node)` to get or create an interaction. HXX attributes
+	such as `onClick`, `focusable` and `disabled` configure it automatically.
+	`Pointer`, `Keyboard` and `Focus` update its state signals. These signals
+	also drive state classes such as `hover:` and `focus-visible:`.
+
+	Handler methods return the interaction, so calls can be chained:
+
+	```haxe
+	Interaction.of(node).setFocusable(true).onClick(_ -> save());
+	```
+
+	A node is hovered when the pointer is over it or any of its descendants.
+	It stays pressed while a press that started on it is held. Disabled nodes
+	and their descendants cannot receive presses, clicks or focus. They can
+	still be hovered.
 **/
 class Interaction {
 	static final byNode = new haxe.ds.ObjectMap<Node, Interaction>();
 	static final byTree = new haxe.ds.ObjectMap<LayoutTree, TreeInteractions>();
-	/** Lets the cascade attach deferred state readers when a node gains input (0973e0c). **/
+	/** Notifies the CSS cascade when a node gains input state (0973e0c). **/
 	@:allow(ashui.css.NativeCascade)
 	static final created:Array<Interaction->Void> = [];
 
 	public final node:Node;
 
 	/**
-		The states below are Bools first; a signal for one is made the first time something reads it reactively, and kept in step after.
-		Most elements are read through one or two, so an element with an interaction does not carry eight native handles.
+		Stores states as bits. Creates each signal only when its property is read, then keeps it in sync.
+		Most elements use only one or two states, so unused states need no native handles.
 	**/
 	var bits = 0;
 	var made:Null<Array<Null<Signal<Bool>>>> = null;
 
-	/** The pointer is over it or over something inside it. **/
+	/** True when the pointer is over this node or any of its descendants. **/
 	public var hovered(get, never):Signal<Bool>;
 
-	/** A press that began over it is held. **/
+	/** True while a press that started on this node is held. **/
 	public var pressed(get, never):Signal<Bool>;
 
-	/** It has focus (see `Focus`). **/
+	/** True when this node has focus. See `Focus`. **/
 	public var focused(get, never):Signal<Bool>;
 
-	/** Focused, by the keyboard: the focus ring's case. **/
+	/** True when this node has focus and should show a keyboard-style focus ring. **/
 	public var focusVisible(get, never):Signal<Bool>;
 
-	/** It or something inside it is focused. **/
+	/** True when this node or any of its descendants has focus. **/
 	public var focusWithin(get, never):Signal<Bool>;
 
-	/** It takes no presses, clicks or focus; set with `setDisabled`. **/
+	/** True when input is disabled. Change this state with `setDisabled`. **/
 	public var disabled(get, never):Signal<Bool>;
 
-	/** A checkbox or radio that is checked, or an option that is selected: CSS's `:checked`. **/
+	/** True for checked checkboxes and radios, or selected options. Maps to CSS `:checked`. **/
 	public var checked(get, never):Signal<Bool>;
 
-	/** A checkbox in neither state, CSS's `:indeterminate`. **/
+	/** True for an indeterminate checkbox. Maps to CSS `:indeterminate`. **/
 	public var indeterminate(get, never):Signal<Bool>;
 
 	function signalOf(state:InteractionState):Signal<Bool> {
@@ -80,7 +84,7 @@ class Interaction {
 	function get_checked():Signal<Bool> return signalOf(Checked);
 	function get_indeterminate():Signal<Bool> return signalOf(Indeterminate);
 
-	/** Whether `state` holds now, read without making its signal; for code that does not follow it. **/
+	/** Reads `state` without creating a signal or tracking a reactive dependency. **/
 	public inline function is(state:InteractionState):Bool
 		return (bits & (1 << state)) != 0;
 
@@ -99,7 +103,7 @@ class Interaction {
 	public inline function isFocusWithin():Bool return is(FocusWithin);
 	public inline function isDisabled():Bool return is(Disabled);
 
-	/** Sets `state`, and its signal when something has made one, and tells its listeners when it changed. **/
+	/** Updates the state and its signal, if one exists. Notifies listeners only when the state changes. **/
 	public function setState(state:InteractionState, on:Bool):Void {
 		var was = (bits & (1 << state)) != 0;
 		if (on)
@@ -118,7 +122,7 @@ class Interaction {
 
 	var listeners:Null<Array<Void->Void>> = null;
 
-	/** Calls `listener` whenever one of the states changes, with no signal made; the returned function removes it. **/
+	/** Calls `listener` when any state changes, without creating signals. Returns an unsubscribe function. **/
 	public function onStateChange(listener:Void->Void):Void->Void {
 		if (listeners == null)
 			listeners = [];
@@ -126,7 +130,7 @@ class Interaction {
 		return () -> if (listeners != null) listeners.remove(listener);
 	}
 
-	/** Whether the state CSS calls `name` holds now, read without making a signal; a form state not yet set reads false. **/
+	/** Reads a CSS state by name without creating a signal. Unset form states return false. **/
 	public function stateNamed(name:String):Bool {
 		return switch name {
 			case "hover": is(Hovered);
@@ -145,29 +149,29 @@ class Interaction {
 		}
 	}
 
-	/** Whether pressing it or tabbing to it gives it focus. **/
+	/** Whether this node can receive focus from a click or the Tab key. **/
 	public var focusable(default, null) = false;
 
-	/** Marked `group`: what is inside it can follow its state with `group-` classes. **/
+	/** Whether descendants can use `group-` classes to follow this node's state. **/
 	public var isGroup(default, null) = false;
 
-	/** Marked `peer`: its later siblings can follow its state with `peer-` classes. **/
+	/** Whether later siblings can use `peer-` classes to follow this node's state. **/
 	public var isPeer(default, null) = false;
 
 	final handlers = new Map<String, Array<Dynamic->Void>>();
 	var disabledWatch:Null<ashui.reactive.Watch<Bool>>;
 
-	/** Disabled by its own `setDisabled`; `disabled` is that or any of `disablers`. **/
+	/** Disabled by `setDisabled`. The effective state also includes external `disablers`. **/
 	var ownDisabled = false;
 
-	/** What disables it from outside, as a disabled fieldset does what it holds. **/
+	/** External sources that disable this node, such as a parent fieldset. **/
 	final disablers:Array<{}> = [];
 
 	function new(node:Node) {
 		this.node = node;
 	}
 
-	/** `node`'s interaction, made the first time it is asked for. Not to be called inside a computed. **/
+	/** Returns or creates the interaction for `node`. Do not call inside a computed. **/
 	public static function of(node:Node):Interaction {
 		if (!hooked) {
 			hooked = true;
@@ -213,23 +217,23 @@ class Interaction {
 		Focus.forget(this);
 	}
 
-	/** `node`'s interaction if it has one. **/
+	/** Returns the existing interaction for `node`, or null. Does not create one. **/
 	public static function find(node:Node):Null<Interaction>
 		return byNode.get(node);
 
-	/** The interactions of `tree`'s nodes. **/
+	/** Returns the interactions registered in `tree`. **/
 	public static function inTree(tree:LayoutTree):Array<Interaction> {
 		var all = byTree.get(tree);
 		return all != null ? all.list : [];
 	}
 
-	/** The interaction of the node of `tree` with native id `id`, if it has one. **/
+	/** Returns the existing interaction for native node `id` in `tree`, or null. **/
 	public static function byId(tree:LayoutTree, id:haxe.Int64):Null<Interaction> {
 		var all = byTree.get(tree);
 		return all != null ? all.ids.get(TreeInteractions.key(id)) : null;
 	}
 
-	/** Lets pressing it or tabbing to it give it focus. **/
+	/** Enables or disables focus from a click or the Tab key. Disabling clears existing focus. **/
 	public function setFocusable(value:Bool):Interaction {
 		focusable = value;
 		if (!value && is(Focused))
@@ -237,28 +241,28 @@ class Interaction {
 		return this;
 	}
 
-	/** Marks it `group`, as the `group` class does. **/
+	/** Enables `group-` classes on descendants. **/
 	public function markGroup():Interaction {
 		isGroup = true;
 		return this;
 	}
 
-	/** Marks it `peer`, as the `peer` class does. **/
+	/** Enables `peer-` classes on later siblings. **/
 	public function markPeer():Interaction {
 		isPeer = true;
 		return this;
 	}
 
-	/** The form states CSS reads, made the first time each is asked for (see `formState`). **/
+	/** Lazily created form-state signals used by CSS. See `formState`. **/
 	var formStates:Null<Map<String, Signal<Bool>>> = null;
 
 	/**
-		One of a form control's states, which its control sets and CSS's
-		pseudo-classes of the same name read: `placeholder-shown`, `valid`,
-		`invalid`, `user-valid` and `user-invalid` (once the user has
-		changed it, or a form it is in was submitted), `required`,
-		`optional`. False until the control sets it, so an element that is
-		no form control matches none.
+		Returns a form-state signal, creating it with false as its initial value.
+
+		Controls update these signals for CSS pseudo-classes: `placeholder-shown`,
+		`valid`, `invalid`, `user-valid`, `user-invalid`, `required` and `optional`.
+		User-validity states apply after user interaction or form submission.
+		Elements that are not form controls leave these states unset.
 	**/
 	public function formState(name:String):Signal<Bool> {
 		if (formStates == null)
@@ -269,7 +273,7 @@ class Interaction {
 		return s;
 	}
 
-	/** Disables it while `value`, a constant, signal or computed, is true. **/
+	/** Disables input while `value` is true. Accepts a constant, signal or computed. **/
 	public function setDisabled(value:IntoReactive<Bool>):Interaction {
 		if (disabledWatch != null) {
 			disabledWatch.stop();
@@ -286,7 +290,10 @@ class Interaction {
 		return this;
 	}
 
-	/** Disables it while `on`, on behalf of `source`, whatever its own `setDisabled` says; each source is counted once. **/
+	/**
+		Adds or removes an external disable request from `source`. Each source is counted once.
+		The node stays disabled while any source requests it, or its own `setDisabled` value is true.
+	**/
 	public function disableFrom(source:{}, on:Bool):Interaction {
 		var has = disablers.indexOf(source) >= 0;
 		if (on && !has)
@@ -310,55 +317,55 @@ class Interaction {
 			Focus.clear(node.tree);
 	}
 
-	/** Calls `handler` on a press and release of the primary button over it, or Enter or Space while it has focus. **/
+	/** Calls `handler` after a primary-button click, or Enter or Space while this node has focus. **/
 	public function onClick(handler:PointerEvent->Void):Interaction
 		return on("click", handler);
 
-	/** A button went down over it. **/
+	/** Registers a handler for pointer-button presses on this node. **/
 	public function onPointerDown(handler:PointerEvent->Void):Interaction
 		return on("pointerdown", handler);
 
-	/** A button came up over it. **/
+	/** Registers a handler for pointer-button releases on this node. **/
 	public function onPointerUp(handler:PointerEvent->Void):Interaction
 		return on("pointerup", handler);
 
-	/** The pointer moved over it. **/
+	/** Registers a handler for pointer movement over this node. **/
 	public function onPointerMove(handler:PointerEvent->Void):Interaction
 		return on("pointermove", handler);
 
-	/** The pointer came over it or something inside it. Does not bubble. **/
+	/** Registers a handler for pointer entry into this node or a descendant. Does not bubble. **/
 	public function onPointerEnter(handler:PointerEvent->Void):Interaction
 		return on("pointerenter", handler);
 
-	/** The pointer is no longer over it or anything inside it. Does not bubble. **/
+	/** Registers a handler for pointer exit from this node and all descendants. Does not bubble. **/
 	public function onPointerLeave(handler:PointerEvent->Void):Interaction
 		return on("pointerleave", handler);
 
-	/** A wheel or trackpad scrolled over it, by the event's `deltaX` and `deltaY`. **/
+	/** Registers a scroll handler. The event provides wheel or trackpad deltas as `deltaX` and `deltaY`. **/
 	public function onWheel(handler:PointerEvent->Void):Interaction
 		return on("wheel", handler);
 
-	/** A key went down while it or something inside it had focus. **/
+	/** Registers a key-press handler for this node and its descendants. **/
 	public function onKeyDown(handler:KeyEvent->Void):Interaction
 		return on("keydown", handler);
 
-	/** A key came up while it or something inside it had focus. **/
+	/** Registers a key-release handler for this node and its descendants. **/
 	public function onKeyUp(handler:KeyEvent->Void):Interaction
 		return on("keyup", handler);
 
-	/** Text was typed while it or something inside it had focus. **/
+	/** Registers a text-input handler for this node and its descendants. **/
 	public function onTextInput(handler:TextInputEvent->Void):Interaction
 		return on("textinput", handler);
 
-	/** An input method's composition changed while it has focus; empty text when it ends. **/
+	/** Registers an IME composition handler. An empty composition marks the end. **/
 	public function onComposition(handler:CompositionEvent->Void):Interaction
 		return on("composition", handler);
 
-	/** It gained focus. Does not bubble. **/
+	/** Registers a focus-gained handler. Does not bubble. **/
 	public function onFocus(handler:FocusEvent->Void):Interaction
 		return on("focus", handler);
 
-	/** It lost focus. Does not bubble. **/
+	/** Registers a focus-lost handler. Does not bubble. **/
 	public function onBlur(handler:FocusEvent->Void):Interaction
 		return on("blur", handler);
 
@@ -388,7 +395,7 @@ class Interaction {
 		return kinds;
 	}
 
-	/** Calls its handlers of `kind` with `event`; false when it has none. **/
+	/** Dispatches `event` to handlers registered for `kind`. Returns false when none are registered. **/
 	@:allow(ashui.input)
 	function fire(kind:String, event:InputEvent):Bool {
 		var list = handlers.get(kind);

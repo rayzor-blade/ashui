@@ -5,29 +5,22 @@ import ashui.layout.IntoReactive;
 import ashui.ui.Div;
 
 /**
-	ashui.components: composed components in the manner of shadcn/ui, on
-	ashui's built-in elements, for an app to take or leave. Add the library
-	with `-lib ashui-components` and import what you use; an
-	imported `Button` is `<button>` in hxx, in place of the built-in.
+	Provides styled components built from Ashui's core elements.
+	Add `-lib ashui-components` and import the components you use. Importing
+	`Button`, for example, makes `<button>` resolve to the library component.
 
-	Every look is CSS, in `components/css/components.css`, which is put in
-	force under the page's own sheets the first time a component is made,
-	so a page's CSS restyles any of it the way it restyles built-in
-	elements. Components set classes, attributes and states, never a look of
-	their own, which would win over the page's CSS:
+	`components/css/components.css` loads when the first component is created.
+	Application stylesheets take precedence. Components expose classes,
+	attributes and states for styling:
 
-	- each part has a class, `ui-` and its name: `ui-card`, `ui-card-header`,
-	  `ui-switch-thumb`;
-	- variants, sizes and states are attributes and pseudo-classes:
-	  `[data-variant="outline"]`, `[data-size="sm"]`, `[data-state="active"]`,
-	  `:hover`, `:checked`, `:disabled`, `:focus-visible`;
-	- each component reads its own custom properties, falling back to the
-	  theme's tokens, `background: var(--ui-button-bg, var(--primary))`, so
-	  setting `--ui-button-bg` on any element above retunes the buttons
-	  inside it without a selector to outrank.
+	- Parts use `ui-*` classes, such as `ui-card-header` and `ui-switch-thumb`.
+	- Variants, sizes and states use `data-*` attributes and pseudo-classes,
+	  such as `[data-size="sm"]`, `[data-state="active"]` and `:hover`.
+	- Custom properties allow local overrides. For example,
+	  `--ui-button-bg` overrides the fallback `--primary` color for buttons
+	  in that subtree without requiring a stronger selector.
 
-	Motion, radii, colours and shadows are the theme's tokens, as the
-	user-agent stylesheet's are.
+	Colors, motion, radii and shadows use the active theme's tokens.
 **/
 class Library {
 	static var used = false;
@@ -46,17 +39,12 @@ class Library {
 	}
 
 	/**
-		A part is a named, styleable inner element of a component. The
-		stylesheet styles it by its class. For example, a drawer's handle is
-		`part("ui-drawer-handle")`, and `components.css` gives
-		`.ui-drawer-handle` its look.
+		Creates a named component part styled by its class. For example,
+		`part("ui-drawer-handle")` creates an element styled by `.ui-drawer-handle`.
 
-		The element is a `div` unless `tag` names another HTML element. Its
-		classes are `name` followed by any `classes`. Each entry in `data`
-		becomes a `data-` attribute that CSS can select on, such as
-		`data-state="open"`. A value can be a constant, or a signal or
-		computed that the attribute follows; null leaves the attribute out.
-		`children` go inside it.
+		`tag` defaults to `div`. The element receives `name` and any extra `classes`.
+		`data` entries become `data-*` attributes. Values can be constants,
+		signals or computeds; null omits the attribute. `children` are placed inside.
 	**/
 	public static function part(name:String, ?tag:String, ?data:Map<String, IntoReactive<Null<String>>>, ?children:Array<Element>, ?id:String,
 			?classes:Array<String>):Div {

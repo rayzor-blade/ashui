@@ -9,19 +9,19 @@ using haxe.macro.ExprTools;
 #end
 
 /**
-	Templates written as Haxe's own inline markup, with no `hxx('...')`
-	around them: an element where an expression goes, as JSX writes one.
+	Enables HXX elements as first-class expressions in Haxe code:
 
-		function card(title:String):Element
-			return <card><card-header><card-title>{title}</card-title></card-header></card>;
+	```haxe
+	function card(title:String):Element
+	    return <card><card-header><card-title>{title}</card-title></card-header></card>;
 
-		var list = <ul><for {item in items}><li>{item}</li></for></ul>;
+	var list = <ul><for {item in items}><li>{item}</li></for></ul>;
+	```
 
-	Each is what `hxx` makes of the same template, typed as the element it
-	builds; the expressions inside keep their place in the file, so the
-	compiler's completion and errors point into them. Turned on for a build
-	by `--macro ashui.ui.Markup.enable()`; then every class but the
-	standard library's has its markup lowered.
+	Add `--macro ashui.ui.Markup.enable()` to the build. The macro processes
+	application and library classes, excluding the standard library.
+	Each expression has the type of its resulting element. Embedded Haxe
+	expressions keep their source positions for errors and completion.
 **/
 class Markup {
 	#if macro

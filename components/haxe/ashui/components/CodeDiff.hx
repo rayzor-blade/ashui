@@ -87,14 +87,16 @@ typedef CodeDiffProps = {
 }
 
 /**
-	Two versions of a text compared: the lines that were removed and added shown in colour, the words changed inside an edited line
-	marked, the numbers of both texts in the gutter, and long runs of unchanged lines folded into a row that opens when pressed.
-	Inline puts the removed and added lines in one column; side by side puts the original and the modified text in two columns that
-	scroll together, a filler opposite each line the other side does not have. Rows are all one height and pooled as the code
-	editor's are, so a file of tens of thousands of lines scrolls as smoothly as one editor.
+	A read-only text diff with syntax highlighting, line numbers and inline
+	word changes. Long unchanged sections collapse into expandable rows.
 
-	It is read-only. The comparison of a large pair of texts runs on the worker thread (`Worker`), and the previous rows stay until
-	it is done.
+	Inline layout combines removed and added lines in one column. Side-by-side
+	layout shows synchronized original and modified columns, with filler rows
+	to keep corresponding lines aligned. Fixed-height rows are pooled for
+	large documents.
+
+	Large comparisons run on `Worker`. The previous result remains visible
+	until the new comparison completes.
 **/
 class CodeDiff extends Component<CodeDiffProps> {
 	/** How many changes the texts have. **/

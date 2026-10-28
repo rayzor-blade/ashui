@@ -6,20 +6,16 @@ import ashui.layout.Element;
 import ashui.layout.LayoutTree;
 
 /**
-	Motion tracing in a running window, set by `ASHUI_MOTION`:
+	Enables live motion tracing through `ASHUI_MOTION`:
 
-	- `overlay` draws `MotionOverlay` over the window's frames;
-	- `stream` does that too and writes each burst of motion, from the first
-	  frame anything moves to three frames after everything stops, to
-	  `<snapshot dir>/motion/live-<n>/` as `MotionRecorder` writes a
-	  recording: frames, filmstrip, curves, report and JSON, with a line in
-	  `events.log` for an agent tailing it.
+	- `overlay`: draws `MotionOverlay` over the window.
+	- `stream`: also records each burst to `<snapshot dir>/motion/live-<n>/`.
+	  A burst starts when motion begins and ends three frames after it stops.
+	  Artifacts match `MotionRecorder`, with a directory entry in `events.log`.
 
-	While a burst is written, animations advance a fixed sixtieth of a second
-	per frame drawn rather than by the wall clock, so the time capturing a
-	frame takes does not show in the motion: the report judges the motion,
-	not the capture. Unset, nothing is traced. Safe to run with; `stream`
-	slows the window while it writes.
+	While recording a burst, animations advance by 1/60 second per drawn
+	frame. Capture time therefore does not distort the measured animation.
+	`stream` slows the window while writing files. When unset, tracing is disabled.
 **/
 class MotionStream {
 	static inline var STEP = 1 / 60;

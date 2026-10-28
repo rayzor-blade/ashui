@@ -41,53 +41,33 @@ typedef CssOrigin = {
 }
 
 /**
-	The stylesheets in force and how they reach elements.
+	Installs stylesheets and applies the native CSS cascade to elements.
+	Use `Css.add` for a parsed sheet or `Css.load` for CSS text.
+	`NativeCascade` matches selectors and reports affected elements at the
+	next `LayoutTree.flush`. Unchanged structure, classes and tested states
+	do not trigger restyling.
 
-	`Css.add(sheet)` puts a parsed `Stylesheet` in force (`Css.load` parses
-	and adds CSS text). Matching and the cascade run in the native CSS
-	engine (`NativeCascade`): every element's types, id, classes,
-	attributes, own declarations and tested states go to it, and at the
-	next `LayoutTree.flush` it restyles what a change can reach and says
-	whose styles changed; those are applied here. A frame that changes no
-	structure, class or tested state costs nothing.
+	Rules resolve by importance, specificity and source order. Element-level
+	utility classes, `style` and explicit attributes override stylesheet rules.
+	When a rule stops setting a property, the property returns to its initial value.
 
-	`transition` gives each property it names its own timing, so a change
-	the cascade makes moves there (an element's own transition, a Tw class,
-	wins over it). `animation` runs `@keyframes` on the animation
-	scheduler, its frames interpolated where two values have the same shape
-	and switched halfway where they do not; an animated property is the
-	animation's while it runs, and with `forwards` after.
+	Text inherits font size, weight, style, family, line height, letter spacing
+	and alignment. Rendering handles color inheritance. `var(--name, fallback)`
+	searches the element, its ancestors, `:root` rules and theme tokens.
+	Theme changes update dependent styles, including light/dark scheme changes.
 
-	The cascade is CSS's, property by property: `!important` over normal,
-	then specificity, then order (a later sheet's rule after an earlier
-	sheet's, a later rule after an earlier one). As in Tailwind's layers, a
-	stylesheet sits under what an element sets itself: its Tw classes, its
-	`style=` and its attributes win over any rule. When no rule sets a
-	property any more, it goes back to what a new element has.
+	`transition` animates property changes with per-property timing. An
+	explicit element transition takes precedence. `animation` runs keyframes
+	on the scheduler: compatible values interpolate; incompatible values switch
+	halfway. Animations own their properties while running and retain them
+	with `forwards` fill.
 
-	Text inherits `font-size`, `font-weight`, `font-style`, `font-family`,
-	`line-height`, `letter-spacing` and `text-align` from the elements
-	around it, as CSS's inherited properties do; `color` is inherited by
-	drawing. `var(--name, fallback)` reads the custom properties of the
-	element and its ancestors, then of `:root` rules, then the theme's
-	tokens (`--primary`, `--surface`, `--radius-lg` …; see
-	`ThemeState.toCssVariableMap`), following the theme: an element that
-	reads a token is matched again when the theme changes, a switch between
-	light and dark included.
-
-	A declaration that reads `env(pointer-x)` and the rest is applied again
-	as the pointer moves: a pointer query (see `PointerQueries`).
-
-	A rule inside `@media` applies while its queries hold: of the viewport
-	`setViewport` gives, and `prefers-color-scheme` of the theme's scheme.
-
-	State pseudo-classes read the element's `Interaction`: `:hover`,
-	`:active`, `:focus`, `:focus-visible`, `:focus-within`, `:disabled` and
-	`:enabled`, `:checked` and `:indeterminate`, and a form control's
-	`:placeholder-shown`, `:valid`, `:invalid`, `:user-valid`,
-	`:user-invalid`, `:required` and `:optional`, of the element itself or of
-	one a combinator reaches (`.card:hover .title`). An element whose rules
-	test a state is matched again when that state changes, and only then.
+	State selectors read `Interaction`, including focus, pointer, disabled,
+	checked and form-validation states. Only states tested by a selector
+	trigger matching. Relationships such as `.card:hover .title` are supported.
+	`@media` uses the viewport from `setViewport` and the theme's color scheme.
+	Declarations using `env(pointer-...)` update as the pointer moves.
+	See `PointerQueries` and `docs/css.md`.
 **/
 class Css {
 	/** The sheets in force, in order. **/

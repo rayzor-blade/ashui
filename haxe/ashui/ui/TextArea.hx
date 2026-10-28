@@ -41,17 +41,18 @@ typedef TextAreaProps = {
 }
 
 /**
-	A text area: text of many lines, wrapped at its width, that scrolls when
-	it is taller than the area. It edits as `TextField` does, and further:
-	Enter starts a new line, Up and Down move between lines keeping to the
-	same x, Page Up and Page Down move by the lines that fit, Home and End go
-	to the ends of the line and Command with the arrows to the ends of the
-	line or the text. Command+Enter calls `onSubmit`. A selection is drawn
-	line by line. The caret is kept in view as it moves.
+	A multiline text editor with word wrapping and scrolling.
+	Uses the same editing model as `TextField`, with these additional controls:
 
-	In a `Form` it submits its text under `name`, and is valid by HTML's
-	constraints `required`, `minlength` and `maxlength`, as `Input` is:
-	CSS's `:valid`, `:invalid`, `:user-invalid` and the rest follow them.
+	- Enter inserts a newline; Command+Enter calls `onSubmit`.
+	- Up and Down preserve the caret's horizontal position.
+	- Page Up and Page Down move by the visible page height.
+	- Home and End move to line ends. Command+arrows move to line or text ends.
+
+	Selections are drawn across lines, and scrolling keeps the caret visible.
+	In a `Form`, the control submits its text under `name`. The `required`,
+	`minlength` and `maxlength` constraints update validity states, including
+	CSS `:valid`, `:invalid` and `:user-invalid`.
 **/
 class TextArea extends Component<TextAreaProps> implements FormControl {
 	static final byNode = new Map<String, TextArea>();

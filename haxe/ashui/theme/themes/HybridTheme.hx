@@ -2,7 +2,7 @@ package ashui.theme.themes;
 
 import ashui.theme.*;
 
-/** Universal HID · Hybrid: between Restrained's Apple-leaning calm and Expressive's Material-leaning colour. ashui's default theme, and Blinc's. **/
+/** The default Universal theme. Combines Restrained's quiet surfaces with Expressive's stronger colors. **/
 class HybridTheme {
 	public static inline var NAME = "Universal · Hybrid";
 
@@ -22,7 +22,7 @@ class HybridTheme {
 		return new Theme(NAME, colorScheme, colors, Universal.typography(15), SpacingTokens.defaults(), radii(), shadows, animations(), shape());
 	}
 
-	/** `radiusDefault` sits at the squircle threshold, so unmarked surfaces are smoothed. **/
+	/** Sets the default radius at the smoothing threshold, so default surfaces use squircle corners. **/
 	public static function radii():RadiusTokens {
 		return {
 			radiusNone: 0,

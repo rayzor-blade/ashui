@@ -17,22 +17,19 @@ typedef GroundGridOptions = {
 }
 
 /**
-	A ground grid under a 3D scene, as modelling tools draw one: a line each
-	`size` units (major) and `subdivisions` between (minor), the X axis red
-	and the Z axis blue where `axes` is set, fading out from `fadeNear` to
-	`fadeFar` units from the camera. It lies flat at `height`, and meshes
-	hide it where they are in front, so a model stands on it. Colours are
-	`0xRRGGBB`, as `Brush` takes them. (Named apart from CSS's `display:
-	grid`, `Display.Grid`, which a page usually has imported.)
+	Draws an editor-style ground grid in a 3D scene.
+	Major lines are spaced by `size`, with `subdivisions` minor divisions.
+	`axes` adds a red X axis and blue Z axis. The grid lies at `height` and
+	fades between `fadeNear` and `fadeFar` camera distances. Scene geometry
+	occludes it normally. Colors use `0xRRGGBB`.
 
 	```haxe
 	grid={GroundGrid.studio()}
 	grid={new GroundGrid({size: 0.5, height: helmet.min.y})}
 	```
 
-	It is a `ScenePass`: `<scene-kit grid={...}>` draws it, and a canvas
-	can with `ctx.drawPass(grid)`. It frees what it put on the GPU with
-	`dispose`.
+	Use with `<scene-kit grid={...}>` or `ctx.drawPass(grid)`.
+	Call `dispose` to release its GPU resources.
 **/
 class GroundGrid implements ScenePass {
 	public final size:Float;

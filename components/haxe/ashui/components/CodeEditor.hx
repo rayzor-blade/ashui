@@ -61,23 +61,26 @@ typedef CodeEditorProps = {
 	?indentGuides:Bool,
 	/** Highlight the matching pair next to a caret or pointer selection. **/
 	?highlightBrackets:Bool,
-	/** A strip down the right edge that draws the whole document scaled down, with a slider over what is on screen; pressing it, dragging the slider or the wheel over it scroll the editor. **/
+	/** Shows a document overview on the right. Click, drag its viewport slider or scroll over it to navigate. **/
 	?minimap:Bool,
 	/** Content above the text viewport, beside the minimap. **/
 	?header:Element,
-	/** Reserves a slot in the gutter, left of the line numbers, for what `markers` puts there and where a press calls `onGutterClick`. **/
+	/** Reserves a gutter column for `markers`. Clicks in this column call `onGutterClick`. **/
 	?gutterMarkers:Bool,
 	/** Collapses unused marker and fold columns; leave false for an always-clickable breakpoint gutter. **/
 	?compactGutter:Bool,
 	/** Keeps activated compact gutter columns until this view is disposed, so edits cannot shift the text. **/
 	?stableGutter:Bool,
-	/** Asked for a hint about the character at an offset once the pointer has rested on it; what it returns opens in a popover, and null leaves the popover to the titles of the decorations there. **/
+	/**
+		Returns a hover hint for a text offset after the pointer rests there.
+		Null falls back to decoration titles at that position.
+	**/
 	?hover:Int->Null<CodeHint>,
 	/** Definition navigation at a text offset on Command-click (macOS) or Control-click; handled before selection. **/
 	?onNavigate:Int->Void,
-	/** Seconds the pointer rests on a character before `hover` is asked, 0.45 by default. **/
+	/** Delay before requesting a hover hint, in seconds. Defaults to 0.45. **/
 	?hintDelay:Float,
-	/** The widest the minimap gets, 96 by default; it is a quarter of the editor's width when that is less. **/
+	/** Maximum minimap width in pixels, default 96. Capped at one quarter of the editor width. **/
 	?minimapWidth:Float,
 	/** Spaces per tab stop and indentation level, 4 by default. **/
 	?tabSize:Int,
@@ -87,7 +90,10 @@ typedef CodeEditorProps = {
 	?disabled:IntoReactive<Bool>,
 	?onInput:String->Void,
 	?onSubmit:String->Void,
-	/** Called with each key press before the editor handles it; return true to keep the editor from it, as for F2, F12 or Ctrl+Space. It does not stop the event reaching others: `preventDefault` does that. **/
+	/**
+		Called before built-in key handling. Return true to skip editor handling, for example for F2 or F12.
+		The event still reaches other handlers; call `preventDefault` to prevent default processing.
+	**/
 	?onKey:KeyEvent->Bool,
 	/** Handle the built-in find/replace shortcuts, true by default. Apps may use showFind/findNext with their own bindings. **/
 	?findShortcuts:Bool,
@@ -118,7 +124,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public var document(default, null):CodeDocument;
 	public var scroll(default, null):Scroll;
 	public var metrics(default, null):CodeMetrics;
-	/** What the app marks in the text and gutter; `decorate` and `markers` are its way in. **/
+	/** Text decorations and gutter markers. Update them with `decorate` and `markers`. **/
 	public var annotations(default, null):CodeAnnotations;
 	public var search(default, null):CodeFind;
 	var hints:Null<CodeHints> = null;
@@ -581,10 +587,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 		annotations.mark(owner, list, follow);
 
 	/**
-		Replaces `owner`'s zones with `list`; an empty list clears them. A zone is an element placed between line `line` and the next:
-		it takes the editor's width beside the gutter and its own height, the rows after it move down by that height, and it scrolls
-		with the text. With `follow` it stays with its line as the text is edited. The element is the editor's once given: a zone replaced
-		or cleared has its element taken out of the editor.
+		Replaces the zones registered by `owner`. An empty list removes them.
+		Each zone inserts an element below its `line`, beside the gutter.
+		The element uses the editor's content width and its own height, pushes
+		later rows down, and scrolls with the text.
+
+		With `follow=true`, zones track their lines through edits. The editor
+		takes ownership of zone elements and removes them when replaced or cleared.
 	**/
 	public function zone(owner:String, list:Array<CodeZone>, follow = false):Void
 		annotations.zone(owner, list, follow);
@@ -1005,9 +1014,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 	public function undo():Void restore(false);
 	public function redo():Void restore(true);
 	/**
-		Replaces each stretch `from` to `to` of the text by its `text`, all as one undo step: a rename, or what a formatter answers with.
-		The edits may come in any order, but must not overlap. The caret and the selection's anchor move with the text, to the end of
-		what replaces them when they were inside a stretch. It applies where the user could not type, in a read-only editor too.
+		Applies text replacements as one undo step, such as a rename or formatter result.
+		Each edit replaces the range `from`–`to` with `text`. Edits may arrive in
+		any order but must not overlap.
+
+		The caret and selection anchor track the edits. Positions inside a
+		replaced range move to the end of its replacement. Programmatic edits
+		also work in read-only editors and ranges the user cannot edit.
 	**/
 	public function applyEdits(edits:Array<CodeEdit>):Void {
 		var old = value.get();

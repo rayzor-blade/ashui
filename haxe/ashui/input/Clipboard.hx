@@ -9,15 +9,14 @@ typedef ClipboardEntry = {
 }
 
 /**
-	What is copied and pasted, as text or as data of any MIME type: HTML, an
-	image as `image/png`, files as `text/uri-list` (`file://` URIs, one a
-	line). A copy can hold several representations of one thing, so a paste
-	takes the best one it understands. In a windowed build it is the
-	system's clipboard, through hlwindow; elsewhere, such as offscreen or in
-	tests, it is held in the process.
+	Reads and writes clipboard data in one or more MIME formats.
+	Examples include UTF-8 `text/plain`, HTML, `image/png` and `text/uri-list`
+	(file URIs, one per line). Multiple formats can represent the same item;
+	the receiving application chooses a supported format.
 
-	`text/plain` is UTF-8 text, and `text` and `setText` read and write it.
-	On Wayland a write is taken only after the window has had input.
+	Windowed builds use the system clipboard through hlwindow. Offscreen
+	renders and tests use an in-process clipboard. `text` and `setText`
+	provide plain-text access. Wayland accepts writes only after window input.
 **/
 class Clipboard {
 	public static inline var TEXT = "text/plain";

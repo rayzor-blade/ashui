@@ -38,21 +38,18 @@ typedef MotionVerdict = {
 }
 
 /**
-	Judges a track against what it was declared to do. Every animation
-	advances on the scheduler's clock, so where a track should be at a frame
-	is its curve at the time since it was due to start: a track that starts
-	a frame late, runs on a clamped step while the clock runs on, restarts,
-	jumps, or never moves at all shows as a distance from its curve or as
-	time it ran past its duration.
+	Compares an animation track with its declared curve and duration.
+	Expected progress comes from the scheduler clock relative to the planned
+	start time. Deviations expose late starts, clamped steps, restarts,
+	jumps, stalled animations and duration overruns.
 **/
 class MotionCheck {
 	/** A fraction of the move a frame may be off its curve. **/
 	public static var tolerance = 0.02;
 
 	/**
-		Seconds within which a move undone by the next on the same property is
-		a bounce rather than two intended moves: a few frames, as a flicker in
-		layout or styles is; a person moving focus on undoes a ring later.
+		Time window in seconds for detecting a move immediately reversed on the same property.
+		Short reversals indicate a bounce, such as layout or style flicker, rather than separate intended moves.
 	**/
 	public static var bounceWindow = 0.05;
 

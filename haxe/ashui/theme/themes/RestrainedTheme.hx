@@ -2,7 +2,7 @@ package ashui.theme.themes;
 
 import ashui.theme.*;
 
-/** Universal HID · Restrained: Apple-leaning, quiet surfaces and the strongest squircle. **/
+/** A restrained Universal theme inspired by Apple HIG: quiet surfaces and pronounced squircle corners. **/
 class RestrainedTheme {
 	public static inline var NAME = "Universal · Restrained";
 
@@ -22,7 +22,7 @@ class RestrainedTheme {
 		return new Theme(NAME, colorScheme, colors, Universal.typography(15), SpacingTokens.defaults(), radii(), shadows, animations(), shape());
 	}
 
-	/** `radiusDefault` sits at the squircle threshold, so unmarked surfaces are smoothed. **/
+	/** Sets the default radius at the smoothing threshold, so default surfaces use squircle corners. **/
 	public static function radii():RadiusTokens {
 		return {
 			radiusNone: 0,

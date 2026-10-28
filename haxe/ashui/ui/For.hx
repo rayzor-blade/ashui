@@ -9,15 +9,14 @@ import ashui.ui.Div.DivAttributes;
 private typedef Row<T> = {value:T, owner:Owner, element:Element};
 
 /**
-	One `item(value)` per value of `each()`, in order, laid out in the
-	element it is placed in as that element's own children: its direction,
-	gap and alignment apply to them. Each item is built under its own owner.
-	When the list changes, an item whose value is still present (by `==`)
-	keeps its element, and an item no longer present is disposed. `each` is
-	tracked like a computed, and the update happens at the next
-	`LayoutTree.flush`. It is a fragment, with no box of its own (see
-	`LayoutTree.makeFragment`). hxx lowers `<for {value in list}>...</for>`
-	to it.
+	Renders `item(value)` for each value in `each()`, preserving list order.
+	This component is a fragment with no box. Items participate directly in
+	the parent's layout, including its direction, gaps and alignment.
+
+	Each item has its own owner. When the list changes, values still present
+	according to `==` retain their elements. Removed items are disposed.
+	`each` tracks reactive dependencies; updates apply at the next
+	`LayoutTree.flush`. HXX compiles `<for {value in list}>...</for>` to this component.
 **/
 class For<T> extends Div {
 	public function new(each:Void->Array<T>, item:T->Element, ?attr:DivAttributes, ?tree:LayoutTree) {

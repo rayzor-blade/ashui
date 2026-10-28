@@ -16,20 +16,22 @@ import ashui.reactive.Watch;
 #end
 
 /**
-	One handle on elements, to drive them from code: their handlers, focus,
-	attributes, classes and properties, each call returning the handle.
+	Updates element handlers, focus, attributes, classes and properties.
+	Methods return the query so calls can be chained:
 
-		query(button).onClick(_ -> save()).focusable();
-		query(panel).addClass("open").set(Prop.Opacity, 0.9);
-		query(".row", list).onClick(e -> pick(e)).removeClass("stale");
+	```haxe
+	query(button).onClick(_ -> save()).focusable();
+	query(panel).addClass("open").set(Prop.Opacity, 0.9);
+	query(".row", list).onClick(e -> pick(e)).removeClass("stale");
+	```
 
-	`query` takes an element, a `Ref`, a `RefList`, or a selector with where to look, an
-	element or a tree; anything else is a compile error, and a quoted
-	selector is read at compile time. On a `Ref` what it is told is kept,
-	and done again on each element the ref comes to hold; on an element or
-	a selector it is done now, to what is there now, as
-	`querySelectorAll`'s list is what matched when it ran. On a `RefList`
-	it is done to every element in it, and to each that joins later.
+	Targets can be an element, `Ref`, `RefList`, or a selector with an element
+	or tree to search. Unsupported targets and invalid literal selectors are
+	compile errors.
+
+	Element and selector queries update the current matches once. A query on
+	a `Ref` reapplies its configuration when the reference changes. A query
+	on a `RefList` applies to current elements and those added later.
 **/
 class Query {
 	/** A handle on `target`: an element, a `Ref`, or a selector with `within`, an element or a tree, to look under. **/

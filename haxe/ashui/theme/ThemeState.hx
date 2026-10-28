@@ -6,17 +6,16 @@ import ashui.animation.SpringConfig;
 import ashui.reactive.Signal;
 
 /**
-	The theme in use in the current UI context: its bundle and scheme, the tokens
-	they give, and overrides of single tokens. Install one with `init` or
-	`initDefault`, then reach it with `get`.
+	Manages the active theme, color scheme and token overrides in a UI context.
+	Install a theme with `init` or `initDefault`, then access it with `get`.
 
-	`revision` is a signal bumped on every change. A computed that reads it,
-	as each of `Themed`'s does, runs again when the theme changes, so a
-	property bound to a token updates and nothing else is rebuilt. The
-	redraw callback is called on every change too, so a window draws the
-	new look. A scheme switch with a scheduler set animates the colours on
-	a gentle spring, advanced by `tick` each frame; every other token
-	family switches at once. Mirrors Blinc's `ThemeState`.
+	Every token change updates the `revision` signal. `Themed` bindings read
+	this signal and update their properties without rebuilding elements.
+	Changes also trigger the registered redraw callback.
+
+	When a scheduler is set, color-scheme changes animate colors on a spring.
+	Call `tick` each frame to advance the transition. Other token families
+	change immediately. This follows Blinc's `ThemeState` model.
 **/
 class ThemeState {
 	static final local = new ashui.core.UiContext.Local<Null<ThemeState>>(() -> null, state -> state == null ? null : state.fork());
@@ -111,7 +110,7 @@ class ThemeState {
 		return instance;
 	}
 
-	/** Calls `callback` on every theme change, so a window loop draws a frame; replaces the last one. **/
+	/** Registers the redraw callback for theme changes. Replaces the previous callback. **/
 	public static function setRedrawCallback(callback:Void->Void):Void {
 		get().redrawCallback = callback;
 	}
@@ -132,8 +131,8 @@ class ThemeState {
 	}
 
 	/**
-		Switches to `scheme`. Colours spring from where they are now, even
-		mid-transition, when a scheduler is set; the rest switches at once.
+		Switches color schemes. With a scheduler, colors animate from their current values,
+		including during an unfinished transition. Other tokens change immediately.
 	**/
 	public function setScheme(scheme:ColorScheme):Void {
 		if (scheme == currentScheme)
@@ -165,10 +164,7 @@ class ThemeState {
 		setScheme(currentScheme.toggle());
 	}
 
-	/**
-		Moves a scheme transition on to where its spring is; call once a
-		frame. True while it still runs.
-	**/
+	/** Advances the color-scheme transition. Call once per frame. Returns true while it is running. **/
 	public function tick():Bool {
 		// 0: no transition; 1: moved on; 2: moved on and finished.
 		var step = locked(() -> {
@@ -272,7 +268,7 @@ class ThemeState {
 		return currentRadii;
 	}
 
-	/** Gives `token` `value` pixels whatever the theme says; radii only repaint, as they do not change layout. **/
+	/** Overrides a radius token in pixels. Requests a repaint; corner radii do not affect layout. **/
 	public function setRadiusOverride(token:RadiusToken, value:Float):Void {
 		radiusOverrides.set(cast token, F32.round(value));
 		repaint = true;
@@ -326,10 +322,10 @@ class ThemeState {
 	// --- CSS variables ---
 
 	/**
-		Every token as a CSS custom property, named without `--`, for style
-		sheets: colours with overrides as `#rrggbb` or `rgba(…)`, radii and
-		spacing without overrides in `px`, and so on. Names and forms are
-		Blinc's, so a sheet written for it reads the same values.
+		Exports tokens as CSS custom properties. Map keys omit the `--` prefix.
+		Colors include overrides and use `#rrggbb` or `rgba(...)` syntax.
+		Spacing and radii use `px` values from the theme, without overrides.
+		Names and value formats match Blinc's CSS variables.
 	**/
 	public function toCssVariableMap():Map<String, String> {
 		var vars = new Map<String, String>();

@@ -37,12 +37,14 @@ typedef ButtonProps = {
 }
 
 /**
-	A button, of a variant and a size: the built-in `<button>`, so it takes
-	focus, is clicked by Enter and Space, and submits a form it is in, with
-	the library's look. CSS: `.ui-button`, `[data-variant]` (primary,
-	secondary, destructive, outline, ghost, link), `[data-size]` (sm, md,
-	lg, icon); `--ui-button-bg`, `-bg-hover`, `-bg-active`, `-fg`,
-	`-border`, `-height`, `-padding`, `-radius`, `-gap`, `-font-size`.
+	A styled button with built-in focus, Enter/Space activation and form submission.
+
+	Variants: primary, secondary, destructive, outline, ghost and link.
+	Sizes: sm, md, lg and icon.
+	CSS targets: `.ui-button`, `[data-variant]` and `[data-size]`.
+
+	Customize with `--ui-button-bg`, `-bg-hover`, `-bg-active`, `-fg`,
+	`-border`, `-height`, `-padding`, `-radius`, `-gap` and `-font-size`.
 **/
 class Button extends Component<ButtonProps> {
 	function render():Element {

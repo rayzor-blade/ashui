@@ -13,10 +13,12 @@ typedef EqualizerBand = {
 }
 
 /**
-	Reactive peaking-band equalizer for playback and decoded PCM. Settings are
-	shared with attached Players; each native player keeps its own DSP history.
-	Created under an Owner, it closes on cleanup. Otherwise call close yourself.
-	Read the signals for UI and change settings through the methods.
+	A reactive peaking-band equalizer for playback and decoded PCM.
+	Attached players share its settings but keep separate DSP histories.
+	Read signals for state and use methods to change settings.
+
+	The current `Owner` closes the equalizer on cleanup. When created outside
+	an owner, call `close` explicitly.
 **/
 class Equalizer {
 	public final bands:Array<Signal<EqualizerBand>> = [];

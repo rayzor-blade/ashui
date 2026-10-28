@@ -1,15 +1,13 @@
 package ashui.theme;
 
 /**
-	One scheme of a theme, light or dark: every token family. A token is a
-	named design value, a colour such as `ColorToken.Primary`, a spacing
-	step, a radius, that UI code refers to by name rather than writing the
-	value; the theme supplies the values, so a theme or scheme change
-	restyles everything that uses them. `ThemeState` holds the one in use;
-	`Themed` and `tw` classes bind properties to its tokens.
+	Defines the design tokens for one light or dark color scheme.
+	Tokens name reusable values such as colors, spacing and corner radii.
+	`ThemeState` selects the active theme. `Themed` bindings and `tw` classes
+	use its tokens, so changing the theme updates the UI.
 
-	A theme that does not smooth corners leaves `shape` out and gets
-	`ShapeTokens.OFF`. Mirrors Blinc's `Theme` trait.
+	Omit `shape` to use `ShapeTokens.OFF`, which disables corner smoothing.
+	This type corresponds to Blinc's `Theme` trait.
 **/
 @:structInit
 final class Theme {

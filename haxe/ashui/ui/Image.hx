@@ -22,11 +22,15 @@ typedef ImageAttributes = {
 }
 
 /**
-	Draws a `Bitmap` in its box, resampled to the size it covers on screen,
-	fitted as `fit` says: stretched by default, or letterboxed whole
-	(`Contain`) or cropped to cover the box (`Cover`). `None` keeps its
-	intrinsic size; `ScaleDown` contains it without enlargement. Positioning
-	defaults to the center and follows CSS object-position.
+	Draws a bitmap resampled to its on-screen size. `fit` controls sizing:
+
+	- Default: stretch to fill the box.
+	- `Contain`: show the whole image with letterboxing if needed.
+	- `Cover`: fill the box and crop excess content.
+	- `None`: keep the intrinsic image size.
+	- `ScaleDown`: contain the image without enlarging it.
+
+	Positioning is centered by default and follows CSS `object-position`.
 **/
 class Image extends Element {
 	static final byNode = new haxe.ds.ObjectMap<ashui.layout.Node, Image>();

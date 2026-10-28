@@ -42,15 +42,14 @@ typedef ApplyContext = {
 }
 
 /**
-	CSS properties applied to a node: each reads its value with `CssValue`,
-	turns it into ashui's values and writes it with the stylesheet's write,
-	which leaves alone what the element set itself. Shorthands write their
-	longhands. Each returns the fields it wrote, by `Node.field`, so the
-	cascade can unset the ones a later match no longer writes.
+	Parses CSS property values and applies them to nodes without overriding
+	properties set directly by the element. Shorthands write their longhands.
+	Handlers return the fields they wrote (`Node.field`), so the cascade can
+	clear fields that no longer have a matching declaration.
 
-	Lengths in `%` reach native layout for sizes, flex basis, padding,
-	margin, insets and gaps; `em`, `rem`, `vw` and `vh` resolve to pixels
-	when applied.
+	Percentage sizes, flex basis, padding, margins, insets and gaps are
+	resolved by native layout. `em`, `rem`, `vw` and `vh` resolve to pixels
+	when the property is applied.
 **/
 class Properties {
 	/** The supported properties, by name. **/

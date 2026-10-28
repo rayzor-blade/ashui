@@ -2,7 +2,7 @@ package ashui.theme.themes;
 
 import ashui.theme.*;
 
-/** Universal HID · Expressive: Material-leaning, bolder colour and shadows tinted with the accent. **/
+/** An expressive Universal theme inspired by Material Design: bold colors and accent-tinted shadows. **/
 class ExpressiveTheme {
 	public static inline var NAME = "Universal · Expressive";
 
@@ -22,7 +22,7 @@ class ExpressiveTheme {
 		return new Theme(NAME, colorScheme, colors, Universal.typography(15), SpacingTokens.defaults(), radii(), shadows, animations(), shape());
 	}
 
-	/** `radiusDefault` sits at the squircle threshold, so unmarked surfaces are smoothed. **/
+	/** Sets the default radius at the smoothing threshold, so default surfaces use squircle corners. **/
 	public static function radii():RadiusTokens {
 		return {
 			radiusNone: 0,

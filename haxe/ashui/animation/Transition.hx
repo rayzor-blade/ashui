@@ -6,11 +6,12 @@ import ashui.theme.EasingToken;
 import ashui.theme.ThemeState;
 
 /**
-	Which properties of a node animate when their value changes, for how
-	long and along which curve, as a CSS `transition` says. A duration or a
-	curve left out is the theme's: its fast duration and its default curve.
-	Set on a node before the properties it covers; `tw`'s `transition`
-	classes make one.
+	Defines which node properties animate when their values change, with a
+	duration and easing curve. This corresponds to a CSS `transition`.
+	Omitted settings use the theme's fast duration and default easing.
+
+	Set the transition before the properties it covers. Tailwind-style
+	`transition` classes create these definitions automatically.
 **/
 class Transition {
 	/** Background, border and text colours. **/

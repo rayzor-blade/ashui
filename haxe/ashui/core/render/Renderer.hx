@@ -31,35 +31,27 @@ import gpu.PrimitiveTopology;
 import gpu.TextureFormat;
 
 /**
-	Draws a `DisplayList` with the GPU. `Offscreen` drives it, and
-	`WindowedApp` through that; an app rarely makes one itself.
+	Renders a `DisplayList` on the GPU. Usually created by `Offscreen`,
+	which also supplies rendering for `WindowedApp`.
 
-	A display list is the laid-out UI flattened into what to paint, in paint
-	order: one record per primitive (a box, a shadow, a glyph, an image, or
-	the start or end of a layer), each a fixed number of rows of four floats
-	(see `ashui.layout.RecordLayout`). The records are uploaded as rows of a
-	float texture, which each shader reads its instance's record from (see
-	`UiFramework`), on every platform alike. Each record is an instanced
-	quad of six vertices, and each run of records of one kind is one draw
-	with that kind's pipeline, so paint order holds across kinds.
+	The display list stores paint-ordered records for boxes, shadows, glyphs,
+	images and layer boundaries. Records use rows of four floats (see
+	`RecordLayout`) uploaded to a texture. Each primitive is a six-vertex
+	instanced quad. Consecutive primitives of the same kind share a draw
+	call and pipeline, preserving paint order across kinds.
 
-	Shapes are drawn from signed distances (see `Sdf`): for each pixel the
-	shader works out how far it is from the shape's edge and turns that
-	into coverage, so edges are anti-aliased at any size, rotation or
-	corner shape without building meshes.
+	Shapes use signed-distance coverage for antialiased edges at any scale,
+	rotation or corner shape. See `Sdf`.
 
-	A group with opacity, a filter or a drop shadow draws into a layer: a
-	cleared offscreen texture the target's size, composited back over the
-	group's bounds by `LayerShader`, as CSS composites one, so overlapping
-	children fade or blur as one image. Layers nest, a texture per depth.
+	Groups with opacity, filters or drop shadows render into offscreen layers,
+	then composite over their bounds with `LayerShader`. This applies effects
+	to overlapping children as one image. Nested groups use one texture per depth.
 
-	Colours are straight alpha, blended over the target in gamma space, so
-	targets should be formats without sRGB encoding. Glyphs sample the text
-	engine's atlases, uploaded before each frame that changed them; images
-	sample an atlas of their own, rasterized into as they appear.
+	Colors use straight alpha and gamma-space blending; targets should use
+	formats without sRGB encoding. Glyph atlases upload only when changed.
+	Images use a separate atlas populated on demand.
 
-	Written against hlwgpu's `gpu` package; the shaders are HXSL, so
-	caribou-gpu takes the same ones. Draws as Blinc's renderer does.
+	Uses hlwgpu's `gpu` API and HXSL shaders, also supported by caribou-gpu.
 **/
 class Renderer {
 	final device:GpuDevice;
@@ -386,10 +378,12 @@ class Renderer {
 	}
 
 	/**
-		What of this frame to draw again: the part of the target the records that differ from the last frame's, and the
-		canvases that draw something other than they did, cover, grown to what is drawn over it or reads it, and which records
-		touch it. Null for the whole frame: there is no last frame to start from, or the size or colour changed, or the records
-		are not the same in number, or a layer is drawn, or the part is most of the frame. A `rect` of null: nothing differs.
+		Calculates frame damage from changed records and canvases, then expands
+		it to include overlapping content and dependent effects.
+
+		Returns null when a full redraw is required: no previous frame, changed
+		size or clear color, a different record count, layers, or a large dirty
+		area. A result with `rect=null` means nothing changed.
 	**/
 	function planDamage(list:DisplayList, width:Int, height:Int, layerWidth:Int, layerHeight:Int, r:Float, g:Float, b:Float, a:Float):Null<Damage> {
 		var RB = DisplayList.RECORD_BYTES;

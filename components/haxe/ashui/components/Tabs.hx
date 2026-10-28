@@ -23,16 +23,19 @@ typedef TabsProps = {
 }
 
 /**
-	Tabs: a `TabsList` of `TabsTrigger`s, each with a `value`, and a
-	`TabsContent` for each value, shown while its trigger is chosen. A
-	click, Enter or Space chooses a trigger; in the list, the arrows, Home
-	and End move to another and choose it. CSS: `.ui-tabs`,
-	`.ui-tabs-list`, `.ui-tabs-trigger`, `.ui-tabs-content`, each
-	`[data-state]` active or inactive (an inactive content is not shown),
-	`.ui-tabs[data-size]`;
-	`--ui-tabs-list-bg`, `-active-bg`, `-radius`, `-trigger-radius`.
-	The list's `.ui-tabs-indicator` slides and resizes beneath the selected
-	trigger using layout animation and the theme's motion tokens (5bc757e).
+	Displays one content panel at a time. Compose a `TabsList` of
+	`TabsTrigger` elements and a `TabsContent` panel for each matching `value`.
+	Clicks, Enter and Space select a tab. Arrows, Home and End move and select
+	within the list.
+
+	The `.ui-tabs-indicator` slides and resizes beneath the selected trigger
+	using layout animation and theme motion tokens (5bc757e).
+
+	CSS targets: `.ui-tabs`, `.ui-tabs-list`, `.ui-tabs-trigger` and
+	`.ui-tabs-content`. `[data-state]` is `active` or `inactive`; inactive
+	panels are hidden. The root exposes `[data-size]`.
+	Custom properties: `--ui-tabs-list-bg`, `-active-bg`, `-radius` and
+	`-trigger-radius`.
 **/
 class Tabs extends Component<TabsProps> {
 	/** The value of the tab shown; the caller's signal when `value` was one. **/

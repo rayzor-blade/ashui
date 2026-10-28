@@ -45,27 +45,19 @@ enum abstract SceneStage(Int) to Int {
 }
 
 /**
-	Drawing of one's own in a 3D scene, with the GPU directly: a skinned
-	character, a particle system, a terrain, a grid. ashui's meshes and a
-	pass share the scene's colour and depth, so they hide each other where
-	they should, and the scene is composited under the UI as a canvas is.
+	Adds custom GPU drawing to a 3D scene, such as characters, particles,
+	terrain or a grid. Custom passes share scene color and depth with Ashui
+	meshes, so occlusion works between them. The scene composites beneath the UI.
 
-	```haxe
-	class Characters implements ScenePass {
-		public function stage() return Opaque;
-		public function animated() return true;
-		public function prepare(frame) { upload joint matrices; run skinning }
-		public function draw(frame) { set pipeline and buffers; draw }
-	}
-	ctx.drawPass(characters);    // in a canvas's or <scene-kit>'s draw
-	```
+	Implement `stage`, `animated`, `prepare` and `draw`, then submit the pass
+	with `ctx.drawPass(pass)` from a canvas or `<scene-kit>` draw callback.
 
-	`frame` (`ashui.core.render.ScenePassFrame`) gives the device and
-	encoder, the layer's formats and size, the camera, and the `scene`
-	buffer that ashui's own shaders light with: a shader that declares it
-	and `@:import`s `ashui.shaders.Scene`, `Pbr` and `ColorSpace` sees and
-	lights the scene as ashui's meshes do. The pass owns what it makes and
-	frees it itself.
+	`ScenePassFrame` provides the device, encoder, target formats, dimensions,
+	camera and shared `scene` buffer. Shaders can declare that buffer and
+	import `ashui.shaders.Scene`, `Pbr` and `ColorSpace` to use the same
+	lighting as built-in meshes.
+
+	The pass owns its resources and must release them itself.
 **/
 interface ScenePass {
 	/** When it draws. **/

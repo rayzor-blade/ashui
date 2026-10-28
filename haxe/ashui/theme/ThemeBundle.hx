@@ -1,9 +1,8 @@
 package ashui.theme;
 
 /**
-	A theme's light and dark schemes, with style sheets that come with it.
-	The sheets are queued when the bundle is installed, for the style system
-	to take in order.
+	Groups a theme's light and dark schemes with its CSS stylesheets.
+	Installing the bundle queues its stylesheets in registration order.
 **/
 final class ThemeBundle {
 	public final name:String;
@@ -17,18 +16,18 @@ final class ThemeBundle {
 		this.dark = dark;
 	}
 
-	/** The light or the dark theme. **/
+	/** Returns the theme for the requested color scheme. **/
 	public function forScheme(scheme:ColorScheme):Theme {
 		return scheme == Dark ? dark : light;
 	}
 
-	/** Adds a style sheet, as text. **/
+	/** Adds a CSS stylesheet and returns this bundle. **/
 	public function withCss(css:String):ThemeBundle {
 		cssSources.push(css);
 		return this;
 	}
 
-	/** Adds the style sheet in `path`; one that cannot be read becomes a CSS comment saying why. **/
+	/** Loads a CSS stylesheet from `path`. If loading fails, adds a CSS comment describing the error. **/
 	public function withCssFile(path:String):ThemeBundle {
 		try {
 			cssSources.push(ashui.core.Assets.text(path));

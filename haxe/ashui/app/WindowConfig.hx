@@ -64,18 +64,14 @@ typedef WindowConfigData = {
 }
 
 /**
-	How `WindowedApp.run` opens its window, written either way: as an
-	object,
+	Settings for a window. Pass an object or use the fluent builder:
 
-		WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
+	```haxe
+	WindowedApp.run({title: "ashui", width: 640, height: 480}, page);
+	WindowedApp.run(new WindowConfig().title("ashui").width(640).height(480), page);
+	```
 
-	or built, each setter named as its field and returning the config:
-
-		WindowedApp.run(new WindowConfig().title("ashui").size(640, 480).transparent(true), page);
-
-	An object given where a config is wanted is the config itself, so the
-	builder carries on from one: `({title: "ashui"} : WindowConfig).size(640, 480)`.
-	`data` reads the fields back.
+	Builder methods match the field names and return the config.
 **/
 abstract WindowConfig(WindowConfigData) from WindowConfigData to WindowConfigData {
 	/** An empty config: every field its default. **/

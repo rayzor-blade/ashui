@@ -19,18 +19,18 @@ typedef LayoutAnimationOptions = {
 }
 
 /**
-	Layout animation by FLIP: when layout moves or resizes an element, layout
-	settles at once and the element is drawn where it was, then eases to
-	where it is now. Nothing is laid out again for it: the element is drawn
-	away from its layout (`LayoutTree.setVisual`), moved by what is left of
-	the move and, while its size changes, at the size between, its children
-	clipped to it rather than stretched. An accordion's panel growing, a
-	list's items making room, a tab's indicator sliding.
+	Animates layout changes using FLIP. Layout updates immediately, while the
+	element is initially drawn at its previous position and size. It then
+	eases toward the new geometry without rerunning layout for each frame.
+	Children are clipped during resizing rather than stretched.
 
-	A change is measured against the nearest animated element it is in, so
-	a child carried by its parent's move does not move twice. A change while
-	one is running starts from where the element is drawn then. It eases
-	over the theme's motion tokens unless given its own.
+	Use this for expanding accordion panels, reordering lists and sliding tab
+	indicators. `LayoutTree.setVisual` applies the visual offset.
+
+	Movement is measured relative to the nearest animated ancestor, so a
+	parent's movement does not animate its children twice. Interrupted
+	animations restart from the current visual position. Timing defaults to
+	the theme's motion tokens.
 **/
 class LayoutAnimation {
 	static final animated = new haxe.ds.ObjectMap<LayoutTree, Map<String, LayoutAnimation>>();

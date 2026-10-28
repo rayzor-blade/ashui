@@ -3,19 +3,22 @@ package ashui.draw3d;
 import ashui.math.Vec3;
 
 /**
-	What meshes are drawn under: the camera, the `lighting` (see
-	`SceneLighting`), the exposure the result is shown at, and what is
-	behind them, `background` at `backgroundAlpha` (by default nothing: the
-	canvas shows through), and the `fog` they fade into with distance, if
-	any, the strength of the fish-eye `lens` it is seen through (0 for no
-	lens; larger values bend more), its `bloom`, if any, its `vignette`
-	(how much the edges and corners are darkened, from 0 for none to 1),
-	its film `grain` (0 for none, 1 for heavy), its chromatic `aberration`
-	(0 for none, 1 for strong colour fringes at the edges), its colour
-	`grade`, if any, whether its edges are smoothed by FXAA (`antialias`),
-	and its `motionBlur`: how long the camera's shutter stays open, as a
-	share of a frame, from 0 (none) to 1. Meshes that move or turn quickly,
-	such as spinning rotors, are smeared along their movement. Immutable; `with` makes a changed copy.
+	Immutable settings for rendering a 3D scene. Use `with` to create a
+	modified copy.
+
+	- `camera`, `lighting` and `exposure` control the view and illumination.
+	- `background` and `backgroundAlpha` set the clear color. The canvas
+	  shows through by default.
+	- `fog` fades distant geometry. `bloom` and `grade` add post-processing.
+	- `lens` controls fisheye distortion: 0 disables it; larger values bend more.
+	- `vignette` darkens edges and corners, from 0 to 1.
+	- `grain` adds film grain, from 0 (none) to 1 (heavy).
+	- `aberration` adds edge color fringes, from 0 (none) to 1 (strong).
+	- `antialias` enables FXAA.
+	- `motionBlur` sets shutter duration as a fraction of a frame, from 0 to 1.
+	  Fast-moving or rotating meshes blur along their motion.
+
+	See `SceneLighting` for lighting configuration.
 **/
 class Scene3D {
 	public static final DEFAULT = new Scene3D(new Camera(new Vec3(0, 1.5, 4), Vec3.ZERO),

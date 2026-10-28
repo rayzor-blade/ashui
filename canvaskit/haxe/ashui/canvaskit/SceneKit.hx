@@ -126,20 +126,18 @@ typedef SceneKitProps = {
 }
 
 /**
-	A 3D viewport, `<scene-kit>`: a canvas that draws a scene through an
-	`OrbitCamera`, lit by `lights`, moved by `OrbitInput` as it is
-	dragged and scrolled. Size it as any element:
+	An interactive 3D viewport with an `OrbitCamera`, lighting and `OrbitInput`
+	controls. Size it like any other element:
 
 	```haxe
 	var camera = new OrbitCamera(0.4, 0.3, 3);
 	<scene-kit camera={camera} lights={rig} width={960} height={720}
-		draw={ctx -> ctx.drawMesh(helmet)} />;
+	    draw={ctx -> ctx.drawMesh(helmet)} />;
 	```
 
-	Each prop given as a signal is followed: the canvas draws again when
-	the camera or a prop it reads changes, and only then. The camera is
-	the caller's to keep, so other code can move it (`camera.frame(...)`,
-	`camera.reset()`).
+	Signal props trigger redraws when their values change. The camera remains
+	caller-owned, so application code can also call `camera.frame(...)` or
+	`camera.reset()`.
 **/
 class SceneKit extends Component<SceneKitProps> {
 	/** Editor controls, when `selection` or `worldGizmo` is supplied. **/

@@ -14,17 +14,14 @@ import ashui.ui.Div;
 import ashui.ui.Text;
 
 /**
-	Draws a motion trace over each frame: every element moving now, and for
-	a moment after it stops, gets its box outlined in a colour of its own; a
-	trail through where it was drawn each frame, a dot a frame, so the dots'
-	spacing shows its easing; under it a bar for each property moving, filled
-	as far as the property has got, with a tick where its curve says it
-	should be by now; and above it a label per property, its time against
-	its duration, `!` when `MotionCheck` finds a problem. A panel in the
-	corner plots each recent track's curve as declared, in grey, and as it
-	ran, a dot a frame.
+	Visualizes motion tracks over rendered frames. Each moving element gets:
 
-	Add it to `Offscreen.overlays` (a window's renderer, or a recorder's):
+	- A colored outline and one trail dot per frame. Dot spacing shows easing.
+	- A progress bar per animated property, with an expected-progress marker.
+	- A timing label and `!` when `MotionCheck` detects a problem.
+
+	Highlights remain briefly after motion stops. A corner panel compares
+	declared curves in gray with measured positions, one dot per frame.
 
 	```haxe
 	offscreen.overlays.push(new MotionOverlay(MotionTrace.start()));

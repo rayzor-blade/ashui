@@ -28,10 +28,11 @@ typedef ToggleProps = {
 }
 
 /**
-	A button that stays pressed: bold in a toolbar, a filter. Its children are
-	its label or icon. A press, Enter or Space turns it. CSS: `.ui-toggle`
-	(`[data-state]` on or off, `[data-variant]`, `[data-size]`, `:hover`,
-	`:active`, `:disabled`).
+	A toggle button for persistent choices, such as toolbar formatting or filters.
+	Children provide the label or icon. Click, Enter or Space toggles the state.
+
+	CSS: `.ui-toggle` with `[data-state="on"|"off"]`, `[data-variant]`,
+	`[data-size]`, `:hover`, `:active` and `:disabled`.
 **/
 class Toggle extends Component<ToggleProps> {
 	public var pressed(default, null):Signal<Bool>;

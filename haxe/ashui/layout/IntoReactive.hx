@@ -4,10 +4,9 @@ import ashui.reactive.Signal;
 import ashui.reactive.Computed;
 
 /**
-	The three things a property can be given: a constant (`Const`), a
-	signal (`Bound`) or a computed (`Derived`). Code meets it as
-	`IntoReactive<T>`, which converts to it implicitly; switch on it to treat
-	the three apart. Mirrors Blinc's `Reactive<T>`.
+	Represents a constant (`Const`), signal (`Bound`) or computed (`Derived`).
+	`IntoReactive<T>` converts these inputs implicitly. Switch on this enum to handle each case.
+	Corresponds to Blinc's `Reactive<T>`.
 **/
 enum ReactiveType<T> {
 	/** A value, applied once. **/
@@ -21,19 +20,21 @@ enum ReactiveType<T> {
 }
 
 /**
-	What a property accepts: a constant, a `Signal<T>` or a `Computed<T>`,
-	each converted implicitly. So `node.set(Prop.Width, 120)`,
-	`node.set(Prop.Width, width)` with `width` a signal, and
-	`node.set(Prop.Width, Computed.make(() -> width.get() * 2))` all type,
-	and so do the same values given to a `Div` attribute or to a component
-	prop typed `IntoReactive<T>`.
+	Accepts a constant, `Signal<T>` or `Computed<T>` as a property value:
 
-	A constant is applied once. A signal or computed is bound: applied now
-	and again on every change, with no watch or callback to write. The
-	property follows each `set` of a signal, and each new value of a
-	computed as what it read changes; each takes effect at the next
-	`LayoutTree.flush`. The conversion is resolved at compile time and
-	inlined. Mirrors Blinc's `IntoReactive<T>`.
+	```haxe
+	node.set(Prop.Width, 120);
+	node.set(Prop.Width, width);
+	node.set(Prop.Width, computed(() -> width.get() * 2));
+	```
+
+	The same inputs work in element attributes and component props typed
+	`IntoReactive<T>`. Import `ashui.reactive.Reactive` for `computed`.
+
+	Constants are applied once. Signals and computeds create native bindings
+	that update after changes, without an extra watch or callback.
+	`LayoutTree.flush` applies the updates. Conversions are resolved and
+	inlined at compile time. Corresponds to Blinc's `IntoReactive<T>`.
 **/
 @:forward
 abstract IntoReactive<T>(ReactiveType<T>) from ReactiveType<T> to ReactiveType<T> {
