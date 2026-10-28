@@ -213,52 +213,17 @@ Import `ashui.reactive.Reactive` for these shortcuts. Components can also use
 | [`ashui-media`](https://github.com/rayzor-blade/ashui/blob/main/media/README.md) | Audio/video playback, codecs, streams and equalization through hlavi |
 | [`ashui-icons`](https://github.com/rayzor-blade/ashui/blob/main/icons/README.md) | The Remix icon set as typed constants, and the macro that makes a set from your own SVG files |
 
-## Showcase
+## Projects built with Ashui
 
-### Default theme: Hybrid
+### [RayDE](https://github.com/rayzor-blade/RayDE)
 
-The same [chart gallery](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/ChartsGallery.hx)
-with themed cards, typography and charts in both schemes:
+RayDE is a Haxe IDE built with Ashui and the Ash runtime. It includes a code
+editor, language server support, an integrated terminal, and tools for building
+extensions and themes.
 
-| Dark | Light |
-| --- | --- |
-| ![Chart gallery in the dark theme](docs/images/charts-dark.png) | ![Chart gallery in the light theme](docs/images/charts-light.png) |
+![RayDE with two Haxe files open side by side](docs/images/RayDE.png)
 
-### Motion
-
-Native captures of the existing demos: drawer transitions and spring return,
-plus the component gallery's single and multiple accordions in a compact view.
-
-| [DrawerMotion](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/DrawerMotion.hx) | [ComponentsGallery](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/scenes/ComponentsGallery.hx) |
-| --- | --- |
-| ![Drawer opening, springing back after a drag, and dismissing](docs/images/drawer-motion.gif) | ![Single and multiple accordions expanding in a compact gallery view](docs/images/accordion-motion.gif) |
-
-### Canvas and media
-
-| [Studio3D](https://github.com/rayzor-blade/ashui/blob/main/tools/demo/Studio3D.hx) | [MediaPlayback](https://github.com/rayzor-blade/ashui/blob/main/tools/demo/MediaPlayback.hx) |
-| --- | --- |
-| ![3D studio with a glTF helmet and collapsed controls](docs/images/studio-3d.png) | ![Video with blurred overlay controls and a custom audio player](docs/images/media-playback.png) |
-
-Helmet by [theblueturtle_](https://sketchfab.com/models/b81008d513954189a063ff901f7abfe4)
-(CC BY-NC); HDR sky from Poly Haven (CC0).
-
-## Repository demos and tests
-
-Browse the [demos](https://github.com/rayzor-blade/ashui/tree/main/tools/demo)
-and [snapshot scenes](https://github.com/rayzor-blade/ashui/tree/main/tools/snapshot/scenes)
-for more examples. The repository's
-[offscreen runner](https://github.com/rayzor-blade/ashui/blob/main/tools/snapshot/run.sh)
-captures PNGs offscreen; `--watch` captures again when a scene,
-styles or framework change. These development tools live in the source
-repository, rather than the installed packages.
-
-[ashui in a page](docs/web.md) runs a program in the browser through Ash's WebAssembly target, drawn with WebGPU.
-
-[Icons](docs/icons.md) are typed constants compiled into the program, from the Remix catalogue or your own SVG files.
-
-[Visual debugging](docs/debugging.md) includes native hit maps, exact
-pointer paths, motion trails, easing curves and filmstrips.
+See [showcase and repository demos](docs/showcase.md) for theme previews,
+motion captures, and examples to run locally.
 
 Licensed under [Apache 2.0](https://github.com/rayzor-blade/ashui/blob/main/LICENSE).
-
-See [desktop windows and menus](docs/windows.md) for multiple windows, window-local services and application menus.
