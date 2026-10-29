@@ -31,7 +31,7 @@ class CodeWorkbench {
 		var value = signal(SAMPLE), changes = signal(0), tab = signal("source"), activity = signal("");
 		var editor = new Ref<CodeEditor>();
 		var actions:Array<ashui.components.code.CodeAnnotations.CodeLineActions> = [{line:5, actions:[
-			{label:"Run", icon:SvgDocument.of(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m8 5 11 7-11 7z" /></svg>), run:() -> activity.set("Run requested")},
+			{label:"Run", icon:SvgDocument.of(<svg viewBox="7 4 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m8 5 11 7-11 7z" /></svg>), run:() -> activity.set("Run requested")},
 			{label:"Debug", run:() -> activity.set("Debug requested")}
 		]}];
 		new Watch(() -> editor.get(), view -> if (view != null) {
