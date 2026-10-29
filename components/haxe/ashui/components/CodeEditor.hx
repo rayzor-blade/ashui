@@ -5,6 +5,10 @@ import ashui.components.code.CodeAnnotations.CodeDecoration;
 import ashui.components.code.CodeAnnotations.CodeMarker;
 import ashui.components.code.CodeAnnotations.CodeZone;
 import ashui.components.code.CodeAnnotations.ZonePlace;
+import ashui.components.code.CodeAnnotations.CodeAction;
+import ashui.components.code.CodeAnnotations.CodeLineActions;
+import ashui.components.Button;
+import ashui.components.Icon;
 import ashui.components.code.CodeZones;
 import ashui.components.code.CodeCompletions;
 import ashui.components.code.CodeCompletions.CodeCompletion;
@@ -73,6 +77,8 @@ typedef CodeEditorProps = {
 	?compactGutter:Bool,
 	/** Keeps compact gutter columns once activated, preventing edits from shifting the text during this view lifetime. **/
 	?stableGutter:Bool,
+	/** Commands above source lines. Reactive changes replace this set; actions follow their lines through edits. **/
+	?codeActions:IntoReactive<Array<CodeLineActions>>,
 	/**
 		Returns a hover hint for a text offset after the pointer rests there.
 		Null falls back to decoration titles at that position.
@@ -110,6 +116,7 @@ private typedef Run = {text:String, kind:String, x:Single, ?style:CodeTokenStyle
 private typedef Row = {line:CodeLine, source:Int, row:Int, top:Single, runs:Array<Run>, byKind:Map<String, Array<Run>>, width:Single, guides:Array<Single>, stamp:Int, tokens:Int, left:Float, right:Float};
 /** A pooled token run, identified by kind and index within its displayed row. **/
 private typedef Token = {kind:String, index:Int};
+private typedef ActionRow = {source:Int, row:Int, actions:Array<CodeAction>};
 /** One row segment of a text decoration. **/
 private typedef DecorationBox = {x:Single, top:Single, width:Single, height:Single, className:String};
 
@@ -147,6 +154,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** Elements inserted between text rows, tracked with measured height changes. **/
 	final zones = new CodeZones();
 	final zoneHeights = Signal.make(0);
+	final actionHeight = Signal.make(24.0);
 	var zoneLayout:Computed<Int>;
 	var zoneStamp = 0;
 	final viewHeight = Signal.make(320.0);
@@ -218,6 +226,37 @@ class CodeEditor extends Component<CodeEditorProps> {
 	/** Allows source edits. `CodeView` overrides this while retaining selection and scrolling. **/
 	function editable():Bool return true;
 
+	/** Builds a visible action row with the existing button, icon, and focus behavior (93ce15e). **/
+	function actionView(row:ActionRow, gutter:Computed<Float>, contentWidth:Computed<Single>, disabled:Computed<Bool>):Element {
+		var left = Computed.make(() -> {
+			revision.get();
+			var line = row.source < document.lines.length ? document.lines[row.source] : null, column = 0;
+			if (line == null) return (gutter.get() + PAD : Single);
+			while (column < line.text.length && (line.text.charAt(column) == " " || line.text.charAt(column) == "\t")) column++;
+			(gutter.get() + PAD + metrics.xAt(line, column) : Single);
+		});
+		var top = Computed.make(() -> (rowTop(row.row) - actionHeight.get() : Single));
+		var width = Computed.make(() -> (Math.max(0, contentWidth.get() - left.get() - PAD) : Single));
+		var bar = <div class="ui-code-actions" left={left} top={top} width={width}>
+			<for {action in row.actions}>
+				<button type="button" variant={Ghost} size={Sm} class="ui-code-action"
+					disabled={Computed.make(() -> disabled.get() || (action.disabled != null && read(action.disabled)))}
+					onClick={_ -> action.run()}>
+					<if {action.icon != null}><icon document={action.icon} class="ui-code-action-icon" /></if>
+					<text class="ui-code-action-label">{action.label}</text>
+				</button>
+			</for>
+		</div>;
+		Identity.of(bar.tree, bar.node.id).setAttribute("role", "toolbar").setAttribute("aria-label", "Code actions")
+			.setAttribute("data-line", Std.string(row.source));
+		// Commands receive normal button input, without bubbling into text editing.
+		Interaction.of(bar.node).onPointerDown(e -> e.stopPropagation()).onPointerUp(e -> e.stopPropagation())
+			.onPointerMove(e -> e.stopPropagation()).onClick(e -> e.stopPropagation())
+			.onKeyDown(e -> e.stopPropagation()).onKeyUp(e -> e.stopPropagation())
+			.onTextInput(e -> e.stopPropagation()).onComposition(e -> e.stopPropagation());
+		return bar;
+	}
+
 	function render():Element {
 		Library.use();
 		if (props.state != null && props.value != null) throw "CodeEditor accepts state or value, not both";
@@ -243,6 +282,8 @@ class CodeEditor extends Component<CodeEditorProps> {
 		}
 		document = state.document;
 		annotations = state.annotations;
+		if (props.codeActions != null)
+			new Watch(() -> read(props.codeActions), list -> annotations.actions("$props.codeActions", list, true));
 		metrics = new CodeMetrics(document, syntax(), tabSize);
 		var e = editing = new TextEditing(value, true, 0);
 		e.metrics = metrics;
@@ -269,6 +310,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		});
 		phase.onExit(Selecting, _ -> e.release());
 		var readOnly = Computed.make(() -> !editable() || (props.readOnly != null && read(props.readOnly)));
+		var disabled = Computed.make(() -> props.disabled != null && read(props.disabled));
 		new Watch(() -> readOnly.get(), on -> e.readOnly = on);
 		new Watch(() -> { var content = e.display(); var highlighter = syntax(); {content: content, highlighter: highlighter}; }, next -> {
 			var textChanged = document.text != next.content;
@@ -309,14 +351,48 @@ class CodeEditor extends Component<CodeEditorProps> {
 			(props.lineNumbers == false ? 0 : Std.string(document.lines.length).length * metrics.characterWidth + 18)
 				+ (foldColumn.get() ? 22 : 0) + (props.lineNumbers == false && !foldColumn.get() ? 0 : 8) + (markerColumn.get() ? MARKER : 0);
 		});
-		// The zones, set from the annotations and the heights measured, before anything reads where a row is.
+		// Group metadata only when annotations or source rows change; scrolling reuses these groups.
+		var actionCache = new Map<Int, ActionRow>();
+		var actionRevision = -1, mappedActions:Null<Array<Int>> = null, cachedActions:Array<ActionRow> = [];
+		var actionRows = Computed.make(() -> {
+			revision.get();
+			var annotationRevision = annotations.revision.get();
+			if (actionRevision == annotationRevision && mappedActions == document.visible) return cachedActions;
+			actionRevision = annotationRevision; mappedActions = document.visible;
+			var grouped = new Map<Int, ActionRow>(), result:Array<ActionRow> = [];
+			for (entry in annotations.actionPlaces()) {
+				if (entry.line < 0 || entry.line >= document.lines.length) continue;
+				var row = document.rows[entry.line];
+				if (row < 0 || row >= document.visible.length || document.visible[row] != entry.line) continue;
+				var group = grouped.get(entry.line);
+				if (group == null) {
+					group = {source: entry.line, row: row, actions: []};
+					grouped.set(entry.line, group); result.push(group);
+				}
+				for (action in entry.actions) group.actions.push(action);
+			}
+			result.sort((a, b) -> a.row - b.row);
+			var kept = new Map<Int, ActionRow>();
+			for (index in 0...result.length) {
+				var group = result[index], previous = actionCache.get(group.source);
+				var same = previous != null && previous.row == group.row && previous.actions.length == group.actions.length;
+				if (same) for (i in 0...group.actions.length)
+					if (group.actions[i] != previous.actions[i]) { same = false; break; }
+				if (same) result[index] = group = previous;
+				kept.set(group.source, group);
+			}
+			actionCache = kept;
+			return cachedActions = result;
+		});
+		// Zones and action rows share the coordinate mapping used by text, hit tests, and the minimap.
 		zoneLayout = Computed.make(() -> {
 			revision.get(); annotations.revision.get(); zoneHeights.get();
-			var pairs:Array<{row:Int, height:Float}> = [];
+			var pairs:Array<{row:Int, height:Float, ?before:Bool}> = [];
 			for (p in annotations.zonePlaces()) {
 				var row = zoneRow(p);
 				if (row >= 0) pairs.push({row: row, height: p.height});
 			}
+			for (row in actionRows.get()) pairs.push({row: row.row, height: actionHeight.get(), before: true});
 			zones.set(pairs);
 			++zoneStamp;
 		});
@@ -330,6 +406,25 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var firstRow = Signal.make(0), endRow = Signal.make(0);
 		new Watch(() -> windowStart(), row -> firstRow.set(row));
 		new Watch(() -> windowEnd(), row -> endRow.set(row));
+		var visibleActions = Computed.make(() -> {
+			var first = firstRow.get(), end = endRow.get();
+			var list = actionRows.get(), low = 0, high = list.length;
+			while (low < high) {
+				var middle = (low + high) >> 1;
+				if (list[middle].row < first) low = middle + 1;
+				else high = middle;
+			}
+			var shown:Array<ActionRow> = [];
+			while (low < list.length && list[low].row < end) shown.push(list[low++]);
+			return shown;
+		});
+		var actionProbe:Null<Div> = null;
+		var hasActions = Computed.make(() -> actionRows.get().length > 0);
+		function probeActions():Element {
+			actionProbe = <div class="ui-code-actions ui-code-actions-probe" />;
+			Owner.onCleanup(() -> actionProbe = null);
+			return actionProbe;
+		}
 		// Horizontal overscan changes only at bucket edges, so a small pan reuses its token elements.
 		var horizontal = Signal.make({left:0., right:1024.});
 		new Watch(() -> {
@@ -441,6 +536,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 		});
 		var content = <div class="ui-code-content" width={contentWidth} height={contentHeight}>
 			${probe}
+			<if {hasActions}>{probeActions()}</if>
 			<div class="ui-code-active-line" top={Computed.make(() -> (rowTop(caret.get().line) : Single))}
 				left={0} width={contentWidth} height={rowHeight} opacity={Computed.make(() -> (e.focused.get() ? 1 : 0 : Single))} />
 			<for {b in searchBoxes}>${new Div({classes:b.className.split(" "), left:b.x, top:b.top, width:b.width, height:b.height})}</for>
@@ -453,6 +549,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			</for>
 			<for {i in slots}>{lineSlot(i, gutter, rowHeight)}</for>
 			<for {p in zonePlaces}>{zoneView(p, gutter, contentWidth)}</for>
+			<for {row in visibleActions}>{actionView(row, gutter, contentWidth, disabled)}</for>
 			<for {mark in peerMarks}>${peerMark(mark.box,mark.name)}</for>
 			<div class="ui-code-gutter" left={Computed.make(() -> { revision.get(); (scroll == null ? 0 : scroll.x.get() : Single); })} width={Computed.make(() -> (gutter.get() : Single))} height={contentHeight}>
 				<for {i in slots}>{gutterSlot(i, gutter, rowHeight)}</for>
@@ -561,6 +658,10 @@ class CodeEditor extends Component<CodeEditorProps> {
 				var holder = p.view == null ? null : tree.getBounds(p.view.node);
 				if (holder != null && Math.abs(holder.height - p.height) > 0.5 && zoneRow(p) >= 0) { p.height = holder.height; zoneHeights.set(zoneHeights.get() + 1); changed = true; }
 			}
+			var actionBounds = actionProbe == null ? null : tree.getBounds(actionProbe.node);
+			if (actionBounds != null && actionBounds.height > 0 && Math.abs(actionBounds.height - actionHeight.get()) > 0.25) {
+				actionHeight.set(actionBounds.height); changed = true;
+			}
 			var columnBounds = tree.getBounds(column.node);
 			if (columnBounds != null && columnBounds.height > 0 && mapHeight.get() != columnBounds.height) { mapHeight.set(columnBounds.height); changed = true; }
 			var outer = tree.getBounds(box.node);
@@ -602,6 +703,19 @@ class CodeEditor extends Component<CodeEditorProps> {
 	**/
 	public function markers(owner:String, list:Array<CodeMarker>, follow = false):Void
 		annotations.mark(owner, list, follow);
+
+	/**
+		Replaces one owner's actions above zero-based source lines. Empty clears them.
+		Actions use standard buttons, align with line indentation, and leave the
+		gutter available for markers. Only visible rows are mounted. With `follow`,
+		actions track edits; folded lines hide their actions until expanded.
+	**/
+	public function actions(owner:String, list:Array<CodeLineActions>, follow = false):Void
+		annotations.actions(owner, list, follow);
+
+	/** Returns current action lines for an owner, including tracked edits. **/
+	public function actionLinesOf(owner:String):Array<Int>
+		return annotations.actionLinesOf(owner);
 
 	/**
 		Replaces the zones registered by `owner`. An empty list removes them.

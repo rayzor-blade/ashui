@@ -1300,6 +1300,22 @@ dialog.ui-drawer[closing] { animation: ui-drawer-out var(--duration-normal) var(
 .ui-code-token, .ui-code-line, .ui-code-guide, .ui-code-caret, .ui-code-selection, .ui-code-active-line { pointer-events: none; }
 /* A zone: an element between two lines, as high as it is, over the width beside the gutter. */
 .ui-code-zone { position: absolute; flex-direction: column; }
+/* Commands above source lines share zone geometry and retain normal button behavior (93ce15e). */
+.ui-code-actions {
+	position: absolute; flex-direction: row; align-items: center; gap: 12px;
+	height: var(--ui-code-actions-height, 24px); overflow: hidden; cursor: default;
+}
+.ui-code-actions-probe { width: 0; pointer-events: none; }
+.ui-code-action {
+	--ui-button-height: 20px; --ui-button-padding: 0; --ui-button-gap: 4px;
+	--ui-button-font-size: var(--ui-code-actions-font-size, var(--text-xs));
+	--ui-button-fg: var(--ui-code-actions-color, var(--text-secondary));
+	min-height: 0; border-width: 0; flex-shrink: 0;
+}
+.ui-code-action:not(:disabled):hover { color: var(--primary); }
+.ui-code-action.ui-button:focus-visible { outline-width: 2px; outline-offset: -2px; }
+.ui-code-action-icon { width: 12px; height: 12px; }
+.ui-code-action-label { white-space: nowrap; }
 .ui-code-active-line { background: var(--ui-code-active-line, color-mix(in srgb, var(--primary) 5%, transparent)); }
 .ui-code-selection { background: var(--selection); }
 .ui-code-bracket {

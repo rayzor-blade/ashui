@@ -14,19 +14,20 @@ class CodeZones {
 
 	public function new() {}
 
-	/** Replaces zone row/height data. Combines zones on the same row and ignores negative row indices. **/
-	public function set(zones:Array<{row:Int, height:Float}>):Void {
+	/** Replaces zone heights. `before` inserts space above a row, including the first row. Negative source rows are ignored. **/
+	public function set(zones:Array<{row:Int, height:Float, ?before:Bool}>):Void {
 		var sorted = [for (z in zones) if (z.row >= 0 && z.height > 0) z];
-		sorted.sort((a, b) -> a.row - b.row);
+		sorted.sort((a, b) -> (a.row - (a.before == true ? 1 : 0)) - (b.row - (b.before == true ? 1 : 0)));
 		at = [];
 		sum = [];
 		var total = 0.0;
 		for (z in sorted) {
+			var row = z.row - (z.before == true ? 1 : 0);
 			total += z.height;
-			if (at.length > 0 && at[at.length - 1] == z.row)
+			if (at.length > 0 && at[at.length - 1] == row)
 				sum[sum.length - 1] = total;
 			else {
-				at.push(z.row);
+				at.push(row);
 				sum.push(total);
 			}
 		}
@@ -91,6 +92,8 @@ class CodeZones {
 	public function inZone(y:Float, lineHeight:Float, count:Int):Bool {
 		if (at.length == 0 || y < 0)
 			return false;
+		if (at[0] == -1 && y < sum[0])
+			return true;
 		var row = rowAt(y, lineHeight, count);
 		return y >= yOf(row, lineHeight) + lineHeight && after(row) > 0;
 	}

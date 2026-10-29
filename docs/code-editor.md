@@ -42,6 +42,7 @@ is a complete windowed example.
 | `disabled` | `false` | Reactive input and focus lock. |
 | `label` | `"Code"` | Accessible name of the text surface. |
 | `header` | none | An element above the text viewport, beside the full-height minimap. |
+| `codeActions` | none | Reactive command groups above zero-based source lines, aligned with indentation. |
 | `findShortcuts` | `true` | Handle built-in find/replace shortcuts; false lets an app bind the public methods. |
 
 Use layout attributes or CSS for width and height. Height defaults to 320px.
@@ -123,6 +124,54 @@ An external text replacement while unmounted clears incompatible undo on remount
 Drop the state itself to release its document and history. Without `state`, an
 editor owns its data as before; hiding such an editor with `display: none` keeps
 the entire view alive, and disposing it discards its history.
+
+## Actions above lines
+
+Use `codeActions` for commands such as Run, Debug, references, or quick fixes.
+Each group names a zero-based source line and its actions. The editor reserves
+a compact row above the line, including line zero, and aligns it with the code's
+indentation. Gutter markers remain independent, so breakpoints can share the line.
+The types are `CodeAction` and `CodeLineActions` in `ashui.components.code.CodeAnnotations`.
+
+```tsx
+import ashui.components.code.CodeAnnotations.CodeLineActions;
+
+var initial:Array<CodeLineActions> = [
+    {line: 5, actions: [
+        {label: "Run", run: () -> runFile()},
+        {label: "Debug", run: () -> debugFile(), disabled: debuggerBusy}
+    ]}
+];
+var actions = signal(initial);
+
+return <code-editor value={source} language="haxe"
+    codeActions={actions} gutterMarkers={true} />;
+```
+
+Actions use the standard button component for pointer input, keyboard activation,
+focus, and disabled states. Each action takes `label`, `run`, an optional SVG
+`icon`, and an optional reactive `disabled` value. A disabled editor disables its
+actions too. Read-only code views can still expose commands.
+
+For separate providers, use `editor.actions(owner, list, follow = false)`.
+An empty list clears that provider without changing other actions or markers:
+
+```haxe
+editor.actions("references", [{line: 5, actions: [
+    {label: "3 references", run: () -> showReferences()}
+]}], true);
+editor.actions("references", []);
+```
+
+Groups on the same line share a row in provider order. The HXX prop tracks edits
+automatically; imperative groups track edits with `follow=true`.
+`actionLinesOf(owner)` returns their current lines. Actions hide with folded
+lines and scroll with the text. Only visible action rows are mounted.
+Text geometry, selections, hit tests, and the minimap account for the added height.
+
+Style `.ui-code-actions`, `.ui-code-action`, `.ui-code-action-icon`, and
+`.ui-code-action-label`. Customize `--ui-code-actions-height` (24px by default),
+`--ui-code-actions-font-size`, and `--ui-code-actions-color`.
 
 ## Zones between lines
 

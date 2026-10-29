@@ -1,7 +1,43 @@
 package ashui.components.code;
 
 import ashui.layout.Element;
+import ashui.layout.IntoReactive;
 import ashui.reactive.Signal;
+
+/** A command displayed above a source line. Uses the standard button behavior. **/
+typedef CodeAction = {
+	/** Button label. **/
+	var label:String;
+	/** Runs on pointer or keyboard activation. **/
+	var run:Void->Void;
+	/** Optional SVG icon beside the label. **/
+	@:optional var icon:ashui.svg.Icon;
+	/** Disables this command independently of the editor. Defaults to false. **/
+	@:optional var disabled:IntoReactive<Bool>;
+}
+
+/** Commands above a zero-based source line, aligned with its indentation. **/
+typedef CodeLineActions = {
+	/** Source line, starting at zero. **/
+	var line:Int;
+	/** Commands in display order. An empty group takes no space. **/
+	var actions:Array<CodeAction>;
+}
+
+/** Action metadata retained independently of the mounted editor view. **/
+private class ActionPlace {
+	public var offset:Int;
+	public final line:Int;
+	public final actions:Array<CodeAction>;
+
+	public function new(offset:Int, line:Int, actions:Array<CodeAction>) {
+		this.offset = offset;
+		this.line = line;
+		this.actions = actions;
+	}
+}
+
+private typedef Actions = {list:Array<ActionPlace>, follow:Bool};
 
 /** A text range and its visual decoration. **/
 typedef CodeDecoration = {
@@ -80,7 +116,7 @@ private typedef Decorations = {list:Array<CodeDecoration>, follow:Bool};
 private typedef Markers = {list:Array<Place>, follow:Bool};
 
 /**
-	Stores editor decorations, gutter markers, and zones by owner name.
+	Stores editor decorations, gutter markers, actions, and zones by owner name.
 	Each producer, such as compiler diagnostics or debugger breakpoints,
 	replaces its own set without affecting other producers.
 
@@ -95,6 +131,7 @@ class CodeAnnotations {
 	final decorationSets = new Map<String, Decorations>();
 	final markerSets = new Map<String, Markers>();
 	final zoneSets = new Map<String, Zones>();
+	final actionSets = new Map<String, Actions>();
 	/** Owner names in registration order, which also determines drawing order. **/
 	final owners:Array<String> = [];
 	var markerLines:Null<Map<Int, CodeMarker>> = null;
@@ -109,6 +146,37 @@ class CodeAnnotations {
 	function own(owner:String):Void
 		if (owners.indexOf(owner) < 0)
 			owners.push(owner);
+
+	/** Replaces one owner's line actions. Empty clears the set; invalid lines and empty groups are ignored. **/
+	public function actions(owner:String, list:Array<CodeLineActions>, follow = false):Void {
+		own(owner);
+		var kept:Array<ActionPlace> = [];
+		for (entry in list)
+			if (entry.line >= 0 && entry.line < document.lines.length && entry.actions.length > 0)
+				kept.push(new ActionPlace(document.lines[entry.line].start, entry.line,
+					[for (action in entry.actions) {label: action.label, run: action.run, icon: action.icon, disabled: action.disabled}]));
+		if (kept.length == 0) actionSets.remove(owner);
+		else actionSets.set(owner, {list: kept, follow: follow});
+		touch();
+	}
+
+	/** Returns current action groups in owner registration order. Only metadata is retained here. **/
+	public function actionPlaces():Array<{line:Int, actions:Array<CodeAction>}> {
+		revision.get();
+		var result:Array<{line:Int, actions:Array<CodeAction>}> = [];
+		for (owner in owners) {
+			var set = actionSets.get(owner);
+			if (set != null) for (p in set.list)
+				result.push({line: set.follow ? document.lineAt(p.offset) : p.line, actions: p.actions});
+		}
+		return result;
+	}
+
+	/** Returns current action lines for an owner, including tracked edits. **/
+	public function actionLinesOf(owner:String):Array<Int> {
+		var set = actionSets.get(owner);
+		return set == null ? [] : [for (p in set.list) set.follow ? document.lineAt(p.offset) : p.line];
+	}
 
 	/** Replaces one owner decoration set. An empty list clears it. **/
 	public function decorate(owner:String, list:Array<CodeDecoration>, follow = false):Void {
@@ -301,6 +369,8 @@ class CodeAnnotations {
 			following = following || set.follow;
 		for (set in zoneSets)
 			following = following || set.follow;
+		for (set in actionSets)
+			following = following || set.follow;
 		if (!following || before == after)
 			return;
 		// The one replaced stretch: what both texts share at the start and at the end is left out.
@@ -347,6 +417,10 @@ class CodeAnnotations {
 				for (p in set.list)
 					p.offset = move(p.offset, true);
 		for (set in zoneSets)
+			if (set.follow)
+				for (p in set.list)
+					p.offset = move(p.offset, true);
+		for (set in actionSets)
 			if (set.follow)
 				for (p in set.list)
 					p.offset = move(p.offset, true);

@@ -27,6 +27,10 @@ class CodeZonesCheck {
 		check("a row's fraction is clamped at its bottom inside a zone", z.fraction(80, 20, 10) == 3.0 || z.fraction(80, 20, 10) == 3, z.fraction(80, 20, 10));
 		z.set([{row: 4, height: 10}, {row: 4, height: 15}, {row: 1, height: 5}, {row: -1, height: 99}, {row: 6, height: 0}]);
 		check("zones on one row add, a row below 0 or no height is left out", z.count == 2 && z.total() == 30 && z.after(4) == 25 && z.after(1) == 5, [z.count, z.total()]);
+		z.set([{row: 0, height: 24, before: true}, {row: 1, height: 16, before: true}, {row: 0, height: 8}]);
+		check("space above the first row moves its text and is not a character", z.yOf(0, 20) == 24 && z.inZone(12, 20, 3) && !z.inZone(30, 20, 3));
+		check("above and below zones share the same gap without overlap", z.yOf(1, 20) == 68 && z.total() == 48 && z.after(0) == 24);
+		check("the leading action row maps to the document start in the minimap", z.rowAt(12, 20, 3) == 0 && z.fraction(12, 20, 3) == 0);
 		var wrong:Null<String> = null;
 		for (round in 0...400) {
 			var n = 1 + next(60), lh = 10 + next(20), zones = [for (_ in 0...next(8)) {row: next(n + 2) - 1, height: next(40) * 1.0}];

@@ -83,7 +83,7 @@ supplies the return value. See the [dialog and form guide](https://github.com/ra
 | Overlays | Dialog, Sheet, Drawer, Popover, Tooltip, HoverCard, Toast |
 | Navigation | Command, Tabs, Accordion, DropdownMenu, ContextMenu, Menubar, TreeView, Sidebar |
 | Content | Card, Badge, Avatar, Alert, Icon, Table, Chart, Progress, Spinner, Skeleton |
-| Code | CodeView, CodeEditor with syntax highlighting, line numbers and folding |
+| Code | CodeView, CodeEditor with syntax highlighting, folding, gutter markers, and actions above source lines |
 | Layout | ScrollArea, Resizable, AspectRatio, Separator |
 
 Each [component source](https://github.com/rayzor-blade/ashui/tree/main/components/haxe/ashui/components) documents its props, parts,
