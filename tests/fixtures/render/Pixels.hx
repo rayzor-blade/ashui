@@ -1680,6 +1680,34 @@ class Pixels {
 		probe("a focus is where the first colour is, to within a pixel", 47, 32, about(250, 0, 5));
 		probe("the centre is a third of the way out", 32, 32, about(170, 0, 85));
 		focal.remove();
+		// A bitmap as the fill of a canvas shape: a matrix, tiling and smoothing.
+		var quad = haxe.io.Bytes.alloc(16);
+		for (i => c in [0xff0000, 0x00ff00, 0x0000ff, 0xffffff]) {
+			quad.set(i * 4, c >> 16);
+			quad.set(i * 4 + 1, (c >> 8) & 255);
+			quad.set(i * 4 + 2, c & 255);
+			quad.set(i * 4 + 3, 255);
+		}
+		var tileBitmap = ashui.types.Bitmap.fromBytes(ashui.core.render.Png.encode(2, 2, quad));
+		function bitmapRoot(repeat:ashui.types.Brush.ImageRepeat):Div {
+			var brush = Brush.bitmapPattern(tileBitmap, new ashui.draw.Affine(16, 0, 0, 16, 0, 0), repeat, false);
+			return gradientRoot(brush);
+		}
+		label = "bitmap fill: ";
+		var tiled = bitmapRoot(Repeat);
+		pixels = offscreen.renderToRgba8(tiled, SIZE, SIZE);
+		probe("the first texel is red", 8, 8, near(0xff0000));
+		probe("the next is green", 24, 8, near(0x00ff00));
+		probe("below is blue", 8, 24, near(0x0000ff));
+		probe("and white after it", 24, 24, near(0xffffff));
+		probe("a tile on, it starts again with red", 40, 8, near(0xff0000));
+		probe("and below it, the second row of tiles starts with red", 8, 40, near(0xff0000));
+		tiled.remove();
+		var held = bitmapRoot(NoRepeat);
+		pixels = offscreen.renderToRgba8(held, SIZE, SIZE);
+		probe("without repeat the edge colour is held past the right edge", 40, 8, near(0x00ff00));
+		probe("and below the bottom edge", 8, 40, near(0x0000ff));
+		held.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

@@ -324,12 +324,12 @@ class CanvasPainter {
 					var m = frame.transform.after(transform);
 					var contours = tessellate(path, m, tolerance, aa, rule, null, needsContours(brush));
 					if (mesh.vertexCount() > before)
-						encode(brush, m, contours, opacity, paints);
+						encode(frame, brush, m, contours, opacity, paints);
 				case Stroke(path, stroke, brush, transform, opacity, clip):
 					var m = frame.transform.after(transform);
 					var contours = tessellate(path, m, tolerance, aa, NonZero, stroke, needsContours(brush));
 					if (mesh.vertexCount() > before)
-						encode(brush, m, contours, opacity, paints);
+						encode(frame, brush, m, contours, opacity, paints);
 				case Image(slot, x, y, w, h, transform, opacity, clip):
 					hasImages = true;
 					var m = frame.transform.after(transform);
@@ -490,6 +490,49 @@ class CanvasPainter {
 	static function needsContours(brush:Brush):Bool
 		return brush.gradient != null && brush.gradient.boundingBox;
 
+	/**
+		A bitmap fill as an image paint: the map from a pixel to where in the bitmap it is, 0 to 1 across, then the
+		bitmap's rect in the atlas, resampled at its size on screen when smoothed and kept at its own size when not, then its smoothing; which axes repeat is in the head.
+	**/
+	static function encodeBitmapFill(frame:CanvasFrame, fill:ashui.types.Brush.BitmapFill, m:Affine, opacity:Float, out:Array<Float>):Void {
+		var bw = fill.bitmap.width, bh = fill.bitmap.height;
+		var total = m.after(fill.matrix == null ? Affine.IDENTITY : fill.matrix);
+		var back = total.inverse();
+		var rect = back == null || bw <= 0 || bh <= 0 ? null : Images.bitmap(fill.bitmap.slot, bw, bh, fill.smooth ? total.scale() * frame.pixelRatio : 1, frame.images);
+		if (rect == null) {
+			for (_ in 0...PathShader.PAINT_TEXELS)
+				for (_ in 0...4)
+					out.push(0);
+			return;
+		}
+		var unit = Affine.scaling(1 / bw, 1 / bh).after(back);
+		for (v in [
+			3.0,
+			(fill.repeat : Int),
+			opacity,
+			0,
+			unit.a,
+			unit.c,
+			unit.e,
+			0,
+			unit.b,
+			unit.d,
+			unit.f,
+			0,
+			rect.x,
+			rect.y,
+			rect.x + rect.width,
+			rect.y + rect.height,
+			fill.smooth ? 1.0 : 0.0,
+			0,
+			0,
+			0
+		])
+			out.push(v);
+		for (_ in 0...(PathShader.PAINT_TEXELS - 5) * 4)
+			out.push(0);
+	}
+
 	static function encodeImage(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>):Void {
 		var rect = Images.bitmap(slot, w, h, m.scale() * frame.pixelRatio, frame.images);
 		var inverse = m.after(new Affine(w, 0, 0, h, x, y)).inverse();
@@ -515,10 +558,14 @@ class CanvasPainter {
 			rect.x,
 			rect.y,
 			rect.x + rect.width,
-			rect.y + rect.height
+			rect.y + rect.height,
+			1,
+			0,
+			0,
+			0
 		])
 			out.push(v);
-		for (_ in 0...(PathShader.PAINT_TEXELS - 4) * 4)
+		for (_ in 0...(PathShader.PAINT_TEXELS - 5) * 4)
 			out.push(0);
 	}
 
@@ -596,7 +643,7 @@ class CanvasPainter {
 		];
 	}
 
-	static function encode(brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
+	static function encode(frame:CanvasFrame, brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
 		inline function rgba(rgb:Int, alpha:Float) {
 			out.push((rgb >> 16 & 0xff) / 255);
 			out.push((rgb >> 8 & 0xff) / 255);
@@ -608,6 +655,10 @@ class CanvasPainter {
 			out.push(b);
 			out.push(c);
 			out.push(d);
+		}
+		if (brush.bitmapFill != null) {
+			encodeBitmapFill(frame, brush.bitmapFill, m, opacity, out);
+			return;
 		}
 		var p = brush.repeat;
 		var inverse = p == null ? null : m.inverse();

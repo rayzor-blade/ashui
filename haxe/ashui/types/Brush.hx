@@ -89,6 +89,17 @@ typedef BrushPattern = {
 }
 
 /**
+	A bitmap fill of a canvas shape: `matrix` places the bitmap's pixels in the shape's space, `repeat`
+	says along which axes it tiles (it is held at its edge on the others), and `smooth` filters between its pixels.
+**/
+typedef BitmapFill = {
+	final bitmap:Bitmap;
+	final matrix:Null<ashui.draw.Affine>;
+	final repeat:ImageRepeat;
+	final smooth:Bool;
+}
+
+/**
 	What fills a box, as a node's `Prop.Background`: a solid colour, a
 	gradient, an image, or what is behind the box blurred.
 **/
@@ -102,6 +113,9 @@ class Brush implements IValue {
 
 	/** A gradient's description; null for any other brush. **/
 	public var gradient(default, null):Null<BrushGradient> = null;
+
+	/** A bitmap fill's description; null for any other brush. **/
+	public var bitmapFill(default, null):Null<BitmapFill> = null;
 
 	/** A pattern's description; null for any other brush. **/
 	public var repeat(default, null):Null<BrushPattern> = null;
@@ -191,6 +205,17 @@ class Brush implements IValue {
 	/** `bitmap` filling the box, fitted by `fit`, under its border and clipped to its corners, as CSS's `background-image`. **/
 	public static function bitmap(bitmap:Bitmap, fit:ImageFit = Cover, ?position:ImagePosition, ?repeat:ImageRepeat):Brush {
 		return image("ashui:bitmap:" + bitmap.slotFor(fit), fit, position, repeat);
+	}
+
+	/**
+		`bitmap` as the fill of a canvas shape, as an OpenFL bitmap fill is: `matrix` places its pixels in the shape's
+		space (none puts its top-left at the origin at its own size), `repeat` tiles it (`Repeat` by default), `smooth`
+		filters it. As a node's background it fills the box, as `bitmap(b, Fill)` does.
+	**/
+	public static function bitmapPattern(bitmap:Bitmap, ?matrix:ashui.draw.Affine, repeat:ImageRepeat = Repeat, smooth = true):Brush {
+		var brush = Brush.bitmap(bitmap, Fill);
+		brush.bitmapFill = {bitmap: bitmap, matrix: matrix, repeat: repeat, smooth: smooth};
+		return brush;
 	}
 
 	/**

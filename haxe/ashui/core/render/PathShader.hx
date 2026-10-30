@@ -11,7 +11,7 @@ package ashui.core.render;
 	offsets; and the stops' colours. An image's paint is its opacity, then
 	the map from a pixel to where in the image it is, 0 to 1 across, as two
 	rows of an affine, then the image's rect in `canvasImages`, the image
-	atlas. A pattern's is its shape (1 dots, 2 lines, 3 crosshatch) and
+	atlas, then 1 if it is smoothed; the head's second value says which axes it repeats along (1 x, 2 y, 3 both). A pattern's is its shape (1 dots, 2 lines, 3 crosshatch) and
 	opacity, the map from a pixel to the pattern's space, its colour, then
 	its spacing, size in pixels, coarsening and least gap in pixels.
 	A paint's first texel ends with the texel its clip starts at, 0 for
@@ -118,9 +118,18 @@ class PathShader implements UiShader {
 				var row0 = canvasTexel(at + 1);
 				var row1 = canvasTexel(at + 2);
 				var rect = canvasTexel(at + 3);
-				var st = clamp(vec2(dot(row0.xyz, vec3(pixel, 1.)), dot(row1.xyz, vec3(pixel, 1.))), vec2(0., 0.), vec2(1., 1.));
+				var filter = canvasTexel(at + 4);
+				var st = vec2(dot(row0.xyz, vec3(pixel, 1.)), dot(row1.xyz, vec3(pixel, 1.)));
+				// Past the bitmap's edge it repeats along the axes the head says, else holds its edge colour.
+				var repeatX = (head.y > 0.5 && head.y < 1.5) || head.y > 2.5;
+				var repeatY = head.y > 1.5;
+				st = vec2(repeatX ? st.x - floor(st.x) : clamp(st.x, 0., 1.), repeatY ? st.y - floor(st.y) : clamp(st.y, 0., 1.));
+				var at2 = mix(rect.xy, rect.zw, st);
+				// Without smoothing, the texel the point falls in.
+				if (filter.x < 0.5)
+					at2 = floor(at2) + vec2(0.5, 0.5);
 				// Kept half a texel inside its rect, so filtering does not reach its neighbours in the atlas.
-				var where = clamp(mix(rect.xy, rect.zw, st), rect.xy + vec2(0.5, 0.5), rect.zw - vec2(0.5, 0.5));
+				var where = clamp(at2, rect.xy + vec2(0.5, 0.5), rect.zw - vec2(0.5, 0.5));
 				color = textureLod(canvasImages, where / textureSize(canvasImages), 0.);
 			} else if (head.x > 0.5) {
 				var geo = canvasTexel(at + 1);
