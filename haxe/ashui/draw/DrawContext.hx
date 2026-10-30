@@ -209,6 +209,14 @@ class DrawContext {
 	public function strokePath(path:Path, stroke:Stroke, brush:Brush):Void
 		ops.push(Stroke(path, stroke, brush, transform, opacity, clip));
 
+	/** `path` filled with `fill` by `rule`, then outlined with `stroke` in `strokeBrush`; either is left out where it is null. **/
+	public function drawPath(path:Path, ?fill:Brush, ?rule:FillRule, ?stroke:Stroke, ?strokeBrush:Brush):Void {
+		if (fill != null)
+			fillPath(path, fill, rule);
+		if (stroke != null && strokeBrush != null)
+			strokePath(path, stroke, strokeBrush);
+	}
+
 	/** A rectangle, its corners rounded by `radius`. **/
 	public function fillRect(x:Float, y:Float, width:Float, height:Float, brush:Brush, radius = 0.0):Void
 		fillPath(new Path().roundedRect(x, y, width, height, radius), brush);

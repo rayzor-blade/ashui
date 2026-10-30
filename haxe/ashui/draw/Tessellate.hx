@@ -108,9 +108,11 @@ class Tessellate {
 		same), its joins and caps as `stroke` says, with a fringe `aa` wide
 		at its sides and ends. A band narrower than the fringe is drawn as
 		wide as it, fainter by as much, so a hairline keeps its weight.
+		A `widthScale` of zero or more replaces `scale` for the width alone, and a
+		`stroke.hairline` is one fringe wide.
 	**/
-	public static function stroke(contours:Array<Contour>, stroke:Stroke, scale:Float, aa:Float, mesh:Mesh, coverage = 1.0):Void {
-		var width = stroke.width * scale;
+	public static function stroke(contours:Array<Contour>, stroke:Stroke, scale:Float, aa:Float, mesh:Mesh, coverage = 1.0, widthScale = -1.0):Void {
+		var width = stroke.hairline ? aa : stroke.width * (widthScale < 0 ? scale : widthScale);
 		if (width <= 0)
 			return;
 		var c = coverage;

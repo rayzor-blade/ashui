@@ -402,7 +402,7 @@ class CanvasPainter {
 						encode(frame, brush, m, contours, opacity, paints, inMask ? ColorTransform.IDENTITY : tint, masked);
 							case Stroke(path, stroke, brush, transform, opacity, clip):
 					var m = frame.transform.after(transform);
-					var contours = tessellate(path, m, tolerance, aa, NonZero, stroke, needsContours(brush));
+					var contours = tessellate(path, m, tolerance, aa, NonZero, stroke, needsContours(brush), widthScale(stroke, m, frame.transform));
 					if (mesh.vertexCount() > before)
 						encode(frame, brush, m, contours, opacity, paints, inMask ? ColorTransform.IDENTITY : tint, masked);
 							case Image(slot, x, y, w, h, transform, opacity, clip):
@@ -512,11 +512,12 @@ class CanvasPainter {
 		tessellated again. Returns the contours when `contours` asks
 		for them, which a shape whose triangles are reused does not keep.
 	**/
-	function tessellate(path:ashui.draw.Path, m:Affine, tolerance:Float, aa:Float, rule:FillRule, stroke:Null<ashui.draw.Stroke>,
-			contours:Bool):Array<ashui.draw.Flatten.Contour> {
+	function tessellate(path:ashui.draw.Path, m:Affine, tolerance:Float, aa:Float, rule:FillRule, stroke:Null<ashui.draw.Stroke>, contours:Bool,
+			widthScale = -1.0):Array<ashui.draw.Flatten.Contour> {
 		var known = shapeOf(path);
 		if (!contours && known != null && known.data != null && known.a == m.a && known.b == m.b && known.c == m.c && known.d == m.d
-			&& known.tolerance == tolerance && known.aa == aa && known.rule == rule && (stroke == null ? known.stroke == null : stroke.same(known.stroke))) {
+			&& known.tolerance == tolerance && known.aa == aa && known.rule == rule && known.widthScale == widthScale
+						&& (stroke == null ? known.stroke == null : stroke.same(known.stroke))) {
 			var dx = m.e - known.e,
 				dy = m.f - known.f,
 				data = known.data,
@@ -535,7 +536,7 @@ class CanvasPainter {
 		var from = mesh.data.length;
 		var flat = Flatten.path(path, m, tolerance);
 		if (stroke != null)
-			Tessellate.stroke(flat, stroke, m.scale(), aa, mesh);
+			Tessellate.stroke(flat, stroke, m.scale(), aa, mesh, 1.0, widthScale);
 		else
 			Tessellate.fill(flat, rule, aa, mesh);
 		// Kept the second time a path is drawn: one made afresh each frame is never copied.
@@ -557,6 +558,7 @@ class CanvasPainter {
 			tolerance: tolerance,
 			aa: aa,
 			rule: rule,
+			widthScale: widthScale,
 			stroke: stroke,
 			data: data
 		});
@@ -564,6 +566,15 @@ class CanvasPainter {
 	}
 
 	static final NONE:Array<ashui.draw.Flatten.Contour> = [];
+
+	/** What a stroke's width is multiplied by to reach layout units, where its scale mode makes that other than `m`'s scale; -1 where it is not. **/
+	static function widthScale(stroke:ashui.draw.Stroke, m:Affine, canvas:Affine):Float
+		return switch stroke.scaleMode {
+			case Normal: -1.0;
+			case None: canvas.scale();
+			case Horizontal: Math.sqrt(m.a * m.a + m.b * m.b);
+			case Vertical: Math.sqrt(m.c * m.c + m.d * m.d);
+		}
 
 	/** Whether `brush` is placed by the shape's bounds, which it reads from the contours. **/
 	static function needsContours(brush:Brush):Bool
@@ -876,6 +887,7 @@ private typedef Shape = {
 	tolerance:Float,
 	aa:Float,
 	rule:FillRule,
+	widthScale:Float,
 	stroke:Null<ashui.draw.Stroke>,
 	data:Null<Array<Float>>
 }

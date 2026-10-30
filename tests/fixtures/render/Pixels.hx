@@ -1795,6 +1795,31 @@ class Pixels {
 		probe("the second mask keeps the next", 48, 48, near(0x0000ff));
 		probe("and neither leaks into the other's place", 48, 16, near(0xffffff));
 		twoMasks.remove();
+		// A line's width when the shape it outlines is scaled.
+		function lineRoot(stroke:ashui.draw.Stroke, scale:Float, y:Float):Div
+			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+				<canvas width={64} height={64} draw={ctx -> {
+					ctx.pushTransform(ashui.draw.Affine.scaling(scale, scale));
+					ctx.line(0, y, 64, y, stroke, Brush.solid(0xff0000));
+				}} />
+			</div>);
+		label = "stroke: ";
+		var normal = lineRoot(new ashui.draw.Stroke(4), 2, 16);
+		pixels = offscreen.renderToRgba8(normal, SIZE, SIZE);
+		probe("a line scales with its shape: 8 pixels at 2x, so 3 off its middle is in", 10, 35, near(0xff0000));
+		normal.remove();
+		var fixed = new ashui.draw.Stroke(4);
+		fixed.scaleMode = None;
+		var unscaled = lineRoot(fixed, 2, 16);
+		pixels = offscreen.renderToRgba8(unscaled, SIZE, SIZE);
+		probe("with no scaling it stays 4 pixels: its middle is in", 10, 32, near(0xff0000));
+		probe("and 3 off its middle is out", 10, 35, near(0xffffff));
+		unscaled.remove();
+		var thin = lineRoot(ashui.draw.Stroke.onePixel(), 8, 4.0625);
+		pixels = offscreen.renderToRgba8(thin, SIZE, SIZE);
+		probe("a one pixel line is drawn on its row", 10, 32, (r, g, b) -> r > 240 && g < 20);
+		probe("and no wider at 8x", 10, 35, near(0xffffff));
+		thin.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}
