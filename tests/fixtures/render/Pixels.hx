@@ -1835,6 +1835,60 @@ class Pixels {
 		probe("texture coordinates map linearly: near the first vertex is red", 11, 11, (r, g, b) -> r > 200 && g < 90 && b < 90);
 		probe("and towards the second it turns green", 34, 11, (r, g, b) -> g > r && g > b);
 		stretched.remove();
+		// A surface's pixels as a bitmap: a fill, then an image, then a copy that a later write leaves alone.
+		label = "surface bitmap: ";
+		var plain = new ashui.types.PixelSurface(2, 2);
+		var colours = haxe.io.Bytes.alloc(16);
+		for (i => c in [0xff0000, 0x00ff00, 0x0000ff, 0xffffff]) {
+			colours.set(i * 4, c >> 16);
+			colours.set(i * 4 + 1, (c >> 8) & 255);
+			colours.set(i * 4 + 2, c & 255);
+			colours.set(i * 4 + 3, 255);
+		}
+		plain.writeAll(colours);
+		var first = plain.bitmap();
+		var asFill = drawRoot(ctx -> ctx.fillRect(0, 0, 64, 64, Brush.bitmapPattern(first, new ashui.draw.Affine(32, 0, 0, 32, 0, 0), NoRepeat, false)));
+		pixels = offscreen.renderToRgba8(asFill, SIZE, SIZE);
+		probe("a surface's bitmap fills a shape: red", 16, 16, near(0xff0000));
+		probe("and its blue texel is where it was", 16, 48, near(0x0000ff));
+		asFill.remove();
+		var asImage = drawRoot(ctx -> ctx.image(first, 0, 0, 64, 64));
+		pixels = offscreen.renderToRgba8(asImage, SIZE, SIZE);
+		probe("it is drawn as an image too: green", 48, 16, (r, g, b) -> g > 200 && r < 60);
+		asImage.remove();
+		var sameAgain = plain.bitmap() == first;
+		var written = haxe.io.Bytes.alloc(4);
+		written.set(0, 255);
+		written.set(1, 255);
+		written.set(3, 255);
+		plain.write(written, 0, 0, 1, 1);
+		var second = plain.bitmap();
+		var asSecond = drawRoot(ctx -> ctx.fillRect(0, 0, 64, 64, Brush.bitmapPattern(second, new ashui.draw.Affine(32, 0, 0, 32, 0, 0), NoRepeat, false)));
+		pixels = offscreen.renderToRgba8(asSecond, SIZE, SIZE);
+		probe("after a write, the next bitmap has it: yellow", 16, 16, near(0xffff00));
+		asSecond.remove();
+		check("an unchanged surface gives the same bitmap again", sameAgain);
+		check("a written one gives another", second != first);
+		// Nine parts: the corners keep their size and the middle stretches.
+		label = "image9: ";
+		var nine = haxe.io.Bytes.alloc(3 * 3 * 4);
+		for (i in 0...9) {
+			var c = i == 4 ? 0x0000ff : i % 2 == 0 ? 0xff0000 : 0x00ff00;
+			nine.set(i * 4, c >> 16);
+			nine.set(i * 4 + 1, (c >> 8) & 255);
+			nine.set(i * 4 + 2, c & 255);
+			nine.set(i * 4 + 3, 255);
+		}
+		var frame9 = ashui.types.Bitmap.fromBytes(ashui.core.render.Png.encode(3, 3, nine));
+		var stretched9 = drawRoot(ctx -> ctx.image9(frame9, 0, 0, 64, 48, 1, 1, 1, 1));
+		pixels = offscreen.renderToRgba8(stretched9, SIZE, SIZE);
+		probe("a corner keeps its size: red at the top left", 0, 0, near(0xff0000));
+		probe("and is no bigger than that", 3, 3, near(0x0000ff));
+		probe("the top edge stretches: green along it", 32, 0, near(0x00ff00));
+		probe("the middle stretches both ways", 32, 24, near(0x0000ff));
+		probe("the far corner is where the rect ends", 63, 47, near(0xff0000));
+		probe("below the rect is untouched", 32, 60, near(0xffffff));
+		stretched9.remove();
 		// A line's width when the shape it outlines is scaled.
 		function lineRoot(stroke:ashui.draw.Stroke, scale:Float, y:Float):Div
 			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>

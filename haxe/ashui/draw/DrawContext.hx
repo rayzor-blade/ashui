@@ -421,6 +421,38 @@ class DrawContext {
 			}, transform, opacity, clip));
 	}
 
+	/**
+		`image` stretched into the rect at `(x, y)`, `width` by `height`, in nine parts, as a nine-slice or `scale9Grid` is: its
+		corners keep their size, its edges stretch along themselves, and its middle stretches both ways. `left`, `top`, `right`
+		and `bottom` are the corners' sizes in the image's pixels. A rect smaller than the corners squeezes them.
+	**/
+	public function image9(image:DrawImage, x:Float, y:Float, width:Float, height:Float, left:Float, top:Float, right:Float, bottom:Float, smooth = false):Void {
+		var iw = image.width, ih = image.height;
+		// Corners that do not fit in the rect share it.
+		var fit = Math.min(1, width / Math.max(left + right, 1e-9)), fitY = Math.min(1, height / Math.max(top + bottom, 1e-9));
+		var dl = left * fit, dr = right * fit, dt = top * fitY, db = bottom * fitY;
+		var sx = [0.0, left, iw - right, iw], sy = [0.0, top, ih - bottom, ih];
+		var dx = [0.0, dl, width - dr, width], dy = [0.0, dt, height - db, height];
+		var rects:Array<Float> = [], transforms:Array<Float> = [];
+		for (j in 0...3)
+			for (i in 0...3) {
+				var sw = sx[i + 1] - sx[i], sh = sy[j + 1] - sy[j], tw = dx[i + 1] - dx[i], th = dy[j + 1] - dy[j];
+				if (sw <= 0 || sh <= 0 || tw <= 0 || th <= 0)
+					continue;
+				rects.push(sx[i]);
+				rects.push(sy[j]);
+				rects.push(sw);
+				rects.push(sh);
+				transforms.push(tw / sw);
+				transforms.push(0);
+				transforms.push(0);
+				transforms.push(th / sh);
+				transforms.push(x + dx[i]);
+				transforms.push(y + dy[j]);
+			}
+		drawQuads(image, rects, transforms, null, null, smooth);
+	}
+
 	/** A straight line, which has no inside: only its stroke. **/
 	public function line(x1:Float, y1:Float, x2:Float, y2:Float, stroke:Stroke, brush:Brush):Void
 		strokePath(new Path().moveTo(x1, y1).lineTo(x2, y2), stroke, brush);

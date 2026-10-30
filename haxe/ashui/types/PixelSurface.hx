@@ -97,6 +97,25 @@ class PixelSurface {
 	@:allow(ashui.types.SurfaceReader)
 	function forget(r:SurfaceReader):Void
 		readers.remove(r);
+
+	var snapshots:Array<Bitmap> = [];
+	var snapshotOf = -1;
+
+	/**
+		The surface's pixels as a `Bitmap`, for what a bitmap can be: `Brush.bitmapPattern`, `Brush.bitmap` and a canvas's
+		`image`. It is a copy, so a write to the surface is not in it; a call after a write makes a new one, which the draw
+		that uses it should redo when `changed` does. Making one encodes and decodes the whole surface, so a surface
+		written every frame is drawn with `ctx.surface` instead. The one before the last is freed here.
+	**/
+	public function bitmap():Bitmap {
+		if (snapshotOf != generation || snapshots.length == 0) {
+			snapshots.push(Bitmap.fromBytes(ashui.core.render.Png.encode(width, height, pixels)));
+			snapshotOf = generation;
+			if (snapshots.length > 2)
+				snapshots.shift().dispose();
+		}
+		return snapshots[snapshots.length - 1];
+	}
 }
 
 /** What changed in a `PixelSurface` since its reader last took it. **/
