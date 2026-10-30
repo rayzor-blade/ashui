@@ -67,7 +67,7 @@ class SketchContext extends DrawContext {
 		resting = true;
 	}
 
-	/** The pointer's place in the sketch. **/
+	/** The pointer's x and y in the sketch's coordinates, where it was last seen. **/
 	public var mouseX(get, never):Float;
 
 	public var mouseY(get, never):Float;

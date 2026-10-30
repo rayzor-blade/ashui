@@ -6,6 +6,19 @@ import haxe.macro.Expr;
 import haxe.macro.Type;
 #end
 
+/** A class, a form of class or a state prefix a Tw string can hold, for an editor. **/
+typedef TwCompletion = {
+	name:String,
+	kind:String,
+	doc:String,
+	/** An editor snippet for a pattern, with `${1:...}` placeholders; null otherwise. **/
+	snippet:Null<String>,
+	/** A class of the pattern's form, which `tw` accepts; null otherwise. **/
+	example:Null<String>,
+	/** Classes that must come with this one for `tw` to accept it, as a gradient's direction needs a colour stop; null otherwise. **/
+	with:Null<String>
+}
+
 /**
 	Compiles Tailwind-style utility classes into typed styles and bindings:
 
@@ -894,6 +907,139 @@ class Tw {
 		return names.concat(["white", "black", "transparent"]);
 	}
 
+
+	/**
+		The classes `tw` accepts and the forms they take, for an editor. Names come from the vocabulary map, the
+		keyword, motion, transform, gradient and colour tables, and a few fixed lists; each is run through `setters`,
+		so a name that no longer parses stops the build here rather than staying in the list. A class that is valid
+		only beside others (a gradient direction needs a colour stop, a duration needs `transition`) has them in `with`.
+		Patterns carry an `example` that `tw` accepts.
+	**/
+	public static function completions():Array<TwCompletion> {
+		var out:Array<TwCompletion> = [];
+		var vocab = vocabulary();
+		var seen = new Map<String, Bool>();
+		var at = Context.currentPos();
+		// A compile error raised inside setters aborts the build whatever catches it, so each class is tried with the
+		// classes that make it valid, never alone where it would fail.
+		function parses(word:String, ?with:String):Null<Array<Expr>> {
+			return setters(macro @:pos(at) $v{with == null ? word : word + " " + with}, macro __node);
+		}
+		function describe(sets:Array<Expr>):String {
+			var parts = [];
+			for (e in sets)
+				switch keyValue(e) {
+					case null:
+					case {key: key}: parts.push(StringTools.startsWith(key, "css:") ? key.substr(4) : key);
+				}
+			return parts.length == 0 ? "A utility class." : "Sets " + parts.join(", ") + ".";
+		}
+		function add(word:String, ?doc:String, ?with:String):Void {
+			if (seen.exists(word))
+				return;
+			var sets = parses(word, with);
+			if (sets == null)
+				return;
+			seen.set(word, true);
+			out.push({name: word, kind: "class", doc: doc == null ? describe(sets) : doc, snippet: null, example: null, with: with});
+		}
+		function pattern(name:String, snippet:String, example:String, doc:String):Void {
+			if (parses(example) != null)
+				out.push({name: name, kind: "pattern", doc: doc, snippet: snippet, example: example, with: null});
+		}
+		var names = [for (k in vocab.keys()) k];
+		names.sort(Reflect.compare);
+		for (n in names)
+			add(n);
+		for (group in KEYWORDS)
+			for (v in group.values)
+				add(group.prefix + v);
+		for (k in BACKDROP_BLUR.keys())
+			add(k, "Blurs what is behind the element.");
+		for (k in BACKDROP_COLORS.keys())
+			add(k, "Filters the colours of what is behind the element.");
+		for (w in ["bg-glass", "glass-liquid", "glass-frosted", "glass-inset", "glass-outset"])
+			add(w);
+		for (size in ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl", "5xl", "6xl", "7xl", "8xl", "9xl"])
+			add("text-" + size);
+		for (a in ["left", "center", "right", "justify"])
+			add("text-" + a);
+		for (w in ["italic", "not-italic"])
+			add(w);
+		for (f in ["sans", "mono", "serif", "thin", "light", "normal", "medium", "semibold", "bold", "black"])
+			add("font-" + f);
+		for (l in ["none", "tight", "snug", "normal", "relaxed", "loose"])
+			add("leading-" + l);
+		for (t in ["tighter", "tight", "normal", "wide", "wider"])
+			add("tracking-" + t);
+		for (d in Gradient.DIRECTIONS.keys()) {
+			add("bg-gradient-to-" + d, "A gradient's direction, with a from-, via- or to- colour.", "from-primary");
+			add("bg-linear-to-" + d, "A gradient's direction, with a from-, via- or to- colour.", "from-primary");
+		}
+		add("bg-radial", "A radial gradient, with a from-, via- or to- colour.", "from-primary");
+		for (g in Motion.GROUPS.keys())
+			add(g);
+		for (d in Motion.DURATIONS.keys())
+			add("duration-" + d, "How long the transition takes, with a transition class.", "transition");
+		for (e in Motion.EASINGS.keys())
+			add("ease-" + e, "The transition's easing curve, with a transition class.", "transition");
+		for (ms in Motion.MILLISECONDS) {
+			add("duration-" + ms, "How long the transition takes in milliseconds, with a transition class.", "transition");
+			add("delay-" + ms, "How long before the transition starts in milliseconds, with a transition class.", "transition");
+		}
+		for (a in ["spin", "ping", "pulse", "bounce", "none"])
+			add("animate-" + a);
+		for (r in TransformClasses.ROTATIONS) {
+			add("rotate-" + r);
+			add("-rotate-" + r);
+		}
+		for (sc in TransformClasses.SCALES) {
+			add("scale-" + sc);
+			add("scale-x-" + sc);
+			add("scale-y-" + sc);
+		}
+		for (k in TransformClasses.SKEWS)
+			for (axis in ["x", "y"]) {
+				add('skew-$axis-$k');
+				add('-skew-$axis-$k');
+			}
+		var colorList = colorNames();
+		for (target in COLOR_TARGETS)
+			for (c in colorList)
+				add(target.prefix + "-" + c);
+		// Gradient stops take theme colour tokens, not Tailwind's fixed white, black and transparent.
+		for (c in colorList)
+			if (colorToken(c) != null) {
+				add("from-" + c, "A gradient's from colour, with a direction.", "bg-radial");
+				add("via-" + c, "A gradient's via colour, with a direction.", "bg-radial");
+				add("to-" + c, "A gradient's to colour, with a direction.", "bg-radial");
+			}
+		for (o in [0, 5, 10, 25, 50, 75, 100]) {
+			add('from-$o%', "Where the gradient's from colour is, with that colour and a direction.", "from-primary bg-radial");
+			add('via-$o%', "Where the gradient's via colour is, with that colour and a direction.", "via-primary bg-radial");
+			add('to-$o%', "Where the gradient's to colour is, with that colour and a direction.", "to-primary bg-radial");
+		}
+		for (target in COLOR_TARGETS)
+			pattern(target.prefix + "-<color>/<0-100>", target.prefix + "-${1:primary}/${2:50}", target.prefix + "-primary/50",
+				"The colour at a percentage of its opacity.");
+		pattern("<state>:<class>", "${1|" + STATES.join(",") + "|}:${2:class}", "bg-surface hover:bg-primary", "The class while the element is in the state; a class for the same property without the state must come with it.");
+		pattern("[clip-path:<shape>]", "[clip-path:${1:circle(50%)}]", "[clip-path:circle(50%)]", "A CSS clip-path, with _ for spaces.");
+		pattern("glass-<blur|aberration|noise|bevel>-<n>", "glass-${1|blur,aberration,noise,bevel|}-${2:10}", "glass-blur-10", "A glass setting by number.");
+		pattern("glass-tint-<color>[/<0-100>]", "glass-tint-${1:white}/${2:50}", "glass-tint-white/50", "The glass's tint colour.");
+		pattern("[glass-<property>:<value>]", "[glass-${1|blur,tint,aberration,bevel,curvature,noise,mode|}:${2:value}]", "[glass-blur:12px]",
+			"A glass setting as CSS, with _ for spaces.");
+		for (s in STATES)
+			out.push({
+				name: s + ":",
+				kind: "variant",
+				doc: s == "dark" ? "Applies in the dark theme." : 'Applies while the element is in the $s state.',
+				snippet: null,
+				example: null,
+				with: null
+			});
+		return out;
+	}
+
 	/** Tailwind's colours that no theme changes: `0xRRGGBB` and alpha. **/
 	/**
 		`word` as the CSS declaration of the inherited text property it sets,
@@ -938,15 +1084,14 @@ class Tw {
 		return null;
 	}
 
-	/** Keyword CSS utilities shared by plain classes and state variants. **/
-	static function keywordCss(word:String):Null<{name:String, value:String}> {
-		if (StringTools.startsWith(word, "bg-")) {
-			var value = word.substr(3);
-			if (["repeat", "no-repeat", "repeat-x", "repeat-y"].indexOf(value) >= 0)
-				return {name: "background-repeat", value: value};
-			if (["auto", "cover", "contain"].indexOf(value) >= 0)
-				return {name: "background-size", value: value};
-			if ([
+	/** The keyword utilities: `prefix` and one of `values` is a class setting CSS `property`; a hyphen in a value is a space in the CSS. **/
+	static final KEYWORDS:Array<{prefix:String, property:String, values:Array<String>, spaced:Bool}> = [
+		{prefix: "bg-", property: "background-repeat", values: ["repeat", "no-repeat", "repeat-x", "repeat-y"], spaced: false},
+		{prefix: "bg-", property: "background-size", values: ["auto", "cover", "contain"], spaced: false},
+		{
+			prefix: "bg-",
+			property: "background-position",
+			values: [
 				"center",
 				"left",
 				"right",
@@ -960,34 +1105,21 @@ class Tw {
 				"top-right",
 				"bottom-left",
 				"bottom-right"
-			].indexOf(value) >= 0)
-				return {name: "background-position", value: StringTools.replace(value, "-", " ")};
-		}
-		if (StringTools.startsWith(word, "object-")) {
-			var value = word.substr(7);
-			if (["cover", "contain", "fill", "none", "scale-down"].indexOf(value) >= 0)
-				return {name: "object-fit", value: value};
-			if ([
-				"center",
-				"left",
-				"right",
-				"top",
-				"bottom",
-				"left-top",
-				"left-bottom",
-				"right-top",
-				"right-bottom"
-			].indexOf(value) >= 0)
-				return {name: "object-position", value: StringTools.replace(value, "-", " ")};
-		}
-		if (StringTools.startsWith(word, "scrollbar-")) {
-			var value = word.substr(10);
-			if (["auto", "thin", "none"].indexOf(value) >= 0)
-				return {name: "scrollbar-width", value: value};
-		}
-		if (StringTools.startsWith(word, "list-")) {
-			var value = word.substr(5);
-			if ([
+			],
+			spaced: true
+		},
+		{prefix: "object-", property: "object-fit", values: ["cover", "contain", "fill", "none", "scale-down"], spaced: false},
+		{
+			prefix: "object-",
+			property: "object-position",
+			values: ["center", "left", "right", "top", "bottom", "left-top", "left-bottom", "right-top", "right-bottom"],
+			spaced: true
+		},
+		{prefix: "scrollbar-", property: "scrollbar-width", values: ["auto", "thin", "none"], spaced: false},
+		{
+			prefix: "list-",
+			property: "list-style-type",
+			values: [
 				"none",
 				"disc",
 				"circle",
@@ -1000,12 +1132,13 @@ class Tw {
 				"upper-latin",
 				"lower-roman",
 				"upper-roman"
-			].indexOf(value) >= 0)
-				return {name: "list-style-type", value: value};
-		}
-		if (StringTools.startsWith(word, "cursor-")) {
-			var value = word.substr(7);
-			if ([
+			],
+			spaced: false
+		},
+		{
+			prefix: "cursor-",
+			property: "cursor",
+			values: [
 				"auto",
 				"default",
 				"none",
@@ -1042,9 +1175,19 @@ class Tw {
 				"all-scroll",
 				"zoom-in",
 				"zoom-out"
-			].indexOf(value) >= 0)
-				return {name: "cursor", value: value};
+			],
+			spaced: false
 		}
+	];
+
+	/** Keyword CSS utilities shared by plain classes and state variants. **/
+	static function keywordCss(word:String):Null<{name:String, value:String}> {
+		for (group in KEYWORDS)
+			if (StringTools.startsWith(word, group.prefix)) {
+				var value = word.substr(group.prefix.length);
+				if (group.values.indexOf(value) >= 0)
+					return {name: group.property, value: group.spaced ? StringTools.replace(value, "-", " ") : value};
+			}
 		return null;
 	}
 
@@ -1187,6 +1330,7 @@ class Tw {
 	`hover:` and `active:` ones compose over the plain ones. An `animate-`
 	class replaces the transform, and for ping and pulse the opacity.
 **/
+@:allow(ashui.style.Tw)
 private class TransformClasses {
 	static final ROTATIONS = [0, 1, 2, 3, 6, 12, 45, 90, 180];
 	static final SCALES = [0, 50, 75, 90, 95, 100, 105, 110, 125, 150];
@@ -1310,6 +1454,7 @@ private class TransformClasses {
 }
 
 /** The transition classes of one class string, composed into one `Transition`. **/
+@:allow(ashui.style.Tw)
 private class Motion {
 	static final GROUPS = [
 		"transition" => "DEFAULT",
@@ -1430,6 +1575,7 @@ private class Motion {
 	and `to-` stops, each a theme colour, with positions such as `from-10%`.
 	A missing first or last stop is the nearest stop made transparent.
 **/
+@:allow(ashui.style.Tw)
 private class Gradient {
 	// Start and end of each direction, as fractions of the box; y down.
 	static final DIRECTIONS:Map<String, Array<Float>> = [

@@ -25,7 +25,7 @@ class PixelSurface {
 	/** Counts changes: each write adds one. A reader that kept the last one it drew knows whether anything is new. **/
 	public var generation(default, null) = 0;
 
-	/** The same count as a signal, for a `<surface>` to redraw when it moves. **/
+	/** `generation` as a signal: a `<surface>` asks for a frame when it changes. **/
 	public final changed = Signal.make(0);
 
 	/** The pixels, `width * 4` bytes a row. **/

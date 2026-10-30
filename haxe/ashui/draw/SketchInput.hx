@@ -44,7 +44,7 @@ class SketchInput {
 	/** What happened since the last frame, in order; the frame that reads it is given a copy. **/
 	var pending:Array<SketchEvent> = [];
 
-	/** The pointer's place in the sketch, and whether it was last seen over it. **/
+	/** The pointer's x and y in the sketch's coordinates, where it was last seen. **/
 	public var mouseX(default, null) = 0.0;
 
 	public var mouseY(default, null) = 0.0;
