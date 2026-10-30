@@ -5,7 +5,7 @@ package ashui.core.render;
 	by vertex index, each vertex two texels: its position in layout units,
 	its coverage and the texel where its paint starts; then its distances
 	inside up to four edges of its shape, in pixels, which cover the pixels
-	just inside an edge by how far inside they are. A paint is eight
+	just inside an edge by how far inside they are. A paint is ten
 	texels: its kind (0 solid, 1 linear, 2 radial, 3 image, 4 pattern),
 	stop count and opacity; its geometry, in layout units; up to four stop
 	offsets; and the stops' colours. An image's paint is its opacity, then
@@ -24,8 +24,8 @@ class PathShader implements UiShader {
 	/** Texels to a row of the canvas's data texture. **/
 	public static inline var ROW_TEXELS = 2048;
 
-	/** Texels to a paint. **/
-	public static inline var PAINT_TEXELS = 8;
+	/** Texels to a paint. A gradient's last two hold its map from a pixel to gradient space as two rows, the spread in the first and the focus in the second. **/
+	public static inline var PAINT_TEXELS = 10;
 
 	/** Texels to a clip. **/
 	public static inline var CLIP_TEXELS = 4;
@@ -125,13 +125,29 @@ class PathShader implements UiShader {
 			} else if (head.x > 0.5) {
 				var geo = canvasTexel(at + 1);
 				var offsets = canvasTexel(at + 2);
+				var g0 = canvasTexel(at + 7);
+				var g1 = canvasTexel(at + 8);
+				// The pixel in the gradient's own space.
+				var gp = vec2(dot(g0.xyz, vec3(pixel, 1.)), dot(g1.xyz, vec3(pixel, 1.)));
 				var t = 0.;
 				if (head.x < 1.5) {
 					var d = geo.zw - geo.xy;
-					t = dot(pixel - geo.xy, d) / max(dot(d, d), 0.000001);
+					t = dot(gp - geo.xy, d) / max(dot(d, d), 0.000001);
 				} else {
-					t = length(pixel - geo.xy) / max(geo.z, 0.000001);
+					// From the focus, f of the radius along x, through the pixel, to the circle: how far along that ray it is.
+					var rel = (gp - geo.xy) / max(geo.z, 0.000001);
+					var focus = vec2(g1.w, 0.);
+					var ray = rel - focus;
+					var a2 = max(dot(ray, ray), 0.000001);
+					var b2 = dot(focus, ray);
+					var c2 = dot(focus, focus) - 1.;
+					t = 1. / ((-b2 + sqrt(max(b2 * b2 - a2 * c2, 0.))) / a2);
 				}
+				// Past the ends: held, started again, or run back.
+				if (g0.w > 1.5)
+					t = t - floor(t);
+				else if (g0.w > 0.5)
+					t = 1. - abs(1. - (t - 2. * floor(t * 0.5)));
 				t = clamp(t, 0., 1.);
 				var p0 = premultiplied(canvasTexel(at + 3));
 				var p1 = premultiplied(canvasTexel(at + 4));

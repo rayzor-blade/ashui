@@ -23,12 +23,26 @@ typedef BrushStop = {
 	final alpha:Float;
 }
 
+/** What a gradient does past its first and last stop: `Pad` holds their colours, `Repeat` starts again, `Reflect` runs back. **/
+enum abstract GradientSpread(Int) to Int {
+	var Pad = 0;
+	var Reflect = 1;
+	var Repeat = 2;
+}
+
 /**
 	Describes a gradient for custom drawing, such as a canvas fill.
 	Linear gradients run from `(x1, y1)` to `(x2, y2)`. Radial gradients use
 	center `(x1, y1)` and radius `x2`. With `boundingBox`, coordinates are fractions of the filled box.
+	`matrix` places the gradient's own space in the filled shape's, so a radial one can be an ellipse;
+	`spread` is what happens past the ends; `focal`, from -1 to 1, moves a radial gradient's
+	focus from its center toward its edge along the gradient's x axis.
+	Only canvas fills read these three; a node's background ignores them.
 **/
 typedef BrushGradient = {
+	@:optional var matrix:ashui.draw.Affine;
+	@:optional var spread:GradientSpread;
+	@:optional var focal:Float;
 	final radial:Bool;
 	final x1:Float;
 	final y1:Float;
@@ -218,6 +232,27 @@ class Brush implements IValue {
 		BlincNative.blinc_brush_gradient_stop(ptr, offset, hex, alpha);
 		if (gradient != null)
 			gradient.stops.push({offset: offset, rgb: hex & 0xFFFFFF, alpha: alpha});
+		return this;
+	}
+
+	/** Places this gradient's space in the filled shape's by `a b c d e f`, as a canvas `Affine` does; returns it. **/
+	public function placed(a:Float, b:Float, c:Float, d:Float, e:Float, f:Float):Brush {
+		if (gradient != null)
+			gradient.matrix = new ashui.draw.Affine(a, b, c, d, e, f);
+		return this;
+	}
+
+	/** Sets what this gradient does past its first and last stop; returns it. **/
+	public function spreading(spread:GradientSpread):Brush {
+		if (gradient != null)
+			gradient.spread = spread;
+		return this;
+	}
+
+	/** Moves a radial gradient's focus, `ratio` of its radius from the center along the x axis, -1 to 1; returns it. **/
+	public function focused(ratio:Float):Brush {
+		if (gradient != null)
+			gradient.focal = Math.max(-0.999, Math.min(0.999, ratio));
 		return this;
 	}
 

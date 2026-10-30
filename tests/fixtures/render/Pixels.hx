@@ -1648,6 +1648,38 @@ class Pixels {
 		pixels = offscreen.renderToRgba8(sketchRoot, SIZE, SIZE);
 		probe("a write shows in the next frame", 40, 4, near(0x0000ff));
 		sketchRoot.remove();
+		// Gradients of a canvas: spread past the ends, a matrix of the gradient's own, and a focus.
+		function about(wr:Int, wg:Int, wb:Int)
+			return (r:Int, g:Int, b:Int) -> Math.abs(r - wr) <= 6 && Math.abs(g - wg) <= 6 && Math.abs(b - wb) <= 6;
+		function gradientRoot(brush:Brush):Div
+			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+				<canvas width={64} height={64} draw={ctx -> ctx.fillRect(0, 0, 64, 64, brush)} />
+			</div>);
+		function redToBlue(b:Brush):Brush
+			return b.stop(0, 0xff0000).stop(1, 0x0000ff);
+		label = "gradient: ";
+		var padded = gradientRoot(redToBlue(Brush.linear(0, 0, 32, 0)));
+		pixels = offscreen.renderToRgba8(padded, SIZE, SIZE);
+		probe("pad holds the last colour past the end", 48, 8, about(0, 0, 255));
+		padded.remove();
+		var repeated = gradientRoot(redToBlue(Brush.linear(0, 0, 32, 0)).spreading(Repeat));
+		pixels = offscreen.renderToRgba8(repeated, SIZE, SIZE);
+		probe("repeat starts again: a quarter in at x 40", 40, 8, about(191, 0, 64));
+		repeated.remove();
+		var reflected = gradientRoot(redToBlue(Brush.linear(0, 0, 32, 0)).spreading(Reflect));
+		pixels = offscreen.renderToRgba8(reflected, SIZE, SIZE);
+		probe("reflect runs back: three quarters in at x 40", 40, 8, about(64, 0, 191));
+		reflected.remove();
+		var ellipse = gradientRoot(redToBlue(Brush.radial(16, 32, 16)).placed(2, 0, 0, 1, 0, 0));
+		pixels = offscreen.renderToRgba8(ellipse, SIZE, SIZE);
+		probe("a matrix stretches a radial gradient: half way along x", 48, 32, about(128, 0, 128));
+		probe("and its edge is as far as the radius along y", 32, 48, about(0, 0, 255));
+		ellipse.remove();
+		var focal = gradientRoot(redToBlue(Brush.radial(32, 32, 30)).focused(0.5));
+		pixels = offscreen.renderToRgba8(focal, SIZE, SIZE);
+		probe("a focus is where the first colour is, to within a pixel", 47, 32, about(250, 0, 5));
+		probe("the centre is a third of the way out", 32, 32, about(170, 0, 85));
+		focal.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

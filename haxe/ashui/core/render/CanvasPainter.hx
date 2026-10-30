@@ -494,7 +494,7 @@ class CanvasPainter {
 		var rect = Images.bitmap(slot, w, h, m.scale() * frame.pixelRatio, frame.images);
 		var inverse = m.after(new Affine(w, 0, 0, h, x, y)).inverse();
 		if (rect == null || inverse == null) {
-			for (_ in 0...8)
+			for (_ in 0...PathShader.PAINT_TEXELS)
 				for (_ in 0...4)
 					out.push(0);
 			return;
@@ -518,7 +518,7 @@ class CanvasPainter {
 			rect.y + rect.height
 		])
 			out.push(v);
-		for (_ in 0...16)
+		for (_ in 0...(PathShader.PAINT_TEXELS - 4) * 4)
 			out.push(0);
 	}
 
@@ -618,7 +618,7 @@ class CanvasPainter {
 			four(inverse.b, inverse.d, inverse.f, 0);
 			rgba(brush.solidRgb, brush.solidAlpha);
 			four(p.spacing, p.size, p.coarsen, p.minGap);
-			for (_ in 0...3)
+			for (_ in 0...PathShader.PAINT_TEXELS - 5)
 				four(0, 0, 0, 0);
 			return;
 		}
@@ -631,11 +631,20 @@ class CanvasPainter {
 				rgba(brush.solidRgb, brush.solidAlpha);
 			else
 				four(0, 0, 0, 0);
-			for (_ in 0...4)
+			for (_ in 0...PathShader.PAINT_TEXELS - 4)
+				four(0, 0, 0, 0);
+			return;
+		}
+		var total = m.after(g.matrix == null ? Affine.IDENTITY : g.matrix).inverse();
+		if (total == null) {
+			// A gradient space the matrix flattens has no colours to give.
+			four(0, 1, opacity, 0);
+			for (_ in 0...PathShader.PAINT_TEXELS - 1)
 				four(0, 0, 0, 0);
 			return;
 		}
 		four(g.radial ? 2 : 1, Math.min(4, g.stops.length), opacity, 0);
+		// Geometry in the gradient's own space; a bounding-box one is the shape's bounds in the shape's space.
 		if (g.boundingBox) {
 			var x0 = Math.POSITIVE_INFINITY,
 				y0 = Math.POSITIVE_INFINITY,
@@ -649,14 +658,19 @@ class CanvasPainter {
 					y1 = Math.max(y1, c.y(i));
 				}
 			var w = x1 - x0, h = y1 - y0;
+			// The contours are already through `m`; the geometry goes back to the shape's space, where the matrix applies.
+			var back = m.inverse();
+			if (back == null)
+				back = Affine.IDENTITY;
 			if (g.radial)
-				four(x0 + g.x1 * w, y0 + g.y1 * h, g.x2 * Math.max(w, h), 0);
+				four(back.x(x0 + g.x1 * w, y0 + g.y1 * h), back.y(x0 + g.x1 * w, y0 + g.y1 * h), g.x2 * Math.max(w, h) / m.scale(), 0);
 			else
-				four(x0 + g.x1 * w, y0 + g.y1 * h, x0 + g.x2 * w, y0 + g.y2 * h);
+				four(back.x(x0 + g.x1 * w, y0 + g.y1 * h), back.y(x0 + g.x1 * w, y0 + g.y1 * h), back.x(x0 + g.x2 * w, y0 + g.y2 * h),
+					back.y(x0 + g.x2 * w, y0 + g.y2 * h));
 		} else if (g.radial)
-			four(m.x(g.x1, g.y1), m.y(g.x1, g.y1), g.x2 * m.scale(), 0);
+			four(g.x1, g.y1, g.x2, 0);
 		else
-			four(m.x(g.x1, g.y1), m.y(g.x1, g.y1), m.x(g.x2, g.y2), m.y(g.x2, g.y2));
+			four(g.x1, g.y1, g.x2, g.y2);
 		// Stops in order; they are usually added so.
 		var stops = g.stops;
 		var sorted = true;
@@ -673,7 +687,11 @@ class CanvasPainter {
 			var s = stops[i < n ? i : n - 1];
 			rgba(s.rgb, s.alpha);
 		}
-		four(0, 0, 0, 0);
+		// The map from a pixel to the gradient's space, its spread and its focus.
+		four(total.a, total.c, total.e, g.spread == null ? 0 : g.spread);
+		four(total.b, total.d, total.f, g.focal == null ? 0 : g.focal);
+		for (_ in 0...PathShader.PAINT_TEXELS - 9)
+			four(0, 0, 0, 0);
 	}
 }
 
