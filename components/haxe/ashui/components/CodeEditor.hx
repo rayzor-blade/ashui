@@ -907,8 +907,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 			return list != null && token.index < list.length ? list[token.index] : null;
 		}
 		var left = Computed.make(() -> { var u = run(row.get()); (u == null ? 0 : u.x : Single); });
-		var content = Computed.make(() -> { var u = run(row.get()); u == null ? "" : u.text; });
-		var text:Text = <text class="ui-code-text ui-code-token" left={left} top={0}>${content.get()}</text>;
+		var text:Text = <text class="ui-code-text ui-code-token" left={left} top={0}>${{var u = run(row.get()); u == null ? "" : u.text;}}</text>;
 		var identity = Identity.of(text.tree, text.node.id);
 		identity.setAttribute("data-token", token.kind);
 		if (props.tokenStyles == true) new Watch(() -> { var u = run(row.get()); u == null ? null : u.style; }, style -> {
@@ -926,14 +925,13 @@ class CodeEditor extends Component<CodeEditorProps> {
 		var row = slotAt(i);
 		var shown = Computed.make(() -> (row.get() != null ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
 		var top = Computed.make(() -> { var r = row.get(); (r == null ? 0 : r.top : Single); });
-		var number = Computed.make(() -> { var r = row.get(); r == null ? "" : Std.string(r.source + 1); });
 		var foldable = Computed.make(() -> { revision.get(); var r = row.get(); r != null && r.line.foldEnd >= 0; });
 		var fold = Computed.make(() -> (foldable.get() ? ashui.types.Style.Visibility.Visible : ashui.types.Style.Visibility.Hidden : ashui.types.Style.Visibility));
 		return <div class="ui-code-gutter-line" top={top} height={rowHeight} width={Computed.make(() -> (gutter.get() : Single))} visibility={shown}>
 			<if {markerColumn.get()}>${markerSlot(row)}</if>
 			<if {props.gutterMarkers == true}>${boundarySlot(row, rowHeight)}</if>
 			<if {props.gutterMarkers == true}>${barSlot(row)}</if>
-			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (foldColumn.get() ? 26 : 8) - (markerColumn.get() ? MARKER : 0) : Single))}>${number.get()}</text></if>
+			<if {props.lineNumbers != false}><text class="ui-code-text ui-code-line-number" width={Computed.make(() -> (gutter.get() - (foldColumn.get() ? 26 : 8) - (markerColumn.get() ? MARKER : 0) : Single))}>${{var r = row.get(); r == null ? "" : Std.string(r.source + 1);}}</text></if>
 			<if {foldColumn.get()}>
 				<div class="ui-code-fold-slot" visibility={fold}>${foldButton(row, foldable)}</div>
 			</if>

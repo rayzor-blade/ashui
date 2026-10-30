@@ -358,6 +358,8 @@ memory)
 	# Nested HXX keeps the enclosing comprehension's variables and element children (66cc2f7).
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main MarkupComprehensions -hl bin/markup-comprehensions.hl
 	run markup-comprehensions.hl
+	$haxe_ui --class-path fixtures/css -main StyleSnapshotReuse -hl bin/style-snapshot-reuse.hl
+	run style-snapshot-reuse.hl
 	# Native code editing, cached syntax/folds, virtual rows and owner cleanup (e53597f).
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeComponents -hl bin/code-components.hl
 	code_components=0

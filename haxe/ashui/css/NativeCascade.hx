@@ -16,6 +16,9 @@ typedef NativeComputedStyle = {resolved:Map<String, String>, values:Map<String, 
 	changed and what they are. `Css` applies those.
 **/
 class NativeCascade {
+	// e1a026f / a1b5f09: hover and tab states revisit the same immutable
+	// responses. Keep a small window-local decode cache, without node handles.
+	static final local_styles = new ashui.core.UiContext.Local<StyleSnapshots>(() -> new StyleSnapshots());
 	static final local_handle = new ashui.core.UiContext.Local<Null<CssHandle>>(() -> null);
 	static var handle(get, set):Null<CssHandle>;
 	static function get_handle():Null<CssHandle> return local_handle.value;
@@ -292,6 +295,12 @@ class NativeCascade {
 			var found = shared.get(serialized);
 			if (found != null) return found;
 		}
+		var cache = local_styles.value;
+		var known = cache.values.get(serialized);
+		if (known != null) {
+			if (shared != null) shared.set(serialized, known);
+			return known;
+		}
 		var first = serialized.indexOf(RECORD);
 		var second = first < 0 ? -1 : serialized.indexOf(RECORD, first + 1);
 		// Decode fields directly from the response. split() copied every whole
@@ -316,6 +325,7 @@ class NativeCascade {
 			signature: first < 0 ? serialized : serialized.substr(0, first)
 		};
 		if (shared != null) shared.set(serialized, result);
+		cache.keep(serialized, result);
 		return result;
 	}
 
@@ -464,5 +474,22 @@ class NativeCascade {
 				out |= bit;
 		}
 		return out;
+	}
+}
+
+/** Bounded memoization of plain decoded data; never keeps an element or a native resource. **/
+private class StyleSnapshots {
+	public final values = new Map<String, NativeComputedStyle>();
+	var count = 0;
+	var characters = 0;
+	public function new() {}
+	public function keep(key:String, style:NativeComputedStyle):Void {
+		// Large inline values remain batch-local. Long-running apps cannot
+		// accumulate styles from every document or former theme.
+		if (key.length > 16384) return;
+		if (count >= 32 || characters + key.length > 65536) {
+			values.clear(); count = 0; characters = 0;
+		}
+		values.set(key, style); count++; characters += key.length;
 	}
 }

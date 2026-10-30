@@ -127,16 +127,12 @@ class Properties {
 
 	static function build():Map<String, (Node, String, ApplyContext) -> Array<Int>> {
 		var h = new Map<String, (Node, String, ApplyContext) -> Array<Int>>();
-		h.set("visibility", (n, v, _) -> [
-			enumWrite(n, Prop.Visibility, v, [
-				"visible" => Visibility.Visible,
-				"hidden" => Visibility.Hidden,
-				"collapse" => Visibility.Collapse
-			])
-		]);
-		h.set("pointer-events", (n, v, _) -> [
-			enumWrite(n, Prop.PointerEvents, v, ["auto" => PointerEvents.Auto, "none" => PointerEvents.None])
-		]);
+		h.set("visibility", enumeration(Prop.Visibility, [
+			"visible" => Visibility.Visible,
+			"hidden" => Visibility.Hidden,
+			"collapse" => Visibility.Collapse
+		]));
+		h.set("pointer-events", enumeration(Prop.PointerEvents, ["auto" => PointerEvents.Auto, "none" => PointerEvents.None]));
 		h.set("cursor", (_, v, _) -> {
 			ashui.input.Cursor.parse(v);
 			[];
@@ -221,15 +217,13 @@ class Properties {
 				for (i in 0...4) lengthWrite(n, insets[i].prop, insets[i].percent, four[i], c, true)
 			];
 		});
-		h.set("position", (n, v, _) -> [
-			enumWrite(n, Prop.Position, v, [
-				"relative" => Position.Relative,
-				"static" => Position.Relative,
-				"absolute" => Position.Absolute,
-				"fixed" => Position.Fixed,
-				"sticky" => Position.Sticky
-			])
-		]);
+		h.set("position", enumeration(Prop.Position, [
+			"relative" => Position.Relative,
+			"static" => Position.Relative,
+			"absolute" => Position.Absolute,
+			"fixed" => Position.Fixed,
+			"sticky" => Position.Sticky
+		]));
 		// git-bug: 7977648 / ABI 62aa0b0: keep signed integers on the native i32 path.
 		h.set("order", (n, v, _) -> {
 			write(n, Prop.Order, integer(v, -2147483648.0));
@@ -249,29 +243,23 @@ class Properties {
 			// The Li restyle hook reuses the list's counter and marker signals.
 			[];
 		});
-		h.set("display", (n, v, _) -> [
-			enumWrite(n, Prop.Display, v, [
-				"flex" => Display.Flex,
-				"block" => Display.Block,
-				"grid" => Display.Grid,
-				"none" => Display.None
-			])
-		]);
-		h.set("flex-direction", (n, v, _) -> [
-			enumWrite(n, Prop.FlexDirection, v, [
-				"row" => FlexDirection.Row,
-				"column" => FlexDirection.Column,
-				"row-reverse" => FlexDirection.RowReverse,
-				"column-reverse" => FlexDirection.ColumnReverse
-			])
-		]);
-		h.set("flex-wrap", (n, v, _) -> [
-			enumWrite(n, Prop.FlexWrap, v, [
-				"nowrap" => FlexWrap.NoWrap,
-				"wrap" => FlexWrap.Wrap,
-				"wrap-reverse" => FlexWrap.WrapReverse
-			])
-		]);
+		h.set("display", enumeration(Prop.Display, [
+			"flex" => Display.Flex,
+			"block" => Display.Block,
+			"grid" => Display.Grid,
+			"none" => Display.None
+		]));
+		h.set("flex-direction", enumeration(Prop.FlexDirection, [
+			"row" => FlexDirection.Row,
+			"column" => FlexDirection.Column,
+			"row-reverse" => FlexDirection.RowReverse,
+			"column-reverse" => FlexDirection.ColumnReverse
+		]));
+		h.set("flex-wrap", enumeration(Prop.FlexWrap, [
+			"nowrap" => FlexWrap.NoWrap,
+			"wrap" => FlexWrap.Wrap,
+			"wrap-reverse" => FlexWrap.WrapReverse
+		]));
 		var aligns = [
 			"start" => Align.Start,
 			"end" => Align.End,
@@ -798,13 +786,11 @@ class Properties {
 			write(n, Prop.FontWeight, w);
 			[Node.field(Prop.FontWeight)];
 		});
-		h.set("font-style", (n, v, _) -> [
-			enumWrite(n, Prop.FontStyle, v, [
-				"normal" => FontStyle.Normal,
-				"italic" => FontStyle.Italic,
-				"oblique" => FontStyle.Italic
-			])
-		]);
+		h.set("font-style", enumeration(Prop.FontStyle, [
+			"normal" => FontStyle.Normal,
+			"italic" => FontStyle.Italic,
+			"oblique" => FontStyle.Italic
+		]));
 		h.set("font-family", (n, v, _) -> {
 			// The whole stack: the first family installed is used, or the first generic name, as the theme's monospace.
 			write(n, Prop.FontFamily, StringTools.trim(v));
@@ -828,9 +814,7 @@ class Properties {
 			write(n, Prop.TextWrap, keep ? 0.0 : 1.0);
 			[Node.field(Prop.TextWrap)];
 		});
-		h.set("text-overflow", (n, v, _) -> [
-			enumWrite(n, Prop.TextOverflow, v, ["clip" => TextOverflow.Clip, "ellipsis" => TextOverflow.Ellipsis])
-		]);
+		h.set("text-overflow", enumeration(Prop.TextOverflow, ["clip" => TextOverflow.Clip, "ellipsis" => TextOverflow.Ellipsis]));
 		for (name in ["line-clamp", "-webkit-line-clamp"])
 			h.set(name, (n, v, _) -> {
 				write(n, Prop.LineClamp, StringTools.trim(v).toLowerCase() == "none" ? 0 : integer(v, 1));
@@ -844,17 +828,15 @@ class Properties {
 		// How a flow of text breaks a word longer than its line; InlineFlow reads them from the cascade.
 		for (name in ["overflow-wrap", "word-wrap", "word-break"])
 			h.set(name, (_, _, _) -> []);
-		h.set("text-align", (n, v, _) -> [
-			enumWrite(n, Prop.TextAlign, v, [
-				"left" => TextAlign.Left,
-				"start" => TextAlign.Left,
-				"center" => TextAlign.Center,
-				"right" => TextAlign.Right,
-				"end" => TextAlign.Right,
-				// A text node draws one line as it is; a flow of text justifies its lines (see InlineFlow).
-				"justify" => TextAlign.Left
-			])
-		]);
+		h.set("text-align", enumeration(Prop.TextAlign, [
+			"left" => TextAlign.Left,
+			"start" => TextAlign.Left,
+			"center" => TextAlign.Center,
+			"right" => TextAlign.Right,
+			"end" => TextAlign.Right,
+			// A text node draws one line as it is; a flow of text justifies its lines (see InlineFlow).
+			"justify" => TextAlign.Left
+		]));
 		return h;
 	}
 
@@ -1216,6 +1198,11 @@ class Properties {
 		if (!~/^[+-]?[0-9]+$/.match(value) || x < min || x > 2147483647.0)
 			throw 'expected an integer from $min to 2147483647, not "$v"';
 		return Std.int(x);
+	}
+
+	// a1b5f09 / e1a026f: build enum tables once, not on every state restyle.
+	static function enumeration<T>(property:Prop<T>, values:Map<String, T>):(Node, String, ApplyContext) -> Array<Int> {
+		return (node, value, _) -> [enumWrite(node, property, value, values)];
 	}
 
 	static function enumWrite<T>(n:Node, p:Prop<T>, v:String, values:Map<String, T>):Int {
