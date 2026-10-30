@@ -1595,6 +1595,42 @@ class Pixels {
 		probe("none removes the painted track", 61, 50, near(0xffffff));
 		interactionRoot.remove();
 		scrollPixels.remove();
+		// A surface: pixels a program writes, uploaded as the changed rectangle only.
+		var surfacePixels = new ashui.types.PixelSurface(2, 2);
+		var quadrants = haxe.io.Bytes.alloc(16);
+		for (i => c in [0xff0000, 0x00ff00, 0x0000ff, 0xffffff]) {
+			quadrants.set(i * 4, c >> 16);
+			quadrants.set(i * 4 + 1, (c >> 8) & 255);
+			quadrants.set(i * 4 + 2, c & 255);
+			quadrants.set(i * 4 + 3, 255);
+		}
+		surfacePixels.writeAll(quadrants);
+		var surfaceRoot:ashui.ui.Surface = ashui.reactive.Owner.root(tree, _ -> <surface source={surfacePixels} fit={ashui.types.ObjectFit.Fill} width={64} height={64} />);
+		pixels = offscreen.renderToRgba8(surfaceRoot, SIZE, SIZE);
+		label = "surface: ";
+		probe("top left is red", 8, 8, near(0xff0000));
+		probe("top right is green", 56, 8, near(0x00ff00));
+		probe("bottom left is blue", 8, 56, near(0x0000ff));
+		var firstUpload = surfaceRoot.texture.uploaded;
+		var yellow = haxe.io.Bytes.alloc(4);
+		yellow.set(0, 255);
+		yellow.set(1, 255);
+		yellow.set(3, 255);
+		surfacePixels.write(yellow, 0, 0, 1, 1);
+		pixels = offscreen.renderToRgba8(surfaceRoot, SIZE, SIZE);
+		probe("a written pixel shows", 8, 8, near(0xffff00));
+		probe("the others stay", 56, 8, near(0x00ff00));
+		var oneUpload = surfaceRoot.texture.uploaded - firstUpload;
+		var uploadsOne = oneUpload == 4;
+		if (!uploadsOne)
+			failures++;
+		Sys.println('${uploadsOne ? "ok  " : "FAIL"} surface: one written pixel uploads $oneUpload bytes');
+		pixels = offscreen.renderToRgba8(surfaceRoot, SIZE, SIZE);
+		var idle = surfaceRoot.texture.uploaded - firstUpload - oneUpload == 0;
+		if (!idle)
+			failures++;
+		Sys.println('${idle ? "ok  " : "FAIL"} surface: a frame with nothing written uploads nothing');
+		surfaceRoot.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}
