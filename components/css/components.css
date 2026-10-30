@@ -80,7 +80,7 @@
 	padding: var(--ui-badge-padding, 2px 10px); border-radius: var(--ui-badge-radius, var(--radius-full));
 	border: 1px solid var(--ui-badge-border, var(--primary));
 	background: var(--ui-badge-bg, var(--accent-subtle)); color: var(--ui-badge-fg, var(--primary));
-	font-size: var(--ui-badge-font-size, 14px); font-weight: 500; line-height: var(--ui-badge-line-height, 18px);
+	font-size: var(--ui-badge-font-size, 12px); font-weight: 500; line-height: var(--ui-badge-line-height, 16px);
 }
 /* Control density sizes use the shared Size API (git-bug e8a1b50); Md retains the existing design. */
 .ui-badge[data-size="sm"] { padding: var(--ui-badge-padding, 1px 8px); font-size: var(--ui-badge-font-size, 12px); line-height: var(--ui-badge-line-height, 16px); }

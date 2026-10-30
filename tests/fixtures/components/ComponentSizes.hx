@@ -172,7 +172,7 @@ class ComponentSizes {
 			Pointer.press(tree); Pointer.release(tree); settle();
 			check('$size $id seeks to the maximum using thumb bounds', (id == "range" ? volume.get() : vertical.get()) == 1);
 		}
-		check('$size Badge has proportional type and padding', bounds(node("badge")).height == [20, 24, 30][n], bounds(node("badge")));
+		check('$size Badge has proportional type and padding', bounds(node("badge")).height == [20, 22, 30][n], bounds(node("badge")));
 		click(node("select"));
 		var rows = Css.query(tree, root.node.id, "option.ui-select-item");
 		check('$size Select sizes its top-layer options', rows.length == 2 && Css.fontSize(Identity.of(tree, rows[0])) == font, rows.length);
