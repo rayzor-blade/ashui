@@ -22,7 +22,7 @@ import haxe.io.Bytes;
 	and the quad that draws it inside a canvas.
 **/
 class SurfaceTexture {
-	final surface:PixelSurface;
+	public final surface:PixelSurface;
 	final infoBytes = Bytes.alloc(48);
 	var reader:Null<ashui.types.SurfaceReader> = null;
 	var device:Null<GpuDevice> = null;
@@ -40,8 +40,16 @@ class SurfaceTexture {
 	public function new(surface:PixelSurface)
 		this.surface = surface;
 
-	public function paint(frame:CanvasFrame, fit:ObjectFit):Void {
+	/** Whether the next `paint` has something new to send. **/
+	public function stale():Bool
+		return reader == null || reader.pending();
+
+	/** Draws the surface in the canvas's box, or in the `w` by `h` rectangle at `(x, y)` of it when `w` is not negative. **/
+	public function paint(frame:CanvasFrame, fit:ObjectFit, x = 0.0, y = 0.0, w = -1.0, h = -1.0):Void {
 		if (disposed || frame.width <= 0 || frame.height <= 0)
+			return;
+		var boxW = w < 0 ? frame.width : w, boxH = w < 0 ? frame.height : h;
+		if (boxW <= 0 || boxH <= 0)
 			return;
 		if (device != frame.device) {
 			releaseGpu();
@@ -61,7 +69,7 @@ class SurfaceTexture {
 		var rect = reader.take();
 		if (rect != null)
 			upload(frame, rect[0], rect[1], rect[2], rect[3]);
-		geometry(frame.width, frame.height, fit);
+		geometry(boxW, boxH, fit, x, y);
 		frame.device.queue().writeTexture(info, infoBytes, 3, 1, 48);
 		var pass = frame.bind(SurfaceShader.WGSL);
 		if (group == null || pipeline != pass.pipeline) {
@@ -96,7 +104,7 @@ class SurfaceTexture {
 	}
 
 	/** Where the surface lands in a `w` by `h` box under `fit`, and which part of it shows. **/
-	function geometry(w:Float, h:Float, fit:ObjectFit):Void {
+	function geometry(w:Float, h:Float, fit:ObjectFit, ox:Float, oy:Float):Void {
 		var sw = surface.width, sh = surface.height;
 		var x = 0.0, y = 0.0, dw = w, dh = h, u = 0.0, v = 0.0, uw = 1.0, vh = 1.0;
 		if (fit != Fill && fit != Tile) {
@@ -117,7 +125,7 @@ class SurfaceTexture {
 			x = (w - dw) / 2;
 			y = (h - dh) / 2;
 		}
-		var values = [x, y, dw, dh, u, v, uw, vh, 0.0, 0, 0, 0];
+		var values = [ox + x, oy + y, dw, dh, u, v, uw, vh, 0.0, 0, 0, 0];
 		for (i in 0...values.length)
 			infoBytes.setFloat(i * 4, values[i]);
 	}

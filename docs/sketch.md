@@ -68,3 +68,11 @@ A sketch is run once for each frame the window draws. To cost less:
 - `paused={signal}` stops it while true; its clock waits, and the window is not woken for it.
 
 A sketch in a hidden window or out of view is not run either.
+
+## Surfaces
+
+`ctx.surface(source, x, y, width, height, fit)` draws a `PixelSurface` (RGBA pixels a
+program writes, as `<surface>` draws) in a rectangle of the canvas, `Contain` by
+default. Surfaces are drawn under the frame's shapes. A write to the surface asks
+for a frame even from a sketch that rested, and only the changed rectangle is
+uploaded.

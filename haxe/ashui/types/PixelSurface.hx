@@ -32,6 +32,7 @@ class PixelSurface {
 	public final pixels:haxe.io.Bytes;
 
 	final readers:Array<SurfaceReader> = [];
+	final listeners:Array<Void->Void> = [];
 
 	public function new(width:Int, height:Int) {
 		if (width <= 0 || height <= 0)
@@ -75,6 +76,14 @@ class PixelSurface {
 			r.add(x0, y0, x1, y1);
 		generation++;
 		changed.set(generation);
+		for (l in listeners.copy())
+			l();
+	}
+
+	/** Calls `listener` after each change; returns what stops it. **/
+	public function listen(listener:Void->Void):Void->Void {
+		listeners.push(listener);
+		return () -> listeners.remove(listener);
 	}
 
 	/** A reader of what changes from now on, starting with the whole surface: each renderer that draws it has its own. **/
@@ -119,6 +128,10 @@ class SurfaceReader {
 			y1 = ay1;
 		}
 	}
+
+	/** Whether something changed that this reader has not taken. **/
+	public function pending():Bool
+		return dirty;
 
 	/** The changed rectangle as x, y, width, height since the last call, or null when nothing changed. **/
 	public function take():Null<Array<Int>> {

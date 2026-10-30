@@ -115,6 +115,12 @@ class Canvas extends Component<CanvasProps> {
 		var tree = box.tree, id = box.node.id;
 		LayoutTreeNative.blinc_tree_set_canvas(tree.ptr, id, slot);
 		Owner.onCleanup(() -> {
+			for (stop in surfaceStops)
+				stop();
+			#if ashui_gpu
+			for (texture in surfaceTextures)
+				texture.dispose();
+			#end
 			bySlot.remove(slot);
 			LayoutTreeNative.blinc_tree_set_canvas(tree.ptr, id, -1);
 			#if ashui_gpu
@@ -178,8 +184,12 @@ class Canvas extends Component<CanvasProps> {
 				sketch.draw(ctx, t, dt);
 				frames++;
 				resting = ctx.resting;
+				for (surface in ctx.surfaces)
+					if (surfaceStops.get(surface.source) == null)
+						surfaceStops.set(surface.source, surface.source.listen(repaint));
 				if (!ctx.kept) {
 					recorded = ctx;
+					recordedSurfaces = ctx.surfaces;
 					repaint();
 				}
 			}
@@ -291,6 +301,16 @@ class Canvas extends Component<CanvasProps> {
 
 	var sketchWake:Null<Void->Void> = null;
 
+	/** The surfaces the sketch's last drawn frame put in the canvas. **/
+	var recordedSurfaces:Array<{source:ashui.types.PixelSurface, x:Float, y:Float, width:Float, height:Float, fit:ashui.types.ObjectFit}> = [];
+
+	/** What stops listening to each surface a sketch has drawn. **/
+	final surfaceStops = new haxe.ds.ObjectMap<ashui.types.PixelSurface, Void->Void>();
+
+	#if ashui_gpu
+	final surfaceTextures:Array<ashui.core.render.SurfaceTexture> = [];
+	#end
+
 	/** Starts a sketch that rested drawing again, for a change it cannot see: data it reads from outside. **/
 	public function wake():Void {
 		if (sketchWake != null)
@@ -311,6 +331,8 @@ class Canvas extends Component<CanvasProps> {
 		if (props.paint != null)
 			return true;
 		#if ashui_gpu
+		if (recordedSurfaces.length > 0)
+			return true;
 		return recorded != null && (painter.needsBuild(recorded, transform, ratio, atlasRevision) || painter.sceneChanging());
 		#else
 		return false;
@@ -322,6 +344,14 @@ class Canvas extends Component<CanvasProps> {
 		if (props.paint != null)
 			props.paint(frame);
 		#if ashui_gpu
+		for (i => surface in recordedSurfaces) {
+				if (surfaceTextures[i] == null || surfaceTextures[i].surface != surface.source) {
+					if (surfaceTextures[i] != null)
+						surfaceTextures[i].dispose();
+					surfaceTextures[i] = new ashui.core.render.SurfaceTexture(surface.source);
+				}
+				surfaceTextures[i].paint(frame, surface.fit, surface.x, surface.y, surface.width, surface.height);
+			}
 		if (recorded != null && recorded.ops.length > 0)
 			painter.play(frame, recorded);
 		#end

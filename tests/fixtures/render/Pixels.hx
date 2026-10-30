@@ -1631,6 +1631,23 @@ class Pixels {
 			failures++;
 		Sys.println('${idle ? "ok  " : "FAIL"} surface: a frame with nothing written uploads nothing');
 		surfaceRoot.remove();
+		// A sketch draws the surface in a rectangle of its canvas.
+		var inSketch:ashui.draw.Sketch = new SurfaceSketch(surfacePixels);
+		var sketchRoot:Div = ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+			<canvas width={64} height={64} sketch={inSketch} />
+		</div>);
+		pixels = offscreen.renderToRgba8(sketchRoot, SIZE, SIZE);
+		label = "sketch surface: ";
+		probe("the surface fills its rectangle (yellow top left)", 20, 4, near(0xffff00));
+		probe("green top right", 40, 4, near(0x00ff00));
+		probe("and the rest of the canvas is untouched", 4, 4, near(0xffffff));
+		var quadrantsAgain = haxe.io.Bytes.alloc(4);
+		quadrantsAgain.set(2, 255);
+		quadrantsAgain.set(3, 255);
+		surfacePixels.write(quadrantsAgain, 1, 0, 1, 1);
+		pixels = offscreen.renderToRgba8(sketchRoot, SIZE, SIZE);
+		probe("a write shows in the next frame", 40, 4, near(0x0000ff));
+		sketchRoot.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}
@@ -1718,4 +1735,17 @@ class FlatShade implements #if ashui_caribou caribou.hxsl.Shader #else hlwgpu.hx
 			return linearToSrgb(lit);
 		}
 	};
+}
+
+/** Draws a surface in the top half of its canvas, its left a quarter of it. **/
+class SurfaceSketch implements ashui.draw.Sketch {
+	final source:ashui.types.PixelSurface;
+
+	public function new(source:ashui.types.PixelSurface)
+		this.source = source;
+
+	public function setup(ctx:ashui.draw.Sketch.SketchContext):Void {}
+
+	public function draw(ctx:ashui.draw.Sketch.SketchContext, t:Float, dt:Float):Void
+		ctx.surface(source, 16, 0, 32, 32, ashui.types.ObjectFit.Fill);
 }

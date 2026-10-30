@@ -1,5 +1,8 @@
 package ashui.draw;
 
+import ashui.types.ObjectFit;
+import ashui.types.PixelSurface;
+
 import ashui.draw.SketchInput;
 
 /**
@@ -32,6 +35,17 @@ class SketchContext extends DrawContext {
 		this.input = input == null ? new SketchInput() : input;
 		events = this.input.take();
 	}
+
+	/** The surfaces this frame draws, in order. **/
+	public final surfaces:Array<{source:PixelSurface, x:Float, y:Float, width:Float, height:Float, fit:ObjectFit}> = [];
+
+	/**
+		Draws a `PixelSurface` in the `width` by `height` rectangle at `(x, y)`, sized by `fit`
+		(`Contain` by default). Surfaces are drawn under the shapes of the frame. A write to the
+		surface asks for a frame, even from a sketch that rested.
+	**/
+	public function surface(source:PixelSurface, x:Float, y:Float, width:Float, height:Float, ?fit:ObjectFit):Void
+		surfaces.push({source: source, x: x, y: y, width: width, height: height, fit: fit == null ? ObjectFit.Contain : fit});
 
 	/** Whether `draw` kept the last frame's picture. **/
 	public var kept(default, null) = false;
