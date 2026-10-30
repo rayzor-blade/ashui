@@ -95,6 +95,9 @@ display_fixtures() {
 	ask "a field of a signal in an attribute" 'width={count.' "" 'n="get"'
 	ask "a field of a loop variable" '{n.' "" 'n="charAt"'
 	ask "the type of a name in a child" '<text>{co' "@type" 'Signal&lt;Int&gt;'
+	ask "an attribute of a built-in tag" 'class="x" ' "" 'n="onClick"'
+	ask "a component's props" 'headline="a" ' "" 'n="expanded"'
+	ask "a tag after <" '<spa' "" 'n="span"'
 	ask "the definition of a name in a child" '<text>{co' "@position" 'MarkupDisplay.hx:8:'
 	return $status
 }

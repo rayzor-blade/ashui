@@ -623,6 +623,46 @@ class Hxx {
 		};
 	}
 
+
+
+	/** The tags HXX knows without an import, as fields of `HxxTags`, for completion after `<`. **/
+	public static function tagFields():Array<Field> {
+		var names = ["div", "text", "pre", "svg", "img"];
+		for (list in [TEXT_TAGS, BOX_TAGS, [for (k in BUILT_IN_CLASSES.keys()) k]])
+			for (n in list)
+				if (names.indexOf(n) < 0)
+					names.push(n);
+		names.sort((a, b) -> a < b ? -1 : a > b ? 1 : 0);
+		return [
+			for (n in names)
+				{
+					name: n,
+					access: [APublic],
+					kind: FVar(macro :Bool),
+					pos: Context.currentPos(),
+					doc: 'The <$n> element.'
+				}
+		];
+	}
+
+	/**
+		The type an attribute list of `tag` is checked against, for completion: the props of a component,
+		or the attributes of a box for a built-in element; null for a tag that names nothing.
+	**/
+	public static function attributeType(tag:String):Null<ComplexType> {
+		if (tag == "div" || tag == "text" || tag == "pre" || tag == "svg" || tag == "img" || TEXT_TAGS.indexOf(tag) >= 0 || BOX_TAGS.indexOf(tag) >= 0)
+			return macro :ashui.ui.Div.DivAttributes;
+		var builtIn = BUILT_IN_CLASSES.exists(tag) ? BUILT_IN_CLASSES.get(tag) : className(tag);
+		var type = try Context.getType(className(tag)) catch (_:Dynamic) try
+			Context.getType("ashui.ui." + builtIn)
+		catch (_:Dynamic)
+			null;
+		if (type == null)
+			return null;
+		var props = componentProps(type);
+		return props == null ? null : Context.toComplexType(props);
+	}
+
 	/** Resolves the props type of a `Component<Props>` subclass, or null. **/
 	static function componentProps(type:Type):Null<Type> {
 		var current = switch type {

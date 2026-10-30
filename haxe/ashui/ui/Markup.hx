@@ -107,6 +107,74 @@ class Markup {
 		return focus;
 	}
 
+
+	/**
+		Where the display cursor is in the markup's tags, as a Haxe completion request: after `<` or `</`,
+		a type listing the tags to complete a field of; among a tag's attributes, a structure literal
+		typed against the tag's props, for the compiler to complete the missing fields of. Null where the
+		cursor is in text, a quoted value or an expression. A tag's name completes only where it is a
+		Haxe identifier: those with a hyphen are not offered.
+	**/
+	static function displayedTag(pos:Position, source:String):Null<Expr> {
+		var at = Compiler.getDisplayPos();
+		if (at == null)
+			return null;
+		var info = Context.getPosInfos(pos);
+		var offset = at.pos - info.min;
+		if (offset < 0 || offset > source.length)
+			return null;
+		// Walk to the cursor, tracking whether it is in a tag, outside braces and quotes.
+		var tagStart = -1, depth = 0, quote = "", text = 0;
+		var i = 0;
+		while (i < offset) {
+			var c = source.charAt(i);
+			if (tagStart < 0) {
+				if (c == "{")
+					text++;
+				else if (c == "}" && text > 0)
+					text--;
+				else if (c == "<" && text == 0 && ~/[a-zA-Z\/]/.match(source.charAt(i + 1))) {
+					tagStart = i;
+					depth = 0;
+					quote = "";
+				}
+			} else if (quote != "") {
+				if (c == quote)
+					quote = "";
+			} else if (depth > 0) {
+				if (c == "{")
+					depth++;
+				else if (c == "}")
+					depth--;
+			} else if (c == "{")
+				depth++;
+			else if (c == "\"" || c == "'")
+				quote = c;
+			else if (c == ">")
+				tagStart = -1;
+			i++;
+		}
+		if (tagStart < 0 || depth > 0 || quote != "")
+			return null;
+		var inside = source.substring(tagStart + 1, offset);
+		var here = Context.makePosition({file: at.file, min: at.pos, max: at.pos});
+		if (~/^\/?[a-zA-Z0-9.\-]*$/.match(inside))
+			return {expr: EDisplay(macro @:pos(here) (null : ashui.ui.HxxTags), DKDot), pos: here};
+		// A value being typed, after an equals sign, is not an attribute's name.
+		var last = inside.substring(inside.lastIndexOf(" ") + 1);
+		if (inside.charAt(inside.length - 1) != " " && last.indexOf("=") >= 0)
+			return null;
+		var tag = ~/^\/?([a-zA-Z0-9.\-]+)/;
+		if (!tag.match(inside))
+			return null;
+		var type = Hxx.attributeType(tag.matched(1));
+		if (type == null)
+			return null;
+		// The display sits inside the check, where the type it is checked against reaches the literal.
+		var literal:Expr = {expr: EDisplay({expr: EObjectDecl([]), pos: here}, DKStructure), pos: here};
+		return {expr: ECheckType(literal, type), pos: here};
+	}
+
 	/** Finds the closing brace of the interpolation containing `offset`, or the source end if unclosed. **/
 	static function closing(source:String, offset:Int):Int {
 		var depth = 0;
@@ -169,6 +237,8 @@ class Markup {
 					found = true;
 					var lowered = macro @:pos(e.pos) ashui.ui.Hxx.hxx($e);
 					var focus = displayed(e.pos, source);
+					if (focus == null)
+						focus = displayedTag(e.pos, source);
 					focus == null ? lowered : macro @:pos(e.pos) {
 						$focus;
 						$lowered;
