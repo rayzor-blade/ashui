@@ -17,6 +17,9 @@ enum DrawOp {
 	/** Drawing of one's own in the same 3D scene (see `ashui.draw3d.ScenePass`). **/
 	Pass3D(pass:ashui.draw3d.ScenePass, scene:ashui.draw3d.Scene3D);
 
+	/** A batch of triangles textured from a bitmap, placed by `transform`. **/
+	Textured(batch:TexturedBatch, transform:Affine, opacity:Float, clip:Null<DrawClip>);
+
 	/** The blend mode of the draws after it, until the next one. **/
 	Blend(mode:BlendMode);
 
@@ -28,6 +31,34 @@ enum DrawOp {
 
 	MaskUse;
 	MaskEnd;
+}
+
+/** Which triangles `drawTriangles` leaves out, by the winding of their vertices on the canvas: clockwise on screen is positive. **/
+enum abstract TriangleCulling(Int) {
+	var None = 0;
+
+	/** Leaves out those wound clockwise. **/
+	var Positive = 1;
+
+	/** Leaves out those wound counterclockwise. **/
+	var Negative = 2;
+}
+
+/**
+	Triangles textured from one bitmap: `positions` and `uvs` are x, y pairs, `group` vertices to a group; a group is one
+	paint, mapped from its first three vertices, so a quad's six vertices are one group. A group has its own alpha and
+	colour transform when `alphas` and `tints` have them.
+**/
+typedef TexturedBatch = {
+	final slot:Int;
+	final width:Int;
+	final height:Int;
+	final positions:Array<Float>;
+	final uvs:Array<Float>;
+	final group:Int;
+	final alphas:Null<Array<Float>>;
+	final tints:Null<Array<ColorTransform>>;
+	final smooth:Bool;
 }
 
 /** What a clip keeps: a rectangle with its corners rounded by `radius`, or an ellipse, by its centre and half its width and height. **/
@@ -305,6 +336,90 @@ class DrawContext {
 	**/
 	public function drawMesh(mesh:ashui.draw3d.MeshData, ?transform:ashui.math.Mat4, ?material:ashui.draw3d.Material):Void
 		ops.push(Mesh3D(mesh, transform != null ? transform : ashui.math.Mat4.IDENTITY, scene, opacity, material != null ? material : mesh.material));
+
+	/**
+		Triangles of `vertices`, x, y pairs, drawn by `indices`, three to a triangle, or in order where there are none, textured from
+		`image` by `uvs`, u, v pairs from 0 to 1 across it, one pair to a vertex; `smooth` filters between its pixels. Where `image`
+		is null they are filled with `brush`. A texture's coordinates are mapped linearly across each triangle, and the edges are
+		not antialiased.
+	**/
+	public function drawTriangles(vertices:Array<Float>, ?indices:Array<Int>, ?uvs:Array<Float>, ?image:DrawImage, ?brush:Brush, ?culling:TriangleCulling,
+			smooth = false):Void {
+		var count = indices == null ? Std.int(vertices.length / 2) : indices.length;
+		var positions:Array<Float> = [], coords:Array<Float> = [];
+		var i = 0;
+		while (i + 2 < count) {
+			var v = [for (k in 0...3) indices == null ? i + k : indices[i + k]];
+			i += 3;
+			var ax = vertices[v[0] * 2], ay = vertices[v[0] * 2 + 1];
+			var bx = vertices[v[1] * 2], by = vertices[v[1] * 2 + 1];
+			var cx = vertices[v[2] * 2], cy = vertices[v[2] * 2 + 1];
+			var winding = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+			if (culling == Positive && winding > 0 || culling == Negative && winding < 0)
+				continue;
+			if (image == null || uvs == null) {
+				if (brush != null)
+					fillPath(new Path().moveTo(ax, ay).lineTo(bx, by).lineTo(cx, cy).close(), brush);
+				continue;
+			}
+			for (k in v) {
+				positions.push(vertices[k * 2]);
+				positions.push(vertices[k * 2 + 1]);
+				coords.push(uvs[k * 2]);
+				coords.push(uvs[k * 2 + 1]);
+			}
+		}
+		if (positions.length > 0)
+			ops.push(Textured({
+				slot: image.slot,
+				width: image.width,
+				height: image.height,
+				positions: positions,
+				uvs: coords,
+				group: 3,
+				alphas: null,
+				tints: null,
+				smooth: smooth
+			}, transform, opacity, clip));
+	}
+
+	/**
+		Many quads of `image` in one draw, as a tile map draws them. Each takes the rectangle of `image` that starts at its
+		`rects` entry, four numbers `x, y, width, height` in the image's pixels, and draws it at the origin as large as it is,
+		placed by its `transforms` entry, six numbers `a, b, c, d, tx, ty` as an `Affine` has them. `alphas` and `tints`, where
+		given, have one entry for each quad. `smooth` filters between the image's pixels. The edges are not antialiased.
+	**/
+	public function drawQuads(image:DrawImage, rects:Array<Float>, transforms:Array<Float>, ?alphas:Array<Float>, ?tints:Array<ColorTransform>,
+			smooth = false):Void {
+		var n = Std.int(Math.min(rects.length / 4, transforms.length / 6));
+		var positions:Array<Float> = [], coords:Array<Float> = [];
+		var w = image.width, h = image.height;
+		for (q in 0...n) {
+			var sx = rects[q * 4], sy = rects[q * 4 + 1], sw = rects[q * 4 + 2], sh = rects[q * 4 + 3];
+			var a = transforms[q * 6], b = transforms[q * 6 + 1], c = transforms[q * 6 + 2], d = transforms[q * 6 + 3], e = transforms[q * 6 + 4],
+				f = transforms[q * 6 + 5];
+			// The corners in order, the quad's two triangles from them.
+			var cx = [0.0, sw, sw, 0.0], cy = [0.0, 0.0, sh, sh];
+			for (k in [0, 1, 2, 0, 2, 3]) {
+				positions.push(a * cx[k] + c * cy[k] + e);
+				positions.push(b * cx[k] + d * cy[k] + f);
+				coords.push((sx + cx[k]) / w);
+				coords.push((sy + cy[k]) / h);
+			}
+		}
+		if (n > 0)
+			ops.push(Textured({
+				slot: image.slot,
+				width: w,
+				height: h,
+				positions: positions,
+				uvs: coords,
+				group: 6,
+				alphas: alphas,
+				tints: tints,
+				smooth: smooth
+			}, transform, opacity, clip));
+	}
 
 	/** A straight line, which has no inside: only its stroke. **/
 	public function line(x1:Float, y1:Float, x2:Float, y2:Float, stroke:Stroke, brush:Brush):Void

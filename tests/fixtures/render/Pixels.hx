@@ -1795,6 +1795,46 @@ class Pixels {
 		probe("the second mask keeps the next", 48, 48, near(0x0000ff));
 		probe("and neither leaks into the other's place", 48, 16, near(0xffffff));
 		twoMasks.remove();
+		// Triangles and quads textured from a bitmap: tileBitmap's texels are red, green, blue, white.
+		function drawRoot(draw:ashui.draw.DrawContext->Void):Div
+			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+				<canvas width={64} height={64} draw={draw} />
+			</div>);
+		label = "quads: ";
+		var quads = drawRoot(ctx -> {
+			ctx.drawQuads(tileBitmap, [0, 0, 1, 1, 1, 0, 1, 1], [16, 0, 0, 16, 8, 8, 16, 0, 0, 16, 40, 8]);
+			ctx.drawQuads(tileBitmap, [0, 1, 1, 1], [16, 0, 0, 16, 8, 40], [0.5]);
+			ctx.drawQuads(tileBitmap, [1, 0, 1, 1], [16, 0, 0, 16, 40, 40], null, [new ashui.draw.ColorTransform(0.5, 0.5, 0.5)]);
+		});
+		pixels = offscreen.renderToRgba8(quads, SIZE, SIZE);
+		probe("a quad takes the texel of its rect: red", 16, 16, near(0xff0000));
+		probe("and the next: green", 48, 16, near(0x00ff00));
+		probe("between them is untouched", 32, 16, near(0xffffff));
+		probe("an alpha lets what is under show", 16, 48, about(128, 128, 255));
+		probe("a quad's colour transform applies to it", 48, 48, about(0, 128, 0));
+		quads.remove();
+		label = "triangles: ";
+		function trianglesRoot(culling:ashui.draw.DrawContext.TriangleCulling)
+			return drawRoot(ctx -> ctx.drawTriangles([40, 40, 56, 40, 56, 56, 40, 56], [0, 1, 2, 0, 2, 3], [0.5, 0, 1, 0, 1, 0.5, 0.5, 0.5], tileBitmap, null,
+				culling));
+		var tris = trianglesRoot(None);
+		pixels = offscreen.renderToRgba8(tris, SIZE, SIZE);
+		probe("two triangles take the texel their uvs name", 48, 48, near(0x00ff00));
+		probe("outside them is untouched", 60, 60, near(0xffffff));
+		tris.remove();
+		var culled = trianglesRoot(Positive);
+		pixels = offscreen.renderToRgba8(culled, SIZE, SIZE);
+		probe("culling positive leaves out clockwise triangles", 48, 48, near(0xffffff));
+		culled.remove();
+		var kept = trianglesRoot(Negative);
+		pixels = offscreen.renderToRgba8(kept, SIZE, SIZE);
+		probe("culling negative keeps them", 48, 48, near(0x00ff00));
+		kept.remove();
+		var stretched = drawRoot(ctx -> ctx.drawTriangles([8, 8, 40, 8, 8, 40], [0, 1, 2], [0, 0, 1, 0, 0, 1], tileBitmap, null, null, true));
+		pixels = offscreen.renderToRgba8(stretched, SIZE, SIZE);
+		probe("texture coordinates map linearly: near the first vertex is red", 11, 11, (r, g, b) -> r > 200 && g < 90 && b < 90);
+		probe("and towards the second it turns green", 34, 11, (r, g, b) -> g > r && g > b);
+		stretched.remove();
 		// A line's width when the shape it outlines is scaled.
 		function lineRoot(stroke:ashui.draw.Stroke, scale:Float, y:Float):Div
 			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>

@@ -373,6 +373,33 @@ class CanvasPainter {
 					continue;
 				case Mesh3D(_, _, scene, _, _) | Pass3D(_, scene) if (inMask):
 					continue;
+				case Textured(batch, transform, opacity, clip):
+					hasImages = true;
+					var m = frame.transform.after(transform);
+					var size = batch.group * 2;
+					// Each group is a draw of its own, with its own map from a pixel to the texture.
+					for (g in 0...Std.int(batch.positions.length / size)) {
+						var first = mesh.vertexCount();
+						if (first * PathShader.VERTEX_TEXELS + starts.length * PathShader.PAINT_TEXELS > capacity - (capacity >> 2)) {
+							overfull("is drawn only in part");
+							break;
+						}
+						var map = textureMap(batch.positions, g * size, batch.uvs, m);
+						if (map == null)
+							continue;
+						for (k in 0...batch.group)
+							mesh.vertex(m.x(batch.positions[g * size + k * 2], batch.positions[g * size + k * 2 + 1]),
+								m.y(batch.positions[g * size + k * 2], batch.positions[g * size + k * 2 + 1]), 1);
+						// Smoothed, the bitmap is copied for the size its pixels are on screen; not, at its own.
+						var density = Math.sqrt(Math.abs(map.a * map.d - map.b * map.c));
+						var onScreen = batch.smooth && density > 0 ? frame.pixelRatio / (density * batch.width) : 1;
+						var alpha = batch.alphas == null ? 1.0 : batch.alphas[g];
+						imageFill(frame, batch.slot, batch.width, batch.height, map, onScreen, 0, batch.smooth, opacity * alpha, paints);
+						tinted(paints, inMask ? ColorTransform.IDENTITY : batch.tints == null ? tint : tint.after(batch.tints[g]), masked);
+						starts.push(first);
+						drawClips.push(clip);
+					}
+					continue;
 				case Mesh3D(_, _, scene, _, _) | Pass3D(_, scene):
 					endPaths();
 					// Meshes and passes drawn one after another, seen the same way, are one run, sharing depth.
@@ -588,17 +615,34 @@ class CanvasPainter {
 		var bw = fill.bitmap.width, bh = fill.bitmap.height;
 		var total = m.after(fill.matrix == null ? Affine.IDENTITY : fill.matrix);
 		var back = total.inverse();
-		var rect = back == null || bw <= 0 || bh <= 0 ? null : Images.bitmap(fill.bitmap.slot, bw, bh, fill.smooth ? total.scale() * frame.pixelRatio : 1, frame.images);
-		if (rect == null) {
-			for (_ in 0...PathShader.PAINT_TEXELS)
-				for (_ in 0...4)
-					out.push(0);
+		if (back == null || bw <= 0 || bh <= 0) {
+			emptyPaint(out);
 			return;
 		}
-		var unit = Affine.scaling(1 / bw, 1 / bh).after(back);
+		imageFill(frame, fill.bitmap.slot, bw, bh, Affine.scaling(1 / bw, 1 / bh).after(back), fill.smooth ? total.scale() * frame.pixelRatio : 1,
+			fill.repeat, fill.smooth, opacity, out);
+	}
+
+	static function emptyPaint(out:Array<Float>):Void
+		for (_ in 0...PathShader.PAINT_TEXELS)
+			for (_ in 0...4)
+				out.push(0);
+
+	/**
+		An image paint of bitmap `slot`, `width` by `height`: `unit` maps a pixel to where in it is, 0 to 1 across, `repeat` is
+		along which axes it tiles, and its copy in the atlas is made for `onScreen` target pixels to a bitmap pixel. It paints
+		nothing where the bitmap does not fit in the atlas.
+	**/
+	static function imageFill(frame:CanvasFrame, slot:Int, width:Int, height:Int, unit:Affine, onScreen:Float, repeat:Int, smooth:Bool, opacity:Float,
+			out:Array<Float>):Void {
+		var rect = Images.bitmap(slot, width, height, onScreen, frame.images);
+		if (rect == null) {
+			emptyPaint(out);
+			return;
+		}
 		for (v in [
 			3.0,
-			(fill.repeat : Int),
+			repeat,
 			opacity,
 			0,
 			unit.a,
@@ -613,7 +657,7 @@ class CanvasPainter {
 			rect.y,
 			rect.x + rect.width,
 			rect.y + rect.height,
-			fill.smooth ? 1.0 : 0.0,
+			smooth ? 1.0 : 0.0,
 			0,
 			0,
 			0
@@ -621,6 +665,26 @@ class CanvasPainter {
 			out.push(v);
 		for (_ in 0...(PathShader.PAINT_TEXELS - 5) * 4)
 			out.push(0);
+	}
+
+	/**
+		The map from device space, where `ax, ay` and the next two points are, to where in the bitmap, 0 to 1 across, the points'
+		`u, v` are; null where the points are in a line.
+	**/
+	static function textureMap(p:Array<Float>, at:Int, uv:Array<Float>, m:Affine):Null<Affine> {
+		// The corners through `m`, then the matrix taking the edge vectors there to the edge vectors of the texture's.
+		var x0 = m.x(p[at], p[at + 1]), y0 = m.y(p[at], p[at + 1]);
+		var e1x = m.x(p[at + 2], p[at + 3]) - x0, e1y = m.y(p[at + 2], p[at + 3]) - y0;
+		var e2x = m.x(p[at + 4], p[at + 5]) - x0, e2y = m.y(p[at + 4], p[at + 5]) - y0;
+		var det = e1x * e2y - e2x * e1y;
+		if (Math.abs(det) < 1e-12)
+			return null;
+		var f1u = uv[at + 2] - uv[at], f1v = uv[at + 3] - uv[at + 1];
+		var f2u = uv[at + 4] - uv[at], f2v = uv[at + 5] - uv[at + 1];
+		// [u v] = L [x y], with L's columns solved from the two edges.
+		var a = (f1u * e2y - f2u * e1y) / det, c = (f2u * e1x - f1u * e2x) / det;
+		var b = (f1v * e2y - f2v * e1y) / det, d = (f2v * e1x - f1v * e2x) / det;
+		return new Affine(a, b, c, d, uv[at] - a * x0 - c * y0, uv[at + 1] - b * x0 - d * y0);
 	}
 
 	/** Writes `tint` and whether the draw is masked into the last three texels of the paint just encoded: its multipliers, its offsets, then the flag. **/
@@ -691,7 +755,8 @@ class CanvasPainter {
 	static function clipOf(op:DrawOp):Null<DrawClip>
 		return switch op {
 			case Fill(_, _, _, _, _, clip) | Stroke(_, _, _, _, _, clip) | Image(_, _, _, _, _, _, _, clip): clip;
-			case Mesh3D(_) | Pass3D(_) | Blend(_) | Tint(_) | MaskBegin | MaskUse | MaskEnd: null;
+			case Textured(_, _, _, clip): clip;
+						case Mesh3D(_) | Pass3D(_) | Blend(_) | Tint(_) | MaskBegin | MaskUse | MaskEnd: null;
 		}
 
 	/** Where `clip` starts in the table, from its start, placing it and those outside it the first time. **/
