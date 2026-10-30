@@ -162,6 +162,8 @@ replaces (`write` a rectangle, `writeAll` the whole); only the changed rectangle
 Any element takes `onTouchStart`/`onTouchMove`/`onTouchEnd`/`onTouchCancel` (a touch's events follow
 where it began), and a pointer-down handler can call `e.capturePointer()` to get every move and the
 release until the button comes up.
+A `<canvas sketch={mySketch}>` runs `setup`/`draw(ctx, t, dt)` every frame; `ctx.events` holds every input
+event since the last frame in order, `ctx.mouseX`/`mouseIsPressed`/`keyIsDown` the latest state (`docs/sketch.md`).
 
 Import styled controls from `ashui-components`; see `components/README.md`.
 Use `ashui-canvaskit` for `<scene-kit>` and `ashui-media` for audio/video.

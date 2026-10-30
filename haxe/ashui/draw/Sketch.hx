@@ -1,5 +1,7 @@
 package ashui.draw;
 
+import ashui.draw.SketchInput;
+
 /**
 	A drawing that runs, frame after frame: `setup` once, before the first
 	`draw`; then `draw` every frame, given the seconds since it started,
@@ -18,10 +20,38 @@ class SketchContext extends DrawContext {
 	/** Frames drawn before this one: 0 in `setup` and the first `draw`. **/
 	public final frame:Int;
 
-	public function new(width:Float, height:Float, frame:Int) {
+	/** What the user did since the previous frame, in order: every transition, even those that began and ended between frames. **/
+	public final events:Array<SketchEvent>;
+
+	/** The pointer, buttons, keys and touches as they are now. **/
+	public final input:SketchInput;
+
+	public function new(width:Float, height:Float, frame:Int, ?input:SketchInput) {
 		super(width, height);
 		this.frame = frame;
+		this.input = input == null ? new SketchInput() : input;
+		events = this.input.take();
 	}
+
+	/** The pointer's place in the sketch. **/
+	public var mouseX(get, never):Float;
+
+	public var mouseY(get, never):Float;
+
+	public var mouseIsPressed(get, never):Bool;
+
+	inline function get_mouseX():Float
+		return input.mouseX;
+
+	inline function get_mouseY():Float
+		return input.mouseY;
+
+	inline function get_mouseIsPressed():Bool
+		return input.mouseIsPressed;
+
+	/** Whether the key at this physical position is held. **/
+	public function keyIsDown(key:window.PhysicalKey):Bool
+		return input.keyIsDown(key);
 
 	/** A painter over this frame, its fill black and no stroke. **/
 	public function painter():Painter

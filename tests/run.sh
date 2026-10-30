@@ -268,6 +268,8 @@ memory)
 	capture=0
 	$haxe_ui --class-path fixtures/input -main PointerCapture -hl bin/pointer-capture.hl || capture=$?
 	[ $capture -eq 0 ] && { run pointer-capture.hl || capture=$?; }
+	$haxe_ui --class-path fixtures/input -main SketchEvents -hl bin/sketch-events.hl || capture=$?
+	[ $capture -eq 0 ] && { run sketch-events.hl || capture=$?; }
 	hits=0
 	run hit-cache.hl || hits=$?
 	$haxe_ui --class-path fixtures/debug -main HitMapTest -hl bin/hit-map.hl

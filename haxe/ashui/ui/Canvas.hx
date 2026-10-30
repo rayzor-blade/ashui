@@ -136,9 +136,21 @@ class Canvas extends Component<CanvasProps> {
 			var frames = 0, t = 0.0, setUp = false;
 			var alive = true;
 			Owner.onCleanup(() -> alive = false);
+			// What the user does in the canvas is queued for the next frame, whole and in order; a press holds the pointer.
+			var input = new ashui.draw.SketchInput();
+			ashui.input.Interaction.of(box.node).setFocusable(true).onPointerDown(input.pointerDown).onPointerMove(input.pointerMove)
+				.onPointerUp(input.pointerUp).onWheel(input.wheel).onKeyDown(input.keyDown).onKeyUp(input.keyUp).onTextInput(input.text)
+				.onComposition(input.composition).onFocus(input.focus).onBlur(input.blur)
+				.onTouchStart(e -> input.touch(e, 0)).onTouchMove(e -> input.touch(e, 1)).onTouchEnd(e -> input.touch(e, 2))
+				.onTouchCancel(e -> input.touch(e, 3));
+			var seenW = -1.0, seenH = -1.0;
 			// A frame at the canvas's size; time runs from the first, drawn as soon as it is laid out.
 			function step(dt:Float) {
-				var ctx = new ashui.draw.Sketch.SketchContext(w.get(), h.get(), frames);
+				if (seenW >= 0 && (w.get() != seenW || h.get() != seenH))
+					input.resized(w.get(), h.get());
+				seenW = w.get();
+				seenH = h.get();
+				var ctx = new ashui.draw.Sketch.SketchContext(w.get(), h.get(), frames, input);
 				if (!setUp) {
 					sketch.setup(ctx);
 					setUp = true;
