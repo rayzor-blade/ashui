@@ -113,6 +113,18 @@ class PointerEvent extends InputEvent {
 	@:allow(ashui.input.Pointer)
 	var wheelCapture:Null<Node> = null;
 
+	@:allow(ashui.input.Pointer)
+	var pointerCapture:Null<Node> = null;
+
+	/**
+		From a `pointerdown` handler: sends this node every move and the release of the
+		press, wherever the pointer goes, until the button comes up. `localX` and
+		`localY` then follow the node's box, not its transforms.
+	**/
+	public function capturePointer():Void {
+		pointerCapture = currentTarget;
+	}
+
 	/** Keep this wheel gesture on the current scroll container as content moves under the pointer. **/
 	public function captureWheel():Void {
 		wheelCapture = currentTarget;
@@ -140,6 +152,41 @@ class PointerEvent extends InputEvent {
 	@:allow(ashui.input)
 	function count(n:Int):Void {
 		clickCount = n;
+	}
+}
+
+/**
+	A finger touched, moved on or left the screen. A touch's events all go to the
+	nodes under where it began, wherever it moves, and bubble through their ancestors.
+**/
+class TouchEvent extends InputEvent {
+	/** Tells this touch from the others that are down at once. **/
+	public final id:Int;
+
+	/** Where it is in the window, in layout units. **/
+	public final x:Float;
+
+	public final y:Float;
+
+	/** Where it is in `currentTarget`'s box, from its top-left. **/
+	public var localX(default, null):Float;
+
+	public var localY(default, null):Float;
+
+	@:allow(ashui.input)
+	function new(target:Node, id:Int, x:Float, y:Float, modifiers:Modifiers) {
+		super(target, modifiers);
+		this.id = id;
+		this.x = x;
+		this.y = y;
+		localX = x;
+		localY = y;
+	}
+
+	@:allow(ashui.input)
+	function local(x:Float, y:Float):Void {
+		localX = x;
+		localY = y;
 	}
 }
 

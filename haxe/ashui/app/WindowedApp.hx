@@ -641,6 +641,10 @@ class WindowedApp {
 					ashui.input.Pointer.press(tree, button);
 				else
 					ashui.input.Pointer.release(tree, button);
+			case Touch(_, phase, x, y, _, id):
+				activeByInput();
+				var s = scale();
+				ashui.input.Pointer.touch(tree, haxe.Int64.toInt(id), phase, x / s, y / s);
 			case MouseWheel(delta, phase, _):
 				if (frameLog != null) {
 					var d = switch delta {

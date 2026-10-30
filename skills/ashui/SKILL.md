@@ -159,6 +159,9 @@ buttons, inputs, forms, dialogs, tables, progress, meters, SVG and 2D canvas.
 Ashui also supplies `<text>`. `<img>` accepts `src={bitmap}`.
 `<surface source={pixelSurface} fit={Contain}>` draws a `PixelSurface`, RGBA pixels a program
 replaces (`write` a rectangle, `writeAll` the whole); only the changed rectangle is uploaded.
+Any element takes `onTouchStart`/`onTouchMove`/`onTouchEnd`/`onTouchCancel` (a touch's events follow
+where it began), and a pointer-down handler can call `e.capturePointer()` to get every move and the
+release until the button comes up.
 
 Import styled controls from `ashui-components`; see `components/README.md`.
 Use `ashui-canvaskit` for `<scene-kit>` and `ashui-media` for audio/video.

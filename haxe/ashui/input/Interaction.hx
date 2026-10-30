@@ -341,6 +341,22 @@ class Interaction {
 	public function onPointerLeave(handler:PointerEvent->Void):Interaction
 		return on("pointerleave", handler);
 
+	/** Registers a handler for a finger touching down on this node or a descendant. **/
+	public function onTouchStart(handler:TouchEvent->Void):Interaction
+		return on("touchstart", handler);
+
+	/** Registers a handler for a touch that began here moving, wherever it has gone. **/
+	public function onTouchMove(handler:TouchEvent->Void):Interaction
+		return on("touchmove", handler);
+
+	/** Registers a handler for a touch that began here lifting. **/
+	public function onTouchEnd(handler:TouchEvent->Void):Interaction
+		return on("touchend", handler);
+
+	/** Registers a handler for a touch that began here being taken over by the system. **/
+	public function onTouchCancel(handler:TouchEvent->Void):Interaction
+		return on("touchcancel", handler);
+
 	/** Registers a scroll handler. The event provides wheel or trackpad deltas as `deltaX` and `deltaY`. **/
 	public function onWheel(handler:PointerEvent->Void):Interaction
 		return on("wheel", handler);

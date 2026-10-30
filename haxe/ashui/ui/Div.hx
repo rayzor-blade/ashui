@@ -92,6 +92,10 @@ typedef DivAttributes = {
 	?onPointerEnter:ashui.input.Events.PointerEvent->Void,
 	?onPointerLeave:ashui.input.Events.PointerEvent->Void,
 	?onWheel:ashui.input.Events.PointerEvent->Void,
+	?onTouchStart:ashui.input.Events.TouchEvent->Void,
+	?onTouchMove:ashui.input.Events.TouchEvent->Void,
+	?onTouchEnd:ashui.input.Events.TouchEvent->Void,
+	?onTouchCancel:ashui.input.Events.TouchEvent->Void,
 	?onKeyDown:ashui.input.Events.KeyEvent->Void,
 	?onKeyUp:ashui.input.Events.KeyEvent->Void,
 	?onTextInput:ashui.input.Events.TextInputEvent->Void,
@@ -131,7 +135,8 @@ class Div extends Element {
 	/** Binds input handlers and state to the node. Creates an `Interaction` only when an input attribute is supplied. **/
 	static function bindInput(node:Node, attr:DivAttributes):Void {
 		if (attr.onClick == null && attr.onPointerDown == null && attr.onPointerUp == null && attr.onPointerMove == null && attr.onPointerEnter == null
-			&& attr.onPointerLeave == null && attr.onWheel == null && attr.onKeyDown == null && attr.onKeyUp == null && attr.onTextInput == null
+			&& attr.onPointerLeave == null && attr.onWheel == null && attr.onTouchStart == null && attr.onTouchMove == null && attr.onTouchEnd == null
+			&& attr.onTouchCancel == null && attr.onKeyDown == null && attr.onKeyUp == null && attr.onTextInput == null
 			&& attr.onComposition == null && attr.onFocus == null && attr.onBlur == null && attr.focusable == null && attr.disabled == null)
 			return;
 		var i = ashui.input.Interaction.of(node);
@@ -149,6 +154,14 @@ class Div extends Element {
 			i.onPointerLeave(attr.onPointerLeave);
 		if (attr.onWheel != null)
 			i.onWheel(attr.onWheel);
+		if (attr.onTouchStart != null)
+			i.onTouchStart(attr.onTouchStart);
+		if (attr.onTouchMove != null)
+			i.onTouchMove(attr.onTouchMove);
+		if (attr.onTouchEnd != null)
+			i.onTouchEnd(attr.onTouchEnd);
+		if (attr.onTouchCancel != null)
+			i.onTouchCancel(attr.onTouchCancel);
 		if (attr.onKeyDown != null)
 			i.onKeyDown(attr.onKeyDown);
 		if (attr.onKeyUp != null)

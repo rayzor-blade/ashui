@@ -99,7 +99,8 @@ class Pointer {
 		if (reuse)
 			return;
 		retarget(tree, s, hit(tree, s));
-		bubble(tree, s, s.chain, 0, "pointermove", null);
+		if (!deliverCaptured(tree, s, "pointermove", null))
+			bubble(tree, s, s.chain, 0, "pointermove", null);
 		moved(tree);
 	}
 
@@ -169,8 +170,9 @@ class Pointer {
 		// What was held while the button was down gives way to what the pointer is over.
 		Cursor.retarget(tree);
 		var blocked = disabledIn(tree, s.chain);
-		if (!blocked)
+		if (!blocked && !deliverCaptured(tree, s, "pointerup", button, true))
 			bubble(tree, s, s.chain, 0, "pointerup", button);
+		s.capture = null;
 		if (!button.match(Left))
 			return;
 		for (i in Interaction.inTree(tree))
@@ -359,6 +361,71 @@ class Pointer {
 			if (kind == "wheel" && e.wheelCapture == i.node && s.wheelOwner != i) {
 				s.wheelOwner = i;
 			}
+			if (kind == "pointerdown" && e.pointerCapture == i.node && s.pressed)
+				s.capture = i;
+			if (e.propagationStopped)
+				return;
+		}
+	}
+
+	/** While a node holds the pointer, hands it `kind` alone, with the pointer's place in its box; false when none does. **/
+	static function deliverCaptured(tree:LayoutTree, s:PointerState, kind:String, button:Null<MouseButton>, ending = false):Bool {
+		var held = s.capture;
+		if (held == null)
+			return false;
+		if ((!s.pressed && !ending) || Interaction.byId(tree, held.node.id) != held) {
+			s.capture = null;
+			return false;
+		}
+		var b = tree.getBounds(held.node);
+		var e = new PointerEvent(held.node, s.x, s.y, button, s.modifiers);
+		if (b != null)
+			e.local(s.x - b.x, s.y - b.y);
+		held.fire(kind, e);
+		return true;
+	}
+
+	/**
+		A touch changed: `id` tells it from the others down at once, `x` and `y` are in layout units.
+		A touch's events go to the nodes under where it started, `touchstart` outermost last, and
+		`touchend` or `touchcancel` forgets it.
+	**/
+	public static function touch(tree:LayoutTree, id:Int, phase:window.TouchPhase, x:Float, y:Float):Void {
+		var s = state(tree);
+		var kind = switch phase {
+			case Started: "touchstart";
+			case Moved: "touchmove";
+			case Ended: "touchend";
+			case Cancelled: "touchcancel";
+		}
+		var chain:Array<Hit>;
+		if (phase == Started) {
+			chain = tree.hitTest(x, y);
+			if (disabledIn(tree, chain))
+				return;
+			s.touches.set(id, chain);
+		} else {
+			chain = s.touches.get(id);
+			if (chain == null)
+				return;
+			if (phase == Ended || phase == Cancelled)
+				s.touches.remove(id);
+		}
+		var e:Null<TouchEvent> = null;
+		for (hit in chain) {
+			var i = Interaction.byId(tree, hit.id);
+			if (i == null)
+				continue;
+			if (e == null)
+				e = new TouchEvent(i.node, id, x, y, s.modifiers);
+			if (phase == Started)
+				e.local(hit.x, hit.y);
+			else {
+				var b = tree.getBounds(i.node);
+				if (b != null)
+					e.local(x - b.x, y - b.y);
+			}
+			i.fire(kind, e);
 			if (e.propagationStopped)
 				return;
 		}
@@ -402,6 +469,12 @@ private class PointerState {
 	public var pressed = false;
 	public var chain:Array<Hit> = [];
 	public var pressChain:Array<Hit> = [];
+
+	/** The node holding the pointer until the button comes up. **/
+	public var capture:Null<Interaction> = null;
+
+	/** The nodes under where each touch down began, by touch. **/
+	public final touches = new Map<Int, Array<Hit>>();
 	public var modifiers:Modifiers = InputEvent.NO_MODIFIERS;
 
 	/** The last press's time and place, and how many presses in a row it made. **/
