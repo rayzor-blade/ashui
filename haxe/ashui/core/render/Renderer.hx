@@ -279,6 +279,36 @@ class Renderer {
 	/** The most a texture side may be on the device `requestDevice` made, 8192 until then; what a canvas's triangle table and a mesh's textures are held to. **/
 	public static var maxTexture = 8192;
 
+	var maskTexture:Null<LayerTarget> = null;
+	var maskNothing:Null<LayerTarget> = null;
+
+	/** The texture canvases draw their masks into, `width` by `height` pixels in the target's format, made or remade to fit. **/
+	@:allow(ashui.core.render.CanvasFrame)
+	function maskTarget(width:Int, height:Int):GpuTextureView {
+		var at = maskTexture;
+		if (at == null || at.width != width || at.height != height) {
+			if (at != null) {
+				at.view.destroy();
+				at.texture.destroy();
+			}
+			maskTexture = at = target(width, height);
+		}
+		return at.view;
+	}
+
+	/** The mask texture if there is one, else `maskNothingView`. **/
+	@:allow(ashui.core.render.CanvasFrame)
+	function maskView():GpuTextureView
+		return maskTexture != null ? maskTexture.view : maskNothingView();
+
+	/** A texture of one texel that no mask draws to: what the pass that draws a mask binds in the mask's place, which it cannot also read. **/
+	@:allow(ashui.core.render.CanvasFrame)
+	function maskNothingView():GpuTextureView {
+		if (maskNothing == null)
+			maskNothing = target(1, 1);
+		return maskNothing.view;
+	}
+
 	/** Pipelines made for canvases' shaders, by their WGSL. **/
 	final canvasPasses = new Map<String, Pass>();
 
@@ -830,7 +860,7 @@ class Renderer {
 		var ratio = targetWidth / width;
 		encoder.renderSetScissorRect(x0, y0, x1 - x0, y1 - y0);
 		placed.canvas.paintWith(new CanvasFrame(this, device, encoder, format, at, placed.w, placed.h, placed.transform, placed.transform.scale() * ratio, ratio,
-			[x0, y0, x1 - x0, y1 - y0], target));
+			[x0, y0, x1 - x0, y1 - y0], target, targetWidth, targetHeight));
 		if (region != null)
 			encoder.renderSetScissorRect(region[0], region[1], region[2], region[3]);
 		else

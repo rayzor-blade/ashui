@@ -38,6 +38,11 @@ class CanvasPainter {
 	final groups:Array<Null<GpuBindGroup>> = [for (_ in 0...BlendMode.COUNT) null];
 
 	final groupPipelines:Array<Null<GpuPipeline>> = [for (_ in 0...BlendMode.COUNT) null];
+
+	/** The group the pass that draws a mask uses, with no mask to read; and the mask view the others were made with. **/
+	var maskPassGroup:Null<GpuBindGroup> = null;
+
+	var groupMask:Null<GpuTextureView> = null;
 	var vertexCount = 0;
 
 	/** What the triangles were made for: the record, and the canvas's transform and pixel ratio. **/
@@ -181,12 +186,16 @@ class CanvasPainter {
 		}
 	}
 
-	function dropGroups():Void
+	function dropGroups():Void {
 		for (i in 0...groups.length) {
 			if (groups[i] != null)
 				groups[i].destroy();
 			groups[i] = null;
 		}
+		if (maskPassGroup != null)
+			maskPassGroup.destroy();
+		maskPassGroup = null;
+	}
 
 	/**
 		Whether `play` would build again for `ctx` drawn through `t` at `ratio` pixels to a unit, with the image atlas at
@@ -241,6 +250,8 @@ class CanvasPainter {
 			switch step {
 				case Paths(first, count, blend):
 					drawPaths(frame, first, count, blend);
+				case Mask(first, count):
+					drawMask(frame, first, count);
 				case Meshes(draws, passes, scene):
 					scenes.draw(frame, run++, draws, passes, scene);
 			}
@@ -252,25 +263,45 @@ class CanvasPainter {
 		var atlas = frame.images;
 		var pipeline = frame.bindBlended(PathShader.WGSL, blend);
 		var mode:Int = blend;
-		if (groupAtlas != atlas.revision)
+		var mask = frame.maskView();
+		if (groupAtlas != atlas.revision || groupMask != mask)
 			dropGroups();
 		var group = groups[mode];
 		if (group == null || groupPipelines[mode] != pipeline.pipeline) {
 			if (group != null)
 				group.destroy();
-			// The image atlas and its sampler, then the canvas's data, which is fetched, never sampled.
-			var bindings = new GpuBindings();
-			bindings.texture(atlas.view);
-			bindings.sampler(frame.imageSampler);
-			bindings.texture(view);
-			groups[mode] = group = frame.device.bindGroup(pipeline.pipeline, PathShader.TEXTURE_canvas_GROUP, bindings);
-			bindings.destroy();
+			groups[mode] = group = bindData(frame, pipeline.pipeline, mask);
 			groupPipelines[mode] = pipeline.pipeline;
 			groupAtlas = atlas.revision;
+			groupMask = mask;
 		}
 		frame.encoder.renderSetBindGroup(PathShader.TEXTURE_canvas_GROUP, group);
 		frame.encoder.renderDrawRange(count, 1, first, frame.record);
 	}
+
+	/** The image atlas and its sampler, the mask texture and its sampler, then the canvas's data, which is fetched, never sampled. **/
+	function bindData(frame:CanvasFrame, pipeline:GpuPipeline, mask:GpuTextureView):GpuBindGroup {
+		var bindings = new GpuBindings();
+		bindings.texture(frame.images.view);
+		bindings.sampler(frame.imageSampler);
+		bindings.texture(mask);
+		bindings.sampler(frame.imageSampler);
+		bindings.texture(view);
+		var made = frame.device.bindGroup(pipeline, PathShader.TEXTURE_canvas_GROUP, bindings);
+		bindings.destroy();
+		return made;
+	}
+
+	/** Draws a mask's `count` vertices from `first` into the mask texture, replacing what it held. **/
+	function drawMask(frame:CanvasFrame, first:Int, count:Int):Void
+		frame.drawMask(() -> {
+			var pipeline = frame.bindBlended(PathShader.WGSL, Normal);
+			if (maskPassGroup == null)
+				maskPassGroup = bindData(frame, pipeline.pipeline, frame.noMaskView());
+			frame.encoder.renderSetBindGroup(PathShader.TEXTURE_canvas_GROUP, maskPassGroup);
+			if (count > 0)
+				frame.encoder.renderDrawRange(count, 1, first, frame.record);
+		});
 
 	var warnedOverfull = false;
 
@@ -298,6 +329,8 @@ class CanvasPainter {
 		var pathsFrom = 0;
 		var blend = BlendMode.Normal;
 		var tint = ColorTransform.IDENTITY;
+		// Inside a mask's draws, which are drawn into the mask texture as they are; after them, draws are kept by it.
+		var inMask = false, masked = false, maskFrom = 0;
 		function endPaths() {
 			if (mesh.vertexCount() > pathsFrom)
 				steps.push(Paths(pathsFrom, mesh.vertexCount() - pathsFrom, blend));
@@ -314,11 +347,31 @@ class CanvasPainter {
 			switch op {
 				case Blend(mode):
 					// Each run of paths is drawn through the pipeline of the mode it was recorded under.
-					endPaths();
-					blend = mode;
+					if (!inMask) {
+						endPaths();
+						blend = mode;
+					}
 					continue;
 				case Tint(t):
-					tint = t;
+					if (!inMask)
+						tint = t;
+					continue;
+				case MaskBegin:
+					endPaths();
+					inMask = true;
+					maskFrom = mesh.vertexCount();
+					continue;
+				case MaskUse:
+					// A mask with nothing drawn still clears the texture, so what is masked by it is hidden.
+					steps.push(Mask(maskFrom, mesh.vertexCount() - maskFrom));
+					pathsFrom = mesh.vertexCount();
+					inMask = false;
+					masked = true;
+					continue;
+				case MaskEnd:
+					masked = false;
+					continue;
+				case Mesh3D(_, _, scene, _, _) | Pass3D(_, scene) if (inMask):
 					continue;
 				case Mesh3D(_, _, scene, _, _) | Pass3D(_, scene):
 					endPaths();
@@ -346,19 +399,19 @@ class CanvasPainter {
 					var m = frame.transform.after(transform);
 					var contours = tessellate(path, m, tolerance, aa, rule, null, needsContours(brush));
 					if (mesh.vertexCount() > before)
-						encode(frame, brush, m, contours, opacity, paints, tint);
-				case Stroke(path, stroke, brush, transform, opacity, clip):
+						encode(frame, brush, m, contours, opacity, paints, inMask ? ColorTransform.IDENTITY : tint, masked);
+							case Stroke(path, stroke, brush, transform, opacity, clip):
 					var m = frame.transform.after(transform);
 					var contours = tessellate(path, m, tolerance, aa, NonZero, stroke, needsContours(brush));
 					if (mesh.vertexCount() > before)
-						encode(frame, brush, m, contours, opacity, paints, tint);
-				case Image(slot, x, y, w, h, transform, opacity, clip):
+						encode(frame, brush, m, contours, opacity, paints, inMask ? ColorTransform.IDENTITY : tint, masked);
+							case Image(slot, x, y, w, h, transform, opacity, clip):
 					hasImages = true;
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(new ashui.draw.Path().rect(x, y, w, h), m, tolerance);
 					Tessellate.fill(contours, NonZero, aa, mesh);
 					if (mesh.vertexCount() > before)
-						encodeImage(frame, slot, x, y, w, h, m, opacity, paints, tint);
+						encodeImage(frame, slot, x, y, w, h, m, opacity, paints, inMask ? ColorTransform.IDENTITY : tint, masked);
 			}
 			if (mesh.vertexCount() > before) {
 				starts.push(before);
@@ -368,8 +421,14 @@ class CanvasPainter {
 		endPaths();
 		forgetUnused();
 		vertexCount = mesh.vertexCount();
-		if (vertexCount == 0)
+		if (vertexCount == 0) {
+			// With no vertices there is no data texture for a mask's draws to read.
+			var i = steps.length;
+			while (i-- > 0)
+				if (steps[i].match(Mask(_, _)))
+					steps.splice(i, 1);
 			return;
+		}
 		var draws = starts.length;
 		var table = vertexCount * PathShader.VERTEX_TEXELS + draws * PathShader.PAINT_TEXELS;
 		// A paint's head ends with the texel its clip starts at, 0 for none: texel 0 is a vertex, never a clip.
@@ -385,7 +444,7 @@ class CanvasPainter {
 			overfull("is not drawn");
 			var i = steps.length;
 			while (i-- > 0)
-				if (steps[i].match(Paths(_, _, _)))
+				if (steps[i].match(Paths(_, _, _) | Mask(_, _)))
 					steps.splice(i, 1);
 			vertexCount = 0;
 			return;
@@ -553,9 +612,13 @@ class CanvasPainter {
 			out.push(0);
 	}
 
-	/** Writes `tint` into the last two texels of the paint just encoded, its multipliers then its offsets. **/
-	static function tinted(out:Array<Float>, tint:ColorTransform):Void {
-		var at = out.length - 8;
+	/** Writes `tint` and whether the draw is masked into the last three texels of the paint just encoded: its multipliers, its offsets, then the flag. **/
+	static function tinted(out:Array<Float>, tint:ColorTransform, masked:Bool):Void {
+		var at = out.length - 12;
+		out[at + 8] = masked ? 1 : 0;
+		out[at + 9] = 0;
+		out[at + 10] = 0;
+		out[at + 11] = 0;
 		out[at] = tint.redMultiplier;
 		out[at + 1] = tint.greenMultiplier;
 		out[at + 2] = tint.blueMultiplier;
@@ -567,9 +630,9 @@ class CanvasPainter {
 	}
 
 	static function encodeImage(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>,
-			tint:ColorTransform):Void {
-		imagePaint(frame, slot, x, y, w, h, m, opacity, out);
-		tinted(out, tint);
+			tint:ColorTransform, masked:Bool):Void {
+			imagePaint(frame, slot, x, y, w, h, m, opacity, out);
+			tinted(out, tint, masked);
 	}
 
 	static function imagePaint(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>):Void {
@@ -617,7 +680,7 @@ class CanvasPainter {
 	static function clipOf(op:DrawOp):Null<DrawClip>
 		return switch op {
 			case Fill(_, _, _, _, _, clip) | Stroke(_, _, _, _, _, clip) | Image(_, _, _, _, _, _, _, clip): clip;
-			case Mesh3D(_) | Pass3D(_) | Blend(_) | Tint(_): null;
+			case Mesh3D(_) | Pass3D(_) | Blend(_) | Tint(_) | MaskBegin | MaskUse | MaskEnd: null;
 		}
 
 	/** Where `clip` starts in the table, from its start, placing it and those outside it the first time. **/
@@ -683,9 +746,9 @@ class CanvasPainter {
 	}
 
 	static function encode(frame:CanvasFrame, brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>,
-			tint:ColorTransform):Void {
-		paint(frame, brush, m, contours, opacity, out);
-		tinted(out, tint);
+			tint:ColorTransform, masked:Bool):Void {
+			paint(frame, brush, m, contours, opacity, out);
+			tinted(out, tint, masked);
 	}
 
 	static function paint(frame:CanvasFrame, brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
@@ -794,6 +857,9 @@ class CanvasPainter {
 /** A run of a canvas's record: paths, `count` vertices from `first` drawn in `blend`, or meshes. **/
 enum CanvasStep {
 	Paths(first:Int, count:Int, blend:BlendMode);
+
+	/** A mask's draws, `count` vertices from `first`, drawn into the mask texture. **/
+	Mask(first:Int, count:Int);
 	Meshes(draws:Array<ScenePainter.SceneDraw>, passes:Array<ashui.draw3d.ScenePass>, scene:ashui.draw3d.Scene3D);
 }
 

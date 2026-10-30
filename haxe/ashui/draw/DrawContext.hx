@@ -22,6 +22,12 @@ enum DrawOp {
 
 	/** The colour transform of the draws after it, until the next one. **/
 	Tint(transform:ColorTransform);
+
+	/** The draws up to `MaskUse` make a mask rather than appear; those after it are kept where it is drawn, until `MaskEnd`. **/
+	MaskBegin;
+
+	MaskUse;
+	MaskEnd;
 }
 
 /** What a clip keeps: a rectangle with its corners rounded by `radius`, or an ellipse, by its centre and half its width and height. **/
@@ -94,6 +100,7 @@ class DrawContext {
 	final blends:Array<BlendMode> = [];
 	var tint = ColorTransform.IDENTITY;
 	final tints:Array<ColorTransform> = [];
+	var maskDepth = 0;
 	var scene = ashui.draw3d.Scene3D.DEFAULT;
 	final clips:Array<Null<DrawClip>> = [];
 
@@ -151,6 +158,24 @@ class DrawContext {
 			tint = tints.pop();
 			ops.push(Tint(tint));
 		}
+
+	/**
+		Draws after this kept where `mask` draws, by the alpha of what it draws, until the matching `popMask`. `mask` is called
+		now, with this context, and draws as any shape does, under the transforms and opacity pushed; its blend modes and colour
+		transforms are ignored. Masks do not nest: one pushed inside another is not applied. Shapes and images only.
+	**/
+	public function pushMask(mask:DrawContext->Void):Void {
+		if (maskDepth++ > 0)
+			return;
+		ops.push(MaskBegin);
+		mask(this);
+		ops.push(MaskUse);
+	}
+
+	public function popMask():Void {
+		if (maskDepth > 0 && --maskDepth == 0)
+			ops.push(MaskEnd);
+	}
 
 	/** Draws after this kept inside the rectangle, its corners rounded by `radius`, until the matching `popClip`. **/
 	public function pushClipRect(x:Float, y:Float, width:Float, height:Float, radius = 0.0):Void

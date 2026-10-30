@@ -51,6 +51,11 @@ class CanvasFrame {
 	public final scissorWidth:Int;
 	public final scissorHeight:Int;
 
+	/** The target's size in pixels. **/
+	final targetWidth:Int;
+
+	final targetHeight:Int;
+
 	final renderer:Renderer;
 
 	/** The view the pass draws into, to begin it again after `suspend`. **/
@@ -58,7 +63,9 @@ class CanvasFrame {
 
 	@:allow(ashui.core.render.Renderer)
 	function new(renderer:Renderer, device:GpuDevice, encoder:GpuEncoder, format:TextureFormat, record:Int, width:Float, height:Float, transform:Affine,
-			scale:Float, pixelRatio:Float, scissor:Array<Int>, target:gpu.GpuTextureView) {
+			scale:Float, pixelRatio:Float, scissor:Array<Int>, target:gpu.GpuTextureView, targetWidth:Int, targetHeight:Int) {
+		this.targetWidth = targetWidth;
+		this.targetHeight = targetHeight;
 		this.renderer = renderer;
 		this.target = target;
 		this.device = device;
@@ -87,6 +94,30 @@ class CanvasFrame {
 		passes(encoder);
 		@:privateAccess renderer.beginPass(encoder, target, false, 0, 0, 0, 0);
 		encoder.renderSetScissorRect(scissorX, scissorY, scissorWidth, scissorHeight);
+	}
+
+	/** What the last mask drawn to the renderer holds, or a texel of nothing before one is: a view of the target's size, read by masked paints. **/
+	@:allow(ashui.core.render.CanvasPainter)
+	function maskView():gpu.GpuTextureView
+		return renderer.maskView();
+
+	@:allow(ashui.core.render.CanvasPainter)
+	function noMaskView():gpu.GpuTextureView
+		return renderer.maskNothingView();
+
+	/**
+		Clears the mask texture, a target's size, and runs `draw` into it in a pass of its own, scissored as the canvas is, then
+		begins the canvas's pass again.
+	**/
+	@:allow(ashui.core.render.CanvasPainter)
+	function drawMask(draw:Void->Void):Void {
+		var view = renderer.maskTarget(targetWidth, targetHeight);
+		suspend(encoder -> {
+			@:privateAccess renderer.beginPass(encoder, view, true, 0, 0, 0, 0);
+			encoder.renderSetScissorRect(scissorX, scissorY, scissorWidth, scissorHeight);
+			draw();
+			encoder.renderEnd();
+		});
 	}
 
 	/** The renderer's image atlas, which images a canvas draws are resampled into. **/

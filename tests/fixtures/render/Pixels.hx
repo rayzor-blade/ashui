@@ -1759,6 +1759,42 @@ class Pixels {
 		pixels = offscreen.renderToRgba8(nested, SIZE, SIZE);
 		probe("transforms pushed inside one another multiply", 32, 32, about(64, 0, 0));
 		nested.remove();
+		// Masks: later draws are kept by the alpha of what the mask draws.
+		function maskRoot(drawMask:ashui.draw.DrawContext->Void, ?second:ashui.draw.DrawContext->Void):Div
+			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+				<canvas width={64} height={64} draw={ctx -> {
+					ctx.pushMask(drawMask);
+					ctx.fillRect(0, 0, 64, 64, Brush.solid(0xff0000));
+					ctx.popMask();
+					if (second != null) {
+						ctx.pushMask(second);
+						ctx.fillRect(0, 0, 64, 64, Brush.solid(0x0000ff));
+						ctx.popMask();
+					}
+					ctx.fillRect(0, 56, 64, 8, Brush.solid(0x00ff00));
+				}} />
+			</div>);
+		label = "mask: ";
+		var circleMask = maskRoot(m -> m.fillCircle(32, 32, 16, Brush.solid(0x000000)));
+		pixels = offscreen.renderToRgba8(circleMask, SIZE, SIZE);
+		probe("what is inside the mask is drawn", 32, 32, near(0xff0000));
+		probe("what is outside it is not", 8, 8, near(0xffffff));
+		probe("a draw after popMask is not masked", 8, 60, near(0x00ff00));
+		circleMask.remove();
+		var halfMask = maskRoot(m -> m.fillRect(0, 0, 64, 64, Brush.solid(0x000000, 0.5)));
+		pixels = offscreen.renderToRgba8(halfMask, SIZE, SIZE);
+		probe("a mask's alpha is the coverage", 32, 32, about(255, 128, 128));
+		halfMask.remove();
+		var emptyMask = maskRoot(_ -> {});
+		pixels = offscreen.renderToRgba8(emptyMask, SIZE, SIZE);
+		probe("a mask that draws nothing hides what it masks", 32, 32, near(0xffffff));
+		emptyMask.remove();
+		var twoMasks = maskRoot(m -> m.fillRect(0, 0, 32, 32, Brush.solid(0x000000)), m -> m.fillRect(32, 32, 32, 32, Brush.solid(0x000000)));
+		pixels = offscreen.renderToRgba8(twoMasks, SIZE, SIZE);
+		probe("the first mask keeps its own draw", 16, 16, near(0xff0000));
+		probe("the second mask keeps the next", 48, 48, near(0x0000ff));
+		probe("and neither leaks into the other's place", 48, 16, near(0xffffff));
+		twoMasks.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}
