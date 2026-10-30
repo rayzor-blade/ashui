@@ -113,6 +113,19 @@ class CanvasFrame {
 	}
 
 	/**
+		`bind` for a shader that writes premultiplied colour, blended into the frame's targets as `mode` says, as `PathShader`
+		does: a pipeline for each mode, each made the first time.
+	**/
+	@:allow(ashui.core.render.CanvasPainter)
+	function bindBlended(wgsl:String, mode:ashui.draw.BlendMode):Pass {
+		var pipeline = renderer.blendedPass(wgsl, mode);
+		encoder.renderSetPipeline(pipeline.pipeline);
+		encoder.renderSetBindGroup(BoxShader.FRAME_GROUP, pipeline.group);
+		encoder.renderSetBindGroup(BoxShader.TEXTURE_records_GROUP, pipeline.records);
+		return pipeline;
+	}
+
+	/**
 		Sets the pipeline of a `UiShader`, by its WGSL, with ashui's frame
 		uniforms and records bound, and returns it: for a shader with bind
 		groups of its own, set after this, its draws made on `encoder` with

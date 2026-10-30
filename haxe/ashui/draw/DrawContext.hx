@@ -16,6 +16,12 @@ enum DrawOp {
 
 	/** Drawing of one's own in the same 3D scene (see `ashui.draw3d.ScenePass`). **/
 	Pass3D(pass:ashui.draw3d.ScenePass, scene:ashui.draw3d.Scene3D);
+
+	/** The blend mode of the draws after it, until the next one. **/
+	Blend(mode:BlendMode);
+
+	/** The colour transform of the draws after it, until the next one. **/
+	Tint(transform:ColorTransform);
 }
 
 /** What a clip keeps: a rectangle with its corners rounded by `radius`, or an ellipse, by its centre and half its width and height. **/
@@ -84,6 +90,10 @@ class DrawContext {
 	var opacity = 1.0;
 	final opacities:Array<Float> = [];
 	var clip:Null<DrawClip> = null;
+	var blend = BlendMode.Normal;
+	final blends:Array<BlendMode> = [];
+	var tint = ColorTransform.IDENTITY;
+	final tints:Array<ColorTransform> = [];
 	var scene = ashui.draw3d.Scene3D.DEFAULT;
 	final clips:Array<Null<DrawClip>> = [];
 
@@ -115,6 +125,32 @@ class DrawContext {
 	public function popOpacity():Void
 		if (opacities.length > 0)
 			opacity = opacities.pop();
+
+	/** Draws after this combined with what is under them as `mode` says, until the matching `popBlendMode`; shapes and images only. **/
+	public function pushBlendMode(mode:BlendMode):Void {
+		blends.push(blend);
+		blend = mode;
+		ops.push(Blend(mode));
+	}
+
+	public function popBlendMode():Void
+		if (blends.length > 0) {
+			blend = blends.pop();
+			ops.push(Blend(blend));
+		}
+
+	/** Draws after this with their colours changed by `t` and then by the transforms already pushed, until the matching `popColorTransform`; shapes and images only. **/
+	public function pushColorTransform(t:ColorTransform):Void {
+		tints.push(tint);
+		tint = tint.after(t);
+		ops.push(Tint(tint));
+	}
+
+	public function popColorTransform():Void
+		if (tints.length > 0) {
+			tint = tints.pop();
+			ops.push(Tint(tint));
+		}
 
 	/** Draws after this kept inside the rectangle, its corners rounded by `radius`, until the matching `popClip`. **/
 	public function pushClipRect(x:Float, y:Float, width:Float, height:Float, radius = 0.0):Void

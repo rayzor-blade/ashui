@@ -184,12 +184,39 @@ class Renderer {
 	inline function get_blitPass():Pass
 		return _blitPass != null ? _blitPass : (_blitPass = pass(BlitShader.WGSL, format, false, false));
 
-	function pass(wgsl:String, format:TextureFormat, bind = true, blend = true):Pass {
+	/**
+		A pipeline for a canvas's `UiShader` that writes premultiplied colour, blended into the target as `mode` says: the
+		frame uniforms and records bound; made once for each shader and mode.
+	**/
+	public function blendedPass(wgsl:String, mode:ashui.draw.BlendMode):Pass {
+		var key = '${(mode : Int)}:$wgsl';
+		var made = canvasPasses.get(key);
+		if (made == null)
+			canvasPasses.set(key, made = pass(wgsl, format, true, true, mode));
+		return made;
+	}
+
+	/** `mode`'s blend of a premultiplied source: its colour and alpha factors and the colour operation. **/
+	static function blendOf(mode:ashui.draw.BlendMode):{src:BlendFactor, dst:BlendFactor, op:BlendOperation, alphaSrc:BlendFactor, alphaDst:BlendFactor} {
+		var over = {src: BlendFactor.One, dst: BlendFactor.OneMinusSrcAlpha, op: BlendOperation.Add, alphaSrc: BlendFactor.One, alphaDst: BlendFactor.OneMinusSrcAlpha};
+		return switch mode {
+			case Add: {src: BlendFactor.One, dst: BlendFactor.One, op: BlendOperation.Add, alphaSrc: over.alphaSrc, alphaDst: over.alphaDst};
+			case Subtract: {src: BlendFactor.One, dst: BlendFactor.One, op: BlendOperation.ReverseSubtract, alphaSrc: over.alphaSrc, alphaDst: over.alphaDst};
+			case Multiply: {src: BlendFactor.Dst, dst: BlendFactor.OneMinusSrcAlpha, op: BlendOperation.Add, alphaSrc: over.alphaSrc, alphaDst: over.alphaDst};
+			case Screen: {src: BlendFactor.One, dst: BlendFactor.OneMinusSrc, op: BlendOperation.Add, alphaSrc: over.alphaSrc, alphaDst: over.alphaDst};
+			case _: over;
+		}
+	}
+
+	function pass(wgsl:String, format:TextureFormat, bind = true, blend = true, ?premultiplied:ashui.draw.BlendMode):Pass {
 		var shader = device.createShader(wgsl);
 		var builder = device.pipeline();
 		builder.shader(shader, "vertex", "fragment");
 		builder.target(format, GpuFlags.COLOR_WRITE_ALL);
-		if (blend)
+		if (blend && premultiplied != null) {
+			var b = blendOf(premultiplied);
+			builder.blend(b.src, b.dst, b.op, b.alphaSrc, b.alphaDst, BlendOperation.Add);
+		} else if (blend)
 			builder.blend(BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha, BlendOperation.Add, BlendFactor.One, BlendFactor.OneMinusSrcAlpha,
 				BlendOperation.Add);
 		builder.primitive(PrimitiveTopology.TriangleList, CullMode.None, FrontFace.Ccw);

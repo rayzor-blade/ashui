@@ -1708,6 +1708,57 @@ class Pixels {
 		probe("without repeat the edge colour is held past the right edge", 40, 8, near(0x00ff00));
 		probe("and below the bottom edge", 8, 40, near(0x0000ff));
 		held.remove();
+		// Blend modes and colour transforms of a canvas's draws.
+		function blendRoot(base:Int, mode:ashui.draw.BlendMode, top:Int):Div
+			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+				<canvas width={64} height={64} draw={ctx -> {
+					ctx.fillRect(0, 0, 64, 64, Brush.solid(base));
+					ctx.pushBlendMode(mode);
+					ctx.fillRect(0, 0, 32, 64, Brush.solid(top));
+					ctx.popBlendMode();
+					ctx.fillRect(32, 0, 32, 64, Brush.solid(top));
+				}} />
+			</div>);
+		label = "blend: ";
+		for (c in [
+			{name: "multiply", mode: ashui.draw.BlendMode.Multiply, base: 0x808080, top: 0x808080, want: 64},
+			{name: "add", mode: ashui.draw.BlendMode.Add, base: 0x404040, top: 0x404040, want: 128},
+			{name: "screen", mode: ashui.draw.BlendMode.Screen, base: 0x808080, top: 0x808080, want: 191},
+			{name: "subtract", mode: ashui.draw.BlendMode.Subtract, base: 0x808080, top: 0x404040, want: 64},
+			{name: "normal", mode: ashui.draw.BlendMode.Normal, base: 0x808080, top: 0x404040, want: 64}
+		]) {
+			var root = blendRoot(c.base, c.mode, c.top);
+			pixels = offscreen.renderToRgba8(root, SIZE, SIZE);
+			probe(c.name + " combines with what is under", 16, 32, about(c.want, c.want, c.want));
+			probe(c.name + " popped, the next draw is normal", 48, 32, about(c.top >> 16, c.top >> 16, c.top >> 16));
+			root.remove();
+		}
+		label = "colour transform: ";
+		function tintRoot(base:Int, t:ashui.draw.ColorTransform, ?inner:ashui.draw.ColorTransform):Div
+			return ashui.reactive.Owner.root(tree, _ -> <div width={64} height={64} bg={Brush.solid(0xffffff)}>
+				<canvas width={64} height={64} draw={ctx -> {
+					ctx.pushColorTransform(t);
+					if (inner != null)
+						ctx.pushColorTransform(inner);
+					ctx.fillRect(0, 0, 64, 64, Brush.solid(base));
+				}} />
+			</div>);
+		var halved = tintRoot(0xff8000, new ashui.draw.ColorTransform(0.5, 0.5, 0.5));
+		pixels = offscreen.renderToRgba8(halved, SIZE, SIZE);
+		probe("multipliers scale each channel", 32, 32, about(128, 64, 0));
+		halved.remove();
+		var offset = tintRoot(0x000000, new ashui.draw.ColorTransform(1, 1, 1, 1, 0, 0.5, 0, 0));
+		pixels = offscreen.renderToRgba8(offset, SIZE, SIZE);
+		probe("an offset is added", 32, 32, about(0, 128, 0));
+		offset.remove();
+		var faded = tintRoot(0xff0000, new ashui.draw.ColorTransform(1, 1, 1, 0.5));
+		pixels = offscreen.renderToRgba8(faded, SIZE, SIZE);
+		probe("an alpha multiplier lets what is under show", 32, 32, about(255, 128, 128));
+		faded.remove();
+		var nested = tintRoot(0xff0000, new ashui.draw.ColorTransform(0.5, 1, 1), new ashui.draw.ColorTransform(0.5, 1, 1));
+		pixels = offscreen.renderToRgba8(nested, SIZE, SIZE);
+		probe("transforms pushed inside one another multiply", 32, 32, about(64, 0, 0));
+		nested.remove();
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

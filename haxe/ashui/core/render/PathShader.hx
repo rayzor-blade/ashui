@@ -5,10 +5,10 @@ package ashui.core.render;
 	by vertex index, each vertex two texels: its position in layout units,
 	its coverage and the texel where its paint starts; then its distances
 	inside up to four edges of its shape, in pixels, which cover the pixels
-	just inside an edge by how far inside they are. A paint is ten
+	just inside an edge by how far inside they are. A paint is twelve
 	texels: its kind (0 solid, 1 linear, 2 radial, 3 image, 4 pattern),
 	stop count and opacity; its geometry, in layout units; up to four stop
-	offsets; and the stops' colours. An image's paint is its opacity, then
+	offsets; and the stops' colours; its last two are the colour transform's multipliers and offsets. An image's paint is its opacity, then
 	the map from a pixel to where in the image it is, 0 to 1 across, as two
 	rows of an affine, then the image's rect in `canvasImages`, the image
 	atlas, then 1 if it is smoothed; the head's second value says which axes it repeats along (1 x, 2 y, 3 both). A pattern's is its shape (1 dots, 2 lines, 3 crosshatch) and
@@ -24,8 +24,8 @@ class PathShader implements UiShader {
 	/** Texels to a row of the canvas's data texture. **/
 	public static inline var ROW_TEXELS = 2048;
 
-	/** Texels to a paint. A gradient's last two hold its map from a pixel to gradient space as two rows, the spread in the first and the focus in the second. **/
-	public static inline var PAINT_TEXELS = 10;
+	/** Texels to a paint. A gradient's seventh and eighth hold its map from a pixel to gradient space as two rows, the spread in the first and the focus in the second. **/
+	public static inline var PAINT_TEXELS = 12;
 
 	/** Texels to a clip. **/
 	public static inline var CLIP_TEXELS = 4;
@@ -183,7 +183,10 @@ class PathShader implements UiShader {
 				}
 				depth++;
 			}
-			output.color = vec4(color.rgb, color.a * head.z * covered * canvasClip(pixel));
+			// The paint's colour transform, then premultiplied: the blend modes combine it with the target as it is.
+			var tint = clamp(color * canvasTexel(at + 10) + canvasTexel(at + 11), vec4(0., 0., 0., 0.), vec4(1., 1., 1., 1.));
+			var alpha = tint.a * head.z * covered * canvasClip(pixel);
+			output.color = vec4(tint.rgb * alpha, alpha);
 		}
 	};
 }

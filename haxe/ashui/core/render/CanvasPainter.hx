@@ -1,6 +1,8 @@
 package ashui.core.render;
 
 import ashui.draw.Affine;
+import ashui.draw.BlendMode;
+import ashui.draw.ColorTransform;
 import ashui.draw.DrawContext;
 import ashui.draw.Flatten;
 import ashui.draw.Mesh;
@@ -32,8 +34,10 @@ class CanvasPainter {
 	var texture:Null<GpuTexture> = null;
 	var view:Null<GpuTextureView> = null;
 	var rows = 0;
-	var group:Null<GpuBindGroup> = null;
-	var groupPipeline:Null<GpuPipeline> = null;
+	/** The data's bind group for each blend mode's pipeline, and the pipeline each was made for. **/
+	final groups:Array<Null<GpuBindGroup>> = [for (_ in 0...BlendMode.COUNT) null];
+
+	final groupPipelines:Array<Null<GpuPipeline>> = [for (_ in 0...BlendMode.COUNT) null];
 	var vertexCount = 0;
 
 	/** What the triangles were made for: the record, and the canvas's transform and pixel ratio. **/
@@ -160,10 +164,7 @@ class CanvasPainter {
 			releasing.cancel();
 		releasing = null;
 		release();
-		if (group != null) {
-			group.destroy();
-			group = null;
-		}
+		dropGroups();
 		if (view != null) {
 			view.destroy();
 			view = null;
@@ -179,6 +180,13 @@ class CanvasPainter {
 			scenes = null;
 		}
 	}
+
+	function dropGroups():Void
+		for (i in 0...groups.length) {
+			if (groups[i] != null)
+				groups[i].destroy();
+			groups[i] = null;
+		}
 
 	/**
 		Whether `play` would build again for `ctx` drawn through `t` at `ratio` pixels to a unit, with the image atlas at
@@ -231,8 +239,8 @@ class CanvasPainter {
 		var run = 0;
 		for (step in steps)
 			switch step {
-				case Paths(first, count):
-					drawPaths(frame, first, count);
+				case Paths(first, count, blend):
+					drawPaths(frame, first, count, blend);
 				case Meshes(draws, passes, scene):
 					scenes.draw(frame, run++, draws, passes, scene);
 			}
@@ -240,10 +248,14 @@ class CanvasPainter {
 			scenes.endFrame();
 	}
 
-	function drawPaths(frame:CanvasFrame, first:Int, count:Int):Void {
+	function drawPaths(frame:CanvasFrame, first:Int, count:Int, blend:BlendMode):Void {
 		var atlas = frame.images;
-		var pipeline = frame.bind(PathShader.WGSL);
-		if (group == null || groupPipeline != pipeline.pipeline || groupAtlas != atlas.revision) {
+		var pipeline = frame.bindBlended(PathShader.WGSL, blend);
+		var mode:Int = blend;
+		if (groupAtlas != atlas.revision)
+			dropGroups();
+		var group = groups[mode];
+		if (group == null || groupPipelines[mode] != pipeline.pipeline) {
 			if (group != null)
 				group.destroy();
 			// The image atlas and its sampler, then the canvas's data, which is fetched, never sampled.
@@ -251,9 +263,9 @@ class CanvasPainter {
 			bindings.texture(atlas.view);
 			bindings.sampler(frame.imageSampler);
 			bindings.texture(view);
-			group = frame.device.bindGroup(pipeline.pipeline, PathShader.TEXTURE_canvas_GROUP, bindings);
+			groups[mode] = group = frame.device.bindGroup(pipeline.pipeline, PathShader.TEXTURE_canvas_GROUP, bindings);
 			bindings.destroy();
-			groupPipeline = pipeline.pipeline;
+			groupPipelines[mode] = pipeline.pipeline;
 			groupAtlas = atlas.revision;
 		}
 		frame.encoder.renderSetBindGroup(PathShader.TEXTURE_canvas_GROUP, group);
@@ -284,9 +296,11 @@ class CanvasPainter {
 		steps.resize(0);
 		hasImages = false;
 		var pathsFrom = 0;
+		var blend = BlendMode.Normal;
+		var tint = ColorTransform.IDENTITY;
 		function endPaths() {
 			if (mesh.vertexCount() > pathsFrom)
-				steps.push(Paths(pathsFrom, mesh.vertexCount() - pathsFrom));
+				steps.push(Paths(pathsFrom, mesh.vertexCount() - pathsFrom, blend));
 			pathsFrom = mesh.vertexCount();
 		}
 		// The table is one texture, so it has a device's limit of rows; a quarter of it is kept for the clips, and what comes after the rest is left out.
@@ -298,6 +312,14 @@ class CanvasPainter {
 				break;
 			}
 			switch op {
+				case Blend(mode):
+					// Each run of paths is drawn through the pipeline of the mode it was recorded under.
+					endPaths();
+					blend = mode;
+					continue;
+				case Tint(t):
+					tint = t;
+					continue;
 				case Mesh3D(_, _, scene, _, _) | Pass3D(_, scene):
 					endPaths();
 					// Meshes and passes drawn one after another, seen the same way, are one run, sharing depth.
@@ -324,19 +346,19 @@ class CanvasPainter {
 					var m = frame.transform.after(transform);
 					var contours = tessellate(path, m, tolerance, aa, rule, null, needsContours(brush));
 					if (mesh.vertexCount() > before)
-						encode(frame, brush, m, contours, opacity, paints);
+						encode(frame, brush, m, contours, opacity, paints, tint);
 				case Stroke(path, stroke, brush, transform, opacity, clip):
 					var m = frame.transform.after(transform);
 					var contours = tessellate(path, m, tolerance, aa, NonZero, stroke, needsContours(brush));
 					if (mesh.vertexCount() > before)
-						encode(frame, brush, m, contours, opacity, paints);
+						encode(frame, brush, m, contours, opacity, paints, tint);
 				case Image(slot, x, y, w, h, transform, opacity, clip):
 					hasImages = true;
 					var m = frame.transform.after(transform);
 					var contours = Flatten.path(new ashui.draw.Path().rect(x, y, w, h), m, tolerance);
 					Tessellate.fill(contours, NonZero, aa, mesh);
 					if (mesh.vertexCount() > before)
-						encodeImage(frame, slot, x, y, w, h, m, opacity, paints);
+						encodeImage(frame, slot, x, y, w, h, m, opacity, paints, tint);
 			}
 			if (mesh.vertexCount() > before) {
 				starts.push(before);
@@ -363,7 +385,7 @@ class CanvasPainter {
 			overfull("is not drawn");
 			var i = steps.length;
 			while (i-- > 0)
-				if (steps[i].match(Paths(_)))
+				if (steps[i].match(Paths(_, _, _)))
 					steps.splice(i, 1);
 			vertexCount = 0;
 			return;
@@ -406,9 +428,7 @@ class CanvasPainter {
 			extent.height(rows);
 			texture = frame.device.texture(new GpuTextureDescriptor(extent, TextureFormat.Rgba32float, GpuFlags.TEXTURE_BINDING | GpuFlags.TEXTURE_COPY_DST));
 			view = texture.createView(new GpuTextureViewDescriptor());
-			if (group != null)
-				group.destroy();
-			group = null;
+			dropGroups();
 		}
 		frame.device.queue().writeTexture(texture, bytes, PathShader.ROW_TEXELS, needed, PathShader.ROW_TEXELS * 16);
 		if (releasing != null)
@@ -533,7 +553,26 @@ class CanvasPainter {
 			out.push(0);
 	}
 
-	static function encodeImage(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>):Void {
+	/** Writes `tint` into the last two texels of the paint just encoded, its multipliers then its offsets. **/
+	static function tinted(out:Array<Float>, tint:ColorTransform):Void {
+		var at = out.length - 8;
+		out[at] = tint.redMultiplier;
+		out[at + 1] = tint.greenMultiplier;
+		out[at + 2] = tint.blueMultiplier;
+		out[at + 3] = tint.alphaMultiplier;
+		out[at + 4] = tint.redOffset;
+		out[at + 5] = tint.greenOffset;
+		out[at + 6] = tint.blueOffset;
+		out[at + 7] = tint.alphaOffset;
+	}
+
+	static function encodeImage(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>,
+			tint:ColorTransform):Void {
+		imagePaint(frame, slot, x, y, w, h, m, opacity, out);
+		tinted(out, tint);
+	}
+
+	static function imagePaint(frame:CanvasFrame, slot:Int, x:Float, y:Float, w:Float, h:Float, m:Affine, opacity:Float, out:Array<Float>):Void {
 		var rect = Images.bitmap(slot, w, h, m.scale() * frame.pixelRatio, frame.images);
 		var inverse = m.after(new Affine(w, 0, 0, h, x, y)).inverse();
 		if (rect == null || inverse == null) {
@@ -578,7 +617,7 @@ class CanvasPainter {
 	static function clipOf(op:DrawOp):Null<DrawClip>
 		return switch op {
 			case Fill(_, _, _, _, _, clip) | Stroke(_, _, _, _, _, clip) | Image(_, _, _, _, _, _, _, clip): clip;
-			case Mesh3D(_) | Pass3D(_): null;
+			case Mesh3D(_) | Pass3D(_) | Blend(_) | Tint(_): null;
 		}
 
 	/** Where `clip` starts in the table, from its start, placing it and those outside it the first time. **/
@@ -643,7 +682,13 @@ class CanvasPainter {
 		];
 	}
 
-	static function encode(frame:CanvasFrame, brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
+	static function encode(frame:CanvasFrame, brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>,
+			tint:ColorTransform):Void {
+		paint(frame, brush, m, contours, opacity, out);
+		tinted(out, tint);
+	}
+
+	static function paint(frame:CanvasFrame, brush:Brush, m:Affine, contours:Array<ashui.draw.Flatten.Contour>, opacity:Float, out:Array<Float>):Void {
 		inline function rgba(rgb:Int, alpha:Float) {
 			out.push((rgb >> 16 & 0xff) / 255);
 			out.push((rgb >> 8 & 0xff) / 255);
@@ -746,9 +791,9 @@ class CanvasPainter {
 	}
 }
 
-/** A run of a canvas's record: paths, `count` vertices from `first`, or meshes. **/
+/** A run of a canvas's record: paths, `count` vertices from `first` drawn in `blend`, or meshes. **/
 enum CanvasStep {
-	Paths(first:Int, count:Int);
+	Paths(first:Int, count:Int, blend:BlendMode);
 	Meshes(draws:Array<ScenePainter.SceneDraw>, passes:Array<ashui.draw3d.ScenePass>, scene:ashui.draw3d.Scene3D);
 }
 
