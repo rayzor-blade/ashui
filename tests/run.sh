@@ -351,6 +351,10 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main TabsIndicator -hl bin/tabs-indicator.hl
 	tabs_indicator=0
 	run tabs-indicator.hl || tabs_indicator=$?
+	$haxe_ui --class-path fixtures/css -main PointerInheritance -hl bin/pointer-inheritance.hl
+	run pointer-inheritance.hl
+	$haxe_ui --class-path fixtures/css -main CanvasInsets -hl bin/canvas-insets.hl
+	run canvas-insets.hl
 	# Nested HXX keeps the enclosing comprehension's variables and element children (66cc2f7).
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main MarkupComprehensions -hl bin/markup-comprehensions.hl
 	run markup-comprehensions.hl

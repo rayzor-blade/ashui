@@ -504,7 +504,7 @@ class LayoutTree {
 		ashui.core.Work.notify();
 	}
 
-	/** Makes `hitTest` pass through `node` and everything inside it, as CSS's `pointer-events: none`, or not. **/
+	/** Passes through this node and inheriting descendants. Explicit Auto descendants can still receive hits (0fe11ba). **/
 	public function setPassThrough(node:haxe.Int64, through:Bool):Void {
 		LayoutTreeNative.blinc_tree_set_pass_through(this.ptr, node, through);
 		markDrawn();

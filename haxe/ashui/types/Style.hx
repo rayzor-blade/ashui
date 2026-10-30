@@ -83,7 +83,7 @@ enum abstract Visibility(Int) to Int {
 	var Collapse = 2;
 }
 
-/** None passes through the subtree, without descendant overrides. git-bug: 4512d6f / 8780d6b. **/
+/** None passes through the box and is inherited; an explicit Auto restores descendant hits (0fe11ba). **/
 enum abstract PointerEvents(Int) to Int {
 	var Auto = 0;
 	var None = 1;
