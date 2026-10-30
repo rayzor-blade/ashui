@@ -42,13 +42,28 @@ class Hxx {
 	public static macro function hxx(template:Expr):Expr {
 		var children = Parser.parseRoot(template, {
 			defaultExtension: 'hxx',
-			treatNested: nested -> single(elements(nested), nested.pos),
+			treatNested: nested -> {
+				// 66cc2f7: the parser finds nested markup before a comprehension's
+				// variables are in scope. Lower it when the compiler types its body.
+				var index = nestedTemplates.length;
+				if (index == 0)
+					Context.onAfterGenerate(() -> nestedTemplates.resize(0));
+				nestedTemplates.push(nested);
+				macro @:pos(nested.pos) ashui.ui.Hxx.nestedMarkup($v{index});
+			},
 		});
 		return single(elements(children), template.pos);
 	}
 
+	/** Internal entry point for markup inside an embedded Haxe expression. **/
+	@:noCompletion public static macro function nestedMarkup(index:Int):Expr {
+		var children = nestedTemplates[index];
+		return single(elements(children), children.pos);
+	}
+
 	#if macro
 	static var counter = 0;
+	static final nestedTemplates:Array<Children> = [];
 
 	/** Loop variables in scope where the template is being lowered. **/
 	static var locals:Array<{name:String, type:ComplexType}> = [];

@@ -351,6 +351,9 @@ memory)
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main TabsIndicator -hl bin/tabs-indicator.hl
 	tabs_indicator=0
 	run tabs-indicator.hl || tabs_indicator=$?
+	# Nested HXX keeps the enclosing comprehension's variables and element children (66cc2f7).
+	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main MarkupComprehensions -hl bin/markup-comprehensions.hl
+	run markup-comprehensions.hl
 	# Native code editing, cached syntax/folds, virtual rows and owner cleanup (e53597f).
 	$haxe_ui --class-path ../components/haxe --class-path fixtures/components -main CodeComponents -hl bin/code-components.hl
 	code_components=0
