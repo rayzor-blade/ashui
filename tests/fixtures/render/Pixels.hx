@@ -1657,6 +1657,8 @@ class Pixels {
 			</div>);
 		function redToBlue(b:Brush):Brush
 			return b.stop(0, 0xff0000).stop(1, 0x0000ff);
+		// Brush's enum constructors are in scope wherever Brush is imported, so none may be named as a std class.
+		check("the standard Reflect is still Reflect", Reflect.field({a: 1}, "a") == 1);
 		label = "gradient: ";
 		var padded = gradientRoot(redToBlue(Brush.linear(0, 0, 32, 0)));
 		pixels = offscreen.renderToRgba8(padded, SIZE, SIZE);
@@ -1666,7 +1668,7 @@ class Pixels {
 		pixels = offscreen.renderToRgba8(repeated, SIZE, SIZE);
 		probe("repeat starts again: a quarter in at x 40", 40, 8, about(191, 0, 64));
 		repeated.remove();
-		var reflected = gradientRoot(redToBlue(Brush.linear(0, 0, 32, 0)).spreading(Reflect));
+		var reflected = gradientRoot(redToBlue(Brush.linear(0, 0, 32, 0)).spreading(Mirror));
 		pixels = offscreen.renderToRgba8(reflected, SIZE, SIZE);
 		probe("reflect runs back: three quarters in at x 40", 40, 8, about(64, 0, 191));
 		reflected.remove();

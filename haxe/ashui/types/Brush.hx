@@ -23,10 +23,10 @@ typedef BrushStop = {
 	final alpha:Float;
 }
 
-/** What a gradient does past its first and last stop: `Pad` holds their colours, `Repeat` starts again, `Reflect` runs back. **/
+/** What a gradient does past its first and last stop: `Pad` holds their colours, `Repeat` starts again, `Mirror` runs back. A constructor named `Reflect` would hide the standard class wherever `Brush` is imported. **/
 enum abstract GradientSpread(Int) to Int {
 	var Pad = 0;
-	var Reflect = 1;
+	var Mirror = 1;
 	var Repeat = 2;
 }
 
