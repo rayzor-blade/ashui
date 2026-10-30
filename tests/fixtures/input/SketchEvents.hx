@@ -11,6 +11,7 @@ private class Recorder implements Sketch {
 	public final frames:Array<Array<SketchEvent>> = [];
 	public var mouse = [0.0, 0.0];
 	public var pressed = false;
+	public var mode = "draw";
 
 	public function new() {}
 
@@ -20,6 +21,11 @@ private class Recorder implements Sketch {
 		frames.push(ctx.events);
 		mouse = [ctx.mouseX, ctx.mouseY];
 		pressed = ctx.mouseIsPressed;
+		switch mode {
+			case "rest": ctx.rest();
+			case "keep": ctx.unchanged();
+			case _:
+		}
 	}
 }
 
@@ -79,6 +85,50 @@ class SketchEvents {
 		frame();
 		check("touches arrive in order", names(rec.frames[rec.frames.length - 1]).indexOf("TouchStart,TouchMove,TouchEnd") >= 0,
 			names(rec.frames[rec.frames.length - 1]));
+		// Idleness: a resting sketch is not run again until the user does something.
+		rec.mode = "rest";
+		frame();
+		var runs = rec.frames.length;
+		frame();
+		frame();
+		frame();
+		check("a sketch that rests is not run again", rec.frames.length == runs, [runs, rec.frames.length]);
+		check("and leaves the scheduler idle", !ashui.animation.AnimationScheduler.main.hasActive());
+		Pointer.move(tree, 30, 30);
+		frame();
+		check("input wakes it", rec.frames.length > runs, [runs, rec.frames.length]);
+		rec.mode = "draw";
+		Pointer.move(tree, 31, 31);
+		frame();
+		var wakeRuns = rec.frames.length;
+		frame();
+		check("and it runs every frame again once it draws", rec.frames.length > wakeRuns);
+		// A target frame rate and a pause, on a canvas of their own.
+		var steady = new Recorder(), paused = ashui.reactive.Signal.make(false);
+		var tree2 = new LayoutTree();
+		var root2:Div = Owner.root(tree2, _ -> <div width={200} height={100}><canvas width={200} height={100} sketch={steady} fps={30.0} paused={paused} /></div>);
+		function frame2(dt:Float) {
+			tree2.flush();
+			tree2.computeLayout(root2.node, 200, 100);
+			ashui.animation.AnimationScheduler.main.tick(dt);
+		}
+		frame2(0.016);
+		var base = steady.frames.length;
+		for (i in 0...60)
+			frame2(1 / 60);
+		var drawn = steady.frames.length - base;
+		check("fps 30 draws about half of 60 ticks", drawn >= 28 && drawn <= 32, drawn);
+		paused.set(true);
+		frame2(1 / 60);
+		var held = steady.frames.length;
+		for (i in 0...10)
+			frame2(1 / 60);
+		check("a paused sketch is not run", steady.frames.length == held, [held, steady.frames.length]);
+		paused.set(false);
+		frame2(1 / 60);
+		frame2(1 / 60);
+		frame2(1 / 60);
+		check("and runs again when resumed", steady.frames.length > held);
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}

@@ -61,7 +61,16 @@ class SketchInput {
 	final keys:Array<PhysicalKey> = [];
 	final touches = new Map<Int, {x:Float, y:Float}>();
 
+	/** Called when an event arrives, for a sketch that rested to start again. **/
+	public var onActivity:Null<Void->Void> = null;
+
 	public function new() {}
+
+	function note(e:SketchEvent):Void {
+		pending.push(e);
+		if (onActivity != null)
+			onActivity();
+	}
 
 	inline function get_mouseIsPressed():Bool
 		return buttons.length > 0;
@@ -103,7 +112,7 @@ class SketchInput {
 		var b = e.button == null ? MouseButton.Left : e.button;
 		if (holds(b) < 0)
 			buttons.push(b);
-		pending.push(PointerDown(mouseX, mouseY, b, e.modifiers));
+		note(PointerDown(mouseX, mouseY, b, e.modifiers));
 	}
 
 	public function pointerUp(e:PointerEvent):Void {
@@ -113,24 +122,24 @@ class SketchInput {
 		var at = holds(b);
 		if (at >= 0)
 			buttons.splice(at, 1);
-		pending.push(PointerUp(mouseX, mouseY, b, e.modifiers));
+		note(PointerUp(mouseX, mouseY, b, e.modifiers));
 	}
 
 	public function pointerMove(e:PointerEvent):Void {
 		mouseX = e.localX;
 		mouseY = e.localY;
-		pending.push(PointerMove(mouseX, mouseY, e.modifiers));
+		note(PointerMove(mouseX, mouseY, e.modifiers));
 	}
 
 	public function wheel(e:PointerEvent):Void {
-		pending.push(Wheel(e.localX, e.localY, e.deltaX, e.deltaY, e.modifiers));
+		note(Wheel(e.localX, e.localY, e.deltaX, e.deltaY, e.modifiers));
 		e.stopPropagation();
 	}
 
 	public function keyDown(e:KeyEvent):Void {
 		if (!keyIsDown(e.physicalKey))
 			keys.push(e.physicalKey);
-		pending.push(KeyDown(e.key, e.physicalKey, e.repeat, e.modifiers));
+		note(KeyDown(e.key, e.physicalKey, e.repeat, e.modifiers));
 	}
 
 	public function keyUp(e:KeyEvent):Void {
@@ -138,33 +147,33 @@ class SketchInput {
 		while (i-- > 0)
 			if (Type.enumEq(keys[i], e.physicalKey))
 				keys.splice(i, 1);
-		pending.push(KeyUp(e.key, e.physicalKey, e.modifiers));
+		note(KeyUp(e.key, e.physicalKey, e.modifiers));
 	}
 
 	public function text(e:TextInputEvent):Void
-		pending.push(Text(e.text));
+		note(Text(e.text));
 
 	public function composition(e:CompositionEvent):Void
-		pending.push(Composition(e.text, e.cursor));
+		note(Composition(e.text, e.cursor));
 
 	public function focus(_:FocusEvent):Void {
 		focused = true;
-		pending.push(Focus);
+		note(Focus);
 	}
 
 	public function blur(_:FocusEvent):Void {
 		focused = false;
 		// Keys held when focus left would never be seen to go up.
 		keys.resize(0);
-		pending.push(Blur);
+		note(Blur);
 	}
 
 	public function resized(width:Float, height:Float):Void
-		pending.push(Resize(width, height));
+		note(Resize(width, height));
 
 	public function touch(e:TouchEvent, kind:Int):Void {
 		touches.set(e.id, {x: e.localX, y: e.localY});
-		pending.push(switch kind {
+		note(switch kind {
 			case 0: TouchStart(e.id, e.localX, e.localY);
 			case 1: TouchMove(e.id, e.localX, e.localY);
 			case 2: TouchEnd(e.id, e.localX, e.localY);

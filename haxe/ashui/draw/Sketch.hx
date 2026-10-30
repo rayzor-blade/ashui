@@ -33,6 +33,26 @@ class SketchContext extends DrawContext {
 		events = this.input.take();
 	}
 
+	/** Whether `draw` kept the last frame's picture. **/
+	public var kept(default, null) = false;
+
+	/** Whether `draw` asked to rest. **/
+	public var resting(default, null) = false;
+
+	/** Nothing changed this frame: the canvas keeps what it last drew, and asks the window for no frame. The next frame still runs. **/
+	public function unchanged():Void
+		kept = true;
+
+	/**
+		Nothing changed, and nothing will until the user does something, the canvas
+		resizes, or the program calls the canvas's `wake()`: the sketch is not run
+		again until then, and an idle window is left to sleep.
+	**/
+	public function rest():Void {
+		kept = true;
+		resting = true;
+	}
+
 	/** The pointer's place in the sketch. **/
 	public var mouseX(get, never):Float;
 

@@ -57,3 +57,14 @@ until the button comes up, so a drag that leaves the canvas keeps arriving.
 For a sketch that only needs the latest state: `ctx.mouseX`, `ctx.mouseY`,
 `ctx.mouseIsPressed` and `ctx.keyIsDown(physicalKey)`; `ctx.input` has the rest
 (`buttons`, `focused`, `touchesDown()`).
+
+## Idle, paused and slow
+
+A sketch is run once for each frame the window draws. To cost less:
+
+- `ctx.unchanged()` in `draw` keeps the last picture and asks for no new frame; the next frame still runs.
+- `ctx.rest()` does that and stops running the sketch until the user does something in the canvas, the canvas resizes, or the program calls the canvas's `wake()`. A window with nothing else going on is then left to sleep.
+- `fps={30.0}` on the canvas limits it to that many frames a second; `dt` is the time since the last frame drawn.
+- `paused={signal}` stops it while true; its clock waits, and the window is not woken for it.
+
+A sketch in a hidden window or out of view is not run either.

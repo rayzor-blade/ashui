@@ -41,6 +41,12 @@ typedef CanvasProps = {
 	**/
 	?retain:Bool,
 
+	/** Stops a `sketch` while true: no frames, and no wake-ups for the window; its clock waits. **/
+	?paused:IntoReactive<Bool>,
+
+	/** The most frames a `sketch` draws in a second; by default one for each the window draws. **/
+	?fps:Float,
+
 	/** Requests a frame on every animation tick while true. Use this to animate `paint`. **/
 	?animate:IntoReactive<Bool>,
 
@@ -144,6 +150,18 @@ class Canvas extends Component<CanvasProps> {
 				.onTouchStart(e -> input.touch(e, 0)).onTouchMove(e -> input.touch(e, 1)).onTouchEnd(e -> input.touch(e, 2))
 				.onTouchCancel(e -> input.touch(e, 3));
 			var seenW = -1.0, seenH = -1.0;
+			var ticker:Null<ashui.animation.AnimationScheduler.Ticker> = null;
+			var pausedNow = false;
+			var owed = 0.0;
+			var resting = false;
+			var tick:Float->Bool = null;
+			// Asks for the ticker back after the sketch rested, was paused, or its window came into view.
+			function wake() {
+				resting = false;
+				if (alive && ticker == null && !pausedNow)
+					ticker = AnimationScheduler.main.addTicker(tick);
+			}
+			input.onActivity = wake;
 			// A frame at the canvas's size; time runs from the first, drawn as soon as it is laid out.
 			function step(dt:Float) {
 				if (seenW >= 0 && (w.get() != seenW || h.get() != seenH))
@@ -159,21 +177,51 @@ class Canvas extends Component<CanvasProps> {
 					t += dt;
 				sketch.draw(ctx, t, dt);
 				frames++;
-				recorded = ctx;
-				repaint();
+				resting = ctx.resting;
+				if (!ctx.kept) {
+					recorded = ctx;
+					repaint();
+				}
 			}
 			var first:LayoutTree->Void = null;
 			first = laid -> if (laid == tree && !setUp && w.get() > 0 && h.get() > 0) step(0);
 			LayoutTree.settledHooks.push(first);
 			Owner.onCleanup(() -> removeSettledHook(first));
-			AnimationScheduler.main.addTicker(dt -> {
-				if (!alive)
+			tick = function(dt:Float):Bool {
+				if (!alive || pausedNow || resting || !ashui.input.WindowState.visible.get()) {
+					ticker = null;
 					return false;
+				}
 				// Out of view, a sketch is not drawn; its clock waits with it.
-				if (setUp && w.get() > 0 && h.get() > 0 && tree.inView(id))
-					step(dt);
+				if (setUp && w.get() > 0 && h.get() > 0 && tree.inView(id)) {
+					owed += dt;
+					if (props.fps == null || props.fps <= 0 || owed >= 1 / props.fps - 0.0005) {
+						var due = owed;
+						owed = 0;
+						step(due);
+					}
+				}
+				if (resting) {
+					ticker = null;
+					return false;
+				}
 				return true;
+			}
+			// A size change, the window coming back and a paused sketch resuming are all reasons to draw.
+			new Watch(() -> w.get() + h.get(), _ -> wake());
+			new Watch(() -> ashui.input.WindowState.visible.get(), v -> if (v) wake());
+			new Watch(() -> switch props.paused {
+				case null: false;
+				case Const(v): v;
+				case Bound(s): s.get();
+				case Derived(c): c.get();
+			}, v -> {
+				pausedNow = v;
+				if (!v)
+					wake();
 			});
+			wake();
+			sketchWake = wake;
 		}
 		if (props.draw != null) {
 			var draw = props.draw;
@@ -240,6 +288,14 @@ class Canvas extends Component<CanvasProps> {
 	/** Returns the last measured height. Reactive readers subscribe to size changes. **/
 	public function laidHeight():Float
 		return height.get();
+
+	var sketchWake:Null<Void->Void> = null;
+
+	/** Starts a sketch that rested drawing again, for a change it cannot see: data it reads from outside. **/
+	public function wake():Void {
+		if (sketchWake != null)
+			sketchWake();
+	}
 
 	/** Requests a frame after custom paint data changes. **/
 	public function repaint():Void
