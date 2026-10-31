@@ -55,6 +55,47 @@ class WindowedApp {
 
 	public var disposed(default, null) = false;
 
+	/**
+		Frames the GPU may have queued ahead of the display, 1 or 2. One keeps
+		input latency lowest; under Fifo a frame that misses a refresh then
+		waits a second one, which a continuously animating surface shows as
+		uneven motion, and 2 leaves room for it. An app can raise it while
+		such a surface is visible and set it back after; changing it
+		reconfigures the surface. `ASHUI_FRAME_LATENCY` overrides it.
+	**/
+	public var frameLatency(default, set) = 1;
+
+	/**
+		The present mode to ask for, or null for the default (see
+		`presentMode`); one the surface lacks is not used. Changing it
+		reconfigures the surface. `ASHUI_PRESENT_MODE` overrides it.
+	**/
+	public var preferredPresentMode(default, set):Null<gpu.PresentMode> = null;
+
+	function set_frameLatency(value:Int):Int {
+		value = value < 2 ? 1 : 2;
+		if (value != frameLatency) {
+			frameLatency = value;
+			reconfigure();
+		}
+		return frameLatency;
+	}
+
+	function set_preferredPresentMode(value:Null<gpu.PresentMode>):Null<gpu.PresentMode> {
+		if (value != preferredPresentMode) {
+			preferredPresentMode = value;
+			reconfigure();
+		}
+		return value;
+	}
+
+	function reconfigure():Void {
+		if (disposed)
+			return;
+		configure();
+		dirty = true;
+	}
+
 	/** Queues a window; it is built on the UI thread after the current turn. */
 	public static function open(settings:WindowConfig, build:Void->Element):Void {
 		if (manager == null)
@@ -772,9 +813,10 @@ class WindowedApp {
 		configuration.presentMode(presentMode(capabilities));
 		configuration.alphaMode(alphaMode(capabilities));
 		capabilities.destroy();
-		// Event-driven UI needs one queued frame, not an extra full Retina
-		// swapchain image and another frame of input latency (0973e0c).
-		configuration.desiredMaximumFrameLatency(1);
+		// One queued frame by default: event-driven UI does not need an extra full Retina swapchain image
+		// and another frame of input latency (0973e0c).
+		var latency = Std.parseInt(Sys.getEnv("ASHUI_FRAME_LATENCY"));
+		configuration.desiredMaximumFrameLatency(latency != null && latency >= 1 ? latency : frameLatency);
 		device.configureSurfaceWith(surface, configuration);
 	}
 
@@ -797,8 +839,9 @@ class WindowedApp {
 		the surface offers it, Fifo otherwise: under Fifo on Wayland the
 		compositor's FIFO and commit-timing protocols can hold frames, while
 		the frame callback alone paces Mailbox to the display.
-		`ASHUI_PRESENT_MODE=fifo|fifo-relaxed|mailbox|immediate` overrides it;
-		one the surface lacks fails at configure.
+		`preferredPresentMode` replaces the default when the surface offers it;
+		`ASHUI_PRESENT_MODE=fifo|fifo-relaxed|mailbox|immediate` overrides both,
+		and one the surface lacks fails at configure.
 	**/
 	function presentMode(capabilities:gpu.GpuSurfaceCapabilities):gpu.PresentMode {
 		switch Sys.getEnv("ASHUI_PRESENT_MODE") {
@@ -812,6 +855,10 @@ class WindowedApp {
 				return Immediate;
 			case _:
 		}
+		if (preferredPresentMode != null)
+			for (i in 0...capabilities.presentModeCount())
+				if (capabilities.presentMode(i) == preferredPresentMode)
+					return preferredPresentMode;
 		if (paceOnRedraw)
 			for (i in 0...capabilities.presentModeCount())
 				if (capabilities.presentMode(i) == Mailbox)

@@ -193,6 +193,7 @@ behavior checks below.
 2. **See it**: render a scene to a PNG instead of describing it: write a scene class (see `tools/snapshot/scenes/*.hx`, e.g. `CodeEditorZones.hx`), run `sh tools/snapshot/run.sh path/to/Scene.hx`, and **look at** `.ashui/snapshots/<Name>-*.png`. `SCHEME=light` renders light; `Snapshot.sequence` takes callbacks to drive state between frames. Kill any interactive window you start.
 3. **Test headless**: fixtures build a tree under `Owner.root(tree, …)` and drive it: `Css.update(); tree.flush(); tree.computeLayout(root.node, w, h);` a few times, then assert (`Css.query(tree, id, "#x")`, bounds). Add one under `tests/fixtures/…` and register it in `tests/run.sh`. `sh tests/run.sh` runs everything; **a crashing fixture prints "Uncaught exception", not FAIL**: check the exit code and the "ALL PASSED" count. `sh tests/run.sh render` runs the pixel tests.
 4. **Frame stats**: `ASHUI_FRAME_STATS=1` prints frame and loop lines each second.
+   `ASHUI_FRAME_LATENCY=1|2` and `ASHUI_PRESENT_MODE=fifo|fifo-relaxed|mailbox|immediate` override `WindowedApp.frameLatency` and `preferredPresentMode`; Metal offers Fifo and Immediate, latency 1 to 2.
 
 Working on ashui itself (not an app): the repo's scripts expect sibling checkouts next to it (`../ash`, `../hlwgpu`, `../hlwindow`).
 
