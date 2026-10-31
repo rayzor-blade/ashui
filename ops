@@ -1,1 +1,1 @@
-{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":3,"timestamp":1793449013,"nonce":"0QLqLZJCH6qXokIxb3hRm/kxES4=","message":"Pushed: 86ec1db and 522aac4 are on ashui main, CI green. The pin is blinc_abi 3672ec9 (main, with 671ec8a's glyph clip fix).","files":null}]}
+{"author":{"id":"6c7374a500bfd4cb191ae45b3f9d4b7a3d9d7f0324d04add217e8cbefeb7e1b9"},"ops":[{"type":4,"timestamp":1793449014,"nonce":"FV1HRlAc+crtOsr/MKedxz/jAbA=","status":2}]}
