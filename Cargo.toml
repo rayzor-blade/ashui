@@ -18,7 +18,7 @@ crate-type = ["cdylib", "staticlib"]
 # git-bug 4778085: HashLink programs register bundled fonts. git-bug 53e48ad: a page's system face. git-bug 807fbba: a frame's atlas overflow.
 # blinc_abi main, which carries the text primitives ashui calls and applies a record's local clip to glyphs.
 # git-bug 0fe11ba / 34d767c: explicit pointer overrides and intrinsic canvas sizing.
-blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "671ec8a600cf62ab5fd5a8c03511cca72088ed71", default-features = false, features = ["hashlink"] }
+blinc_abi_core = { package = "blinc_abi", git = "https://github.com/project-blinc/blinc_abi", rev = "3672ec909242f2c98a60dfc66988cfe12da76b1f", default-features = false, features = ["hashlink"] }
 
 # The wasm side module allocates from the program's heap (native/lib.rs).
 [target.'cfg(target_family = "wasm")'.dependencies]
