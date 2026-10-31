@@ -23,17 +23,104 @@ class CssCompiler {
 
 	/** What compiling a sheet gave: its compiled bytes, the files it imported, and its classes. **/
 	public static function compile(file:String, ?shownAs:String):{bytes:haxe.io.Bytes, imports:Array<String>, classes:Array<String>} {
-		var out = haxe.io.Path.join([cache(), haxe.crypto.Md5.encode(file) + ".bcss"]);
-		var p = new sys.io.Process(tool(), [file, "-o", out, "--manifest"]);
+		var dir = cache();
+		// A sheet is compiled once per path, content and tool, whatever builds run on the machine: what the cache holds is named by
+		// what it was made from and is never written again, so no build changes a file another has read.
+		var key = haxe.crypto.Md5.encode(file + "|" + toolId() + "|" + fileHash(file));
+		var manifestFile = haxe.io.Path.join([dir, key + ".json"]);
+		var known = readKnown(manifestFile, dir);
+		if (known != null) {
+			report(known.stderr, file, shownAs);
+			return {bytes: sys.io.File.getBytes(known.out), imports: known.imports.map(i -> i.path), classes: known.classes};
+		}
+		var tmp = unique(haxe.io.Path.join([dir, key + ".bcss"]));
+		var p = new sys.io.Process(tool(), [file, "-o", tmp, "--manifest"]);
 		var stdout = p.stdout.readAll().toString();
 		var stderr = p.stderr.readAll().toString();
 		var code = p.exitCode();
 		p.close();
-		if (code > 1 || StringTools.trim(stdout) == "")
+		if (code > 1 || StringTools.trim(stdout) == "") {
+			discard(tmp);
 			Context.fatalError('blinc-css (${tool()}) exited with $code: $stderr', Context.currentPos());
-		report(stderr, file, shownAs);
+		}
 		var manifest:{imports:Array<String>, classes:Array<String>} = haxe.Json.parse(stdout);
-		return {bytes: sys.io.File.getBytes(out), imports: manifest.imports, classes: manifest.classes};
+		var imports = manifest.imports.map(i -> {path: i, hash: fileHash(i)});
+		// The output is named by the sheet and by the imports it was compiled with, so an import that changes makes a new file.
+		var out = haxe.io.Path.join([dir, haxe.crypto.Md5.encode(key + "|" + imports.map(i -> i.hash).join(",")) + ".bcss"]);
+		if (code == 0 && sys.FileSystem.exists(tmp))
+			place(tmp, out);
+		else {
+			// A sheet with errors is not kept: its diagnostics are reported each build, and it embeds nothing.
+			out = tmp;
+		}
+		var bytes = sys.io.File.getBytes(out);
+		if (code == 0) {
+			var text = haxe.Json.stringify({out: out, imports: imports, classes: manifest.classes, stderr: stderr});
+			var tmpManifest = unique(manifestFile);
+			sys.io.File.saveContent(tmpManifest, text);
+			place(tmpManifest, manifestFile, true);
+		} else
+			discard(tmp);
+		report(stderr, file, shownAs);
+		return {bytes: bytes, imports: manifest.imports, classes: manifest.classes};
+	}
+
+	/** What was compiled for the sheet whose record is `manifestFile`, when it and its imports are as they were; else null. **/
+	static function readKnown(manifestFile:String, dir:String):Null<{out:String, imports:Array<{path:String, hash:String}>, classes:Array<String>, stderr:String}> {
+		if (!sys.FileSystem.exists(manifestFile))
+			return null;
+		try {
+			var known:{out:String, imports:Array<{path:String, hash:String}>, classes:Array<String>, stderr:String} = haxe.Json.parse(sys.io.File.getContent(manifestFile));
+			if (!sys.FileSystem.exists(known.out))
+				return null;
+			for (i in known.imports)
+				if (fileHash(i.path) != i.hash)
+					return null;
+			return known;
+		} catch (_:Dynamic)
+			return null;
+	}
+
+	/** A name beside `file` that no other build uses, for writing before `place`. **/
+	static function unique(file:String):String
+		return file + "." + Std.string(Std.random(1 << 30)) + Std.string(Std.int(Sys.time() * 1000) % 1000000) + ".tmp";
+
+	/**
+		Moves the finished file `tmp` to `target`, so a reader sees all of it or none. An existing `target` is kept, as another
+		build made it from the same inputs, unless `replace` says it holds a record that is out of date.
+	**/
+	static function place(tmp:String, target:String, replace = false):Void {
+		if (sys.FileSystem.exists(target) && !replace) {
+			discard(tmp);
+			return;
+		}
+		try
+			sys.FileSystem.rename(tmp, target)
+		catch (_:Dynamic)
+			discard(tmp);
+	}
+
+	/** Writes `text` to `file` through a name of its own, so a reader never sees part of it. **/
+	public static function writeOnce(file:String, text:String):Void {
+		var tmp = unique(file);
+		sys.io.File.saveContent(tmp, text);
+		place(tmp, file);
+	}
+
+	static function discard(file:String):Void
+		try
+			sys.FileSystem.deleteFile(file)
+		catch (_:Dynamic) {}
+
+	/** A hash of the file's content; empty where it cannot be read. **/
+	static function fileHash(file:String):String
+		return try haxe.crypto.Md5.make(sys.io.File.getBytes(file)).toHex() catch (_:Dynamic) "";
+
+	/** Which tool made the output: its path, size and time of change, so a rebuilt tool compiles sheets again. **/
+	static function toolId():String {
+		var exe = tool();
+		var stat = try sys.FileSystem.stat(exe) catch (_:Dynamic) null;
+		return stat == null ? exe : exe + ":" + stat.size + ":" + stat.mtime.getTime();
 	}
 
 	/** Why the comma-separated `selectors` do not read, or null when they do. **/

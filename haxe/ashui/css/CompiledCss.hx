@@ -40,8 +40,10 @@ class CompiledCss {
 
 	/** The user-agent stylesheet, `UserAgent.CSS`, compiled now. **/
 	public static macro function userAgent():ExprOf<Stylesheet> {
-		var file = haxe.io.Path.join([CssCompiler.cache(), "user-agent.css"]);
-		sys.io.File.saveContent(file, UserAgent.CSS);
+		// Named by its content and written once: a build never rewrites a file another has read.
+		var file = haxe.io.Path.join([CssCompiler.cache(), "user-agent-" + haxe.crypto.Md5.encode(UserAgent.CSS) + ".css"]);
+		if (!sys.FileSystem.exists(file))
+			CssCompiler.writeOnce(file, UserAgent.CSS);
 		return embed(CssCompiler.compile(file, "user-agent.css").bytes, "user-agent.css");
 	}
 
