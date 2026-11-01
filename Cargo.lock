@@ -115,7 +115,7 @@ dependencies = [
 [[package]]
 name = "blinc_abi"
 version = "0.1.0"
-source = "git+https://github.com/project-blinc/blinc_abi?rev=3672ec909242f2c98a60dfc66988cfe12da76b1f#3672ec909242f2c98a60dfc66988cfe12da76b1f"
+source = "git+https://github.com/project-blinc/blinc_abi?rev=bb13d0b471d9664bcf4d1ad9627b4350831f5aa8#bb13d0b471d9664bcf4d1ad9627b4350831f5aa8"
 dependencies = [
  "blinc_core",
  "blinc_image",
