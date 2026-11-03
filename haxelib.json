@@ -14,8 +14,8 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.2",
-  "releasenote": "Browser-aware keyboard conventions, module-relative web assets and startup configuration without URL parameters.",
+  "version": "0.2.3",
+  "releasenote": "Canvas blend modes, colour transforms, masks, bitmap fills and textured triangles; PixelSurface brushes and nine-sliced images; frame latency and present mode for windowed apps; pointer capture and touch events.",
   "classPath": "haxe",
   "dependencies": {
     "hashlink": "",

@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.2",
-  "releasenote": "Uses matching ashui 0.2.2 packages.",
+  "version": "0.2.3",
+  "releasenote": "Uses matching ashui 0.2.3 packages.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.2"
+    "ashui": "0.2.3"
   }
 }
