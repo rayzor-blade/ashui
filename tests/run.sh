@@ -175,6 +175,10 @@ render)
 		--macro 'ashui.core.render.UiFramework.register()' \
 		--class-path ../components/haxe -main CodeMinimapLayout -hl bin/code-minimap-layout.hl
 	run code-minimap-layout.hl
+	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
+		--macro 'ashui.core.render.UiFramework.register()' \
+		--class-path ../components/haxe -main CodePointerSelection -hl bin/code-pointer-selection.hl
+	run code-pointer-selection.hl
 	# A canvas past a texture's limit draws in part, and a GPU error in a frame is a throw or a count.
 	$haxe_ui --class-path ../../hlwgpu/haxe --class-path ../../ash/haxelib/ash-future \
 		--macro 'ashui.core.render.UiFramework.register()' \

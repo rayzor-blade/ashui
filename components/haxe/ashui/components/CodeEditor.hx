@@ -615,6 +615,7 @@ class CodeEditor extends Component<CodeEditorProps> {
 					return;
 				}
 			}
+			p.capturePointer();
 			phase.send(Press);
 			var at = point(p.x, p.y, gutter.get());
 			e.press(at.x, at.y, p.shift, p.clickCount);
