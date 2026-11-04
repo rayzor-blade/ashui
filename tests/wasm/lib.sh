@@ -61,7 +61,7 @@ web_library() {
       echo '#!/bin/sh'
       echo 'tc=""'
       echo 'case "$1" in +*) tc="$1"; shift ;; esac'
-      echo 'exec "$HOME/.cargo/bin/cargo" $tc \\'
+      printf '%s\n' 'exec "$HOME/.cargo/bin/cargo" $tc \'
       for dependency in "x-idl https://github.com/rayzor-blade/x-idl.git" "xgpu https://github.com/rayzor-blade/xgpu.git" "xwindow https://github.com/rayzor-blade/xwindow.git"; do
         patches "${dependency#* }" "$vib/${dependency% *}" | sed 's/$/ \\/'
       done
