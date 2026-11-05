@@ -342,6 +342,7 @@ memory)
 	bundled_fonts=0
 	run bundled-fonts.hl || bundled_fonts=$?
 	# An IconSet class has a typed, lazily made constant per SVG file (git-bug abb6355).
+	$haxe_ui --class-path fixtures/svg --class-path fixtures/compile -D display -main IconSetDisplay --no-output -hl bin/icon-set-display.hl
 	$haxe_ui --class-path fixtures/svg -main IconSets -hl bin/icon-sets.hl
 	icon_sets=0
 	run icon-sets.hl || icon_sets=$?

@@ -33,7 +33,8 @@ import sys.io.File;
 
 	Each constant lazily creates and caches an `SvgDocument`. The program
 	embeds markup, dimensions and tint data; it does not load icon files at
-	runtime. Dead-code elimination removes unused icons. File changes,
+	runtime. Editor display requests expose the same typed constants without
+	compiling runtime documents. Dead-code elimination removes unused icons. File changes,
 	additions and removals invalidate the compilation-server cache.
 	`currentColor` icons use masks tinted by their element's color.
 **/
@@ -61,6 +62,7 @@ class IconSet {
 				files.push({file: file, root: root});
 		}
 		var fields = Context.getBuildFields();
+		var display = Context.defined("display");
 		var names = new Map<String, String>();
 		for (field in fields)
 			names.set(field.name, "an existing field");
@@ -76,6 +78,16 @@ class IconSet {
 				names.set(generated, file);
 			}
 			Context.registerModuleDependency(module, file);
+			if (display) {
+				fields.push({
+					name: name,
+					access: [APublic, AStatic],
+					kind: FProp("default", "never", macro :ashui.svg.SvgDocument),
+					pos: at,
+					doc: 'The SVG from ${Path.normalize(file.substr(entry.root.length + 1))}, compiled into the program.'
+				});
+				continue;
+			}
 			var xml = try Xml.parse(source) catch (e:haxe.Exception) Context.error('ICON_SET_XML: ${e.message}', at);
 			var document = SvgDocument.compileXml(xml, at);
 			fields.push({
