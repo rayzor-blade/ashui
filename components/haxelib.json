@@ -13,10 +13,10 @@
     "rayzor",
     "darmie"
   ],
-  "version": "0.2.3",
-  "releasenote": "Badge medium matches blinc_cn at 12px with a 16px line; editor inline actions and nested rounded card clipping. Uses ashui 0.2.3.",
+  "version": "0.2.4",
+  "releasenote": "Uses matching ashui 0.2.4 packages.",
   "classPath": "haxe",
   "dependencies": {
-    "ashui": "0.2.3"
+    "ashui": "0.2.4"
   }
 }
