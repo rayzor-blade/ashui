@@ -1,11 +1,13 @@
 package ashui.core.externs;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 
 #if ashui_caribou
 /** `SvgNative` over the `blinc_abi` Caribou plugin's `Resources`. **/
 class SvgNative {
-	public static inline function blinc_svg_rasterize(markup:hl.Bytes, width:Int, height:Int, out:hl.Bytes):Bool
+	public static inline function blinc_svg_rasterize(markup:NativeBytes, width:Int, height:Int, out:NativeBytes):Bool
 		return blinc_abi.Resources.rasterize_svg(markup == null ? "" : @:privateAccess String.fromUTF8(markup), width, height,
 			@:privateAccess new haxe.io.Bytes(out, width * height * 4));
 }
@@ -18,6 +20,6 @@ extern class SvgNative {
 		pixels in `out`, its viewBox fitted and centred. False when it does
 		not parse.
 	**/
-	static function blinc_svg_rasterize(markup:hl.Bytes, width:Int, height:Int, out:hl.Bytes):Bool;
+	static function blinc_svg_rasterize(markup:NativeBytes, width:Int, height:Int, out:NativeBytes):Bool;
 }
 #end

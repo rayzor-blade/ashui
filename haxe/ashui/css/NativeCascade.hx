@@ -1,5 +1,7 @@
 package ashui.css;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 import ashui.core.externs.CssNative;
 import ashui.css.Css.CssOrigin;
@@ -67,10 +69,10 @@ class NativeCascade {
 		return handle;
 	}
 
-	static inline function utf8(s:String):hl.Bytes
+	static inline function utf8(s:String):NativeBytes
 		return @:privateAccess s.toUtf8();
 
-	static inline function text(b:hl.Bytes):String
+	static inline function text(b:NativeBytes):String
 		return b == null ? "" : @:privateAccess String.fromUTF8(b);
 
 	/** Puts `sheets` in force in the engine, in this order: those gone are taken out, new ones added in their place. **/
@@ -221,7 +223,7 @@ class NativeCascade {
 		for (_ in 0...4) {
 			var count = CssNative.blinc_css_restyle(css(), tree.ptr, haxe.Int64.make(0, 0));
 			if (count > 0) {
-				var out = new hl.Bytes(count * 8);
+				var out = new NativeBytes(count * 8);
 				var n = CssNative.blinc_css_take_changed(css(), out, count);
 				for (i in 0...n) {
 					var identity = find(haxe.Int64.make(out.getI32(i * 8 + 4), out.getI32(i * 8)));
@@ -243,7 +245,7 @@ class NativeCascade {
 	static function selectContext(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
 		var capacity = 256;
 		while (true) {
-			var out = new hl.Bytes(capacity * 8);
+			var out = new NativeBytes(capacity * 8);
 			var n = CssNative.blinc_css_select(css(), tree.ptr, root, utf8(selectors), out, capacity);
 			if (n < 0)
 				throw 'bad selector "$selectors"';
@@ -334,8 +336,8 @@ class NativeCascade {
 		var set = false;
 		var capacity = 64;
 		while (true) {
-			var nodes = new hl.Bytes(capacity * 8),
-				bits = new hl.Bytes(capacity * 4);
+			var nodes = new NativeBytes(capacity * 8),
+				bits = new NativeBytes(capacity * 4);
 			var n = CssNative.blinc_css_take_watched(css(), nodes, bits, capacity);
 			for (i in 0...n) {
 				var node = haxe.Int64.make(nodes.getI32(i * 8 + 4), nodes.getI32(i * 8));

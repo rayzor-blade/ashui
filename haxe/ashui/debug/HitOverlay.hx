@@ -1,5 +1,7 @@
 package ashui.debug;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.render.FrameOverlay;
 import ashui.css.Identity;
 import ashui.input.Interaction;
@@ -54,7 +56,7 @@ class HitOverlay implements FrameOverlay {
 
 	static inline var MAX_SAMPLES = 65536;
 
-	final region = new hl.Bytes(16);
+	final region = new NativeBytes(16);
 	var mapped:Null<LayoutTree>;
 	var revision = -1;
 	var mapWidth = 0;

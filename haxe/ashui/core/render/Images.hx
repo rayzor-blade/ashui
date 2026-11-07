@@ -140,7 +140,7 @@ class Images {
 		}
 		return atlas.get(key, width, height, pixels -> {
 			var source = doc.withColor(color);
-			SvgNative.blinc_svg_rasterize(ashui.core.Utf8.encode(source), width, height, pixels.getData());
+			SvgNative.blinc_svg_rasterize(ashui.core.Utf8.encode(source), width, height, pixels);
 		});
 	}
 
@@ -166,7 +166,7 @@ class Images {
 		var width = side(w * scale);
 		var height = side(h * scale);
 		return atlas.get('bitmap${ashui.types.Bitmap.generation(slot)}:$fit:${width}x$height', width, height,
-			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, width, height, fit, pixels.getData()));
+			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, width, height, fit, pixels));
 	}
 
 	/** Bitmap `slot`'s rect in `atlas`, resampled to fill `width` by `height` at `onScreen` target pixels a unit; null when it does not fit. **/
@@ -175,7 +175,7 @@ class Images {
 		var w = side(width * scale), h = side(height * scale);
 		var fill = ashui.types.Brush.ImageFit.Fill;
 		return atlas.get('bitmap${ashui.types.Bitmap.generation(slot)}:$fill:${w}x$h', w, h,
-			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, w, h, fill, pixels.getData()));
+			pixels -> ashui.core.externs.BitmapNative.blinc_bitmap_resample(slot, w, h, fill, pixels));
 	}
 
 	static function bucket(onScreen:Float):Float {

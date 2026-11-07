@@ -1,5 +1,7 @@
 package ashui.canvaskit;
 
+import ashui.core.NativeBytes;
+
 import haxe.io.Float32Array;
 
 /** Node property targeted by an animation channel. **/
@@ -160,7 +162,7 @@ class GltfSampler {
 		var c = 0;
 		#if (ash_simd && hl)
 		if (simd) {
-			var data:hl.Bytes = values.view.buffer;
+			var data:NativeBytes = values.view.buffer;
 			var base = values.view.byteOffset;
 			var last = Std.int(Math.max(Math.max(at0, at1), Math.max(at2, at3)));
 			var v0 = ash.simd.Float32x4.splat(w0),
@@ -191,7 +193,7 @@ class GltfSampler {
 	}
 
 	#if (ash_simd && hl)
-	static final lanes = new hl.Bytes(16);
+	static final lanes = new NativeBytes(16);
 	#end
 
 	static function normalize(q:Array<Float>):Void {

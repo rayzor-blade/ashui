@@ -1,5 +1,7 @@
 package ashui.components;
 
+import ashui.core.NativeBytes;
+
 import ashui.css.Css;
 import ashui.css.Identity;
 import ashui.layout.Node;
@@ -14,9 +16,9 @@ import ashui.layout.Prop;
 	final text:Node;
 	final rootIdentity:Identity;
 	final textIdentity:Identity;
-	final samples:Array<{bytes:hl.Bytes, capacity:Int}>;
-	final out:hl.Bytes;
-	final info = new hl.Bytes(16);
+	final samples:Array<{bytes:NativeBytes, capacity:Int}>;
+	final out:NativeBytes;
+	final info = new NativeBytes(16);
 	var minimum = 0.0;
 	var space = 0.0;
 	var font:Null<String> = null;
@@ -31,7 +33,7 @@ import ashui.layout.Prop;
 		samples = [for (candidate in candidates) {bytes: ashui.core.Utf8.encode(candidate), capacity: candidate.length + 2}];
 		var capacity = 2;
 		for (sample in samples) capacity = Std.int(Math.max(capacity, sample.capacity));
-		out = new hl.Bytes(capacity * 12);
+		out = new NativeBytes(capacity * 12);
 		byIdentity.set(rootIdentity, this);
 		byIdentity.set(textIdentity, this);
 		ashui.reactive.Owner.onCleanup(() -> {

@@ -1,5 +1,7 @@
 package ashui.input;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.LayoutTreeNative;
 import ashui.input.Events;
 import ashui.layout.LayoutTree;
@@ -118,7 +120,7 @@ class Scroll {
 	final thumb = Signal.make(0.0);
 	var fading = false;
 	var stay:Null<ashui.animation.AnimationScheduler.Timer> = null;
-	final extent = new hl.Bytes(16);
+	final extent = new NativeBytes(16);
 	final appearance = Signal.make(0);
 	var scrollbarColors:Null<ScrollbarColors> = null;
 	var scrollbarWidth = 4.0;

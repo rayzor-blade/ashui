@@ -1,5 +1,7 @@
 package ashui.ui;
 
+import ashui.core.NativeBytes;
+
 import ashui.input.Focus;
 import ashui.input.Interaction;
 import ashui.layout.Element;
@@ -214,7 +216,7 @@ class TextField extends Component<TextFieldProps> {
 		var value = props.placeholder;
 		if (value == null || value == "") return 0;
 		if (hintWidth < 0) {
-			var capacity = value.length + 2, out = new hl.Bytes(capacity * 12), info = new hl.Bytes(16);
+			var capacity = value.length + 2, out = new NativeBytes(capacity * 12), info = new NativeBytes(16);
 			var count = ashui.core.externs.TextNative.blinc_text_carets(box.tree.ptr, hint.get().node.id,
 				ashui.core.Utf8.encode(value), 0, 0, out, capacity, info);
 			hintWidth = count > 0 && count <= capacity ? out.getF32((count - 1) * 12 + 4) : 0;

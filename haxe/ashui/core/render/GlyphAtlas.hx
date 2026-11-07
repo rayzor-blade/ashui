@@ -84,13 +84,13 @@ class GlyphAtlas {
 
 	/** The region changed since revision `since` into `pixels`, its place in `info`; false when there is none. **/
 	function take(which:Int, since:Int):Bool {
-		var size = TextNative.blinc_text_atlas_take(which, since, pixels.getData(), pixels.length, info.getData());
+		var size = TextNative.blinc_text_atlas_take(which, since, pixels, pixels.length, info);
 		if (size == 0)
 			return false;
 		if (size > pixels.length) {
 			// Room for this region and some to spare, so a few larger ones do not each allocate.
 			pixels = haxe.io.Bytes.alloc(size + (size >> 1));
-			size = TextNative.blinc_text_atlas_take(which, since, pixels.getData(), pixels.length, info.getData());
+			size = TextNative.blinc_text_atlas_take(which, since, pixels, pixels.length, info);
 		}
 		return size > 0;
 	}

@@ -7,12 +7,12 @@ package ashui.core;
 **/
 class Utf8 {
 	/** `s` as NUL-terminated UTF-8; null stays null. **/
-	public static inline function encode(s:String):hl.Bytes {
+	public static inline function encode(s:String):NativeBytes {
 		return s == null ? null : @:privateAccess s.toUtf8();
 	}
 
 	/** The string in NUL-terminated UTF-8 `b`; null stays null. **/
-	public static inline function decode(b:hl.Bytes):String {
+	public static inline function decode(b:NativeBytes):String {
 		return b == null ? null : @:privateAccess String.fromUTF8(b);
 	}
 }

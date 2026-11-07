@@ -1,5 +1,7 @@
 package ashui.core.externs;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 
 #if ashui_caribou
@@ -24,13 +26,13 @@ class BlincNative {
 		return router;
 	}
 
-	static inline function text(b:hl.Bytes):String
+	static inline function text(b:NativeBytes):String
 		return b == null ? "" : @:privateAccess String.fromUTF8(b);
 
-	static inline function bytes(s:String):hl.Bytes
+	static inline function bytes(s:String):NativeBytes
 		return s == null ? null : @:privateAccess s.toUtf8();
 
-	static inline function wrap(b:hl.Bytes, length:Int):haxe.io.Bytes
+	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
 		return b == null ? haxe.io.Bytes.alloc(0) : @:privateAccess new haxe.io.Bytes(b, length);
 
 	public static inline function blinc_is_dirty():Bool
@@ -132,13 +134,13 @@ class BlincNative {
 		retBool = v != 0;
 
 	// --- String signals ---
-	public static function blinc_signal_string(initial:hl.Bytes):SignalHandle
+	public static function blinc_signal_string(initial:NativeBytes):SignalHandle
 		return initial == null ? blinc_abi.Signal.none() : blinc_abi.Signal.text(text(initial));
 
-	public static function blinc_signal_get_string(sig:SignalHandle):hl.Bytes
+	public static function blinc_signal_get_string(sig:SignalHandle):NativeBytes
 		return sig.has_text() ? bytes(sig.get_text()) : null;
 
-	public static function blinc_signal_set_string(sig:SignalHandle, v:hl.Bytes):Void {
+	public static function blinc_signal_set_string(sig:SignalHandle, v:NativeBytes):Void {
 		if (v == null)
 			sig.set_none();
 		else
@@ -155,10 +157,10 @@ class BlincNative {
 			return retString;
 		});
 
-	public static function blinc_computed_get_string(comp:ComputedHandle):hl.Bytes
+	public static function blinc_computed_get_string(comp:ComputedHandle):NativeBytes
 		return comp.has_text() ? bytes(comp.get_text()) : null;
 
-	public static function blinc_return_string(v:hl.Bytes):Void
+	public static function blinc_return_string(v:NativeBytes):Void
 		retString = v == null ? null : text(v);
 
 	// --- Value signals ---
@@ -188,7 +190,7 @@ class BlincNative {
 	public static inline function blinc_host_effect_new():Int
 		return blinc_abi.Effects.create();
 
-	public static inline function blinc_host_effects_due(out:hl.Bytes, capacity:Int):Int
+	public static inline function blinc_host_effects_due(out:NativeBytes, capacity:Int):Int
 		return blinc_abi.Effects.due(wrap(out, capacity * 4));
 
 	public static inline function blinc_host_effect_begin(slot:Int):Bool
@@ -225,7 +227,7 @@ class BlincNative {
 		}
 	}
 
-	public static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:hl.Bytes, sig:SignalHandle, comp:ComputedHandle):Void {
+	public static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:NativeBytes, sig:SignalHandle, comp:ComputedHandle):Void {
 		switch (kind) {
 			case 0: tree().apply_string(node, prop, text(constant));
 			case 1: tree().bind_string(node, prop, sig);
@@ -252,7 +254,7 @@ class BlincNative {
 	public static inline function blinc_brush_blur(radius:Single, tintHex:Int, tintAlpha:Single):ValueHandle
 		return blinc_abi.StyleValue.brush_blur(radius, tintHex, tintAlpha);
 
-	public static inline function blinc_brush_image(src:hl.Bytes, fit:Int):ValueHandle
+	public static inline function blinc_brush_image(src:NativeBytes, fit:Int):ValueHandle
 		return blinc_abi.StyleValue.brush_image(text(src), fit);
 
 	public static inline function blinc_brush_image_mapping(brush:ValueHandle, x:Single, y:Single, offsetX:Single, offsetY:Single, repeat:Int):Void
@@ -289,10 +291,10 @@ class BlincNative {
 	public static inline function blinc_shadow(offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single, inset:Bool):ValueHandle
 		return blinc_abi.StyleValue.shadow(offsetX, offsetY, blur, spread, hex, alpha, inset);
 
-	public static inline function blinc_clip_path(kind:Int, values:hl.Bytes, percent:Int, none:Int, round:Single):ValueHandle
+	public static inline function blinc_clip_path(kind:Int, values:NativeBytes, percent:Int, none:Int, round:Single):ValueHandle
 		return blinc_abi.StyleValue.clip_path(kind, wrap(values, 16), percent, none, round);
 
-	public static inline function blinc_clip_polygon(values:hl.Bytes, percent:hl.Bytes, count:Int, path:Bool):ValueHandle
+	public static inline function blinc_clip_polygon(values:NativeBytes, percent:NativeBytes, count:Int, path:Bool):ValueHandle
 		return blinc_abi.StyleValue.clip_polygon(wrap(values, count * 8), wrap(percent, count * 2), count, path);
 
 	public static inline function blinc_clip_even_odd(clip:ValueHandle):ValueHandle
@@ -359,14 +361,14 @@ extern class BlincNative {
 	static function blinc_return_bool(v:Int):Void;
 
 	// --- String signals (NUL-terminated UTF-8) ---
-	static function blinc_signal_string(initial:hl.Bytes):SignalHandle;
-	static function blinc_signal_get_string(sig:SignalHandle):hl.Bytes;
-	static function blinc_signal_set_string(sig:SignalHandle, v:hl.Bytes):Void;
+	static function blinc_signal_string(initial:NativeBytes):SignalHandle;
+	static function blinc_signal_get_string(sig:SignalHandle):NativeBytes;
+	static function blinc_signal_set_string(sig:SignalHandle, v:NativeBytes):Void;
 	/** Bumps on every `set`; untracked. Lets a reader skip re-decoding an unchanged value. **/
 	static function blinc_signal_string_version(sig:SignalHandle):Int;
 	static function blinc_computed_string(compute:Void->Void):ComputedHandle;
-	static function blinc_computed_get_string(comp:ComputedHandle):hl.Bytes;
-	static function blinc_return_string(v:hl.Bytes):Void;
+	static function blinc_computed_get_string(comp:ComputedHandle):NativeBytes;
+	static function blinc_return_string(v:NativeBytes):Void;
 
 	// --- Value signals (brush, color, radius, transform, shadow) ---
 	static function blinc_signal_value(initial:ValueHandle):SignalHandle;
@@ -393,7 +395,7 @@ extern class BlincNative {
 	static function blinc_host_effect_new():Int;
 
 	/** Writes up to `capacity` due slots into `out`, as 32-bit ints; how many. **/
-	static function blinc_host_effects_due(out:hl.Bytes, capacity:Int):Int;
+	static function blinc_host_effects_due(out:NativeBytes, capacity:Int):Int;
 
 	static function blinc_host_effect_begin(slot:Int):Bool;
 
@@ -410,7 +412,7 @@ extern class BlincNative {
 		comp:ComputedHandle):Void;
 	static function blinc_apply_value(node:haxe.Int64, prop:Int, kind:Int, constant:ValueHandle, sig:SignalHandle,
 		comp:ComputedHandle):Void;
-	static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:hl.Bytes, sig:SignalHandle,
+	static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:NativeBytes, sig:SignalHandle,
 		comp:ComputedHandle):Void;
 
 	/**
@@ -426,7 +428,7 @@ extern class BlincNative {
 	static function blinc_brush_glass_aberration(brush:ValueHandle, strength:Single):Void;
 	static function blinc_brush_glass_bevel(brush:ValueHandle, strength:Single, inset:Bool):Void;
 	static function blinc_brush_blur(radius:Single, tintHex:Int, tintAlpha:Single):ValueHandle;
-	static function blinc_brush_image(src:hl.Bytes, fit:Int):ValueHandle;
+	static function blinc_brush_image(src:NativeBytes, fit:Int):ValueHandle;
 	static function blinc_brush_image_mapping(brush:ValueHandle, x:Single, y:Single, offsetX:Single, offsetY:Single, repeat:Int):Void;
 	static function blinc_brush_linear_gradient(sx:Single, sy:Single, ex:Single, ey:Single, fromHex:Int, fromAlpha:Single, toHex:Int,
 		toAlpha:Single):ValueHandle;
@@ -446,10 +448,10 @@ extern class BlincNative {
 		where its bit in `percent` is set and left out where its bit in
 		`none` is; `round` is the corner radius, or -1. See `ClipPath`.
 	**/
-	static function blinc_clip_path(kind:Int, values:hl.Bytes, percent:Int, none:Int, round:Single):ValueHandle;
+	static function blinc_clip_path(kind:Int, values:NativeBytes, percent:Int, none:Int, round:Single):ValueHandle;
 
 	/** A polygon clip path, `count` points of x and y in `values`, each a percentage where its byte in `percent` is 1; a path's are pixels, rings apart by a 1e30 point. **/
-	static function blinc_clip_polygon(values:hl.Bytes, percent:hl.Bytes, count:Int, path:Bool):ValueHandle;
+	static function blinc_clip_polygon(values:NativeBytes, percent:NativeBytes, count:Int, path:Bool):ValueHandle;
 
 	/** A clip-path value filling by the even-odd rule, from a polygon or path one; null for another shape. **/
 	static function blinc_clip_even_odd(clip:ValueHandle):ValueHandle;

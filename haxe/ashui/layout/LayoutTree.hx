@@ -1,5 +1,7 @@
 package ashui.layout;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 import ashui.core.Utf8;
 import ashui.core.externs.LayoutTreeNative;
@@ -33,7 +35,7 @@ class LayoutTree {
 	@:noCompletion public var hitRevision(default, null) = 0;
 
 	var hitCapacity = 32;
-	var hitBytes:Null<hl.Bytes>;
+	var hitBytes:Null<NativeBytes>;
 
 	@:noCompletion public function invalidateHits():Void {
 		hitRevision++;
@@ -328,7 +330,7 @@ class LayoutTree {
 			return;
 		}
 		// Little-endian 64-bit ids, as the native side reads them.
-		var ids = new hl.Bytes(children.length * 8 + 8);
+		var ids = new NativeBytes(children.length * 8 + 8);
 		for (i in 0...children.length) {
 			ids.setI32(i * 8, children[i].low);
 			ids.setI32(i * 8 + 4, children[i].high);
@@ -349,7 +351,7 @@ class LayoutTree {
 		False for removed, foreign or duplicate rows. git-bug: 471d54e / ABI bcec1a0.
 	**/
 	public function setGridRows(group:haxe.Int64, rows:Array<haxe.Int64>):Bool {
-		var data = new hl.Bytes(rows.length * 8 + 8);
+		var data = new NativeBytes(rows.length * 8 + 8);
 		for (i in 0...rows.length) {
 			data.setI32(i * 8, rows[i].low);
 			data.setI32(i * 8 + 4, rows[i].high);
@@ -364,7 +366,7 @@ class LayoutTree {
 	public function children(node:haxe.Int64):Array<haxe.Int64> {
 		var capacity = 16;
 		while (true) {
-			var out = new hl.Bytes(capacity * 8);
+			var out = new NativeBytes(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_children(this.ptr, node, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -376,7 +378,7 @@ class LayoutTree {
 	public function ancestors(node:haxe.Int64):Array<haxe.Int64> {
 		var capacity = 16;
 		while (true) {
-			var out = new hl.Bytes(capacity * 8);
+			var out = new NativeBytes(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_ancestors(this.ptr, node, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -497,7 +499,7 @@ class LayoutTree {
 			return;
 		}
 		var values = notch.encode();
-		var bytes = new hl.Bytes(values.length * 4);
+		var bytes = new NativeBytes(values.length * 4);
 		for (i => v in values)
 			bytes.setF32(i * 4, v);
 		LayoutTreeNative.blinc_tree_set_notch(this.ptr, node, bytes);
@@ -518,7 +520,7 @@ class LayoutTree {
 		left:Float,
 		painted:Bool
 	}> {
-		var out = new hl.Bytes(20);
+		var out = new NativeBytes(20);
 		if (!LayoutTreeNative.blinc_tree_box_edges(this.ptr, node, out))
 			return null;
 		return {
@@ -539,7 +541,7 @@ class LayoutTree {
 		bottom. The hit path is valid throughout this region until `hitRevision`
 		changes. Zero bounds require an exact hit test, such as near a transformed edge.
 	**/
-	public function hitTest(x:Float, y:Float, ?region:hl.Bytes):Array<Hit> {
+	public function hitTest(x:Float, y:Float, ?region:NativeBytes):Array<Hit> {
 		if (root == null) {
 			if (region != null)
 				for (i in 0...4)
@@ -547,7 +549,7 @@ class LayoutTree {
 			return [];
 		}
 		if (hitBytes == null)
-			hitBytes = new hl.Bytes(hitCapacity * 16);
+			hitBytes = new NativeBytes(hitCapacity * 16);
 		while (true) {
 			var n = region == null ? LayoutTreeNative.blinc_tree_hit_test(this.ptr, root.id, x, y, hitBytes,
 				hitCapacity) : LayoutTreeNative.blinc_tree_hit_test_region(this.ptr, root.id, x, y, hitBytes, hitCapacity, region);
@@ -558,7 +560,7 @@ class LayoutTree {
 							hitBytes.getF32(i * 16 + 12))
 				];
 			hitCapacity = n;
-			hitBytes = new hl.Bytes(hitCapacity * 16);
+			hitBytes = new NativeBytes(hitCapacity * 16);
 		}
 	}
 
@@ -568,7 +570,7 @@ class LayoutTree {
 			return [];
 		var capacity = 64;
 		while (true) {
-			var out = new hl.Bytes(capacity * 8);
+			var out = new NativeBytes(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_order(this.ptr, root.id, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -582,7 +584,7 @@ class LayoutTree {
 			return [];
 		var capacity = 64;
 		while (true) {
-			var out = new hl.Bytes(capacity * 8);
+			var out = new NativeBytes(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_path(this.ptr, root.id, node.id, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -590,12 +592,12 @@ class LayoutTree {
 		}
 	}
 
-	static function ids(out:hl.Bytes, n:Int):Array<haxe.Int64>
+	static function ids(out:NativeBytes, n:Int):Array<haxe.Int64>
 		return [for (i in 0...n) haxe.Int64.make(out.getI32(i * 8 + 4), out.getI32(i * 8))];
 
 	/** The node's padding, border and margin as layout resolved them, each top, right, bottom and left; null before it has been laid out. **/
 	public function getBox(node:Node):Null<{padding:Array<Float>, border:Array<Float>, margin:Array<Float>}> {
-		var out = new hl.Bytes(48);
+		var out = new NativeBytes(48);
 		if (!LayoutTreeNative.blinc_tree_get_box(this.ptr, node.id, out))
 			return null;
 		inline function side(at:Int):Array<Float>
@@ -621,7 +623,7 @@ class LayoutTree {
 
 	/** The node's absolute rectangle, or null before it has been laid out. **/
 	public function getBounds(node:Node):Null<Bounds> {
-		var out = new hl.Bytes(16);
+		var out = new NativeBytes(16);
 		if (!LayoutTreeNative.blinc_tree_get_bounds(this.ptr, node.id, out))
 			return null;
 		return new Bounds(out.getF32(0), out.getF32(4), out.getF32(8), out.getF32(12));

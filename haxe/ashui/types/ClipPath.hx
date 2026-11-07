@@ -1,5 +1,7 @@
 package ashui.types;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 import ashui.core.externs.BlincNative;
 import ashui.types.ClipLength;
@@ -28,7 +30,7 @@ class ClipPath implements IValue {
 	public var ptr(default, null):ValueHandle;
 
 	function new(kind:Int, lengths:Array<Null<ClipLength>>, round:Float) {
-		var values = new hl.Bytes(lengths.length * 4 + 4);
+		var values = new NativeBytes(lengths.length * 4 + 4);
 		var percent = 0, none = 0;
 		for (i in 0...lengths.length)
 			switch lengths[i] {
@@ -66,8 +68,8 @@ class ClipPath implements IValue {
 
 	/** `polygon(x1 y1, x2 y2, …)`: the points in order, joined back to the first; inside by the nonzero rule, CSS's default. **/
 	public static function polygon(points:Array<{x:ClipLength, y:ClipLength}>):ClipPath {
-		var values = new hl.Bytes(points.length * 8 + 8);
-		var percent = new hl.Bytes(points.length * 2 + 2);
+		var values = new NativeBytes(points.length * 8 + 8);
+		var percent = new NativeBytes(points.length * 2 + 2);
 		for (i in 0...points.length)
 			for (axis in 0...2) {
 				var l = axis == 0 ? points[i].x : points[i].y;
@@ -102,7 +104,7 @@ class ClipPath implements IValue {
 			for (v in ring)
 				flat.push(v);
 		}
-		var values = new hl.Bytes(flat.length * 4 + 4);
+		var values = new NativeBytes(flat.length * 4 + 4);
 		for (i in 0...flat.length)
 			values.setF32(i * 4, flat[i]);
 		return fromPolygon(BlincNative.blinc_clip_polygon(values, null, Std.int(flat.length / 2), true));

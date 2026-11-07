@@ -1,71 +1,73 @@
 package ashui.core.externs;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 
 #if ashui_caribou
 /** `CssNative` over the `blinc_abi` Caribou plugin's `Css` and `Sheet`. **/
 class CssNative {
-	static inline function text(b:hl.Bytes):String
+	static inline function text(b:NativeBytes):String
 		return b == null ? "" : @:privateAccess String.fromUTF8(b);
 
-	static inline function bytes(s:String):hl.Bytes
+	static inline function bytes(s:String):NativeBytes
 		return s == null ? null : @:privateAccess s.toUtf8();
 
-	static inline function wrap(b:hl.Bytes, length:Int):haxe.io.Bytes
+	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
 		return b == null ? haxe.io.Bytes.alloc(0) : @:privateAccess new haxe.io.Bytes(b, length);
 
 	/** A result the engine reports as empty text where HashLink's is null. **/
-	static inline function orNull(s:String):hl.Bytes
+	static inline function orNull(s:String):NativeBytes
 		return s == null || s == "" ? null : bytes(s);
 
 	public static inline function blinc_css_new():CssHandle
 		return new blinc_abi.Css();
 
-	public static function blinc_css_add(css:CssHandle, source:hl.Bytes, file:hl.Bytes, at:Int, id:hl.Ref<Int>):hl.Bytes {
+	public static function blinc_css_add(css:CssHandle, source:NativeBytes, file:NativeBytes, at:Int, id:hl.Ref<Int>):NativeBytes {
 		id.set(css.add(text(source), text(file), at));
 		return bytes(css.diagnostics());
 	}
 
-	public static inline function blinc_css_parse(source:hl.Bytes, file:hl.Bytes):SheetHandle
+	public static inline function blinc_css_parse(source:NativeBytes, file:NativeBytes):SheetHandle
 		return blinc_abi.Sheet.parse(text(source), text(file));
 
-	public static inline function blinc_css_decode(data:hl.Bytes, length:Int):SheetHandle
+	public static inline function blinc_css_decode(data:NativeBytes, length:Int):SheetHandle
 		return blinc_abi.Sheet.decode(wrap(data, length));
 
-	public static inline function blinc_css_sheet_diagnostics(sheet:SheetHandle):hl.Bytes
+	public static inline function blinc_css_sheet_diagnostics(sheet:SheetHandle):NativeBytes
 		return bytes(sheet.diagnostics());
 
-	public static inline function blinc_css_sheet_imports(sheet:SheetHandle):hl.Bytes
+	public static inline function blinc_css_sheet_imports(sheet:SheetHandle):NativeBytes
 		return bytes(sheet.imports());
 
-	public static inline function blinc_css_sheet_declared(sheet:SheetHandle):hl.Bytes
+	public static inline function blinc_css_sheet_declared(sheet:SheetHandle):NativeBytes
 		return bytes(sheet.declared());
 
 	public static inline function blinc_css_add_parsed(css:CssHandle, sheet:SheetHandle, at:Int):Int
 		return css.add_parsed(sheet, at);
 
-	public static inline function blinc_css_keyframes(css:CssHandle, name:hl.Bytes):hl.Bytes
+	public static inline function blinc_css_keyframes(css:CssHandle, name:NativeBytes):NativeBytes
 		return orNull(css.keyframes(text(name)));
 
-	public static inline function blinc_css_root_variable(css:CssHandle, name:hl.Bytes):hl.Bytes
+	public static inline function blinc_css_root_variable(css:CssHandle, name:NativeBytes):NativeBytes
 		return orNull(css.root_variable(text(name)));
 
-	public static inline function blinc_css_add_compiled(css:CssHandle, data:hl.Bytes, length:Int, at:Int):Int
+	public static inline function blinc_css_add_compiled(css:CssHandle, data:NativeBytes, length:Int, at:Int):Int
 		return css.add_compiled(wrap(data, length), at);
 
 	public static inline function blinc_css_remove(css:CssHandle, id:Int):Int
 		return css.remove(id);
 
-	public static inline function blinc_css_set_theme(css:CssHandle, vars:hl.Bytes):Void
+	public static inline function blinc_css_set_theme(css:CssHandle, vars:NativeBytes):Void
 		css.set_theme(text(vars));
 
 	public static inline function blinc_css_set_environment(css:CssHandle, width:Float, height:Float, dark:Int, rootFontSize:Float):Void
 		css.set_environment(width, height, dark != 0, rootFontSize);
 
-	public static inline function blinc_css_set_element(css:CssHandle, node:haxe.Int64, desc:hl.Bytes):Void
+	public static inline function blinc_css_set_element(css:CssHandle, node:haxe.Int64, desc:NativeBytes):Void
 		css.set_element(node, text(desc));
 
-	public static inline function blinc_css_state_bit(name:hl.Bytes):Int
+	public static inline function blinc_css_state_bit(name:NativeBytes):Int
 		return blinc_abi.Css.state_bit(text(name));
 
 	public static inline function blinc_css_set_states(css:CssHandle, node:haxe.Int64, mask:Int):Void
@@ -83,19 +85,19 @@ class CssNative {
 	public static inline function blinc_css_restyle(css:CssHandle, tree:TreeHandle, root:haxe.Int64):Int
 		return css.restyle(tree, root);
 
-	public static inline function blinc_css_take_changed(css:CssHandle, out:hl.Bytes, capacity:Int):Int
+	public static inline function blinc_css_take_changed(css:CssHandle, out:NativeBytes, capacity:Int):Int
 		return css.take_changed(wrap(out, capacity * 8));
 
-	public static inline function blinc_css_take_watched(css:CssHandle, nodes:hl.Bytes, bits:hl.Bytes, capacity:Int):Int
+	public static inline function blinc_css_take_watched(css:CssHandle, nodes:NativeBytes, bits:NativeBytes, capacity:Int):Int
 		return css.take_watched(wrap(nodes, capacity * 8), wrap(bits, capacity * 4));
 
-	public static inline function blinc_css_select(css:CssHandle, tree:TreeHandle, root:haxe.Int64, selectors:hl.Bytes, out:hl.Bytes, capacity:Int):Int
+	public static inline function blinc_css_select(css:CssHandle, tree:TreeHandle, root:haxe.Int64, selectors:NativeBytes, out:NativeBytes, capacity:Int):Int
 		return css.select(tree, root, text(selectors), wrap(out, capacity * 8));
 
-	public static inline function blinc_css_style(css:CssHandle, node:haxe.Int64):hl.Bytes
+	public static inline function blinc_css_style(css:CssHandle, node:haxe.Int64):NativeBytes
 		return bytes(css.style(node));
 
-	public static inline function blinc_css_explain(css:CssHandle, tree:TreeHandle, node:haxe.Int64):hl.Bytes
+	public static inline function blinc_css_explain(css:CssHandle, tree:TreeHandle, node:haxe.Int64):NativeBytes
 		return bytes(css.explain(tree, node));
 }
 #else
@@ -113,47 +115,47 @@ extern class CssNative {
 	static function blinc_css_new():CssHandle;
 
 	/** Parses `source` and adds it at `at`; writes its id to `id`, -1 if none, and returns its diagnostics, each `severity, line, column, file, message`. **/
-	static function blinc_css_add(css:CssHandle, source:hl.Bytes, file:hl.Bytes, at:Int, id:hl.Ref<Int>):hl.Bytes;
+	static function blinc_css_add(css:CssHandle, source:NativeBytes, file:NativeBytes, at:Int, id:hl.Ref<Int>):NativeBytes;
 
 	/** CSS text parsed, as a sheet to add; `file` names it and is where its imports are read from. **/
-	static function blinc_css_parse(source:hl.Bytes, file:hl.Bytes):SheetHandle;
+	static function blinc_css_parse(source:NativeBytes, file:NativeBytes):SheetHandle;
 
 	/** A compiled sheet decoded, as a sheet to add; null for bytes that do not decode. **/
-	static function blinc_css_decode(bytes:hl.Bytes, length:Int):SheetHandle;
+	static function blinc_css_decode(bytes:NativeBytes, length:Int):SheetHandle;
 
 	/** A parsed sheet's diagnostics, as `blinc_css_add` returns them. **/
-	static function blinc_css_sheet_diagnostics(sheet:SheetHandle):hl.Bytes;
+	static function blinc_css_sheet_diagnostics(sheet:SheetHandle):NativeBytes;
 
 	/** The files a parsed sheet imported, one per record. **/
-	static function blinc_css_sheet_imports(sheet:SheetHandle):hl.Bytes;
+	static function blinc_css_sheet_imports(sheet:SheetHandle):NativeBytes;
 
 	/** Every declaration of a parsed sheet's rules: name, line and column per record. **/
-	static function blinc_css_sheet_declared(sheet:SheetHandle):hl.Bytes;
+	static function blinc_css_sheet_declared(sheet:SheetHandle):NativeBytes;
 
 	/** Adds a parsed sheet at `at`, which stays the caller's; its id. **/
 	static function blinc_css_add_parsed(css:CssHandle, sheet:SheetHandle, at:Int):Int;
 
 	/** The `@keyframes` named `name`: a record per frame, offsets split by spaces, then its declarations as items of name, U+0004, value; null for none. **/
-	static function blinc_css_keyframes(css:CssHandle, name:hl.Bytes):hl.Bytes;
+	static function blinc_css_keyframes(css:CssHandle, name:NativeBytes):NativeBytes;
 
 	/** `:root`'s custom property `name`, no `--`; null when no sheet declares it. **/
-	static function blinc_css_root_variable(css:CssHandle, name:hl.Bytes):hl.Bytes;
+	static function blinc_css_root_variable(css:CssHandle, name:NativeBytes):NativeBytes;
 
 	/** Adds a compiled sheet at `at`; its id, or -1 for bytes that do not decode. **/
-	static function blinc_css_add_compiled(css:CssHandle, bytes:hl.Bytes, length:Int, at:Int):Int;
+	static function blinc_css_add_compiled(css:CssHandle, bytes:NativeBytes, length:Int, at:Int):Int;
 
 	static function blinc_css_remove(css:CssHandle, id:Int):Int;
 
 	/** The theme's variables, names without `--`, as name-value records. **/
-	static function blinc_css_set_theme(css:CssHandle, vars:hl.Bytes):Void;
+	static function blinc_css_set_theme(css:CssHandle, vars:NativeBytes):Void;
 
 	static function blinc_css_set_environment(css:CssHandle, width:Float, height:Float, dark:Int, rootFontSize:Float):Void;
 
 	/** Six records: types (own first) and classes split by spaces, the id, attributes and inline declarations as name-value items, `1` when a layout made it. **/
-	static function blinc_css_set_element(css:CssHandle, node:haxe.Int64, desc:hl.Bytes):Void;
+	static function blinc_css_set_element(css:CssHandle, node:haxe.Int64, desc:NativeBytes):Void;
 
 	/** State `name`'s bit in `set_states`'s mask; 0 for one the engine does not know. **/
-	static function blinc_css_state_bit(name:hl.Bytes):Int;
+	static function blinc_css_state_bit(name:NativeBytes):Int;
 
 	static function blinc_css_set_states(css:CssHandle, node:haxe.Int64, mask:Int):Void;
 	static function blinc_css_moved(css:CssHandle, node:haxe.Int64):Void;
@@ -164,19 +166,19 @@ extern class CssNative {
 	static function blinc_css_restyle(css:CssHandle, tree:TreeHandle, root:haxe.Int64):Int;
 
 	/** The nodes whose styles changed, parents first, as 64-bit ids in `out`; how many it wrote. **/
-	static function blinc_css_take_changed(css:CssHandle, out:hl.Bytes, capacity:Int):Int;
+	static function blinc_css_take_changed(css:CssHandle, out:NativeBytes, capacity:Int):Int;
 
 	/** States selectors began to test: node ids in `nodes`, state bits in `bits`; how many. **/
-	static function blinc_css_take_watched(css:CssHandle, nodes:hl.Bytes, bits:hl.Bytes, capacity:Int):Int;
+	static function blinc_css_take_watched(css:CssHandle, nodes:NativeBytes, bits:NativeBytes, capacity:Int):Int;
 
 	/** The elements under `root` that the selectors match, in document order, as ids in `out`; how many match, or -1 for selectors that do not read. **/
-	static function blinc_css_select(css:CssHandle, tree:TreeHandle, root:haxe.Int64, selectors:hl.Bytes, out:hl.Bytes,
+	static function blinc_css_select(css:CssHandle, tree:TreeHandle, root:haxe.Int64, selectors:NativeBytes, out:NativeBytes,
 		capacity:Int):Int;
 
 	/** Three records: resolved declarations and values as name-value items, then the font size in pixels. **/
-	static function blinc_css_style(css:CssHandle, node:haxe.Int64):hl.Bytes;
+	static function blinc_css_style(css:CssHandle, node:haxe.Int64):NativeBytes;
 
 	/** Every declaration that applies to `node`, in cascade order: records of name, value, sheet id (-1 its own), selector, line, important and wins. **/
-	static function blinc_css_explain(css:CssHandle, tree:TreeHandle, node:haxe.Int64):hl.Bytes;
+	static function blinc_css_explain(css:CssHandle, tree:TreeHandle, node:haxe.Int64):NativeBytes;
 }
 #end

@@ -1,5 +1,7 @@
 package ashui.app;
 
+import ashui.core.NativeBytes;
+
 #if (hlwindow || ashui_window)
 /** An asynchronous native file or folder selection attached to its requesting window. */
 class FileDialog {
@@ -38,13 +40,13 @@ class FileDialog {
 #if ashui_caribou
 /** The dialogs of the `ashui_desktop` Caribou plugin. **/
 private class DialogNative {
-	public static inline function ui_dialog_open(json:hl.Bytes):Bool
+	public static inline function ui_dialog_open(json:NativeBytes):Bool
 		return ashui_desktop.Desktop.dialog_open(@:privateAccess String.fromUTF8(json));
 
 	public static inline function ui_dialog_poll():Int
 		return ashui_desktop.Desktop.dialog_poll();
 
-	public static function ui_dialog_take(id:Int):hl.Bytes {
+	public static function ui_dialog_take(id:Int):NativeBytes {
 		var path = ashui_desktop.Desktop.dialog_take(id);
 		return path == "" ? null : @:privateAccess path.toUtf8();
 	}
@@ -55,9 +57,9 @@ private class DialogNative {
 #else
 @:hlNative("blinc_abi")
 private extern class DialogNative {
-	static function ui_dialog_open(json:hl.Bytes):Bool;
+	static function ui_dialog_open(json:NativeBytes):Bool;
 	static function ui_dialog_poll():Int;
-	static function ui_dialog_take(id:Int):hl.Bytes;
+	static function ui_dialog_take(id:Int):NativeBytes;
 	static function ui_dialog_cancel(id:Int):Void;
 }
 #end

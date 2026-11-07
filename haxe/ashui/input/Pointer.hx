@@ -1,5 +1,7 @@
 package ashui.input;
 
+import ashui.core.NativeBytes;
+
 import ashui.input.Events;
 import ashui.layout.LayoutTree;
 import window.Modifiers;
@@ -456,7 +458,7 @@ class Pointer {
 }
 
 private class PointerState {
-	public final region = new hl.Bytes(16);
+	public final region = new NativeBytes(16);
 	public var left = 0.0;
 	public var top = 0.0;
 	public var right = 0.0;

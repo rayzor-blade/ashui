@@ -1,5 +1,7 @@
 package ashui.draw3d;
 
+import ashui.core.NativeBytes;
+
 import haxe.io.Bytes;
 
 /**
@@ -89,7 +91,7 @@ class BcEncoder {
 	/** Each of `which` channels, a BC4 block each, side by side in blocks `stride` bytes apart. **/
 	static function channels(rgba:Bytes, width:Int, height:Int, which:Array<Int>, out:Bytes, stride:Int):Void {
 		#if (ash_simd && hl)
-		var slots = new hl.Bytes(64);
+		var slots = new NativeBytes(64);
 		#end
 		var channel = new haxe.ds.Vector<Int>(16);
 		var o = 0;
@@ -233,8 +235,8 @@ class BcEncoder {
 
 	#if (ash_simd && hl)
 	/** `channelBlock`, its extremes and levels found sixteen at once; the same block. **/
-	static function channelBlockSimd(rgba:Bytes, width:Int, height:Int, bx:Int, by:Int, c:Int, s:hl.Bytes, out:Bytes, o:Int):Void {
-		var data:hl.Bytes = rgba;
+	static function channelBlockSimd(rgba:Bytes, width:Int, height:Int, bx:Int, by:Int, c:Int, s:NativeBytes, out:Bytes, o:Int):Void {
+		var data:NativeBytes = rgba;
 		for (i in 0...16) {
 			var x = (bx << 2) + (i & 3), y = (by << 2) + (i >> 2);
 			if (x >= width)

@@ -1,5 +1,7 @@
 package ashui.draw;
 
+import ashui.core.NativeBytes;
+
 /** How text is set: its face, size and weight, and how it stands at the point it is drawn at. **/
 typedef TextStyle = {
 	/** In layout units; 14 by default. **/
@@ -65,7 +67,7 @@ class GlyphOutlines {
 		if (known != null)
 			return known;
 		#if hl
-		var info = new hl.Bytes(16);
+		var info = new NativeBytes(16);
 		var font = style.family == null ? null : ashui.core.Utf8.encode(style.family);
 		var bytes = ashui.core.Utf8.encode(text);
 		var weight:Int = style.weight != null ? style.weight : 400,
@@ -74,14 +76,14 @@ class GlyphOutlines {
 		var spacing:Float = style.letterSpacing != null ? style.letterSpacing : 0.0,
 			leading:Float = style.lineHeight != null ? style.lineHeight : 0.0;
 		var capacity = 4096;
-		var out = new hl.Bytes(capacity * 4);
-		var set = new hl.Bytes(24);
+		var out = new NativeBytes(capacity * 4);
+		var set = new NativeBytes(24);
 		for (i => v in [generic * 1.0, weight * 1.0, italic ? 1.0 : 0.0, size, spacing, leading])
 			set.setF32(i * 4, v);
 		var n = ashui.core.externs.TextNative.blinc_text_outline(bytes, font, set, out, capacity, info);
 		if (n > capacity) {
 			capacity = n;
-			out = new hl.Bytes(capacity * 4);
+			out = new NativeBytes(capacity * 4);
 			n = ashui.core.externs.TextNative.blinc_text_outline(bytes, font, set, out, capacity, info);
 		}
 		if (n <= 0 && text.length > 0)

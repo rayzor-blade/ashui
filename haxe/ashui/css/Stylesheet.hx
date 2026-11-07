@@ -1,5 +1,7 @@
 package ashui.css;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 /**
 	One `property: value` of a rule. `value` is its text, trimmed, with any
@@ -109,7 +111,7 @@ class Stylesheet {
 		];
 	}
 
-	static function records(b:hl.Bytes):Array<String> {
+	static function records(b:NativeBytes):Array<String> {
 		var text = b == null ? "" : @:privateAccess String.fromUTF8(b);
 		return text == "" ? [] : text.split("\x01");
 	}

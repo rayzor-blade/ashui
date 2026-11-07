@@ -1,5 +1,7 @@
 package ashui.ui;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.TextNative;
 import ashui.input.Clipboard;
 import ashui.input.Events;
@@ -190,8 +192,8 @@ class TextEditing {
 		var key = s;
 		s = masked(s);
 		var capacity = s.length + 2;
-		var out = new hl.Bytes(capacity * 12);
-		var info = new hl.Bytes(16);
+		var out = new NativeBytes(capacity * 12);
+		var info = new NativeBytes(16);
 		var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.encode(s), size, wrapWidth, out, capacity, info);
 		if (n > 0 && n <= capacity) {
 			stops = [

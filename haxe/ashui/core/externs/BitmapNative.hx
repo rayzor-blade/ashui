@@ -1,14 +1,16 @@
 package ashui.core.externs;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.Handles;
 
 #if ashui_caribou
 /** `BitmapNative` over the `blinc_abi` Caribou plugin's `Resources`. **/
 class BitmapNative {
-	static inline function wrap(b:hl.Bytes, length:Int):haxe.io.Bytes
+	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
 		return b == null ? haxe.io.Bytes.alloc(0) : @:privateAccess new haxe.io.Bytes(b, length);
 
-	public static inline function blinc_bitmap_decode(bytes:hl.Bytes, len:Int):Int
+	public static inline function blinc_bitmap_decode(bytes:NativeBytes, len:Int):Int
 		return blinc_abi.Resources.decode_bitmap(wrap(bytes, len));
 
 	public static inline function blinc_bitmap_size(slot:Int, height:Bool):Int
@@ -17,7 +19,7 @@ class BitmapNative {
 	public static inline function blinc_bitmap_release(slot:Int):Void
 		blinc_abi.Resources.release_bitmap(slot);
 
-	public static inline function blinc_bitmap_resample(slot:Int, width:Int, height:Int, fit:Int, out:hl.Bytes):Bool
+	public static inline function blinc_bitmap_resample(slot:Int, width:Int, height:Int, fit:Int, out:NativeBytes):Bool
 		return blinc_abi.Resources.resample_bitmap(slot, width, height, fit, wrap(out, width * height * 4));
 
 	public static inline function blinc_bitmap_shrink(slot:Int, maxSide:Int):Bool
@@ -33,7 +35,7 @@ class BitmapNative {
 @:hlNative("blinc_abi")
 extern class BitmapNative {
 	/** Decodes `len` bytes of PNG or JPEG; its slot, or -1 when they are not one. **/
-	static function blinc_bitmap_decode(bytes:hl.Bytes, len:Int):Int;
+	static function blinc_bitmap_decode(bytes:NativeBytes, len:Int):Int;
 
 	/** The width, or with `height` the height, of the bitmap in `slot`. **/
 	static function blinc_bitmap_size(slot:Int, height:Bool):Int;
@@ -42,7 +44,7 @@ extern class BitmapNative {
 	static function blinc_bitmap_release(slot:Int):Void;
 
 	/** Writes the bitmap fitted by `fit` into `out`, `width` × `height` straight RGBA pixels. **/
-	static function blinc_bitmap_resample(slot:Int, width:Int, height:Int, fit:Int, out:hl.Bytes):Bool;
+	static function blinc_bitmap_resample(slot:Int, width:Int, height:Int, fit:Int, out:NativeBytes):Bool;
 
 	/** Shrinks the bitmap so neither side is over `maxSide`, keeping its shape, each side a multiple of 4; false when it was small enough. **/
 	static function blinc_bitmap_shrink(slot:Int, maxSide:Int):Bool;

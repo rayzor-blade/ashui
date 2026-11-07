@@ -1,5 +1,7 @@
 package ashui.reactive;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.BlincNative;
 
 /**
@@ -25,7 +27,7 @@ class Watch<T> {
 	/** Watches by slot. **/
 	static var bySlot:Array<Null<Watch<Dynamic>>> = [];
 
-	static var due = new hl.Bytes(4 * DUE);
+	static var due = new NativeBytes(4 * DUE);
 	static inline var DUE = 256;
 
 	/** Watches whose `read` gave a new value since they last reacted. **/

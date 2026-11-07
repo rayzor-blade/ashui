@@ -1,5 +1,7 @@
 package ashui.canvaskit;
 
+import ashui.core.NativeBytes;
+
 import ashui.canvaskit.GltfAnimation;
 import ashui.draw.DrawContext;
 import ashui.math.Mat4;
@@ -239,7 +241,7 @@ class GltfPose {
 	static function multiply(a:Bytes, ai:Int, b:Bytes, bi:Int, out:Bytes, oi:Int, simd:Bool):Void {
 		#if (ash_simd && hl)
 		if (simd) {
-			var pa:hl.Bytes = a, pb:hl.Bytes = b, po:hl.Bytes = out;
+			var pa:NativeBytes = a, pb:NativeBytes = b, po:NativeBytes = out;
 			var c0 = ash.simd.Float32x4.load(pa, ai),
 				c1 = ash.simd.Float32x4.load(pa, ai + 16);
 			var c2 = ash.simd.Float32x4.load(pa, ai + 32),

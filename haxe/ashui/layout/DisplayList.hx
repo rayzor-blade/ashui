@@ -1,5 +1,7 @@
 package ashui.layout;
 
+import ashui.core.NativeBytes;
+
 import ashui.core.externs.LayoutTreeNative;
 
 /**
@@ -95,12 +97,15 @@ class DisplayList {
 	public function update(tree:LayoutTree, root:Node, scale = 1.0):Void {
 		ashui.ui.ImageResidency.sync(tree);
 		fillParams(scale);
-		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes == null ? null : bytes.getData(), capacity);
+		var held:NativeBytes = null;
+		if (bytes != null)
+			held = bytes;
+		var needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params, held, capacity);
 		if (needed > capacity) {
 			// Whole rows of the records texture, so they upload as they are.
 			capacity = Math.ceil((needed + (needed >> 1) + 16) / RECORDS_PER_ROW) * RECORDS_PER_ROW;
 			bytes = haxe.io.Bytes.alloc(capacity * RECORD_BYTES);
-			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params.getData(), bytes.getData(), capacity);
+			needed = LayoutTreeNative.blinc_tree_display_list(tree.ptr, root.id, params, bytes, capacity);
 		}
 		stored = needed;
 		count = Std.int(params.getFloat(32));

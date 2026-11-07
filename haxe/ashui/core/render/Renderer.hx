@@ -1,5 +1,7 @@
 package ashui.core.render;
 
+import ashui.core.NativeBytes;
+
 import ashui.layout.DisplayList;
 import gpu.BlendFactor;
 import gpu.BlendOperation;
@@ -454,7 +456,7 @@ class Renderer {
 				return null;
 		}
 		var ratio = layerWidth / width;
-		var now:hl.Bytes = list.bytes, was:hl.Bytes = lastList;
+		var now:NativeBytes = list.bytes, was:NativeBytes = lastList;
 		var all = list.stored * RB, own = list.count * RB;
 		// The points of polygon clips follow the records, and anything that moves them is not a change of a record.
 		if (all > own && now.compare(own, was, own, all - own) != 0)
@@ -1055,7 +1057,7 @@ class Renderer {
 		var rowBytes = DisplayList.ROW_TEXELS * 16;
 		var from = 0, to = rows;
 		if (diffUpload && recordsSent != null && recordsSentRows > 0) {
-			var now:hl.Bytes = bytes, was:hl.Bytes = recordsSent;
+			var now:NativeBytes = bytes, was:NativeBytes = recordsSent;
 			var shared = rows < recordsSentRows ? rows : recordsSentRows;
 			while (from < shared && now.compare(from * rowBytes, was, from * rowBytes, rowBytes) == 0)
 				from++;
