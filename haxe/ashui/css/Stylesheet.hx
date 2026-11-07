@@ -77,12 +77,12 @@ class Stylesheet {
 		if (parsed == null) {
 			if (resource != null) {
 				var bytes = haxe.Resource.getBytes(resource);
-				parsed = ashui.core.externs.CssNative.blinc_css_decode(@:privateAccess bytes.b, bytes.length);
+				parsed = ashui.core.externs.CssNative.blinc_css_decode(bytes, bytes.length);
 				if (parsed == null)
 					throw 'Stylesheet: the compiled sheet $file does not decode';
 			} else
-				parsed = ashui.core.externs.CssNative.blinc_css_parse(@:privateAccess (source == null ? "" : source).toUtf8(),
-					@:privateAccess (file == null ? "" : file).toUtf8());
+				parsed = ashui.core.externs.CssNative.blinc_css_parse(ashui.core.Utf8.encode(source == null ? "" : source),
+					ashui.core.Utf8.encode(file == null ? "" : file));
 			diagnostics.resize(0);
 			for (record in records(ashui.core.externs.CssNative.blinc_css_sheet_diagnostics(parsed))) {
 				var f = record.split("\x02");
@@ -112,7 +112,7 @@ class Stylesheet {
 	}
 
 	static function records(b:NativeBytes):Array<String> {
-		var text = b == null ? "" : @:privateAccess String.fromUTF8(b);
+		var text = b == null ? "" : ashui.core.Utf8.decode(b);
 		return text == "" ? [] : text.split("\x01");
 	}
 	#end

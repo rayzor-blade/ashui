@@ -4,7 +4,98 @@ import ashui.core.NativeBytes;
 
 import ashui.core.externs.Handles;
 
-#if ashui_caribou
+#if ashui_rayzor
+/** `CssNative` over the `blinc_abi` Rayzor plugin's `Css` and `Sheet`. **/
+class CssNative {
+	static inline function text(b:NativeBytes):String
+		return b == null ? "" : ashui.core.Utf8.decode(b);
+
+	static inline function bytes(s:String):NativeBytes
+		return s == null ? null : ashui.core.Utf8.encode(s);
+
+	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
+		return b == null ? haxe.io.Bytes.alloc(0) : (b : haxe.io.Bytes);
+
+	/** A result the engine reports as empty text where HashLink's is null. **/
+	static inline function orNull(s:String):NativeBytes
+		return s == null || s == "" ? null : bytes(s);
+
+	public static inline function blinc_css_new():CssHandle
+		return RzNative.blinc_css_new();
+
+	public static inline function blinc_css_parse(source:NativeBytes, file:NativeBytes):SheetHandle
+		return RzNative.blinc_sheet_parse(text(source), text(file));
+
+	public static inline function blinc_css_decode(data:NativeBytes, length:Int):SheetHandle
+		return RzNative.blinc_sheet_decode(wrap(data, length));
+
+	public static inline function blinc_css_sheet_diagnostics(sheet:SheetHandle):NativeBytes
+		return bytes(RzNative.blinc_sheet_diagnostics(sheet));
+
+	public static inline function blinc_css_sheet_imports(sheet:SheetHandle):NativeBytes
+		return bytes(RzNative.blinc_sheet_imports(sheet));
+
+	public static inline function blinc_css_sheet_declared(sheet:SheetHandle):NativeBytes
+		return bytes(RzNative.blinc_sheet_declared(sheet));
+
+	public static inline function blinc_css_add_parsed(css:CssHandle, sheet:SheetHandle, at:Int):Int
+		return RzNative.blinc_css_add_parsed(css, sheet, at);
+
+	public static inline function blinc_css_keyframes(css:CssHandle, name:NativeBytes):NativeBytes
+		return orNull(RzNative.blinc_css_keyframes(css, text(name)));
+
+	public static inline function blinc_css_root_variable(css:CssHandle, name:NativeBytes):NativeBytes
+		return orNull(RzNative.blinc_css_root_variable(css, text(name)));
+
+	public static inline function blinc_css_add_compiled(css:CssHandle, data:NativeBytes, length:Int, at:Int):Int
+		return RzNative.blinc_css_add_compiled(css, wrap(data, length), at);
+
+	public static inline function blinc_css_remove(css:CssHandle, id:Int):Int
+		return RzNative.blinc_css_remove(css, id);
+
+	public static inline function blinc_css_set_theme(css:CssHandle, vars:NativeBytes):Void
+		RzNative.blinc_css_set_theme(css, text(vars));
+
+	public static inline function blinc_css_set_environment(css:CssHandle, width:Float, height:Float, dark:Int, rootFontSize:Float):Void
+		RzNative.blinc_css_set_environment(css, width, height, dark != 0, rootFontSize);
+
+	public static inline function blinc_css_set_element(css:CssHandle, node:haxe.Int64, desc:NativeBytes):Void
+		RzNative.blinc_css_set_element(css, node, text(desc));
+
+	public static inline function blinc_css_state_bit(name:NativeBytes):Int
+		return RzNative.blinc_css_state_bit(text(name));
+
+	public static inline function blinc_css_set_states(css:CssHandle, node:haxe.Int64, mask:Int):Void
+		RzNative.blinc_css_set_states(css, node, mask);
+
+	public static inline function blinc_css_moved(css:CssHandle, node:haxe.Int64):Void
+		RzNative.blinc_css_moved(css, node);
+
+	public static inline function blinc_css_children_changed(css:CssHandle, parent:haxe.Int64):Void
+		RzNative.blinc_css_children_changed(css, parent);
+
+	public static inline function blinc_css_forget(css:CssHandle, node:haxe.Int64):Void
+		RzNative.blinc_css_forget(css, node);
+
+	public static inline function blinc_css_restyle(css:CssHandle, tree:TreeHandle, root:haxe.Int64):Int
+		return RzNative.blinc_css_restyle(css, tree, root);
+
+	public static inline function blinc_css_take_changed(css:CssHandle, out:NativeBytes, capacity:Int):Int
+		return RzNative.blinc_css_take_changed(css, wrap(out, capacity * 8));
+
+	public static inline function blinc_css_take_watched(css:CssHandle, nodes:NativeBytes, bits:NativeBytes, capacity:Int):Int
+		return RzNative.blinc_css_take_watched(css, wrap(nodes, capacity * 8), wrap(bits, capacity * 4));
+
+	public static inline function blinc_css_select(css:CssHandle, tree:TreeHandle, root:haxe.Int64, selectors:NativeBytes, out:NativeBytes, capacity:Int):Int
+		return RzNative.blinc_css_select(css, tree, root, text(selectors), wrap(out, capacity * 8));
+
+	public static inline function blinc_css_style(css:CssHandle, node:haxe.Int64):NativeBytes
+		return bytes(RzNative.blinc_css_style(css, node));
+
+	public static inline function blinc_css_explain(css:CssHandle, tree:TreeHandle, node:haxe.Int64):NativeBytes
+		return bytes(RzNative.blinc_css_explain(css, tree, node));
+}
+#elseif ashui_caribou
 /** `CssNative` over the `blinc_abi` Caribou plugin's `Css` and `Sheet`. **/
 class CssNative {
 	static inline function text(b:NativeBytes):String

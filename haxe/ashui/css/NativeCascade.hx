@@ -70,10 +70,10 @@ class NativeCascade {
 	}
 
 	static inline function utf8(s:String):NativeBytes
-		return @:privateAccess s.toUtf8();
+		return ashui.core.Utf8.encode(s);
 
 	static inline function text(b:NativeBytes):String
-		return b == null ? "" : @:privateAccess String.fromUTF8(b);
+		return b == null ? "" : ashui.core.Utf8.decode(b);
 
 	/** Puts `sheets` in force in the engine, in this order: those gone are taken out, new ones added in their place. **/
 	public static function sync(sheets:Array<Stylesheet>):Void {

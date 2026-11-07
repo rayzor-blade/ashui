@@ -115,7 +115,7 @@ class ApplicationMenu {
 	}
 
 	function activate():Void {
-		if (payload == null || !MenuNative.ui_menu_install(@:privateAccess payload.toUtf8())) return;
+		if (payload == null || !MenuNative.ui_menu_install(ashui.core.Utf8.encode(payload))) return;
 		if (installed != null) {
 			installed.shown.resize(0);
 			if (installed.retired.length > 0 && pendingRetirement.indexOf(installed) < 0) pendingRetirement.push(installed);
@@ -170,7 +170,7 @@ class ApplicationMenu {
 /** The application menu of the `ashui_desktop` Caribou plugin. **/
 private class MenuNative {
 	public static inline function ui_menu_install(json:NativeBytes):Bool
-		return ashui_desktop.Desktop.menu_install(@:privateAccess String.fromUTF8(json));
+		return ashui_desktop.Desktop.menu_install(ashui.core.Utf8.decode(json));
 
 	public static inline function ui_menu_poll():Int
 		return ashui_desktop.Desktop.menu_poll();

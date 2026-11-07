@@ -16,7 +16,7 @@ class FileDialog {
 		var json = haxe.Json.stringify({id:id, view:haxe.Int64.toStr(app.window.raw(0)), title:options.title,
 			folder:options.folder == true, directory:options.directory, extensions:options.extensions});
 		requests.set(id, {context:app.context, complete:complete});
-		if (!DialogNative.ui_dialog_open(@:privateAccess json.toUtf8())) { requests.remove(id); throw "The file browser could not be opened"; }
+		if (!DialogNative.ui_dialog_open(ashui.core.Utf8.encode(json))) { requests.remove(id); throw "The file browser could not be opened"; }
 		var cancel = () -> { requests.remove(id); DialogNative.ui_dialog_cancel(id); };
 		app.context.onCleanup(cancel);
 		return cancel;
@@ -29,7 +29,7 @@ class FileDialog {
 			var id = DialogNative.ui_dialog_poll();
 			if (id == 0) return;
 			var bytes = DialogNative.ui_dialog_take(id);
-			var path = bytes == null ? null : @:privateAccess String.fromUTF8(bytes);
+			var path = bytes == null ? null : ashui.core.Utf8.decode(bytes);
 			var request = requests.get(id);
 			requests.remove(id);
 			if (request != null && !request.context.disposed) request.context.run(() -> request.complete(path == "" ? null : path));
@@ -41,14 +41,14 @@ class FileDialog {
 /** The dialogs of the `ashui_desktop` Caribou plugin. **/
 private class DialogNative {
 	public static inline function ui_dialog_open(json:NativeBytes):Bool
-		return ashui_desktop.Desktop.dialog_open(@:privateAccess String.fromUTF8(json));
+		return ashui_desktop.Desktop.dialog_open(ashui.core.Utf8.decode(json));
 
 	public static inline function ui_dialog_poll():Int
 		return ashui_desktop.Desktop.dialog_poll();
 
 	public static function ui_dialog_take(id:Int):NativeBytes {
 		var path = ashui_desktop.Desktop.dialog_take(id);
-		return path == "" ? null : @:privateAccess path.toUtf8();
+		return path == "" ? null : ashui.core.Utf8.encode(path);
 	}
 
 	public static inline function ui_dialog_cancel(id:Int):Void
