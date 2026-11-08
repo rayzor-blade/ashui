@@ -1,6 +1,7 @@
 package ashui.css;
 
 import ashui.core.NativeBytes;
+import ashui.core.Scratch;
 
 import ashui.core.externs.Handles;
 import ashui.core.externs.CssNative;
@@ -18,6 +19,12 @@ typedef NativeComputedStyle = {resolved:Map<String, String>, values:Map<String, 
 	changed and what they are. `Css` applies those.
 **/
 class NativeCascade {
+	// One buffer per purpose: a call fills one and its result is read out before the next call.
+	static final changedBytes = new Scratch();
+	static final selectedBytes = new Scratch();
+	static final watchedNodeBytes = new Scratch();
+	static final watchedBitBytes = new Scratch();
+
 	// e1a026f / a1b5f09: hover and tab states revisit the same immutable
 	// responses. Keep a small window-local decode cache, without node handles.
 	static final local_styles = new ashui.core.UiContext.Local<StyleSnapshots>(() -> new StyleSnapshots());
@@ -223,7 +230,7 @@ class NativeCascade {
 		for (_ in 0...4) {
 			var count = CssNative.blinc_css_restyle(css(), tree.ptr, haxe.Int64.make(0, 0));
 			if (count > 0) {
-				var out = new NativeBytes(count * 8);
+				var out = changedBytes.take(count * 8);
 				var n = CssNative.blinc_css_take_changed(css(), out, count);
 				for (i in 0...n) {
 					var identity = find(haxe.Int64.make(out.getI32(i * 8 + 4), out.getI32(i * 8)));
@@ -245,7 +252,7 @@ class NativeCascade {
 	static function selectContext(tree:LayoutTree, root:haxe.Int64, selectors:String):Array<haxe.Int64> {
 		var capacity = 256;
 		while (true) {
-			var out = new NativeBytes(capacity * 8);
+			var out = selectedBytes.take(capacity * 8);
 			var n = CssNative.blinc_css_select(css(), tree.ptr, root, utf8(selectors), out, capacity);
 			if (n < 0)
 				throw 'bad selector "$selectors"';
@@ -336,8 +343,8 @@ class NativeCascade {
 		var set = false;
 		var capacity = 64;
 		while (true) {
-			var nodes = new NativeBytes(capacity * 8),
-				bits = new NativeBytes(capacity * 4);
+			var nodes = watchedNodeBytes.take(capacity * 8),
+				bits = watchedBitBytes.take(capacity * 4);
 			var n = CssNative.blinc_css_take_watched(css(), nodes, bits, capacity);
 			for (i in 0...n) {
 				var node = haxe.Int64.make(nodes.getI32(i * 8 + 4), nodes.getI32(i * 8));

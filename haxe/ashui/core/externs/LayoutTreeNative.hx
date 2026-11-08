@@ -11,7 +11,7 @@ class LayoutTreeNative {
 		return b == null ? "" : ashui.core.Utf8.decode(b);
 
 	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
-		return b == null ? haxe.io.Bytes.alloc(0) : (b : haxe.io.Bytes);
+		return b == null ? BlincPlugin.NoBytes.empty : (b : haxe.io.Bytes);
 
 	public static inline function blinc_tree_new():TreeHandle
 		return BlincPlugin.blinc_tree_new();
@@ -42,7 +42,7 @@ class LayoutTreeNative {
 		BlincPlugin.blinc_tree_replace_node(tree, old, next);
 
 	public static inline function blinc_tree_replace_children(tree:TreeHandle, parent:haxe.Int64, children:NativeBytes, len:Int):Void
-		BlincPlugin.blinc_tree_replace_children(tree, parent, wrap(children, len * 8));
+		BlincPlugin.blinc_tree_replace_children(tree, parent, wrap(children, len * 8), len);
 
 	public static inline function blinc_tree_ancestors(tree:TreeHandle, node:haxe.Int64, out:NativeBytes, capacity:Int):Int
 		return BlincPlugin.blinc_tree_ancestors(tree, node, wrap(out, capacity * 8));
@@ -51,10 +51,10 @@ class LayoutTreeNative {
 		return BlincPlugin.blinc_tree_children(tree, node, wrap(out, capacity * 8));
 
 	public static inline function blinc_tree_set_children(tree:TreeHandle, parent:haxe.Int64, children:NativeBytes, len:Int):Void
-		BlincPlugin.blinc_tree_set_children(tree, parent, wrap(children, len * 8));
+		BlincPlugin.blinc_tree_set_children(tree, parent, wrap(children, len * 8), len);
 
 	public static inline function blinc_tree_set_grid_rows(tree:TreeHandle, group:haxe.Int64, rows:NativeBytes, len:Int):Bool
-		return BlincPlugin.blinc_tree_set_grid_rows(tree, group, wrap(rows, len * 8));
+		return BlincPlugin.blinc_tree_set_grid_rows(tree, group, wrap(rows, len * 8), len);
 
 	public static inline function blinc_tree_flush(tree:TreeHandle):Bool
 		return BlincPlugin.blinc_tree_flush(tree);

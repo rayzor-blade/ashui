@@ -8,7 +8,7 @@ import ashui.core.externs.Handles;
 /** `BitmapNative` over the `blinc_abi` Rayzor plugin's `Resources`. **/
 class BitmapNative {
 	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
-		return b == null ? haxe.io.Bytes.alloc(0) : (b : haxe.io.Bytes);
+		return b == null ? BlincPlugin.NoBytes.empty : (b : haxe.io.Bytes);
 
 	public static inline function blinc_bitmap_decode(bytes:NativeBytes, len:Int):Int
 		return BlincPlugin.blinc_res_decode_bitmap(wrap(bytes, len));

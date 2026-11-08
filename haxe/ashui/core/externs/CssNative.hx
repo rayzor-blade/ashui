@@ -14,7 +14,7 @@ class CssNative {
 		return s == null ? null : ashui.core.Utf8.encode(s);
 
 	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
-		return b == null ? haxe.io.Bytes.alloc(0) : (b : haxe.io.Bytes);
+		return b == null ? BlincPlugin.NoBytes.empty : (b : haxe.io.Bytes);
 
 	/** A result the engine reports as empty text where HashLink's is null. **/
 	static inline function orNull(s:String):NativeBytes

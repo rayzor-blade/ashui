@@ -1,6 +1,7 @@
 package ashui.ui;
 
 import ashui.core.NativeBytes;
+import ashui.core.Scratch;
 
 import ashui.input.Focus;
 import ashui.input.Interaction;
@@ -51,6 +52,10 @@ typedef TextFieldProps = {
 class TextField extends Component<TextFieldProps> {
 	/** Space between the text clipping region and the inner field edge, preventing clipped glyphs or carets. **/
 	static inline var INSET = 2.0;
+
+	// Shared by every field: a call fills them and the result is read out before the next call.
+	static final hintBytes = new Scratch();
+	static final hintInfo = new Scratch();
 
 	public var editing(default, null):TextEditing;
 
@@ -216,7 +221,7 @@ class TextField extends Component<TextFieldProps> {
 		var value = props.placeholder;
 		if (value == null || value == "") return 0;
 		if (hintWidth < 0) {
-			var capacity = value.length + 2, out = new NativeBytes(capacity * 12), info = new NativeBytes(16);
+			var capacity = value.length + 2, out = hintBytes.take(capacity * 12), info = hintInfo.take(16);
 			var count = ashui.core.externs.TextNative.blinc_text_carets(box.tree.ptr, hint.get().node.id,
 				ashui.core.Utf8.encode(value), 0, 0, out, capacity, info);
 			hintWidth = count > 0 && count <= capacity ? out.getF32((count - 1) * 12 + 4) : 0;

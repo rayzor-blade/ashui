@@ -1,6 +1,7 @@
 package ashui.ui;
 
 import ashui.core.NativeBytes;
+import ashui.core.Scratch;
 
 import ashui.core.externs.TextNative;
 import ashui.input.Clipboard;
@@ -22,6 +23,10 @@ typedef CaretStop = {index:Int, x:Float, line:Int};
 	`wrapWidth` is greater than zero.
 **/
 class TextEditing {
+	// Shared by every editor: a call fills them and the result is read out before the next call.
+	static final caretBytes = new Scratch();
+	static final caretInfo = new Scratch();
+
 	/** Time the caret remains visible or hidden during blinking, in seconds. **/
 	static inline var BLINK = 0.53;
 
@@ -192,8 +197,8 @@ class TextEditing {
 		var key = s;
 		s = masked(s);
 		var capacity = s.length + 2;
-		var out = new NativeBytes(capacity * 12);
-		var info = new NativeBytes(16);
+		var out = caretBytes.take(capacity * 12);
+		var info = caretInfo.take(16);
 		var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.encode(s), size, wrapWidth, out, capacity, info);
 		if (n > 0 && n <= capacity) {
 			stops = [

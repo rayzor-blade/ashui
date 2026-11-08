@@ -11,7 +11,7 @@ class TextNative {
 		return b == null ? "" : ashui.core.Utf8.decode(b);
 
 	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
-		return b == null ? haxe.io.Bytes.alloc(0) : (b : haxe.io.Bytes);
+		return b == null ? BlincPlugin.NoBytes.empty : (b : haxe.io.Bytes);
 
 	public static inline function blinc_font_register(bytes:NativeBytes, len:Int):Int
 		return BlincPlugin.blinc_res_register_font(wrap(bytes, len));

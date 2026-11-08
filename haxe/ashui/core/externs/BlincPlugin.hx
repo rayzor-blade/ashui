@@ -25,6 +25,11 @@ extern class BlincCss {}
 @:native("ashui::blinc::Sheet")
 extern class BlincSheet {}
 
+/** The buffer the wrappers pass for none: one shared, since a new one per call would never be freed. **/
+class NoBytes {
+	public static final empty:haxe.io.Bytes = haxe.io.Bytes.alloc(0);
+}
+
 /**
 	The `blinc_abi` Rayzor plugin, one function per export. The wrappers in `BlincNative`, `LayoutTreeNative`
 	and the other `*Native` classes give these the shape the rest of ashui calls; ashui code does not use this class.
@@ -42,9 +47,9 @@ extern class BlincPlugin {
 	public static function blinc_tree_get_bounds(self_:BlincTree, node:haxe.Int64, out:haxe.io.Bytes):Bool;
 	public static function blinc_tree_create_text_node(self_:BlincTree, content:String, font_name:String, font_size:Float, line_height:Float, font_weight:Int, generic_font:Int, flags:Int):haxe.Int64;
 	public static function blinc_tree_replace_node(self_:BlincTree, old:haxe.Int64, next:haxe.Int64):Void;
-	public static function blinc_tree_replace_children(self_:BlincTree, parent:haxe.Int64, children:haxe.io.Bytes):Void;
-	public static function blinc_tree_set_children(self_:BlincTree, parent:haxe.Int64, children:haxe.io.Bytes):Void;
-	public static function blinc_tree_set_grid_rows(self_:BlincTree, group:haxe.Int64, rows:haxe.io.Bytes):Bool;
+	public static function blinc_tree_replace_children(self_:BlincTree, parent:haxe.Int64, children:haxe.io.Bytes, count:Int):Void;
+	public static function blinc_tree_set_children(self_:BlincTree, parent:haxe.Int64, children:haxe.io.Bytes, count:Int):Void;
+	public static function blinc_tree_set_grid_rows(self_:BlincTree, group:haxe.Int64, rows:haxe.io.Bytes, count:Int):Bool;
 	public static function blinc_tree_children(self_:BlincTree, node:haxe.Int64, out:haxe.io.Bytes):Int;
 	public static function blinc_tree_ancestors(self_:BlincTree, node:haxe.Int64, out:haxe.io.Bytes):Int;
 	public static function blinc_tree_get_box(self_:BlincTree, node:haxe.Int64, out:haxe.io.Bytes):Bool;

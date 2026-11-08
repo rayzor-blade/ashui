@@ -1,6 +1,7 @@
 package ashui.layout;
 
 import ashui.core.NativeBytes;
+import ashui.core.Scratch;
 
 import ashui.core.externs.Handles;
 import ashui.core.Utf8;
@@ -36,6 +37,13 @@ class LayoutTree {
 
 	var hitCapacity = 32;
 	var hitBytes:Null<NativeBytes>;
+
+	// One buffer per purpose, shared by every tree: a call fills one and its result is read out before the next call.
+	static final inputBytes = new Scratch();
+	static final idBytes = new Scratch();
+	static final boundsBytes = new Scratch();
+	static final boxBytes = new Scratch();
+	static final edgeBytes = new Scratch();
 
 	@:noCompletion public function invalidateHits():Void {
 		hitRevision++;
@@ -330,7 +338,7 @@ class LayoutTree {
 			return;
 		}
 		// Little-endian 64-bit ids, as the native side reads them.
-		var ids = new NativeBytes(children.length * 8 + 8);
+		var ids = inputBytes.take(children.length * 8 + 8);
 		for (i in 0...children.length) {
 			ids.setI32(i * 8, children[i].low);
 			ids.setI32(i * 8 + 4, children[i].high);
@@ -351,7 +359,7 @@ class LayoutTree {
 		False for removed, foreign or duplicate rows. git-bug: 471d54e / ABI bcec1a0.
 	**/
 	public function setGridRows(group:haxe.Int64, rows:Array<haxe.Int64>):Bool {
-		var data = new NativeBytes(rows.length * 8 + 8);
+		var data = inputBytes.take(rows.length * 8 + 8);
 		for (i in 0...rows.length) {
 			data.setI32(i * 8, rows[i].low);
 			data.setI32(i * 8 + 4, rows[i].high);
@@ -366,7 +374,7 @@ class LayoutTree {
 	public function children(node:haxe.Int64):Array<haxe.Int64> {
 		var capacity = 16;
 		while (true) {
-			var out = new NativeBytes(capacity * 8);
+			var out = idBytes.take(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_children(this.ptr, node, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -378,7 +386,7 @@ class LayoutTree {
 	public function ancestors(node:haxe.Int64):Array<haxe.Int64> {
 		var capacity = 16;
 		while (true) {
-			var out = new NativeBytes(capacity * 8);
+			var out = idBytes.take(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_ancestors(this.ptr, node, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -499,7 +507,7 @@ class LayoutTree {
 			return;
 		}
 		var values = notch.encode();
-		var bytes = new NativeBytes(values.length * 4);
+		var bytes = inputBytes.take(values.length * 4);
 		for (i => v in values)
 			bytes.setF32(i * 4, v);
 		LayoutTreeNative.blinc_tree_set_notch(this.ptr, node, bytes);
@@ -520,7 +528,7 @@ class LayoutTree {
 		left:Float,
 		painted:Bool
 	}> {
-		var out = new NativeBytes(20);
+		var out = edgeBytes.take(20);
 		if (!LayoutTreeNative.blinc_tree_box_edges(this.ptr, node, out))
 			return null;
 		return {
@@ -570,7 +578,7 @@ class LayoutTree {
 			return [];
 		var capacity = 64;
 		while (true) {
-			var out = new NativeBytes(capacity * 8);
+			var out = idBytes.take(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_order(this.ptr, root.id, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -584,7 +592,7 @@ class LayoutTree {
 			return [];
 		var capacity = 64;
 		while (true) {
-			var out = new NativeBytes(capacity * 8);
+			var out = idBytes.take(capacity * 8);
 			var n = LayoutTreeNative.blinc_tree_path(this.ptr, root.id, node.id, out, capacity);
 			if (n <= capacity)
 				return ids(out, n);
@@ -597,7 +605,7 @@ class LayoutTree {
 
 	/** The node's padding, border and margin as layout resolved them, each top, right, bottom and left; null before it has been laid out. **/
 	public function getBox(node:Node):Null<{padding:Array<Float>, border:Array<Float>, margin:Array<Float>}> {
-		var out = new NativeBytes(48);
+		var out = boxBytes.take(48);
 		if (!LayoutTreeNative.blinc_tree_get_box(this.ptr, node.id, out))
 			return null;
 		inline function side(at:Int):Array<Float>
@@ -623,7 +631,7 @@ class LayoutTree {
 
 	/** The node's absolute rectangle, or null before it has been laid out. **/
 	public function getBounds(node:Node):Null<Bounds> {
-		var out = new NativeBytes(16);
+		var out = boundsBytes.take(16);
 		if (!LayoutTreeNative.blinc_tree_get_bounds(this.ptr, node.id, out))
 			return null;
 		return new Bounds(out.getF32(0), out.getF32(4), out.getF32(8), out.getF32(12));

@@ -1,6 +1,7 @@
 package ashui.input;
 
 import ashui.core.NativeBytes;
+import ashui.core.Scratch;
 
 import ashui.core.externs.LayoutTreeNative;
 import ashui.input.Events;
@@ -25,6 +26,9 @@ typedef ScrollbarColors = {final thumb:ScrollbarColor; final track:ScrollbarColo
 **/
 class Scroll {
 	static final byNode = new haxe.ds.ObjectMap<Node, Scroll>();
+
+	// Shared by every scroller: a call fills it and the result is read out before the next call.
+	static final extentBytes = new Scratch();
 
 	/** Only reactive overflow needs a Haxe watch; constant overflow stays allocation-free until scrolling is enabled. **/
 	static final overflowWatches = new haxe.ds.ObjectMap<Node, Map<Int, Watch<Int>>>();
@@ -120,7 +124,6 @@ class Scroll {
 	final thumb = Signal.make(0.0);
 	var fading = false;
 	var stay:Null<ashui.animation.AnimationScheduler.Timer> = null;
-	final extent = new NativeBytes(16);
 	final appearance = Signal.make(0);
 	var scrollbarColors:Null<ScrollbarColors> = null;
 	var scrollbarWidth = 4.0;
@@ -438,6 +441,7 @@ class Scroll {
 
 	/** How far the content can scroll right and down; zeros before layout. **/
 	public function limits():{x:Float, y:Float} {
+		var extent = extentBytes.take(16);
 		if (node.tree == null || !LayoutTreeNative.blinc_tree_scroll_extent(node.tree.ptr, node.id, extent))
 			return {x: 0, y: 0};
 		return {

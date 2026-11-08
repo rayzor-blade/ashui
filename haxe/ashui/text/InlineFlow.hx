@@ -1,6 +1,7 @@
 package ashui.text;
 
 import ashui.core.NativeBytes;
+import ashui.core.Scratch;
 
 import ashui.core.externs.TextNative;
 import ashui.css.Identity;
@@ -289,7 +290,6 @@ class InlineFlow {
 	var measureChanged = true;
 	var flowedWidth = -1.0;
 	var placed = "";
-	final limits = new NativeBytes(8);
 	var lineClamp = 0;
 	var ellipsis = false;
 	var nowrap = false;
@@ -654,13 +654,15 @@ class InlineFlow {
 		}
 	}
 
-	static final out = new NativeBytes(4096 * 12);
+	// Shared by every flow: a call fills one and its result is read out before the next call.
+	static final shapeBytes = new Scratch();
+	static final limitBytes = new Scratch();
 	static final info = new NativeBytes(16);
 
 	function shape(run:Run):Void {
 		var s = run.text;
 		var capacity = s.length + 2;
-		var bytes = capacity <= 4096 ? out : new NativeBytes(capacity * 12);
+		var bytes = shapeBytes.take(capacity * 12);
 		var n = TextNative.blinc_text_carets(tree.ptr, run.probe.node.id, ashui.core.Utf8.encode(s), 0, 0, bytes, capacity, info);
 		var stops = [for (_ in 0...s.length + 1) 0.0];
 		var at = 0, last = 0.0;
@@ -696,7 +698,7 @@ class InlineFlow {
 			if (text == null)
 				continue;
 			var b = tree.getBounds(text.node), a = tree.getBounds(atom.node);
-			var bytes = new NativeBytes(12 * 4);
+			var bytes = shapeBytes.take(12 * 4);
 			if (b == null
 				|| a == null
 				|| TextNative.blinc_text_carets(tree.ptr, text.node.id, ashui.core.Utf8.encode("x"), 0, 0, bytes, 4, info) == 0)
@@ -861,6 +863,7 @@ class InlineFlow {
 		if (tree.getBounds(spacer.node) == null)
 			return false;
 		var changed = false;
+		var limits = limitBytes.take(8);
 		ashui.core.externs.LayoutTreeNative.blinc_tree_text_limits(tree.ptr, root.node.id, limits);
 		var clamp = limits.getI32(0), cut = limits.getI32(4) == 1;
 		var whiteSpace = ashui.css.Css.computed(Identity.of(tree, root.node.id), "white-space");
