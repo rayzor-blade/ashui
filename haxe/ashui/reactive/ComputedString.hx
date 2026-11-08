@@ -18,7 +18,7 @@ class ComputedString implements IComputed<String> {
 		ptr = BlincNative.blinc_computed_string(Guard.wrap(() -> {
 			var made = compute();
 			cached = made;
-			return BlincNative.blinc_return_string(Utf8.encode(made));
+			return BlincNative.blinc_return_string(Utf8.toNative(made));
 		}));
 		Owner.adoptComputed(ptr);
 	}

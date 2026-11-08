@@ -1,15 +1,13 @@
 package ashui.core.externs;
 
 import ashui.core.NativeBytes;
+import ashui.core.NativeText;
 
 import ashui.core.externs.Handles;
 
 #if ashui_rayzor
 /** `LayoutTreeNative` over the `blinc_abi` Rayzor plugin's `Tree`. **/
 class LayoutTreeNative {
-	static inline function text(b:NativeBytes):String
-		return b == null ? "" : ashui.core.Utf8.decode(b);
-
 	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
 		return b == null ? BlincPlugin.NoBytes.empty : (b : haxe.io.Bytes);
 
@@ -39,9 +37,9 @@ class LayoutTreeNative {
 	public static inline function blinc_tree_create_node(tree:TreeHandle):haxe.Int64
 		return BlincPlugin.blinc_tree_create_node(tree);
 
-	public static inline function blinc_tree_create_text_node(tree:TreeHandle, content:NativeBytes, fontName:NativeBytes, fontSize:Single, lineHeight:Single,
+	public static inline function blinc_tree_create_text_node(tree:TreeHandle, content:NativeText, fontName:NativeText, fontSize:Single, lineHeight:Single,
 			fontWeight:Int, genericFont:Int, flags:Int):haxe.Int64
-		return BlincPlugin.blinc_tree_create_text_node(tree, text(content), text(fontName), fontSize, lineHeight, fontWeight, genericFont, flags);
+		return BlincPlugin.blinc_tree_create_text_node(tree, content, fontName, fontSize, lineHeight, fontWeight, genericFont, flags);
 
 	public static inline function blinc_tree_add_child(tree:TreeHandle, parent:haxe.Int64, child:haxe.Int64):Void
 		BlincPlugin.blinc_tree_add_child(tree, parent, child);

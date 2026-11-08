@@ -17,7 +17,7 @@ class SignalString implements ISignal<String> {
 	var released = false;
 
 	public function new(initialValue:String) {
-		ptr = BlincNative.blinc_signal_string(Utf8.encode(initialValue));
+		ptr = BlincNative.blinc_signal_string(Utf8.toNative(initialValue));
 		cached = initialValue;
 		cachedVersion = BlincNative.blinc_signal_string_version(ptr);
 	}
@@ -32,7 +32,7 @@ class SignalString implements ISignal<String> {
 		// Keep what a read would find, without tracking the read.
 		var version = BlincNative.blinc_signal_string_version(ptr);
 		if (version != cachedVersion) {
-			cached = Utf8.decode(BlincNative.blinc_signal_get_string(ptr));
+			cached = Utf8.fromNative(BlincNative.blinc_signal_get_string(ptr));
 			cachedVersion = version;
 		}
 		released = true;
@@ -46,7 +46,7 @@ class SignalString implements ISignal<String> {
 		BlincNative.blinc_signal_touch(ptr);
 		var version = BlincNative.blinc_signal_string_version(ptr);
 		if (version != cachedVersion) {
-			cached = Utf8.decode(BlincNative.blinc_signal_get_string(ptr));
+			cached = Utf8.fromNative(BlincNative.blinc_signal_get_string(ptr));
 			cachedVersion = version;
 		}
 		return cached;
@@ -55,7 +55,7 @@ class SignalString implements ISignal<String> {
 	public function set(val:String):Void {
 		if (released)
 			return;
-		BlincNative.blinc_signal_set_string(ptr, Utf8.encode(val));
+		BlincNative.blinc_signal_set_string(ptr, Utf8.toNative(val));
 		// What was written is what a read finds, so the next read decodes nothing.
 		cached = val;
 		cachedVersion = BlincNative.blinc_signal_string_version(ptr);

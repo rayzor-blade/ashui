@@ -104,7 +104,7 @@ class LayoutTree {
 	public function createTextNode(content:String, fontSize:Single = 16.0, lineHeight:Single = 1.2, wrap:Bool = true, ?fontName:String,
 			genericFont:GenericFont = System, fontWeight:Int = 400, italic:Bool = false):TextNode {
 		var flags = (wrap ? 1 : 0) | (italic ? 2 : 0);
-		var node = new TextNode(LayoutTreeNative.blinc_tree_create_text_node(this.ptr, Utf8.encode(content), Utf8.encode(fontName), fontSize, lineHeight,
+		var node = new TextNode(LayoutTreeNative.blinc_tree_create_text_node(this.ptr, Utf8.toNative(content), Utf8.toNative(fontName), fontSize, lineHeight,
 			fontWeight, genericFont, flags));
 		@:privateAccess node.tree = this;
 		return node;

@@ -1,6 +1,7 @@
 package ashui.core.externs;
 
 import ashui.core.NativeBytes;
+import ashui.core.NativeText;
 
 import ashui.core.externs.Handles;
 
@@ -22,12 +23,6 @@ class BlincNative {
 			router = BlincPlugin.blinc_tree_new();
 		return router;
 	}
-
-	static inline function text(b:NativeBytes):String
-		return b == null ? "" : ashui.core.Utf8.decode(b);
-
-	static inline function bytes(s:String):NativeBytes
-		return s == null ? null : ashui.core.Utf8.encode(s);
 
 	public static inline function blinc_is_dirty():Bool
 		return BlincPlugin.blinc_is_dirty();
@@ -112,14 +107,14 @@ class BlincNative {
 		throw unsupported;
 
 	// --- String signals ---
-	public static function blinc_signal_string(initial:NativeBytes):SignalHandle
-		return BlincPlugin.blinc_signal_string(initial == null ? null : text(initial));
+	public static function blinc_signal_string(initial:NativeText):SignalHandle
+		return BlincPlugin.blinc_signal_string(initial);
 
-	public static function blinc_signal_get_string(sig:SignalHandle):NativeBytes
-		return bytes(BlincPlugin.blinc_signal_get_string(sig));
+	public static function blinc_signal_get_string(sig:SignalHandle):NativeText
+		return BlincPlugin.blinc_signal_get_string(sig);
 
-	public static function blinc_signal_set_string(sig:SignalHandle, v:NativeBytes):Void
-		BlincPlugin.blinc_signal_set_string(sig, v == null ? null : text(v));
+	public static function blinc_signal_set_string(sig:SignalHandle, v:NativeText):Void
+		BlincPlugin.blinc_signal_set_string(sig, v);
 
 	public static inline function blinc_signal_string_version(sig:SignalHandle):Int
 		return BlincPlugin.blinc_signal_string_version(sig);
@@ -127,10 +122,10 @@ class BlincNative {
 	public static function blinc_computed_string(compute:Void->Void):ComputedHandle
 		throw unsupported;
 
-	public static function blinc_computed_get_string(comp:ComputedHandle):NativeBytes
+	public static function blinc_computed_get_string(comp:ComputedHandle):NativeText
 		throw unsupported;
 
-	public static function blinc_return_string(v:NativeBytes):Void
+	public static function blinc_return_string(v:NativeText):Void
 		throw unsupported;
 
 	// --- Value signals ---
@@ -212,9 +207,9 @@ class BlincNative {
 		}
 	}
 
-	public static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:NativeBytes, sig:SignalHandle, comp:ComputedHandle):Void {
+	public static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:NativeText, sig:SignalHandle, comp:ComputedHandle):Void {
 		switch (kind) {
-			case 0: BlincPlugin.blinc_tree_apply_string(tree(), node, prop, text(constant));
+			case 0: BlincPlugin.blinc_tree_apply_string(tree(), node, prop, constant);
 			case 1: BlincPlugin.blinc_tree_bind_string(tree(), node, prop, sig);
 			default: throw unsupported;
 		}
@@ -239,8 +234,8 @@ class BlincNative {
 	public static inline function blinc_brush_blur(radius:Single, tintHex:Int, tintAlpha:Single):ValueHandle
 		return BlincPlugin.blinc_brush_blur(radius, tintHex, tintAlpha);
 
-	public static inline function blinc_brush_image(src:NativeBytes, fit:Int):ValueHandle
-		return BlincPlugin.blinc_brush_image(text(src), fit);
+	public static inline function blinc_brush_image(src:NativeText, fit:Int):ValueHandle
+		return BlincPlugin.blinc_brush_image(src, fit);
 
 	public static inline function blinc_brush_image_mapping(brush:ValueHandle, x:Single, y:Single, offsetX:Single, offsetY:Single, repeat:Int):Void
 		BlincPlugin.blinc_brush_image_mapping(brush, x, y, offsetX, offsetY, repeat);

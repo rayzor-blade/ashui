@@ -199,7 +199,7 @@ class TextEditing {
 		var capacity = s.length + 2;
 		var out = caretBytes.take(capacity * 12);
 		var info = caretInfo.take(16);
-		var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.encode(s), size, wrapWidth, out, capacity, info);
+		var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.toNative(s), size, wrapWidth, out, capacity, info);
 		if (n > 0 && n <= capacity) {
 			stops = [
 				for (i in 0...n) {index: Std.int(out.getF32(i * 12)), x: out.getF32(i * 12 + 4), line: Std.int(out.getF32(i * 12 + 8))}

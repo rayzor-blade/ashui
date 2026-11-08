@@ -663,7 +663,7 @@ class InlineFlow {
 		var s = run.text;
 		var capacity = s.length + 2;
 		var bytes = shapeBytes.take(capacity * 12);
-		var n = TextNative.blinc_text_carets(tree.ptr, run.probe.node.id, ashui.core.Utf8.encode(s), 0, 0, bytes, capacity, info);
+		var n = TextNative.blinc_text_carets(tree.ptr, run.probe.node.id, ashui.core.Utf8.toNative(s), 0, 0, bytes, capacity, info);
 		var stops = [for (_ in 0...s.length + 1) 0.0];
 		var at = 0, last = 0.0;
 		for (i in 0...Std.int(Math.min(n, capacity))) {
@@ -701,7 +701,7 @@ class InlineFlow {
 			var bytes = shapeBytes.take(12 * 4);
 			if (b == null
 				|| a == null
-				|| TextNative.blinc_text_carets(tree.ptr, text.node.id, ashui.core.Utf8.encode("x"), 0, 0, bytes, 4, info) == 0)
+				|| TextNative.blinc_text_carets(tree.ptr, text.node.id, ashui.core.Utf8.toNative("x"), 0, 0, bytes, 4, info) == 0)
 				break;
 			var lineHeight = info.getF32(0),
 				ascender = info.getF32(8),

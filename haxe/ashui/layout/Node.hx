@@ -454,7 +454,7 @@ class Node {
 	public function applyString(prop:PropertyId, reactive:IntoReactive<String>):Void {
 		switch (reactive) {
 			case Const(v):
-				BlincNative.blinc_apply_string(id, prop, KIND_CONST, Utf8.encode(v), null, null);
+				BlincNative.blinc_apply_string(id, prop, KIND_CONST, Utf8.toNative(v), null, null);
 			case Bound(s):
 				BlincNative.blinc_apply_string(id, prop, KIND_SIGNAL, null, s.ptr, null);
 			case Derived(c):

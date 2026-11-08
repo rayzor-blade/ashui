@@ -1,15 +1,13 @@
 package ashui.core.externs;
 
 import ashui.core.NativeBytes;
+import ashui.core.NativeText;
 
 import ashui.core.externs.Handles;
 
 #if ashui_rayzor
 /** `TextNative` over the `blinc_abi` Rayzor plugin's `Resources` and `Tree`. **/
 class TextNative {
-	static inline function text(b:NativeBytes):String
-		return b == null ? "" : ashui.core.Utf8.decode(b);
-
 	static inline function wrap(b:NativeBytes, length:Int):haxe.io.Bytes
 		return b == null ? BlincPlugin.NoBytes.empty : (b : haxe.io.Bytes);
 
@@ -19,12 +17,12 @@ class TextNative {
 	public static inline function blinc_text_atlas_take(color:Int, seen:Int, out:NativeBytes, capacity:Int, info:NativeBytes):Int
 		return BlincPlugin.blinc_res_text_atlas(color, seen, wrap(out, capacity), wrap(info, 28));
 
-	public static inline function blinc_text_carets(tree:TreeHandle, node:haxe.Int64, text:NativeBytes, fontSize:Single, wrapWidth:Single, out:NativeBytes,
+	public static inline function blinc_text_carets(tree:TreeHandle, node:haxe.Int64, text:NativeText, fontSize:Single, wrapWidth:Single, out:NativeBytes,
 			capacity:Int, info:NativeBytes):Int
-		return BlincPlugin.blinc_text_carets(tree, node, TextNative.text(text), fontSize, wrapWidth, wrap(out, capacity * 12), wrap(info, 16));
+		return BlincPlugin.blinc_text_carets(tree, node, text, fontSize, wrapWidth, wrap(out, capacity * 12), wrap(info, 16));
 
-	public static inline function blinc_text_outline(text:NativeBytes, font:NativeBytes, style:NativeBytes, out:NativeBytes, capacity:Int, info:NativeBytes):Int
-		return BlincPlugin.blinc_res_text_outline(TextNative.text(text), TextNative.text(font), wrap(style, 24), wrap(out, capacity * 4), wrap(info, 16));
+	public static inline function blinc_text_outline(text:NativeText, font:NativeText, style:NativeBytes, out:NativeBytes, capacity:Int, info:NativeBytes):Int
+		return BlincPlugin.blinc_res_text_outline(text, font, wrap(style, 24), wrap(out, capacity * 4), wrap(info, 16));
 }
 #elseif ashui_caribou
 /** `TextNative` over the `blinc_abi` Caribou plugin's `Resources` and `Tree`. **/

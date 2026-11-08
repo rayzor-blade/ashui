@@ -68,7 +68,7 @@ class Stylesheet {
 	/** The program resource holding its compiled form, for one `CompiledCss` made. **/
 	var resource:Null<String> = null;
 
-	#if (hl && !macro)
+	#if ((hl || ashui_rayzor) && !macro)
 	/** The sheet as the native engine parsed it; made when first asked for. **/
 	var parsed:Null<SheetHandle> = null;
 
@@ -81,8 +81,8 @@ class Stylesheet {
 				if (parsed == null)
 					throw 'Stylesheet: the compiled sheet $file does not decode';
 			} else
-				parsed = ashui.core.externs.CssNative.blinc_css_parse(ashui.core.Utf8.encode(source == null ? "" : source),
-					ashui.core.Utf8.encode(file == null ? "" : file));
+				parsed = ashui.core.externs.CssNative.blinc_css_parse(ashui.core.Utf8.toNative(source == null ? "" : source),
+					ashui.core.Utf8.toNative(file == null ? "" : file));
 			diagnostics.resize(0);
 			for (record in records(ashui.core.externs.CssNative.blinc_css_sheet_diagnostics(parsed))) {
 				var f = record.split("\x02");
@@ -111,8 +111,8 @@ class Stylesheet {
 		];
 	}
 
-	static function records(b:NativeBytes):Array<String> {
-		var text = b == null ? "" : ashui.core.Utf8.decode(b);
+	static function records(b:ashui.core.NativeText):Array<String> {
+		var text = b == null ? "" : ashui.core.Utf8.fromNative(b);
 		return text == "" ? [] : text.split("\x01");
 	}
 	#end
@@ -141,7 +141,7 @@ class Stylesheet {
 	**/
 	public static function parse(source:String, ?file:String):Stylesheet {
 		var sheet = compiled(source, file);
-		#if (hl && !macro)
+		#if ((hl || ashui_rayzor) && !macro)
 		sheet.native();
 		#end
 		return sheet;

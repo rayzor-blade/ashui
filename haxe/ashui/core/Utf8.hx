@@ -38,4 +38,22 @@ class Utf8 {
 		return bytes.getString(0, n);
 	}
 	#end
+
+	/** `s` as the native library takes text: UTF-8 bytes where it reads bytes, the string itself on Rayzor. **/
+	public static inline function toNative(s:String):NativeText {
+		#if ashui_rayzor
+		return s;
+		#else
+		return encode(s);
+		#end
+	}
+
+	/** The string in the text `t` the native library gave back. **/
+	public static inline function fromNative(t:NativeText):String {
+		#if ashui_rayzor
+		return t;
+		#else
+		return decode(t);
+		#end
+	}
 }

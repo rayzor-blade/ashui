@@ -1,14 +1,15 @@
 package ashui.core.externs;
 
 import ashui.core.NativeBytes;
+import ashui.core.NativeText;
 
 import ashui.core.externs.Handles;
 
 #if ashui_rayzor
 /** `SvgNative` over the `blinc_abi` Rayzor plugin's resources. **/
 class SvgNative {
-	public static inline function blinc_svg_rasterize(markup:NativeBytes, width:Int, height:Int, out:NativeBytes):Bool
-		return BlincPlugin.blinc_res_rasterize_svg(markup == null ? "" : ashui.core.Utf8.decode(markup), width, height, (out : haxe.io.Bytes));
+	public static inline function blinc_svg_rasterize(markup:NativeText, width:Int, height:Int, out:NativeBytes):Bool
+		return BlincPlugin.blinc_res_rasterize_svg(markup, width, height, (out : haxe.io.Bytes));
 }
 #elseif ashui_caribou
 /** `SvgNative` over the `blinc_abi` Caribou plugin's `Resources`. **/

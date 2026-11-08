@@ -200,7 +200,7 @@ class Brush implements IValue {
 
 	/** The image at `url` filling the box, fitted by `fit`. Bitmap position and repeat use the whole-image atlas mapping. **/
 	public static function image(url:String, fit:ImageFit = Cover, ?position:ImagePosition, ?repeat:ImageRepeat):Brush {
-		var brush = new Brush(BlincNative.blinc_brush_image(Utf8.encode(url), fit));
+		var brush = new Brush(BlincNative.blinc_brush_image(Utf8.toNative(url), fit));
 		if (position != null || repeat != null) {
 			var p:ImagePosition = position == null ? {
 				x: 0.5,

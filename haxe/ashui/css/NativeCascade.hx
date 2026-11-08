@@ -1,6 +1,7 @@
 package ashui.css;
 
 import ashui.core.NativeBytes;
+import ashui.core.NativeText;
 import ashui.core.Scratch;
 
 import ashui.core.externs.Handles;
@@ -79,11 +80,11 @@ class NativeCascade {
 		return handle;
 	}
 
-	static inline function utf8(s:String):NativeBytes
-		return ashui.core.Utf8.encode(s);
+	static inline function utf8(s:String):NativeText
+		return ashui.core.Utf8.toNative(s);
 
-	static inline function text(b:NativeBytes):String
-		return b == null ? "" : ashui.core.Utf8.decode(b);
+	static inline function text(b:NativeText):String
+		return b == null ? "" : ashui.core.Utf8.fromNative(b);
 
 	/** Puts `sheets` in force in the engine, in this order: those gone are taken out, new ones added in their place. **/
 	public static function sync(sheets:Array<Stylesheet>):Void {

@@ -140,7 +140,7 @@ class Images {
 		}
 		return atlas.get(key, width, height, pixels -> {
 			var source = doc.withColor(color);
-			SvgNative.blinc_svg_rasterize(ashui.core.Utf8.encode(source), width, height, pixels);
+			SvgNative.blinc_svg_rasterize(ashui.core.Utf8.toNative(source), width, height, pixels);
 		});
 	}
 
