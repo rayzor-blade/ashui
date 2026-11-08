@@ -10,4 +10,7 @@ import ashui.core.externs.Handles;
 **/
 interface IValue {
 	var ptr(default, null):ValueHandle;
+
+	/** Frees the native copy, for good; a value set on a node after that clears the property, like null. Safe to call twice. **/
+	function dispose():Void;
 }

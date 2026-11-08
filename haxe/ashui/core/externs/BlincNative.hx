@@ -474,6 +474,12 @@ class BlincNative {
 	public static inline function blinc_computed_release(comp:ComputedHandle):Void
 		comp.release();
 
+	/** The collector frees a signal; nothing to do here. **/
+	public static inline function blinc_signal_release(sig:SignalHandle):Void {}
+
+	/** The collector frees a style value; nothing to do here. **/
+	public static inline function blinc_value_release(value:ValueHandle):Void {}
+
 	// --- Host-run effects ---
 	public static inline function blinc_host_effect_new():Int
 		return blinc_abi.Effects.create();
@@ -670,6 +676,12 @@ extern class BlincNative {
 
 	/** Queues the computed for release at the next flush, before its handle is collected. **/
 	static function blinc_computed_release(comp:ComputedHandle):Void;
+
+	/** The collector frees a signal; nothing to do here. **/
+	static inline function blinc_signal_release(sig:SignalHandle):Void {}
+
+	/** The collector frees a style value; nothing to do here. **/
+	static inline function blinc_value_release(value:ValueHandle):Void {}
 
 	// --- Effects: `run` runs now and again whenever a signal or computed it read changes ---
 	static function blinc_effect(run:Void->Void):hl.Abstract<"blinc_effect">;

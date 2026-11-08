@@ -12,6 +12,17 @@ import ashui.core.externs.BlincNative;
 class Shadow implements IValue {
 	public var ptr(default, null):ValueHandle;
 
+	/**
+		Frees the native copy, for good; a value set on a node after that clears the property, like null. Safe to call
+		twice. Rayzor has no collector to do this; on HashLink it is optional.
+	**/
+	public function dispose():Void {
+		if (ptr == null)
+			return;
+		BlincNative.blinc_value_release(ptr);
+		ptr = null;
+	}
+
 	/** Each layer: offset x, offset y, blur, spread, colour, alpha, and 1 for inset. **/
 	public final layers:Array<Array<Float>> = [];
 

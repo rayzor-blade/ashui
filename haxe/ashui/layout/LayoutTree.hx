@@ -26,7 +26,8 @@ import ashui.types.Style.GenericFont;
 	queued write belongs to exactly one instance.
 
 	Call `dispose` to release the tree immediately. Otherwise its nodes are
-	removed when this object is collected.
+	removed when this object is collected; Rayzor has no collector, so there
+	only `dispose` frees the tree.
 **/
 class LayoutTree {
 	/** The native tree, for the functions in `ashui.core.externs` that take one. **/
@@ -37,6 +38,7 @@ class LayoutTree {
 
 	var hitCapacity = 32;
 	var hitBytes:Null<NativeBytes>;
+	var disposed = false;
 
 	// One buffer per purpose, shared by every tree: a call fills one and its result is read out before the next call.
 	static final inputBytes = new Scratch();
@@ -71,13 +73,20 @@ class LayoutTree {
 		which cannot account for the tree's native memory usage.
 	**/
 	public function dispose():Void {
+		if (disposed)
+			return;
+		disposed = true;
 		ashui.input.Pointer.forget(this);
 		ashui.css.Identity.forgetTree(this);
 		for (hook in disposeHooks) hook(this);
 		invalidateHits();
 		root = null;
 		hitBytes = null;
-		LayoutTreeNative.blinc_tree_dispose(this.ptr);
+		var freed = this.ptr;
+		LayoutTreeNative.blinc_tree_dispose(freed);
+		var retired = LayoutTreeNative.blinc_tree_retire(freed);
+		if (retired != freed)
+			this.ptr = retired;
 	}
 
 	/** A new box node, not yet placed: put it under a parent with `addChild`. **/

@@ -23,7 +23,7 @@ import haxe.macro.Expr;
 // The macros below load this module in the macro context too, where `hl`
 // types do not exist, so there it is a plain stand-in.
 #if !macro
-@:forward(get, set, ptr)
+@:forward(get, set, ptr, dispose)
 abstract Signal<T>(ISignal<T>) from ISignal<T> to ISignal<T> {
 #else
 abstract Signal<T>(Dynamic) {

@@ -19,6 +19,23 @@ class LayoutTreeNative {
 	public static inline function blinc_tree_dispose(tree:TreeHandle):Void
 		BlincPlugin.blinc_tree_dispose(tree);
 
+	/** A disposed tree's handle, once; null until the first call. Calls on it do nothing, like those on any disposed tree. **/
+	static var disposedTree:Null<TreeHandle> = null;
+
+	/**
+		Frees a tree that has been disposed, and gives back the handle it keeps from then on: one shared tree that is
+		already disposed, so a later call on the freed tree reaches that and does nothing.
+	**/
+	public static function blinc_tree_retire(tree:TreeHandle):TreeHandle {
+		if (disposedTree == null) {
+			var shared = BlincPlugin.blinc_tree_new();
+			BlincPlugin.blinc_tree_dispose(shared);
+			disposedTree = shared;
+		}
+		BlincPlugin.blinc_tree_release(tree);
+		return disposedTree;
+	}
+
 	public static inline function blinc_tree_create_node(tree:TreeHandle):haxe.Int64
 		return BlincPlugin.blinc_tree_create_node(tree);
 
@@ -139,6 +156,10 @@ class LayoutTreeNative {
 	public static inline function blinc_tree_dispose(tree:TreeHandle):Void
 		tree.dispose();
 
+	/** The collector frees a disposed tree, which keeps its handle; nothing to do here. **/
+	public static inline function blinc_tree_retire(tree:TreeHandle):TreeHandle
+		return tree;
+
 	public static inline function blinc_tree_create_node(tree:TreeHandle):haxe.Int64
 		return tree.create_node();
 
@@ -258,6 +279,10 @@ extern class LayoutTreeNative {
 
 	/** Frees the tree now and unbinds its nodes; later calls on it do nothing. **/
 	static function blinc_tree_dispose(tree:TreeHandle):Void;
+
+	/** The collector frees a disposed tree, which keeps its handle; nothing to do here. **/
+	static inline function blinc_tree_retire(tree:TreeHandle):TreeHandle
+		return tree;
 
 	/** A new node with no parent and default style; its id. **/
 	static function blinc_tree_create_node(tree:TreeHandle):haxe.Int64;

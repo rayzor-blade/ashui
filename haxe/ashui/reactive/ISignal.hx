@@ -8,4 +8,7 @@ interface ISignal<T> {
 
 	function get():T;
 	function set(val:T):Void;
+
+	/** Frees the native signal, for good: it then keeps the value it had and ignores writes. Safe to call twice. **/
+	function dispose():Void;
 }

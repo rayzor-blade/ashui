@@ -63,7 +63,10 @@ class NativeCascade {
 
 	static function css():CssHandle {
 		if (handle == null) {
-			handle = CssNative.blinc_css_new();
+			var made = CssNative.blinc_css_new();
+			handle = made;
+			// The engine belongs to the window's context and is freed with it.
+			ashui.core.UiContext.current.onCleanup(() -> CssNative.blinc_css_release(made));
 		}
 		if (!hooked) {
 			hooked = true;

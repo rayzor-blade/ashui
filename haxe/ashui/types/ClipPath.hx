@@ -29,6 +29,17 @@ import ashui.types.ClipPathCss;
 class ClipPath implements IValue {
 	public var ptr(default, null):ValueHandle;
 
+	/**
+		Frees the native copy, for good; a value set on a node after that clears the property, like null. Safe to call
+		twice. Rayzor has no collector to do this; on HashLink it is optional.
+	**/
+	public function dispose():Void {
+		if (ptr == null)
+			return;
+		BlincNative.blinc_value_release(ptr);
+		ptr = null;
+	}
+
 	// The native call copies what it is given, so one buffer of each kind serves every clip path made.
 	static final valueBytes = new Scratch();
 	static final flagBytes = new Scratch();

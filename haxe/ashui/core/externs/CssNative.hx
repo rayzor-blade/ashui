@@ -23,6 +23,14 @@ class CssNative {
 	public static inline function blinc_css_new():CssHandle
 		return BlincPlugin.blinc_css_new();
 
+	/** Frees the engine; it must not be used afterwards. **/
+	public static inline function blinc_css_release(css:CssHandle):Void
+		BlincPlugin.blinc_css_release(css);
+
+	/** Frees a parsed sheet; it must not be used afterwards. **/
+	public static inline function blinc_sheet_release(sheet:SheetHandle):Void
+		BlincPlugin.blinc_sheet_release(sheet);
+
 	public static inline function blinc_css_parse(source:NativeBytes, file:NativeBytes):SheetHandle
 		return BlincPlugin.blinc_sheet_parse(text(source), text(file));
 
@@ -114,6 +122,12 @@ class CssNative {
 	public static inline function blinc_css_new():CssHandle
 		return new blinc_abi.Css();
 
+	/** The collector frees the engine; nothing to do here. **/
+	public static inline function blinc_css_release(css:CssHandle):Void {}
+
+	/** The collector frees a sheet; nothing to do here. **/
+	public static inline function blinc_sheet_release(sheet:SheetHandle):Void {}
+
 	public static function blinc_css_add(css:CssHandle, source:NativeBytes, file:NativeBytes, at:Int, id:hl.Ref<Int>):NativeBytes {
 		id.set(css.add(text(source), text(file), at));
 		return bytes(css.diagnostics());
@@ -204,6 +218,12 @@ class CssNative {
 @:hlNative("blinc_abi")
 extern class CssNative {
 	static function blinc_css_new():CssHandle;
+
+	/** The collector frees the engine; nothing to do here. **/
+	static inline function blinc_css_release(css:CssHandle):Void {}
+
+	/** The collector frees a sheet; nothing to do here. **/
+	static inline function blinc_sheet_release(sheet:SheetHandle):Void {}
 
 	/** Parses `source` and adds it at `at`; writes its id to `id`, -1 if none, and returns its diagnostics, each `severity, line, column, file, message`. **/
 	static function blinc_css_add(css:CssHandle, source:NativeBytes, file:NativeBytes, at:Int, id:hl.Ref<Int>):NativeBytes;

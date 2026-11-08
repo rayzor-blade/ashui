@@ -29,6 +29,17 @@ enum abstract DecorationStyle(Int) to Int {
 class TextDecoration implements IValue {
 	public var ptr(default, null):ValueHandle;
 
+	/**
+		Frees the native copy, for good; a value set on a node after that clears the property, like null. Safe to call
+		twice. Rayzor has no collector to do this; on HashLink it is optional.
+	**/
+	public function dispose():Void {
+		if (ptr == null)
+			return;
+		BlincNative.blinc_value_release(ptr);
+		ptr = null;
+	}
+
 	public function new(lines:Int, ?style:DecorationStyle, ?color:Color, ?thickness:Single, ?offset:Single) {
 		// A negative alpha, a NaN thickness and a NaN offset are the font's own, across the ABI.
 		ptr = BlincNative.blinc_text_decoration(lines, style == null ? Solid : style, color == null ? 0 : color.rgb, color == null ? -1.0 : color.alpha,

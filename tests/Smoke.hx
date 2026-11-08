@@ -3159,6 +3159,59 @@ class Smoke {
 		watchTree.flush();
 		check("a watch that stops itself as it reads leaves later writes working", seenOther.join(",") == "0,5,6", seenOther);
 
+		// --- Freeing native handles ---
+		var freedFloat32 = Signal.make((7 : Single));
+		freedFloat32.dispose();
+		check("a freed signal keeps the value it had", near(freedFloat32.get(), 7), freedFloat32.get());
+		freedFloat32.set(9);
+		check("a freed signal ignores writes", near(freedFloat32.get(), 7), freedFloat32.get());
+		freedFloat32.dispose();
+		check("a signal is freed once however often it is asked", near(freedFloat32.get(), 7));
+		var freedInt = Signal.make(3);
+		var freedFloat = Signal.make(1.5);
+		var freedFlag = Signal.make(true);
+		var freedText = Signal.make("hi");
+		freedInt.set(4);
+		freedFloat.set(2.5);
+		freedFlag.set(false);
+		freedText.set("bye");
+		freedInt.dispose();
+		freedFloat.dispose();
+		freedFlag.dispose();
+		freedText.dispose();
+		freedInt.set(5);
+		freedFloat.set(3.5);
+		freedFlag.set(true);
+		freedText.set("again");
+		check("freed signals of every kind keep their last value",
+			freedInt.get() == 4 && near(freedFloat.get(), 2.5) && freedFlag.get() == false && freedText.get() == "bye",
+			[freedInt.get(), freedFloat.get(), freedFlag.get(), freedText.get()]);
+		var freedList = Signal.make([1, 2]);
+		freedList.dispose();
+		freedList.set([3]);
+		check("a freed signal of any value keeps it", freedList.get().join(",") == "1,2", freedList.get());
+
+		var shade = new Color(0xff0000);
+		shade.dispose();
+		check("a freed style value has no handle", shade.ptr == null);
+		shade.dispose();
+		check("a style value is freed once however often it is asked", shade.ptr == null);
+		var wash = Brush.solid(0x00ff00);
+		var washed = new Div({width: 10, height: 10, bg: wash}, tree);
+		wash.dispose();
+		washed.node.set(ashui.layout.Prop.Background, wash);
+		tree.flush();
+		check("a freed value set on a node is survived", washed.node != null);
+
+		var hookRuns = 0;
+		var hook = (_:LayoutTree) -> hookRuns++;
+		LayoutTree.disposeHooks.push(hook);
+		var spent = new LayoutTree();
+		spent.dispose();
+		spent.dispose();
+		LayoutTree.disposeHooks.remove(hook);
+		check("a tree runs its disposal once however often it is disposed", hookRuns == 1, hookRuns);
+
 		Sys.println(failures == 0 ? "ALL PASSED" : '$failures FAILED');
 		Sys.exit(failures == 0 ? 0 : 1);
 	}
