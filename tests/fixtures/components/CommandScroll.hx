@@ -24,7 +24,7 @@ class CommandScroll {
 	}
 	static function key(k:window.Key, code:window.KeyCode):window.KeyEvent
 		return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
-	static function watches():Int return [for (w in @:privateAccess Watch.bySlot) if (w != null) w].length;
+	static function watches():Int return [for (w in @:privateAccess ashui.reactive.HostSlot.bySlot) if (w != null) w].length;
 	static function warmup() {
 		// Initialize shared text-flow/editing hooks before measuring per-owner cleanup (08938d7).
 		var tree = new LayoutTree(), stop:Void->Void = null;

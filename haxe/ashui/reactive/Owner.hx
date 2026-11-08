@@ -113,8 +113,10 @@ class Owner {
 			current.cleanups.push(fn);
 	}
 
+	#if !ashui_rayzor
 	/** Releases a computed made under the current owner when it is disposed. **/
 	@:noCompletion public static function adoptComputed(ptr:ComputedHandle):Void {
 		onCleanup(() -> BlincNative.blinc_computed_release(ptr));
 	}
+	#end
 }

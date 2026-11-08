@@ -1,9 +1,5 @@
 package ashui.reactive;
 
-import ashui.core.NativeBytes;
-
-import ashui.core.externs.BlincNative;
-
 /**
 	Runs a reaction when a tracked value changes:
 
@@ -23,23 +19,15 @@ import ashui.core.externs.BlincNative;
 	Blinc tracks dependencies through a native slot. Haxe runs `read` between
 	the slot's begin and end calls; native code does not retain its closure.
 **/
-class Watch<T> {
-	/** Watches by slot. **/
-	static var bySlot:Array<Null<Watch<Dynamic>>> = [];
-
-	static var due = new NativeBytes(4 * DUE);
-	static inline var DUE = 256;
-
+class Watch<T> extends HostSlot {
 	/** Watches whose `read` gave a new value since they last reacted. **/
 	static var changed:Array<Watch<Dynamic>> = [];
 
 	final read:Void->T;
 	final react:T->Void;
 	final same:(T, T) -> Bool;
-	final slot:Int;
 	var latest:T;
 	var reacted:T;
-	var stopped = false;
 	var queued = false;
 
 	/**
@@ -47,13 +35,11 @@ class Watch<T> {
 		`same` compares values before reacting. It defaults to `==`.
 	**/
 	public function new(read:Void->T, react:T->Void, ?same:(T, T) -> Bool) {
+		super(false, "A watch");
 		this.read = ashui.core.UiContext.capture(read);
 		var context = ashui.core.UiContext.current;
 		this.react = value -> context.run(() -> react(value));
 		this.same = same != null ? same : (a, b) -> a == b;
-		Guard.creating("A watch");
-		slot = BlincNative.blinc_host_effect_new();
-		bySlot[slot] = cast this;
 		run();
 		Guard.check();
 		reacted = latest;
@@ -61,55 +47,36 @@ class Watch<T> {
 		Owner.onCleanup(stop);
 	}
 
-	/** `read` between the slot's begin and end, which track what it reads. **/
-	function run():Void {
-		BlincNative.blinc_host_effect_begin(slot);
-		try {
-			latest = read();
-		} catch (e:haxe.Exception) {
-			BlincNative.blinc_host_effect_end(slot);
-			throw e;
+	override function evaluate():Void
+		latest = read();
+
+	override function poll():Void {
+		run();
+		Guard.check();
+		if (!queued && !same(reacted, latest)) {
+			queued = true;
+			changed.push(this);
 		}
-		BlincNative.blinc_host_effect_end(slot);
 	}
 
 	/** Stops reacting, for good; its owner's disposal does this too. **/
-	public function stop():Void {
-		if (stopped)
-			return;
-		stopped = true;
-		bySlot[slot] = null;
-		BlincNative.blinc_host_effect_release(slot);
-	}
+	public function stop():Void
+		release();
 
 	/**
 		Reevaluates pending watches and queues changed values for `runQueued`.
 		Layout calls this after settling, so watches read final geometry before rendering.
 	**/
-	@:noCompletion public static function readDue():Void {
-		while (true) {
-			var n = BlincNative.blinc_host_effects_due(due, DUE);
-			for (i in 0...n) {
-				var watch = bySlot[due.getI32(i * 4)];
-				if (watch == null || watch.stopped)
-					continue;
-				watch.run();
-				Guard.check();
-				if (!watch.queued && !watch.same(watch.reacted, watch.latest)) {
-					watch.queued = true;
-					changed.push(watch);
-				}
-			}
-			if (n < DUE)
-				return;
-		}
-	}
+	@:noCompletion public static function readDue():Void
+		HostSlot.readAll();
 
 	/** Runs every due watch's `read`, then reacts for each whose value changed; true if any did. **/
 	@:noCompletion public static function runQueued():Bool {
 		readDue();
+		// A computed that wrote a native value also needs the flush that applies it.
+		var moved = HostSlot.takeMoved();
 		if (changed.length == 0)
-			return false;
+			return moved;
 		var batch = changed;
 		changed = [];
 		var any = false;
@@ -121,6 +88,6 @@ class Watch<T> {
 			watch.react(watch.latest);
 			any = true;
 		}
-		return any;
+		return any || moved;
 	}
 }

@@ -27,7 +27,7 @@ class TabsIndicator {
 		Sys.println('ok   $name');
 	}
 	static function near(a:Float, b:Float):Bool return Math.abs(a - b) < 0.05;
-	static function watches():Int return [for (w in @:privateAccess Watch.bySlot) if (w != null) w].length;
+	static function watches():Int return [for (w in @:privateAccess ashui.reactive.HostSlot.bySlot) if (w != null) w].length;
 	static function key(k:window.Key, code:window.KeyCode):window.KeyEvent
 		return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
 	static function warmup() {

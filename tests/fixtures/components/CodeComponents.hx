@@ -687,7 +687,7 @@ class CodeComponents {
 		check("closing completion docs releases their scroll container", ashui.input.Scroll.at(docsId, compTree) == null);
 		function compWatches() {
 			var count = 0;
-			@:privateAccess for (watch in ashui.reactive.Watch.bySlot) if(watch != null) count++;
+			@:privateAccess for (watch in ashui.reactive.HostSlot.bySlot) if(watch != null) count++;
 			return count;
 		}
 		var watchesBefore = compWatches();

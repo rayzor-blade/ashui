@@ -32,7 +32,7 @@ class ComponentFragments {
 		return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
 
 	static function watches():Int
-		return [for (w in @:privateAccess Watch.bySlot) if (w != null) w].length;
+		return [for (w in @:privateAccess ashui.reactive.HostSlot.bySlot) if (w != null) w].length;
 
 	static function main() {
 		ThemeState.init(DefaultTheme.bundle(), Dark);

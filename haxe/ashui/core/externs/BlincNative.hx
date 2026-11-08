@@ -8,13 +8,12 @@ import ashui.core.externs.Handles;
 #if ashui_rayzor
 /**
 	`BlincNative` over the `blinc_abi` Rayzor plugin: the same calls on its signals, style values and
-	property routers. Computeds and closure effects are not available yet, as the plugin cannot call
-	back into Haxe; every signal, value and tree handle is freed by hand (`blinc_signal_release`,
-	`blinc_value_release`).
+	property routers. The plugin cannot call back into Haxe, so it has no computeds or closure effects:
+	a computed is a host effect slot with a signal for its result (`ComputedSlot`), and a property bound
+	to a computed binds that signal. Every signal, value and tree handle is freed by hand
+	(`blinc_signal_release`, `blinc_value_release`).
 **/
 class BlincNative {
-	static inline var unsupported = "The Rayzor plugin has no computeds or closure effects yet";
-
 	/** The tree the plugin's property writes go through; the nodes belong to the one shared tree. **/
 	static var router:TreeHandle;
 
@@ -40,15 +39,6 @@ class BlincNative {
 	public static inline function blinc_signal_set_i32(sig:SignalHandle, v:Int):Void
 		BlincPlugin.blinc_signal_set_i32(sig, v);
 
-	public static function blinc_computed_i32(compute:Void->Void):ComputedHandle
-		throw unsupported;
-
-	public static function blinc_computed_get_i32(comp:ComputedHandle):Int
-		throw unsupported;
-
-	public static function blinc_return_i32(v:Int):Void
-		throw unsupported;
-
 	// --- Single signals ---
 	public static inline function blinc_signal_f32(initial:Single):SignalHandle
 		return BlincPlugin.blinc_signal_f32(initial);
@@ -58,15 +48,6 @@ class BlincNative {
 
 	public static inline function blinc_signal_set_f32(sig:SignalHandle, v:Single):Void
 		BlincPlugin.blinc_signal_set_f32(sig, v);
-
-	public static function blinc_computed_f32(compute:Void->Void):ComputedHandle
-		throw unsupported;
-
-	public static function blinc_computed_get_f32(comp:ComputedHandle):Single
-		throw unsupported;
-
-	public static function blinc_return_f32(v:Single):Void
-		throw unsupported;
 
 	// --- Float signals ---
 	public static inline function blinc_signal_f64(initial:Float):SignalHandle
@@ -78,15 +59,6 @@ class BlincNative {
 	public static inline function blinc_signal_set_f64(sig:SignalHandle, v:Float):Void
 		BlincPlugin.blinc_signal_set_f64(sig, v);
 
-	public static function blinc_computed_f64(compute:Void->Void):ComputedHandle
-		throw unsupported;
-
-	public static function blinc_computed_get_f64(comp:ComputedHandle):Float
-		throw unsupported;
-
-	public static function blinc_return_f64(v:Float):Void
-		throw unsupported;
-
 	// --- Bool signals ---
 	public static inline function blinc_signal_bool(initial:Int):SignalHandle
 		return BlincPlugin.blinc_signal_bool(initial != 0);
@@ -96,15 +68,6 @@ class BlincNative {
 
 	public static inline function blinc_signal_set_bool(sig:SignalHandle, v:Int):Void
 		BlincPlugin.blinc_signal_set_bool(sig, v != 0);
-
-	public static function blinc_computed_bool(compute:Void->Void):ComputedHandle
-		throw unsupported;
-
-	public static function blinc_computed_get_bool(comp:ComputedHandle):Bool
-		throw unsupported;
-
-	public static function blinc_return_bool(v:Int):Void
-		throw unsupported;
 
 	// --- String signals ---
 	public static function blinc_signal_string(initial:NativeText):SignalHandle
@@ -119,15 +82,6 @@ class BlincNative {
 	public static inline function blinc_signal_string_version(sig:SignalHandle):Int
 		return BlincPlugin.blinc_signal_string_version(sig);
 
-	public static function blinc_computed_string(compute:Void->Void):ComputedHandle
-		throw unsupported;
-
-	public static function blinc_computed_get_string(comp:ComputedHandle):NativeText
-		throw unsupported;
-
-	public static function blinc_return_string(v:NativeText):Void
-		throw unsupported;
-
 	// --- Value signals ---
 	public static inline function blinc_signal_value(initial:ValueHandle):SignalHandle
 		return BlincPlugin.blinc_signal_value(initial);
@@ -135,21 +89,9 @@ class BlincNative {
 	public static inline function blinc_signal_set_value(sig:SignalHandle, v:ValueHandle):Void
 		BlincPlugin.blinc_signal_set_value(sig, v);
 
-	public static function blinc_computed_value(compute:Void->Void):ComputedHandle
-		throw unsupported;
-
-	public static function blinc_return_value(v:ValueHandle):Void
-		throw unsupported;
-
 	// --- Any type ---
 	public static inline function blinc_signal_touch(sig:SignalHandle):Void
 		BlincPlugin.blinc_signal_touch(sig);
-
-	public static function blinc_computed_touch(comp:ComputedHandle):Void
-		throw unsupported;
-
-	public static function blinc_computed_release(comp:ComputedHandle):Void
-		throw unsupported;
 
 	/** Frees a signal; it must not be used afterwards. Rayzor has no collector to do it. **/
 	public static inline function blinc_signal_release(sig:SignalHandle):Void
@@ -158,13 +100,6 @@ class BlincNative {
 	/** Frees a style value; it must not be used afterwards. **/
 	public static inline function blinc_value_release(value:ValueHandle):Void
 		BlincPlugin.blinc_value_release(value);
-
-	// --- Closure effects ---
-	public static function blinc_effect(run:Void->Void):Dynamic
-		throw unsupported;
-
-	public static function blinc_effect_release(effect:Dynamic):Void
-		throw unsupported;
 
 	// --- Host-run effects ---
 	public static inline function blinc_host_effect_new():Int
@@ -187,7 +122,8 @@ class BlincNative {
 		switch (kind) {
 			case 0: BlincPlugin.blinc_tree_apply_f32(tree(), node, prop, constant);
 			case 1: BlincPlugin.blinc_tree_bind_f32(tree(), node, prop, sig);
-			default: throw unsupported;
+			// A computed's result is a signal.
+			default: BlincPlugin.blinc_tree_bind_f32(tree(), node, prop, comp);
 		}
 	}
 
@@ -195,7 +131,8 @@ class BlincNative {
 		switch (kind) {
 			case 0: BlincPlugin.blinc_tree_apply_i32(tree(), node, prop, constant);
 			case 1: BlincPlugin.blinc_tree_bind_i32(tree(), node, prop, sig);
-			default: throw unsupported;
+			// A computed's result is a signal.
+			default: BlincPlugin.blinc_tree_bind_i32(tree(), node, prop, comp);
 		}
 	}
 
@@ -203,7 +140,8 @@ class BlincNative {
 		switch (kind) {
 			case 0: BlincPlugin.blinc_tree_apply_value(tree(), node, prop, constant);
 			case 1: BlincPlugin.blinc_tree_bind_value(tree(), node, prop, sig);
-			default: throw unsupported;
+			// A computed's result is a signal.
+			default: BlincPlugin.blinc_tree_bind_value(tree(), node, prop, comp);
 		}
 	}
 
@@ -211,7 +149,8 @@ class BlincNative {
 		switch (kind) {
 			case 0: BlincPlugin.blinc_tree_apply_string(tree(), node, prop, constant);
 			case 1: BlincPlugin.blinc_tree_bind_string(tree(), node, prop, sig);
-			default: throw unsupported;
+			// A computed's result is a signal.
+			default: BlincPlugin.blinc_tree_bind_string(tree(), node, prop, comp);
 		}
 	}
 

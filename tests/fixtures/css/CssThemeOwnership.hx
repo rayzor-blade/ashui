@@ -20,7 +20,7 @@ class CssThemeOwnership {
 		return TreeSnapshot.take(tree).elements[0].style.get("color").toLowerCase();
 	}
 	static function expected():String return ("#" + StringTools.hex(ThemeState.get().color(Primary).rgb(), 6)).toLowerCase();
-	static function watches():Int return [for (w in @:privateAccess Watch.bySlot) if (w != null) w].length;
+	static function watches():Int return [for (w in @:privateAccess ashui.reactive.HostSlot.bySlot) if (w != null) w].length;
 	static function main() {
 		var remaining = -1;
 		for (round in 0...8) {

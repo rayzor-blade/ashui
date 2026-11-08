@@ -13,10 +13,6 @@ extern class BlincSignal {}
 @:native("ashui::blinc::StyleValue")
 extern class BlincValue {}
 
-/** A computed of the reactive graph. The plugin has none yet: computeds need a callback into Haxe. **/
-@:native("ashui::blinc::Computed")
-extern class BlincComputed {}
-
 /** A CSS engine; free it with `blinc_css_release`. **/
 @:native("ashui::blinc::Css")
 extern class BlincCss {}

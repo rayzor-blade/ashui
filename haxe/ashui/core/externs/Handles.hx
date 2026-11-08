@@ -8,7 +8,7 @@ package ashui.core.externs;
 #if ashui_rayzor
 typedef TreeHandle = BlincPlugin.BlincTree;
 typedef SignalHandle = BlincPlugin.BlincSignal;
-typedef ComputedHandle = BlincPlugin.BlincComputed;
+typedef ComputedHandle = SignalHandle;
 typedef ValueHandle = BlincPlugin.BlincValue;
 typedef CssHandle = BlincPlugin.BlincCss;
 typedef SheetHandle = BlincPlugin.BlincSheet;

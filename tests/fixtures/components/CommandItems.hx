@@ -24,7 +24,7 @@ class CommandItems {
 	}
 	static function key(k:window.Key, code:window.KeyCode):window.KeyEvent
 		return Input(Code(code), k, None, Standard, Pressed, false, Unavailable);
-	static function watches():Int return [for (w in @:privateAccess Watch.bySlot) if (w != null) w].length;
+	static function watches():Int return [for (w in @:privateAccess ashui.reactive.HostSlot.bySlot) if (w != null) w].length;
 	static function parts():Int return [for (p in @:privateAccess Command.parts) p].length;
 	static function main() {
 		for (dark in [true, false]) {
