@@ -11,19 +11,19 @@ class BitmapNative {
 		return b == null ? haxe.io.Bytes.alloc(0) : (b : haxe.io.Bytes);
 
 	public static inline function blinc_bitmap_decode(bytes:NativeBytes, len:Int):Int
-		return RzNative.blinc_res_decode_bitmap(wrap(bytes, len));
+		return BlincPlugin.blinc_res_decode_bitmap(wrap(bytes, len));
 
 	public static inline function blinc_bitmap_size(slot:Int, height:Bool):Int
-		return RzNative.blinc_res_bitmap_size(slot, height);
+		return BlincPlugin.blinc_res_bitmap_size(slot, height);
 
 	public static inline function blinc_bitmap_release(slot:Int):Void
-		RzNative.blinc_res_release_bitmap(slot);
+		BlincPlugin.blinc_res_release_bitmap(slot);
 
 	public static inline function blinc_bitmap_resample(slot:Int, width:Int, height:Int, fit:Int, out:NativeBytes):Bool
-		return RzNative.blinc_res_resample_bitmap(slot, width, height, fit, wrap(out, width * height * 4));
+		return BlincPlugin.blinc_res_resample_bitmap(slot, width, height, fit, wrap(out, width * height * 4));
 
 	public static inline function blinc_bitmap_shrink(slot:Int, maxSide:Int):Bool
-		return RzNative.blinc_res_shrink_bitmap(slot, maxSide);
+		return BlincPlugin.blinc_res_shrink_bitmap(slot, maxSide);
 }
 #elseif ashui_caribou
 /** `BitmapNative` over the `blinc_abi` Caribou plugin's `Resources`. **/

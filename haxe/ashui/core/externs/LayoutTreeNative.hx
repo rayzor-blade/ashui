@@ -14,115 +14,115 @@ class LayoutTreeNative {
 		return b == null ? haxe.io.Bytes.alloc(0) : (b : haxe.io.Bytes);
 
 	public static inline function blinc_tree_new():TreeHandle
-		return RzNative.blinc_tree_new();
+		return BlincPlugin.blinc_tree_new();
 
 	public static inline function blinc_tree_dispose(tree:TreeHandle):Void
-		RzNative.blinc_tree_dispose(tree);
+		BlincPlugin.blinc_tree_dispose(tree);
 
 	public static inline function blinc_tree_create_node(tree:TreeHandle):haxe.Int64
-		return RzNative.blinc_tree_create_node(tree);
+		return BlincPlugin.blinc_tree_create_node(tree);
 
 	public static inline function blinc_tree_create_text_node(tree:TreeHandle, content:NativeBytes, fontName:NativeBytes, fontSize:Single, lineHeight:Single,
 			fontWeight:Int, genericFont:Int, flags:Int):haxe.Int64
-		return RzNative.blinc_tree_create_text_node(tree, text(content), text(fontName), fontSize, lineHeight, fontWeight, genericFont, flags);
+		return BlincPlugin.blinc_tree_create_text_node(tree, text(content), text(fontName), fontSize, lineHeight, fontWeight, genericFont, flags);
 
 	public static inline function blinc_tree_add_child(tree:TreeHandle, parent:haxe.Int64, child:haxe.Int64):Void
-		RzNative.blinc_tree_add_child(tree, parent, child);
+		BlincPlugin.blinc_tree_add_child(tree, parent, child);
 
 	public static inline function blinc_tree_remove_node(tree:TreeHandle, node:haxe.Int64):Void
-		RzNative.blinc_tree_remove_node(tree, node);
+		BlincPlugin.blinc_tree_remove_node(tree, node);
 
 	public static inline function blinc_tree_remove_subtree(tree:TreeHandle, node:haxe.Int64):Void
-		RzNative.blinc_tree_remove_subtree(tree, node);
+		BlincPlugin.blinc_tree_remove_subtree(tree, node);
 
 	public static inline function blinc_tree_clear_children(tree:TreeHandle, parent:haxe.Int64):Void
-		RzNative.blinc_tree_clear_children(tree, parent);
+		BlincPlugin.blinc_tree_clear_children(tree, parent);
 
 	public static inline function blinc_tree_replace_node(tree:TreeHandle, old:haxe.Int64, next:haxe.Int64):Void
-		RzNative.blinc_tree_replace_node(tree, old, next);
+		BlincPlugin.blinc_tree_replace_node(tree, old, next);
 
 	public static inline function blinc_tree_replace_children(tree:TreeHandle, parent:haxe.Int64, children:NativeBytes, len:Int):Void
-		RzNative.blinc_tree_replace_children(tree, parent, wrap(children, len * 8));
+		BlincPlugin.blinc_tree_replace_children(tree, parent, wrap(children, len * 8));
 
 	public static inline function blinc_tree_ancestors(tree:TreeHandle, node:haxe.Int64, out:NativeBytes, capacity:Int):Int
-		return RzNative.blinc_tree_ancestors(tree, node, wrap(out, capacity * 8));
+		return BlincPlugin.blinc_tree_ancestors(tree, node, wrap(out, capacity * 8));
 
 	public static inline function blinc_tree_children(tree:TreeHandle, node:haxe.Int64, out:NativeBytes, capacity:Int):Int
-		return RzNative.blinc_tree_children(tree, node, wrap(out, capacity * 8));
+		return BlincPlugin.blinc_tree_children(tree, node, wrap(out, capacity * 8));
 
 	public static inline function blinc_tree_set_children(tree:TreeHandle, parent:haxe.Int64, children:NativeBytes, len:Int):Void
-		RzNative.blinc_tree_set_children(tree, parent, wrap(children, len * 8));
+		BlincPlugin.blinc_tree_set_children(tree, parent, wrap(children, len * 8));
 
 	public static inline function blinc_tree_set_grid_rows(tree:TreeHandle, group:haxe.Int64, rows:NativeBytes, len:Int):Bool
-		return RzNative.blinc_tree_set_grid_rows(tree, group, wrap(rows, len * 8));
+		return BlincPlugin.blinc_tree_set_grid_rows(tree, group, wrap(rows, len * 8));
 
 	public static inline function blinc_tree_flush(tree:TreeHandle):Bool
-		return RzNative.blinc_tree_flush(tree);
+		return BlincPlugin.blinc_tree_flush(tree);
 
 	public static inline function blinc_tree_compute_layout(tree:TreeHandle, root:haxe.Int64, width:Single, height:Single):Void
-		RzNative.blinc_tree_compute_layout(tree, root, width, height);
+		BlincPlugin.blinc_tree_compute_layout(tree, root, width, height);
 
 	public static inline function blinc_tree_display_list(tree:TreeHandle, root:haxe.Int64, params:NativeBytes, out:NativeBytes, capacity:Int):Int
-		return RzNative.blinc_tree_display_list(tree, root, wrap(params, 36), wrap(out, capacity * ashui.layout.DisplayList.RECORD_BYTES));
+		return BlincPlugin.blinc_tree_display_list(tree, root, wrap(params, 36), wrap(out, capacity * ashui.layout.DisplayList.RECORD_BYTES));
 
 	public static inline function blinc_tree_set_image(tree:TreeHandle, node:haxe.Int64, slot:Int):Void
-		RzNative.blinc_tree_set_image(tree, node, slot);
+		BlincPlugin.blinc_tree_set_image(tree, node, slot);
 
 	public static inline function blinc_tree_set_image_mapping(tree:TreeHandle, node:haxe.Int64, fit:Int, x:Single, y:Single, offsetX:Single,
 			offsetY:Single):Void
-		RzNative.blinc_tree_set_image_mapping(tree, node, fit, x, y, offsetX, offsetY);
+		BlincPlugin.blinc_tree_set_image_mapping(tree, node, fit, x, y, offsetX, offsetY);
 
 	public static inline function blinc_tree_set_canvas(tree:TreeHandle, node:haxe.Int64, slot:Int):Void
-		RzNative.blinc_tree_set_canvas(tree, node, slot);
+		BlincPlugin.blinc_tree_set_canvas(tree, node, slot);
 
 	public static inline function blinc_tree_hit_test_region(tree:TreeHandle, root:haxe.Int64, x:Single, y:Single, out:NativeBytes, capacity:Int,
 			region:NativeBytes):Int
-		return RzNative.blinc_tree_hit_test_region(tree, root, x, y, wrap(out, capacity * 16), wrap(region, 16));
+		return BlincPlugin.blinc_tree_hit_test_region(tree, root, x, y, wrap(out, capacity * 16), wrap(region, 16));
 
 	public static inline function blinc_tree_hit_test(tree:TreeHandle, root:haxe.Int64, x:Single, y:Single, out:NativeBytes, capacity:Int):Int
-		return RzNative.blinc_tree_hit_test(tree, root, x, y, wrap(out, capacity * 16));
+		return BlincPlugin.blinc_tree_hit_test(tree, root, x, y, wrap(out, capacity * 16));
 
 	public static inline function blinc_tree_order(tree:TreeHandle, root:haxe.Int64, out:NativeBytes, capacity:Int):Int
-		return RzNative.blinc_tree_order(tree, root, wrap(out, capacity * 8));
+		return BlincPlugin.blinc_tree_order(tree, root, wrap(out, capacity * 8));
 
 	public static inline function blinc_tree_path(tree:TreeHandle, root:haxe.Int64, node:haxe.Int64, out:NativeBytes, capacity:Int):Int
-		return RzNative.blinc_tree_path(tree, root, node, wrap(out, capacity * 8));
+		return BlincPlugin.blinc_tree_path(tree, root, node, wrap(out, capacity * 8));
 
 	public static inline function blinc_tree_set_scroll(tree:TreeHandle, node:haxe.Int64, x:Single, y:Single, thumb:Int):Void
-		RzNative.blinc_tree_set_scroll(tree, node, x, y, thumb);
+		BlincPlugin.blinc_tree_set_scroll(tree, node, x, y, thumb);
 
 	public static inline function blinc_tree_set_scrollbar_style(tree:TreeHandle, node:haxe.Int64, width:Single, track:Int):Void
-		RzNative.blinc_tree_set_scrollbar_style(tree, node, width, track);
+		BlincPlugin.blinc_tree_set_scrollbar_style(tree, node, width, track);
 
 	public static inline function blinc_tree_scroll_extent(tree:TreeHandle, node:haxe.Int64, out:NativeBytes):Bool
-		return RzNative.blinc_tree_scroll_extent(tree, node, wrap(out, 16));
+		return BlincPlugin.blinc_tree_scroll_extent(tree, node, wrap(out, 16));
 
 	public static inline function blinc_tree_box_edges(tree:TreeHandle, node:haxe.Int64, out:NativeBytes):Bool
-		return RzNative.blinc_tree_box_edges(tree, node, wrap(out, 20));
+		return BlincPlugin.blinc_tree_box_edges(tree, node, wrap(out, 20));
 
 	public static inline function blinc_tree_text_align(tree:TreeHandle, node:haxe.Int64):Int
-		return RzNative.blinc_tree_text_align(tree, node);
+		return BlincPlugin.blinc_tree_text_align(tree, node);
 
 	public static inline function blinc_tree_text_limits(tree:TreeHandle, node:haxe.Int64, out:NativeBytes):Void
-		RzNative.blinc_tree_text_limits(tree, node, wrap(out, 8));
+		BlincPlugin.blinc_tree_text_limits(tree, node, wrap(out, 8));
 
 	public static inline function blinc_tree_set_visual(tree:TreeHandle, node:haxe.Int64, dx:Single, dy:Single, w:Single, h:Single, clear:Bool):Void
-		RzNative.blinc_tree_set_visual(tree, node, dx, dy, w, h, clear);
+		BlincPlugin.blinc_tree_set_visual(tree, node, dx, dy, w, h, clear);
 
 	public static inline function blinc_tree_set_notch(tree:TreeHandle, node:haxe.Int64, data:NativeBytes):Void
-		RzNative.blinc_tree_set_notch(tree, node, wrap(data, 48));
+		BlincPlugin.blinc_tree_set_notch(tree, node, wrap(data, 48));
 
 	public static inline function blinc_tree_set_pass_through(tree:TreeHandle, node:haxe.Int64, through:Bool):Void
-		RzNative.blinc_tree_set_pass_through(tree, node, through);
+		BlincPlugin.blinc_tree_set_pass_through(tree, node, through);
 
 	public static inline function blinc_tree_get_bounds(tree:TreeHandle, node:haxe.Int64, out:NativeBytes):Bool
-		return RzNative.blinc_tree_get_bounds(tree, node, wrap(out, 16));
+		return BlincPlugin.blinc_tree_get_bounds(tree, node, wrap(out, 16));
 
 	public static inline function blinc_tree_get_box(tree:TreeHandle, node:haxe.Int64, out:NativeBytes):Bool
-		return RzNative.blinc_tree_get_box(tree, node, wrap(out, 48));
+		return BlincPlugin.blinc_tree_get_box(tree, node, wrap(out, 48));
 
 	public static inline function blinc_tree_in_view(tree:TreeHandle, node:haxe.Int64):Bool
-		return RzNative.blinc_tree_in_view(tree, node);
+		return BlincPlugin.blinc_tree_in_view(tree, node);
 }
 #elseif ashui_caribou
 /** `LayoutTreeNative` over the `blinc_abi` Caribou plugin's `Tree`. **/

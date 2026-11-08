@@ -8,7 +8,7 @@ import ashui.core.externs.Handles;
 /** `SvgNative` over the `blinc_abi` Rayzor plugin's resources. **/
 class SvgNative {
 	public static inline function blinc_svg_rasterize(markup:NativeBytes, width:Int, height:Int, out:NativeBytes):Bool
-		return RzNative.blinc_res_rasterize_svg(markup == null ? "" : ashui.core.Utf8.decode(markup), width, height, (out : haxe.io.Bytes));
+		return BlincPlugin.blinc_res_rasterize_svg(markup == null ? "" : ashui.core.Utf8.decode(markup), width, height, (out : haxe.io.Bytes));
 }
 #elseif ashui_caribou
 /** `SvgNative` over the `blinc_abi` Caribou plugin's `Resources`. **/

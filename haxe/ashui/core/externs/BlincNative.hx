@@ -19,7 +19,7 @@ class BlincNative {
 
 	static inline function tree():TreeHandle {
 		if (router == null)
-			router = RzNative.blinc_tree_new();
+			router = BlincPlugin.blinc_tree_new();
 		return router;
 	}
 
@@ -30,20 +30,20 @@ class BlincNative {
 		return s == null ? null : ashui.core.Utf8.encode(s);
 
 	public static inline function blinc_is_dirty():Bool
-		return RzNative.blinc_is_dirty();
+		return BlincPlugin.blinc_is_dirty();
 
 	public static inline function blinc_clear_dirty():Void
-		RzNative.blinc_clear_dirty();
+		BlincPlugin.blinc_clear_dirty();
 
 	// --- Int signals ---
 	public static inline function blinc_signal_i32(initial:Int):SignalHandle
-		return RzNative.blinc_signal_i32(initial);
+		return BlincPlugin.blinc_signal_i32(initial);
 
 	public static inline function blinc_signal_get_i32(sig:SignalHandle):Int
-		return RzNative.blinc_signal_get_i32(sig);
+		return BlincPlugin.blinc_signal_get_i32(sig);
 
 	public static inline function blinc_signal_set_i32(sig:SignalHandle, v:Int):Void
-		RzNative.blinc_signal_set_i32(sig, v);
+		BlincPlugin.blinc_signal_set_i32(sig, v);
 
 	public static function blinc_computed_i32(compute:Void->Void):ComputedHandle
 		throw unsupported;
@@ -56,13 +56,13 @@ class BlincNative {
 
 	// --- Single signals ---
 	public static inline function blinc_signal_f32(initial:Single):SignalHandle
-		return RzNative.blinc_signal_f32(initial);
+		return BlincPlugin.blinc_signal_f32(initial);
 
 	public static inline function blinc_signal_get_f32(sig:SignalHandle):Single
-		return cast RzNative.blinc_signal_get_f32(sig);
+		return cast BlincPlugin.blinc_signal_get_f32(sig);
 
 	public static inline function blinc_signal_set_f32(sig:SignalHandle, v:Single):Void
-		RzNative.blinc_signal_set_f32(sig, v);
+		BlincPlugin.blinc_signal_set_f32(sig, v);
 
 	public static function blinc_computed_f32(compute:Void->Void):ComputedHandle
 		throw unsupported;
@@ -75,13 +75,13 @@ class BlincNative {
 
 	// --- Float signals ---
 	public static inline function blinc_signal_f64(initial:Float):SignalHandle
-		return RzNative.blinc_signal_f64(initial);
+		return BlincPlugin.blinc_signal_f64(initial);
 
 	public static inline function blinc_signal_get_f64(sig:SignalHandle):Float
-		return RzNative.blinc_signal_get_f64(sig);
+		return BlincPlugin.blinc_signal_get_f64(sig);
 
 	public static inline function blinc_signal_set_f64(sig:SignalHandle, v:Float):Void
-		RzNative.blinc_signal_set_f64(sig, v);
+		BlincPlugin.blinc_signal_set_f64(sig, v);
 
 	public static function blinc_computed_f64(compute:Void->Void):ComputedHandle
 		throw unsupported;
@@ -94,13 +94,13 @@ class BlincNative {
 
 	// --- Bool signals ---
 	public static inline function blinc_signal_bool(initial:Int):SignalHandle
-		return RzNative.blinc_signal_bool(initial != 0);
+		return BlincPlugin.blinc_signal_bool(initial != 0);
 
 	public static inline function blinc_signal_get_bool(sig:SignalHandle):Bool
-		return RzNative.blinc_signal_get_bool(sig);
+		return BlincPlugin.blinc_signal_get_bool(sig);
 
 	public static inline function blinc_signal_set_bool(sig:SignalHandle, v:Int):Void
-		RzNative.blinc_signal_set_bool(sig, v != 0);
+		BlincPlugin.blinc_signal_set_bool(sig, v != 0);
 
 	public static function blinc_computed_bool(compute:Void->Void):ComputedHandle
 		throw unsupported;
@@ -113,16 +113,16 @@ class BlincNative {
 
 	// --- String signals ---
 	public static function blinc_signal_string(initial:NativeBytes):SignalHandle
-		return RzNative.blinc_signal_string(initial == null ? null : text(initial));
+		return BlincPlugin.blinc_signal_string(initial == null ? null : text(initial));
 
 	public static function blinc_signal_get_string(sig:SignalHandle):NativeBytes
-		return bytes(RzNative.blinc_signal_get_string(sig));
+		return bytes(BlincPlugin.blinc_signal_get_string(sig));
 
 	public static function blinc_signal_set_string(sig:SignalHandle, v:NativeBytes):Void
-		RzNative.blinc_signal_set_string(sig, v == null ? null : text(v));
+		BlincPlugin.blinc_signal_set_string(sig, v == null ? null : text(v));
 
 	public static inline function blinc_signal_string_version(sig:SignalHandle):Int
-		return RzNative.blinc_signal_string_version(sig);
+		return BlincPlugin.blinc_signal_string_version(sig);
 
 	public static function blinc_computed_string(compute:Void->Void):ComputedHandle
 		throw unsupported;
@@ -135,10 +135,10 @@ class BlincNative {
 
 	// --- Value signals ---
 	public static inline function blinc_signal_value(initial:ValueHandle):SignalHandle
-		return RzNative.blinc_signal_value(initial);
+		return BlincPlugin.blinc_signal_value(initial);
 
 	public static inline function blinc_signal_set_value(sig:SignalHandle, v:ValueHandle):Void
-		RzNative.blinc_signal_set_value(sig, v);
+		BlincPlugin.blinc_signal_set_value(sig, v);
 
 	public static function blinc_computed_value(compute:Void->Void):ComputedHandle
 		throw unsupported;
@@ -148,7 +148,7 @@ class BlincNative {
 
 	// --- Any type ---
 	public static inline function blinc_signal_touch(sig:SignalHandle):Void
-		RzNative.blinc_signal_touch(sig);
+		BlincPlugin.blinc_signal_touch(sig);
 
 	public static function blinc_computed_touch(comp:ComputedHandle):Void
 		throw unsupported;
@@ -158,11 +158,11 @@ class BlincNative {
 
 	/** Frees a signal; it must not be used afterwards. Rayzor has no collector to do it. **/
 	public static inline function blinc_signal_release(sig:SignalHandle):Void
-		RzNative.blinc_signal_release(sig);
+		BlincPlugin.blinc_signal_release(sig);
 
 	/** Frees a style value; it must not be used afterwards. **/
 	public static inline function blinc_value_release(value:ValueHandle):Void
-		RzNative.blinc_value_release(value);
+		BlincPlugin.blinc_value_release(value);
 
 	// --- Closure effects ---
 	public static function blinc_effect(run:Void->Void):Dynamic
@@ -173,124 +173,124 @@ class BlincNative {
 
 	// --- Host-run effects ---
 	public static inline function blinc_host_effect_new():Int
-		return RzNative.blinc_host_effect_new();
+		return BlincPlugin.blinc_host_effect_new();
 
 	public static inline function blinc_host_effects_due(out:NativeBytes, capacity:Int):Int
-		return RzNative.blinc_host_effects_due((out : haxe.io.Bytes), capacity);
+		return BlincPlugin.blinc_host_effects_due((out : haxe.io.Bytes), capacity);
 
 	public static inline function blinc_host_effect_begin(slot:Int):Bool
-		return RzNative.blinc_host_effect_begin(slot);
+		return BlincPlugin.blinc_host_effect_begin(slot);
 
 	public static inline function blinc_host_effect_end(slot:Int):Void
-		RzNative.blinc_host_effect_end(slot);
+		BlincPlugin.blinc_host_effect_end(slot);
 
 	public static inline function blinc_host_effect_release(slot:Int):Void
-		RzNative.blinc_host_effect_release(slot);
+		BlincPlugin.blinc_host_effect_release(slot);
 
 	// --- Property routers ---
 	public static function blinc_apply_f32(node:haxe.Int64, prop:Int, kind:Int, constant:Single, sig:SignalHandle, comp:ComputedHandle):Void {
 		switch (kind) {
-			case 0: RzNative.blinc_tree_apply_f32(tree(), node, prop, constant);
-			case 1: RzNative.blinc_tree_bind_f32(tree(), node, prop, sig);
+			case 0: BlincPlugin.blinc_tree_apply_f32(tree(), node, prop, constant);
+			case 1: BlincPlugin.blinc_tree_bind_f32(tree(), node, prop, sig);
 			default: throw unsupported;
 		}
 	}
 
 	public static function blinc_apply_i32(node:haxe.Int64, prop:Int, kind:Int, constant:Int, sig:SignalHandle, comp:ComputedHandle):Void {
 		switch (kind) {
-			case 0: RzNative.blinc_tree_apply_i32(tree(), node, prop, constant);
-			case 1: RzNative.blinc_tree_bind_i32(tree(), node, prop, sig);
+			case 0: BlincPlugin.blinc_tree_apply_i32(tree(), node, prop, constant);
+			case 1: BlincPlugin.blinc_tree_bind_i32(tree(), node, prop, sig);
 			default: throw unsupported;
 		}
 	}
 
 	public static function blinc_apply_value(node:haxe.Int64, prop:Int, kind:Int, constant:ValueHandle, sig:SignalHandle, comp:ComputedHandle):Void {
 		switch (kind) {
-			case 0: RzNative.blinc_tree_apply_value(tree(), node, prop, constant);
-			case 1: RzNative.blinc_tree_bind_value(tree(), node, prop, sig);
+			case 0: BlincPlugin.blinc_tree_apply_value(tree(), node, prop, constant);
+			case 1: BlincPlugin.blinc_tree_bind_value(tree(), node, prop, sig);
 			default: throw unsupported;
 		}
 	}
 
 	public static function blinc_apply_string(node:haxe.Int64, prop:Int, kind:Int, constant:NativeBytes, sig:SignalHandle, comp:ComputedHandle):Void {
 		switch (kind) {
-			case 0: RzNative.blinc_tree_apply_string(tree(), node, prop, text(constant));
-			case 1: RzNative.blinc_tree_bind_string(tree(), node, prop, sig);
+			case 0: BlincPlugin.blinc_tree_apply_string(tree(), node, prop, text(constant));
+			case 1: BlincPlugin.blinc_tree_bind_string(tree(), node, prop, sig);
 			default: throw unsupported;
 		}
 	}
 
 	public static inline function blinc_unset(node:haxe.Int64, prop:Int):Void
-		RzNative.blinc_tree_unset(tree(), node, prop);
+		BlincPlugin.blinc_tree_unset(tree(), node, prop);
 
 	// --- Style values ---
 	public static inline function blinc_brush_solid(hex:Int, alpha:Single):ValueHandle
-		return RzNative.blinc_brush_solid(hex, alpha);
+		return BlincPlugin.blinc_brush_solid(hex, alpha);
 
 	public static inline function blinc_brush_glass(blur:Single, tintHex:Int, tintAlpha:Single, simple:Int, noise:Single):ValueHandle
-		return RzNative.blinc_brush_glass(blur, tintHex, tintAlpha, simple, noise);
+		return BlincPlugin.blinc_brush_glass(blur, tintHex, tintAlpha, simple, noise);
 
 	public static inline function blinc_brush_glass_aberration(brush:ValueHandle, strength:Single):Void
-		RzNative.blinc_brush_glass_aberration(brush, strength);
+		BlincPlugin.blinc_brush_glass_aberration(brush, strength);
 
 	public static inline function blinc_brush_glass_bevel(brush:ValueHandle, strength:Single, inset:Bool):Void
-		RzNative.blinc_brush_glass_bevel(brush, strength, inset);
+		BlincPlugin.blinc_brush_glass_bevel(brush, strength, inset);
 
 	public static inline function blinc_brush_blur(radius:Single, tintHex:Int, tintAlpha:Single):ValueHandle
-		return RzNative.blinc_brush_blur(radius, tintHex, tintAlpha);
+		return BlincPlugin.blinc_brush_blur(radius, tintHex, tintAlpha);
 
 	public static inline function blinc_brush_image(src:NativeBytes, fit:Int):ValueHandle
-		return RzNative.blinc_brush_image(text(src), fit);
+		return BlincPlugin.blinc_brush_image(text(src), fit);
 
 	public static inline function blinc_brush_image_mapping(brush:ValueHandle, x:Single, y:Single, offsetX:Single, offsetY:Single, repeat:Int):Void
-		RzNative.blinc_brush_image_mapping(brush, x, y, offsetX, offsetY, repeat);
+		BlincPlugin.blinc_brush_image_mapping(brush, x, y, offsetX, offsetY, repeat);
 
 	public static inline function blinc_brush_linear_gradient(sx:Single, sy:Single, ex:Single, ey:Single, fromHex:Int, fromAlpha:Single, toHex:Int,
 			toAlpha:Single):ValueHandle
-		return RzNative.blinc_brush_linear_gradient(sx, sy, ex, ey, fromHex, fromAlpha, toHex, toAlpha);
+		return BlincPlugin.blinc_brush_linear_gradient(sx, sy, ex, ey, fromHex, fromAlpha, toHex, toAlpha);
 
 	public static inline function blinc_color_hex(hex:Int, alpha:Single):ValueHandle
-		return RzNative.blinc_color_hex(hex, alpha);
+		return BlincPlugin.blinc_color_hex(hex, alpha);
 
 	public static inline function blinc_corner_radius(tl:Single, tr:Single, br:Single, bl:Single):ValueHandle
-		return RzNative.blinc_corner_radius(tl, tr, br, bl);
+		return BlincPlugin.blinc_corner_radius(tl, tr, br, bl);
 
 	public static inline function blinc_transform_identity():ValueHandle
-		return RzNative.blinc_transform_identity();
+		return BlincPlugin.blinc_transform_identity();
 
 	public static inline function blinc_transform_translate(x:Single, y:Single):ValueHandle
-		return RzNative.blinc_transform_translate(x, y);
+		return BlincPlugin.blinc_transform_translate(x, y);
 
 	public static inline function blinc_brush_gradient(radial:Bool, x1:Single, y1:Single, x2:Single, y2:Single, bbox:Bool):ValueHandle
-		return RzNative.blinc_brush_gradient(radial, x1, y1, x2, y2, bbox);
+		return BlincPlugin.blinc_brush_gradient(radial, x1, y1, x2, y2, bbox);
 
 	public static inline function blinc_brush_gradient_stop(brush:ValueHandle, offset:Single, hex:Int, alpha:Single):Void
-		RzNative.blinc_brush_gradient_stop(brush, offset, hex, alpha);
+		BlincPlugin.blinc_brush_gradient_stop(brush, offset, hex, alpha);
 
 	public static inline function blinc_transform_affine(a:Single, b:Single, c:Single, d:Single, tx:Single, ty:Single):ValueHandle
-		return RzNative.blinc_transform_affine(a, b, c, d, tx, ty);
+		return BlincPlugin.blinc_transform_affine(a, b, c, d, tx, ty);
 
 	public static inline function blinc_corner_shape(topLeft:Single, topRight:Single, bottomRight:Single, bottomLeft:Single, locked:Bool):ValueHandle
-		return RzNative.blinc_corner_shape(topLeft, topRight, bottomRight, bottomLeft, locked);
+		return BlincPlugin.blinc_corner_shape(topLeft, topRight, bottomRight, bottomLeft, locked);
 
 	public static inline function blinc_shadow(offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single, inset:Bool):ValueHandle
-		return RzNative.blinc_shadow(offsetX, offsetY, blur, spread, hex, alpha, inset);
+		return BlincPlugin.blinc_shadow(offsetX, offsetY, blur, spread, hex, alpha, inset);
 
 	public static inline function blinc_clip_path(kind:Int, values:NativeBytes, percent:Int, none:Int, round:Single):ValueHandle
-		return RzNative.blinc_clip_path(kind, (values : haxe.io.Bytes), percent, none, round);
+		return BlincPlugin.blinc_clip_path(kind, (values : haxe.io.Bytes), percent, none, round);
 
 	public static inline function blinc_clip_polygon(values:NativeBytes, percent:NativeBytes, count:Int, path:Bool):ValueHandle
-		return RzNative.blinc_clip_polygon((values : haxe.io.Bytes), (percent : haxe.io.Bytes), count, path);
+		return BlincPlugin.blinc_clip_polygon((values : haxe.io.Bytes), (percent : haxe.io.Bytes), count, path);
 
 	public static inline function blinc_clip_even_odd(clip:ValueHandle):ValueHandle
-		return RzNative.blinc_clip_even_odd(clip);
+		return BlincPlugin.blinc_clip_even_odd(clip);
 
 	public static inline function blinc_shadow_push(shadow:ValueHandle, offsetX:Single, offsetY:Single, blur:Single, spread:Single, hex:Int, alpha:Single,
 			inset:Bool):Void
-		RzNative.blinc_shadow_push(shadow, offsetX, offsetY, blur, spread, hex, alpha, inset);
+		BlincPlugin.blinc_shadow_push(shadow, offsetX, offsetY, blur, spread, hex, alpha, inset);
 
 	public static inline function blinc_text_decoration(lines:Int, style:Int, hex:Int, alpha:Single, thickness:Single, offset:Single):ValueHandle
-		return RzNative.blinc_text_decoration(lines, style, hex, alpha, thickness, offset);
+		return BlincPlugin.blinc_text_decoration(lines, style, hex, alpha, thickness, offset);
 }
 #elseif ashui_caribou
 /**

@@ -6,12 +6,12 @@ package ashui.core.externs;
 	`blinc_abi` Caribou plugin's classes.
 **/
 #if ashui_rayzor
-typedef TreeHandle = RzNative.TreeHandle;
-typedef SignalHandle = RzNative.SignalHandle;
-typedef ComputedHandle = RzNative.ComputedHandle;
-typedef ValueHandle = RzNative.ValueHandle;
-typedef CssHandle = RzNative.CssHandle;
-typedef SheetHandle = RzNative.SheetHandle;
+typedef TreeHandle = BlincPlugin.BlincTree;
+typedef SignalHandle = BlincPlugin.BlincSignal;
+typedef ComputedHandle = BlincPlugin.BlincComputed;
+typedef ValueHandle = BlincPlugin.BlincValue;
+typedef CssHandle = BlincPlugin.BlincCss;
+typedef SheetHandle = BlincPlugin.BlincSheet;
 #elseif ashui_caribou
 typedef TreeHandle = blinc_abi.Tree;
 typedef SignalHandle = blinc_abi.Signal;
