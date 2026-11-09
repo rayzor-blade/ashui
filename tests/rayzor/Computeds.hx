@@ -1,10 +1,12 @@
 import ashui.layout.LayoutTree;
+import ashui.reactive.Computed;
 import ashui.reactive.ComputedBool;
 import ashui.reactive.ComputedDynamic;
 import ashui.reactive.ComputedF32;
 import ashui.reactive.ComputedI32;
 import ashui.reactive.ComputedString;
 import ashui.reactive.Owner;
+import ashui.reactive.Signal;
 import ashui.reactive.SignalF32;
 import ashui.reactive.SignalI32;
 import ashui.reactive.SignalString;
@@ -13,7 +15,7 @@ import ashui.ui.Div;
 
 /**
 	Computeds on Rayzor, where the plugin cannot call a Haxe closure and Haxe reruns a computed when a dependency was written.
-	Run by `run.sh`. The signal and computed classes are built directly, not through the `make` macros.
+	Run by `run.sh`.
 **/
 class Computeds {
 	// Static, not captured locals, so that a closure which counts shares the count.
@@ -189,10 +191,27 @@ class Computeds {
 		check("a dynamic computed follows", d.get()[1] == 8 && runs == 2);
 	}
 
+	// The macros pick the class from the value's type.
+	static function makes() {
+		var n = Signal.make(2);
+		var twice = Computed.make(() -> n.get() * 2);
+		check("Signal.make and Computed.make", twice.get() == 4);
+		n.set(5);
+		check("and the computed follows", twice.get() == 10);
+		var name = Signal.make("a");
+		var shout = Computed.make(() -> name.get() + "!");
+		name.set("bc");
+		check("a string signal and computed", shout.get() == "bc!");
+		var on = Signal.make(false);
+		var flip = Computed.make(() -> !on.get());
+		on.set(true);
+		check("a bool signal and computed", flip.get() == false);
+	}
+
 	static function main() {
 		var args = Sys.args();
 		if (args.length == 0)
-			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "bound"];
+			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "makes", "bound"];
 		for (a in args) {
 			Sys.println("== " + a);
 			try {
@@ -207,6 +226,7 @@ class Computeds {
 					case "strings": strings();
 					case "singles": singles();
 					case "dynamics": dynamics();
+					case "makes": makes();
 					case _: Sys.println("unknown step " + a);
 				}
 			} catch (e:haxe.Exception) {
