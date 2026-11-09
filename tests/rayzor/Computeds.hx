@@ -1,8 +1,11 @@
 import ashui.layout.LayoutTree;
 import ashui.reactive.ComputedBool;
+import ashui.reactive.ComputedDynamic;
+import ashui.reactive.ComputedF32;
 import ashui.reactive.ComputedI32;
 import ashui.reactive.ComputedString;
 import ashui.reactive.Owner;
+import ashui.reactive.SignalF32;
 import ashui.reactive.SignalI32;
 import ashui.reactive.SignalString;
 import ashui.reactive.Watch;
@@ -10,7 +13,7 @@ import ashui.ui.Div;
 
 /**
 	Computeds on Rayzor, where the plugin cannot call a Haxe closure and Haxe reruns a computed when a dependency was written.
-	Run by `run.sh`. The signal and computed classes are built directly: the `make` macros cast to an interface type, which Rayzor does not convert yet.
+	Run by `run.sh`. The signal and computed classes are built directly, not through the `make` macros.
 **/
 class Computeds {
 	// Static, not captured locals, so that a closure which counts shares the count.
@@ -166,10 +169,30 @@ class Computeds {
 		check("a string computed follows", up.get() == "bc!");
 	}
 
+	static function singles() {
+		var s = new SignalF32(1.5);
+		var d = new ComputedF32(() -> s.get() * 2);
+		check("a Single computed", "" + d.get() == "3");
+		s.set(2.5);
+		check("a Single computed follows", "" + d.get() == "5");
+	}
+
+	static function dynamics() {
+		var s = new SignalI32(1);
+		runs = 0;
+		var d = new ComputedDynamic<Array<Int>>(() -> {
+			runs++;
+			[s.get(), s.get() * 2];
+		});
+		check("a dynamic computed has its value", d.get().length == 2 && d.get()[1] == 2 && runs == 1);
+		s.set(4);
+		check("a dynamic computed follows", d.get()[1] == 8 && runs == 2);
+	}
+
 	static function main() {
 		var args = Sys.args();
 		if (args.length == 0)
-			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "bound"];
+			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "bound"];
 		for (a in args) {
 			Sys.println("== " + a);
 			try {
@@ -182,6 +205,8 @@ class Computeds {
 					case "owned": owned();
 					case "bound": bound();
 					case "strings": strings();
+					case "singles": singles();
+					case "dynamics": dynamics();
 					case _: Sys.println("unknown step " + a);
 				}
 			} catch (e:haxe.Exception) {
