@@ -5,12 +5,15 @@ import ashui.reactive.ComputedDynamic;
 import ashui.reactive.ComputedF32;
 import ashui.reactive.ComputedI32;
 import ashui.reactive.ComputedString;
+import ashui.reactive.ComputedValue;
 import ashui.reactive.Owner;
 import ashui.reactive.Signal;
 import ashui.reactive.SignalF32;
 import ashui.reactive.SignalI32;
 import ashui.reactive.SignalString;
+import ashui.reactive.SignalValue;
 import ashui.reactive.Watch;
+import ashui.types.Color;
 import ashui.ui.Div;
 
 /**
@@ -220,6 +223,16 @@ class Computeds {
 		check("a dynamic computed follows", d.get()[1] == 8 && runs == 2);
 	}
 
+	static function values() {
+		var pick = new SignalI32(1);
+		var c = new ComputedValue<Color>(() -> new Color(pick.get() == 1 ? 0xFF0000 : 0x00FF00));
+		check("a value computed", c.get().rgb == 0xFF0000);
+		pick.set(2);
+		check("a value computed follows", c.get().rgb == 0x00FF00);
+		var sv = new SignalValue<Color>(new Color(0x0000FF));
+		check("a value signal", sv.get().rgb == 0x0000FF);
+	}
+
 	// The macros pick the class from the value's type.
 	static function makes() {
 		var n = Signal.make(2);
@@ -240,7 +253,7 @@ class Computeds {
 	static function main() {
 		var args = Sys.args();
 		if (args.length == 0)
-			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "makes", "attributes", "bound"];
+			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "values", "makes", "attributes", "bound"];
 		for (a in args) {
 			Sys.println("== " + a);
 			try {
@@ -255,6 +268,7 @@ class Computeds {
 					case "strings": strings();
 					case "singles": singles();
 					case "dynamics": dynamics();
+					case "values": values();
 					case "makes": makes();
 					case "attributes": attributes();
 					case _: Sys.println("unknown step " + a);
