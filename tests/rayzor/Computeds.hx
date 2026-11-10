@@ -130,7 +130,7 @@ class Computeds {
 	}
 
 	// A computed bound to a node's property: the tree reads the computed's native signal. Display is an Int property
-	// (1 flex, 3 none); Single properties and Div attributes do not convert on Rayzor yet, so the size is set natively.
+	// (1 flex, 3 none); the size is set natively.
 	static function bound() {
 		var tree = new LayoutTree();
 		var s = new SignalI32(1);
@@ -161,6 +161,35 @@ class Computeds {
 		var b3 = tree.getBounds(div.node);
 		Sys.println("  width " + (b3 == null ? "null" : "" + b3.width));
 		check("and back", b3 != null && Math.abs(b3.width - 100) < 0.01);
+	}
+
+	// A Div attribute bound to a signal and to a computed.
+	static function attributes() {
+		var tree = new LayoutTree();
+		var sw:Single = 800;
+		var sh:Single = 600;
+		var w:Signal<Single> = new SignalF32(50);
+		var twice:Computed<Single> = new ComputedF32(() -> w.get() * 2);
+		var a = new Div({width: w}, [], tree);
+		var b = new Div({width: twice}, [], tree);
+		tree.flush();
+		tree.computeLayout(a.node, sw, sh);
+		tree.computeLayout(b.node, sw, sh);
+		check("a width bound to a signal", width(tree, a) == 50);
+		check("a width bound to a computed", width(tree, b) == 100);
+		var seventy:Single = 70;
+		w.set(seventy);
+		check("a flush applies the write", tree.flush());
+		tree.computeLayout(a.node, sw, sh);
+		tree.computeLayout(b.node, sw, sh);
+		check("the signal's width follows", width(tree, a) == 70);
+		check("and the computed's", width(tree, b) == 140);
+		check("an idle flush applies nothing", !tree.flush());
+	}
+
+	static function width(tree:LayoutTree, d:Div):Int {
+		var b = tree.getBounds(d.node);
+		return b == null ? -1 : Math.round(b.width);
 	}
 
 	static function strings() {
@@ -211,7 +240,7 @@ class Computeds {
 	static function main() {
 		var args = Sys.args();
 		if (args.length == 0)
-			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "makes", "bound"];
+			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "makes", "attributes", "bound"];
 		for (a in args) {
 			Sys.println("== " + a);
 			try {
@@ -227,6 +256,7 @@ class Computeds {
 					case "singles": singles();
 					case "dynamics": dynamics();
 					case "makes": makes();
+					case "attributes": attributes();
 					case _: Sys.println("unknown step " + a);
 				}
 			} catch (e:haxe.Exception) {
