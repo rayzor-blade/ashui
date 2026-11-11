@@ -14,6 +14,7 @@ import ashui.reactive.SignalString;
 import ashui.reactive.SignalValue;
 import ashui.reactive.Watch;
 import ashui.types.Color;
+import ashui.types.CornerShape;
 import ashui.ui.Div;
 
 /**
@@ -233,6 +234,18 @@ class Computeds {
 		check("a value signal", sv.get().rgb == 0x0000FF);
 	}
 
+	// A null style value clears the property instead of being dereferenced.
+	static function nullValue() {
+		var tree = new LayoutTree();
+		var sw:Single = 800;
+		var sh:Single = 600;
+		var none:Null<CornerShape> = null;
+		var d = new Div({width: 60, cornerShape: none}, [], tree);
+		tree.flush();
+		tree.computeLayout(d.node, sw, sh);
+		check("a null style value is applied and the rest of the box is unharmed", width(tree, d) == 60);
+	}
+
 	// The macros pick the class from the value's type.
 	static function makes() {
 		var n = Signal.make(2);
@@ -253,7 +266,7 @@ class Computeds {
 	static function main() {
 		var args = Sys.args();
 		if (args.length == 0)
-			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "values", "makes", "attributes", "bound"];
+			args = ["pull", "cutoff", "diamond", "watching", "idle", "owned", "strings", "singles", "dynamics", "values", "makes", "attributes", "bound", "nullValue"];
 		for (a in args) {
 			Sys.println("== " + a);
 			try {
@@ -270,6 +283,7 @@ class Computeds {
 					case "dynamics": dynamics();
 					case "values": values();
 					case "makes": makes();
+					case "nullValue": nullValue();
 					case "attributes": attributes();
 					case _: Sys.println("unknown step " + a);
 				}
