@@ -14,6 +14,7 @@
 #   RAYZOR           the rayzor binary, default ../rayzor/target/release/rayzor
 #   RAYZOR_STD_PATH  its haxe-std directory, default ../rayzor/compiler/haxe-std
 #   RAYZOR_ARGS      more arguments for `rayzor run`, such as --no-cache
+#   RAYZOR_EXTRA_CP  a directory searched before ashui's own sources, to try a modified copy of a module
 # Needs ../hlwgpu (for hxsl) and ../hlwindow beside this repository.
 #
 # The scene is the same Haxe that run.sh renders. Rayzor's GPU externs are `rayzor.gpu`, which ashui imports as `gpu`,
@@ -79,6 +80,8 @@ done <<LIBS
 $(haxelib path tink_hxx 2>/dev/null)
 LIBS
 
+extra_cp=""
+[ -n "$RAYZOR_EXTRA_CP" ] && extra_cp="\"$RAYZOR_EXTRA_CP\", "
 css_define=""
 [ -f "$scene_css" ] && css_define="ashui_css = \"$scene_css\""
 cat > "$work/rayzor.toml" <<TOML
@@ -88,7 +91,7 @@ version = "0.1.0"
 entry = "src/RayzorMain.hx"
 
 [build]
-class-paths = ["src", "$repo/haxe", "$repo/components/haxe", "$repo/canvaskit/haxe", "$repo/media/haxe", "$repo/icons/haxe", "$vib/hlwindow/haxe", "$work/gpu", "$work/hxsl"$tink_cp]
+class-paths = ["src", ${extra_cp}"$repo/haxe", "$repo/components/haxe", "$repo/canvaskit/haxe", "$repo/media/haxe", "$repo/icons/haxe", "$vib/hlwindow/haxe", "$work/gpu", "$work/hxsl"$tink_cp]
 native-libs = ["$BLINC_ABI", "$RAYZOR_GPU"]
 macros = ["ashui.core.render.UiFramework.register()", "ashui.ui.Markup.enable()"]
 
