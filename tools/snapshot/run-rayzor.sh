@@ -52,6 +52,10 @@ ln -s "$vib/hlwgpu/haxe/hlwgpu" "$work/hxsl/hlwgpu"
 
 # Only the scene is put on the class path, not its directory: the other scenes there are named like ashui's own classes.
 cp "$scene" "$work/src/$name.hx"
+# CompiledCss.file finds its stylesheet beside the scene.
+[ -f "$scene_css" ] && cp "$scene_css" "$work/src/"
+# Bitmap.embed reads relative to the build's working directory, which run.sh's builds have as this directory.
+ln -s "$PWD/assets" "$work/assets"
 
 # The core modules come before the render ones, so that the scene's own imports cannot put them in the order that breaks.
 cat > "$work/src/RayzorMain.hx" <<HX
