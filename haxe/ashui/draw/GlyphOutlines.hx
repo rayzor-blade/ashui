@@ -50,7 +50,7 @@ typedef TextOutline = {commands:Array<Float>, width:Float, ascent:Float, descent
 	The outlines of text's glyphs, laid out and shaped by the text engine,
 	so a canvas fills text as it fills any shape: at any scale and turned.
 	Kept by text and style, as a canvas draws the same labels again. Only
-	where the engine is, HashLink and Ash; elsewhere there are none.
+	where the engine is, HashLink, Ash and Rayzor; elsewhere there are none.
 **/
 class GlyphOutlines {
 	/** How many outlines are kept; a new one past this forgets the oldest. **/
@@ -66,10 +66,10 @@ class GlyphOutlines {
 		var known = kept.get(key);
 		if (known != null)
 			return known;
-		#if hl
+		#if (hl || ashui_rayzor)
 		var info = new NativeBytes(16);
-		var font = style.family == null ? null : ashui.core.Utf8.encode(style.family);
-		var bytes = ashui.core.Utf8.encode(text);
+		var font = style.family == null ? null : ashui.core.Utf8.toNative(style.family);
+		var bytes = ashui.core.Utf8.toNative(text);
 		var weight:Int = style.weight != null ? style.weight : 400,
 			italic = style.italic == true,
 			generic:Int = style.generic != null ? style.generic : 0;
