@@ -60,9 +60,8 @@ for dep in ${RAYZOR_SCENE_DEPS:-}; do
 done
 # CompiledCss.file finds its stylesheet beside the scene.
 [ -f "$scene_css" ] && cp "$scene_css" "$work/src/"
-# Bitmap.embed reads relative to the build's working directory, which run.sh's builds have as this directory.
-ln -s "$PWD/assets" "$work/assets"
-# A run-time path such as CSS's url("../assets/x.jpg") is read from the directory run.sh runs in, `bin`, beside `assets`.
+# The program runs in `bin`, as run.sh's does, so its run-time paths, such as CSS's url("../assets/x.jpg"), resolve the same.
+# Bitmap.embed reads relative to that directory too, so `assets` is linked into it.
 [ -e bin/assets ] || ln -s "$PWD/assets" bin/assets 2>/dev/null || true
 
 # The core modules come before the render ones, so that the scene's own imports cannot put them in the order that breaks.
@@ -113,7 +112,7 @@ ashui_gpu = true$tink_defines
 $css_define
 TOML
 
-cd "$work"
+cd bin
 # Snapshot logs its own errors; this catches a crash or a failed build.
-HOME="$work/home" perl -e 'alarm 900; exec @ARGV' "$RAYZOR" run ${RAYZOR_ARGS:-} src/RayzorMain.hx ||
+HOME="$work/home" perl -e 'alarm 900; exec @ARGV' "$RAYZOR" run ${RAYZOR_ARGS:-} "rayzor-$name/src/RayzorMain.hx" ||
 	{ status=$?; grep -q "^error $name " "$events" 2>/dev/null || echo "error $name exited with status $status" >> "$events"; exit 1; }
