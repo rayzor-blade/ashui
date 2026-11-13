@@ -56,6 +56,8 @@ cp "$scene" "$work/src/$name.hx"
 [ -f "$scene_css" ] && cp "$scene_css" "$work/src/"
 # Bitmap.embed reads relative to the build's working directory, which run.sh's builds have as this directory.
 ln -s "$PWD/assets" "$work/assets"
+# A run-time path such as CSS's url("../assets/x.jpg") is read from the directory run.sh runs in, `bin`, beside `assets`.
+[ -e bin/assets ] || ln -s "$PWD/assets" bin/assets 2>/dev/null || true
 
 # The core modules come before the render ones, so that the scene's own imports cannot put them in the order that breaks.
 cat > "$work/src/RayzorMain.hx" <<HX
