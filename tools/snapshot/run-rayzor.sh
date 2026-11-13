@@ -15,6 +15,8 @@
 #   RAYZOR_STD_PATH  its haxe-std directory, default ../rayzor/compiler/haxe-std
 #   RAYZOR_ARGS      more arguments for `rayzor run`, such as --no-cache
 #   RAYZOR_EXTRA_CP  a directory searched before ashui's own sources, to try a modified copy of a module
+#   RAYZOR_SCENE_DEPS  scene files beside the scene that it uses by name, such as BannerCar for CarStudio: run.sh puts the whole directory
+#                    on the class path, and this puts only those, as the others are named like ashui's own classes
 # Needs ../hlwgpu (for hxsl) and ../hlwindow beside this repository.
 #
 # The scene is the same Haxe that run.sh renders. Rayzor's GPU externs are `rayzor.gpu`, which ashui imports as `gpu`,
@@ -52,6 +54,10 @@ ln -s "$vib/hlwgpu/haxe/hlwgpu" "$work/hxsl/hlwgpu"
 
 # Only the scene is put on the class path, not its directory: the other scenes there are named like ashui's own classes.
 cp "$scene" "$work/src/$name.hx"
+# The scene files it names as its own, beside it.
+for dep in ${RAYZOR_SCENE_DEPS:-}; do
+	cp "$(dirname "$scene")/$dep.hx" "$work/src/"
+done
 # CompiledCss.file finds its stylesheet beside the scene.
 [ -f "$scene_css" ] && cp "$scene_css" "$work/src/"
 # Bitmap.embed reads relative to the build's working directory, which run.sh's builds have as this directory.
