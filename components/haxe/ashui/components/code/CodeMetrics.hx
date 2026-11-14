@@ -40,7 +40,7 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 		lines = document.visible.length;
 		if (!valid && text != null) {
 			var out = new NativeBytes(36), info = new NativeBytes(16);
-			var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.encode("M"), 0, 0, out, 3, info);
+			var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.toNative("M"), 0, 0, out, 3, info);
 			if (n > 1) { lineHeight = info.getF32(0); characterWidth = out.getF32((n - 1) * 12 + 4); valid = true; }
 		}
 	}
@@ -76,7 +76,7 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 		var shown = expanded.toString(), native:Array<CaretStop> = [];
 		if (text != null) {
 			var capacity = shown.length + 2, out = new NativeBytes(capacity * 12), info = new NativeBytes(16);
-			var count = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.encode(shown), 0, 0, out, capacity, info);
+			var count = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.toNative(shown), 0, 0, out, capacity, info);
 			for (i in 0...count) native.push({index: Std.int(out.getF32(i * 12)), x: out.getF32(i * 12 + 4), line: 0});
 		}
 		if (native.length == 0) native.push({index: 0, x: 0, line: 0});

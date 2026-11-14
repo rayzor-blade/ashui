@@ -1,6 +1,7 @@
 package ashui.components;
 
 import ashui.core.NativeBytes;
+import ashui.core.NativeText;
 
 import ashui.css.Css;
 import ashui.css.Identity;
@@ -16,7 +17,7 @@ import ashui.layout.Prop;
 	final text:Node;
 	final rootIdentity:Identity;
 	final textIdentity:Identity;
-	final samples:Array<{bytes:NativeBytes, capacity:Int}>;
+	final samples:Array<{bytes:NativeText, capacity:Int}>;
 	final out:NativeBytes;
 	final info = new NativeBytes(16);
 	var minimum = 0.0;
@@ -30,7 +31,7 @@ import ashui.layout.Prop;
 		this.text = text;
 		rootIdentity = Identity.of(root.tree, root.id);
 		textIdentity = Identity.of(text.tree, text.id);
-		samples = [for (candidate in candidates) {bytes: ashui.core.Utf8.encode(candidate), capacity: candidate.length + 2}];
+		samples = [for (candidate in candidates) {bytes: ashui.core.Utf8.toNative(candidate), capacity: candidate.length + 2}];
 		var capacity = 2;
 		for (sample in samples) capacity = Std.int(Math.max(capacity, sample.capacity));
 		out = new NativeBytes(capacity * 12);
