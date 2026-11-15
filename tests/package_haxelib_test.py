@@ -26,7 +26,7 @@ class PackageTest(unittest.TestCase):
     def test_readme_links_and_embeds_become_absolute(self):
         source = "\n".join([
             "![Banner](docs/images/charts-dark.png)",
-            '<img src="./docs/images/ashui-logo.png" width="200">',
+            '<img src="./docs/images/flamingo-logo.svg" width="200">',
             '<video src="docs/images/drawer-motion.gif" poster="docs/images/charts-light.png"></video>',
             "See [debugging](docs/debugging.md#the-inspector), the [license](LICENSE) and the [components](components).",
             "[ref]: canvaskit/README.md",
@@ -39,7 +39,7 @@ class PackageTest(unittest.TestCase):
         out = PACKAGER.rewrite_links(source, ROOT)
         raw, page = PACKAGER.README_IMAGE_BASE, PACKAGER.README_LINK_BASE
         self.assertIn(f"![Banner]({raw}docs/images/charts-dark.png)", out)
-        self.assertIn(f'<img src="{raw}docs/images/ashui-logo.png" width="200">', out)
+        self.assertIn(f'<img src="{raw}docs/images/flamingo-logo.svg" width="200">', out)
         self.assertIn(f'<video src="{raw}docs/images/drawer-motion.gif" poster="{raw}docs/images/charts-light.png">', out)
         self.assertIn(f"[debugging]({page}docs/debugging.md#the-inspector)", out)
         self.assertIn(f"[license]({page}LICENSE)", out)
@@ -51,7 +51,7 @@ class PackageTest(unittest.TestCase):
         self.assertEqual(PACKAGER.relative_references(out), [])
         self.assertEqual(PACKAGER.relative_references(source),
                          ["docs/images/charts-dark.png", "docs/debugging.md#the-inspector", "LICENSE", "components",
-                          "canvaskit/README.md", "./docs/images/ashui-logo.png", "docs/images/drawer-motion.gif",
+                          "canvaskit/README.md", "./docs/images/flamingo-logo.svg", "docs/images/drawer-motion.gif",
                           "docs/images/charts-light.png"])
         with self.assertRaisesRegex(ValueError, "missing file"):
             PACKAGER.rewrite_links("[gone](docs/no-such-file.md)", ROOT)

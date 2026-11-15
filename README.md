@@ -1,5 +1,5 @@
 <p align="center">
-<img style="display: block;" src="./docs/images/ashui-logo.png" alt="Ashui Logo" width="250"/>
+<img style="display: block;" src="./docs/images/flamingo-logo.svg" alt="ashui flamingo logo" width="150"/>
 </p>
 
 # ashui
