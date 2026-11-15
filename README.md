@@ -1,8 +1,10 @@
-<p align="center">
+<div align="center">
+
 <img style="display: block;" src="./docs/images/flamingo-logo.svg" alt="ashui flamingo logo" width="150"/>
-</p>
 
 # ashui
+
+</div>
 
 ashui is a native, reactive UI framework for Haxe. Build interfaces with typed
 HXX elements and reusable controls, style them with CSS or Tailwind-style
