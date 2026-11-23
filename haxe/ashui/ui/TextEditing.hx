@@ -196,14 +196,19 @@ class TextEditing {
 			return stops;
 		var key = s;
 		s = masked(s);
-		var capacity = s.length + 2;
+		var capacity = ashui.core.Utf16.length(s) + 2;
 		var out = caretBytes.take(capacity * 12);
 		var info = caretInfo.take(16);
 		var n = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.toNative(s), size, wrapWidth, out, capacity, info);
 		if (n > 0 && n <= capacity) {
-			stops = [
-				for (i in 0...n) {index: Std.int(out.getF32(i * 12)), x: out.getF32(i * 12 + 4), line: Std.int(out.getF32(i * 12 + 8))}
-			];
+			// The layout's offsets are UTF-16 units; one inside a character is not a stop.
+			var table = ashui.core.Utf16.indices(s);
+			stops = [];
+			for (i in 0...n) {
+				var at = ashui.core.Utf16.indexAt(table, Std.int(out.getF32(i * 12)));
+				if (at >= 0)
+					stops.push({index: at, x: out.getF32(i * 12 + 4), line: Std.int(out.getF32(i * 12 + 8))});
+			}
 			lineHeight = info.getF32(0);
 			lines = Std.int(info.getF32(4));
 			measured = key;

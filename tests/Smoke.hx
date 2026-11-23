@@ -35,6 +35,10 @@ class Smoke {
 		return Math.abs(a - b) < 0.01;
 
 	static function main() {
+		// UTF-16 offsets from the native layout are string indices here, even after an emoji.
+		check("Utf16.length counts UTF-16 units", ashui.core.Utf16.length("a\u{1F30D}b") == 4);
+		check("UTF-16 offsets are string indices on HashLink", ashui.core.Utf16.indices("a\u{1F30D}b") == null && ashui.core.Utf16.indexAt(null, 3) == 3);
+
 		// First, before any stylesheet loads: Tw's text classes are declarations of the element's own, styled with no sheet at all.
 		ashui.theme.ThemeState.init(ashui.theme.themes.DefaultTheme.bundle(), Light);
 		var bareTree = new LayoutTree();

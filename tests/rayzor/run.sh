@@ -11,12 +11,16 @@ for v in RAYZOR RAYZOR_STD_PATH BLINC_ABI BLINC_CSS; do
 done
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
-mkdir -p "$work/src" "$work/home"
-cp "$here/Computeds.hx" "$work/src/Main.hx"
-sed -i.bak 's/^class Computeds /class Main /' "$work/src/Main.hx"
-cat > "$work/rayzor.toml" <<TOML
+export RAYZOR_STD_PATH BLINC_CSS
+# Each X.hx here is a program of its own: class X, run as the entry.
+status=0
+for f in "$here"/*.hx; do
+	name=$(basename "$f" .hx)
+	work=$(mktemp -d)
+	mkdir -p "$work/src" "$work/home"
+	cp "$f" "$work/src/Main.hx"
+	sed -i.bak "s/^class $name /class Main /" "$work/src/Main.hx"
+	cat > "$work/rayzor.toml" <<TOML
 [project]
 name = "ashui-rayzor-tests"
 version = "0.1.0"
@@ -29,8 +33,10 @@ native-libs = ["$BLINC_ABI"]
 [build.defines]
 ashui_rayzor = true
 TOML
-export RAYZOR_STD_PATH BLINC_CSS
-cd "$work"
-out=$(HOME="$work/home" "$RAYZOR" run --no-cache src/Main.hx 2>&1) || true
-echo "$out" | grep -E '^(ok|FAIL|EXCEPTION|ALL PASSED|FAILED)' || true
-echo "$out" | grep -q '^ALL PASSED'
+	echo "== $name"
+	out=$(cd "$work" && HOME="$work/home" "$RAYZOR" run --no-cache src/Main.hx 2>&1) || true
+	echo "$out" | grep -E '^(ok|FAIL|EXCEPTION|ALL PASSED|FAILED)' || true
+	echo "$out" | grep -q '^ALL PASSED' || status=1
+	rm -rf "$work"
+done
+exit $status

@@ -750,10 +750,13 @@ class WindowedApp {
 		var i = 0;
 		while (i < text.length && bytes < byte) {
 			var c = StringTools.fastCodeAt(text, i);
-			// A surrogate pair is one character of four bytes.
+			// A surrogate pair is one character of four bytes, and so is a code point past 0xFFFF where strings hold those.
 			if (c >= 0xD800 && c <= 0xDBFF) {
 				bytes += 4;
 				i += 2;
+			} else if (c > 0xFFFF) {
+				bytes += 4;
+				i++;
 			} else {
 				bytes += c < 0x80 ? 1 : c < 0x800 ? 2 : 3;
 				i++;

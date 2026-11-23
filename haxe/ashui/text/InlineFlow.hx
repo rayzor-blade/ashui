@@ -661,13 +661,17 @@ class InlineFlow {
 
 	function shape(run:Run):Void {
 		var s = run.text;
-		var capacity = s.length + 2;
+		var capacity = ashui.core.Utf16.length(s) + 2;
 		var bytes = shapeBytes.take(capacity * 12);
 		var n = TextNative.blinc_text_carets(tree.ptr, run.probe.node.id, ashui.core.Utf8.toNative(s), 0, 0, bytes, capacity, info);
 		var stops = [for (_ in 0...s.length + 1) 0.0];
 		var at = 0, last = 0.0;
+		var table = ashui.core.Utf16.indices(s);
 		for (i in 0...Std.int(Math.min(n, capacity))) {
-			var index = Std.int(bytes.getF32(i * 12));
+			var index = ashui.core.Utf16.indexAt(table, Std.int(bytes.getF32(i * 12)));
+			// Where strings are indexed by code points, an offset inside a character has no stop.
+			if (index < 0)
+				continue;
 			var x = bytes.getF32(i * 12 + 4);
 			// Indices inside a character, the second half of a surrogate pair, stand where it starts.
 			while (at < index && at <= s.length)

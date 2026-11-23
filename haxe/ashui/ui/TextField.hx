@@ -221,7 +221,7 @@ class TextField extends Component<TextFieldProps> {
 		var value = props.placeholder;
 		if (value == null || value == "") return 0;
 		if (hintWidth < 0) {
-			var capacity = value.length + 2, out = hintBytes.take(capacity * 12), info = hintInfo.take(16);
+			var capacity = ashui.core.Utf16.length(value) + 2, out = hintBytes.take(capacity * 12), info = hintInfo.take(16);
 			var count = ashui.core.externs.TextNative.blinc_text_carets(box.tree.ptr, hint.get().node.id,
 				ashui.core.Utf8.toNative(value), 0, 0, out, capacity, info);
 			hintWidth = count > 0 && count <= capacity ? out.getF32((count - 1) * 12 + 4) : 0;

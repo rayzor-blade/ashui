@@ -75,9 +75,15 @@ class CodeMetrics implements ashui.ui.TextGeometry {
 		columns.push(column);
 		var shown = expanded.toString(), native:Array<CaretStop> = [];
 		if (text != null) {
-			var capacity = shown.length + 2, out = new NativeBytes(capacity * 12), info = new NativeBytes(16);
+			var capacity = ashui.core.Utf16.length(shown) + 2, out = new NativeBytes(capacity * 12), info = new NativeBytes(16);
 			var count = TextNative.blinc_text_carets(text.tree.ptr, text.node.id, ashui.core.Utf8.toNative(shown), 0, 0, out, capacity, info);
-			for (i in 0...count) native.push({index: Std.int(out.getF32(i * 12)), x: out.getF32(i * 12 + 4), line: 0});
+			var table = ashui.core.Utf16.indices(shown);
+			for (i in 0...count) {
+				// The layout's offsets are UTF-16 units; one inside a character is not a stop.
+				var at = ashui.core.Utf16.indexAt(table, Std.int(out.getF32(i * 12)));
+				if (at >= 0)
+					native.push({index: at, x: out.getF32(i * 12 + 4), line: 0});
+			}
 		}
 		if (native.length == 0) native.push({index: 0, x: 0, line: 0});
 		var stops:Array<CaretStop> = [], at = 0;
