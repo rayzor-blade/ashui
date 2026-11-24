@@ -73,6 +73,8 @@ class Offscreen {
 
 	final renderer:Renderer;
 	final list = new DisplayList();
+	// The rows the GPU copies out, 256-byte aligned: kept between reads of one size, never handed out.
+	var padded:Null<haxe.io.Bytes>;
 
 	inline function get_primitives():Int
 		return list.count;
@@ -254,9 +256,12 @@ class Offscreen {
 	/**
 		The pixels of `texture`, a texture in `format` with `COPY_SRC`, as
 		`width * height * 4` bytes in R, G, B, A order whatever the format's
-		own order, rows packed.
+		own order, rows packed. The bytes are new, unless `into` is given and
+		is exactly that long: then they are written to `into`, which is
+		returned, for a caller that reads many frames of one size and is done
+		with each before it reads the next.
 	**/
-	public function readRgba8(texture:GpuTexture, width:Int, height:Int):haxe.io.Bytes {
+	public function readRgba8(texture:GpuTexture, width:Int, height:Int, ?into:haxe.io.Bytes):haxe.io.Bytes {
 		// Buffer copies take rows a multiple of 256 bytes apart.
 		var stride = (width * 4 + 255) & ~255;
 		var readback = device.createBuffer(new GpuBufferDescriptor(stride * height, GpuFlags.BUFFER_MAP_READ | GpuFlags.BUFFER_COPY_DST));
@@ -264,7 +269,8 @@ class Offscreen {
 		encoder.copyTextureToBuffer(texture, readback, width, height, stride);
 		encoder.submit(device.queue());
 		device.mapBuffer(readback, 0, stride * height).await();
-		var padded = haxe.io.Bytes.alloc(stride * height);
+		if (padded == null || padded.length != stride * height)
+			padded = haxe.io.Bytes.alloc(stride * height);
 		readback.copyOut(0, padded, padded.length);
 		readback.unmap();
 		readback.destroy();
@@ -273,7 +279,7 @@ class Offscreen {
 			throw 'gpu error reading a texture back: $error';
 
 		var row = width * 4;
-		var out = haxe.io.Bytes.alloc(row * height);
+		var out = into != null && into.length == row * height ? into : haxe.io.Bytes.alloc(row * height);
 		for (y in 0...height)
 			out.blit(y * row, padded, y * stride, row);
 		if (format == Bgra8unorm || format == Bgra8unormSrgb) {

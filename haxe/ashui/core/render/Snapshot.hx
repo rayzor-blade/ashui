@@ -20,6 +20,9 @@ import gpu.GpuTextureViewDescriptor;
 **/
 class Snapshot {
 	static var offscreen:Null<Offscreen>;
+	// Kept from one frame to the next, so that a sequence of frames of one size does not allocate them for each.
+	static var pixelBuffer:Null<haxe.io.Bytes>;
+	static var pngScratch:Null<haxe.io.Bytes>;
 
 	/** Where snapshots go: `$ASHUI_SNAPSHOT_DIR`, or `snapshots` under the working directory. **/
 	public static function dir():String {
@@ -122,7 +125,7 @@ class Snapshot {
 				tree.flush();
 				offscreen.renderTree(tree, root, view, width, height);
 			}
-			pixels = offscreen.readRgba8(texture, pixelWidth, pixelHeight);
+			pixels = pixelBuffer = offscreen.readRgba8(texture, pixelWidth, pixelHeight, pixelBuffer);
 		} catch (e:Dynamic) {
 			view.destroy();
 			texture.destroy();
@@ -135,7 +138,8 @@ class Snapshot {
 
 		sys.FileSystem.createDirectory(dir());
 		var path = sys.FileSystem.absolutePath(haxe.io.Path.join([dir(), '$name.png']));
-		sys.io.File.saveBytes(path, Png.encode(width, height, pixels));
+		pngScratch = Png.scratchFor(pngScratch, width, height);
+		sys.io.File.saveBytes(path, Png.encode(width, height, pixels, null, pngScratch));
 		event('snapshot $name $path ${width}x$height ${offscreen.primitives} primitives');
 		return path;
 	}

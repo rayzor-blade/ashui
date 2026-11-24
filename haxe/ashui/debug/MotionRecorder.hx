@@ -65,6 +65,10 @@ typedef MotionRecording = {
 	`events.log` reports the artifact directory and number of problem tracks.
 **/
 class MotionRecorder {
+	// Kept from one frame to the next, so that a recording of frames of one size does not allocate them for each.
+	static var pixelBuffer:Null<haxe.io.Bytes>;
+	static var pngScratch:Null<haxe.io.Bytes>;
+
 	public static function record(name:String, width:Int, height:Int, build:Void->Element, ?options:MotionRecordOptions):MotionRecording {
 		var o:MotionRecordOptions = options == null ? {} : options;
 		var fps = o.fps == null ? 60 : o.fps;
@@ -229,12 +233,13 @@ class MotionRecorder {
 		offscreen.targetHeight = null;
 		var texture = offscreen.createTexture(pw, ph);
 		offscreen.renderTree(tree, root.node, texture.createView(new GpuTextureViewDescriptor()), width, height);
-		var pixels = offscreen.readRgba8(texture, pw, ph);
+		pixelBuffer = offscreen.readRgba8(texture, pw, ph, pixelBuffer);
 		texture.destroy();
 		offscreen.scale = saved.scale;
 		offscreen.targetWidth = saved.w;
 		offscreen.targetHeight = saved.h;
-		return Png.encode(pw, ph, pixels);
+		pngScratch = Png.scratchFor(pngScratch, pw, ph);
+		return Png.encode(pw, ph, pixelBuffer, null, pngScratch);
 	}
 
 	/** A UI built in a tree of its own, drawn at `width` × `height` on a dark page, saved as PNG at `path`. **/

@@ -5,12 +5,27 @@ import haxe.io.BytesBuffer;
 
 /** PNG encoding and decoding of 8-bit RGBA pixels, deflated with `haxe.zip.Compress`. **/
 class Png {
-	/** `pixels` holds `width` × `height` RGBA pixels, rows top first, `stride` bytes apart. **/
-	public static function encode(width:Int, height:Int, pixels:Bytes, ?stride:Int):Bytes {
+	/**
+		A buffer for the `scratch` argument of `encode` for an image of this
+		size: `previous` if it is the right length, else a new one.
+	**/
+	public static function scratchFor(previous:Null<Bytes>, width:Int, height:Int):Bytes {
+		var size = (width * 4 + 1) * height;
+		return previous != null && previous.length == size ? previous : Bytes.alloc(size);
+	}
+
+	/**
+		`pixels` holds `width` × `height` RGBA pixels, rows top first, `stride`
+		bytes apart. The rows are first copied, each behind its filter byte,
+		into `scratch` if it is the length `scratchFor` gives, or into a new
+		buffer: a caller that encodes many images of one size passes the same
+		`scratch` each time, and its contents mean nothing between calls.
+	**/
+	public static function encode(width:Int, height:Int, pixels:Bytes, ?stride:Int, ?scratch:Bytes):Bytes {
 		if (stride == null)
 			stride = width * 4;
 		// Each row starts with filter type 0, none.
-		var raw = Bytes.alloc((width * 4 + 1) * height);
+		var raw = scratchFor(scratch, width, height);
 		for (y in 0...height) {
 			raw.set(y * (width * 4 + 1), 0);
 			raw.blit(y * (width * 4 + 1) + 1, pixels, y * stride, width * 4);
